@@ -62,22 +62,50 @@ impl AdmittedContractBoundary {
         scale_bits: u64,
     ) -> Result<Self, QuantityError> {
         validate_boundary_record(&source, &target, scale_bits)?;
-        Ok(Self { source, target, scale_bits })
+        Ok(Self {
+            source,
+            target,
+            scale_bits,
+        })
     }
     /// Resolve the ordinary boundary once against the actual quantity authority.
-    pub fn prepare(source: &ResolvedPhysicalContract, expected: &ResolvedPhysicalContract, registry: &QuantityRegistry) -> Result<Self, QuantityError> {
-        let (target, scale)=source.at_contract_boundary(expected, registry)?;
-        Ok(Self {source:source.clone(), target, scale_bits:scale.to_bits()})
+    pub fn prepare(
+        source: &ResolvedPhysicalContract,
+        expected: &ResolvedPhysicalContract,
+        registry: &QuantityRegistry,
+    ) -> Result<Self, QuantityError> {
+        let (target, scale) = source.at_contract_boundary(expected, registry)?;
+        Ok(Self {
+            source: source.clone(),
+            target,
+            scale_bits: scale.to_bits(),
+        })
     }
     /// Consume this exact admitted source, without repeating physical resolution.
-    pub fn apply_contract(&self, source: &ResolvedPhysicalContract) -> Result<(ResolvedPhysicalContract, f64), QuantityError> {
-        if source != &self.source {return Err(refusal("physical.contract_boundary", "lowered value differs from its admitted ordinary boundary source"));}
+    pub fn apply_contract(
+        &self,
+        source: &ResolvedPhysicalContract,
+    ) -> Result<(ResolvedPhysicalContract, f64), QuantityError> {
+        if source != &self.source {
+            return Err(refusal(
+                "physical.contract_boundary",
+                "lowered value differs from its admitted ordinary boundary source",
+            ));
+        }
         Ok((self.target.clone(), f64::from_bits(self.scale_bits)))
     }
     /// Complete consumed contracts and exact numerical conversion.
-    pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {self.source.frame(hash); self.target.frame(hash); hash.u64(self.scale_bits);}
+    pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        self.source.frame(hash);
+        self.target.frame(hash);
+        hash.u64(self.scale_bits);
+    }
     /// Known owned physical contract payload, excluding the inline boundary value.
-    pub fn heap_bytes(&self) -> usize {self.source.heap_bytes().saturating_add(self.target.heap_bytes())}
+    pub fn heap_bytes(&self) -> usize {
+        self.source
+            .heap_bytes()
+            .saturating_add(self.target.heap_bytes())
+    }
 }
 
 /// A declared scientific operation's checked output authorization. The declaration
@@ -110,7 +138,12 @@ impl AdmittedOutputBoundary {
         scale_bits: u64,
     ) -> Result<Self, QuantityError> {
         validate_boundary_record(&source, &target, scale_bits)?;
-        Ok(Self { operation, source, target, scale_bits })
+        Ok(Self {
+            operation,
+            source,
+            target,
+            scale_bits,
+        })
     }
     /// Construct after operation-specific semantic admission, retaining both contracts.
     /// This is not an expected-type conversion: `operation` must identify an admitted
@@ -182,11 +215,17 @@ fn validate_boundary_record(
 ) -> Result<(), QuantityError> {
     checked_scale(f64::from_bits(scale_bits))?;
     if source.representation.dimension != target.representation.dimension {
-        return Err(refusal("physical.receipt", "boundary receipt dimensions differ"));
+        return Err(refusal(
+            "physical.receipt",
+            "boundary receipt dimensions differ",
+        ));
     }
     let expected = checked_scale(source.representation.scale() / target.representation.scale())?;
     if expected.to_bits() != scale_bits {
-        return Err(refusal("physical.receipt", "boundary receipt scale differs from its retained representations"));
+        return Err(refusal(
+            "physical.receipt",
+            "boundary receipt scale differs from its retained representations",
+        ));
     }
     Ok(())
 }

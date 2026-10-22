@@ -1399,10 +1399,12 @@ mod tests {
         );
         assert!(prepared.model.case.compiled().coefficients.is_none());
         let values = prepared.model.values.clone();
-        let policy: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
-            "../../../../../packages/reference/diagnostics/idaes-2.13.json"
-        ))
-        .unwrap();
+        let policy: ModelingDiagnosticPolicy =
+            <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE
+                .decode_slice(include_bytes!(
+                    "../../../../../packages/reference/diagnostics/idaes-2.13.json"
+                ))
+                .unwrap();
         let origin = crate::workflow::DiagnosticOrigin {
             run_id: pse_operations::mint_id(),
             attempt_id: None,
@@ -1507,10 +1509,12 @@ mod tests {
             .unwrap();
         assert!(prepared.model.values.scalars.is_empty());
         let key = prepared.model.case.compiled().plan.structure().key();
-        let policy: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
-            "../../../../../packages/reference/diagnostics/idaes-2.13.json"
-        ))
-        .unwrap();
+        let policy: ModelingDiagnosticPolicy =
+            <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE
+                .decode_slice(include_bytes!(
+                    "../../../../../packages/reference/diagnostics/idaes-2.13.json"
+                ))
+                .unwrap();
         let report = package
             .diagnose_case(
                 prepared.clone(),

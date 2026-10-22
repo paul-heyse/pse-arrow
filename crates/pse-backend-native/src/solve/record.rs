@@ -9,7 +9,11 @@ use std::mem::{align_of, size_of};
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "SubmittedStartRecord")]
-pub struct SubmittedStartRecord<Seed = WarmStartSnapshot, Sparse = BTreeMap<SemanticId, u64>, Transformations = Vec<SeedTransformation>> {
+pub struct SubmittedStartRecord<
+    Seed = WarmStartSnapshot,
+    Sparse = BTreeMap<SemanticId, u64>,
+    Transformations = Vec<SeedTransformation>,
+> {
     /// Original predecessor attempt selection.
     pub previous_attempt: Option<usize>,
     /// Full actual source-coordinate seed with explicit nonfinite observations.
@@ -31,11 +35,13 @@ impl serde::Serialize for SubmittedStartRef<'_> {
         let start = self.0;
         let document = SubmittedStartRecord {
             previous_attempt: start.previous_attempt,
-            seed: start.seed.as_ref().map(|seed| seed.snapshot_with(
-                ObservationValues,
-                |working| working.snapshot_with(|values| values, |values| values),
-                |basis| basis,
-            )),
+            seed: start.seed.as_ref().map(|seed| {
+                seed.snapshot_with(
+                    ObservationValues,
+                    |working| working.snapshot_with(|values| values, |values| values),
+                    |basis| basis,
+                )
+            }),
             sparse_seed: start.sparse_seed.as_ref().map(SparseBits),
             transformations: start.transformations.as_slice(),
             submitted: start.submitted,
@@ -404,7 +410,8 @@ mod tests {
             .native_defaults
             .insert("nan".into(), OptionValue::Real(f64::NAN));
         let record = AttemptRecord::capture(&report, Arc::new(())).unwrap();
-        let borrowed = serde_json::to_vec(&report.start_receipt.as_ref().unwrap().snapshot()).unwrap();
+        let borrowed =
+            serde_json::to_vec(&report.start_receipt.as_ref().unwrap().snapshot()).unwrap();
         let start = record.start.as_ref().unwrap();
         assert_eq!(borrowed, serde_json::to_vec(start).unwrap());
         let roundtrip: SubmittedStartRecord = serde_json::from_slice(&borrowed).unwrap();
@@ -454,21 +461,35 @@ mod tests {
         let mut report = report().with_owner(owner);
         report.start_receipt = Some(StartReceipt {
             previous_attempt: Some(9),
-            seed: Some(WarmStart { origin: None, compatibility: crate::solver_tests::stamp(Backend::Kinsol), payload: WarmPayload::Root(vec![-0.0, f64::INFINITY]) }),
+            seed: Some(WarmStart {
+                origin: None,
+                compatibility: crate::solver_tests::stamp(Backend::Kinsol),
+                payload: WarmPayload::Root(vec![-0.0, f64::INFINITY]),
+            }),
             sparse_seed: Some(BTreeMap::from([(SemanticId::NIL, -0.0)])),
-            transformations: vec![], submitted: true,
+            transformations: vec![],
+            submitted: true,
         });
         let original = Arc::new(report);
         let retained = original.clone();
         drop(original);
         assert!(weak.upgrade().is_some());
-        let json = serde_json::to_vec(&retained.start_receipt.as_ref().unwrap().snapshot()).unwrap();
+        let json =
+            serde_json::to_vec(&retained.start_receipt.as_ref().unwrap().snapshot()).unwrap();
         let decoded: SubmittedStartRecord = serde_json::from_slice(&json).unwrap();
         assert_eq!(decoded.previous_attempt, Some(9));
-        assert_eq!(decoded.sparse_seed.as_ref().unwrap()[&SemanticId::NIL], (-0.0_f64).to_bits());
+        assert_eq!(
+            decoded.sparse_seed.as_ref().unwrap()[&SemanticId::NIL],
+            (-0.0_f64).to_bits()
+        );
         assert!(decoded.submitted);
-        let WarmPayloadSnapshot::Root { primal } = decoded.seed.unwrap().payload else { panic!("root seed"); };
-        assert_eq!(serde_json::to_value(&primal[1]).unwrap()["value"], "positive_infinity");
+        let WarmPayloadSnapshot::Root { primal } = decoded.seed.unwrap().payload else {
+            panic!("root seed");
+        };
+        assert_eq!(
+            serde_json::to_value(&primal[1]).unwrap()["value"],
+            "positive_infinity"
+        );
         drop(retained);
         assert!(weak.upgrade().is_none());
     }

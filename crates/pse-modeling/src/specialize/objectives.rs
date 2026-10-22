@@ -18,6 +18,7 @@
 use super::*;
 use crate::ObjectiveRefusal as Refusal;
 use crate::annotation::{AnnotationValue, ObjectiveDeclaration, ObjectiveSense};
+use crate::resolved::{NodeIx, Source};
 use pse_quantity::QuantityTypeId;
 
 /// The authored objectives of a specialized model, grouped into levels (ADR-0111).
@@ -78,6 +79,8 @@ pub struct ObjectiveMember {
 /// One lexicographic level; its value is Σ scaleᵢ·termᵢ over its members.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ObjectiveLevel {
+    /// Actual weighted/normalized level value, issued before compiler projection.
+    pub value_root: NodeIx,
     /// Shared authored priority of the members; `None` when undeclared.
     pub priority: Option<i64>,
     /// Positions of the members in [`Objectives::members`].
@@ -241,7 +244,43 @@ impl Engine<'_, '_> {
         )?;
         let relative_tolerance =
             agreed(members.iter().map(|(_, o, _)| Ok(o.relative_tolerance)), at)?;
+        let source = Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration: at,
+                role: "derived.objective_level".into(),
+                position,
+            },
+            span: Span::default(),
+            coordinate: None,
+        };
+        let mut terms = Vec::new();
+        let coefficient = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(neutral));
+        for member in &objectives.members[first_member..] {
+            let term = self.selected_scalar(member.term, source.clone())?;
+            let value = if member.scale == 1.0 {
+                term
+            } else {
+                let scale = self.constant(member.scale, &coefficient, at, source.clone())?;
+                self.generated_binary(BinaryOp::Mul, scale, term, source.clone())?
+            };
+            terms.push(value);
+        }
+        let value = self.generated_sum(terms, source)?;
+        if self
+            .constructed_type(value.root)?
+            .quantity_scheme()
+            .ok_or_else(|| invalid(at, "objective level has no actual physical output"))?
+            .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
+            .map_err(|error| invalid(at, error.to_string()))?
+            != quantity
+        {
+            return Err(invalid(
+                at,
+                "constructed objective level differs from its admitted member contracts",
+            ));
+        }
         Ok(ObjectiveLevel {
+            value_root: value.root,
             priority,
             members: (first_member..objectives.members.len()).collect(),
             sense,
@@ -286,11 +325,31 @@ impl Engine<'_, '_> {
                 lineage: provenance,
             },
         );
-        Ok(ObjectiveBound {
-            parameter,
-            row: pse_ids::named_id(seed, "objective-bound-row"),
-        })
+        let source = Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration: lead.lineage.declaration,
+                role: "derived.objective_bound".into(),
+                position,
+            },
+            span: Span::default(),
+            coordinate: None,
+        };
+        let rhs = self.selected_scalar(parameter, source.clone())?;
+        let row = pse_ids::named_id(seed, "objective-bound-row");
+        self.model.equation_roots.insert(
+            row,
+            crate::resolved::Relation {
+                lhs: level.value_root,
+                sense: match level.sense {
+                    ObjectiveSense::Minimize => EquationSense::Le,
+                    ObjectiveSense::Maximize => EquationSense::Ge,
+                },
+                rhs: rhs.root,
+            },
+        );
+        Ok(ObjectiveBound { parameter, row })
     }
+
     /// The generated normalization parameter of a member and its quotient term, typed by
     /// the package's quantity operations: a member kind without a declared ratio to
     /// itself cannot be normalized.
@@ -320,33 +379,29 @@ impl Engine<'_, '_> {
                 lineage: provenance.clone(),
             },
         );
-        let expression = Expr {
-            kind: ExprKind::Binary {
-                op: BinaryOp::Div,
-                lhs: Box::new(symbol_expr(target)),
-                rhs: Box::new(symbol_expr(parameter)),
+        let source = Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration: at,
+                role: "derived.objective_normalization".into(),
+                position: 0,
             },
             span: Span::default(),
+            coordinate: None,
         };
-        let types = crate::TypeScope::new(&self.model.symbols);
-        let ty = crate::expression::infer(
-            &expression,
-            &types,
-            &self.model.function_contracts(self.p),
-            self.c,
-            at,
-            None,
-        )?;
+        let numerator = self.selected_scalar(target, source.clone())?;
+        let denominator = self.selected_scalar(parameter, source.clone())?;
+        let expression = self.generated_binary(BinaryOp::Div, numerator, denominator, source)?;
+        let ty = self.constructed_type(expression.root)?;
         provenance.path = format!("{}.objective_term", lineage.path);
         self.model.symbols.insert(
             term,
             Symbol {
-                definition: None,
+                definition: Some(expression.root),
                 id: term,
                 ty,
                 role: Kind::Let,
                 domain: Domain::Continuous,
-                expression: Some(expression),
+                expression: Some(expression.inspection),
                 initial: None,
                 lineage: provenance,
             },

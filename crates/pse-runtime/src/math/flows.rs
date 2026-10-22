@@ -160,7 +160,8 @@ impl MathService {
                             }
                             #[cfg(feature = "solver-highs")]
                             TearMethod::Highs => {
-                                let (s, r, coordinates) = tears::solve(&flow.graph, &controls, execution)?;
+                                let (s, r, coordinates) =
+                                    tears::solve(&flow.graph, &controls, execution)?;
                                 (s, Some(r.with_owner(owner.clone())), coordinates)
                             }
                             #[cfg(not(feature = "solver-highs"))]

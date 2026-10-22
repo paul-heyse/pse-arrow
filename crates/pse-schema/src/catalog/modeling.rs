@@ -288,8 +288,19 @@ fn table_constraints() -> Vec<T> {
     ]
 }
 fn indices() -> T {
-    let mut field = T::list(T::structure(vec![text("name"), T::extended(crate::model::ExtensionUse::ExprDsl(crate::model::ExpressionGrammar::Static)).with_name("domain")])).with_name("indices").into_field();
-    field.metadata_mut().insert(crate::model::field_facets::EXPRESSION_BINDER.into(), "domain-before-name".into());
+    let mut field = T::list(T::structure(vec![
+        text("name"),
+        T::extended(crate::model::ExtensionUse::ExprDsl(
+            crate::model::ExpressionGrammar::Static,
+        ))
+        .with_name("domain"),
+    ]))
+    .with_name("indices")
+    .into_field();
+    field.metadata_mut().insert(
+        crate::model::field_facets::EXPRESSION_BINDER.into(),
+        "domain-before-name".into(),
+    );
     T::from_field(field)
 }
 pub(super) fn declare(builder: &mut RegistryBuilder) {
@@ -1098,7 +1109,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     // ADR-0123 Outcome 1: key symmetry. A symmetric key pair either admits a row whose two
     // keys are equal or excludes the diagonal (Plan 23 KR5).
     enumeration(builder, "ModelingDiagonalPolicy", ["allowed", "excluded"]);
-    enumeration(builder, "ModelingAnnotationKind", super::modeling_expression::ANNOTATIONS.iter().map(|annotation| annotation.kind));
+    enumeration(
+        builder,
+        "ModelingAnnotationKind",
+        super::modeling_expression::ANNOTATIONS
+            .iter()
+            .map(|annotation| annotation.kind),
+    );
     // The reserved fact namespaces: the analysis route and its derived dynamic flag, the
     // selected objective level and the selected initialization stages.
     enumeration(
@@ -1243,10 +1260,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         TaggedAlternative::with_unit,
     );
     let mut payload = vec![T::enumeration("ModelingDeclarationKind").with_name("kind")];
-    payload.extend(
-        arms.into_iter()
-            .map(|(name, _, fields)| super::modeling_expression::apply(T::structure(fields).with_name(name).optional(), name)),
-    );
+    payload.extend(arms.into_iter().map(|(name, _, fields)| {
+        super::modeling_expression::apply(T::structure(fields).with_name(name).optional(), name)
+    }));
     identity(
         builder,
         "declaration",

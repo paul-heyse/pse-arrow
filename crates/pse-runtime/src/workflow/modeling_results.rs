@@ -637,7 +637,15 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![requested], result: Ok(vec![completed]) }, None)
+        let result = RunResult::joined(
+            completed.run_id,
+            runtime.clone(),
+            crate::workflow::RunOutcome::Modeling {
+                request: vec![requested],
+                result: Ok(vec![completed]),
+            },
+            None,
+        )
         .finished(None, false)
         .await;
         assert!(result.usable());
@@ -777,7 +785,15 @@ mod tests {
                     assert!((value - expected[id]).abs() < 1e-7);
                 }
             }
-            let result = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![requested], result: Ok(vec![completed]) }, None)
+            let result = RunResult::joined(
+                completed.run_id,
+                runtime.clone(),
+                crate::workflow::RunOutcome::Modeling {
+                    request: vec![requested],
+                    result: Ok(vec![completed]),
+                },
+                None,
+            )
             .finished(None, false)
             .await;
             assert_eq!(result.usable(), permitted);

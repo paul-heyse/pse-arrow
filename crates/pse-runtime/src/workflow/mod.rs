@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
 mod conformance_documents;
-pub use conformance_documents::{RunSettings, ConformanceRun, ConformanceManifest};
+pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
 mod diagnostic_request;
 pub use diagnostic_request::{
     DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
@@ -43,9 +43,7 @@ pub use review_context::{
 };
 mod connected_results;
 mod review_export;
-pub use review_export::{
-    ReviewExportDeployment, ReviewOutputSelection, ReviewScientificSelection,
-};
+pub use review_export::{ReviewExportDeployment, ReviewOutputSelection, ReviewScientificSelection};
 mod physical_spool;
 pub mod result_blocks;
 pub mod result_files;
@@ -97,8 +95,8 @@ pub use native_deployment::{
     ManagedPrimaryReceiver, NativeAllocation, NativeExecutionAllocation, NativeExecutionSelection,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
-mod operation_preparation;
 mod declared_requests;
+mod operation_preparation;
 pub use declared_requests::conform_pure_request;
 pub use operation_preparation::{PreparedOperation, RuntimeOperationRequest};
 mod study_demand;
@@ -134,10 +132,9 @@ pub use study::{
 };
 pub use study_operations::{
     AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
-    EstimatorOperation, FitOperation, HorizonBinding, HorizonInputDocument,
-    HorizonOperation, HorizonSignalDocument, OperationRequest, OperationSource,
-    PreparationSettings, PreparedStudyOperation, SimulationOperation, StudyOperation,
-    StudyResultRole,
+    EstimatorOperation, FitOperation, HorizonBinding, HorizonInputDocument, HorizonOperation,
+    HorizonSignalDocument, OperationRequest, OperationSource, PreparationSettings,
+    PreparedStudyOperation, SimulationOperation, StudyOperation, StudyResultRole,
 };
 pub(crate) mod numerics;
 mod objectives;
@@ -186,7 +183,9 @@ pub use shooting::{
 mod physical;
 pub use physical::{PhysicalAdmissionReceipt, PhysicalContext};
 mod physical_values;
-pub use physical_values::{PrimalCoordinates, DiagnosticSamples, InitializationStages, PrimalValues, StateTolerances};
+pub use physical_values::{
+    DiagnosticSamples, InitializationStages, PrimalCoordinates, PrimalValues, StateTolerances,
+};
 mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
@@ -664,8 +663,10 @@ impl Runtime {
         backend: pse_backend_native::solve::Backend,
         settings: &pse_backend_native::execution::BackendSettings,
     ) -> Result<pse_model::generated::runtime::solver_capabilities::Row, WorkflowError> {
-        pse_backend_native::execution::LINKED.capability_for(backend, settings)
-            .map_err(MathRuntimeError::from).map_err(WorkflowError::from)
+        pse_backend_native::execution::LINKED
+            .capability_for(backend, settings)
+            .map_err(MathRuntimeError::from)
+            .map_err(WorkflowError::from)
     }
     /// Existing typed native services, including cone preparation, initialization,
     /// graph analysis, MILP tears and declared recycle maps, use this same owner.

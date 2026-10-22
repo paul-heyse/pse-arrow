@@ -87,8 +87,8 @@ impl Configuration {
 #[derive(Debug)]
 pub(super) struct ConfigurationWorker {
     source: Configuration,
-    hints: Option<Worker>,
-    terms: Option<Worker>,
+    hints: Option<SourceWorker>,
+    terms: Option<SourceWorker>,
 }
 impl ConfigurationWorker {
     pub(super) fn fixed_identity(&self) -> Option<(ContentHash, Duration)> {
@@ -99,8 +99,8 @@ impl ConfigurationWorker {
     }
     pub(super) fn new(
         source: Configuration,
-        hints: Option<&Arc<CompiledBody>>,
-        terms: Option<&Arc<CompiledBody>>,
+        hints: Option<&SourceBody>,
+        terms: Option<&SourceBody>,
     ) -> Self {
         Self {
             source,

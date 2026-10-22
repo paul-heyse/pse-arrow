@@ -330,7 +330,9 @@ impl PreparedPath {
     fn corrector_backend(&self) -> Result<Backend, ProblemError> {
         match self.request.corrector.selection {
             SolverSelection::Explicit(backend) => Ok(backend),
-            SolverSelection::Auto => Err(ProblemError::Internal("prepared arclength corrector lost explicit selection".into())),
+            SolverSelection::Auto => Err(ProblemError::Internal(
+                "prepared arclength corrector lost explicit selection".into(),
+            )),
         }
     }
     /// Bound original target; its completion identity remains separate from the path source.
@@ -978,12 +980,16 @@ impl MathService {
             .into());
         }
         let SolverSelection::Explicit(corrector_backend) = request.corrector.selection else {
-            return Err(ProblemError::Unsupported("bounded arclength requires an explicitly selected corrector".into()).into());
+            return Err(ProblemError::Unsupported(
+                "bounded arclength requires an explicitly selected corrector".into(),
+            )
+            .into());
         };
         if request.corrector.intent != SolveIntent::Root
             || request.corrector.numerics.key() != original.profile.numerics.key()
             || request.scale.to_bits() != program.normalization.variables[n].to_bits()
-            || !execution::adapter(corrector_backend).arclength_corrector(&request.corrector.backend, &request.corrector.controls)
+            || !execution::adapter(corrector_backend)
+                .arclength_corrector(&request.corrector.backend, &request.corrector.controls)
             || request.corrector.controls.start != StartPolicy::Explicit
             || request.corrector.sensitivity.is_some()
             || !matches!(request.corrector.presolve, native::presolve::Policy::Off)

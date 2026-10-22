@@ -1,21 +1,41 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-#![cfg_attr(any(feature = "ipopt", feature = "sdp", feature = "clarabel-pardiso", feature = "uno", feature = "petsc", feature = "scip"), feature(native_link_modifiers_as_needed))]
+#![cfg_attr(
+    any(
+        feature = "ipopt",
+        feature = "sdp",
+        feature = "clarabel-pardiso",
+        feature = "uno",
+        feature = "petsc",
+        feature = "scip"
+    ),
+    feature(native_link_modifiers_as_needed)
+)]
 
 //! Class-specific native problem contracts. Execution adapters are supplied by Plan 14 M11–M17.
-#[cfg(any(feature = "ipopt", feature = "sdp", feature = "clarabel-pardiso", feature = "uno", feature = "petsc", feature = "scip"))]
-#[allow(unsafe_code, reason = "Empty native link declarations retain provider libraries; they declare no callable ABI")]
+#[cfg(any(
+    feature = "ipopt",
+    feature = "sdp",
+    feature = "clarabel-pardiso",
+    feature = "uno",
+    feature = "petsc",
+    feature = "scip"
+))]
+#[allow(
+    unsafe_code,
+    reason = "Empty native link declarations retain provider libraries; they declare no callable ABI"
+)]
 mod provider_link {
     include!(concat!(env!("OUT_DIR"), "/provider-link.rs"));
 }
 pub mod assembled;
 #[cfg(test)]
-#[path = "../build_receipt.rs"]
-mod build_receipt;
-#[cfg(test)]
 #[path = "../build-link.rs"]
 mod build_link;
+#[cfg(test)]
+#[path = "../build_receipt.rs"]
+mod build_receipt;
 pub mod callback;
 mod certificate;
 pub mod conditioning;
@@ -73,9 +93,9 @@ pub mod solve;
 pub mod square_response;
 /// Original-equation structural admission.
 pub mod structural;
-pub mod tears;
 #[cfg(any(feature = "kinsol", feature = "idas"))]
 mod sundials_errors;
+pub mod tears;
 mod tnlp;
 pub mod transform;
 pub mod transport;

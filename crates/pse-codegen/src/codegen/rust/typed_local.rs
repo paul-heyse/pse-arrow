@@ -149,7 +149,10 @@ fn supported(field: &FieldContract, path: &str) -> Result<(), SchemaError> {
         )));
     }
     if let Some(extension) = field.extension() {
-        if !matches!(extension, ExtensionUse::Enum(_) | ExtensionUse::SemanticId | ExtensionUse::ExprDsl(_)) {
+        if !matches!(
+            extension,
+            ExtensionUse::Enum(_) | ExtensionUse::SemanticId | ExtensionUse::ExprDsl(_)
+        ) {
             return Err(super::error(format!(
                 "unsupported typed modeling extension at {path}"
             )));

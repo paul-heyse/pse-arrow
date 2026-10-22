@@ -1557,7 +1557,9 @@ impl CanonicalStore {
                         }
                         crate::canonical_staging::StageOutcome::Closed(stage) => stage,
                     };
-                    let result = self.activate_source_stage_mutation(&stage, authority, deadline).await;
+                    let result = self
+                        .activate_source_stage_mutation(&stage, authority, deadline)
+                        .await;
                     if authority.is_some()
                         && result
                             .as_ref()
@@ -1568,7 +1570,8 @@ impl CanonicalStore {
                     result
                 })
                 .await?;
-                self.reclaim_source_after_commit(&revision.problem, deadline).await;
+                self.reclaim_source_after_commit(&revision.problem, deadline)
+                    .await;
                 Ok(revision)
             })
             .await
@@ -1588,12 +1591,17 @@ impl CanonicalStore {
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
     ) -> Result<Revision, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
-            let revision = self.activate_source_stage_mutation(stage, authority, deadline).await?;
-            self.reclaim_source_after_commit(&revision.problem, deadline).await;
-            Ok(revision)
-        }).await
+        activity
+            .scope(async {
+                let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
+                let revision = self
+                    .activate_source_stage_mutation(stage, authority, deadline)
+                    .await?;
+                self.reclaim_source_after_commit(&revision.problem, deadline)
+                    .await;
+                Ok(revision)
+            })
+            .await
     }
     // The enclosing edit owns its one postcommit page outside the mutation clock.
     async fn activate_source_stage_mutation(

@@ -22,11 +22,20 @@ impl<K: schemars::JsonSchema, V: schemars::JsonSchema> schemars::JsonSchema for 
         format!("KeyedMapOf{}To{}", K::schema_name(), V::schema_name()).into()
     }
     fn schema_id() -> std::borrow::Cow<'static, str> {
-        format!("{}::KeyedMap<{},{}>", module_path!(), K::schema_id(), V::schema_id()).into()
+        format!(
+            "{}::KeyedMap<{},{}>",
+            module_path!(),
+            K::schema_id(),
+            V::schema_id()
+        )
+        .into()
     }
-    fn inline_schema() -> bool { true }
+    fn inline_schema() -> bool {
+        true
+    }
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        let mut schema = <std::collections::BTreeMap<K, V> as schemars::JsonSchema>::json_schema(generator);
+        let mut schema =
+            <std::collections::BTreeMap<K, V> as schemars::JsonSchema>::json_schema(generator);
         schema.insert("propertyNames".into(), K::json_schema(generator).to_value());
         schema
     }
@@ -349,13 +358,22 @@ mod tests {
     #[test]
     fn identity_map_schema_retains_declared_key_role_and_value_constraints() {
         let mut generator = schemars::SchemaGenerator::default();
-        let schema = <KeyedMap<crate::SemanticId, u32> as schemars::JsonSchema>::json_schema(&mut generator).to_value();
+        let schema =
+            <KeyedMap<crate::SemanticId, u32> as schemars::JsonSchema>::json_schema(&mut generator)
+                .to_value();
         assert_eq!(schema["propertyNames"]["x-pse-identity"], "SemanticId");
         assert_eq!(schema["propertyNames"]["pattern"], "^[0-9a-fA-F]{32}$");
         assert_eq!(schema["additionalProperties"], false);
-        assert_eq!(schema["patternProperties"]["^[0-9a-fA-F]{32}$"]["minimum"], 0);
-        let value = std::collections::BTreeMap::from([(crate::SemanticId::from_bytes([3; 16]), 7u32)]);
-        assert_eq!(serde_json::to_value(value).unwrap(), serde_json::json!({"03030303030303030303030303030303":7}));
+        assert_eq!(
+            schema["patternProperties"]["^[0-9a-fA-F]{32}$"]["minimum"],
+            0
+        );
+        let value =
+            std::collections::BTreeMap::from([(crate::SemanticId::from_bytes([3; 16]), 7u32)]);
+        assert_eq!(
+            serde_json::to_value(value).unwrap(),
+            serde_json::json!({"03030303030303030303030303030303":7})
+        );
     }
     #[derive(serde::Serialize)]
     struct Probe {

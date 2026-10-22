@@ -794,16 +794,21 @@ impl JoinedPool {
         stack_bytes: usize,
         mut spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
     ) -> Result<Self, MathError> {
-        let mut owner = Self { pool: None, workers: Vec::with_capacity(threads) };
-        owner.pool = Some(rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .stack_size(stack_bytes)
-            .spawn_handler(|thread| {
-                owner.workers.push(spawn(thread)?);
-                Ok(())
-            })
-            .build()
-            .map_err(|error| MathError::Library(error.to_string()))?);
+        let mut owner = Self {
+            pool: None,
+            workers: Vec::with_capacity(threads),
+        };
+        owner.pool = Some(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .stack_size(stack_bytes)
+                .spawn_handler(|thread| {
+                    owner.workers.push(spawn(thread)?);
+                    Ok(())
+                })
+                .build()
+                .map_err(|error| MathError::Library(error.to_string()))?,
+        );
         Ok(owner)
     }
     fn spawn(&self, operation: impl FnOnce() + Send + 'static) {
@@ -1271,42 +1276,65 @@ mod tests {
             let mut options = options();
             options.threads = 2;
             let task = RetainedSurrogate::new_with_spawn(
-                evaluator(Arc::new(AtomicUsize::new(0))), options,
+                evaluator(Arc::new(AtomicUsize::new(0))),
+                options,
                 ExecutionScope::new(cancel.clone(), None),
                 move |thread| {
                     let gate = exit_gate.clone();
                     let exiting = exiting.clone();
                     let exited = exited.clone();
-                    std::thread::Builder::new().stack_size(thread.stack_size().unwrap()).spawn(move || {
-                        thread.run();
-                        // Solver destruction and Rayon termination have completed,
-                        // but these actual OS workers deliberately remain alive.
-                        exiting.send(()).unwrap();
-                        gate.lock().unwrap().recv().unwrap();
-                        exited.send(()).unwrap();
-                    })
+                    std::thread::Builder::new()
+                        .stack_size(thread.stack_size().unwrap())
+                        .spawn(move || {
+                            thread.run();
+                            // Solver destruction and Rayon termination have completed,
+                            // but these actual OS workers deliberately remain alive.
+                            exiting.send(()).unwrap();
+                            gate.lock().unwrap().recv().unwrap();
+                            exited.send(()).unwrap();
+                        })
                 },
-            ).unwrap();
+            )
+            .unwrap();
             let pool: Arc<dyn pse_columnar::MemoryPool> =
                 Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
-            let allocation = pse_columnar::MemoryConsumer::new("retained worker join control").register(&pool);
+            let allocation =
+                pse_columnar::MemoryConsumer::new("retained worker join control").register(&pool);
             let bytes = task.retained_bytes();
             allocation.try_grow(bytes).unwrap();
             let owner = pse_columnar::AllocationLease::new(allocation);
             let (drained, finished) = std::sync::mpsc::channel();
-            if cancelled { cancel.cancel(); }
+            if cancelled {
+                cancel.cancel();
+            }
             let dropper = std::thread::spawn(move || {
                 drop(task);
                 drop(owner);
                 drained.send(()).unwrap();
             });
-            for _ in 0..2 { exit_seen.recv_timeout(Duration::from_secs(5)).unwrap(); }
-            assert!(matches!(finished.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)));
-            assert_eq!(pool.reserved(), bytes, "actual workers still hold their admitted lifetime");
+            for _ in 0..2 {
+                exit_seen.recv_timeout(Duration::from_secs(5)).unwrap();
+            }
+            assert!(matches!(
+                finished.try_recv(),
+                Err(std::sync::mpsc::TryRecvError::Empty)
+            ));
+            assert_eq!(
+                pool.reserved(),
+                bytes,
+                "actual workers still hold their admitted lifetime"
+            );
             release.send(()).unwrap();
-            worker_finished.recv_timeout(Duration::from_secs(5)).unwrap();
-            assert!(matches!(finished.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
-                "joining only one of the actual workers cannot release admission");
+            worker_finished
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap();
+            assert!(
+                matches!(
+                    finished.try_recv(),
+                    Err(std::sync::mpsc::TryRecvError::Empty)
+                ),
+                "joining only one of the actual workers cannot release admission"
+            );
             assert_eq!(pool.reserved(), bytes);
             release.send(()).unwrap();
             finished.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -1327,10 +1355,14 @@ mod tests {
                 options.threads = if partial_spawn_failure { 2 } else { 1 };
                 let scope = ExecutionScope::new(cancel.clone(), None);
                 let task = RetainedSurrogate::new_with_spawn(
-                    evaluator(Arc::new(AtomicUsize::new(0))), options, scope,
+                    evaluator(Arc::new(AtomicUsize::new(0))),
+                    options,
+                    scope,
                     move |thread| {
                         if thread.index() == 1 {
-                            return Err(std::io::Error::other("injected second-worker creation failure"));
+                            return Err(std::io::Error::other(
+                                "injected second-worker creation failure",
+                            ));
                         }
                         if !partial_spawn_failure {
                             // The outer scope was admitted; fail construction on
@@ -1339,19 +1371,23 @@ mod tests {
                         }
                         let exiting = exiting.clone();
                         let gate = gate.take().unwrap();
-                        std::thread::Builder::new().stack_size(thread.stack_size().unwrap()).spawn(move || {
-                            thread.run();
-                            exiting.send(()).unwrap();
-                            gate.recv().unwrap();
-                        })
+                        std::thread::Builder::new()
+                            .stack_size(thread.stack_size().unwrap())
+                            .spawn(move || {
+                                thread.run();
+                                exiting.send(()).unwrap();
+                                gate.recv().unwrap();
+                            })
                     },
                 );
                 assert!(task.is_err());
                 finished.send(()).unwrap();
             });
             exit_seen.recv_timeout(Duration::from_secs(5)).unwrap();
-            assert!(matches!(result.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
-                "constructor must not return while a created OS worker remains alive");
+            assert!(
+                matches!(result.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+                "constructor must not return while a created OS worker remains alive"
+            );
             release.send(()).unwrap();
             result.recv_timeout(Duration::from_secs(5)).unwrap();
             dropper.join().unwrap();

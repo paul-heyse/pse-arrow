@@ -42,7 +42,8 @@ pub fn predicate<'a>(value: &'a Predicate, roots: &mut Vec<&'a Expr>) {
 fn path<'a>(value: &'a dsl::Path, roots: &mut Vec<&'a Expr>) {
     roots.extend(value.segments.iter().flat_map(|segment| &segment.indices));
 }
-fn equation<'a>(value: &'a dsl::Equation, roots: &mut Vec<&'a Expr>) {
+/// Borrow every actual equation expression root in the shared grammar order.
+pub fn equation<'a>(value: &'a dsl::Equation, roots: &mut Vec<&'a Expr>) {
     match &value.kind {
         dsl::EquationKind::Relation { lhs, rhs, .. } => roots.extend([lhs, rhs]),
         dsl::EquationKind::Conditional {

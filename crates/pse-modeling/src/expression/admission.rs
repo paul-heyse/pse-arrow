@@ -318,14 +318,64 @@ impl PhysicalAdmission {
     pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         use PhysicalRequest as R;
         match &self.request {
-            R::Add=>{hash.str("add");}, R::Sub=>{hash.str("sub");}, R::Neg=>{hash.str("neg");}, R::Abs=>{hash.str("abs");}, R::Mul=>{hash.str("mul");}, R::Div=>{hash.str("div");}, R::Sqrt=>{hash.str("sqrt");}, R::Conditional=>{hash.str("conditional");},
-            R::Pow(exponent)=>{hash.str("pow").bool(exponent.is_some()); if let Some(exponent)=exponent {hash.part(&exponent.num().to_le_bytes()).part(&exponent.den().to_le_bytes());}},
-            R::Transcendental(opcode)=>{hash.str("transcendental").str(opcode.as_str());},
-            R::FiniteReduce(kind,domain)=>{hash.str("finite-reduce").str(kind.as_str()).bool(domain.is_some()); if let Some(domain)=domain {hash.id(&domain.as_id());}},
-            R::Reduce(kind,bound)=>{hash.str("bound-reduce").str(kind.as_str()).id(&bound.kind.as_id()).id(&bound.domain.as_id()).id(&bound.bound_index.as_id());},
+            R::Add => {
+                hash.str("add");
+            }
+            R::Sub => {
+                hash.str("sub");
+            }
+            R::Neg => {
+                hash.str("neg");
+            }
+            R::Abs => {
+                hash.str("abs");
+            }
+            R::Mul => {
+                hash.str("mul");
+            }
+            R::Div => {
+                hash.str("div");
+            }
+            R::Sqrt => {
+                hash.str("sqrt");
+            }
+            R::Conditional => {
+                hash.str("conditional");
+            }
+            R::Pow(exponent) => {
+                hash.str("pow").bool(exponent.is_some());
+                if let Some(exponent) = exponent {
+                    hash.part(&exponent.num().to_le_bytes())
+                        .part(&exponent.den().to_le_bytes());
+                }
+            }
+            R::Transcendental(opcode) => {
+                hash.str("transcendental").str(opcode.as_str());
+            }
+            R::FiniteReduce(kind, domain) => {
+                hash.str("finite-reduce")
+                    .str(kind.as_str())
+                    .bool(domain.is_some());
+                if let Some(domain) = domain {
+                    hash.id(&domain.as_id());
+                }
+            }
+            R::Reduce(kind, bound) => {
+                hash.str("bound-reduce")
+                    .str(kind.as_str())
+                    .id(&bound.kind.as_id())
+                    .id(&bound.domain.as_id())
+                    .id(&bound.bound_index.as_id());
+            }
         }
-        hash.u64(self.operands.len() as u64); for operand in &self.operands {operand.frame(hash);}
-        hash.bool(self.resolved.is_some()); if let Some(resolved)=&self.resolved {resolved.frame(hash);}
+        hash.u64(self.operands.len() as u64);
+        for operand in &self.operands {
+            operand.frame(hash);
+        }
+        hash.bool(self.resolved.is_some());
+        if let Some(resolved) = &self.resolved {
+            resolved.frame(hash);
+        }
     }
 
     /// Instantiate a checked scalar finite reduction's operand at its actual lexical
@@ -424,6 +474,28 @@ impl PhysicalAdmission {
     /// The concrete result retained at checking, absent for an explicit generic obligation.
     pub fn resolved(&self) -> Option<&ResolvedInference> {
         self.resolved.as_ref()
+    }
+    /// Retain the concrete instantiation of this exact checked source obligation.
+    /// This never changes its operation or re-infers a rewritten expression tree.
+    pub(crate) fn instantiated(
+        &self,
+        registry: &QuantityRegistry,
+        substitutions: &Substitution,
+        checker: &dyn InvariantChecker,
+        formula: Option<&pse_quantity::PhysicalFormulaAuthority>,
+        at: DeclarationId,
+    ) -> Result<Self> {
+        let resolved = self.specialize(registry, substitutions, checker, formula, at)?;
+        Ok(Self {
+            request: self.request.clone(),
+            operands: resolved
+                .operands
+                .iter()
+                .cloned()
+                .map(Scheme::from_contract)
+                .collect(),
+            resolved: Some(resolved),
+        })
     }
     /// Instantiate quantified schemes once, with the caller's admitted substitutions.
     pub fn specialize(

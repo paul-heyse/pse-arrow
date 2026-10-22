@@ -3,8 +3,8 @@
 
 //! Shared native columnar field paths and finite allocation envelopes.
 
-use std::fmt;
 use crate::error::CanonError;
+use std::fmt;
 
 /// A position in a schema: zero-based registry column and child ordinals in ASCII decimal
 /// without leading zeros, joined by `/`.

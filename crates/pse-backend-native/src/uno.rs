@@ -125,7 +125,9 @@ pub fn termination(optimization: i32, iterate: i32) -> NativeTermination {
         ffi::UNO_NOT_OPTIMAL => ("UNO_NOT_OPTIMAL", Termination::Inconclusive),
         ffi::UNO_FEASIBLE_KKT_POINT => ("UNO_FEASIBLE_KKT_POINT", Termination::Success),
         ffi::UNO_FEASIBLE_FJ_POINT => ("UNO_FEASIBLE_FJ_POINT", Termination::FeasibleOnly),
-        ffi::UNO_INFEASIBLE_STATIONARY_POINT => ("UNO_INFEASIBLE_STATIONARY_POINT", Termination::Infeasible),
+        ffi::UNO_INFEASIBLE_STATIONARY_POINT => {
+            ("UNO_INFEASIBLE_STATIONARY_POINT", Termination::Infeasible)
+        }
         ffi::UNO_FEASIBLE_SMALL_STEP => ("UNO_FEASIBLE_SMALL_STEP", Termination::FeasibleOnly),
         ffi::UNO_INFEASIBLE_SMALL_STEP => ("UNO_INFEASIBLE_SMALL_STEP", Termination::Numerical),
         ffi::UNO_DIVERGING_ITERATE => ("UNO_DIVERGING_ITERATE", Termination::Numerical),
@@ -707,24 +709,80 @@ mod tests {
         // Expected categories are independently specified, including the stalled
         // infeasible iterate, which establishes no infeasibility certificate.
         let iterates = [
-            (ffi::UNO_NOT_OPTIMAL, Termination::Inconclusive, "UNO_NOT_OPTIMAL"),
-            (ffi::UNO_FEASIBLE_KKT_POINT, Termination::Success, "UNO_FEASIBLE_KKT_POINT"),
-            (ffi::UNO_FEASIBLE_FJ_POINT, Termination::FeasibleOnly, "UNO_FEASIBLE_FJ_POINT"),
-            (ffi::UNO_INFEASIBLE_STATIONARY_POINT, Termination::Infeasible, "UNO_INFEASIBLE_STATIONARY_POINT"),
-            (ffi::UNO_FEASIBLE_SMALL_STEP, Termination::FeasibleOnly, "UNO_FEASIBLE_SMALL_STEP"),
-            (ffi::UNO_INFEASIBLE_SMALL_STEP, Termination::Numerical, "UNO_INFEASIBLE_SMALL_STEP"),
-            (ffi::UNO_DIVERGING_ITERATE, Termination::Numerical, "UNO_DIVERGING_ITERATE"),
-            (ffi::UNO_UNBOUNDED_OBJECTIVE, Termination::Unbounded, "UNO_UNBOUNDED_OBJECTIVE"),
+            (
+                ffi::UNO_NOT_OPTIMAL,
+                Termination::Inconclusive,
+                "UNO_NOT_OPTIMAL",
+            ),
+            (
+                ffi::UNO_FEASIBLE_KKT_POINT,
+                Termination::Success,
+                "UNO_FEASIBLE_KKT_POINT",
+            ),
+            (
+                ffi::UNO_FEASIBLE_FJ_POINT,
+                Termination::FeasibleOnly,
+                "UNO_FEASIBLE_FJ_POINT",
+            ),
+            (
+                ffi::UNO_INFEASIBLE_STATIONARY_POINT,
+                Termination::Infeasible,
+                "UNO_INFEASIBLE_STATIONARY_POINT",
+            ),
+            (
+                ffi::UNO_FEASIBLE_SMALL_STEP,
+                Termination::FeasibleOnly,
+                "UNO_FEASIBLE_SMALL_STEP",
+            ),
+            (
+                ffi::UNO_INFEASIBLE_SMALL_STEP,
+                Termination::Numerical,
+                "UNO_INFEASIBLE_SMALL_STEP",
+            ),
+            (
+                ffi::UNO_DIVERGING_ITERATE,
+                Termination::Numerical,
+                "UNO_DIVERGING_ITERATE",
+            ),
+            (
+                ffi::UNO_UNBOUNDED_OBJECTIVE,
+                Termination::Unbounded,
+                "UNO_UNBOUNDED_OBJECTIVE",
+            ),
             (99, Termination::Inconclusive, "UNO_UNKNOWN_ITERATE"),
         ];
         let stops = [
             (ffi::UNO_SUCCESS, None, "UNO_SUCCESS"),
-            (ffi::UNO_ITERATION_LIMIT, Some(Termination::IterationLimit), "UNO_ITERATION_LIMIT"),
-            (ffi::UNO_TIME_LIMIT, Some(Termination::TimeLimit), "UNO_TIME_LIMIT"),
-            (ffi::UNO_EVALUATION_ERROR, Some(Termination::Evaluation), "UNO_EVALUATION_ERROR"),
-            (ffi::UNO_ALGORITHMIC_ERROR, Some(Termination::Numerical), "UNO_ALGORITHMIC_ERROR"),
-            (ffi::UNO_USER_TERMINATION, Some(Termination::Cancelled), "UNO_USER_TERMINATION"),
-            (99, Some(Termination::Inconclusive), "UNO_UNKNOWN_OPTIMIZATION"),
+            (
+                ffi::UNO_ITERATION_LIMIT,
+                Some(Termination::IterationLimit),
+                "UNO_ITERATION_LIMIT",
+            ),
+            (
+                ffi::UNO_TIME_LIMIT,
+                Some(Termination::TimeLimit),
+                "UNO_TIME_LIMIT",
+            ),
+            (
+                ffi::UNO_EVALUATION_ERROR,
+                Some(Termination::Evaluation),
+                "UNO_EVALUATION_ERROR",
+            ),
+            (
+                ffi::UNO_ALGORITHMIC_ERROR,
+                Some(Termination::Numerical),
+                "UNO_ALGORITHMIC_ERROR",
+            ),
+            (
+                ffi::UNO_USER_TERMINATION,
+                Some(Termination::Cancelled),
+                "UNO_USER_TERMINATION",
+            ),
+            (
+                99,
+                Some(Termination::Inconclusive),
+                "UNO_UNKNOWN_OPTIMIZATION",
+            ),
         ];
         for (optimization, stop, optimization_name) in stops {
             for (iterate, assessment, iterate_name) in iterates {
@@ -732,13 +790,28 @@ mod tests {
                 assert_eq!(native.category, stop.unwrap_or(assessment), "{native:?}");
                 assert_eq!(native.assurance, Assurance::None);
                 assert_eq!(native.code, i64::from(optimization));
-                assert_eq!(native.name, format!("{optimization_name}({optimization})/{iterate_name}({iterate})"));
-                for override_category in [Termination::Evaluation, Termination::Cancelled, Termination::TimeLimit] {
+                assert_eq!(
+                    native.name,
+                    format!("{optimization_name}({optimization})/{iterate_name}({iterate})")
+                );
+                for override_category in [
+                    Termination::Evaluation,
+                    Termination::Cancelled,
+                    Termination::TimeLimit,
+                ] {
                     let execution = execution(&Controls::default());
                     let mut state = crate::callback::CallbackState::new(execution.clone());
                     state.terminal = Some((override_category, "typed callback sentinel".into()));
-                    state.last_failure = Some(ProblemError::stopped(override_category, "typed callback sentinel"));
-                    let mut report = SolveReport::new(Backend::Uno, &Bounded::new().contract, native.clone(), &execution);
+                    state.last_failure = Some(ProblemError::stopped(
+                        override_category,
+                        "typed callback sentinel",
+                    ));
+                    let mut report = SolveReport::new(
+                        Backend::Uno,
+                        &Bounded::new().contract,
+                        native.clone(),
+                        &execution,
+                    );
                     state.finish(&mut report);
                     assert_eq!(report.termination.category, override_category);
                     assert_eq!(report.termination.code, i64::from(optimization));
@@ -1054,8 +1127,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.termination.category, Termination::ResourceExhausted);
-        for key in ["uno.materialization.count", "uno.materialization.columns", "uno.materialization.numeric_bytes"] {
-            assert_eq!(report.metrics.get(key), Some(&Metric::Integer(0)), "{key}: no dense materialization precedes refusal");
+        for key in [
+            "uno.materialization.count",
+            "uno.materialization.columns",
+            "uno.materialization.numeric_bytes",
+        ] {
+            assert_eq!(
+                report.metrics.get(key),
+                Some(&Metric::Integer(0)),
+                "{key}: no dense materialization precedes refusal"
+            );
         }
         assert!(matches!(
             report.callback_failure.as_deref(),

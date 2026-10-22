@@ -112,6 +112,7 @@ fn coupled_source(
         )
         .unwrap(),
     );
+    let source = source_body_for_test(id, &body, source);
     let unknown = Arc::new(
         body.compile(
             &[0, 1],
@@ -123,6 +124,7 @@ fn coupled_source(
         )
         .unwrap(),
     );
+    let unknown = source_body_for_test(id, &body, unknown);
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let q = registry.neutral_dimensionless().unwrap();
     let unit = registry.quantity_type(q).unwrap().canonical_unit;
@@ -1026,16 +1028,20 @@ fn moving_residual(qualified: bool) -> (Factory, MovingResidual) {
     )
     .unwrap();
     factory.solver = Arc::new(Affine::new(&body, 1).unwrap());
-    factory.bodies = residual_bodies_for_test(Arc::new(
-        body.compile(
-            &[0],
-            &[0, 1],
-            DerivativeOrder::Second,
-            Optimization::default(),
-            EvaluationLimits::default(),
-            &ExecutionScope::new(factory.cancel.clone(), None),
-        )
-        .unwrap(),
+    factory.bodies = residual_bodies_for_test(source_body_for_test(
+        factory.spec.id,
+        &body,
+        Arc::new(
+            body.compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &ExecutionScope::new(factory.cancel.clone(), None),
+            )
+            .unwrap(),
+        ),
     ));
     (factory, child)
 }
@@ -1252,17 +1258,21 @@ fn coupled_regimes(parameters: usize) -> (RegimeFactory, Vec<f64>) {
             DerivativeOrder::First,
         )
         .unwrap();
-        Arc::new(
-            source
-                .compile(
-                    &(0..source.output_count()).collect::<Vec<_>>(),
-                    &(0..start).collect::<Vec<_>>(),
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    EvaluationLimits::default(),
-                    &ExecutionScope::new(base.cancel.clone(), None),
-                )
-                .unwrap(),
+        source_body_for_test(
+            base.spec.id,
+            &source,
+            Arc::new(
+                source
+                    .compile(
+                        &(0..source.output_count()).collect::<Vec<_>>(),
+                        &(0..start).collect::<Vec<_>>(),
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        EvaluationLimits::default(),
+                        &ExecutionScope::new(base.cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         )
     };
     let branches = (0..2)
@@ -1454,16 +1464,20 @@ fn implicit_recursive_nested_actions_compose_actual_child_linearizations() {
     )
     .unwrap();
     parent.solver = Arc::new(Affine::new(&body, n).unwrap());
-    parent.bodies = residual_bodies_for_test(Arc::new(
-        body.compile(
-            &[0, 1],
-            &(0..n + p).collect::<Vec<_>>(),
-            DerivativeOrder::Second,
-            Optimization::default(),
-            EvaluationLimits::default(),
-            &ExecutionScope::new(parent.cancel.clone(), None),
-        )
-        .unwrap(),
+    parent.bodies = residual_bodies_for_test(source_body_for_test(
+        parent.spec.id,
+        &body,
+        Arc::new(
+            body.compile(
+                &[0, 1],
+                &(0..n + p).collect::<Vec<_>>(),
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &ExecutionScope::new(parent.cancel.clone(), None),
+            )
+            .unwrap(),
+        ),
     ));
     let expected = analytic(&parameters);
     let mut provider = parent.create().unwrap();
@@ -1961,16 +1975,20 @@ fn sparse_state_actions_preserve_canonical_coefficients_for_diagonal_and_banded_
         )
         .unwrap();
         let compile = |coordinates: &[usize], order| {
-            Arc::new(
-                body.compile(
-                    &(0..n).collect::<Vec<_>>(),
-                    coordinates,
-                    order,
-                    Optimization::default(),
-                    EvaluationLimits::default(),
-                    &scope,
-                )
-                .unwrap(),
+            source_body_for_test(
+                source_id,
+                &body,
+                Arc::new(
+                    body.compile(
+                        &(0..n).collect::<Vec<_>>(),
+                        coordinates,
+                        order,
+                        Optimization::default(),
+                        EvaluationLimits::default(),
+                        &scope,
+                    )
+                    .unwrap(),
+                ),
             )
         };
         let registry = pse_quantity::standard::standard_registry().unwrap();
@@ -2221,16 +2239,20 @@ fn zero_state_traversal_keeps_complete_current_child_visits_for_subset_actions_a
         });
         let body = PreparedBody::new(3, 7, vec![5, 6], stages, DerivativeOrder::Second).unwrap();
         factory.solver = Arc::new(Affine::new(&body, 2).unwrap());
-        factory.bodies = residual_bodies_for_test(Arc::new(
-            body.compile(
-                &[0, 1],
-                &[0, 1, 2],
-                DerivativeOrder::Second,
-                Optimization::default(),
-                EvaluationLimits::default(),
-                &ExecutionScope::new(factory.cancel.clone(), None),
-            )
-            .unwrap(),
+        factory.bodies = residual_bodies_for_test(source_body_for_test(
+            factory.spec.id,
+            &body,
+            Arc::new(
+                body.compile(
+                    &[0, 1],
+                    &[0, 1, 2],
+                    DerivativeOrder::Second,
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &ExecutionScope::new(factory.cancel.clone(), None),
+                )
+                .unwrap(),
+            ),
         ));
         let scope = ExecutionScope::new(factory.cancel.clone(), None);
         let problem = factory.problem(scope.clone()).unwrap();
@@ -2391,16 +2413,20 @@ fn zero_state_traversal_keeps_value_only_child_of_original_first_guard_after_num
     )
     .unwrap();
     factory.solver = Arc::new(Affine::new(&body, 1).unwrap());
-    factory.bodies = residual_bodies_for_test(Arc::new(
-        body.compile(
-            &[0],
-            &[0, 1],
-            DerivativeOrder::Second,
-            Optimization::default(),
-            EvaluationLimits::default(),
-            &ExecutionScope::new(factory.cancel.clone(), None),
-        )
-        .unwrap(),
+    factory.bodies = residual_bodies_for_test(source_body_for_test(
+        factory.spec.id,
+        &body,
+        Arc::new(
+            body.compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &ExecutionScope::new(factory.cancel.clone(), None),
+            )
+            .unwrap(),
+        ),
     ));
     let scope = ExecutionScope::new(factory.cancel.clone(), None);
     let problem = factory.problem(scope.clone()).unwrap();
@@ -2432,7 +2458,8 @@ fn zero_state_traversal_keeps_value_only_child_of_original_first_guard_after_num
     for direction in [[0., 0.], [1., 0.]] {
         assert!(
             matches!(problem.probe_state_linearization(&[-1.], &[0.], &direction, options, &scope),
-            Err(MathError::Domain { source_id, .. }) if source_id == source)
+            Err(error) if matches!(&error, MathError::Instance { instance, .. } if *instance == factory.spec.id)
+                && matches!(error.instance_cause(), MathError::Domain { source_id, .. } if *source_id == source))
         );
     }
 }

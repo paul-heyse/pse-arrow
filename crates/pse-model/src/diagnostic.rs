@@ -147,7 +147,9 @@ impl From<pse_diagnostics::DiagnosticObservation> for Observation {
     }
 }
 /// Authored location attached by the owner that has the source map.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct SourceLocation {
     /// Original semantic occurrence or instance identity.
@@ -172,6 +174,44 @@ pub struct SourceLocation {
     pub start: Option<u32>,
     /// UTF-8 exclusive ending byte offset.
     pub end: Option<u32>,
+}
+impl SourceLocation {
+    /// Owned string payload, excluding this inline location value.
+    pub fn heap_bytes(&self) -> usize {
+        self.path
+            .capacity()
+            .saturating_add(self.name.as_ref().map_or(0, String::capacity))
+            .saturating_add(self.occurrence_role.as_ref().map_or(0, String::capacity))
+    }
+    /// Complete current receiving-source identity, never reusable arithmetic identity.
+    pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.id(&self.source).bool(self.revision.is_some());
+        if let Some(revision) = self.revision {
+            hash.hash(&revision);
+        }
+        hash.bool(self.document.is_some());
+        if let Some(document) = self.document {
+            hash.id(&document);
+        }
+        hash.bool(self.occurrence_role.is_some());
+        if let Some(role) = &self.occurrence_role {
+            hash.str(role);
+        }
+        hash.bool(self.occurrence_position.is_some());
+        if let Some(position) = self.occurrence_position {
+            hash.u64(u64::from(position));
+        }
+        hash.str(&self.path).bool(self.name.is_some());
+        if let Some(name) = &self.name {
+            hash.str(name);
+        }
+        for offset in [self.start, self.end] {
+            hash.bool(offset.is_some());
+            if let Some(offset) = offset {
+                hash.u64(u64::from(offset));
+            }
+        }
+    }
 }
 /// What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its
 /// layer and the declaration stating it; for the form and data layers the form it belongs
@@ -383,6 +423,30 @@ pub trait DiagnosticProjection: pse_diagnostics::TypedDiagnostic {
         rebind_checked_members(&mut diagnostic, bindings);
         diagnostic
     }
+    /// Project distinct local member and local validity-source roles. Source bindings
+    /// apply only to closure validity source fields, never to arbitrary equal IDs.
+    fn boundary_diagnostic_with_bindings(
+        &self,
+        stage: DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> BoundaryDiagnostic {
+        let mut diagnostic = self.boundary_diagnostic_with_members(stage, members);
+        rebind_checked_sources(&mut diagnostic, sources);
+        diagnostic
+    }
+    /// Project original operation roles before typed wrappers add independent attribution.
+    /// Owners of explicit source_id fields override this; an untyped envelope has no
+    /// permission to reinterpret equal IDs in arbitrary source/applicability roles.
+    fn boundary_diagnostic_with_occurrences(
+        &self,
+        stage: DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        _occurrences: &std::collections::BTreeMap<SemanticId, SourceLocation>,
+    ) -> BoundaryDiagnostic {
+        self.boundary_diagnostic_with_bindings(stage, members, sources)
+    }
 }
 /// Rebind only the typed closure member role, recursively before retaining a cause clone.
 fn rebind_checked_members(
@@ -392,47 +456,14 @@ fn rebind_checked_members(
     if bindings.is_empty() {
         return;
     }
+    let independent = diagnostic
+        .validity
+        .as_ref()
+        .map(|lineage| independent_checked_sources(diagnostic, lineage, true));
     if let Some(lineage) = &mut diagnostic.validity
         && lineage.layer == crate::generated::enums::ModelingValidityLayer::Closure
+        && let Some(independent) = &independent
     {
-        // These roles independently contribute sources. Equality to a local token
-        // never changes their authored identity or removes their source attribution.
-        let mut independent = std::collections::BTreeSet::from([lineage.source]);
-        independent.extend(lineage.form);
-        independent.extend(&lineage.sets);
-        independent.extend(diagnostic.locations.iter().map(|location| location.source));
-        for observation in &diagnostic.applicability {
-            let claim = &observation.claim;
-            independent.extend(claim.id);
-            independent.extend(claim.coverage);
-            independent.extend([claim.owner, claim.form, claim.call]);
-            independent.extend(&claim.owner_lineage);
-            independent.extend(claim.evidence);
-            independent.extend(&claim.records);
-            independent.extend(&claim.dependencies);
-            independent.extend(observation.instance);
-            independent.extend(observation.inputs.iter().map(|input| input.quantity_type));
-            for permission in &observation.permissions {
-                independent.extend([permission.id, permission.scope]);
-                independent.extend(&permission.targets);
-            }
-        }
-        for observation in diagnostic.observations.values() {
-            match observation {
-                Observation::Physical(value) => {
-                    independent.extend([value.quantity, value.unit]);
-                }
-                Observation::Contracts(contracts) => {
-                    for contract in contracts {
-                        independent.insert(SemanticId::from_bytes(contract.quantity));
-                        for index in &contract.indices {
-                            independent.extend(index.iter().copied().map(SemanticId::from_bytes));
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
         // Build the member-derived source projection from the original envelope.
         // A newly added actual ID may itself be another local token; removing each
         // old source first prevents A→B, B→C from deleting the newly projected B.
@@ -469,6 +500,87 @@ fn rebind_checked_members(
     }
 }
 
+/// Source and member maps are independent nominal roles, not a general ID substitution.
+fn rebind_checked_sources(
+    diagnostic: &mut BoundaryDiagnostic,
+    bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+) {
+    if bindings.is_empty() {
+        return;
+    }
+    let independent = diagnostic
+        .validity
+        .as_ref()
+        .map(|lineage| independent_checked_sources(diagnostic, lineage, false));
+    if let Some(lineage) = &mut diagnostic.validity
+        && lineage.layer == crate::generated::enums::ModelingValidityLayer::Closure
+        && let Some(actual) = bindings.get(&lineage.source)
+        && let Some(independent) = &independent
+    {
+        let original = lineage.source;
+        lineage.source = *actual;
+        if diagnostic.sources.contains(&original) {
+            if !independent.contains(&original) {
+                diagnostic.sources.retain(|source| *source != original);
+            }
+            diagnostic.sources.push(*actual);
+            diagnostic.sources.sort_unstable();
+            diagnostic.sources.dedup();
+        }
+    }
+    for cause in &mut diagnostic.causes {
+        rebind_checked_sources(cause, bindings);
+    }
+}
+
+fn independent_checked_sources(
+    diagnostic: &BoundaryDiagnostic,
+    lineage: &ValidityLineage,
+    members: bool,
+) -> std::collections::BTreeSet<SemanticId> {
+    let mut independent = std::collections::BTreeSet::new();
+    if members {
+        independent.insert(lineage.source);
+    } else {
+        independent.extend(&lineage.members);
+    }
+    independent.extend(lineage.form);
+    independent.extend(&lineage.sets);
+    independent.extend(diagnostic.locations.iter().map(|location| location.source));
+    for observation in &diagnostic.applicability {
+        let claim = &observation.claim;
+        independent.extend(claim.id);
+        independent.extend(claim.coverage);
+        independent.extend([claim.owner, claim.form, claim.call]);
+        independent.extend(&claim.owner_lineage);
+        independent.extend(claim.evidence);
+        independent.extend(&claim.records);
+        independent.extend(&claim.dependencies);
+        independent.extend(observation.instance);
+        independent.extend(observation.inputs.iter().map(|input| input.quantity_type));
+        for permission in &observation.permissions {
+            independent.extend([permission.id, permission.scope]);
+            independent.extend(&permission.targets);
+        }
+    }
+    for observation in diagnostic.observations.values() {
+        match observation {
+            Observation::Physical(value) => {
+                independent.extend([value.quantity, value.unit]);
+            }
+            Observation::Contracts(contracts) => {
+                for contract in contracts {
+                    independent.insert(SemanticId::from_bytes(contract.quantity));
+                    for index in &contract.indices {
+                        independent.extend(index.iter().copied().map(SemanticId::from_bytes));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    independent
+}
 /// Recursively retain every aggregate occurrence in source order, including mixed codes.
 pub fn project_typed(
     error: &dyn pse_diagnostics::TypedDiagnostic,
@@ -628,6 +740,56 @@ mod tests {
             assert_eq!(original.validity.as_ref().unwrap().members, vec![a, b]);
             assert!(original.sources.contains(&a));
             assert!(!original.sources.contains(&c));
+        }
+    }
+
+    #[test]
+    fn distinct_checked_source_projection_preserves_independently_equal_roles() {
+        use crate::generated::enums::ModelingValidityLayer as Layer;
+        use std::collections::BTreeMap;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let (member_token, source_token, actual_member, actual_source) =
+            (id(1), id(2), id(3), id(4));
+        for layer in [Layer::Closure, Layer::Form, Layer::Data] {
+            for independent in [false, true] {
+                let mut original = BoundaryDiagnostic::new(
+                    BoundaryClass::TrialRejected,
+                    DiagnosticStage::Evaluation,
+                    [member_token, source_token],
+                    DiagnosticRule::MathValidity,
+                );
+                original.validity = Some(ValidityLineage {
+                    layer,
+                    source: source_token,
+                    form: independent.then_some(source_token),
+                    sets: vec![],
+                    variables: vec![],
+                    members: vec![member_token],
+                });
+                original.causes = vec![original.clone()];
+                let projected = original.boundary_diagnostic_with_bindings(
+                    DiagnosticStage::Evaluation,
+                    &BTreeMap::from([(member_token, actual_member), (source_token, id(9))]),
+                    &BTreeMap::from([(source_token, actual_source), (member_token, id(8))]),
+                );
+                for envelope in [&projected, &projected.causes[0]] {
+                    let lineage = envelope.validity.as_ref().unwrap();
+                    if layer == Layer::Closure {
+                        assert_eq!(lineage.source, actual_source);
+                        assert_eq!(lineage.members, vec![actual_member]);
+                        assert!(envelope.sources.contains(&actual_source));
+                        assert_eq!(envelope.sources.contains(&source_token), independent);
+                    } else {
+                        assert_eq!(lineage.source, source_token);
+                        assert_eq!(lineage.members, vec![member_token]);
+                        assert!(!envelope.sources.contains(&actual_source));
+                    }
+                    assert_eq!(lineage.form, independent.then_some(source_token));
+                    assert!(!envelope.sources.contains(&id(8)));
+                    assert!(!envelope.sources.contains(&id(9)));
+                }
+                assert_eq!(original.validity.as_ref().unwrap().source, source_token);
+            }
         }
     }
 
@@ -825,5 +987,24 @@ impl DiagnosticProjection for DiagnosticCause {
         bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
     ) -> BoundaryDiagnostic {
         self.0.boundary_diagnostic_with_members(stage, bindings)
+    }
+    fn boundary_diagnostic_with_bindings(
+        &self,
+        stage: DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> BoundaryDiagnostic {
+        self.0
+            .boundary_diagnostic_with_bindings(stage, members, sources)
+    }
+    fn boundary_diagnostic_with_occurrences(
+        &self,
+        stage: DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        occurrences: &std::collections::BTreeMap<SemanticId, SourceLocation>,
+    ) -> BoundaryDiagnostic {
+        self.0
+            .boundary_diagnostic_with_occurrences(stage, members, sources, occurrences)
     }
 }

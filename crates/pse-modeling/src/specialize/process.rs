@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Independent process state, one connection occurrence and original-space inventory meaning.
 use super::rewrite::ResolvedPath;
+use super::rewrite::RewriteContext;
 use super::*;
+use crate::resolved::{NodeIx, Source, construction::Rewritten};
 
 /// A contractual slot and its semantic index values; binder spelling and vector position are absent.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,6 +29,8 @@ impl StateKey {
 /// One derived transported observation, independent of the coordinates binding a state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportObservation {
+    /// Sole executable transported observation.
+    pub root: NodeIx,
     /// Original physical expression.
     pub expression: Expr,
     /// Complete physical convention.
@@ -73,6 +77,12 @@ pub struct InventoryInitialCondition {
 /// Original conserved inventory, signed flux and allowed state-dependent event transfers.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InventoryBalance {
+    /// Sole executable original inventory.
+    pub inventory_root: NodeIx,
+    /// Sole executable original signed flux.
+    pub flux_root: NodeIx,
+    /// Exact executable pre-event transfers keyed by actual event.
+    pub transfer_roots: BTreeMap<SemanticId, NodeIx>,
     /// Stable conserved subject occurrence.
     pub id: SemanticId,
     /// Physical inventory expression identity.
@@ -240,7 +250,13 @@ impl Engine<'_, '_> {
                 else {
                     return Err(invalid(at, "finite domain required"));
                 };
-                self.finite_domain(&family, position, &row, self.finite_domain_type(at, &local, &role, position)?, &values)?;
+                self.finite_domain(
+                    &family,
+                    position,
+                    &row,
+                    self.finite_domain_type(at, &local, &role, position)?,
+                    &values,
+                )?;
                 if next
                     .len()
                     .checked_add(values.len())
@@ -281,16 +297,8 @@ impl Engine<'_, '_> {
             other => Ok(other),
         }
     }
-    fn process_type(&self, expression: &Expr, at: DeclarationId) -> Result<Type> {
-        let types = crate::TypeScope::new(&self.model.symbols);
-        crate::expression::infer(
-            expression,
-            &types,
-            &self.model.function_contracts(self.p),
-            self.c,
-            at,
-            None,
-        )
+    fn process_type(&self, root: NodeIx, _at: DeclarationId) -> Result<Type> {
+        self.constructed_type(root)
     }
     fn state_key(name: &str, coordinates: &[(String, Value)]) -> StateKey {
         StateKey {
@@ -343,7 +351,7 @@ impl Engine<'_, '_> {
             };
             for (position, coordinate) in value.coordinates.iter().enumerate() {
                 for indices in self.process_coordinates(
-            instance,
+                    instance,
                     at,
                     &local,
                     &format!("state_specification.coordinates.{position}"),
@@ -364,15 +372,27 @@ impl Engine<'_, '_> {
                     } else {
                         None
                     };
-                    let target = if let Some((owner, declaration, coordinates)) = parameter {
-                        symbol_expr(self.symbol(owner, declaration, &coordinates, &[at])?)
-                    } else {
-                        self.rewrite(instance, &original, &scope, &[at])?
-                    };
-                    let symbol = self.model.symbols.reference(&target).ok_or_else(|| {
+                    let target = self.with_original_expression(
+                        at,
+                        "state_specification.coordinates.target",
+                        position,
+                        &original,
+                        |engine| {
+                            if let Some((owner, declaration, coordinates)) = parameter {
+                                let id = engine.symbol(owner, declaration, &coordinates, &[at])?;
+                                engine.selected_scalar(
+                                    id,
+                                    engine.original_expression_source(&original, at)?,
+                                )
+                            } else {
+                                engine.rewrite(instance, &original, &scope, &[at])
+                            }
+                        },
+                    )?;
+                    let symbol = self.symbol_of_root(target.root).ok_or_else(|| {
                         invalid(
                             at,
-                            "independent state coordinate must alias a scalar member",
+                            "independent state coordinate must alias an actual scalar",
                         )
                     })?;
                     let key = Self::state_key(&coordinate.name, &indices);
@@ -383,7 +403,7 @@ impl Engine<'_, '_> {
             }
             for (position, reconstruction) in value.reconstructions.iter().enumerate() {
                 for indices in self.process_coordinates(
-            instance,
+                    instance,
                     at,
                     &local,
                     &format!("state_specification.reconstructions.{position}"),
@@ -400,16 +420,17 @@ impl Engine<'_, '_> {
                         }
                         _ => None,
                     };
-                    let equation = self.rewrite_equation(instance, &original, &scope, &[at])?;
-                    let EquationKind::Relation {
-                        lhs,
-                        sense: EquationSense::Eq,
-                        ..
-                    } = &equation.kind
-                    else {
+                    let equation = self.with_original_equation(
+                        at,
+                        "state_specification.reconstructions.equation",
+                        position,
+                        &original,
+                        |engine| engine.rewrite_equation(instance, &original, &scope, &[at]),
+                    )?;
+                    if equation.sense != EquationSense::Eq {
                         return Err(invalid(at, "state reconstruction must be an equality"));
-                    };
-                    let ty = self.process_type(lhs, at)?;
+                    }
+                    let ty = self.process_type(equation.lhs, at)?;
                     let requirement = self.closure_requirement(
                         at,
                         "state_specification.reconstructions.tolerance",
@@ -419,10 +440,14 @@ impl Engine<'_, '_> {
                         context,
                     )?;
                     let key = Self::state_key(&reconstruction.name, &indices);
+                    let row_id = key.id(id);
+                    self.model
+                        .equation_roots
+                        .insert(row_id, equation.relation());
                     specification.reconstructions.push((
                         Row {
-                            id: key.id(id),
-                            equation,
+                            id: row_id,
+                            equation: equation.inspection,
                             lineage: specification.lineage.clone(),
                         },
                         requirement,
@@ -431,7 +456,7 @@ impl Engine<'_, '_> {
             }
             for (position, transport) in value.transports.iter().enumerate() {
                 for indices in self.process_coordinates(
-            instance,
+                    instance,
                     at,
                     &local,
                     &format!("state_specification.transports.{position}"),
@@ -443,8 +468,14 @@ impl Engine<'_, '_> {
                         .expression_at(at, "state_specification.transports.expression", position)?
                         .clone();
                     let context = self.closure_context(instance, at, &original, &scope)?;
-                    let expression = self.rewrite(instance, &original, &scope, &[at])?;
-                    let ty = self.process_type(&expression, at)?;
+                    let expression = self.with_original_expression(
+                        at,
+                        "state_specification.transports.expression",
+                        position,
+                        &original,
+                        |engine| engine.rewrite(instance, &original, &scope, &[at]),
+                    )?;
+                    let ty = self.process_type(expression.root, at)?;
                     let requirement = self.closure_requirement(
                         at,
                         "state_specification.transports.tolerance",
@@ -459,7 +490,8 @@ impl Engine<'_, '_> {
                         .insert(
                             key,
                             TransportObservation {
-                                expression,
+                                root: expression.root,
+                                expression: expression.inspection,
                                 ty,
                                 requirement,
                             },
@@ -715,18 +747,22 @@ impl Engine<'_, '_> {
                         ));
                     }
                     let row_id = key.id(id);
-                    self.model.equations.push(Row {
-                        id: row_id,
-                        equation: Equation {
-                            kind: EquationKind::Relation {
-                                lhs: symbol_expr(sa),
-                                sense: EquationSense::Eq,
-                                rhs: symbol_expr(sb),
-                            },
-                            span: Span::default(),
+                    let source = Source {
+                        field: crate::expression::occurrences::OccurrenceKey {
+                            declaration: at,
+                            role: "derived.state_connection".into(),
+                            position: rows.len(),
                         },
-                        lineage: lineage.clone(),
-                    });
+                        span: Span::default(),
+                        coordinate: None,
+                    };
+                    let lhs = self.selected_scalar(sa, source.clone())?;
+                    let rhs = self.selected_scalar(sb, source.clone())?;
+                    self.retain_row(
+                        row_id,
+                        Self::generated_relation(lhs, EquationSense::Eq, rhs, source.span),
+                        lineage.clone(),
+                    )?;
                     bindings.push((*pa, pb));
                     rows.push(row_id);
                 }
@@ -755,10 +791,16 @@ impl Engine<'_, '_> {
                         closure,
                         transport.ty.clone(),
                         vec![source_requirement, target_requirement],
-                        transport.expression.clone(),
-                        other.expression.clone(),
+                        Rewritten {
+                            root: transport.root,
+                            inspection: transport.expression.clone(),
+                        },
+                        Rewritten {
+                            root: other.root,
+                            inspection: other.expression.clone(),
+                        },
                         lineage.clone(),
-                    );
+                    )?;
                 }
             } else {
                 if self.p.declarations[&da].value.kind != Kind::Port
@@ -769,27 +811,28 @@ impl Engine<'_, '_> {
                         "connection endpoints must name scalar or material ports of the same role",
                     ));
                 }
-                let lhs = self.rewrite(instance, &source, &local, &[at])?;
-                let rhs = self.rewrite(instance, &target, &local, &[at])?;
-                let sa = self.model.symbols.reference(&lhs)
-                    .ok_or_else(|| invalid(at, "connection scalar symbol"))?;
-                let sb = self.model.symbols.reference(&rhs)
-                    .ok_or_else(|| invalid(at, "connection scalar symbol"))?;
+                let lhs =
+                    self.with_original_expression(at, "connection.from", 0, &source, |engine| {
+                        engine.rewrite(instance, &source, &local, &[at])
+                    })?;
+                let rhs =
+                    self.with_original_expression(at, "connection.to", 0, &target, |engine| {
+                        engine.rewrite(instance, &target, &local, &[at])
+                    })?;
+                let sa = self
+                    .symbol_of_root(lhs.root)
+                    .ok_or_else(|| invalid(at, "connection requires an actual scalar"))?;
+                let sb = self
+                    .symbol_of_root(rhs.root)
+                    .ok_or_else(|| invalid(at, "connection requires an actual scalar"))?;
                 if self.model.symbols[&sa].ty != self.model.symbols[&sb].ty {
                     return Err(invalid(at, "connection physical types differ"));
                 }
-                self.model.equations.push(Row {
+                self.retain_row(
                     id,
-                    equation: Equation {
-                        kind: EquationKind::Relation {
-                            lhs,
-                            sense: EquationSense::Eq,
-                            rhs,
-                        },
-                        span: Span::default(),
-                    },
-                    lineage: lineage.clone(),
-                });
+                    Self::generated_relation(lhs, EquationSense::Eq, rhs, Span::default()),
+                    lineage.clone(),
+                )?;
                 bindings.push((from, to));
                 rows.push(id);
             }
@@ -812,10 +855,22 @@ impl Engine<'_, '_> {
         id: SemanticId,
         ty: Type,
         requirements: Vec<ClosureRequirement>,
-        lhs: Expr,
-        rhs: Expr,
+        lhs: Rewritten,
+        rhs: Rewritten,
         lineage: Lineage,
-    ) {
+    ) -> Result<()> {
+        let source = Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration: lineage.declaration,
+                role: "derived.observation_difference".into(),
+                position: 0,
+            },
+            span: Span::default(),
+            coordinate: None,
+        };
+        let expression = self.generated_binary(BinaryOp::Sub, lhs, rhs, source)?;
+        let term = pse_ids::named_id(id, "difference");
+        self.model.contribution_roots.insert(term, expression.root);
         self.model.closures.insert(
             id,
             Closure {
@@ -826,21 +881,15 @@ impl Engine<'_, '_> {
                 boundary: None,
                 requirements,
                 terms: vec![Contribution {
-                    id: pse_ids::named_id(id, "difference"),
+                    id: term,
                     role: Role::Positive,
-                    expression: Expr {
-                        kind: ExprKind::Binary {
-                            op: BinaryOp::Sub,
-                            lhs: Box::new(lhs),
-                            rhs: Box::new(rhs),
-                        },
-                        span: Span::default(),
-                    },
+                    expression: expression.inspection,
                     lineage: lineage.clone(),
                 }],
                 lineage,
             },
         );
+        Ok(())
     }
     pub(super) fn finish_process_states(&mut self) -> Result<()> {
         let receiving = self
@@ -874,7 +923,21 @@ impl Engine<'_, '_> {
                         "state reconstruction relation required",
                     ));
                 };
-                let ty = self.process_type(&lhs, row.lineage.declaration)?;
+                let relation = *self.model.equation_roots.get(&row.id).ok_or_else(|| {
+                    invalid(
+                        row.lineage.declaration,
+                        "state reconstruction lacks its actual relation roots",
+                    )
+                })?;
+                let ty = self.process_type(relation.lhs, row.lineage.declaration)?;
+                let lhs = Rewritten {
+                    root: relation.lhs,
+                    inspection: lhs,
+                };
+                let rhs = Rewritten {
+                    root: relation.rhs,
+                    inspection: rhs,
+                };
                 self.observation_closure(
                     pse_ids::named_id(row.id, "consistency"),
                     ty,
@@ -882,7 +945,7 @@ impl Engine<'_, '_> {
                     lhs,
                     rhs,
                     row.lineage,
-                );
+                )?;
             }
         }
         Ok(())
@@ -940,7 +1003,8 @@ impl Engine<'_, '_> {
         let (mesh, _) = self
             .coordinate_mesh(&coordinate)
             .map_err(|error| invalid(at, error.to_string()))?;
-        let integrated = self.model.integrated.contains_key(&mesh.id);
+        let mesh_id = mesh.id;
+        let integrated = self.model.integrated.contains_key(&mesh_id);
         let first = mesh
             .points
             .first()
@@ -973,9 +1037,21 @@ impl Engine<'_, '_> {
             let id = member_id(instance, at, &subject_coordinates);
             let inventory_id = pse_ids::named_id(id, "inventory-observation");
             let flux_id = pse_ids::named_id(id, "original-flux-integral");
-            let inventory = self.rewrite(instance, &inventory_source, &local, &[at])?;
-            let flux = self.rewrite(instance, &flux_source, &local, &[at])?;
-            let ty = self.process_type(&inventory, at)?;
+            let inventory = self.with_original_expression(
+                at,
+                "inventory_balance.inventory",
+                0,
+                &inventory_source,
+                |engine| engine.rewrite(instance, &inventory_source, &local, &[at]),
+            )?;
+            let flux = self.with_original_expression(
+                at,
+                "inventory_balance.flux",
+                0,
+                &flux_source,
+                |engine| engine.rewrite(instance, &flux_source, &local, &[at]),
+            )?;
+            let ty = self.process_type(inventory.root, at)?;
             let context = self.closure_context(instance, at, &inventory_source, &local)?;
             let requirement = self.closure_requirement(
                 at,
@@ -987,6 +1063,7 @@ impl Engine<'_, '_> {
             )?;
             let lineage = self.lineage(instance, row, &[at]);
             let mut transfers = BTreeMap::new();
+            let mut transfer_roots = BTreeMap::new();
             for (position, _) in value.transfers.iter().enumerate() {
                 let ExprKind::Path(event) = &self
                     .p
@@ -1001,85 +1078,82 @@ impl Engine<'_, '_> {
                 let (owner, member, coordinates) =
                     self.resolve_path(instance, at, event, &local, false)?;
                 let event = self.symbol(owner, member, &coordinates, &[at])?;
-                let expression = self.rewrite(
+                let expression = self.rewrite_field(
                     instance,
-                    &self
-                        .p
-                        .expression_at(at, "inventory_balance.transfers.expression", position)?
-                        .clone(),
+                    at,
+                    "inventory_balance.transfers.expression",
+                    position,
                     &local,
                     &[at],
                 )?;
-                if self.process_type(&expression, at)? != self.tolerance_type(&ty, at)? {
+                if self.process_type(expression.root, at)? != self.tolerance_type(&ty, at)? {
                     return Err(invalid(at, "event transfer inventory convention differs"));
                 }
-                if transfers.insert(event, expression).is_some() {
+                transfer_roots.insert(event, expression.root);
+                if transfers.insert(event, expression.inspection).is_some() {
                     return Err(invalid(at, "duplicate permitted event transfer"));
                 }
             }
-            let derivative_source = Expr {
-                kind: ExprKind::Derivative {
-                    body: Box::new(inventory_source.clone()),
-                    wrt: Path {
-                        segments: vec![PathSegment {
-                            name: binder.clone(),
-                            indices: vec![],
-                        }],
-                    },
-                },
-                span: Span::default(),
-            };
-            let source_equation = Equation {
-                kind: EquationKind::Relation {
-                    lhs: derivative_source,
-                    sense: EquationSense::Eq,
-                    rhs: flux_source.clone(),
-                },
-                span: Span::default(),
-            };
-            let expanded_inventory =
-                self.inline_evidence_members(&inventory, &mut BTreeSet::new(), 0)?;
-            // An independently authored differential system may expose a composite conserved
-            // observation. Never add a dependent stock/rate system on top of that system.
+            let reads = self
+                .construction
+                .reads(&self.model.symbols, inventory.root)?;
             let existing_dynamics = integrated
-                && expanded_inventory.free_paths().iter().any(|path| {
-                    let name = dsl::render_path(path);
-                    self.model
-                        .derivatives
-                        .keys()
-                        .any(|id| name == symbol_name(*id))
-                });
+                && reads
+                    .numeric
+                    .iter()
+                    .any(|id| self.model.derivatives.contains_key(id));
+            let derivative_defined = {
+                let (mesh, index) = self.coordinate_mesh(
+                    local
+                        .get(&binder)
+                        .ok_or_else(|| invalid(at, "inventory coordinate is unbound"))?,
+                )?;
+                integrated || !mesh.derivative[index].is_empty()
+            };
+            let origin = Source {
+                field: crate::expression::occurrences::OccurrenceKey {
+                    declaration: at,
+                    role: "derived.inventory_balance".into(),
+                    position: 0,
+                },
+                span: Span::default(),
+                coordinate: None,
+            };
             let mut differential_state = None;
-            if !existing_dynamics && self.equation_defined(&source_equation, &local)? {
+            if !existing_dynamics && derivative_defined {
                 let body = if integrated
-                    && self.model.symbols.reference(&inventory)
+                    && self
+                        .symbol_of_root(inventory.root)
                         .is_none_or(|symbol| self.model.symbols[&symbol].role != Kind::Variable)
                 {
                     let state = pse_ids::named_id(id, "inventory-state");
                     if !self.model.symbols.contains_key(&state) {
-                        let mut initial = expanded_inventory.clone();
-                        let substitutions = &self.inventory_initial_sources;
+                        let mut replacements = BTreeMap::new();
+                        let mut starts = Vec::new();
                         let mut replaced = BTreeSet::new();
-                        let mut coordinate_starts = BTreeMap::new();
-                        initial.try_walk_mut(|node| -> Result<()> {
-                            let Some(symbol)=self.model.symbols.reference(node) else{return Ok(());};
-                            if self.model.symbols.get(&symbol).is_some_and(|s|s.role==Kind::Variable) {
-                                let (source,value,source_lineage)=substitutions.get(&symbol).ok_or_else(||invalid(at,"composite inventory requires explicit initial conditions for its coordinates"))?;
-                                coordinate_starts.insert(symbol, (*source, value.clone(), source_lineage.clone()));
-                                replaced.insert(*source); *node=value.clone();
+                        for coordinate in &reads.numeric {
+                            if self
+                                .model
+                                .symbols
+                                .get(coordinate)
+                                .is_some_and(|symbol| symbol.role == Kind::Variable)
+                            {
+                                let (row,root,inspection,lineage)=self.inventory_initial_sources.get(coordinate).cloned().ok_or_else(||invalid(at,"composite inventory requires explicit initial conditions for its coordinates"))?;
+                                replacements.insert(*coordinate, root);
+                                replaced.insert(row);
+                                starts.push((*coordinate, row, root, inspection, lineage));
                             }
-                            Ok(())
-                        })?;
-                        for (target, (source, expression, source_lineage)) in coordinate_starts {
+                        }
+                        let initial_root =
+                            self.substitute_root(inventory.root, &replacements, at)?;
+                        for (target, row, root, inspection, lineage) in starts {
                             self.model.inventory_initial_conditions.insert(
                                 target,
                                 InventoryInitialCondition {
-                                    row: source,
-                                    lineage: source_lineage.clone(),
+                                    row,
+                                    lineage: lineage.clone(),
                                 },
                             );
-                            // Before lowering, the authored initial row took precedence over
-                            // a start guess. Preserve that meaning and its original attribution.
                             self.model.annotations.retain(|annotation| {
                                 !(annotation.target == target
                                     && matches!(
@@ -1089,35 +1163,11 @@ impl Engine<'_, '_> {
                             });
                             self.model.annotations.push(crate::annotation::Annotation {
                                 target,
-                                value: crate::annotation::AnnotationValue::Start(expression),
-                                lineage: source_lineage,
+                                value: crate::annotation::AnnotationValue::Start(inspection),
+                                roots: crate::annotation::AnnotationRoots::Scalar { value: root },
+                                lineage,
                             });
                         }
-                        self.model.annotations.push(crate::annotation::Annotation {
-                            target: state,
-                            value: crate::annotation::AnnotationValue::Start(initial.clone()),
-                            lineage: lineage.clone(),
-                        });
-                        let initial_row = pse_ids::named_id(id, "inventory-initial");
-                        self.model
-                            .equations
-                            .retain(|row| !replaced.contains(&row.id));
-                        self.model
-                            .initial_equations
-                            .retain(|row| !replaced.contains(row));
-                        self.model.initial_equations.insert(initial_row);
-                        self.model.equations.push(Row {
-                            id: initial_row,
-                            equation: Equation {
-                                kind: EquationKind::Relation {
-                                    lhs: symbol_expr(state),
-                                    sense: EquationSense::Eq,
-                                    rhs: initial,
-                                },
-                                span: Span::default(),
-                            },
-                            lineage: lineage.clone(),
-                        });
                         self.model.symbols.insert(
                             state,
                             Symbol {
@@ -1131,72 +1181,142 @@ impl Engine<'_, '_> {
                                 lineage: lineage.clone(),
                             },
                         );
-                        self.model.equations.push(Row {
-                            id: pse_ids::named_id(id, "inventory-definition"),
-                            equation: Equation {
-                                kind: EquationKind::Relation {
-                                    lhs: symbol_expr(state),
-                                    sense: EquationSense::Eq,
-                                    rhs: inventory.clone(),
-                                },
-                                span: Span::default(),
+                        self.model.annotations.push(crate::annotation::Annotation {
+                            target: state,
+                            value: crate::annotation::AnnotationValue::Start(
+                                inventory.inspection.clone(),
+                            ),
+                            roots: crate::annotation::AnnotationRoots::Scalar {
+                                value: initial_root,
                             },
                             lineage: lineage.clone(),
                         });
+                        let initial_row = pse_ids::named_id(id, "inventory-initial");
+                        self.model
+                            .equations
+                            .retain(|row| !replaced.contains(&row.id));
+                        self.model
+                            .initial_equations
+                            .retain(|row| !replaced.contains(row));
+                        self.model.initial_equations.insert(initial_row);
+                        let state_value = self.selected_scalar(state, origin.clone())?;
+                        let initial = Rewritten {
+                            root: initial_root,
+                            inspection: inventory.inspection.clone(),
+                        };
+                        self.retain_row(
+                            initial_row,
+                            Self::generated_relation(
+                                state_value.clone(),
+                                EquationSense::Eq,
+                                initial,
+                                origin.span,
+                            ),
+                            lineage.clone(),
+                        )?;
+                        let definition = pse_ids::named_id(id, "inventory-definition");
+                        self.retain_row(
+                            definition,
+                            Self::generated_relation(
+                                state_value,
+                                EquationSense::Eq,
+                                inventory.clone(),
+                                origin.span,
+                            ),
+                            lineage.clone(),
+                        )?;
                     }
-                    symbol_expr(state)
+                    self.selected_scalar(state, origin.clone())?
                 } else {
-                    inventory_source.clone()
+                    inventory.clone()
                 };
-                let derivative = self.derivative(
-                    instance,
-                    &body,
-                    &Path {
-                        segments: vec![PathSegment {
-                            name: binder.clone(),
-                            indices: vec![],
-                        }],
-                    },
-                    &local,
-                    &[at],
-                    Some(&self.process_type(&flux, at)?),
-                )?;
+                let flux_type = self.process_type(flux.root, at)?;
+                let derivative = if integrated {
+                    let axis = self
+                        .model
+                        .integrated
+                        .get(&mesh_id)
+                        .cloned()
+                        .ok_or_else(|| invalid(at, "integrated inventory has no actual axis"))?;
+                    self.integrated_derivative_of(
+                        instance,
+                        &body,
+                        &axis,
+                        Some(&flux_type),
+                        (at, origin.clone()),
+                        &[at],
+                    )?
+                } else {
+                    self.with_original_expression(
+                        at,
+                        "inventory_balance.inventory",
+                        0,
+                        &inventory_source,
+                        |engine| {
+                            engine.derivative(
+                                RewriteContext {
+                                    instance,
+                                    env: &local,
+                                    chain: &[at],
+                                },
+                                &inventory_source,
+                                &Path::single(binder.clone()),
+                                Some(&flux_type),
+                                origin.clone(),
+                            )
+                        },
+                    )?
+                };
                 if integrated {
+                    let rate = self.symbol_of_root(derivative.root).ok_or_else(|| {
+                        invalid(at, "inventory derivative has no actual rate scalar")
+                    })?;
                     differential_state = self
                         .model
                         .derivatives
                         .values()
-                        .find(|d| symbol_expr(d.rate) == derivative)
-                        .map(|d| d.state);
+                        .find(|value| value.rate == rate)
+                        .map(|value| value.state);
                 }
-                self.model.equations.push(Row {
-                    id: pse_ids::named_id(member_id(instance, at, &coordinates), "inventory-rate"),
-                    equation: Equation {
-                        kind: EquationKind::Relation {
-                            lhs: derivative,
-                            sense: EquationSense::Eq,
-                            rhs: flux.clone(),
-                        },
-                        span: Span::default(),
-                    },
-                    lineage: lineage.clone(),
-                });
+                self.retain_row(
+                    pse_ids::named_id(member_id(instance, at, &coordinates), "inventory-rate"),
+                    Self::generated_relation(
+                        derivative,
+                        EquationSense::Eq,
+                        flux.clone(),
+                        origin.span,
+                    ),
+                    lineage.clone(),
+                )?;
             }
             if integrated || local.get(&binder) == Some(&last) {
-                let integral = self.integral(
-                    instance,
-                    &dsl::Binder {
-                        var: binder.clone(),
-                        domain: domain.clone(),
-                        filter: None,
-                    },
+                let tolerance_type = self.tolerance_type(&ty, at)?;
+                let integral = self.with_original_expression(
+                    at,
+                    "inventory_balance.flux",
+                    0,
                     &flux_source,
-                    &local,
-                    &[at],
-                    Some(&self.tolerance_type(&ty, at)?),
+                    |engine| {
+                        engine.integral(
+                            RewriteContext {
+                                instance,
+                                env: &local,
+                                chain: &[at],
+                            },
+                            &dsl::Binder {
+                                var: binder.clone(),
+                                domain: domain.clone(),
+                                filter: None,
+                            },
+                            &flux_source,
+                            Some(&tolerance_type),
+                            origin.clone(),
+                        )
+                    },
                 )?;
                 if integrated {
-                    let old = self.model.symbols.reference(&integral)
+                    let old = self
+                        .symbol_of_root(integral.root)
                         .ok_or_else(|| invalid(at, "original flux integral missing"))?;
                     if old != flux_id {
                         let mut declared = self
@@ -1206,7 +1326,10 @@ impl Engine<'_, '_> {
                             .ok_or_else(|| invalid(at, "flux quadrature missing"))?;
                         declared.result = flux_id;
                         self.model.integrals.insert(flux_id, declared);
-                        let slot = self.model.symbols.slot(old)
+                        let slot = self
+                            .model
+                            .symbols
+                            .slot(old)
                             .ok_or_else(|| invalid(at, "flux integral symbol missing"))?;
                         self.model.symbols.rebind(slot, flux_id)?;
                         self.finite_collector.remap(old, flux_id);
@@ -1215,23 +1338,27 @@ impl Engine<'_, '_> {
                     let mut baseline = local.clone();
                     baseline.insert(binder.clone(), first.clone());
                     let replica = self.replica(instance, local[&binder].identity());
-                    let initial = self.shifted(
-                        instance,
+                    let initial = self.with_original_expression(
+                        at,
+                        "inventory_balance.inventory",
+                        0,
                         &inventory_source,
-                        &baseline,
-                        &binder,
-                        &first,
-                        replica.as_ref(),
-                        &[at],
-                    )?;
-                    let rhs = Expr {
-                        kind: ExprKind::Binary {
-                            op: BinaryOp::Add,
-                            lhs: Box::new(initial),
-                            rhs: Box::new(integral),
+                        |engine| {
+                            engine.shifted(
+                                RewriteContext {
+                                    instance,
+                                    env: &baseline,
+                                    chain: &[at],
+                                },
+                                &inventory_source,
+                                &binder,
+                                &first,
+                                replica.as_ref(),
+                            )
                         },
-                        span: Span::default(),
-                    };
+                    )?;
+                    let rhs =
+                        self.generated_binary(BinaryOp::Add, initial, integral, origin.clone())?;
                     self.observation_closure(
                         pse_ids::named_id(id, "temporal-closure"),
                         ty.clone(),
@@ -1239,7 +1366,7 @@ impl Engine<'_, '_> {
                         inventory.clone(),
                         rhs,
                         lineage.clone(),
-                    );
+                    )?;
                 }
                 self.model.inventory_balances.insert(
                     id,
@@ -1248,8 +1375,11 @@ impl Engine<'_, '_> {
                         inventory_id,
                         flux_id,
                         state: differential_state,
-                        inventory,
-                        flux,
+                        inventory_root: inventory.root,
+                        inventory: inventory.inspection,
+                        flux_root: flux.root,
+                        flux: flux.inspection,
+                        transfer_roots,
                         ty,
                         requirement,
                         transfers,

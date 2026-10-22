@@ -838,7 +838,10 @@ mod tests {
         let execution = package
             .admit_declared_request(
                 root,
-                &crate::workflow::PreparationSettings { compiler, limits: Limits::default() },
+                &crate::workflow::PreparationSettings {
+                    compiler,
+                    limits: Limits::default(),
+                },
                 Default::default(),
                 &cancel,
             )

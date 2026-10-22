@@ -7,10 +7,13 @@ use crate::{
     inspection::errors,
 };
 use pse_diagnostics::observation::{OperationId, OperationReader, OperationSnapshot};
-use pse_runtime::{observation::{CheckpointIdentity, Diagnostics, ProcessCheckpoint}};
-use pse_runtime::tooling::{capture::{self, CaptureDocument, CaptureSession}, inspection::{
+use pse_runtime::observation::{CheckpointIdentity, Diagnostics, ProcessCheckpoint};
+use pse_runtime::tooling::{
+    capture::{self, CaptureDocument, CaptureSession},
+    inspection::{
         self, DiagnosticListRequest, DiagnosticProcessPage, InspectionDocument, InspectionRequest,
-    }};
+    },
+};
 use pyo3::prelude::*;
 use std::{
     path::PathBuf,
@@ -27,7 +30,11 @@ pub(crate) fn diagnostic_record_launch(
     let cancelled = AtomicBool::new(false);
     let result = crate::workflow::blocking_native_call(
         py,
-        || Ok(pse_runtime::tooling::review_launch::record_launch(request.0, &cancelled)),
+        || {
+            Ok(pse_runtime::tooling::review_launch::record_launch(
+                request.0, &cancelled,
+            ))
+        },
         || cancelled.store(true, Ordering::Release),
     )?;
     result.map(DocumentValue).map_err(|error| match error {
@@ -117,8 +124,11 @@ impl NativeDiagnostics {
             || self.inner.hub().start("selected.detail"),
             |parent| parent.child("selected.detail", pse_diagnostics::Relationship::Nested),
         );
-        let session = pse_runtime::observation_detail::start_detailed_collection(operation.context(), request.0)
-            .map_err(|error| errors::diagnostic(py, &error))?;
+        let session = pse_runtime::observation_detail::start_detailed_collection(
+            operation.context(),
+            request.0,
+        )
+        .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(NativeDetailSession {
             session: Some(SelectedDetailSession::Local(session)),
             source_acknowledgement: None,
@@ -152,13 +162,23 @@ impl SelectedDetailSession {
             Self::Source(s) => s.request_stop(),
         }
     }
-    fn finish(self) -> Result<pse_runtime::observation_detail::DetailDocument, pse_runtime::observation_detail::CaptureError> {
+    fn finish(
+        self,
+    ) -> Result<
+        pse_runtime::observation_detail::DetailDocument,
+        pse_runtime::observation_detail::CaptureError,
+    > {
         match self {
             Self::Local(s) => s.finish(),
             Self::Source(s) => s.finish(),
         }
     }
-    fn stop(self) -> Result<pse_runtime::observation_detail::DetailDocument, pse_runtime::observation_detail::CaptureError> {
+    fn stop(
+        self,
+    ) -> Result<
+        pse_runtime::observation_detail::DetailDocument,
+        pse_runtime::observation_detail::CaptureError,
+    > {
         match self {
             Self::Local(s) => s.stop(),
             Self::Source(s) => s.stop(),
@@ -263,10 +283,16 @@ impl NativeDetailSession {
             session.request_stop();
         }
     }
-    fn finish(&mut self, py: Python<'_>) -> PyResult<DocumentValue<pse_runtime::observation_detail::DetailDocument>> {
+    fn finish(
+        &mut self,
+        py: Python<'_>,
+    ) -> PyResult<DocumentValue<pse_runtime::observation_detail::DetailDocument>> {
         self.join(py, true)
     }
-    fn stop(&mut self, py: Python<'_>) -> PyResult<DocumentValue<pse_runtime::observation_detail::DetailDocument>> {
+    fn stop(
+        &mut self,
+        py: Python<'_>,
+    ) -> PyResult<DocumentValue<pse_runtime::observation_detail::DetailDocument>> {
         self.join(py, false)
     }
 }
@@ -324,9 +350,11 @@ pub(crate) fn diagnostic_detail_records(
     limit: usize,
     maximum_bytes: u64,
 ) -> PyResult<DocumentValue<pse_runtime::observation_detail::DetailRecordPage>> {
-    py.detach(|| pse_runtime::observation_detail::read_detail_records(&path, offset, limit, maximum_bytes))
-        .map(DocumentValue)
-        .map_err(|error| errors::diagnostic(py, &error))
+    py.detach(|| {
+        pse_runtime::observation_detail::read_detail_records(&path, offset, limit, maximum_bytes)
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
 }
 
 /// Finite Arrow projection of retained source records; buffers retain their own admission.
@@ -341,7 +369,12 @@ pub(crate) fn diagnostic_detail_arrow(
     memory_bytes: usize,
 ) -> PyResult<pyo3_arrow::PyRecordBatch> {
     py.detach(|| {
-        let page = pse_runtime::observation_detail::read_detail_records(&path, offset, limit, maximum_bytes)?;
+        let page = pse_runtime::observation_detail::read_detail_records(
+            &path,
+            offset,
+            limit,
+            maximum_bytes,
+        )?;
         let pool: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
         capture::evidence::detail_arrow(&page, &pool, &pse_columnar::CancellationToken::new())
@@ -677,7 +710,9 @@ pub(crate) fn diagnostic_launch_capture(
 #[pyfunction]
 pub(crate) fn diagnostic_inspect_frozen(
     py: Python<'_>,
-    evidence: crate::documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
+    evidence: crate::documents::RecordedInput<
+        pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet,
+    >,
     request: crate::documents::RecordedInput<
         pse_runtime::tooling::frozen_inspection::FrozenInspectionRequest,
     >,
@@ -765,7 +800,9 @@ pub(crate) fn diagnostic_inventory_page(
 #[pyo3(signature=(evidence,request,scope="supplied.operations"))]
 pub(crate) fn diagnostic_inventory_from_evidence(
     py: Python<'_>,
-    evidence: crate::documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
+    evidence: crate::documents::RecordedInput<
+        pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet,
+    >,
     request: DocumentInput<pse_runtime::workflow::ReviewInventoryRequest>,
     scope: &str,
 ) -> PyResult<DocumentValue<pse_runtime::workflow::ReviewInventorySelection>> {
@@ -778,8 +815,12 @@ pub(crate) fn diagnostic_inventory_from_evidence(
 #[pyo3(signature=(evidence,request,*,memory_bytes=64<<20))]
 pub(crate) fn diagnostic_analyze(
     py: Python<'_>,
-    evidence: crate::documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
-    request: crate::documents::RecordedInput<pse_runtime::tooling::review_analysis::AnalysisRequest>,
+    evidence: crate::documents::RecordedInput<
+        pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet,
+    >,
+    request: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_analysis::AnalysisRequest,
+    >,
     memory_bytes: usize,
 ) -> PyResult<DocumentValue<pse_runtime::tooling::review_analysis::Analysis>> {
     if memory_bytes == 0 {
@@ -794,12 +835,11 @@ pub(crate) fn diagnostic_analyze(
     crate::workflow::blocking_native_call(
         py,
         || {
-            pse_runtime::tooling::review_analysis::analyze(&evidence.0, &request.0, &pool, &cancel).map_err(
-                |error| pse_engine::EngineError::Infrastructure {
+            pse_runtime::tooling::review_analysis::analyze(&evidence.0, &request.0, &pool, &cancel)
+                .map_err(|error| pse_engine::EngineError::Infrastructure {
                     op: "analyze supplied review facts".into(),
                     source: Box::new(error),
-                },
-            )
+                })
         },
         || cancel.cancel(),
     )
@@ -808,7 +848,9 @@ pub(crate) fn diagnostic_analyze(
 #[pyfunction]
 pub(crate) fn diagnostic_query_specification(
     py: Python<'_>,
-    request: crate::documents::RecordedInput<pse_runtime::tooling::review_query::ReviewQueryRequest>,
+    request: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_query::ReviewQueryRequest,
+    >,
 ) -> PyResult<DocumentValue<pse_runtime::tooling::review_query::ReviewQuerySpecification>> {
     pse_runtime::tooling::review_query::specification(&request.0)
         .map(DocumentValue)
@@ -818,9 +860,15 @@ pub(crate) fn diagnostic_query_specification(
 pub(crate) fn diagnostic_export_pack(
     py: Python<'_>,
     destination: PathBuf,
-    evidence: crate::documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
-    analysis: crate::documents::RecordedInput<pse_runtime::tooling::review_analysis::AnalysisDocument>,
-    selection: crate::documents::RecordedInput<pse_runtime::tooling::review_pack::PackExportRequest>,
+    evidence: crate::documents::RecordedInput<
+        pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet,
+    >,
+    analysis: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_analysis::AnalysisDocument,
+    >,
+    selection: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_pack::PackExportRequest,
+    >,
 ) -> PyResult<DocumentValue<pse_runtime::tooling::review_pack::PackIndex>> {
     let cancel = pse_columnar::CancellationToken::new();
     crate::workflow::blocking_native_call(
@@ -891,7 +939,9 @@ pub(crate) fn diagnostic_pack_analysis(
 #[pyfunction]
 pub(crate) fn diagnostic_render_analysis(
     py: Python<'_>,
-    analysis: crate::documents::RecordedInput<pse_runtime::tooling::review_analysis::AnalysisDocument>,
+    analysis: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_analysis::AnalysisDocument,
+    >,
 ) -> String {
     py.detach(|| pse_runtime::tooling::review_analysis::render_markdown(&analysis.0))
 }
@@ -901,19 +951,22 @@ pub(crate) fn diagnostic_render_analysis(
 #[pyo3(signature=(evidence,request) -> "object")]
 pub(crate) fn diagnostic_review_arrow(
     py: Python<'_>,
-    evidence: crate::documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
-    request: crate::documents::RecordedInput<pse_runtime::tooling::review_query::ReviewTableRequest>,
+    evidence: crate::documents::RecordedInput<
+        pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet,
+    >,
+    request: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_query::ReviewTableRequest,
+    >,
 ) -> PyResult<pyo3_arrow::PyRecordBatch> {
     let cancel = pse_columnar::CancellationToken::new();
     crate::workflow::blocking_native_call(
         py,
         || {
-            pse_runtime::tooling::review_query::table_arrow(&evidence.0, &request.0, &cancel).map_err(
-                |error| pse_engine::EngineError::Infrastructure {
+            pse_runtime::tooling::review_query::table_arrow(&evidence.0, &request.0, &cancel)
+                .map_err(|error| pse_engine::EngineError::Infrastructure {
                     op: "project selected review table".into(),
                     source: Box::new(error),
-                },
-            )
+                })
         },
         || cancel.cancel(),
     )

@@ -46,8 +46,10 @@ impl BackendExecution for Ipopt {
         &CAPABILITY
     }
     fn arclength_corrector(&self, settings: &BackendSettings, controls: &Controls) -> bool {
-        matches!(settings, BackendSettings::Default | BackendSettings::Ipopt(_))
-            && controls.hessian == crate::solve::HessianMode::LimitedMemory
+        matches!(
+            settings,
+            BackendSettings::Default | BackendSettings::Ipopt(_)
+        ) && controls.hessian == crate::solve::HessianMode::LimitedMemory
     }
     fn representation(&self) -> Representation {
         Representation::Nlp

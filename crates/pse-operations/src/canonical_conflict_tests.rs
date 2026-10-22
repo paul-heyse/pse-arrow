@@ -559,13 +559,18 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
                 .unwrap();
             // Withdraw only the root so the held native transactions below,
             // rather than foreground cleanup, determine the collector's commit.
-            bounded_query(store.db.query(DROP_ROOT)
-                .bind(("problem", old.problem.clone()))
-                .bind(("revision", old.key.clone()))
-                .bind(("root", format!("history:{}", old.key)))
-                .bind(("owner_kind", "history"))
-                .bind(("owner", old.key.clone())))
-                .await.unwrap();
+            bounded_query(
+                store
+                    .db
+                    .query(DROP_ROOT)
+                    .bind(("problem", old.problem.clone()))
+                    .bind(("revision", old.key.clone()))
+                    .bind(("root", format!("history:{}", old.key)))
+                    .bind(("owner_kind", "history"))
+                    .bind(("owner", old.key.clone())),
+            )
+            .await
+            .unwrap();
             let creator = held(&options).await;
             let (key, _) = grant(&store, &old, 30_000_000).await;
             if pin {

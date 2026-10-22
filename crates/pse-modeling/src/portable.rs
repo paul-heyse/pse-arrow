@@ -9,7 +9,7 @@ use pse_quantity::resolved::receipts::SchemeRecord;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum ValueWire {
+pub(crate) enum ValueWire {
     Boolean(bool),
     Integer(i64),
     Number {
@@ -199,7 +199,7 @@ impl ValueWire {
     }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum BoundaryWire {
+pub(crate) enum BoundaryWire {
     Declared(DeclarationId),
     Bound {
         instance: crate::InstanceId,
@@ -208,7 +208,7 @@ enum BoundaryWire {
     },
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum RefinementWire {
+pub(crate) enum RefinementWire {
     Coordinate {
         map: DeclarationId,
         slot: DeclarationId,
@@ -223,7 +223,7 @@ enum RefinementWire {
     },
 }
 impl RefinementWire {
-    fn capture(v: &crate::PhysicalRefinement) -> Self {
+    pub(crate) fn capture(v: &crate::PhysicalRefinement) -> Self {
         use crate::PhysicalRefinement as R;
         match v {
             R::Coordinate { map, slot } => Self::Coordinate {
@@ -257,7 +257,7 @@ impl RefinementWire {
             },
         }
     }
-    fn restore(&self, at: DeclarationId) -> Result<crate::PhysicalRefinement> {
+    pub(crate) fn restore(&self, at: DeclarationId) -> Result<crate::PhysicalRefinement> {
         use crate::PhysicalRefinement as R;
         Ok(match self {
             Self::Coordinate { map, slot } => R::Coordinate {
@@ -295,7 +295,7 @@ impl RefinementWire {
             },
         })
     }
-    fn retained_bytes(&self) -> usize {
+    pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + match self {
                 Self::Transfer {
@@ -733,7 +733,7 @@ enum RegionWire {
     Union(Vec<NodeWire>),
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct NodeWire {
+pub(crate) struct NodeWire {
     claim: pse_model::applicability::Claim,
     region: RegionWire,
     dependencies: Vec<NodeWire>,
@@ -741,7 +741,7 @@ struct NodeWire {
     permissions: Vec<pse_model::applicability::Permission>,
 }
 impl NodeWire {
-    fn retained_bytes(&self) -> usize {
+    pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + (self.claim.owner_lineage.capacity()
                 + self.claim.records.capacity()
@@ -775,7 +775,7 @@ impl NodeWire {
                 })
                 .sum::<usize>()
     }
-    fn capture(v: &pse_model::applicability::Node) -> Self {
+    pub(crate) fn capture(v: &pse_model::applicability::Node) -> Self {
         use pse_model::applicability::Region as R;
         Self {
             claim: v.claim.clone(),
@@ -790,7 +790,7 @@ impl NodeWire {
             permissions: v.permissions.clone(),
         }
     }
-    fn restore(&self) -> pse_model::applicability::Node {
+    pub(crate) fn restore(&self) -> pse_model::applicability::Node {
         use pse_model::applicability::Region as R;
         pse_model::applicability::Node {
             claim: self.claim.clone(),
@@ -813,7 +813,7 @@ struct UseWire {
     inputs: Vec<Expr>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct ReadsWire {
+pub(crate) struct ReadsWire {
     sets: Vec<SemanticId>,
     variables: Vec<u32>,
 }
@@ -826,7 +826,7 @@ impl From<&crate::envelope::Reads> for ReadsWire {
     }
 }
 impl ReadsWire {
-    fn restore(&self) -> crate::envelope::Reads {
+    pub(crate) fn restore(&self) -> crate::envelope::Reads {
         crate::envelope::Reads {
             sets: self.sets.clone(),
             variables: self.variables.clone(),
@@ -1219,5 +1219,54 @@ impl FunctionRecord {
             ));
         }
         Ok(function)
+    }
+}
+
+/// Opaque complete static value in a caller-qualified immutable scientific recipe.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValueRecord {
+    value: ValueWire,
+}
+impl ValueRecord {
+    /// Capture the actual selected typed value; no text representation is used.
+    pub fn capture(value: &crate::specialize::Value) -> Self {
+        Self {
+            value: ValueWire::capture(value),
+        }
+    }
+    /// Require exact qualified record membership before reconstructing the typed value.
+    pub fn restore(&self, at: DeclarationId) -> Result<crate::specialize::Value> {
+        pse_quantity::resolved::receipts::require_record(self)
+            .map_err(|error| invalid(at, error.to_string()))?;
+        self.value.restore(at)
+    }
+    /// Known retained wire extent.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(self.value.retained_bytes())
+    }
+}
+/// Opaque full nominal type, including refinements and every indexed/static role.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TypeRecord {
+    value: TypeWire,
+}
+impl TypeRecord {
+    /// Capture an actual producer-owned complete type.
+    pub fn capture(value: &Type) -> Self {
+        Self {
+            value: TypeWire::capture(value),
+        }
+    }
+    /// Require the qualified record before nested quantity-owner contract restoration.
+    pub fn restore(&self, at: DeclarationId) -> Result<Type> {
+        pse_quantity::resolved::receipts::require_record(self)
+            .map_err(|error| invalid(at, error.to_string()))?;
+        self.value.restore(at)
+    }
+    /// Known retained wire extent.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(self.value.retained_bytes())
     }
 }

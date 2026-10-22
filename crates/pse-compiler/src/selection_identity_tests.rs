@@ -7,7 +7,6 @@
 )]
 use crate::workspace::{CompilerWorkspace, WorkspaceLimits};
 use pse_authoring::dsl::ExprKind;
-use pse_ids::SemanticId;
 use pse_modeling::{
     Bindings, DeclarationId, Limits, PhysicalScope,
     specialize::{SpecializedModel, Value, root_instance},
@@ -51,22 +50,30 @@ fn specialized(fixture: &str, root_name: &str, demand: &[&str]) -> Arc<Specializ
         .unwrap()
 }
 
-fn call_id(model: &SpecializedModel, suffix: &str) -> SemanticId {
-    let expression = model
+fn selected_syntax(
+    model: &SpecializedModel,
+    suffix: &str,
+) -> pse_modeling::resolved::ResolvedSyntax {
+    let symbol = model
         .symbols
         .values()
         .find(|symbol| symbol.lineage.path.ends_with(suffix))
-        .and_then(|symbol| symbol.expression.as_ref())
         .unwrap();
-    let ExprKind::NamedCall { name, .. } = &expression.kind else {
-        panic!("selected consumer remains a finite call: {expression:?}");
-    };
-    SemanticId::parse_hex(
-        pse_authoring::dsl::render_path(name)
-            .strip_prefix("f_")
-            .unwrap(),
-    )
-    .unwrap()
+    model
+        .resolved
+        .select(vec![model.symbol_root(symbol.id).unwrap()], vec![])
+}
+fn selected_call_identity(model: &SpecializedModel, suffix: &str) -> pse_ids::ContentHash {
+    let syntax = selected_syntax(model, suffix);
+    let functions = syntax.canonical_layout().unwrap().functions;
+    assert_eq!(
+        functions.len(),
+        1,
+        "the selected consumer has one direct finite function call"
+    );
+    let selected = &syntax.functions[functions[0]];
+    assert_eq!(selected.identity, selected.product.identity);
+    selected.product.identity
 }
 fn contexts(model: &SpecializedModel) -> BTreeSet<DeclarationId> {
     model
@@ -80,13 +87,23 @@ fn contexts(model: &SpecializedModel) -> BTreeSet<DeclarationId> {
         })
         .collect()
 }
-fn child_group(model: &SpecializedModel, suffix: &str) -> pse_ids::ContentHash {
-    model
+fn child_identity(model: &SpecializedModel, suffix: &str) -> pse_ids::ContentHash {
+    let instance = model
         .instances
         .values()
         .find(|instance| instance.path.ends_with(suffix))
-        .unwrap()
-        .group
+        .unwrap();
+    let outputs = model
+        .symbols
+        .values()
+        .filter(|symbol| symbol.lineage.instance == instance.id)
+        .map(|symbol| model.symbol_root(symbol.id).unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        !outputs.is_empty(),
+        "the actual child has selected scalar outputs"
+    );
+    model.resolved.select(outputs, vec![]).identity().unwrap()
 }
 fn changed_main_edge() -> String {
     FIXTURE.replace(
@@ -158,8 +175,8 @@ fn selected_property_table_retains_only_consumed_owner_context_and_first_call_ed
         before.edges, after.edges,
         "only an unused scientific dependency edge changed"
     );
-    let original_id = call_id(&original, ".result");
-    let changed_id = call_id(&changed, ".result");
+    let original_id = selected_call_identity(&original, ".result");
+    let changed_id = selected_call_identity(&changed, ".result");
     assert_ne!(
         original_id, changed_id,
         "the first isolated finite call must frame its consumed edges"
@@ -170,8 +187,8 @@ fn selected_property_table_retains_only_consumed_owner_context_and_first_call_ed
         "the numerical literals did not change when the scientific dependency edge changed"
     );
     assert_ne!(
-        original.instances.values().next().unwrap().group,
-        changed.instances.values().next().unwrap().group
+        selected_syntax(&original, ".result").identity().unwrap(),
+        selected_syntax(&changed, ".result").identity().unwrap()
     );
     assert_ne!(
         prepared_body_ids(FIXTURE),
@@ -194,13 +211,13 @@ fn consumed_convention_changes_identity_with_equal_records_edges_and_coefficient
     assert_eq!(before.edges, after.edges);
     assert_eq!(numerical_literals(&original), numerical_literals(&updated));
     assert_ne!(
-        call_id(&original, ".result"),
-        call_id(&updated, ".result"),
+        selected_call_identity(&original, ".result"),
+        selected_call_identity(&updated, ".result"),
         "a consumed convention is part of the finite function's scientific meaning"
     );
     assert_ne!(
-        original.instances.values().next().unwrap().group,
-        updated.instances.values().next().unwrap().group
+        selected_syntax(&original, ".result").identity().unwrap(),
+        selected_syntax(&updated, ".result").identity().unwrap()
     );
     assert_ne!(
         prepared_body_ids(FIXTURE),
@@ -215,8 +232,14 @@ fn unrelated_selection_call_order_does_not_change_either_finite_function_identit
     let reverse = specialized(FIXTURE, "Calls", &["second", "first"]);
     assert_eq!(contexts(&forward).len(), 2);
     assert_eq!(contexts(&forward), contexts(&reverse));
-    assert_eq!(call_id(&forward, ".first"), call_id(&reverse, ".first"));
-    assert_eq!(call_id(&forward, ".second"), call_id(&reverse, ".second"));
+    assert_eq!(
+        selected_call_identity(&forward, ".first"),
+        selected_call_identity(&reverse, ".first")
+    );
+    assert_eq!(
+        selected_call_identity(&forward, ".second"),
+        selected_call_identity(&reverse, ".second")
+    );
 }
 
 #[test]
@@ -229,20 +252,20 @@ fn late_child_demand_frames_own_selection_without_an_unrelated_instance_edge() {
     assert_ne!(unrelated, FIXTURE);
     let changed = specialized(&unrelated, "Children", &["second.result", "first.result"]);
     assert_eq!(
-        call_id(&original, ".first.result"),
-        call_id(&changed, ".first.result")
+        selected_call_identity(&original, ".first.result"),
+        selected_call_identity(&changed, ".first.result")
     );
     assert_eq!(
-        child_group(&original, ".first"),
-        child_group(&changed, ".first")
+        child_identity(&original, ".first"),
+        child_identity(&changed, ".first")
     );
     assert_ne!(
-        call_id(&original, ".second.result"),
-        call_id(&changed, ".second.result")
+        selected_call_identity(&original, ".second.result"),
+        selected_call_identity(&changed, ".second.result")
     );
     assert_ne!(
-        child_group(&original, ".second"),
-        child_group(&changed, ".second")
+        child_identity(&original, ".second"),
+        child_identity(&changed, ".second")
     );
 }
 

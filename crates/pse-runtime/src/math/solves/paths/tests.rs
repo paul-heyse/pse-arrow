@@ -46,6 +46,8 @@ fn declared_path_geometry_and_terminal_causes_never_create_retry_permission() {
     )));
     let nested = ProblemError::Math(pse_math::MathError::Instance {
         instance: id(9),
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         cause: Box::new(pse_math::MathError::Contract("nested contract".into())),
     });

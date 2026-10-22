@@ -1409,10 +1409,15 @@ impl ModelingPackage {
                 #[cfg(feature = "solver-diffsol")]
                 match self.conform_shooting(&admitted, cancel).await {
                     Ok(result) => {
-                        let crate::workflow::RunOutcome::Shooting { result: shooting, .. } = result.outcome() else {
+                        let crate::workflow::RunOutcome::Shooting {
+                            result: shooting, ..
+                        } = result.outcome()
+                        else {
                             return Err(contract("shooting conformance report mismatch"));
                         };
-                        let shooting = shooting.as_ref().map_err(|error| WorkflowError::Shared(error.clone()))?;
+                        let shooting = shooting
+                            .as_ref()
+                            .map_err(|error| WorkflowError::Shared(error.clone()))?;
                         report.record_fixture(fixture, Kind::StartToSolve,
                             if result.usable() && expected_failure.is_none() { Status::Passed } else { Status::Failed },
                             format!("{} shooting over the declared controls; objective {:?}, continuity {:?}",
@@ -2111,7 +2116,10 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Arc<crate::workflow::RunResult>, WorkflowError> {
         let problem = Arc::new(self.shooting_for_declared(execution, None, cancel).await?);
-        let result = problem.start_replay_with_cancel(None, cancel)?.wait().await?;
+        let result = problem
+            .start_replay_with_cancel(None, cancel)?
+            .wait()
+            .await?;
         if let Some(error) = result.error() {
             return Err(WorkflowError::Shared(error.clone()));
         }
@@ -4089,10 +4097,12 @@ mod tests {
    annotation start x(0.5); annotation start y(0.5);}
  test near fixture {dof 0; route steady; procedure solve; EXPECTED} {child root:D=D(); expect root.x==1 tolerance 1e-4;}
  }"#;
-        let thresholds: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
-            "../../../../../packages/reference/diagnostics/idaes-2.13.json"
-        ))
-        .unwrap();
+        let thresholds: ModelingDiagnosticPolicy =
+            <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE
+                .decode_slice(include_bytes!(
+                    "../../../../../packages/reference/diagnostics/idaes-2.13.json"
+                ))
+                .unwrap();
         let run = |expected: &str, diagnostics: Option<ModelingDiagnosticPolicy>| {
             let text = source.replace("EXPECTED", expected);
             async move {

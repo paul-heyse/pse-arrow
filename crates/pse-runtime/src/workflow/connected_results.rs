@@ -536,16 +536,13 @@ impl ResultReader {
                 .outcome
                 .map(|outcome| outcome.as_str().to_owned())
                 .ok_or_else(|| contract("terminal class absent"))?,
-            predicate: self
-                .output
-                .as_ref()
-                .map(|o| super::PackResultPredicate {
-                    output: o.output.clone(),
-                    partition: o.partition.clone(),
-                    minimum_bits: o.minimum.map(f64::to_bits),
-                    maximum_bits: o.maximum.map(f64::to_bits),
-                    missing: o.missing,
-                }),
+            predicate: self.output.as_ref().map(|o| super::PackResultPredicate {
+                output: o.output.clone(),
+                partition: o.partition.clone(),
+                minimum_bits: o.minimum.map(f64::to_bits),
+                maximum_bits: o.maximum.map(f64::to_bits),
+                missing: o.missing,
+            }),
             usability,
         })
     }
@@ -908,28 +905,59 @@ impl ResultReader {
                                 context.count("canonical.result.output_page_requests", "count", 1);
                             }
                             if filter.dense {
-                                let page = self.runtime.canonical_store()?.result_output_page(
-                                    &self.read, &self.set, &filter.output, &filter.partition,
-                                    self.start, self.end, self.after,
-                                    filter.minimum, filter.maximum,
-                                ).await?;
+                                let page = self
+                                    .runtime
+                                    .canonical_store()?
+                                    .result_output_page(
+                                        &self.read,
+                                        &self.set,
+                                        &filter.output,
+                                        &filter.partition,
+                                        self.start,
+                                        self.end,
+                                        self.after,
+                                        filter.minimum,
+                                        filter.maximum,
+                                    )
+                                    .await?;
                                 self.exhausted = page.outputs.len() < 64;
-                                self.after = page.outputs.last().map(|output| output.start).or(self.after);
+                                self.after = page
+                                    .outputs
+                                    .last()
+                                    .map(|output| output.start)
+                                    .or(self.after);
                                 for output in page.outputs {
-                                    if self.indexes.insert(output.batch.clone(), OutputRows::Dense(output)).is_some() {
+                                    if self
+                                        .indexes
+                                        .insert(output.batch.clone(), OutputRows::Dense(output))
+                                        .is_some()
+                                    {
                                         return Err(contract("duplicate dense output index"));
                                     }
                                 }
                                 page.blocks
                             } else {
-                                let page = self.runtime.canonical_store()?.result_block_page(
-                                    &self.read, &self.set, &self.relation.to_string(), "0",
-                                    self.start, self.end, self.after,
-                                ).await?;
+                                let page = self
+                                    .runtime
+                                    .canonical_store()?
+                                    .result_block_page(
+                                        &self.read,
+                                        &self.set,
+                                        &self.relation.to_string(),
+                                        "0",
+                                        self.start,
+                                        self.end,
+                                        self.after,
+                                    )
+                                    .await?;
                                 self.exhausted = page.len() < 64;
                                 self.after = page.last().map(|block| block.ordinal).or(self.after);
                                 for block in &page {
-                                    if self.indexes.insert(block.batch.clone(), OutputRows::Scalar).is_some() {
+                                    if self
+                                        .indexes
+                                        .insert(block.batch.clone(), OutputRows::Scalar)
+                                        .is_some()
+                                    {
                                         return Err(contract("duplicate scalar block inventory"));
                                     }
                                 }
@@ -1020,16 +1048,38 @@ impl ResultReader {
                 .descriptors
                 .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected batch descriptor absent"))?;
-            let expression = self.output.as_ref().filter(|filter| !filter.dense).map(|filter| {
-                super::result_projection::scalar_selection_expression(self.relation, filter.owner, &filter.partition, &filter.field, filter.minimum, filter.maximum, filter.missing)
-            }).transpose()?;
-            if let Some(expression) = &expression {
-                if !super::result_snapshot::block_may_match(&self.runtime, self.relation, self.schema.clone(), &metadata, &descriptor, expression)? {
-                    self.indexes.remove(&metadata.batch);
-                    self.selected_batch = None;
-                    self.decode.validate_pruned_block(&metadata, &descriptor, &self.cancel).await?;
-                    continue;
-                }
+            let expression = self
+                .output
+                .as_ref()
+                .filter(|filter| !filter.dense)
+                .map(|filter| {
+                    super::result_projection::scalar_selection_expression(
+                        self.relation,
+                        filter.owner,
+                        &filter.partition,
+                        &filter.field,
+                        filter.minimum,
+                        filter.maximum,
+                        filter.missing,
+                    )
+                })
+                .transpose()?;
+            if let Some(expression) = &expression
+                && !super::result_snapshot::block_may_match(
+                    &self.runtime,
+                    self.relation,
+                    self.schema.clone(),
+                    &metadata,
+                    &descriptor,
+                    expression,
+                )?
+            {
+                self.indexes.remove(&metadata.batch);
+                self.selected_batch = None;
+                self.decode
+                    .validate_pruned_block(&metadata, &descriptor, &self.cancel)
+                    .await?;
+                continue;
             }
             let cached = self
                 .selected_batch
@@ -1087,7 +1137,9 @@ impl ResultReader {
                                     // Native Boolean/CASE/comparison temporaries span the
                                     // original complete batch, even for one selected owner.
                                     checked.batch().num_rows().checked_mul(64)?
-                                } else { 0 };
+                                } else {
+                                    0
+                                };
                                 bytes.checked_add(predicate)
                             })
                             .ok_or_else(|| contract("selected offset allocation extent"))?,
@@ -1095,14 +1147,29 @@ impl ResultReader {
                     .map_err(pse_engine::EngineError::from)?;
                 let indices = match indexes {
                     OutputRows::Scalar => {
-                        let expression = expression.ok_or_else(|| contract("original scalar selection expression absent"))?;
-                        let mask = super::result_projection::scalar_selection_mask(&self.runtime.bound_model().native_state(), &checked, expression)?;
+                        let expression = expression.ok_or_else(|| {
+                            contract("original scalar selection expression absent")
+                        })?;
+                        let mask = super::result_projection::scalar_selection_mask(
+                            &self.runtime.bound_model().native_state(),
+                            &checked,
+                            expression,
+                        )?;
                         let mut indices = Vec::with_capacity(checked.batch().num_rows());
                         for offset in 0..checked.batch().num_rows() {
                             use datafusion::arrow::array::Array;
-                            let coordinate = metadata.start.checked_add(offset as u64).ok_or_else(|| contract("original scalar coordinate extent"))?;
-                            if coordinate >= lower && coordinate < upper && mask.is_valid(offset) && mask.value(offset) {
-                                indices.push(u32::try_from(offset).map_err(|_| contract("selected row exceeds Arrow take extent"))?);
+                            let coordinate = metadata
+                                .start
+                                .checked_add(offset as u64)
+                                .ok_or_else(|| contract("original scalar coordinate extent"))?;
+                            if coordinate >= lower
+                                && coordinate < upper
+                                && mask.is_valid(offset)
+                                && mask.value(offset)
+                            {
+                                indices.push(u32::try_from(offset).map_err(|_| {
+                                    contract("selected row exceeds Arrow take extent")
+                                })?);
                             }
                         }
                         indices
@@ -1192,13 +1259,7 @@ impl Runtime {
         &self,
         requests: &[super::ReviewScientificSelection],
         cancel: &CancellationToken,
-    ) -> Result<
-        (
-            Vec<super::PackResultSelection>,
-            MemoryReservation,
-        ),
-        WorkflowError,
-    > {
+    ) -> Result<(Vec<super::PackResultSelection>, MemoryReservation), WorkflowError> {
         use super::{PackResultPredicate, PackResultSelection, PackScientificState};
         if requests.len() > 1024 {
             return Err(contract("review selects more than 1024 scientific members"));
@@ -2754,7 +2815,9 @@ mod canonical_connected_results_server_unit {
         let mut reclaimed = retired.batches;
         let mut complete = retired.complete;
         for _ in 0..8 {
-            if complete { break; }
+            if complete {
+                break;
+            }
             let page = cleanup.reclaim_result_page("decoded-owner").await.unwrap();
             reclaimed += page.batches;
             if page.complete {
@@ -3307,19 +3370,20 @@ mod canonical_connected_results_server_unit {
         };
         let composed = crate::tooling::review_export::export_review_pack(
             &runtime,
-                &composed_path,
-                &evidence,
-                &analysis,
-                request,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
+            &composed_path,
+            &evidence,
+            &analysis,
+            request,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(
             composed.publication,
             crate::tooling::review_pack::PackPublication::Sealed
         );
-        let portable = crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
+        let portable =
+            crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
         for (member, expected) in [("early", 2), ("late", 1)] {
             let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
                 portable.open_member(member).unwrap(),
@@ -3340,10 +3404,7 @@ mod canonical_connected_results_server_unit {
                 .as_ref()
                 .unwrap();
             assert_eq!(declared.attempt, fence.attempt());
-            assert_eq!(
-                declared.usability,
-                PackScientificState::Unknown
-            );
+            assert_eq!(declared.usability, PackScientificState::Unknown);
         }
         pack.add_frozen(&evidence).unwrap();
         pack.add_analysis(&analysis).unwrap();

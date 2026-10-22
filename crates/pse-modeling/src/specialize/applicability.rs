@@ -1,12 +1,55 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bind evidence to actual selected records and physical arguments before lowering.
+use super::rewrite::RewriteContext;
 use super::*;
-use pse_authoring::dsl::Predicate;
+use crate::resolved::{
+    Binding, Reference, Source,
+    construction::{Rewritten, RewrittenPredicate},
+};
+#[derive(Debug)]
+pub(super) struct PreparedUse {
+    pub(super) node: Node,
+    pub(super) predicates: Vec<RewrittenPredicate>,
+    pub(super) inputs: Vec<Rewritten>,
+}
+impl PreparedUse {
+    pub(super) fn resolved(&self) -> crate::resolved::EvidenceUse {
+        crate::resolved::EvidenceUse {
+            node: self.node.clone(),
+            predicates: self.predicates.iter().map(|value| value.root).collect(),
+            inputs: self.inputs.iter().map(|value| value.root).collect(),
+        }
+    }
+
+    pub(super) fn inspection(self) -> crate::applicability::Use {
+        crate::applicability::Use {
+            node: self.node,
+            predicates: self
+                .predicates
+                .into_iter()
+                .map(|value| value.inspection)
+                .collect(),
+            inputs: self
+                .inputs
+                .into_iter()
+                .map(|value| value.inspection)
+                .collect(),
+        }
+    }
+}
+
 use pse_model::applicability::{Claim, Node, Permission, Region};
 use pse_model::generated::enums::{
     ModelingApplicabilityKind as Kind, ModelingPermissionTarget as Target,
 };
+
+/// Claim arguments retain either an actual constructed physical value or a checked static value.
+#[derive(Debug)]
+enum ClaimArgument {
+    Physical(Rewritten),
+    Static(Value),
+}
 
 impl Engine<'_, '_> {
     fn claim_owner_lineage(&self, owner: DeclarationId) -> Result<Vec<SemanticId>> {
@@ -99,7 +142,7 @@ impl Engine<'_, '_> {
         instance: InstanceId,
         form: &crate::Function,
         env: &Environment,
-    ) -> Result<Vec<crate::applicability::Use>> {
+    ) -> Result<Vec<PreparedUse>> {
         let permissions = self.evidence_permissions(instance)?;
         let mut uses = Vec::new();
         for application in &form.applicability {
@@ -198,7 +241,9 @@ impl Engine<'_, '_> {
                     if ty.quantity_scheme().is_some() {
                         let left = self.rewrite(instance, &first_args[index], env, &[form.id])?;
                         let right = self.rewrite(instance, &last_args[index], env, &[form.id])?;
-                        if dsl::render_expr(&left) != dsl::render_expr(&right) {
+                        if self.current_roots_identity(&[left.root])?
+                            != self.current_roots_identity(&[right.root])?
+                        {
                             return Err(invalid(
                                 claim,
                                 "interval endpoints differ on a nonaxis argument",
@@ -218,8 +263,21 @@ impl Engine<'_, '_> {
                 coverage
                     .str("declared-interval-coverage-v1")
                     .id(&form.id.as_id())
-                    .id(&claim.as_id())
-                    .str(&dsl::render_expr(application));
+                    .id(&claim.as_id());
+                for (endpoint_position, endpoint_args) in
+                    [first_args, last_args].into_iter().enumerate()
+                {
+                    coverage.u64(endpoint_position as u64);
+                    for ((_, ty), argument) in signature.arguments.iter().zip(endpoint_args) {
+                        if ty.quantity_scheme().is_some() {
+                            let actual = self.rewrite(instance, argument, env, &[form.id])?;
+                            self.frame_current_roots(&[actual.root], &mut coverage)?;
+                        } else {
+                            self.eval_ast_with(form.id, env, argument, Some(ty))?
+                                .frame(&mut coverage);
+                        }
+                    }
+                }
                 let coverage = coverage.finish_id();
                 for endpoint in [first, last] {
                     let mut predicates = Vec::new();
@@ -236,7 +294,7 @@ impl Engine<'_, '_> {
                         &mut Vec::new(),
                     )?;
                     node.claim.coverage = Some(coverage);
-                    uses.push(crate::applicability::Use {
+                    uses.push(PreparedUse {
                         node,
                         predicates,
                         inputs,
@@ -257,7 +315,7 @@ impl Engine<'_, '_> {
                 &mut inputs,
                 &mut Vec::new(),
             )?;
-            uses.push(crate::applicability::Use {
+            uses.push(PreparedUse {
                 node,
                 predicates,
                 inputs,
@@ -296,8 +354,9 @@ impl Engine<'_, '_> {
         value: &Value,
         at: DeclarationId,
         env: &Environment,
-    ) -> Result<Expr> {
-        let expression = self.value_expression(value, at)?;
+        source: Source,
+    ) -> Result<Rewritten> {
+        let expression = self.value_expression(value, at, source.clone())?;
         if !matches!(value, Value::Number { .. })
             || path.segments.len() < 2
             || self
@@ -329,7 +388,7 @@ impl Engine<'_, '_> {
         }
         let result = value_type(value)
             .ok_or_else(|| invalid(at, "scientific numerical read has no physical type"))?;
-        let mut form = crate::Function {
+        let form = crate::Function {
             applicability: Vec::new(),
             applicability_uses: Vec::new(),
             prerequisites: Vec::new(),
@@ -370,44 +429,17 @@ impl Engine<'_, '_> {
             &mut visited,
             &mut usage,
         )?;
-        let mut arguments = BTreeMap::new();
-        for (name, ty) in &self.function_types {
-            if ty.quantity_scheme().is_some()
-                && let Some(actual) = self.lexical.get(name)
-                && let ExprKind::Path(p) = &actual.kind
-            {
-                arguments.insert(dsl::render_path(p), (ty.clone(), actual.clone()));
-            }
-        }
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingApplicabilityCallV1);
-        identity
-            .str("demanded-scientific-record-read-v1")
-            .id(&instance.as_id())
-            .id(&at.as_id())
-            .str(&dsl::render_path(path))
-            .u64(self.local_serial as u64);
-        self.local_serial += 1;
-        usage.frame(&mut identity);
-        identity.str(&dsl::render_expr(&expression));
-        let call = identity.finish_id();
-        usage.node.claim.call = call;
-        form.id = DeclarationId::from(call);
-        form.arguments = arguments
-            .iter()
-            .map(|(name, (ty, _))| (name.clone(), ty.clone()))
-            .collect();
-        form.body = Some(expression);
-        form.applicability_uses = vec![usage];
-        let name = format!("f_{}", call.to_hex());
-        self.reserve(1)?;
-        self.model.functions.insert(name.clone(), form);
-        Ok(Expr {
-            kind: ExprKind::NamedCall {
-                name: Path::single(name),
-                args: arguments.into_values().map(|(_, actual)| actual).collect(),
+        // The capture is attached to the actual read root. No generated function, source
+        // spelling, instance serial or AST interpretation can become its executable identity.
+        let evidence = self.construction.evidence(usage.resolved())?;
+        self.construction.pair(
+            crate::resolved::Node::Evidence {
+                value: expression.root,
+                evidence,
             },
-            span: Span::default(),
-        })
+            expression.inspection.kind,
+            source,
+        )
     }
     fn selected_record_claim(
         &mut self,
@@ -416,7 +448,7 @@ impl Engine<'_, '_> {
         record_id: SemanticId,
         env: &Environment,
         permissions: &[Permission],
-    ) -> Result<crate::applicability::Use> {
+    ) -> Result<PreparedUse> {
         let id = DeclarationId::from(record_id);
         let record = self
             .p
@@ -440,8 +472,7 @@ impl Engine<'_, '_> {
                 _ => None,
             })
             .collect::<BTreeSet<_>>();
-        let mut environment = env.clone();
-        let mut expressions = Vec::new();
+        let mut arguments = Vec::new();
         let mut function = None;
         if candidates.len() == 1 {
             let claim = *candidates
@@ -452,27 +483,45 @@ impl Engine<'_, '_> {
             let mut available = true;
             for (index, (name, ty)) in signature.arguments.iter().enumerate() {
                 if matches!(ty,Type::Entity(kind) if self.p.refines(record.kind,*kind)) {
-                    let binding = format!("__applicability_record_{index}");
-                    environment.insert(
-                        binding.clone(),
-                        Value::Entity {
-                            id,
-                            kind: record.kind,
+                    arguments.push(ClaimArgument::Static(Value::Entity {
+                        id,
+                        kind: record.kind,
+                    }));
+                } else if ty.quantity_scheme().is_some() {
+                    let source = Source {
+                        field: crate::expression::occurrences::OccurrenceKey {
+                            declaration: form.id,
+                            role: "selected-record.argument".into(),
+                            position: index,
                         },
-                    );
-                    expressions.push(Expr {
-                        kind: ExprKind::Path(Path::single(binding)),
                         span: Span::default(),
-                    });
-                } else if self.lexical.contains_key(name) && ty.quantity_scheme().is_some()
-                    || environment
+                        coordinate: None,
+                    };
+                    let value = if let Some(value) = self.lexical.get(name).cloned() {
+                        let reference =
+                            self.lexical_references.get(name).cloned().ok_or_else(|| {
+                                invalid(form.id, "selected claim lacks its actual physical binding")
+                            })?;
+                        self.construction.pair(
+                            crate::resolved::Node::Reference(reference),
+                            value.kind,
+                            source,
+                        )?
+                    } else if let Some(value) = env
                         .get(name)
-                        .is_some_and(|v| value::conforms(v, ty, self.p))
+                        .filter(|value| value::conforms(value, ty, self.p))
+                    {
+                        self.value_expression(value, form.id, source)?
+                    } else {
+                        available = false;
+                        break;
+                    };
+                    arguments.push(ClaimArgument::Physical(value));
+                } else if let Some(value) = env
+                    .get(name)
+                    .filter(|value| value::conforms(value, ty, self.p))
                 {
-                    expressions.push(Expr {
-                        kind: ExprKind::Path(Path::single(name.clone())),
-                        span: Span::default(),
-                    });
+                    arguments.push(ClaimArgument::Static(value.clone()));
                 } else {
                     available = false;
                     break;
@@ -485,21 +534,12 @@ impl Engine<'_, '_> {
         let mut predicates = Vec::new();
         let mut inputs = Vec::new();
         let node = if let Some(claim) = function {
-            let binding = "__applicability_callable".to_owned();
-            environment.insert(binding.clone(), Value::Function(claim));
-            let expression = Expr {
-                kind: ExprKind::NamedCall {
-                    name: Path::single(binding),
-                    args: expressions,
-                },
-                span: Span::default(),
-            };
-            self.bind_claim(
+            self.bind_claim_values(
                 instance,
                 form.id,
                 form.id,
-                &expression,
-                &environment,
+                claim,
+                arguments,
                 permissions,
                 &mut predicates,
                 &mut inputs,
@@ -526,16 +566,33 @@ impl Engine<'_, '_> {
                         self.c.preconditions,
                     )
                     .map_err(|e| invalid(form.id, e.to_string()))?;
-                identity
-                    .str(name)
-                    .str(&dsl::render_expr(&actual))
-                    .id(&quantity.as_id());
+                let reference = self.lexical_references.get(name).cloned().ok_or_else(|| {
+                    invalid(
+                        form.id,
+                        "claim observation lacks its actual lexical binding",
+                    )
+                })?;
+                let actual = self.construction.pair(
+                    crate::resolved::Node::Reference(reference),
+                    actual.kind,
+                    Source {
+                        field: crate::expression::occurrences::OccurrenceKey {
+                            declaration: form.id,
+                            role: "selected-record.observation".into(),
+                            position: inputs.len(),
+                        },
+                        span: actual.span,
+                        coordinate: None,
+                    },
+                )?;
+                self.frame_current_roots(&[actual.root], &mut identity)?;
+                identity.id(&quantity.as_id());
                 input_indices.push((name.clone(), inputs.len(), quantity.as_id()));
                 inputs.push(actual);
             }
             Node {claim:Claim {id:None,coverage:None,owner:record.kind.as_id(),owner_lineage:self.claim_owner_lineage(record.kind)?,evidence:self.p.provenance(record.origin).map(|p|p.source.as_id()),form:form.id.as_id(),call:identity.finish_id(),records:vec![record_id],dependencies:Vec::new(),layer:pse_model::generated::enums::ModelingValidityLayer::Data,basis:None,reason:Some("Selected scientific record has no claim applicable to this actual form signature".into())},region:Region::Unknown,dependencies:Vec::new(),inputs:input_indices,permissions:permissions.to_vec()}
         };
-        Ok(crate::applicability::Use {
+        Ok(PreparedUse {
             node,
             predicates,
             inputs,
@@ -553,12 +610,16 @@ impl Engine<'_, '_> {
         permissions: &[Permission],
         edges: &[(Value, BTreeSet<Value>)],
         visited: &mut BTreeSet<SemanticId>,
-        usage: &mut crate::applicability::Use,
+        usage: &mut PreparedUse,
     ) -> Result<()> {
         let saved = self.lexical.clone();
+        let saved_references = self.lexical_references.clone();
         for (name, index, _) in &usage.node.inputs {
             if let Some(input) = usage.inputs.get(*index) {
-                self.lexical.insert(name.clone(), input.clone());
+                self.lexical.insert(name.clone(), input.inspection.clone());
+                let binding = self.construction.binding(Binding::Value(input.root))?;
+                self.lexical_references
+                    .insert(name.clone(), Reference::Lexical(binding));
             }
         }
         let mut dependencies = Vec::new();
@@ -603,6 +664,7 @@ impl Engine<'_, '_> {
         );
         usage.node.dependencies.extend(dependencies);
         self.lexical = saved;
+        self.lexical_references = saved_references;
         Ok(())
     }
     #[allow(
@@ -617,8 +679,8 @@ impl Engine<'_, '_> {
         application: &Expr,
         env: &Environment,
         permissions: &[Permission],
-        predicates: &mut Vec<Predicate>,
-        inputs: &mut Vec<Expr>,
+        predicates: &mut Vec<RewrittenPredicate>,
+        inputs: &mut Vec<Rewritten>,
         stack: &mut Vec<DeclarationId>,
     ) -> Result<Node> {
         self.checkpoint()?;
@@ -652,6 +714,54 @@ impl Engine<'_, '_> {
                 "applicability callable is not a named evidence claim",
             ));
         };
+        let signature = self.p.functions[&id].clone();
+        if args.len() != signature.arguments.len() {
+            return Err(invalid(id, "claim application argument arity differs"));
+        }
+        let mut values = Vec::with_capacity(args.len());
+        for ((_, ty), arg) in signature.arguments.iter().zip(args) {
+            values.push(if ty.quantity_scheme().is_some() {
+                let value = self.rewrite(instance, arg, env, &[at])?;
+                if matches!(
+                    self.construction.get(value.root),
+                    Some(crate::resolved::Node::Number(_))
+                ) {
+                    self.construction.literal(value.root, ty.clone())?;
+                }
+                ClaimArgument::Physical(value)
+            } else {
+                ClaimArgument::Static(self.eval_ast_with(at, env, arg, Some(ty))?)
+            });
+        }
+        self.bind_claim_values(
+            instance,
+            form,
+            at,
+            id,
+            values,
+            permissions,
+            predicates,
+            inputs,
+            stack,
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one bounded claim binding retains its actual values and authorization frame"
+    )]
+    fn bind_claim_values(
+        &mut self,
+        instance: InstanceId,
+        form: DeclarationId,
+        at: DeclarationId,
+        id: DeclarationId,
+        arguments: Vec<ClaimArgument>,
+        permissions: &[Permission],
+        predicates: &mut Vec<RewrittenPredicate>,
+        inputs: &mut Vec<Rewritten>,
+        stack: &mut Vec<DeclarationId>,
+    ) -> Result<Node> {
+        self.checkpoint()?;
         if stack.contains(&id) || stack.len() >= self.limits.depth {
             return Err(invalid(
                 id,
@@ -664,17 +774,20 @@ impl Engine<'_, '_> {
                 invalid(id, "Applicability output belongs to a claim declaration")
             })?;
         let signature = self.p.functions[&id].clone();
-        if args.len() != signature.arguments.len() {
-            return Err(invalid(id, "claim application argument arity differs"));
+        if arguments.len() != signature.arguments.len() {
+            return Err(invalid(id, "prepared claim argument arity differs"));
         }
         stack.push(id);
         let mut statics = Environment::new();
         let mut lexical = BTreeMap::new();
+        let mut lexical_references = BTreeMap::new();
         let mut input_indices = Vec::new();
         let mut records = BTreeSet::new();
-        for ((name, ty), arg) in signature.arguments.iter().zip(args) {
+        for ((name, ty), arg) in signature.arguments.iter().zip(arguments) {
             if ty.quantity_scheme().is_some() {
-                let actual = self.rewrite(instance, arg, env, &[at])?;
+                let ClaimArgument::Physical(actual) = arg else {
+                    return Err(invalid(at, "prepared claim physical argument is absent"));
+                };
                 let quantity = ty
                     .quantity_scheme()
                     .ok_or_else(|| invalid(id, "claim input is not physical"))?
@@ -685,10 +798,20 @@ impl Engine<'_, '_> {
                     )
                     .map_err(|e| invalid(id, e.to_string()))?;
                 input_indices.push((name.clone(), inputs.len(), quantity.as_id()));
-                inputs.push(actual.clone());
-                lexical.insert(name.clone(), actual);
+                let binding = self.construction.binding(Binding::Value(actual.root))?;
+                lexical_references.insert(name.clone(), Reference::Lexical(binding));
+                lexical.insert(name.clone(), actual.inspection.clone());
+                inputs.push(actual);
             } else {
-                let value = self.eval_ast_with(at, env, arg, Some(ty))?;
+                let ClaimArgument::Static(value) = arg else {
+                    return Err(invalid(at, "prepared claim static argument is absent"));
+                };
+                if !value::conforms(&value, ty, self.p) {
+                    return Err(invalid(
+                        at,
+                        "prepared claim static argument differs from its declaration",
+                    ));
+                }
                 collect_records(&value, &mut records);
                 statics.insert(name.clone(), value);
             }
@@ -708,13 +831,14 @@ impl Engine<'_, '_> {
             ));
         }
         let saved_lexical = std::mem::replace(&mut self.lexical, lexical);
+        let saved_references = std::mem::replace(&mut self.lexical_references, lexical_references);
         let mut identity = FramedHasher::new(pse_ids::Frame::ModelingApplicabilityCallV1);
         identity
             .str("applicability-call-v1")
             .id(&form.as_id())
             .id(&id.as_id());
         for (_, index, _) in &input_indices {
-            identity.str(&dsl::render_expr(&inputs[*index]));
+            self.frame_current_roots(&[inputs[*index].root], &mut identity)?;
         }
         for record in &records {
             identity.id(record);
@@ -729,32 +853,85 @@ impl Engine<'_, '_> {
                 .p
                 .expression_at(id, "applicability.dependencies", position)?
                 .clone();
-            dependencies.push(self.bind_claim(
-                instance,
-                form,
+            dependencies.push(self.with_original_expression(
                 id,
+                "applicability.dependencies",
+                position,
                 &e,
-                &statics,
-                permissions,
-                predicates,
-                inputs,
-                stack,
+                |engine| {
+                    engine.bind_claim(
+                        instance,
+                        form,
+                        id,
+                        &e,
+                        &statics,
+                        permissions,
+                        predicates,
+                        inputs,
+                        stack,
+                    )
+                },
             )?);
         }
         let region = match v.claim_kind {
             Kind::Unknown => Region::Unknown,
             Kind::Unrestricted => Region::Unrestricted,
             Kind::Region | Kind::Interval => {
-                let predicate = if v.claim_kind == Kind::Interval {
-                    crate::applicability::interval_predicate(self.p, id)?
+                let mut predicate = if v.claim_kind == Kind::Interval {
+                    // An interval owns three original expression fields, not an
+                    // authored predicate field. Construct its comparisons from
+                    // their actual rewritten roots without inventing a source role.
+                    let axis =
+                        self.rewrite_field(instance, id, "applicability.axis", 0, &statics, &[id])?;
+                    let ty = self.constructed_type(axis.root)?;
+                    let lower = self.rewrite_physical_field(
+                        RewriteContext {
+                            instance,
+                            env: &statics,
+                            chain: &[id],
+                        },
+                        id,
+                        "applicability.lower",
+                        0,
+                        Some(&ty),
+                    )?;
+                    let upper = self.rewrite_physical_field(
+                        RewriteContext {
+                            instance,
+                            env: &statics,
+                            chain: &[id],
+                        },
+                        id,
+                        "applicability.upper",
+                        0,
+                        Some(&ty),
+                    )?;
+                    let mut source = self.construction.node_source(axis.root)?.clone();
+                    source.coordinate = None;
+                    let lower = self.construction.compare(
+                        dsl::CompareOp::Ge,
+                        axis.clone(),
+                        lower,
+                        source.clone(),
+                    )?;
+                    let upper = self.construction.compare(
+                        dsl::CompareOp::Le,
+                        axis,
+                        upper,
+                        source.clone(),
+                    )?;
+                    self.construction.and(lower, upper, source)?
                 } else {
-                    self.p
-                        .predicate_at(id, "applicability.predicate", 0)?
-                        .clone()
+                    self.rewrite_predicate_field(
+                        instance,
+                        id,
+                        "applicability.predicate",
+                        0,
+                        &statics,
+                        &[id],
+                    )?
                 };
-                let mut predicate =
-                    self.rewrite_predicate(instance, &predicate, &statics, &[id])?;
-                predicate.strip_spans();
+                predicate.inspection.strip_spans();
                 let index = predicates.len();
                 predicates.push(predicate);
                 Region::Predicate(index)
@@ -766,16 +943,24 @@ impl Engine<'_, '_> {
                         .p
                         .expression_at(id, "applicability.alternatives", position)?
                         .clone();
-                    let child = self.bind_claim(
-                        instance,
-                        form,
+                    let child = self.with_original_expression(
                         id,
+                        "applicability.alternatives",
+                        position,
                         &e,
-                        &statics,
-                        permissions,
-                        predicates,
-                        inputs,
-                        stack,
+                        |engine| {
+                            engine.bind_claim(
+                                instance,
+                                form,
+                                id,
+                                &e,
+                                &statics,
+                                permissions,
+                                predicates,
+                                inputs,
+                                stack,
+                            )
+                        },
                     )?;
                     if child.claim.owner != owner.as_id() {
                         return Err(invalid(
@@ -789,6 +974,7 @@ impl Engine<'_, '_> {
             }
         };
         self.lexical = saved_lexical;
+        self.lexical_references = saved_references;
         stack.pop();
         Ok(Node {
             claim: Claim {

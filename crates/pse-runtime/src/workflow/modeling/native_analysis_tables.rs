@@ -292,7 +292,18 @@ impl ModelingJacobianOptimization {
             origin: self.origin,
             relation: "runtime.modeling_jacobian_optimization",
             table,
-            primal_coordinates: self.evidence.dimensionless_coordinates.iter().map(|ids| crate::workflow::PrimalCoordinates::auxiliary(&self.runtime, &self.quantities, ids)).collect::<Result<Vec<_>, _>>()?,
+            primal_coordinates: self
+                .evidence
+                .dimensionless_coordinates
+                .iter()
+                .map(|ids| {
+                    crate::workflow::PrimalCoordinates::auxiliary(
+                        &self.runtime,
+                        &self.quantities,
+                        ids,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?,
             attempts: self.evidence.attempts,
             _owner: self._owner,
         })

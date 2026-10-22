@@ -165,7 +165,7 @@ impl InnerWorker for CubicWorker {
             let point = vec![root];
             match problem.verify(parameters, &point, options, cancel) {
                 Ok(()) => accepted.push(point),
-                Err(MathError::Domain { .. }) => {}
+                Err(error) if matches!(error.instance_cause(), MathError::Domain { .. }) => {}
                 Err(error) => return Err(error),
             }
         }
@@ -329,6 +329,7 @@ mod tests {
         let control = pse_diagnostics::Cancellation::default();
         let cancel = control.flag();
         crate::initialize().unwrap();
+        let instance = pse_ids::named_id(SemanticId::NIL, "cubic original residual fixture");
         let body = PreparedBody::new(
             2,
             3,
@@ -355,7 +356,7 @@ mod tests {
             .unwrap();
         let problem = Arc::new(
             Problem::new(
-                SemanticId::NIL,
+                instance,
                 ContentHash::from_bytes([137; 32]),
                 vec![Unknown {
                     id: SemanticId::NIL,
@@ -364,7 +365,7 @@ mod tests {
                 }],
                 vec![SemanticId::NIL],
                 1,
-                residual_bodies_for_test(Arc::new(compiled)),
+                residual_bodies_for_test(source_body_for_test(instance, &body, Arc::new(compiled))),
                 1024,
             )
             .unwrap(),

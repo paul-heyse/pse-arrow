@@ -304,30 +304,86 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
     // independent analytic matrix; no callback supplies the final chain terms.
     let providers = || {
         let calls = Arc::new(AtomicUsize::new(0));
-        (ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Square { spec: spec.clone(), calls: calls.clone() })))]), calls)
+        (
+            ProviderBindings::from([(
+                spec.key(),
+                pse_kernels::ProviderBinding::new(
+                    spec.clone(),
+                    Box::new(Square {
+                        spec: spec.clone(),
+                        calls: calls.clone(),
+                    }),
+                ),
+            )]),
+            calls,
+        )
     };
     let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
-    let selected = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-    assert_eq!(selected.census[DerivativeOrder::Second].unwrap().arithmetic_blocks, 1);
+    let selected = support
+        .compile(Optimization::default(), EvaluationLimits::default(), &scope)
+        .unwrap();
+    assert_eq!(
+        selected.census[DerivativeOrder::Second]
+            .unwrap()
+            .arithmetic_blocks,
+        1
+    );
     let (mut bindings, calls) = providers();
-    let result = selected.worker().evaluate(&[2.], DerivativeOrder::Second, &mut bindings, &cancel).unwrap();
+    let result = selected
+        .worker()
+        .evaluate(&[2.], DerivativeOrder::Second, &mut bindings, &cancel)
+        .unwrap();
     assert_eq!(result.values, [64.]);
     assert_eq!(result.jacobian, [128.]);
     assert_eq!(result.hessians, [192.]);
     assert!(calls.load(Ordering::Relaxed) > 0);
-    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &cancel).unwrap();
-    for kind in [ProductKind::JacobianAction, ProductKind::TransposeJacobianAction] {
-        let compiled = first.compile_product(kind, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-        if kind == ProductKind::JacobianAction { assert_eq!(compiled.census[DerivativeOrder::First].unwrap().arithmetic_blocks, 1); }
+    let first = body
+        .prepare_support(&[0], &[0], DerivativeOrder::First, &cancel)
+        .unwrap();
+    for kind in [
+        ProductKind::JacobianAction,
+        ProductKind::TransposeJacobianAction,
+    ] {
+        let compiled = first
+            .compile_product(
+                kind,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap();
+        if kind == ProductKind::JacobianAction {
+            assert_eq!(
+                compiled.census[DerivativeOrder::First]
+                    .unwrap()
+                    .arithmetic_blocks,
+                1
+            );
+        }
         let (mut bindings, calls) = providers();
-        let product = if kind == ProductKind::JacobianAction { ProductValues::JacobianAction { direction: &[3.] } } else { ProductValues::TransposeJacobianAction { weights: &[2.] } };
+        let product = if kind == ProductKind::JacobianAction {
+            ProductValues::JacobianAction { direction: &[3.] }
+        } else {
+            ProductValues::TransposeJacobianAction { weights: &[2.] }
+        };
         let mut actual = [97.];
         let mut worker = compiled.worker();
-        worker.evaluate_product_into(&[2.], product, &mut bindings, &cancel, &mut actual).unwrap();
-        assert_eq!(actual, if kind == ProductKind::JacobianAction { [384.] } else { [256.] });
+        worker
+            .evaluate_product_into(&[2.], product, &mut bindings, &cancel, &mut actual)
+            .unwrap();
+        assert_eq!(
+            actual,
+            if kind == ProductKind::JacobianAction {
+                [384.]
+            } else {
+                [256.]
+            }
+        );
         assert!(calls.load(Ordering::Relaxed) > 0);
         let complete = actual;
-        assert!(matches!(worker.evaluate_product_into(&[-2.], product, &mut bindings, &cancel, &mut actual), Err(MathError::Provider { source_id, .. }) if source_id == source));
+        assert!(
+            matches!(worker.evaluate_product_into(&[-2.], product, &mut bindings, &cancel, &mut actual), Err(MathError::Provider { source_id, .. }) if source_id == source)
+        );
         assert_eq!(actual, complete);
     }
 }
@@ -364,8 +420,16 @@ fn regional_products_branch_barrier_keeps_actual_arm_and_original_domain_source(
                     source: root_source,
                 }],
             },
-            Stage::Block { expressions: vec![library::formal(3).unwrap() + x.pow(2)], outputs: vec![4], source: SemanticId::NIL },
-            Stage::Block { expressions: vec![library::formal(4).unwrap().pow(2)], outputs: vec![5], source: SemanticId::NIL },
+            Stage::Block {
+                expressions: vec![library::formal(3).unwrap() + x.pow(2)],
+                outputs: vec![4],
+                source: SemanticId::NIL,
+            },
+            Stage::Block {
+                expressions: vec![library::formal(4).unwrap().pow(2)],
+                outputs: vec![5],
+                source: SemanticId::NIL,
+            },
         ],
         DerivativeOrder::Second,
     )
@@ -451,33 +515,97 @@ fn regional_products_branch_barrier_keeps_actual_arm_and_original_domain_source(
     }
 
     let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
-    let selected = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-    for (point, value, first, second) in [([-1., 1.], 4., -16., 48.), ([4., -1.], 324., 297., 207.)] {
-        let result = selected.worker().evaluate(&point, DerivativeOrder::Second, &mut ProviderBindings::new(), &cancel).unwrap();
+    let selected = support
+        .compile(Optimization::default(), EvaluationLimits::default(), &scope)
+        .unwrap();
+    for (point, value, first, second) in [([-1., 1.], 4., -16., 48.), ([4., -1.], 324., 297., 207.)]
+    {
+        let result = selected
+            .worker()
+            .evaluate(
+                &point,
+                DerivativeOrder::Second,
+                &mut ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
         assert_eq!(result.values, [value]);
         assert_eq!(result.jacobian, [first]);
         assert_eq!(result.hessians, [second]);
     }
-    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &cancel).unwrap();
+    let first = body
+        .prepare_support(&[0], &[0], DerivativeOrder::First, &cancel)
+        .unwrap();
     {
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("reverse source preflight refusal");
         let context = operation.context();
         let _entered = context.enter();
-        assert!(matches!(first.compile_product(ProductKind::TransposeJacobianAction, Optimization::default(), EvaluationLimits { operations: 1, ..Default::default() }, &scope), Err(MathError::Limit(_))));
-        assert!(!context.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter().any(|metric| metric.name == "math.rational_representation_inspections"), "reverse local source limits refuse before any forward evaluator is built");
+        assert!(matches!(
+            first.compile_product(
+                ProductKind::TransposeJacobianAction,
+                Optimization::default(),
+                EvaluationLimits {
+                    operations: 1,
+                    ..Default::default()
+                },
+                &scope
+            ),
+            Err(MathError::Limit(_))
+        ));
+        assert!(
+            !context
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "math.rational_representation_inspections"),
+            "reverse local source limits refuse before any forward evaluator is built"
+        );
     }
-    for kind in [ProductKind::JacobianAction, ProductKind::TransposeJacobianAction] {
-        let compiled = first.compile_product(kind, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-        let product = if kind == ProductKind::JacobianAction { ProductValues::JacobianAction { direction: &[3.] } } else { ProductValues::TransposeJacobianAction { weights: &[2.] } };
+    for kind in [
+        ProductKind::JacobianAction,
+        ProductKind::TransposeJacobianAction,
+    ] {
+        let compiled = first
+            .compile_product(
+                kind,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap();
+        let product = if kind == ProductKind::JacobianAction {
+            ProductValues::JacobianAction { direction: &[3.] }
+        } else {
+            ProductValues::TransposeJacobianAction { weights: &[2.] }
+        };
         let mut actual = [79.];
         let mut worker = compiled.worker();
         for (point, expected) in [([-1., 1.], -16.), ([4., -1.], 297.)] {
-            worker.evaluate_product_into(&point, product, &mut ProviderBindings::new(), &cancel, &mut actual).unwrap();
-            assert_eq!(actual, [expected * if kind == ProductKind::JacobianAction { 3. } else { 2. }]);
+            worker
+                .evaluate_product_into(
+                    &point,
+                    product,
+                    &mut ProviderBindings::new(),
+                    &cancel,
+                    &mut actual,
+                )
+                .unwrap();
+            assert_eq!(
+                actual,
+                [expected
+                    * if kind == ProductKind::JacobianAction {
+                        3.
+                    } else {
+                        2.
+                    }]
+            );
         }
         let complete = actual;
-        assert!(matches!(worker.evaluate_product_into(&[-1., -1.], product, &mut ProviderBindings::new(), &cancel, &mut actual), Err(MathError::Domain { source_id, .. }) if source_id == root_source));
+        assert!(
+            matches!(worker.evaluate_product_into(&[-1., -1.], product, &mut ProviderBindings::new(), &cancel, &mut actual), Err(MathError::Domain { source_id, .. }) if source_id == root_source)
+        );
         assert_eq!(actual, complete);
     }
 }

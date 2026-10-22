@@ -84,6 +84,8 @@ fn fixture_with_fixed(alias: bool, fixed: impl Fn(u8) -> bool) -> (Arc<CaseAssem
             vec![variable(2), variable(1)],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -419,6 +421,8 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
                 }],
                 vec![],
                 vec![InstanceBinding {
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
                     checked_members: Default::default(),
                     instance: id(9),
                     body: key,
@@ -553,6 +557,8 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
             }],
             vec![parameter.clone()],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -697,6 +703,8 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
             }],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -859,6 +867,8 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             }],
             vec![port(2)],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -1030,6 +1040,8 @@ fn lexicographic_structure_projects_every_level() {
             vec![variable(1), variable(2)],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -2139,6 +2151,8 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
             vec![variable(source.clone()), variable(formal.clone())],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -2344,6 +2358,8 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
             .map(|n| InstanceBinding {
                 instance: id(n + 100),
                 body: key,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 slots: vec![
                     SlotBinding::new(&port(n), &port(n), &registry).unwrap(),
@@ -3075,6 +3091,8 @@ fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_output
         SlotBinding::new(&parameter.port, &parameter.port, &registry).unwrap(),
     ];
     let second_binding = InstanceBinding {
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         instance: id(8),
         body: second_key,
@@ -3482,6 +3500,8 @@ fn affine_selected_output_does_not_examine_unrelated_inputs_of_a_wide_body() {
             variables,
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
@@ -3807,6 +3827,8 @@ fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() 
     instances.push(InstanceBinding {
         instance: id(8),
         body: key,
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         slots: vec![SlotBinding::new(port, port, &registry).unwrap()].into(),
         contributions: vec![Contribution {

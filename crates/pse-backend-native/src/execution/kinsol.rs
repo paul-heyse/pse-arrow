@@ -170,14 +170,19 @@ impl BackendExecution for Kinsol {
         };
         method.validate()?;
         let mut capability = CAPABILITY;
-        if matches!(method.strategy, crate::settings::kinsol::Strategy::FixedPoint | crate::settings::kinsol::Strategy::Picard) {
+        if matches!(
+            method.strategy,
+            crate::settings::kinsol::Strategy::FixedPoint
+                | crate::settings::kinsol::Strategy::Picard
+        ) {
             capability.classes = &[ProblemClass::DeclaredFixedPoint];
             capability.automatic_classes = &[];
             capability.derivatives = DerivativeCapability::ValueOnly;
             capability.sign_bounds = false;
             capability.sensitivities = false;
             capability.warm = WarmCapability::None;
-            capability.reuse = "fresh KINSOL map application; authorized starts only; no retained history";
+            capability.reuse =
+                "fresh KINSOL map application; authorized starts only; no retained history";
         } else {
             capability.classes = &[ProblemClass::SquareRoot];
             capability.automatic_classes = &[ProblemClass::SquareRoot];

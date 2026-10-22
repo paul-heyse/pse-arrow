@@ -324,7 +324,7 @@ struct Solution {
 }
 /// A failed pinned solve retains report state independently from its original causes.
 struct PinFailure {
-    residual: Option<FitResidualReport>,
+    residual: Option<Box<FitResidualReport>>,
     qualification: Option<Qualification>,
     termination: Option<Termination>,
     failures: Vec<ProfileFailure>,
@@ -493,7 +493,7 @@ impl Chains<'_> {
                 return Err(PinFailure {
                     qualification: Some(Qualification::Unqualified),
                     termination: Some(category),
-                    residual: Some(evidence),
+                    residual: Some(Box::new(evidence)),
                     failures: vec![failure],
                     callback_terminal_failure: terminal,
                 });
@@ -510,7 +510,7 @@ impl Chains<'_> {
                     return Err(PinFailure {
                         qualification: Some(Qualification::Unqualified),
                         termination: Some(evidence.termination_category()),
-                        residual: Some(evidence),
+                        residual: Some(Box::new(evidence)),
                         failures: vec![cause.into()],
                         callback_terminal_failure: false,
                     });
@@ -524,7 +524,7 @@ impl Chains<'_> {
                 return Err(PinFailure {
                     qualification: Some(Qualification::Unqualified),
                     termination: Some(evidence.termination_category()),
-                    residual: Some(evidence),
+                    residual: Some(Box::new(evidence)),
                     failures: vec![failure],
                     callback_terminal_failure: false,
                 });
@@ -801,7 +801,7 @@ impl ChainPolicy<'_> {
                     }
                     let detail = failure.detail();
                     chain.points.push(ProfilePoint {
-                        residual: failure.residual,
+                        residual: failure.residual.map(|residual| *residual),
                         value,
                         seed,
                         qualification: failure.qualification,
@@ -1186,6 +1186,8 @@ mod worker_tests {
             )),
             ProblemError::Math(pse_math::MathError::Instance {
                 instance: source_id,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 cause: Box::new(pse_math::MathError::Provider {
                     source_id,
@@ -1223,6 +1225,8 @@ mod worker_tests {
         let trial = || {
             ProblemError::Math(pse_math::MathError::Instance {
                 instance: SemanticId::NIL,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 cause: Box::new(pse_math::MathError::Provider {
                     source_id: SemanticId::NIL,

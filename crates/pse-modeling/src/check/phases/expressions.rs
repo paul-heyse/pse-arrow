@@ -59,10 +59,17 @@ impl Environment {
             // ordinals. Unknown/mismatching coordinates retain their complete value;
             // scientific cells never cross a JSON number representation.
             let mut normalized = row.clone();
-            let expected = package.occurrences_of(*id).map(|(key, field)|
-                ((key.role.as_str(), key.position), field.text.as_str())).collect::<BTreeMap<_, _>>();
-            normalized.value.mask_source_expressions(|_, role, position, text|
-                expected.get(&(role, position)).is_some_and(|expected| *expected == text));
+            let expected = package
+                .occurrences_of(*id)
+                .map(|(key, field)| ((key.role.as_str(), key.position), field.text.as_str()))
+                .collect::<BTreeMap<_, _>>();
+            normalized
+                .value
+                .mask_source_expressions(|_, role, position, text| {
+                    expected
+                        .get(&(role, position))
+                        .is_some_and(|expected| *expected == text)
+                });
             declarations.insert(*id, normalized);
             let fields = package
                 .occurrences_of(*id)
@@ -377,8 +384,15 @@ impl Product {
 
 #[cfg(test)]
 mod tests {
-    fn mask(value: &mut pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValue, role: &str, position: usize, expected: &str) -> bool {
-        value.mask_source_expressions(|_, selected, ordinal, text| selected == role && ordinal == position && text == expected) != 0
+    fn mask(
+        value: &mut pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValue,
+        role: &str,
+        position: usize,
+        expected: &str,
+    ) -> bool {
+        value.mask_source_expressions(|_, selected, ordinal, text| {
+            selected == role && ordinal == position && text == expected
+        }) != 0
     }
 
     #[test]
@@ -450,7 +464,12 @@ mod tests {
                 .unwrap()
                 .magnitude = f64::from_bits(bits);
             let before = value.clone();
-            assert!(!mask(&mut value, "constant.value.value.quantity.magnitude", 0, "-0.0"));
+            assert!(!mask(
+                &mut value,
+                "constant.value.value.quantity.magnitude",
+                0,
+                "-0.0"
+            ));
             assert!(!mask(&mut value, "unrecognized", 0, "-0.0"));
             assert_eq!(
                 value

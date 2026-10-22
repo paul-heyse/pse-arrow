@@ -8,15 +8,17 @@ use std::num::NonZeroUsize;
 /// Native names, widths, defaults and projections for cache settings.
 #[macro_export]
 macro_rules! cache_settings_fields {
-    ($emit:ident, $budget:ident) => { $emit! { $budget;
-        working_bytes: usize, "int" => usize, $budget.working_bytes;
-        concurrent_loads: usize, "int", 1 => usize, $budget.concurrent_loads.get();
-        inflight_bytes: usize, "int", 0 => usize, $budget.inflight_bytes;
-        inspection_bytes: usize, "int", 0 => usize, $budget.inspection_bytes;
-        predicate_total_bytes: usize, "int", 0 => usize, $budget.predicate_total_bytes;
-        predicate_cache_bytes: usize, "int", 0 => usize, $budget.predicate_cache_bytes;
-        syntax_bytes: usize, "int", 0 => usize, $budget.syntax_bytes;
-    } };
+    ($emit:ident, $budget:ident) => {
+        $emit! { $budget;
+            working_bytes: usize, "int" => usize, $budget.working_bytes;
+            concurrent_loads: usize, "int", 1 => usize, $budget.concurrent_loads.get();
+            inflight_bytes: usize, "int", 0 => usize, $budget.inflight_bytes;
+            inspection_bytes: usize, "int", 0 => usize, $budget.inspection_bytes;
+            predicate_total_bytes: usize, "int", 0 => usize, $budget.predicate_total_bytes;
+            predicate_cache_bytes: usize, "int", 0 => usize, $budget.predicate_cache_bytes;
+            syntax_bytes: usize, "int", 0 => usize, $budget.syntax_bytes;
+        }
+    };
 }
 macro_rules! input {
     ($budget:ident; $($name:ident: $ty:ty, $hint:literal $(, $default:expr)? => $out:ty, $read:expr;)*) => {
@@ -53,4 +55,3 @@ fn invalid(reason: &str) -> EngineError {
         reason: reason.into(),
     }
 }
-

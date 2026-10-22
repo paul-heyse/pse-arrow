@@ -479,7 +479,9 @@ fn validate_result_block_interpretation(
         || metadata.payload_bytes != batch.payload_bytes
         || metadata.payload_bytes > RESULT_BLOCK_BYTES as u64
         || metadata.columns > 256
-        || metadata.statistics.as_ref().is_some_and(|bytes| bytes.len() > pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES)
+        || metadata.statistics.as_ref().is_some_and(|bytes| {
+            bytes.len() > pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
+        })
         || metadata.interpretation != interpretation
     {
         return Err(invalid(
@@ -1183,6 +1185,21 @@ impl CanonicalStore {
     }
 }
 
+// Exact association transaction body shared with held-commit fixture controls.
+pub(crate) const RESULT_ADMISSION: &str = r#"fn::pse_execution_v1::available($pse_rpc_expires_at, $run);
+LET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
+LET $manifest_record=SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);
+IF $attempt_record=NONE OR $attempt_record.run!=$run OR ($attempt_record.phase NOT IN ['terminal','terminal_compacted']) OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation { THROW 'PSE_REFUSAL:terminal_result_selection_unavailable'; };
+LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
+IF $selected_pin!=NONE AND ($selected_pin.run!=$run OR $selected_pin.attempt!=$attempt OR $selected_pin.manifest!=$manifest) { THROW 'PSE_REFUSAL:immutable_result_protection_identity_reused'; };
+UPSERT type::record('canonical_result_protections',$protection) SET key=$protection,run=$run,attempt=$attempt,manifest=$manifest;
+fn::pse_execution_v1::result_creator($pse_rpc_expires_at,$run);"#;
+
+// Renewal preserves exact live pin, result manifest and retirement registration.
+pub(crate) const RENEW_PROTECTION: &str = r#"UPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+IF $pin.expires_at <= time::micros() { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };"#;
+
 #[cfg(test)]
 mod protection_drain_unit {
     #![allow(
@@ -1356,29 +1373,99 @@ mod canonical_results_server_unit {
     #[tokio::test]
     async fn canonical_results_keep_historical_manifest_after_new_terminal_attempt() {
         let (store, _database, revision) = fixture().await;
-        store.begin_run(&RunRequest {key:"run".into(), revision, sources:vec![], request:vec![1], source_selection:vec![2], attestation:vec![3]}).await.unwrap();
-        let first = store.claim_run("run", "claim-first", "worker", Duration::from_secs(60)).await.unwrap();
-        store.append_result_batch(&first, "old-bytes", "observations", 0, crate::canonical_execution::ResultPayload::new(vec![17]).unwrap(), 1).await.unwrap();
-        let closed = store.close_result_ingestion(&first, "close-first").await.unwrap();
+        store
+            .begin_run(&RunRequest {
+                key: "run".into(),
+                revision,
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        let first = store
+            .claim_run("run", "claim-first", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        store
+            .append_result_batch(
+                &first,
+                "old-bytes",
+                "observations",
+                0,
+                crate::canonical_execution::ResultPayload::new(vec![17]).unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&first, "close-first")
+            .await
+            .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: transport-only fixture explicitly records partial availability.
-        unsafe {store.seal_attempt(&manifest, "seal-first", TerminalClass::Partial, &[1], crate::canonical_execution::SeedEligibility::Unavailable)}.await.unwrap();
-        let second = store.claim_run("run", "claim-second", "worker", Duration::from_secs(60)).await.unwrap();
-        let closed = store.close_result_ingestion(&second, "close-second").await.unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal-first",
+                TerminalClass::Partial,
+                &[1],
+                crate::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
+        let second = store
+            .claim_run("run", "claim-second", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&second, "close-second")
+            .await
+            .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: the empty fixture is failed, never usable scientific success.
-        unsafe {store.seal_attempt(&manifest, "seal-second", TerminalClass::Failed, &[2], crate::canonical_execution::SeedEligibility::Unavailable)}.await.unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal-second",
+                TerminalClass::Failed,
+                &[2],
+                crate::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         let historical = store.read_results("run", first.attempt()).await.unwrap();
         assert_eq!(historical.attempt().key, first.attempt());
         assert_eq!(historical.sets().len(), 1);
-        let payload = store.result_payload(&historical, &historical.sets()[0].key, 0).await.unwrap();
+        let payload = store
+            .result_payload(&historical, &historical.sets()[0].key, 0)
+            .await
+            .unwrap();
         assert_eq!(payload.batch.payload.as_slice(), [17]);
-        assert!(store.result_payload(&historical, &historical.sets()[0].key, 1).await.is_err());
+        assert!(
+            store
+                .result_payload(&historical, &historical.sets()[0].key, 1)
+                .await
+                .is_err()
+        );
         let latest = store.latest_results("problem", &[]).await.unwrap();
         assert_eq!(latest.attempt().key, second.attempt());
         assert!(latest.sets().is_empty());
-        assert!(store.latest_results("problem", &[TerminalClass::Succeeded]).await.is_err());
-        assert!(store.latest_results("problem", &[TerminalClass::Partial]).await.is_err());
+        assert!(
+            store
+                .latest_results("problem", &[TerminalClass::Succeeded])
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .latest_results("problem", &[TerminalClass::Partial])
+                .await
+                .is_err()
+        );
         drop((payload, historical, latest));
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -1570,18 +1657,3 @@ mod canonical_results_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
 }
-
-// Exact association transaction body shared with held-commit fixture controls.
-pub(crate) const RESULT_ADMISSION: &str = r#"fn::pse_execution_v1::available($pse_rpc_expires_at, $run);
-LET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
-LET $manifest_record=SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);
-IF $attempt_record=NONE OR $attempt_record.run!=$run OR ($attempt_record.phase NOT IN ['terminal','terminal_compacted']) OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation { THROW 'PSE_REFUSAL:terminal_result_selection_unavailable'; };
-LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
-IF $selected_pin!=NONE AND ($selected_pin.run!=$run OR $selected_pin.attempt!=$attempt OR $selected_pin.manifest!=$manifest) { THROW 'PSE_REFUSAL:immutable_result_protection_identity_reused'; };
-UPSERT type::record('canonical_result_protections',$protection) SET key=$protection,run=$run,attempt=$attempt,manifest=$manifest;
-fn::pse_execution_v1::result_creator($pse_rpc_expires_at,$run);"#;
-
-// Renewal preserves exact live pin, result manifest and retirement registration.
-pub(crate) const RENEW_PROTECTION: &str = r#"UPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;
-fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $pin.expires_at <= time::micros() { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };"#;

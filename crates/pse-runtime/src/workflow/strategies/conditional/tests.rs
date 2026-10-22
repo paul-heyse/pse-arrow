@@ -1628,7 +1628,11 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
             .structure()
             .parameters()
             .iter()
-            .any(|p| p.id == pse_ids::named_id(symbol("boundary"), "conditional-boundary-value"))
+            .any(|p| p.id
+                == pse_modeling::derived::Relationship::ConditionalBoundaryValue {
+                    symbol: symbol("boundary")
+                }
+                .identity())
     );
     assert_eq!(prepared.request().units[0].inputs, request.units[0].inputs);
     assert_eq!(prepared.resolved_units().next().unwrap().inputs.len(), 2);
@@ -2073,7 +2077,11 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
             .structure()
             .parameters()
             .iter()
-            .find(|p| p.id == pse_ids::named_id(boundary, "conditional-boundary-value"))
+            .find(|p| p.id
+                == pse_modeling::derived::Relationship::ConditionalBoundaryValue {
+                    symbol: boundary
+                }
+                .identity())
             .unwrap()
             .quantity,
         point

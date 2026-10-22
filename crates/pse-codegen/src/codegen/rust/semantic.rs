@@ -68,8 +68,13 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
     match item {
         syn::Item::Struct(item) => names.contains(&item.ident.to_string()),
         syn::Item::Enum(_) => true,
-        syn::Item::Macro(item) => relative == std::path::Path::new("enums.rs")
-            && item.ident.as_ref().is_some_and(|name| name == "for_each_registry_enum"),
+        syn::Item::Macro(item) => {
+            relative == std::path::Path::new("enums.rs")
+                && item
+                    .ident
+                    .as_ref()
+                    .is_some_and(|name| name == "for_each_registry_enum")
+        }
         syn::Item::Type(item) => {
             names.contains(&item.ident.to_string())
                 || item.ident == "Row"
@@ -211,7 +216,8 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         let usage = value_traits(&model);
         let expression_mask = (relative
             == std::path::Path::new("authored/modeling_declarations.rs"))
-        .then(|| super::expression_fields::render(reg)).transpose()?;
+        .then(|| super::expression_fields::render(reg))
+        .transpose()?;
         let segments = relative
             .with_extension("")
             .components()

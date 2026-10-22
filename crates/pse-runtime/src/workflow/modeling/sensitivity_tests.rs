@@ -102,7 +102,11 @@ pub(in crate::workflow) async fn solve_propagating(
     text: &str,
     selection: SolverSelection,
     outputs: &[&str],
-    propagation: impl FnOnce(&[SemanticId], &[SemanticId], &[pse_kernels::Port]) -> Option<crate::math::settings::Propagation>,
+    propagation: impl FnOnce(
+        &[SemanticId],
+        &[SemanticId],
+        &[pse_kernels::Port],
+    ) -> Option<crate::math::settings::Propagation>,
 ) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
     let (package, root) = package(text).await;
     let cancel = crate::CancelSource::new();
@@ -122,7 +126,11 @@ pub(in crate::workflow) async fn solve_propagating(
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![ids[0], ids[1]],
         reduced_hessian: true,
-        propagation: propagation(&ids[..2], &ids[2..], plain.model.case.compiled().plan.structure().parameters()),
+        propagation: propagation(
+            &ids[..2],
+            &ids[2..],
+            plain.model.case.compiled().plan.structure().parameters(),
+        ),
     });
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();

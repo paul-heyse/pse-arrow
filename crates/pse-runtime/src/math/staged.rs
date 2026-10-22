@@ -1602,13 +1602,18 @@ impl NativeSession {
                 "lost native session".into(),
             ));
         }
-        let native = stop.0.as_ref().ok_or_else(|| MathRuntimeError::Infrastructure("native stop owner absent".into()))?;
-        let outcome = cancel.join_native(native, result, || {
-            if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
-                context.boolean("native.session.stop_requested", true);
-            }
-            pse_diagnostics::observation::phase("native.session.drain.wait")
-        }).await;
+        let native = stop
+            .0
+            .as_ref()
+            .ok_or_else(|| MathRuntimeError::Infrastructure("native stop owner absent".into()))?;
+        let outcome = cancel
+            .join_native(native, result, || {
+                if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
+                    context.boolean("native.session.stop_requested", true);
+                }
+                pse_diagnostics::observation::phase("native.session.drain.wait")
+            })
+            .await;
         stop.0 = None;
         outcome.map_err(|_| MathRuntimeError::Infrastructure("lost native session step".into()))?
     }

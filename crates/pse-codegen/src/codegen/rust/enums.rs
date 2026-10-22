@@ -22,7 +22,11 @@ pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
             None => Ok(declared(spec)),
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let names = reg.enums().iter().map(|spec| format_ident!("{}", super::types::pascal(spec.name))).collect::<Vec<_>>();
+    let names = reg
+        .enums()
+        .iter()
+        .map(|spec| format_ident!("{}", super::types::pascal(spec.name)))
+        .collect::<Vec<_>>();
     Ok(quote! {
         #(#enums)*
         /// Apply a consumer macro to every registry vocabulary, in declaration order.

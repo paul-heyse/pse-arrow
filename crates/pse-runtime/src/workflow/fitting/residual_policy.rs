@@ -27,13 +27,21 @@ impl ResidualLmCriteria {
         }
     }
     /// Required version of the recorded algorithm-criteria contract.
-    pub const fn version(self) -> u32 { pse_model::document::Version::<1>::NUMBER }
+    pub const fn version(self) -> u32 {
+        pse_model::document::Version::<1>::NUMBER
+    }
     /// Actual relative objective-reduction threshold.
-    pub const fn relative_cost_change(self) -> f64 { self.relative_cost_change }
+    pub const fn relative_cost_change(self) -> f64 {
+        self.relative_cost_change
+    }
     /// Actual relative consecutive-iterate threshold.
-    pub const fn relative_step(self) -> f64 { self.relative_step }
+    pub const fn relative_step(self) -> f64 {
+        self.relative_step
+    }
     /// Actual dimensionless residual/Jacobian-column cosine threshold.
-    pub const fn column_residual_cosine(self) -> f64 { self.column_residual_cosine }
+    pub const fn column_residual_cosine(self) -> f64 {
+        self.column_residual_cosine
+    }
     pub(super) fn algorithm(self) -> levenberg_marquardt::LevenbergMarquardt<f64> {
         levenberg_marquardt::LevenbergMarquardt::new()
             .with_ftol(self.relative_cost_change)
@@ -41,10 +49,14 @@ impl ResidualLmCriteria {
             .with_gtol(self.column_residual_cosine)
     }
     // A retained comparison inside the actual driver, never a production request.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt"))]
     pub(super) fn inquiry_baseline(stationarity: f64) -> Self {
-        Self { relative_cost_change: stationarity, relative_step: stationarity,
-            column_residual_cosine: 0., ..Self::current() }
+        Self {
+            relative_cost_change: stationarity,
+            relative_step: stationarity,
+            column_residual_cosine: 0.,
+            ..Self::current()
+        }
     }
 }
 

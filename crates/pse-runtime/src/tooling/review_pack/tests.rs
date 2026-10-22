@@ -832,9 +832,13 @@ fn question_closure_distinguishes_missing_physical_context_and_optional_omission
         request.question = Some(question);
         let pool: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
-        let document =
-            crate::tooling::review_analysis::analyze(&evidence, &request, &pool, &CancellationToken::new())
-                .unwrap();
+        let document = crate::tooling::review_analysis::analyze(
+            &evidence,
+            &request,
+            &pool,
+            &CancellationToken::new(),
+        )
+        .unwrap();
         let mut selection = PackSelection::default();
         selection
             .members
@@ -1056,9 +1060,9 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
 
 #[test]
 fn plan47f_all_table_kinds_compare_only_the_selected_finalized_source() {
-    use crate::tooling::capture::{CaptureDocument, CaptureKind, CaptureStatus};
-use crate::observation_detail::{DetailRecordPage};
     use crate::invocation::{InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome};
+    use crate::observation_detail::DetailRecordPage;
+    use crate::tooling::capture::{CaptureDocument, CaptureKind, CaptureStatus};
     use crate::tooling::review_query::{
         ReviewQuery, ReviewQueryDocument, ReviewQueryRequest, ReviewQueryStatus, ReviewTableKind,
         ReviewTableRequest,

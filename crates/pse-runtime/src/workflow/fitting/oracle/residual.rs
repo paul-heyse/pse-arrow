@@ -272,13 +272,16 @@ pub(in crate::workflow::fitting) fn solve(
     pin: Option<(usize, f64)>,
     scratch: Option<Arc<FitScratch>>,
 ) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
-    solve_using(p, execution, initial, pin, scratch,
-        p.residual_lm_criteria)
+    solve_using(p, execution, initial, pin, scratch, p.residual_lm_criteria)
 }
 /// The same callback, normalization, work and join owner under an explicit library policy.
 pub(in crate::workflow::fitting) fn solve_using(
-    p: &Arc<FitProblem>, execution: Execution, initial: &[f64], pin: Option<(usize, f64)>,
-    scratch: Option<Arc<FitScratch>>, criteria: ResidualLmCriteria,
+    p: &Arc<FitProblem>,
+    execution: Execution,
+    initial: &[f64],
+    pin: Option<(usize, f64)>,
+    scratch: Option<Arc<FitScratch>>,
+    criteria: ResidualLmCriteria,
 ) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
     if !eligible(p) {
         return Err(ProblemError::unsupported("residual LM eligibility changed"));
@@ -362,7 +365,8 @@ pub(in crate::workflow::fitting) fn solve_using(
         update_limit,
         evaluation_limit,
     };
-    let (problem, report) = criteria.algorithm()
+    let (problem, report) = criteria
+        .algorithm()
         .with_scale_diag(p.numerics.policy.native_scaling)
         .with_patience(update_limit)
         .minimize(problem);
@@ -373,7 +377,11 @@ pub(in crate::workflow::fitting) fn solve_using(
     problem.physical_point(&p)?;
     let candidate = problem.physical.borrow().clone();
     let evidence = FitResidualReport {
-        stopping: Some(ResidualLmStopping { criteria, parameter_update_limit: update_limit, residual_evaluation_limit: evaluation_limit }),
+        stopping: Some(ResidualLmStopping {
+            criteria,
+            parameter_update_limit: update_limit,
+            residual_evaluation_limit: evaluation_limit,
+        }),
         termination: termination(report.termination),
         residual_evaluations: problem.evaluations.get(),
         jacobian_evaluations: problem.jacobians.get(),

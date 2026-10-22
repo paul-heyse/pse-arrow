@@ -98,13 +98,16 @@ pub(crate) fn callable<T>(
             ))
         && let Some(solver) = source.solver
     {
-        let capacity = pse_backend_native::execution::adapter(Backend::Pounce).recovery_capacity(
-            &solver.controls,
-            &solver.backend,
-            pse_backend_native::execution::RecoveryPermission::default(),
-        )?.checked_add(1).ok_or_else(|| ProblemError::memory("callable profile catalog extent"))?;
+        let capacity = pse_backend_native::execution::adapter(Backend::Pounce)
+            .recovery_capacity(
+                &solver.controls,
+                &solver.backend,
+                pse_backend_native::execution::RecoveryPermission::default(),
+            )?
+            .checked_add(1)
+            .ok_or_else(|| ProblemError::memory("callable profile catalog extent"))?;
         declaration.limits.attempts = u64::try_from(capacity)
-        .map_err(|_| ProblemError::memory("callable profile catalog extent"))?;
+            .map_err(|_| ProblemError::memory("callable profile catalog extent"))?;
     }
     let admission = TaskAdmission::new_for(declaration.limits, scope.clone(), service, false);
     if let Some(storage) = context.storage.take() {
@@ -392,12 +395,16 @@ pub(crate) fn callable<T>(
             && let Some(Ok(value)) = result.value.as_ref()
             && let Some(report) = native_report(value)
         {
-            for offered in pse_backend_native::execution::adapter(Backend::Pounce).recovery_profiles(
-                &baseline.controls,
-                &baseline.backend,
-                report,
-                pse_backend_native::execution::RecoveryPermission { replacement_start: false },
-            )? {
+            for offered in pse_backend_native::execution::adapter(Backend::Pounce)
+                .recovery_profiles(
+                    &baseline.controls,
+                    &baseline.backend,
+                    report,
+                    pse_backend_native::execution::RecoveryPermission {
+                        replacement_start: false,
+                    },
+                )?
+            {
                 let mut profile = baseline.clone();
                 profile.controls = offered.controls;
                 profile.backend = offered.settings;

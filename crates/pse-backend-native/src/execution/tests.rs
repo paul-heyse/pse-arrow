@@ -1620,48 +1620,108 @@ fn workflow_owner_is_lane_local_and_ends_before_independent_parking() {
 #[test]
 fn selected_capabilities_match_native_methods_and_refuse_foreign_settings() {
     let uno = adapter(Backend::Uno);
-    for method in [crate::settings::uno::Method::Sqp, crate::settings::uno::Method::Slp] {
-        let selected = BackendSettings::Uno(crate::settings::uno::Settings { method, limited_memory: if method == crate::settings::uno::Method::Slp { 0 } else { 6 }, ..Default::default() });
+    for method in [
+        crate::settings::uno::Method::Sqp,
+        crate::settings::uno::Method::Slp,
+    ] {
+        let selected = BackendSettings::Uno(crate::settings::uno::Settings {
+            method,
+            limited_memory: if method == crate::settings::uno::Method::Slp {
+                0
+            } else {
+                6
+            },
+            ..Default::default()
+        });
         let capability = uno.capability_for(&selected).unwrap();
         assert_eq!(capability.derivatives, DerivativeCapability::FirstOrderOnly);
-        assert_eq!(crate::routing::derivative_demand(&capability, &Controls::default()), Some(DerivativeOrder::First));
+        assert_eq!(
+            crate::routing::derivative_demand(&capability, &Controls::default()),
+            Some(DerivativeOrder::First)
+        );
     }
-    assert!(uno.capability_for(&BackendSettings::Kinsol(Default::default())).is_err());
-    assert!(uno.capability_for(&BackendSettings::Uno(crate::settings::uno::Settings {
-        method: crate::settings::uno::Method::Slp, ..Default::default()
-    })).is_err(), "unused SQP history must refuse before publishing SLP claims");
+    assert!(
+        uno.capability_for(&BackendSettings::Kinsol(Default::default()))
+            .is_err()
+    );
+    assert!(
+        uno.capability_for(&BackendSettings::Uno(crate::settings::uno::Settings {
+            method: crate::settings::uno::Method::Slp,
+            ..Default::default()
+        }))
+        .is_err(),
+        "unused SQP history must refuse before publishing SLP claims"
+    );
     let kinsol = adapter(Backend::Kinsol);
-    assert_eq!(kinsol.capability_for(&BackendSettings::Default).unwrap().derivatives, DerivativeCapability::JacobianOrProduct);
-    for strategy in [crate::settings::kinsol::Strategy::FixedPoint, crate::settings::kinsol::Strategy::Picard] {
-        let capability = kinsol.capability_for(&BackendSettings::Kinsol(crate::settings::kinsol::Method { strategy, ..Default::default() })).unwrap();
+    assert_eq!(
+        kinsol
+            .capability_for(&BackendSettings::Default)
+            .unwrap()
+            .derivatives,
+        DerivativeCapability::JacobianOrProduct
+    );
+    for strategy in [
+        crate::settings::kinsol::Strategy::FixedPoint,
+        crate::settings::kinsol::Strategy::Picard,
+    ] {
+        let capability = kinsol
+            .capability_for(&BackendSettings::Kinsol(crate::settings::kinsol::Method {
+                strategy,
+                ..Default::default()
+            }))
+            .unwrap();
         assert_eq!(capability.classes, &[ProblemClass::DeclaredFixedPoint]);
         assert_eq!(capability.derivatives, DerivativeCapability::ValueOnly);
-        assert_eq!(crate::routing::derivative_demand(&capability, &Controls::default()), None);
+        assert_eq!(
+            crate::routing::derivative_demand(&capability, &Controls::default()),
+            None
+        );
         assert!(!capability.sign_bounds && !capability.sensitivities);
         assert_eq!(capability.warm, WarmCapability::None);
     }
-    let invalid = BackendSettings::Kinsol(crate::settings::kinsol::Method { setup_interval: 0, ..Default::default() });
+    let invalid = BackendSettings::Kinsol(crate::settings::kinsol::Method {
+        setup_interval: 0,
+        ..Default::default()
+    });
     assert!(kinsol.capability_for(&invalid).is_err());
-    assert_eq!(kinsol.capability().derivatives, DerivativeCapability::JacobianOrProduct, "inventory union keeps the root route");
+    assert_eq!(
+        kinsol.capability().derivatives,
+        DerivativeCapability::JacobianOrProduct,
+        "inventory union keeps the root route"
+    );
     let published = STUB_TABLE.capability_for(Backend::Kinsol, &BackendSettings::Default);
-    assert!(published.is_err(), "absent/unlinked routes cannot publish selected claims");
+    assert!(
+        published.is_err(),
+        "absent/unlinked routes cannot publish selected claims"
+    );
 }
 
 #[test]
 fn preparation_and_arclength_suitability_are_adapter_facts() {
     let method = crate::settings::kinsol::Method {
-        linear: crate::settings::kinsol::Linear::Spgmr { dimension: pse_model::scalars::PositiveCount::try_new(3).unwrap() },
+        linear: crate::settings::kinsol::Linear::Spgmr {
+            dimension: pse_model::scalars::PositiveCount::try_new(3).unwrap(),
+        },
         ..Default::default()
     };
     let selected = BackendSettings::Kinsol(method);
     let demand = adapter(Backend::Kinsol).callback_demand(&selected);
     assert!(demand.jacobian_product && demand.directional_only);
-    assert_eq!(adapter(Backend::Ipopt).callback_demand(&selected), CallbackDemand::default());
+    assert_eq!(
+        adapter(Backend::Ipopt).callback_demand(&selected),
+        CallbackDemand::default()
+    );
     assert!(adapter(Backend::Pounce).consumes_separator(&BackendSettings::Default));
     assert!(!adapter(Backend::Kinsol).consumes_separator(&BackendSettings::Default));
-    let controls = Controls { hessian: HessianMode::LimitedMemory, ..Default::default() };
+    let controls = Controls {
+        hessian: HessianMode::LimitedMemory,
+        ..Default::default()
+    };
     assert!(adapter(Backend::Ipopt).arclength_corrector(&BackendSettings::Default, &controls));
     assert!(!adapter(Backend::Pounce).arclength_corrector(&BackendSettings::Default, &controls));
     assert!(!adapter(Backend::Ipopt).arclength_corrector(&selected, &controls));
-    assert!(!adapter(Backend::Ipopt).arclength_corrector(&BackendSettings::Default, &Controls::default()));
+    assert!(
+        !adapter(Backend::Ipopt)
+            .arclength_corrector(&BackendSettings::Default, &Controls::default())
+    );
 }

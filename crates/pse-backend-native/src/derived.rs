@@ -1275,41 +1275,53 @@ mod tests {
         )
         .unwrap()
         .unwrap();
-        let body = Arc::new(
-            residual
-                .compile(
-                    &[0],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = crate::implicit::source_body_for_test(
+            id(20),
+            &residual,
+            Arc::new(
+                residual
+                    .compile(
+                        &[0],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
-        let eligibility = Arc::new(
-            eligibility
-                .compile(
-                    &[0],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let eligibility = crate::implicit::source_body_for_test(
+            id(20),
+            &eligibility,
+            Arc::new(
+                eligibility
+                    .compile(
+                        &[0],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
-        let criterion = Arc::new(
-            criterion
-                .compile(
-                    &[0, 1],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let criterion = crate::implicit::source_body_for_test(
+            id(20),
+            &criterion,
+            Arc::new(
+                criterion
+                    .compile(
+                        &[0, 1],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
         let port = |id| pse_kernels::Port {
             id,
@@ -1719,41 +1731,53 @@ mod tests {
         )
         .unwrap()
         .unwrap();
-        let body = Arc::new(
-            residual
-                .compile(
-                    &[0],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = crate::implicit::source_body_for_test(
+            id(20),
+            &residual,
+            Arc::new(
+                residual
+                    .compile(
+                        &[0],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
-        let eligibility = Arc::new(
-            eligibility
-                .compile(
-                    &[0],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let eligibility = crate::implicit::source_body_for_test(
+            id(20),
+            &eligibility,
+            Arc::new(
+                eligibility
+                    .compile(
+                        &[0],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
-        let criterion = Arc::new(
-            criterion
-                .compile(
-                    &[0, 1],
-                    &[0, 1],
-                    DerivativeOrder::First,
-                    Optimization::default(),
-                    pse_math::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let criterion = crate::implicit::source_body_for_test(
+            id(20),
+            &criterion,
+            Arc::new(
+                criterion
+                    .compile(
+                        &[0, 1],
+                        &[0, 1],
+                        DerivativeOrder::First,
+                        Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap(),
+            ),
         );
         let port = |id| pse_kernels::Port {
             id,

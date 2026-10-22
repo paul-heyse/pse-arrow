@@ -303,7 +303,10 @@ impl CompilerWorkspace {
             ));
             let mut parameters = augmented.structure().parameters().to_vec();
             for symbol in &derived {
-                let parameter = pse_ids::named_id(*symbol, "conditional-boundary-value");
+                let parameter = pse_modeling::derived::Relationship::ConditionalBoundaryValue {
+                    symbol: *symbol,
+                }
+                .identity();
                 parameters.push(
                     boundary
                         .plan

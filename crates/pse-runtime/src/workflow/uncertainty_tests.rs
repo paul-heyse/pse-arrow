@@ -82,8 +82,19 @@ async fn uncertainty_propagation_linear_exact() {
                 // The covariance names b before a: parameters match by identity.
                 covariance: ParameterCovariance {
                     version: pse_model::document::Version,
-                    origin: CovarianceOrigin::External { label: "analytic oracle".into(), assumptions: vec!["declared independent errors".into()] },
-                    parameter_quantities: vec![port(parameters[1]).quantity.as_id(), port(parameters[0]).quantity.as_id()], parameter_units: vec![port(parameters[1]).unit.as_id(), port(parameters[0]).unit.as_id()], verified: None,
+                    origin: CovarianceOrigin::External {
+                        label: "analytic oracle".into(),
+                        assumptions: vec!["declared independent errors".into()],
+                    },
+                    parameter_quantities: vec![
+                        port(parameters[1]).quantity.as_id(),
+                        port(parameters[0]).quantity.as_id(),
+                    ],
+                    parameter_units: vec![
+                        port(parameters[1]).unit.as_id(),
+                        port(parameters[0]).unit.as_id(),
+                    ],
+                    verified: None,
                     scales: bound(&[1.0, 1.0]),
                     parameters: vec![parameters[1], parameters[0]],
                     values: bound(&[
@@ -128,13 +139,17 @@ async fn uncertainty_propagation_linear_exact() {
     assert!(validity(&result).validity.certified);
     // The entry point: the run's covariance handed on, through the same Jacobian.
     let input = result.parameter_covariance().unwrap().unwrap();
-    assert!(matches!(input.origin, CovarianceOrigin::QualifiedFit { run_id, .. } if run_id == result.run_id));
+    assert!(
+        matches!(input.origin, CovarianceOrigin::QualifiedFit { run_id, .. } if run_id == result.run_id)
+    );
     let jacobian = Jacobian {
         outputs: observations,
         parameters: input.parameters.clone(),
         values: design.iter().flatten().copied().collect(),
     };
-    let direct = propagate_for_test(Ok(&input), Ok(&jacobian)).unwrap().unwrap();
+    let direct = propagate_for_test(Ok(&input), Ok(&jacobian))
+        .unwrap()
+        .unwrap();
     close(&direct.values, &expected);
     // A covariance parameter the Jacobian does not differentiate is a caller error.
     let mut foreign = jacobian.clone();
@@ -156,8 +171,16 @@ async fn propagation_withheld_when_upstream_withheld() {
             Some(Propagation {
                 covariance: ParameterCovariance {
                     version: pse_model::document::Version,
-                    origin: CovarianceOrigin::External { label: "withholding control".into(), assumptions: vec!["declared independent errors".into()] },
-                    parameter_quantities: parameters.iter().map(|id| port(*id).quantity.as_id()).collect(), parameter_units: parameters.iter().map(|id| port(*id).unit.as_id()).collect(), verified: None,
+                    origin: CovarianceOrigin::External {
+                        label: "withholding control".into(),
+                        assumptions: vec!["declared independent errors".into()],
+                    },
+                    parameter_quantities: parameters
+                        .iter()
+                        .map(|id| port(*id).quantity.as_id())
+                        .collect(),
+                    parameter_units: parameters.iter().map(|id| port(*id).unit.as_id()).collect(),
+                    verified: None,
                     scales: bound(&[1.0, 1.0]),
                     parameters: parameters.to_vec(),
                     values: bound(&[1.0, 0.0, 0.0, 1.0]),
@@ -206,9 +229,19 @@ async fn propagation_withheld_when_upstream_withheld() {
     // A covariance that is not square, symmetric and nonnegative on its diagonal is refused.
     let skew = ParameterCovariance {
         version: pse_model::document::Version,
-        origin: CovarianceOrigin::External { label: "skew control".into(), assumptions: vec!["declared independent errors".into()] },
-        parameter_quantities: vec![SemanticId::from_bytes([1; 16]), SemanticId::from_bytes([2; 16])],
-        parameter_units: vec![SemanticId::from_bytes([1; 16]), SemanticId::from_bytes([2; 16])], verified: None,
+        origin: CovarianceOrigin::External {
+            label: "skew control".into(),
+            assumptions: vec!["declared independent errors".into()],
+        },
+        parameter_quantities: vec![
+            SemanticId::from_bytes([1; 16]),
+            SemanticId::from_bytes([2; 16]),
+        ],
+        parameter_units: vec![
+            SemanticId::from_bytes([1; 16]),
+            SemanticId::from_bytes([2; 16]),
+        ],
+        verified: None,
         scales: bound(&[1.0, 1.0]),
         parameters: vec![
             SemanticId::from_bytes([1; 16]),

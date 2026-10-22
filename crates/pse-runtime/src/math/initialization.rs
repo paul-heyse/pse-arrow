@@ -50,8 +50,21 @@ struct ConditionalBlock {
 }
 impl PreparedInitialization {
     pub(crate) fn original_primal_ports(&self) -> Vec<pse_kernels::Port> {
-        self.blocks.iter().flat_map(|block| block.view.plan.structure().variables().iter().map(|variable| variable.port.clone()))
-            .map(|port| (port.id, port)).collect::<BTreeMap<_, _>>().into_values().collect()
+        self.blocks
+            .iter()
+            .flat_map(|block| {
+                block
+                    .view
+                    .plan
+                    .structure()
+                    .variables()
+                    .iter()
+                    .map(|variable| variable.port.clone())
+            })
+            .map(|port| (port.id, port))
+            .collect::<BTreeMap<_, _>>()
+            .into_values()
+            .collect()
     }
 
     pub(crate) fn retain_physical_input(&mut self, owner: Arc<dyn pse_columnar::PayloadOwner>) {
@@ -683,8 +696,11 @@ impl MathService {
         if adapter.representation() != execution::Representation::Roots {
             return Err(native::ProblemError::Unsupported("conditional unit requires a selected root representation; request an explicit simultaneous strategy".into()).into());
         }
-        let demand = native::routing::derivative_demand(&adapter.capability_for(&profile.backend)?, &profile.controls)
-            .unwrap_or(pse_kernels::DerivativeOrder::Value);
+        let demand = native::routing::derivative_demand(
+            &adapter.capability_for(&profile.backend)?,
+            &profile.controls,
+        )
+        .unwrap_or(pse_kernels::DerivativeOrder::Value);
         if executable.assembly.order() < demand {
             return Err(native::ProblemError::Unsupported(
                 "conditional residual compilation does not meet selected root derivative demand"
@@ -1279,7 +1295,12 @@ impl MathService {
                                     backend: Backend::Kinsol,
                                 };
                                 let report = execution::map(execution::MapInput {
-                                    problem: execution::Problem::declared_map(function, &initial, &settings, restarts.as_ref())?,
+                                    problem: execution::Problem::declared_map(
+                                        function,
+                                        &initial,
+                                        &settings,
+                                        restarts.as_ref(),
+                                    )?,
                                     controls: &controls,
                                     accuracy: &accuracy,
                                     execution,

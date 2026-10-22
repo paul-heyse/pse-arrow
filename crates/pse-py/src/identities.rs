@@ -65,11 +65,17 @@ impl<R: IdentityRole> FromPyObject<'_, '_> for Identity<R> {
     const INPUT_TYPE: pyo3::inspect::PyStaticExpr = pyo3::type_hint_identifier!(R::MODULE, R::NAME);
     fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         if !value.is_instance(semantic_type(value.py())?)? {
-            return Err(pyo3::exceptions::PyTypeError::new_err(format!("expected SemanticId for {}", R::NAME)));
+            return Err(pyo3::exceptions::PyTypeError::new_err(format!(
+                "expected SemanticId for {}",
+                R::NAME
+            )));
         }
         let value = value.cast::<PyBytes>()?;
         let bytes = value.as_bytes();
-        let raw = SemanticId::from_bytes(bytes.try_into().map_err(|_| PyValueError::new_err("semantic identity requires exactly 16 bytes"))?);
+        let raw =
+            SemanticId::from_bytes(bytes.try_into().map_err(|_| {
+                PyValueError::new_err("semantic identity requires exactly 16 bytes")
+            })?);
         Ok(Self(R::from_semantic(raw)))
     }
 }
@@ -87,14 +93,19 @@ pse_model::for_each_semantic_identity!(roles);
 impl IdentityRole for SemanticId {
     const NAME: &'static str = "SemanticId";
     const MODULE: &'static str = "pse.contracts.values";
-    fn from_semantic(value: SemanticId) -> Self { value }
-    fn as_semantic(self) -> SemanticId { self }
+    fn from_semantic(value: SemanticId) -> Self {
+        value
+    }
+    fn as_semantic(self) -> SemanticId {
+        self
+    }
 }
 impl<'py, R: IdentityRole> IntoPyObject<'py> for Identity<R> {
     type Target = PyAny;
     type Output = Bound<'py, PyAny>;
     type Error = PyErr;
-    const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr = pyo3::type_hint_identifier!(R::MODULE, R::NAME);
+    const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr =
+        pyo3::type_hint_identifier!(R::MODULE, R::NAME);
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         semantic_type(py)?.call1((PyBytes::new(py, self.0.as_semantic().as_bytes()),))
     }
@@ -108,20 +119,29 @@ fn hash_type(py: Python<'_>) -> PyResult<&Bound<'_, pyo3::types::PyType>> {
 }
 impl FromPyObject<'_, '_> for HashValue {
     type Error = PyErr;
-    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = pyo3::type_hint_identifier!("pse.contracts.values", "ContentHash");
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr =
+        pyo3::type_hint_identifier!("pse.contracts.values", "ContentHash");
     fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         if !value.is_instance(hash_type(value.py())?)? {
-            return Err(pyo3::exceptions::PyTypeError::new_err("expected ContentHash"));
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "expected ContentHash",
+            ));
         }
-        Ok(Self(ContentHash::from_bytes(value.cast::<PyBytes>()?.as_bytes().try_into()
-            .map_err(|_| PyValueError::new_err("content identity requires exactly 32 bytes"))?)))
+        Ok(Self(ContentHash::from_bytes(
+            value
+                .cast::<PyBytes>()?
+                .as_bytes()
+                .try_into()
+                .map_err(|_| PyValueError::new_err("content identity requires exactly 32 bytes"))?,
+        )))
     }
 }
 impl<'py> IntoPyObject<'py> for HashValue {
     type Target = PyAny;
     type Output = Bound<'py, PyAny>;
     type Error = PyErr;
-    const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr = pyo3::type_hint_identifier!("pse.contracts.values", "ContentHash");
+    const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr =
+        pyo3::type_hint_identifier!("pse.contracts.values", "ContentHash");
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         hash_type(py)?.call1((PyBytes::new(py, self.0.as_bytes()),))
     }

@@ -63,9 +63,12 @@ mod regimes;
 mod scalar;
 #[path = "implicit_selection.rs"]
 mod selection;
+#[cfg(test)]
+use crate::guarded::CompiledBody;
 use crate::{
-    MathError,
-    guarded::{CompiledBody, Evaluation, Worker},
+    MathError, SourceBody,
+    execution::SourceWorker,
+    guarded::{Evaluation, Worker},
 };
 pub use affine::Affine;
 use configuration::ConfigurationWorker;
@@ -132,9 +135,9 @@ pub struct Options {
 #[derive(Clone, Debug)]
 pub struct ResidualBodies {
     /// Unknown-only native/Newton product; parameters remain ordinary value inputs.
-    pub unknown: Arc<CompiledBody>,
+    pub unknown: SourceBody,
     /// Original Value source, optimizer policy and limits for demanded derivative preparation.
-    pub source: Arc<CompiledBody>,
+    pub source: SourceBody,
 }
 impl ResidualBodies {
     fn check(&self, unknowns: usize, inputs: usize) -> Result<(), MathError> {
@@ -148,7 +151,8 @@ impl ResidualBodies {
         let width = unknowns
             .checked_add(inputs)
             .ok_or_else(|| MathError::Contract("implicit formal extent".into()))?;
-        if !a.same_source(b)
+        if self.unknown.bindings() != self.source.bindings()
+            || !a.same_source(b)
             || a.outputs() != b.outputs()
             || self.unknown.product_kind() != crate::guarded::ProductKind::SelectedPartials
             || self.source.product_kind() != crate::guarded::ProductKind::SelectedPartials
@@ -194,7 +198,7 @@ pub struct Problem {
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
     factor: Mutex<FactorWorkspace>,
-    parameter_source: Arc<CompiledBody>,
+    parameter_source: SourceBody,
     product_workers: Mutex<Vec<Arc<products::ResidualProduct>>>,
     product_scratch: Mutex<products::ProductScratch>,
     max_entries: usize,
@@ -207,12 +211,12 @@ pub struct Problem {
 }
 #[derive(Debug)]
 struct ResidualWorker {
-    worker: Worker,
+    worker: SourceWorker,
     inputs: Vec<f64>,
     evaluation: crate::execution::TrialEvaluation,
 }
 impl ResidualWorker {
-    fn new(body: &CompiledBody) -> Self {
+    fn new(body: &SourceBody) -> Self {
         Self {
             worker: body.worker(),
             inputs: vec![f64::NAN; body.input_formals().len()],
@@ -1551,9 +1555,9 @@ pub struct Factory {
     /// Fixed or hint-resolved start, scaling and tolerance configuration.
     pub configuration: Configuration,
     /// Numerical hint program evaluated before each solve.
-    pub hints: Option<Arc<CompiledBody>>,
+    pub hints: Option<SourceBody>,
     /// Original additive term program used for residual scaling.
-    pub terms: Option<Arc<CompiledBody>>,
+    pub terms: Option<SourceBody>,
     /// Injected native solver.
     pub solver: Arc<dyn InnerSolver>,
     /// Outer cancellation owner for providers created without a scope.
@@ -1619,9 +1623,9 @@ impl ImplicitFactory {
         &self,
         allocations: &std::collections::BTreeSet<usize>,
     ) -> Result<(usize, usize), MathError> {
-        let add = |(payload, wrappers): (usize, usize), body: &Arc<CompiledBody>| {
+        let add = |(payload, wrappers): (usize, usize), body: &SourceBody| {
             Some((
-                payload.checked_add(body.retained_bytes())?,
+                payload.checked_add(body.compiled().retained_bytes())?,
                 wrappers.checked_add(body.owner_attachment_bytes())?,
             ))
         };
@@ -1632,7 +1636,7 @@ impl ImplicitFactory {
                 .chain(factory.terms.iter())
                 .chain(factory.selection.anchor.iter())
                 .chain(factory.selection.restriction.iter())
-                .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
+                .filter(|body| allocations.contains(&(Arc::as_ptr(body.compiled()) as usize)))
                 .try_fold((0usize, 0usize), add)
         };
         let bytes = match self {
@@ -1642,7 +1646,9 @@ impl ImplicitFactory {
                 |(payload, wrappers), branch| {
                     let extra = [&branch.eligibility, &branch.criterion]
                         .into_iter()
-                        .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
+                        .filter(|body| {
+                            allocations.contains(&(Arc::as_ptr(body.compiled()) as usize))
+                        })
                         .try_fold((0usize, 0usize), add)?;
                     let local = root(&branch.residual)?;
                     Some((
@@ -1739,8 +1745,8 @@ impl ImplicitFactory {
     }
     /// Preserve the runtime's admission lease through every separately compiled program.
     pub fn retain(&mut self, owner: Arc<dyn crate::AllocationOwner>) {
-        let retain = |body: &mut Arc<CompiledBody>| {
-            *body = Arc::new(body.as_ref().clone().with_owner(owner.clone()))
+        let retain = |body: &mut SourceBody| {
+            *body = body.clone().with_owner(owner.clone());
         };
         match self {
             Self::Root(factory) => {
@@ -2344,8 +2350,54 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
     }
 }
 
+/// Bind a handcrafted numerical fixture while its real admitted source is in scope.
+/// These fixtures use actual source IDs directly and have no local attribution tokens.
 #[cfg(test)]
-pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> ResidualBodies {
+pub(crate) fn source_body_for_test(
+    instance: SemanticId,
+    prepared: &crate::guarded::PreparedBody,
+    compiled: Arc<CompiledBody>,
+) -> SourceBody {
+    assert!(prepared.checked_members().is_empty());
+    assert!(prepared.checked_sources().is_empty());
+    assert!(prepared.occurrence_tokens().is_empty());
+    let bindings = crate::SourceBindings::new(
+        instance,
+        prepared,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        BTreeMap::new(),
+    )
+    .unwrap();
+    SourceBody::new(compiled, bindings).unwrap()
+}
+/// Same preparation and all-input/all-output compilation as BodyBuilder::finish,
+/// retaining actual fixture bindings before its original prepared source is released.
+#[cfg(test)]
+pub(crate) fn finish_body_for_test(
+    instance: SemanticId,
+    builder: crate::typed::BodyBuilder<'_>,
+    outputs: &[crate::typed::TypedValue],
+    order: DerivativeOrder,
+    options: crate::library::Optimization,
+    scope: &pse_kernels::ExecutionScope,
+) -> SourceBody {
+    let prepared = builder.prepare(outputs).unwrap();
+    let compiled = prepared
+        .compile(
+            &(0..prepared.output_count()).collect::<Vec<_>>(),
+            &(0..prepared.input_count()).collect::<Vec<_>>(),
+            order,
+            options,
+            crate::jets::EvaluationLimits::default(),
+            scope,
+        )
+        .unwrap();
+    source_body_for_test(instance, &prepared, Arc::new(compiled))
+}
+
+#[cfg(test)]
+pub(crate) fn residual_bodies_for_test(parameter: SourceBody) -> ResidualBodies {
     let unknowns = parameter.prepared_support().outputs().len();
     let order = parameter.compiled_order().min(DerivativeOrder::First);
     let axes = if order >= DerivativeOrder::First {
@@ -2384,7 +2436,10 @@ pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> Residual
             )
             .unwrap(),
     );
-    ResidualBodies { unknown, source }
+    ResidualBodies {
+        unknown: SourceBody::new(unknown, parameter.bindings().clone()).unwrap(),
+        source: SourceBody::new(source, parameter.bindings().clone()).unwrap(),
+    }
 }
 
 #[cfg(test)]
@@ -2638,6 +2693,7 @@ mod tests {
                     )
                     .unwrap(),
             );
+            let body = source_body_for_test(id, &source, body);
             let problem = Problem::new(
                 id,
                 ContentHash::from_bytes([0; 32]),
@@ -2761,17 +2817,21 @@ mod tests {
         )
         .unwrap();
         let compile = |axes: &[usize], order| {
-            Arc::new(
-                source
-                    .compile(
-                        &[0],
-                        axes,
-                        order,
-                        crate::library::Optimization::default(),
-                        crate::jets::EvaluationLimits::default(),
-                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
-                    )
-                    .unwrap(),
+            source_body_for_test(
+                id,
+                &source,
+                Arc::new(
+                    source
+                        .compile(
+                            &[0],
+                            axes,
+                            order,
+                            crate::library::Optimization::default(),
+                            crate::jets::EvaluationLimits::default(),
+                            &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
+                        )
+                        .unwrap(),
+                ),
             )
         };
         let unknown = compile(&[0], DerivativeOrder::First);
@@ -2892,30 +2952,36 @@ mod tests {
         crate::initialize().unwrap();
         let x = crate::library::formal(0).unwrap();
         let p = crate::library::formal(1).unwrap();
+        let id = pse_ids::named_id(SemanticId::NIL, "different original residual fixture");
         let compile_control = pse_diagnostics::Cancellation::new(false);
         let compile = |value: Atom, axes: &[usize]| {
-            Arc::new(
-                PreparedBody::new(
-                    2,
-                    3,
-                    vec![2],
-                    vec![Stage::Block {
-                        expressions: vec![value],
-                        outputs: vec![2],
-                        source: SemanticId::NIL,
-                    }],
-                    DerivativeOrder::Second,
-                )
-                .unwrap()
-                .compile(
-                    &[0],
-                    axes,
-                    DerivativeOrder::First,
-                    crate::library::Optimization::default(),
-                    crate::jets::EvaluationLimits::default(),
-                    &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
-                )
-                .unwrap(),
+            let prepared = PreparedBody::new(
+                2,
+                3,
+                vec![2],
+                vec![Stage::Block {
+                    expressions: vec![value],
+                    outputs: vec![2],
+                    source: SemanticId::NIL,
+                }],
+                DerivativeOrder::Second,
+            )
+            .unwrap();
+            source_body_for_test(
+                id,
+                &prepared,
+                Arc::new(
+                    prepared
+                        .compile(
+                            &[0],
+                            axes,
+                            DerivativeOrder::First,
+                            crate::library::Optimization::default(),
+                            crate::jets::EvaluationLimits::default(),
+                            &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
+                        )
+                        .unwrap(),
+                ),
             )
         };
         let bodies = ResidualBodies {
@@ -3023,17 +3089,21 @@ mod tests {
             .prepare(&[restriction, parameter, constant])
             .unwrap();
         let compile = |outputs: &[usize], axes: &[usize], order| {
-            Arc::new(
-                source
-                    .compile(
-                        outputs,
-                        axes,
-                        order,
-                        crate::library::Optimization::default(),
-                        crate::jets::EvaluationLimits::default(),
-                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
-                    )
-                    .unwrap(),
+            source_body_for_test(
+                id,
+                &source,
+                Arc::new(
+                    source
+                        .compile(
+                            outputs,
+                            axes,
+                            order,
+                            crate::library::Optimization::default(),
+                            crate::jets::EvaluationLimits::default(),
+                            &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
+                        )
+                        .unwrap(),
+                ),
             )
         };
         let problem = Problem::new(
@@ -3211,17 +3281,21 @@ mod tests {
             .unwrap();
         let source = builder.prepare(&[residual, parameter, nominal]).unwrap();
         let compile = |outputs: &[usize], axes: &[usize], order| {
-            Arc::new(
-                source
-                    .compile(
-                        outputs,
-                        axes,
-                        order,
-                        crate::library::Optimization::default(),
-                        crate::jets::EvaluationLimits::default(),
-                        &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
-                    )
-                    .unwrap(),
+            source_body_for_test(
+                id,
+                &source,
+                Arc::new(
+                    source
+                        .compile(
+                            outputs,
+                            axes,
+                            order,
+                            crate::library::Optimization::default(),
+                            crate::jets::EvaluationLimits::default(),
+                            &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
+                        )
+                        .unwrap(),
+                ),
             )
         };
         let unknown = Unknown {
@@ -3314,15 +3388,13 @@ mod tests {
         let residual = builder
             .binary(crate::typed::Binary::Sub, y, p, None, id)
             .unwrap();
-        let body = Arc::new(
-            builder
-                .finish(
-                    &[residual],
-                    DerivativeOrder::Second,
-                    crate::library::Optimization::default(),
-                    &pse_kernels::ExecutionScope::new(control.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_body_for_test(
+            id,
+            builder,
+            &[residual],
+            DerivativeOrder::Second,
+            crate::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         );
         let unknowns = vec![Unknown {
             id,
@@ -3577,15 +3649,13 @@ mod tests {
             .unwrap();
         let control = pse_diagnostics::Cancellation::new(false);
         let cancel = control.flag();
-        let body = Arc::new(
-            builder
-                .finish(
-                    &[residual],
-                    DerivativeOrder::Second,
-                    crate::library::Optimization::default(),
-                    &pse_kernels::ExecutionScope::new(control.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_body_for_test(
+            id,
+            builder,
+            &[residual],
+            DerivativeOrder::Second,
+            crate::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
         );
         // Explicit operation-local admission reaches scratch, numeric factorization
         // and both IFT solve orders. Ordinary Problem::new remains serial.

@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Typed scientific product membership projected from the registry profiles.
+use crate::{Registry, SchemaError};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::{Registry, SchemaError};
 
 pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
     let Some(kinds) = reg.enum_spec("ScientificArtifactKind") else {

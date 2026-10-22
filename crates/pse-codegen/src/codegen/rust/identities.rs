@@ -47,7 +47,10 @@ pub(super) fn emit(
             identity.name
         );
         let (declaration, base) = match identity.base {
-            IdentityBase::SemanticId => (quote!(#[doc = #doc] #name: RegistrySemanticId), quote!(pse_ids::SemanticId)),
+            IdentityBase::SemanticId => (
+                quote!(#[doc = #doc] #name: RegistrySemanticId),
+                quote!(pse_ids::SemanticId),
+            ),
             IdentityBase::ContentHash => (
                 quote!(#[doc = #doc] #name: RegistryContentHash),
                 quote!(pse_ids::ContentHash),

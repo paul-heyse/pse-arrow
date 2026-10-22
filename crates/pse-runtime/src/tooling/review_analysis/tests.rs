@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use crate::workflow::{PackResultSelection, PackScientificState};
 use crate::invocation::{
     InvocationEndpoints, InvocationEvidenceDocument, InvocationInterval, InvocationOutcome,
     InvocationProduct, ProductAvailability,
 };
+use crate::workflow::{PackResultSelection, PackScientificState};
 use pse_diagnostics::observation::{
     ObservationHub, Policy, ProducerDescriptor, ProducerRole, ProducerSnapshot, RecordCoverage,
     RecordField,
@@ -256,21 +256,22 @@ fn evaluator_undeclared_owner_never_becomes_known_work() {
         AnalysisQuestion::EvaluatorWork,
         "event.owner_tuple"
     ));
-    set.detail_pages.push(crate::observation_detail::DetailRecordPage {
-        version: Version,
-        records: vec![],
-        producers: vec![],
-        activations: vec![crate::observation_detail::DetailSourceActivation {
-            producer: ProducerDescriptor {
-                id: set.records[0].producer,
-                role: ProducerRole::Evaluator,
-                name: "activation-only original owner".into(),
-            },
-            family: "evaluator_demand_batch.v1".into(),
-        }],
-        next_offset: None,
-        partial: false,
-    });
+    set.detail_pages
+        .push(crate::observation_detail::DetailRecordPage {
+            version: Version,
+            records: vec![],
+            producers: vec![],
+            activations: vec![crate::observation_detail::DetailSourceActivation {
+                producer: ProducerDescriptor {
+                    id: set.records[0].producer,
+                    role: ProducerRole::Evaluator,
+                    name: "activation-only original owner".into(),
+                },
+                family: "evaluator_demand_batch.v1".into(),
+            }],
+            next_offset: None,
+            partial: false,
+        });
     let doc = result(&set, &request);
     assert!(has(
         &doc,
@@ -1353,14 +1354,15 @@ fn plan47f_unselected_event_conflicts_and_context_receipts_do_not_enter_answers(
     let mut conflict = outside.clone();
     conflict.phase = "conflicting unselected mirror".into();
     set.records = vec![event, outside];
-    set.detail_pages.push(crate::observation_detail::DetailRecordPage {
-        version: Version,
-        records: vec![conflict],
-        producers: vec![],
-        activations: vec![],
-        next_offset: None,
-        partial: true,
-    });
+    set.detail_pages
+        .push(crate::observation_detail::DetailRecordPage {
+            version: Version,
+            records: vec![conflict],
+            producers: vec![],
+            activations: vec![],
+            next_offset: None,
+            partial: true,
+        });
     // Ingress validates every supported codec; question interpretation still requires exact
     // subject association. This control does not claim validation skips unselected payloads.
     set.contexts.push(
@@ -1465,14 +1467,15 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
         // Mirrors of an original event are transport copies, never extra evaluator work.
         set.operations[0].producers[0].current = Some(set.records[0].clone());
         set.operations[0].producers[0].recent = vec![set.records[0].clone()];
-        set.detail_pages.push(crate::observation_detail::DetailRecordPage {
-            version: Version,
-            records: set.records.clone(),
-            producers: vec![],
-            activations: vec![],
-            next_offset: None,
-            partial: false,
-        });
+        set.detail_pages
+            .push(crate::observation_detail::DetailRecordPage {
+                version: Version,
+                records: set.records.clone(),
+                producers: vec![],
+                activations: vec![],
+                next_offset: None,
+                partial: false,
+            });
         let payload = serde_json::to_vec(&"x".repeat(2 << 20)).unwrap();
         let opaque_payload_bytes = payload.len();
         set.contexts.push(

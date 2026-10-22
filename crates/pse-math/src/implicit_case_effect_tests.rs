@@ -63,6 +63,7 @@ fn operational_factory(
             )
             .unwrap(),
     );
+    let program = source_body_for_test(factory.spec.id, &source, program);
     if restriction {
         factory.selection.restriction = Some(program);
     } else {
@@ -108,6 +109,8 @@ fn case(factory: &Factory) -> (Arc<CaseAssembly>, CaseValues) {
                 .collect(),
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id,
                 body: body_key,
@@ -255,6 +258,21 @@ fn assert_trial(error: &MathError) {
             cause: pse_kernels::ProviderError::Trial(_),
             ..
         } => {}
+        MathError::Provider {
+            cause: pse_kernels::ProviderError::Nested { cause, retained },
+            ..
+        } => {
+            assert!(
+                *retained > 0,
+                "original typed refusal retains its actual extent"
+            );
+            assert_trial(
+                cause
+                    .as_error()
+                    .downcast_ref::<MathError>()
+                    .expect("original typed math cause"),
+            );
+        }
         other => panic!("expected retained typed operational refusal, got {other:?}"),
     }
 }

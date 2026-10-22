@@ -17,6 +17,7 @@ pub mod diagnostics;
 pub mod engineering_accuracy;
 mod error;
 mod execution;
+pub use execution::{SourceBindings, SourceBody};
 pub mod factorable;
 pub mod facts;
 mod functions;

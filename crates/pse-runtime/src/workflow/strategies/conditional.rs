@@ -31,7 +31,10 @@ pub struct PreparedInitializationStrategy {
 impl PreparedInitializationStrategy {
     /// Conditional blocks retain their actual original physical ports.
     pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
-        crate::workflow::PrimalCoordinates::original(&self.runtime, self.prepared.original_primal_ports())
+        crate::workflow::PrimalCoordinates::original(
+            &self.runtime,
+            self.prepared.original_primal_ports(),
+        )
     }
 
     /// Copy an explicitly selected original initialization and its actual joined stages.
@@ -415,7 +418,18 @@ pub struct PreparedRecycle {
 impl PreparedRecycle {
     /// Actual original model ports retained independently from map reports.
     pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
-        crate::workflow::PrimalCoordinates::original(&self.runtime, self._source.case.compiled().plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())
+        crate::workflow::PrimalCoordinates::original(
+            &self.runtime,
+            self._source
+                .case
+                .compiled()
+                .plan
+                .structure()
+                .variables()
+                .iter()
+                .map(|variable| variable.port.clone())
+                .collect(),
+        )
     }
 
     /// The selected, linked declared-map route, consumed by runtime and language inspection.
@@ -923,7 +937,12 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
             backend: Backend::Kinsol,
         };
         let report = native::execution::map(native::execution::MapInput {
-            problem: native::execution::Problem::declared_map(function, &self.initial, &self.settings, self.restarts.as_ref())?,
+            problem: native::execution::Problem::declared_map(
+                function,
+                &self.initial,
+                &self.settings,
+                self.restarts.as_ref(),
+            )?,
             controls: &self.controls,
             accuracy: &self.accuracy,
             execution: execution.clone(),
@@ -1267,7 +1286,8 @@ impl ModelingPackage {
                     if bound.is_some() {
                         symbol
                     } else {
-                        pse_ids::named_id(symbol, "conditional-boundary-value")
+                        pse_modeling::derived::Relationship::ConditionalBoundaryValue { symbol }
+                            .identity()
                     },
                     conversion,
                 ));

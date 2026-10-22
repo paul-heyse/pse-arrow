@@ -15,7 +15,7 @@
 //! propagates to its own predictions on request (`FitUncertainty.predictions`). Both
 //! publish `runtime.propagated_covariances` with a `local_validity` row.
 use super::{RunResult, WorkflowError, contract};
-pub use crate::math::settings::{ParameterCovariance, CovarianceOrigin, FitCovarianceRecord};
+pub use crate::math::settings::{CovarianceOrigin, FitCovarianceRecord, ParameterCovariance};
 use pse_ids::SemanticId;
 use pse_model::scalars::FiniteBound;
 use pse_relations::generated::{
@@ -80,25 +80,40 @@ pub struct Propagated {
     pub psd: CovariancePsdAssessment,
 }
 impl Propagated {
-    pub(super) fn into_row(self, run_id: RunId, step: i64, output_units: Vec<SemanticId>)
-        -> pse_relations::generated::runtime::propagated_covariances::Row
-    {
+    pub(super) fn into_row(
+        self,
+        run_id: RunId,
+        step: i64,
+        output_units: Vec<SemanticId>,
+    ) -> pse_relations::generated::runtime::propagated_covariances::Row {
         use pse_relations::generated::enums::CovarianceInputOrigin;
         let (origin, label, assumptions) = match self.origin {
-            CovarianceOrigin::QualifiedFit { .. } => (CovarianceInputOrigin::QualifiedFit,
-                "qualified fit".to_owned(), Vec::new()),
-            CovarianceOrigin::External { label, assumptions } =>
-                (CovarianceInputOrigin::External, label, assumptions),
+            CovarianceOrigin::QualifiedFit { .. } => (
+                CovarianceInputOrigin::QualifiedFit,
+                "qualified fit".to_owned(),
+                Vec::new(),
+            ),
+            CovarianceOrigin::External { label, assumptions } => {
+                (CovarianceInputOrigin::External, label, assumptions)
+            }
         };
         pse_relations::generated::runtime::propagated_covariances::Row {
-            run_id, step, covariance_run_id: self.covariance_run,
-            covariance_origin: origin, covariance_label: label, covariance_assumptions: assumptions,
-            covariance_source_identity: self.source, covariance_physical_identity: self.physical,
+            run_id,
+            step,
+            covariance_run_id: self.covariance_run,
+            covariance_origin: origin,
+            covariance_label: label,
+            covariance_assumptions: assumptions,
+            covariance_source_identity: self.source,
+            covariance_physical_identity: self.physical,
             parameter_scales: self.scales,
             psd_norm_inf: self.psd.normalized_norm_inf,
             psd_tolerance: self.psd.tolerance,
             psd_minimum_eigenvalue: self.psd.minimum_eigenvalue,
-            parameters: self.parameters, outputs: self.outputs, output_units, values: self.values,
+            parameters: self.parameters,
+            outputs: self.outputs,
+            output_units,
+            values: self.values,
         }
     }
 }
@@ -122,7 +137,10 @@ pub fn propagate(
     ),
     WorkflowError,
 > {
-    cancel.checkpoint().map_err(pse_relations::RelationError::from).map_err(super::relation)?;
+    cancel
+        .checkpoint()
+        .map_err(pse_relations::RelationError::from)
+        .map_err(super::relation)?;
     let working = if let (Ok(c), Ok(j)) = (&covariance, &jacobian) {
         let (m, p) = (j.outputs.len(), c.parameters.len());
         let mp = m
@@ -155,14 +173,25 @@ pub fn propagate(
 fn origin_extent(origin: &CovarianceOrigin) -> Result<usize, WorkflowError> {
     let overflow = || contract("covariance origin extent");
     match origin {
-        CovarianceOrigin::QualifiedFit { record: Some(record), .. } =>
-            record.run.capacity().checked_add(record.attempt.capacity()).ok_or_else(overflow),
+        CovarianceOrigin::QualifiedFit {
+            record: Some(record),
+            ..
+        } => record
+            .run
+            .capacity()
+            .checked_add(record.attempt.capacity())
+            .ok_or_else(overflow),
         CovarianceOrigin::QualifiedFit { record: None, .. } => Ok(0),
         CovarianceOrigin::External { label, assumptions } => {
-            let headers = assumptions.capacity().checked_mul(size_of::<String>()).ok_or_else(overflow)?;
+            let headers = assumptions
+                .capacity()
+                .checked_mul(size_of::<String>())
+                .ok_or_else(overflow)?;
             let bytes = label.capacity().checked_add(headers).ok_or_else(overflow)?;
-            assumptions.iter().try_fold(bytes, |bytes, value| bytes.checked_add(value.capacity()).ok_or_else(overflow))
-        },
+            assumptions.iter().try_fold(bytes, |bytes, value| {
+                bytes.checked_add(value.capacity()).ok_or_else(overflow)
+            })
+        }
     }
 }
 fn propagate_checked(
@@ -178,10 +207,10 @@ fn propagate_checked(
     });
     let result = (|| {
         let checkpoint = || {
-                cancel
-                    .checkpoint()
-                    .map_err(pse_relations::RelationError::from)
-                    .map_err(super::relation)
+            cancel
+                .checkpoint()
+                .map_err(pse_relations::RelationError::from)
+                .map_err(super::relation)
         };
         checkpoint()?;
         let (covariance, jacobian) = match (covariance, jacobian) {
@@ -191,13 +220,25 @@ fn propagate_checked(
         covariance
             .admit()
             .map_err(|e| contract(format!("propagated covariance: {e}")))?;
-        let verified = covariance.verified_fit().map_err(|error| contract(error.to_string()))?;
+        let verified = covariance
+            .verified_fit()
+            .map_err(|error| contract(error.to_string()))?;
         let p = covariance.parameters.len();
         let _input_copy = super::result_export::working(
-            pool, "uncertainty:psd-input", &[(covariance.values.len(), 8), (p, 8)],
+            pool,
+            "uncertainty:psd-input",
+            &[(covariance.values.len(), 8), (p, 8)],
         )?;
-        let input_values: Vec<_> = covariance.values.iter().map(|value| value.into_inner()).collect();
-        let scales: Vec<_> = covariance.scales.iter().map(|value| value.into_inner()).collect();
+        let input_values: Vec<_> = covariance
+            .values
+            .iter()
+            .map(|value| value.into_inner())
+            .collect();
+        let scales: Vec<_> = covariance
+            .scales
+            .iter()
+            .map(|value| value.into_inner())
+            .collect();
         let psd = psd::admit(p, &input_values, &scales, pool, cancel)?;
         let (m, n) = (jacobian.outputs.len(), jacobian.parameters.len());
         if let Some(context) = &observation {
@@ -228,7 +269,9 @@ fn propagate_checked(
         let sigma = |k: usize, l: usize| covariance.values[k * p + l].into_inner();
         let j = |i: usize, k: usize| jacobian.values[i * n + columns[k]];
         // J·Σ_θ, then (J·Σ_θ)·Jᵀ.
-        let product: Vec<f64> = (0..m.checked_mul(p).ok_or_else(|| contract("propagation product extent"))?)
+        let product: Vec<f64> = (0..m
+            .checked_mul(p)
+            .ok_or_else(|| contract("propagation product extent"))?)
             .map(|index| {
                 let (i, l) = (index / p, index % p);
                 let mut sum = -0.0;
@@ -241,7 +284,9 @@ fn propagate_checked(
                 Ok::<_, WorkflowError>(sum)
             })
             .collect::<Result<_, _>>()?;
-        let values: Vec<f64> = (0..m.checked_mul(m).ok_or_else(|| contract("propagation covariance extent"))?)
+        let values: Vec<f64> = (0..m
+            .checked_mul(m)
+            .ok_or_else(|| contract("propagation covariance extent"))?)
             .map(|index| {
                 let (i, r) = (index / m, index % m);
                 let mut sum = -0.0;
@@ -265,7 +310,10 @@ fn propagate_checked(
             }));
         }
         Ok(Ok(Propagated {
-            covariance_run: match &covariance.origin { CovarianceOrigin::QualifiedFit { run_id, .. } => Some(*run_id), CovarianceOrigin::External { .. } => None },
+            covariance_run: match &covariance.origin {
+                CovarianceOrigin::QualifiedFit { run_id, .. } => Some(*run_id),
+                CovarianceOrigin::External { .. } => None,
+            },
             origin: covariance.origin.clone(),
             source: verified.map(|proof| proof.source),
             physical: verified.map(|proof| proof.physical),
@@ -317,14 +365,23 @@ impl RunResult {
         input: &mut ParameterCovariance,
     ) -> Result<(), WorkflowError> {
         input.admit().map_err(|error| contract(error.to_string()))?;
-        let actual = self.parameter_covariance()
+        let actual = self
+            .parameter_covariance()
             .ok_or_else(|| contract("the retained result has no fit covariance"))?
             .map_err(|error| contract(error.to_string()))?;
-        actual.verified_fit().map_err(|error| contract(error.to_string()))?;
-        if input.content().map_err(|error| contract(error.to_string()))?
-            != actual.content().map_err(|error| contract(error.to_string()))?
+        actual
+            .verified_fit()
+            .map_err(|error| contract(error.to_string()))?;
+        if input
+            .content()
+            .map_err(|error| contract(error.to_string()))?
+            != actual
+                .content()
+                .map_err(|error| contract(error.to_string()))?
         {
-            return Err(contract("submitted covariance differs from the actual retained qualified fit"));
+            return Err(contract(
+                "submitted covariance differs from the actual retained qualified fit",
+            ));
         }
         input.verified = actual.verified;
         Ok(())
@@ -333,24 +390,47 @@ impl RunResult {
     /// This fit run's parameter covariance as a propagation input naming the run, or why it
     /// is withheld; `None` for a run that is not a fit with free parameters.
     pub fn parameter_covariance(&self) -> Option<Result<ParameterCovariance, Upstream>> {
-        let super::RunOutcome::Fit { request, result: Ok(report) } = &self.outcome else {
+        let super::RunOutcome::Fit {
+            request,
+            result: Ok(report),
+        } = &self.outcome
+        else {
             return None;
         };
         report.covariance.as_ref().map(|covariance| {
             let record = match &self.durability {
-                super::RunDurability::Durable(record) => record.run.as_ref()
-                    .zip(record.attempt_key.as_ref()).map(|(run, attempt)| FitCovarianceRecord {
-                        run: run.key.clone(), attempt: attempt.clone(),
+                super::RunDurability::Durable(record) => record
+                    .run
+                    .as_ref()
+                    .zip(record.attempt_key.as_ref())
+                    .map(|(run, attempt)| FitCovarianceRecord {
+                        run: run.key.clone(),
+                        attempt: attempt.clone(),
                     }),
                 super::RunDurability::Ephemeral => None,
             };
-            let point = report.solve.as_ref().and_then(|solve| solve.evidence.local.as_ref())
+            let point = report
+                .solve
+                .as_ref()
+                .and_then(|solve| solve.evidence.local.as_ref())
                 .and_then(|point| point.as_ref().ok());
-            let validity = super::local_analysis::record(covariance.values.as_ref().map(|_| &())
-                .map_err(|withheld| (withheld.reason(), withheld.to_string())), point, false);
+            let validity = super::local_analysis::record(
+                covariance
+                    .values
+                    .as_ref()
+                    .map(|_| &())
+                    .map_err(|withheld| (withheld.reason(), withheld.to_string())),
+                point,
+                false,
+            );
             covariance.propagation_input(
-                CovarianceOrigin::QualifiedFit { run_id: self.run_id, record },
-                request.problem.source_identity, request.source.physical.identity(), validity,
+                CovarianceOrigin::QualifiedFit {
+                    run_id: self.run_id,
+                    record,
+                },
+                request.problem.source_identity,
+                request.source.physical.identity(),
+                validity,
                 &self.runtime.shared.pool(),
             )
         })
@@ -359,49 +439,79 @@ impl RunResult {
 impl super::Covariance {
     /// The covariance as a propagation input naming `run`, or why it is withheld.
     pub(crate) fn propagation_input(
-        &self, origin: CovarianceOrigin, source: pse_ids::ContentHash,
-        physical: pse_ids::ContentHash, validity: pse_model::generated::structures::LocalValidity,
+        &self,
+        origin: CovarianceOrigin,
+        source: pse_ids::ContentHash,
+        physical: pse_ids::ContentHash,
+        validity: pse_model::generated::structures::LocalValidity,
         pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
     ) -> Result<ParameterCovariance, Upstream> {
         if let Err(withheld) = &self.values {
-            return Err(Upstream { quantity: DerivedQuantity::ParameterCovariance,
-                reason: withheld.reason(), detail: withheld.to_string() });
+            return Err(Upstream {
+                quantity: DerivedQuantity::ParameterCovariance,
+                reason: withheld.reason(),
+                detail: withheld.to_string(),
+            });
         }
-        let failed = |detail: String| Upstream { quantity: DerivedQuantity::ParameterCovariance,
-            reason: WithheldReason::BacksolveFailed, detail };
-        let reservation = super::result_export::working(pool, "uncertainty:qualified-covariance",
-            &[(self.values.as_ref().map_or(0, Vec::len), 8), (self.parameters.len(), 80), (1, 1024)])
-            .map_err(|error| failed(error.to_string()))?;
+        let failed = |detail: String| Upstream {
+            quantity: DerivedQuantity::ParameterCovariance,
+            reason: WithheldReason::BacksolveFailed,
+            detail,
+        };
+        let reservation = super::result_export::working(
+            pool,
+            "uncertainty:qualified-covariance",
+            &[
+                (self.values.as_ref().map_or(0, Vec::len), 8),
+                (self.parameters.len(), 80),
+                (1, 1024),
+            ],
+        )
+        .map_err(|error| failed(error.to_string()))?;
         let owner = pse_columnar::AllocationLease::new(reservation);
         match &self.values {
             Ok(values) => {
                 let mut covariance = ParameterCovariance {
-                version: pse_model::document::Version,
-                origin,
-                parameters: self.parameters.clone(),
-                parameter_quantities: self.parameter_quantities.clone(),
-                parameter_units: self.parameter_units.clone(),
-                verified: None,
-                values: values
-                    .iter()
-                    .map(|v| FiniteBound::try_new(*v))
-                    .collect::<Result<_, _>>()
-                    .map_err(|e| Upstream {
-                        quantity: DerivedQuantity::ParameterCovariance,
-                        reason: WithheldReason::BacksolveFailed,
-                        detail: e.to_string(),
-                    })?,
-                scales: self.scales.iter().map(|scale| FiniteBound::try_new(*scale))
-                    .collect::<Result<_, _>>()
-                    .map_err(|error| Upstream { quantity: DerivedQuantity::ParameterCovariance,
-                        reason: WithheldReason::BacksolveFailed, detail: error.to_string() })?,
+                    version: pse_model::document::Version,
+                    origin,
+                    parameters: self.parameters.clone(),
+                    parameter_quantities: self.parameter_quantities.clone(),
+                    parameter_units: self.parameter_units.clone(),
+                    verified: None,
+                    values: values
+                        .iter()
+                        .map(|v| FiniteBound::try_new(*v))
+                        .collect::<Result<_, _>>()
+                        .map_err(|e| Upstream {
+                            quantity: DerivedQuantity::ParameterCovariance,
+                            reason: WithheldReason::BacksolveFailed,
+                            detail: e.to_string(),
+                        })?,
+                    scales: self
+                        .scales
+                        .iter()
+                        .map(|scale| FiniteBound::try_new(*scale))
+                        .collect::<Result<_, _>>()
+                        .map_err(|error| Upstream {
+                            quantity: DerivedQuantity::ParameterCovariance,
+                            reason: WithheldReason::BacksolveFailed,
+                            detail: error.to_string(),
+                        })?,
                 };
-                let content = covariance.content().map_err(|error| failed(error.to_string()))?;
-                covariance.verified = Some(std::sync::Arc::new(crate::math::settings::VerifiedFitCovariance {
-                    content, source, physical, validity, _owner: owner,
-                }));
+                let content = covariance
+                    .content()
+                    .map_err(|error| failed(error.to_string()))?;
+                covariance.verified = Some(std::sync::Arc::new(
+                    crate::math::settings::VerifiedFitCovariance {
+                        content,
+                        source,
+                        physical,
+                        validity,
+                        _owner: owner,
+                    },
+                ));
                 Ok(covariance)
-            },
+            }
             Err(withheld) => Err(Upstream {
                 quantity: DerivedQuantity::ParameterCovariance,
                 reason: withheld.reason(),
@@ -419,8 +529,13 @@ fn propagate_for_test(
     let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> = std::sync::Arc::new(
         datafusion::execution::memory_pool::GreedyMemoryPool::new(64 << 20),
     );
-    propagate(covariance, jacobian, &pool, &pse_columnar::CancellationToken::new())
-        .map(|(result, _working)| result)
+    propagate(
+        covariance,
+        jacobian,
+        &pool,
+        &pse_columnar::CancellationToken::new(),
+    )
+    .map(|(result, _working)| result)
 }
 
 #[cfg(test)]
@@ -436,16 +551,27 @@ mod projection_tests {
         let id = |value| SemanticId::from_bytes([value; 16]);
         let retained = super::super::Covariance {
             approximation: pse_relations::generated::enums::CovarianceApproximation::GaussNewton,
-            parameters: vec![id(1), id(2)], scales: vec![2.0, 3.0],
-            parameter_quantities: vec![id(11), id(12)], parameter_units: vec![id(21), id(22)],
+            parameters: vec![id(1), id(2)],
+            scales: vec![2.0, 3.0],
+            parameter_quantities: vec![id(11), id(12)],
+            parameter_units: vec![id(21), id(22)],
             values: Ok(vec![4.0, 0.0, 0.0, 9.0]),
         };
-        let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> = std::sync::Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20));
-        let input = retained.propagation_input(
-            CovarianceOrigin::QualifiedFit { run_id: id(9).into(), record: None },
-            pse_ids::ContentHash::from_bytes([1; 32]), pse_ids::ContentHash::from_bytes([2; 32]),
-            super::super::local_analysis::record(Ok(&()), None, false), &pool,
-        ).unwrap();
+        let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> = std::sync::Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20),
+        );
+        let input = retained
+            .propagation_input(
+                CovarianceOrigin::QualifiedFit {
+                    run_id: id(9).into(),
+                    record: None,
+                },
+                pse_ids::ContentHash::from_bytes([1; 32]),
+                pse_ids::ContentHash::from_bytes([2; 32]),
+                super::super::local_analysis::record(Ok(&()), None, false),
+                &pool,
+            )
+            .unwrap();
         assert!(input.verified_fit().unwrap().is_some());
         for field in 0..5 {
             let mut altered = input.clone();
@@ -458,22 +584,46 @@ mod projection_tests {
             }
             assert!(altered.verified_fit().is_err());
         }
-        let decoded: ParameterCovariance = serde_json::from_slice(&serde_json::to_vec(&input).unwrap()).unwrap();
-        assert_eq!(decoded, input, "the payload round-trips without inventing process-local evidence");
+        let decoded: ParameterCovariance =
+            serde_json::from_slice(&serde_json::to_vec(&input).unwrap()).unwrap();
+        assert_eq!(
+            decoded, input,
+            "the payload round-trips without inventing process-local evidence"
+        );
         assert!(decoded.verified_fit().is_err());
-        drop(input); drop(decoded);
+        drop(input);
+        drop(decoded);
         assert_eq!(pool.reserved(), 0);
     }
     #[test]
     fn near_tolerance_negative_variance_is_withheld_and_external_origin_stays_external() {
         let id = |value| SemanticId::from_bytes([value; 16]);
-        let mut covariance = ParameterCovariance::external(vec![id(1), id(2)], vec![id(11), id(12)],
-            vec![id(21), id(22)], [1.0, 0.0, 0.0, -64.0 * f64::EPSILON].into_iter().map(|value| FiniteBound::try_new(value).unwrap()).collect(),
-            vec![FiniteBound::try_new(1.0).unwrap(); 2], "external control".into(), vec!["caller-declared covariance".into()]);
-        let jacobian = Jacobian { outputs: vec![id(3)], parameters: vec![id(1), id(2)], values: vec![0.0, 1.0] };
-        assert!(propagate_for_test(Ok(&covariance), Ok(&jacobian)).unwrap().is_err());
+        let mut covariance = ParameterCovariance::external(
+            vec![id(1), id(2)],
+            vec![id(11), id(12)],
+            vec![id(21), id(22)],
+            [1.0, 0.0, 0.0, -64.0 * f64::EPSILON]
+                .into_iter()
+                .map(|value| FiniteBound::try_new(value).unwrap())
+                .collect(),
+            vec![FiniteBound::try_new(1.0).unwrap(); 2],
+            "external control".into(),
+            vec!["caller-declared covariance".into()],
+        );
+        let jacobian = Jacobian {
+            outputs: vec![id(3)],
+            parameters: vec![id(1), id(2)],
+            values: vec![0.0, 1.0],
+        };
+        assert!(
+            propagate_for_test(Ok(&covariance), Ok(&jacobian))
+                .unwrap()
+                .is_err()
+        );
         covariance.values[3] = FiniteBound::try_new(0.0).unwrap();
-        let product = propagate_for_test(Ok(&covariance), Ok(&jacobian)).unwrap().unwrap();
+        let product = propagate_for_test(Ok(&covariance), Ok(&jacobian))
+            .unwrap()
+            .unwrap();
         assert_eq!(product.covariance_run, None);
         assert!(matches!(product.origin, CovarianceOrigin::External { .. }));
     }
@@ -484,9 +634,14 @@ mod projection_tests {
         let id = |value| SemanticId::from_bytes([value; 16]);
         let covariance = ParameterCovariance {
             version: pse_model::document::Version,
-            origin: CovarianceOrigin::External { label: "projection control".into(), assumptions: vec!["declared independent errors".into()] },
+            origin: CovarianceOrigin::External {
+                label: "projection control".into(),
+                assumptions: vec!["declared independent errors".into()],
+            },
             parameters: vec![id(1), id(2)],
-            parameter_quantities: vec![id(11), id(12)], parameter_units: vec![id(21), id(22)], verified: None,
+            parameter_quantities: vec![id(11), id(12)],
+            parameter_units: vec![id(21), id(22)],
+            verified: None,
             scales: vec![FiniteBound::try_new(1.0).unwrap(); 2],
             values: [4.0, 0.0, 0.0, 9.0]
                 .into_iter()
@@ -503,9 +658,10 @@ mod projection_tests {
         assert!(propagate(Ok(&covariance), Ok(&jacobian), &tiny, &cancel).is_err());
         assert_eq!(tiny.reserved(), 0);
         let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(GreedyMemoryPool::new(8 << 20));
-        let expected = propagate_for_test(Ok(&covariance), Ok(&jacobian)).unwrap().unwrap();
-        let (result, working) =
-            propagate(Ok(&covariance), Ok(&jacobian), &pool, &cancel).unwrap();
+        let expected = propagate_for_test(Ok(&covariance), Ok(&jacobian))
+            .unwrap()
+            .unwrap();
+        let (result, working) = propagate(Ok(&covariance), Ok(&jacobian), &pool, &cancel).unwrap();
         assert_eq!(result.unwrap(), expected);
         assert!(
             pool.reserved() > 0,
@@ -523,9 +679,14 @@ mod projection_tests {
         let id = |value| SemanticId::from_bytes([value; 16]);
         let covariance = ParameterCovariance {
             version: pse_model::document::Version,
-            origin: CovarianceOrigin::External { label: "zero-bit control".into(), assumptions: vec!["declared independent errors".into()] },
+            origin: CovarianceOrigin::External {
+                label: "zero-bit control".into(),
+                assumptions: vec!["declared independent errors".into()],
+            },
             parameters: vec![id(1)],
-            parameter_quantities: vec![id(11)], parameter_units: vec![id(21)], verified: None,
+            parameter_quantities: vec![id(11)],
+            parameter_units: vec![id(21)],
+            verified: None,
             scales: vec![FiniteBound::try_new(1.0).unwrap()],
             values: vec![FiniteBound::try_new(1.0).unwrap()],
         };
@@ -554,7 +715,11 @@ mod projection_tests {
             reason: WithheldReason::ResponsesUnavailable,
             detail: "response refused".into(),
         };
-        assert!(propagate_for_test(Ok(&covariance), Err(upstream)).unwrap().is_err());
+        assert!(
+            propagate_for_test(Ok(&covariance), Err(upstream))
+                .unwrap()
+                .is_err()
+        );
         let snapshot = operation
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
@@ -579,7 +744,9 @@ mod projection_tests {
                 WithheldReason::ResponsesUnavailable.as_str().into()
             )
         );
-        propagate_for_test(Ok(&covariance), Ok(&jacobian)).unwrap().unwrap();
+        propagate_for_test(Ok(&covariance), Ok(&jacobian))
+            .unwrap()
+            .unwrap();
         let restored = operation
             .reader()
             .snapshot(std::time::Duration::from_secs(60));
@@ -621,9 +788,14 @@ mod projection_tests {
         let id = |value| SemanticId::from_bytes([value; 16]);
         let covariance = ParameterCovariance {
             version: pse_model::document::Version,
-            origin: CovarianceOrigin::External { label: "alignment control".into(), assumptions: vec!["declared independent errors".into()] },
+            origin: CovarianceOrigin::External {
+                label: "alignment control".into(),
+                assumptions: vec!["declared independent errors".into()],
+            },
             parameters: vec![id(2), id(1)],
-            parameter_quantities: vec![id(12), id(11)], parameter_units: vec![id(22), id(21)], verified: None,
+            parameter_quantities: vec![id(12), id(11)],
+            parameter_units: vec![id(22), id(21)],
+            verified: None,
             scales: vec![FiniteBound::try_new(1.0).unwrap(); 2],
             values: [4.0, 0.0, 0.0, 9.0]
                 .into_iter()

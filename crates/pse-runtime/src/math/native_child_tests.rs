@@ -35,8 +35,12 @@ fn portable_registry_declarations_roundtrip_and_changed_context_is_distinct() {
 }
 
 fn source() -> PortableRootSource {
-    use pse_compiler::typed_math::{Formal, Request};
+    use pse_compiler::typed_math::{Request, prepare_selected_providers};
     use pse_math::typed::BodyLimits;
+    use pse_modeling::{
+        Bindings, Limits, PhysicalScope, TypeContext,
+        resolved::{RegionOutput, RegionRequest},
+    };
     pse_math::initialize().unwrap();
     let registry = Arc::new(pse_quantity::generated::standard_registry().unwrap());
     let preconditions = Arc::new(
@@ -48,53 +52,124 @@ fn source() -> PortableRootSource {
         preconditions,
         providers: Default::default(),
     };
-    let length = match registry.physical_name("Length").unwrap() {
-        pse_quantity::PhysicalName::QuantityType(id) => id,
-        other => panic!("{other:?}"),
+    // Preserve the original unknown-first, parameter-second physical Length residual.
+    let rows = pse_authoring::language::parse(
+        "package native_child_fixture {def Root {var x:Length;var p:Length;annotation valid x(0{m},10{m});let residual:Length=x-p;}}",
+        SemanticId::from_bytes([188;16]), pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    ).unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let scope = PhysicalScope::default();
+    let types = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: context.preconditions.as_ref(),
+        scope: &scope,
     };
-    let expressions = [pse_authoring::dsl::parse_expr("x - p").unwrap()];
-    let formals = [
-        Formal {
-            path: "x".into(),
-            quantity: length,
+    let checked = pse_modeling::check(&rows, &types).unwrap();
+    let model = pse_modeling::specialize(
+        &checked,
+        root,
+        pse_modeling::specialize::root_instance(root),
+        &Bindings::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    let member = |name: &str| {
+        let suffix = format!(".{name}");
+        let selected = model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.lineage.path.ends_with(&suffix))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            selected.len(),
+            1,
+            "actual native-child fixture member {name}"
+        );
+        selected[0].id
+    };
+    let x = member("x");
+    let p = member("p");
+    let outputs = [RegionOutput::Value(
+        model.symbol_root(member("residual")).unwrap(),
+    )];
+    let contracts = model.function_contracts(&checked);
+    let region = model
+        .prepare_region(
+            RegionRequest {
+                outputs: &outputs,
+                validity: &[],
+            },
+            &contracts.context(),
+        )
+        .unwrap();
+    let actual_inputs = region
+        .inputs
+        .iter()
+        .map(|local| {
+            region
+                .bindings
+                .iter()
+                .find(|binding| binding.local == *local)
+                .unwrap()
+                .actual
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        actual_inputs,
+        [x, p],
+        "portable root coordinates retain unknown then parameter"
+    );
+    let providers = prepare_selected_providers(
+        &region.syntax,
+        &region.support,
+        &mut |name| {
+            context.providers.get(name).cloned().ok_or_else(|| {
+                pse_math::MathError::Contract(format!(
+                    "unregistered native-child fixture provider {name}"
+                ))
+            })
         },
-        Formal {
-            path: "p".into(),
-            quantity: length,
-        },
-    ];
-    let empty = std::collections::BTreeMap::new();
+        &Default::default(),
+        &contracts.context(),
+    )
+    .unwrap();
     let body = Request {
-        definition: SemanticId::from_bytes([188; 16]),
-        expressions: &expressions,
-        formals: &formals,
-        domains: &empty,
-        groups: &Default::default(),
-        providers: &Default::default(),
-        literals: &Default::default(),
+        definition: root.as_id(),
+        syntax: &region.syntax,
+        inputs: &region.inputs,
+        support: &region.support,
+        providers: &providers,
         physical: pse_compiler::workspace::physical_identity(&registry, &context.preconditions),
-        structure: ContentHash::from_bytes([189; 32]),
+        structure: region.syntax.identity().unwrap(),
         limits: BodyLimits::default(),
     }
-    .admit_modeling_outputs(
-        &registry,
-        &pse_quantity::standard::StandardInvariantChecker,
-        &Arc::default(),
-        &Default::default(),
-        &[length],
-        &Default::default(),
-        &Default::default(),
+    .admit(&registry, context.preconditions.as_ref(), &Arc::default())
+    .unwrap();
+    let bindings = SourceBindings::new(
+        pse_modeling::specialize::root_instance(root).as_id(),
+        body.math(),
+        region.checked_members.clone(),
+        region.checked_sources.clone(),
+        region.occurrences.clone(),
     )
     .unwrap();
     PortableRootSource::new(
         Arc::new(body),
+        bindings,
         context,
         vec![Unknown {
-            id: SemanticId::from_bytes([190; 16]),
+            id: x,
             lower: 0.0,
             upper: 10.0,
         }],
-        vec![SemanticId::from_bytes([191; 16])],
+        vec![member("residual")],
         vec![2.0],
         Options {
             start: vec![5.0],
@@ -112,6 +187,58 @@ fn source() -> PortableRootSource {
         4096,
     )
     .unwrap()
+}
+
+#[test]
+fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_maps() {
+    let source = source();
+    assert!(!source.bindings.checked_members().is_empty());
+    assert!(!source.bindings.checked_sources().is_empty());
+    assert!(!source.bindings.occurrences().is_empty());
+    let bytes = serde_json::to_vec(&source.wire().unwrap()).unwrap();
+    let wire: RootWire = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        wire.source.bind(source.body.math()).unwrap(),
+        source.bindings
+    );
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let error = source
+        .problem(&scope)
+        .unwrap()
+        .evaluate_unknown(
+            &source.parameters,
+            &[11.0],
+            DerivativeOrder::First,
+            scope.cancellation(),
+        )
+        .unwrap_err();
+    let pse_math::MathError::Instance {
+        instance,
+        checked_members,
+        checked_sources,
+        occurrences,
+        ..
+    } = error
+    else {
+        panic!("native child original range failure lacks its actual receiving context");
+    };
+    assert_eq!(instance, source.bindings.instance());
+    assert_eq!(&checked_members, source.bindings.checked_members());
+    assert_eq!(&checked_sources, source.bindings.checked_sources());
+    assert_eq!(&occurrences, source.bindings.occurrences());
+    for missing in 0..4 {
+        let mut wire = SourceWire::capture(&source.bindings);
+        match missing {
+            0 => wire.checked_members.clear(),
+            1 => wire.checked_sources.clear(),
+            2 => wire.occurrences.clear(),
+            _ => wire.instance = SemanticId::NIL,
+        }
+        assert!(
+            wire.bind(source.body.math()).is_err(),
+            "missing actual source slot {missing}"
+        );
+    }
 }
 
 #[test]
@@ -175,6 +302,7 @@ fn native_child_source_requires_actual_physical_registry_before_launch() {
     assert!(
         PortableRootSource::new(
             source.body,
+            source.bindings,
             source.context,
             source.unknowns,
             source.rows,
@@ -226,6 +354,7 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
     assert!(matches!(
         PortableRootSource::new(
             source.body,
+            source.bindings,
             source.context,
             source.unknowns,
             source.rows,

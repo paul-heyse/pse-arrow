@@ -1062,40 +1062,167 @@ fn bound_lookup_preserves_complete_public_view_identity_and_exact_attribution() 
 }
 
 #[test]
-fn reference_three_units_retains_143_bodies_and_backdates_unrelated_edits() {
+fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
     let counts = Arc::new([const { AtomicUsize::new(0) }; 4]);
     let observed = counts.clone();
     let mut workspace = CompilerWorkspace::with_events(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
         Some(Box::new(move |event: salsa::Event| {
             let event = format!("{:?}", event.kind);
             if event.contains("WillExecute") {
-                for (i, name) in ["selected(", "specialized(", "projection(", "semantic_body("].into_iter().enumerate() {
-                    if event.contains(name) { observed[i].fetch_add(1, Ordering::Relaxed); }
+                for (i, name) in ["selected(", "specialized(", "projection(", "semantic_body("]
+                    .into_iter()
+                    .enumerate()
+                {
+                    if event.contains(name) {
+                        observed[i].fetch_add(1, Ordering::Relaxed);
+                    }
                 }
             }
         })),
-    ).unwrap();
-    let reference = format!("{}\n{}\n{}\npackage unrelated {{ def Other {{ let value:Scalar=1; }} }}", crate::authored_transfer_tests::reference_sources(), include_str!("../../../../../packages/reference/process/models/mixer.pse"), crate::process_composition_tests::COMPOSE);
+    )
+    .unwrap();
+    let reference = format!(
+        "{}\n{}\n{}\npackage unrelated {{ def Other {{ let value:Scalar=1; }} }}",
+        crate::authored_transfer_tests::reference_sources(),
+        include_str!("../../../../../packages/reference/process/models/mixer.pse"),
+        crate::process_composition_tests::COMPOSE
+    );
     let declarations = crate::authored_transfer_tests::rows(&reference);
-    let root = crate::authored_transfer_tests::root(&declarations, "process_composition", "ThreeUnits");
-    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+    let root =
+        crate::authored_transfer_tests::root(&declarations, "process_composition", "ThreeUnits");
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
     let generation = workspace.generation();
-    assert_eq!(generation, 0, "ordinary reference publication retains its generation; retained={:?}", workspace.retention_usage());
-    let prepare_reference = |workspace: &mut CompilerWorkspace| workspace.prepare_modeling_cancellable(root, pse_modeling::specialize::root_instance(root), Bindings::default().with_analysis(pse_modeling::analysis::Route::Steady), Limits::default(), Arc::new(AtomicBool::new(false))).unwrap();
+    assert_eq!(
+        generation,
+        0,
+        "ordinary reference publication retains its generation; retained={:?}",
+        workspace.retention_usage()
+    );
+    let prepare_reference = |workspace: &mut CompilerWorkspace| {
+        workspace
+            .prepare_modeling_cancellable(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default().with_analysis(pse_modeling::analysis::Route::Steady),
+                Limits::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap()
+    };
     let first = prepare_reference(&mut workspace);
-    assert_eq!(first.admitted.bodies.len(), 143);
+    // The historical textual-normalizer population was 143. The direct producer
+    // has 126 exact scalar products; complete current row/instance coverage is checked below.
+    assert_eq!(first.admitted.bodies.len(), 126);
+    assert_eq!(first.admitted.case.rows().len(), 856);
+    assert_eq!(first.admitted.case.instances().len(), 845);
+    let rows = first
+        .admitted
+        .case
+        .rows()
+        .iter()
+        .map(|row| row.id)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        rows,
+        first
+            .admitted
+            .outputs
+            .iter()
+            .map(ModelingOutput::row_id)
+            .chain(
+                first
+                    .admitted
+                    .term_outputs
+                    .values()
+                    .flatten()
+                    .map(|(id, _)| *id)
+            )
+            .collect()
+    );
+    let mut contributed = BTreeSet::new();
+    let mut bodies = BTreeSet::new();
+    let mut instances = BTreeSet::new();
+    let ports = first
+        .admitted
+        .case
+        .variables()
+        .iter()
+        .map(|value| value.port.id)
+        .chain(first.admitted.case.parameters().iter().map(|port| port.id))
+        .collect::<BTreeSet<_>>();
+    for instance in first.admitted.case.instances() {
+        assert!(
+            instances.insert(instance.instance),
+            "each actual selected output has a distinct receiving instance"
+        );
+        let body = &first.admitted.bodies[&instance.body];
+        bodies.insert(instance.body);
+        assert_eq!(instance.slots.len(), body.math.input_count());
+        assert!(
+            instance
+                .slots
+                .iter()
+                .all(|slot| ports.contains(&slot.source()))
+        );
+        pse_math::SourceBindings::new(
+            instance.instance,
+            &body.math,
+            (*instance.checked_members).clone(),
+            (*instance.checked_sources).clone(),
+            (*instance.occurrences).clone(),
+        )
+        .unwrap();
+        for contribution in &instance.contributions {
+            assert!(contribution.output < body.math.output_count());
+            if let Target::Row(row) = contribution.target {
+                assert!(rows.contains(&row));
+                contributed.insert(row);
+            }
+        }
+    }
+    assert_eq!(
+        contributed, rows,
+        "every original projected output is assembled"
+    );
+    assert_eq!(
+        bodies,
+        first.admitted.bodies.keys().copied().collect(),
+        "every retained body is actually reached"
+    );
     let first_counts = counts.each_ref().map(|count| count.load(Ordering::Relaxed));
-    assert_eq!(first_counts[3], 143, "all distinct body queries were exercised");
+    assert_eq!(
+        first_counts[3], 126,
+        "all distinct direct body queries were exercised"
+    );
     let warm = prepare_reference(&mut workspace);
     assert_eq!(counts[3].load(Ordering::Relaxed), first_counts[3]);
-    workspace.publish_modeling(crate::authored_transfer_tests::rows(&reference.replace("let value:Scalar=1", "let value:Scalar=2")), PhysicalScope::default()).unwrap();
+    workspace
+        .publish_modeling(
+            crate::authored_transfer_tests::rows(
+                &reference.replace("let value:Scalar=1", "let value:Scalar=2"),
+            ),
+            PhysicalScope::default(),
+        )
+        .unwrap();
     let unrelated = prepare_reference(&mut workspace);
     assert_eq!(workspace.generation(), generation);
-    for index in 1..4 { assert_eq!(counts[index].load(Ordering::Relaxed), first_counts[index], "selected firewall backdates family {index}"); }
+    for index in 1..4 {
+        assert_eq!(
+            counts[index].load(Ordering::Relaxed),
+            first_counts[index],
+            "selected firewall backdates family {index}"
+        );
+    }
     for (key, body) in &first.admitted.bodies {
         assert!(Arc::ptr_eq(&body.math, &warm.admitted.bodies[key].math));
-        assert!(Arc::ptr_eq(&body.math, &unrelated.admitted.bodies[key].math));
+        assert!(Arc::ptr_eq(
+            &body.math,
+            &unrelated.admitted.bodies[key].math
+        ));
     }
     let (entries, bytes) = workspace.retention_usage();
     assert!(entries <= workspace.limits.retained_entries, "{entries}");
@@ -1104,31 +1231,164 @@ fn reference_three_units_retains_143_bodies_and_backdates_unrelated_edits() {
 
 #[test]
 fn live_root_admission_refuses_oversize_without_invalidating_escaped_products() {
-    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
-    let root = publish_frontier_source(&mut workspace, "package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
     let first = prepare(&mut workspace, root, Bindings::default());
     let frontier = plan_frontier(&mut workspace, root);
     workspace.limits.retained_bytes = frontier.retained_bytes() - 1;
-    let result = workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)));
-    assert!(matches!(result, Err(CompileError::Limit("live root working set"))));
+    let result =
+        workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)));
+    assert!(matches!(
+        result,
+        Err(CompileError::Limit("live root working set"))
+    ));
     assert!(!first.admitted.bodies.is_empty());
 }
 
 #[test]
 fn generation_bounds_survive_edit_deletion_and_root_switch_churn() {
-    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits { retained_entries: 600, granular_query_values: 16, query_values: 4, ..WorkspaceLimits::default() }).unwrap();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits {
+            retained_entries: 600,
+            granular_query_values: 16,
+            query_values: 4,
+            ..WorkspaceLimits::default()
+        },
+    )
+    .unwrap();
     let mut escaped = Vec::new();
     for n in 0..80 {
-        let text = format!("package p {{ def Root {{var x:Scalar; let v{n}:Scalar=x*{n}; eq e:x=={n};}} def Other {{var y:Scalar; eq f:y==1;}} }}");
+        let text = format!(
+            "package p {{ def Root {{var x:Scalar; let v{n}:Scalar=x*{n}; eq e:x=={n};}} def Other {{var y:Scalar; eq f:y==1;}} }}"
+        );
         let declarations = rows(&text);
-        let root = crate::authored_transfer_tests::root(&declarations, "p", if n % 2 == 0 { "Root" } else { "Other" });
-        workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let root = crate::authored_transfer_tests::root(
+            &declarations,
+            "p",
+            if n % 2 == 0 { "Root" } else { "Other" },
+        );
+        workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
         let product = prepare(&mut workspace, root, Bindings::default());
-        if n % 20 == 0 { escaped.push(product); }
+        if n % 20 == 0 {
+            escaped.push(product);
+        }
         let (entries, bytes) = workspace.retention_usage();
-        assert!(entries <= workspace.limits.retained_entries, "iteration {n}: {entries}");
+        assert!(
+            entries <= workspace.limits.retained_entries,
+            "iteration {n}: {entries}"
+        );
         assert!(bytes <= workspace.limits.retained_bytes);
     }
-    assert!(workspace.generation() > 0, "non-evictable metadata eventually rotates");
-    assert!(escaped.iter().all(|product| !product.admitted.bodies.is_empty()));
+    assert!(
+        workspace.generation() > 0,
+        "non-evictable metadata eventually rotates"
+    );
+    assert!(
+        escaped
+            .iter()
+            .all(|product| !product.admitted.bodies.is_empty())
+    );
+}
+
+#[test]
+fn receiving_model_refreshes_worker_error_locations_while_sharing_numerical_programs() {
+    use pse_model::diagnostic::DiagnosticProjection;
+    let source = "package p {def Root {var x:Scalar; eq e:1/x==1;}}";
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(&mut workspace, source);
+    let first = prepare(&mut workspace, root, Bindings::default());
+    let x = first
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".x"))
+        .unwrap()
+        .id;
+    let values = CaseValues {
+        scalars: BTreeMap::from([(x, 1.0)]),
+    };
+    let cancel = pse_diagnostics::Cancellation::default();
+    let profile = Profile::default();
+    let view = workspace
+        .prepare_modeling_view(
+            &first,
+            first.bound_structure(&BTreeMap::new()).unwrap().structure,
+            &values,
+            DerivativeOrder::First,
+            profile,
+            &cancel.flag(),
+        )
+        .unwrap();
+    let assembly = Arc::new(
+        view.plan
+            .compile(
+                profile.optimization,
+                profile.evaluation,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap(),
+    );
+    let invalid = CaseValues {
+        scalars: BTreeMap::from([(x, 0.0)]),
+    };
+    let old = assembly
+        .worker(pse_kernels::ProviderBindings::new(), cancel.clone())
+        .constraints(&invalid)
+        .unwrap_err()
+        .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+    assert!(!old.locations.is_empty());
+    workspace
+        .publish_modeling(rows(&format!("\n\n{source}")), PhysicalScope::default())
+        .unwrap();
+    let current = prepare(&mut workspace, root, Bindings::default());
+    let received = view.receive_modeling_context(&current).unwrap();
+    let refreshed = Arc::new(
+        assembly
+            .receive_source_context(received.plan.clone())
+            .unwrap(),
+    );
+    for (old, new) in assembly.programs().iter().zip(refreshed.programs()) {
+        assert!(Arc::ptr_eq(old, new));
+    }
+    for (key, body) in view.plan.bodies() {
+        assert!(Arc::ptr_eq(body, &received.plan.bodies()[key]));
+    }
+    let diagnostic = refreshed
+        .worker(pse_kernels::ProviderBindings::new(), cancel)
+        .constraints(&invalid)
+        .unwrap_err()
+        .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+    assert_eq!(diagnostic.sources, old.sources);
+    assert!(!diagnostic.locations.is_empty());
+    let actual = current
+        .admitted
+        .case
+        .instances()
+        .iter()
+        .flat_map(|binding| binding.occurrences.values())
+        .collect::<Vec<_>>();
+    for location in &diagnostic.locations {
+        assert!(
+            actual.contains(&location),
+            "worker must use the current admitted occurrence owner"
+        );
+        assert!(
+            !old.locations.contains(location),
+            "the cached program must not retain the old source range"
+        );
+    }
 }

@@ -323,7 +323,11 @@ fn selected(
 // Catalog equality is filtered through selected() before these retained firewalls.
 // Unrelated package edits may validate them, but cannot invalidate projection.
 #[salsa::tracked(returns(clone),lru=256,heap_size=physical_scope_heap)]
-fn physical_scope(db: &dyn CompilerDb, catalog: Catalog, root: DeclarationId) -> Result<Arc<PhysicalScope>> {
+fn physical_scope(
+    db: &dyn CompilerDb,
+    catalog: Catalog,
+    root: DeclarationId,
+) -> Result<Arc<PhysicalScope>> {
     let package = selected(db, catalog, root)?;
     Ok(Arc::new(package.context().scope.clone()))
 }
@@ -331,7 +335,11 @@ fn physical_scope_heap(value: &Result<Arc<PhysicalScope>>) -> usize {
     value.as_ref().map_or(0, |scope| scope_bytes(scope))
 }
 #[salsa::tracked(returns(clone),lru=256,heap_size=selected_heap)]
-fn function_contracts(db: &dyn CompilerDb, catalog: Catalog, root: DeclarationId) -> Result<Arc<CheckedPackage>> {
+fn function_contracts(
+    db: &dyn CompilerDb,
+    catalog: Catalog,
+    root: DeclarationId,
+) -> Result<Arc<CheckedPackage>> {
     selected(db, catalog, root)
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=specialized_heap)]
@@ -888,14 +896,15 @@ pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
 pub(super) mod executable;
 mod flow;
 pub use executable::{
-    AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues, ScalingObservations, ViewChoice, ViewPolicy, ViewReason,
-    AdmittedImplicit, AdmittedModeling, BoundLookup, BoundLookupKey, BoundStructure, Derivation,
-    Derived, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitProgramRequest,
-    ImplicitPrograms, ImplicitScale, ImplicitSelection, ModelingCaseBindings,
-    ModelingExpectationResult, ModelingHint, ModelingOccurrenceIdentity, ModelingOutput,
-    ModelingPointChecks, ModelingPreparationFrontier, ModelingTestValue, ModelingValidityResult,
-    ModelingVariableState, ObjectiveBound, PreparedModeling, SelectionEquivalence,
-    SelectionNeighborhood,
+    AdmittedImplicit, AdmittedModeling, AnnotationObservation, BoundLookup, BoundLookupKey,
+    BoundStructure, CompilerView, Derivation, Derived, ImplicitAlgorithm, ImplicitCapabilities,
+    ImplicitMeaning, ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
+    ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOccurrenceIdentity,
+    ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier, ModelingTestValue,
+    ModelingValidityResult, ModelingVariableState, NumericalAnnotation, NumericalAnnotationMode,
+    NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues,
+    ObjectiveBound, PreparedModeling, ScalingObservations, SelectionEquivalence,
+    SelectionNeighborhood, ViewChoice, ViewPolicy, ViewReason,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

@@ -21,10 +21,16 @@ impl Runtime {
         cancel: &CancellationToken,
     ) -> Result<SourceReclamationPage, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            Ok(self.operations()?.store().reclaim_source_page(problem).await?)
-        }).await
+        activity
+            .scope(async {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                Ok(self
+                    .operations()?
+                    .store()
+                    .reclaim_source_page(problem)
+                    .await?)
+            })
+            .await
     }
 
     /// Retain exact audit or unsettled-effect detail independently from payloads.

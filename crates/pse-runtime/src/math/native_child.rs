@@ -13,6 +13,7 @@ use pse_diagnostics::Cancellation;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ExecutionScope};
 use pse_math::{
+    SourceBindings, SourceBody,
     implicit::{InnerSolver, Options, Problem, Unknown},
     jets::EvaluationLimits,
 };
@@ -20,6 +21,7 @@ use pse_model::HeapUsage;
 use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     io::{self, Read, Write},
     os::{fd::AsFd, unix::net::UnixStream},
     path::{Path, PathBuf},
@@ -67,6 +69,7 @@ fn native_profile() -> Result<ContentHash, MathRuntimeError> {
 #[derive(Clone, Debug)]
 pub struct PortableRootSource {
     body: Arc<AdmittedBody>,
+    bindings: SourceBindings,
     context: CompilerContext,
     unknowns: Vec<Unknown>,
     rows: Vec<SemanticId>,
@@ -84,6 +87,7 @@ impl PortableRootSource {
     )]
     pub fn new(
         body: Arc<AdmittedBody>,
+        bindings: SourceBindings,
         context: CompilerContext,
         unknowns: Vec<Unknown>,
         rows: Vec<SemanticId>,
@@ -121,9 +125,11 @@ impl PortableRootSource {
                 "native child source physical context, extent or finite interval differs",
             ));
         }
+        bindings.check(body.math())?;
         body.portable_payload_bytes()?;
         Ok(Self {
             body,
+            bindings,
             context,
             unknowns,
             rows,
@@ -139,6 +145,7 @@ impl PortableRootSource {
         Ok(RootWire {
             body: self.body.portable_payload()?,
             spec: self.body.spec().clone(),
+            source: SourceWire::capture(&self.bindings),
             registry_digest: digest(&registry),
             registry,
             unknowns: self.unknowns.clone(),
@@ -151,7 +158,7 @@ impl PortableRootSource {
     }
     fn problem(&self, scope: &ExecutionScope) -> Result<Arc<Problem>, MathRuntimeError> {
         compile_problem(
-            &self.body,
+            (&self.body, &self.bindings),
             &self.unknowns,
             &self.rows,
             self.parameters.len(),
@@ -224,6 +231,7 @@ pub struct PortableRootResult {
 struct RootWire {
     body: Vec<u8>,
     spec: pse_math::binding::BodySpec,
+    source: SourceWire,
     registry: Vec<u8>,
     registry_digest: ContentHash,
     unknowns: Vec<Unknown>,
@@ -232,6 +240,39 @@ struct RootWire {
     options: Options,
     evaluation: EvaluationLimits,
     max_entries: usize,
+}
+/// Current diagnostic context is transported separately from arithmetic identity.
+/// Decoding grants no authority: the receiving constructor checks the replayed body.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SourceWire {
+    instance: SemanticId,
+    checked_members: BTreeMap<SemanticId, SemanticId>,
+    checked_sources: BTreeMap<SemanticId, SemanticId>,
+    occurrences: BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
+}
+impl SourceWire {
+    fn capture(bindings: &SourceBindings) -> Self {
+        Self {
+            instance: bindings.instance(),
+            checked_members: bindings.checked_members().clone(),
+            checked_sources: bindings.checked_sources().clone(),
+            occurrences: bindings.occurrences().clone(),
+        }
+    }
+    fn bind(
+        self,
+        body: &pse_math::guarded::PreparedBody,
+    ) -> Result<SourceBindings, MathRuntimeError> {
+        SourceBindings::new(
+            self.instance,
+            body,
+            self.checked_members,
+            self.checked_sources,
+            self.occurrences,
+        )
+        .map_err(Into::into)
+    }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -299,10 +340,16 @@ impl MathService {
         let replay_extent =
             pse_ids::scientific_replay::QualifiedScientificRecipe::scratch_bytes(recipe_extent)
                 .map_err(infrastructure)?;
+        let source_bytes = source
+            .bindings
+            .retained_bytes()
+            .checked_mul(2)
+            .ok_or_else(|| contract("native child source attribution extent"))?;
         let known_bytes = replay_extent
             .checked_mul(2)
             .and_then(|n| n.checked_add(4 * REQUEST_LIMIT + 2 * RESPONSE_LIMIT))
             .and_then(|n| n.checked_add(NATIVE_CHILD_STACK_BYTES))
+            .and_then(|n| n.checked_add(source_bytes))
             .ok_or_else(|| contract("native child construction extent"))?;
         let service = self.clone();
         self.submit_source_timed(1, bytes, submission, move |flag, _| {
@@ -342,7 +389,7 @@ impl MathService {
 }
 
 fn compile_problem(
-    body: &AdmittedBody,
+    source: (&AdmittedBody, &SourceBindings),
     unknowns: &[Unknown],
     rows: &[SemanticId],
     parameters: usize,
@@ -350,7 +397,9 @@ fn compile_problem(
     max_entries: usize,
     scope: &ExecutionScope,
 ) -> Result<Arc<Problem>, MathRuntimeError> {
+    let (body, bindings) = source;
     checkpoint(scope)?;
+    bindings.check(body.math())?;
     let source = body.math().compile(
         &(0..rows.len()).collect::<Vec<_>>(),
         &[],
@@ -375,8 +424,8 @@ fn compile_problem(
         rows.to_vec(),
         parameters,
         pse_math::implicit::ResidualBodies {
-            unknown: Arc::new(unknown),
-            source: Arc::new(source),
+            unknown: SourceBody::new(Arc::new(unknown), bindings.clone())?,
+            source: SourceBody::new(Arc::new(source), bindings.clone())?,
         },
         max_entries,
     )?))
@@ -889,8 +938,9 @@ fn reconstruct_and_solve(
     if body.spec() != &wire.spec || !body.math().providers().is_empty() {
         return Err(contract("native child reconstructed source differs"));
     }
+    let bindings = wire.source.bind(body.math())?;
     let problem = compile_problem(
-        &body,
+        (&body, &bindings),
         &wire.unknowns,
         &wire.rows,
         wire.parameters.len(),

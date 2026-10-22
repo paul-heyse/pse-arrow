@@ -25,7 +25,9 @@ pub struct SolveSettings {
     /// Validated against the actual compiler scope even when direct execution wins;
     /// applied only if the governing policy selects the block mechanism.
     #[serde(default)]
-    #[schemars(with = "pse_ids::document::KeyedMap<pse_structural::incidence::BlockId, BlockSolveOverride>")]
+    #[schemars(
+        with = "pse_ids::document::KeyedMap<pse_structural::incidence::BlockId, BlockSolveOverride>"
+    )]
     pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, BlockSolveOverride>,
     /// Maximum independent ready blocks; actual capacity is admitted by the existing owner.
     #[serde(default = "defaults::block_workers")]
@@ -173,8 +175,10 @@ pub(crate) struct VerifiedFitCovariance {
 }
 impl PartialEq for ParameterCovariance {
     fn eq(&self, other: &Self) -> bool {
-        self.origin == other.origin && self.parameters == other.parameters
-            && self.values == other.values && self.scales == other.scales
+        self.origin == other.origin
+            && self.parameters == other.parameters
+            && self.values == other.values
+            && self.scales == other.scales
             && self.parameter_quantities == other.parameter_quantities
             && self.parameter_units == other.parameter_units
     }
@@ -182,12 +186,24 @@ impl PartialEq for ParameterCovariance {
 impl ParameterCovariance {
     /// A numerical covariance supplied under explicit external assumptions.
     pub fn external(
-        parameters: Vec<pse_ids::SemanticId>, parameter_quantities: Vec<pse_ids::SemanticId>,
-        parameter_units: Vec<pse_ids::SemanticId>, values: Vec<FiniteBound>,
-        scales: Vec<FiniteBound>, label: String, assumptions: Vec<String>,
+        parameters: Vec<pse_ids::SemanticId>,
+        parameter_quantities: Vec<pse_ids::SemanticId>,
+        parameter_units: Vec<pse_ids::SemanticId>,
+        values: Vec<FiniteBound>,
+        scales: Vec<FiniteBound>,
+        label: String,
+        assumptions: Vec<String>,
     ) -> Self {
-        Self { version: Version, origin: CovarianceOrigin::External { label, assumptions }, parameters,
-            parameter_quantities, parameter_units, values, scales, verified: None }
+        Self {
+            version: Version,
+            origin: CovarianceOrigin::External { label, assumptions },
+            parameters,
+            parameter_quantities,
+            parameter_units,
+            values,
+            scales,
+            verified: None,
+        }
     }
     pub(crate) fn content(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         pse_ids::document::of(pse_ids::Frame::CovarianceInputV1, self)
@@ -224,7 +240,9 @@ impl ParameterCovariance {
             ));
         }
         if let CovarianceOrigin::External { label, assumptions } = &self.origin
-            && (label.trim().is_empty() || assumptions.is_empty() || assumptions.iter().any(|value| value.trim().is_empty()))
+            && (label.trim().is_empty()
+                || assumptions.is_empty()
+                || assumptions.iter().any(|value| value.trim().is_empty()))
         {
             return Err(ProblemError::Contract("external covariance requires an attribution label and explicit nonempty assumptions".into()));
         }

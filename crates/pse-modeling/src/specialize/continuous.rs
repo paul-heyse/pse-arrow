@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+use super::rewrite::RewriteContext;
 use super::*;
 use crate::continuous::Mesh;
+use crate::resolved::{Source, construction::Rewritten};
 
 impl Engine<'_, '_> {
     pub(super) fn realize_domains(
@@ -429,7 +431,7 @@ impl Engine<'_, '_> {
     pub(super) fn equation_defined(&self, equation: &Equation, env: &Environment) -> Result<bool> {
         let mut defined = true;
         let mut check = |e: &Expr| {
-            let _ = e.clone().try_walk_mut(|e| -> Result<()> {
+            e.walk(|e| {
                 if let ExprKind::Derivative { wrt, .. } = &e.kind
                     && let Some(value) = env.get(&dsl::render_path(wrt))
                     && let Ok((mesh, index)) = self.coordinate_mesh(value)
@@ -437,7 +439,6 @@ impl Engine<'_, '_> {
                     defined &= self.model.integrated.contains_key(&mesh.id)
                         || !mesh.derivative[index].is_empty();
                 }
-                Ok(())
             });
         };
         match &equation.kind {
@@ -458,14 +459,17 @@ impl Engine<'_, '_> {
 
     pub(super) fn derivative(
         &mut self,
-        instance: InstanceId,
+        rewrite: RewriteContext<'_>,
         body: &Expr,
         wrt: &Path,
-        env: &Environment,
-        chain: &[DeclarationId],
         boundary: Option<&Type>,
-    ) -> Result<Expr> {
-        // As in `rewrite`: attribution falls back to the instance's definition.
+        source: Source,
+    ) -> Result<Rewritten> {
+        let RewriteContext {
+            instance,
+            env,
+            chain,
+        } = rewrite;
         let at = chain
             .last()
             .copied()
@@ -475,73 +479,16 @@ impl Engine<'_, '_> {
             .get(&name)
             .ok_or_else(|| invalid(at, "derivative coordinate is not bound"))?;
         let (mesh, index) = self.coordinate_mesh(value)?;
-        if self.model.integrated.contains_key(&mesh.id) {
-            let axis_id = mesh.id;
-            let axis = self.model.integrated[&axis_id].clone();
-            let original =
-                if self.model.symbols.reference(body).is_some_and(|id| self.model.symbols.contains_key(&id)) {
-                    // Derived inventories already name their admitted generated stock.
-                    // It has no authored lexical member to resolve a second time.
-                    body.clone()
-                } else {
-                    self.rewrite(instance, body, env, chain)?
-                };
-            let state = self.model.symbols.reference(&original).ok_or_else(|| {
-                invalid(at, "integrated derivative must select a scalar variable")
-            })?;
-            let symbol = self.model.symbols[&state].clone();
-            if symbol.role != Kind::Variable || symbol.expression.is_some() {
-                return Err(invalid(
-                    at,
-                    "integrated state must be an independent variable",
-                ));
-            }
-            let rate = pse_ids::named_id(state, "time-derivative");
-            if let Some(existing) = self.model.derivatives.get(&state) {
-                if existing.axis != axis_id {
-                    return Err(invalid(at, "state derivative has conflicting time axes"));
-                }
-                return Ok(symbol_expr(existing.rate));
-            }
-            let Type::Quantity(state_ty) = symbol.ty else {
-                return Err(invalid(at, "integrated state physical type"));
-            };
-            let ty = Type::Quantity(pse_quantity::scheme::Scheme::Quotient(
-                Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(state_ty))),
-                Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
-                    pse_quantity::scheme::Scheme::Concrete(axis.quantity),
-                ))),
-            ));
-            let quantity = if let Type::Quantity(q) = &ty {
-                self.integrated_quantity_boundary(q, boundary, at, "integrated derivative")?
-            } else {
-                return Err(invalid(at, "integrated derivative physical type"));
-            };
-            let lineage = self.lineage(instance, &self.p.declarations[&at], chain);
-            self.model.symbols.insert(
-                rate,
-                Symbol {
-                    definition: None,
-                    id: rate,
-                    ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)),
-                    role: Kind::Variable,
-                    domain: Domain::Continuous,
-                    expression: None,
-                    initial: None,
-                    lineage: lineage.clone(),
-                },
+        if let Some(axis) = self.model.integrated.get(&mesh.id).cloned() {
+            let original = self.rewrite(instance, body, env, chain)?;
+            return self.integrated_derivative_of(
+                instance,
+                &original,
+                &axis,
+                boundary,
+                (at, source),
+                chain,
             );
-            self.model.derivatives.insert(
-                state,
-                crate::continuous::IntegratedDerivative {
-                    state,
-                    rate,
-                    axis: axis_id,
-                    lineage,
-                },
-            );
-            self.reserve(2)?;
-            return Ok(symbol_expr(rate));
         }
         let points = mesh.points.clone();
         let mesh_id = mesh.id;
@@ -553,8 +500,6 @@ impl Engine<'_, '_> {
                 "derivative is undefined at this scheme boundary",
             ));
         }
-        // Along a coordinate at which this instance was replicated, each stencil term reads
-        // the corresponding member of the replica at the shifted coordinate.
         let replica = self.replica(instance, value.identity());
         let Type::Quantity(axis) = value_type(value).ok_or_else(|| invalid(at, "axis type"))?
         else {
@@ -571,7 +516,6 @@ impl Engine<'_, '_> {
         ));
         let baseline = self.rewrite(instance, body, env, chain)?;
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingContinuityV2);
-        // Replicas share one family of continuity rows, owned by the replicating member.
         match &replica {
             Some(replica) => {
                 hash.id(&replica.owner.as_id()).str(&replica.name);
@@ -591,114 +535,190 @@ impl Engine<'_, '_> {
                 hash.id(&instance.as_id());
             }
         }
-        hash.id(&at.as_id())
-            .id(&mesh_id)
-            .str(&dsl::render_expr(body));
-        for (n, v) in env {
-            if n != &name
-                && let Value::Coordinate { id, .. } = v
+        hash.id(&at.as_id()).id(&mesh_id);
+        self.frame_current_roots(&[baseline.root], &mut hash)?;
+        for (coordinate, value) in env {
+            if coordinate != &name
+                && let Value::Coordinate { id, .. } = value
             {
-                hash.str(n).id(id);
+                hash.str(coordinate).id(id);
             }
         }
         let key = hash.finish_id();
         if self.continuity_done.insert(key) {
             for (element, (endpoint, coefficients)) in continuity.into_iter().enumerate() {
                 self.reserve(1)?;
-                let rhs = binary(
-                    BinaryOp::Sub,
-                    self.shifted(
+                let endpoint = self.shifted(
+                    RewriteContext {
                         instance,
-                        body,
                         env,
-                        &name,
-                        &points[endpoint],
-                        replica.as_ref(),
                         chain,
-                    )?,
+                    },
+                    body,
+                    &name,
+                    &points[endpoint],
+                    replica.as_ref(),
+                )?;
+                let rhs = self.generated_binary(
+                    BinaryOp::Sub,
+                    endpoint,
                     baseline.clone(),
-                );
+                    source.clone(),
+                )?;
                 let mut terms = Vec::new();
-                for (j, w) in coefficients {
-                    let delta = binary(
-                        BinaryOp::Sub,
-                        self.shifted(
+                for (point, weight) in coefficients {
+                    let shifted = self.shifted(
+                        RewriteContext {
                             instance,
-                            body,
                             env,
-                            &name,
-                            &points[j],
-                            replica.as_ref(),
                             chain,
-                        )?,
+                        },
+                        body,
+                        &name,
+                        &points[point],
+                        replica.as_ref(),
+                    )?;
+                    let delta = self.generated_binary(
+                        BinaryOp::Sub,
+                        shifted,
                         baseline.clone(),
-                    );
+                        source.clone(),
+                    )?;
                     let factor = self.constant(
-                        w,
+                        weight,
                         &Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar)),
                         at,
+                        source.clone(),
                     )?;
-                    terms.push(binary(BinaryOp::Mul, factor, delta));
+                    terms.push(self.generated_binary(
+                        BinaryOp::Mul,
+                        factor,
+                        delta,
+                        source.clone(),
+                    )?);
                 }
-                let row = &self.p.declarations[&at];
-                self.model.equations.push(Row {
-                    id: pse_ids::named_id(key, &element.to_string()),
-                    equation: Equation {
-                        kind: EquationKind::Relation {
-                            lhs: sum(terms, at)?,
-                            sense: EquationSense::Eq,
-                            rhs,
-                        },
-                        span: Span::default(),
+                let lhs = self.generated_sum(terms, source.clone())?;
+                let equation = Self::generated_relation(lhs, EquationSense::Eq, rhs, source.span);
+                let id = self.model.derivations.publish(
+                    crate::derived::Relationship::ContinuityRow {
+                        family: key,
+                        element: element as u64,
                     },
-                    lineage: self.lineage(instance, row, chain),
-                });
+                )?;
+                self.retain_row(
+                    id,
+                    equation,
+                    self.lineage(instance, &self.p.declarations[&at], chain),
+                )?;
             }
         }
         let mut terms = Vec::new();
-        for (index, weight) in weights {
+        for (point, weight) in weights {
             let shifted = self.shifted(
-                instance,
+                RewriteContext {
+                    instance,
+                    env,
+                    chain,
+                },
                 body,
-                env,
                 &name,
-                &points[index],
+                &points[point],
                 replica.as_ref(),
-                chain,
             )?;
-            let delta = binary(BinaryOp::Sub, shifted, baseline.clone());
-            terms.push(binary(
-                BinaryOp::Mul,
-                self.constant(weight, &coefficient, at)?,
-                delta,
-            ));
+            let delta =
+                self.generated_binary(BinaryOp::Sub, shifted, baseline.clone(), source.clone())?;
+            let factor = self.constant(weight, &coefficient, at, source.clone())?;
+            terms.push(self.generated_binary(BinaryOp::Mul, factor, delta, source.clone())?);
         }
-        sum(terms, at)
+        self.generated_sum(terms, source)
     }
-
-    /// The body at another mesh point: in this instance with the coordinate rebound, or,
-    /// along a replication coordinate, in the corresponding instance of the replica there.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one stencil term: instance, body, scope, coordinate, point, replica and attribution"
-    )]
-    pub(super) fn shifted(
+    pub(super) fn integrated_derivative_of(
         &mut self,
         instance: InstanceId,
+        original: &Rewritten,
+        axis: &crate::continuous::IntegratedAxis,
+        boundary: Option<&Type>,
+        origin: (DeclarationId, Source),
+        chain: &[DeclarationId],
+    ) -> Result<Rewritten> {
+        let (at, source) = origin;
+        let state = self
+            .symbol_of_root(original.root)
+            .ok_or_else(|| invalid(at, "integrated derivative must select a scalar variable"))?;
+        let symbol = self.model.symbols[&state].clone();
+        if symbol.role != Kind::Variable || symbol.definition.is_some() {
+            return Err(invalid(
+                at,
+                "integrated state must be an independent variable",
+            ));
+        }
+        if let Some(existing) = self.model.derivatives.get(&state) {
+            if existing.axis != axis.id {
+                return Err(invalid(at, "state derivative has conflicting time axes"));
+            }
+            return self.selected_scalar(existing.rate, source);
+        }
+        let Type::Quantity(state_ty) = symbol.ty else {
+            return Err(invalid(at, "integrated state physical type"));
+        };
+        let scheme = pse_quantity::scheme::Scheme::Quotient(
+            Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(state_ty))),
+            Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
+                pse_quantity::scheme::Scheme::Concrete(axis.quantity),
+            ))),
+        );
+        let quantity =
+            self.integrated_quantity_boundary(&scheme, boundary, at, "integrated derivative")?;
+        let rate = self
+            .model
+            .derivations
+            .publish(crate::derived::Relationship::IntegratedRateCoordinate { state })?;
+        let lineage = self.lineage(instance, &self.p.declarations[&at], chain);
+        self.model.symbols.insert(
+            rate,
+            Symbol {
+                definition: None,
+                id: rate,
+                ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)),
+                role: Kind::Variable,
+                domain: Domain::Continuous,
+                expression: None,
+                initial: None,
+                lineage: lineage.clone(),
+            },
+        );
+        self.model.derivatives.insert(
+            state,
+            crate::continuous::IntegratedDerivative {
+                state,
+                rate,
+                axis: axis.id,
+                lineage,
+            },
+        );
+        self.reserve(2)?;
+        self.selected_scalar(rate, source)
+    }
+    /// The same original body is constructed at the actual shifted coordinate.
+    pub(super) fn shifted(
+        &mut self,
+        rewrite: RewriteContext<'_>,
         body: &Expr,
-        env: &Environment,
         name: &str,
         point: &Value,
         replica: Option<&Replica>,
-        chain: &[DeclarationId],
-    ) -> Result<Expr> {
+    ) -> Result<Rewritten> {
+        let RewriteContext {
+            instance,
+            env,
+            chain,
+        } = rewrite;
         let Some(replica) = replica else {
             let mut local = env.clone();
             local.insert(name.to_owned(), point.clone());
             return self.rewrite(instance, body, &local, chain);
         };
         let sibling = self.replica_at(replica, point.identity())?;
-        // Lexical bindings of the occurrence carry over; the instance scope is the sibling's.
         let own = &self.states[&instance].env;
         let mut local = self.states[&sibling].env.clone();
         for (key, value) in env {
@@ -708,6 +728,7 @@ impl Engine<'_, '_> {
         }
         self.rewrite(sibling, body, &local, chain)
     }
+
     /// The indexed child occurrence that replicated `instance`, or its nearest such
     /// ancestor, at the continuous coordinate `coordinate`.
     pub(super) fn replica(&self, instance: InstanceId, coordinate: SemanticId) -> Option<Replica> {
@@ -767,7 +788,7 @@ impl Engine<'_, '_> {
     ) -> bool {
         let mut found = false;
         let mut visit = |e: &Expr| {
-            let _ = e.clone().try_walk_mut(|e| -> Result<()> {
+            e.walk(|e| {
                 if let ExprKind::Derivative { wrt, .. } = &e.kind
                     && let Some(value) = env.get(&dsl::render_path(wrt))
                     && let Ok((mesh, _)) = self.coordinate_mesh(value)
@@ -776,7 +797,6 @@ impl Engine<'_, '_> {
                 {
                     found = true;
                 }
-                Ok(())
             });
         };
         fn equations<'e>(equation: &'e Equation, out: &mut Vec<&'e Expr>) {
@@ -803,14 +823,17 @@ impl Engine<'_, '_> {
 
     pub(super) fn integral(
         &mut self,
-        instance: InstanceId,
+        rewrite: RewriteContext<'_>,
         binder: &dsl::Binder,
         body: &Expr,
-        env: &Environment,
-        chain: &[DeclarationId],
         boundary: Option<&Type>,
-    ) -> Result<Expr> {
-        // As in `rewrite`: attribution falls back to the instance's definition.
+        source: Source,
+    ) -> Result<Rewritten> {
+        let RewriteContext {
+            instance,
+            env,
+            chain,
+        } = rewrite;
         let at = chain
             .last()
             .copied()
@@ -837,62 +860,58 @@ impl Engine<'_, '_> {
             .first()
             .ok_or_else(|| invalid(at, "empty integral domain"))?;
         let (mesh, _) = self.coordinate_mesh(first)?;
-        if self.model.integrated.contains_key(&mesh.id) {
-            let axis_id = mesh.id;
-            let axis = self.model.integrated[&axis_id].clone();
+        if let Some(axis) = self.model.integrated.get(&mesh.id).cloned() {
             let mut local = env.clone();
             local.insert(binder.var.clone(), first.clone());
-            let integrand = self.rewrite(instance, body, &local, chain)?;
-            let types = crate::TypeScope::new(&self.model.symbols);
-            let Type::Quantity(value_type) = crate::expression::infer(
-                &integrand,
-                &types,
-                &self.model.function_contracts(self.p),
-                self.c,
-                at,
-                None,
-            )?
+            // Source type inspection precedes construction. No final rewritten AST is inferred.
+            let types = self.source_types(at, &local)?;
+            let Type::Quantity(value_type) =
+                crate::expression::infer(body, &types, self.p, self.c, at, None)?
             else {
                 return Err(invalid(at, "physical integrand required"));
             };
             let value_type = value_type
                 .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
-                .map_err(|e| invalid(at, e.to_string()))?;
-            let result_scheme = pse_quantity::scheme::Scheme::Product(
+                .map_err(|error| invalid(at, error.to_string()))?;
+            let integrand = self.rewrite(instance, body, &local, chain)?;
+            let scheme = pse_quantity::scheme::Scheme::Product(
                 Box::new(pse_quantity::scheme::Scheme::Concrete(value_type)),
                 Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
                     pse_quantity::scheme::Scheme::Concrete(axis.quantity),
                 ))),
             );
-            let result_type = self.integrated_quantity_boundary(
-                &result_scheme,
-                boundary,
-                at,
-                "integrated integral",
-            )?;
+            let result_type =
+                self.integrated_quantity_boundary(&scheme, boundary, at, "integrated integral")?;
             let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV2);
             identity
                 .id(&instance.as_id())
                 .id(&at.as_id())
-                .id(&axis_id)
-                .id(&result_type.as_id())
-                .str(&dsl::render_expr(&integrand));
-            let result = identity.finish_id();
+                .id(&axis.id)
+                .id(&result_type.as_id());
+            self.frame_current_roots(&[integrand.root], &mut identity)?;
+            let result = self.model.derivations.publish(
+                crate::derived::Relationship::ContinuousIntegral {
+                    content: identity.finish_hash(),
+                },
+            )?;
             if self.model.integrals.contains_key(&result) {
-                return Ok(symbol_expr(result));
+                return self.selected_scalar(result, source);
             }
             self.reserve(3)?;
-            let flux = pse_ids::named_id(result, "integrand");
+            let flux = self
+                .model
+                .derivations
+                .publish(crate::derived::Relationship::IntegralFlux { result })?;
             let lineage = self.lineage(instance, &self.p.declarations[&at], chain);
             self.model.symbols.insert(
                 flux,
                 Symbol {
-                    definition: None,
+                    definition: Some(integrand.root),
                     id: flux,
                     ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(value_type)),
                     role: Kind::Let,
                     domain: Domain::Continuous,
-                    expression: Some(integrand),
+                    expression: Some(integrand.inspection),
                     initial: None,
                     lineage: lineage.clone(),
                 },
@@ -915,10 +934,10 @@ impl Engine<'_, '_> {
                 crate::continuous::IntegratedIntegral {
                     result,
                     integrand: flux,
-                    axis: axis_id,
+                    axis: axis.id,
                 },
             );
-            return Ok(symbol_expr(result));
+            return self.selected_scalar(result, source);
         }
         let weights = mesh.integral.clone();
         let replica = self.replica(instance, first.identity());
@@ -938,23 +957,22 @@ impl Engine<'_, '_> {
                 continue;
             }
             let mut local = env.clone();
-            local.insert(binder.var.clone(), point);
+            local.insert(binder.var.clone(), point.clone());
             let value = self.shifted(
-                instance,
+                RewriteContext {
+                    instance,
+                    env: &local,
+                    chain,
+                },
                 body,
-                &local,
                 &binder.var,
-                &local[&binder.var].clone(),
+                &point,
                 replica.as_ref(),
-                chain,
             )?;
-            terms.push(binary(
-                BinaryOp::Mul,
-                self.constant(weight, &coefficient, at)?,
-                value,
-            ));
+            let factor = self.constant(weight, &coefficient, at, source.clone())?;
+            terms.push(self.generated_binary(BinaryOp::Mul, factor, value, source.clone())?);
         }
-        sum(terms, at)
+        self.generated_sum(terms, source)
     }
     /// Conservation supplies an already checked named physical result boundary.
     /// Generic derivatives and integrals still require their own named result.
@@ -990,22 +1008,6 @@ impl Engine<'_, '_> {
             .require_named()
             .map_err(|e| invalid(at, e.to_string()))
     }
-}
-fn binary(op: BinaryOp, lhs: Expr, rhs: Expr) -> Expr {
-    Expr {
-        kind: ExprKind::Binary {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        },
-        span: Span::default(),
-    }
-}
-fn sum(terms: Vec<Expr>, at: DeclarationId) -> Result<Expr> {
-    terms
-        .into_iter()
-        .reduce(|a, b| binary(BinaryOp::Add, a, b))
-        .ok_or_else(|| invalid(at, "empty continuous stencil"))
 }
 /// An indexed child occurrence replicating an instance over a continuous coordinate:
 /// the owner, the child key with the coordinate's position, and the child keys from the

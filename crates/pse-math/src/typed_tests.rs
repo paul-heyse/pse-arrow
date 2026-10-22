@@ -28,6 +28,8 @@ fn case_specialization_limit_counts_distinct_bodies_not_occurrences() {
         .map(|(index, body)| InstanceBinding {
             instance: SemanticId::from_bytes([index as u8; 16]),
             body: ContentHash::from_bytes([body; 32]),
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: Default::default(),
             slots: (vec![]).into(),
             contributions: vec![Contribution {
@@ -201,6 +203,8 @@ fn canonical_numeric_admission_checks_math_literals_and_instance_values() {
         ..source_port.clone()
     };
     let binding = InstanceBinding {
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         instance: source(),
         body: ContentHash::from_bytes([1; 32]),
@@ -419,6 +423,8 @@ fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
     let slot = SlotBinding::new(&source_port, &target_port, &registry).unwrap();
     let h = ContentHash::from_bytes([1; 32]);
     let instance = InstanceBinding {
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: h,
@@ -505,6 +511,8 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
     };
     assert!(SlotBinding::new(&cold, &hot, &registry).is_err());
     let instance = InstanceBinding {
+        occurrences: Default::default(),
+        checked_sources: Default::default(),
         checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: ContentHash::from_bytes([1; 32]),
@@ -1591,28 +1599,93 @@ fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
 
 #[test]
 fn retained_primitive_constructors_preserve_branch_values_and_exact_boundary_sources() {
-    use pse_quantity::{ResolvedPhysicalContract, infer::OpRequest, CanonicalConversionPlan, AdmittedContractBoundary};
-    let registry=standard_registry().unwrap();
-    let quantity=ids::quantity("neutral");
-    let physical=ResolvedPhysicalContract::named(quantity,IndexSet::new(),&registry).unwrap();
-    let unit=registry.unit(registry.quantity_type(quantity).unwrap().canonical_unit).unwrap();
-    let plan=CanonicalConversionPlan::resolved(&registry,quantity,unit).unwrap();
-    let literal=pse_quantity::resolved::infer_operation(&OpRequest::Literal {unit,context:pse_quantity::literal::LiteralContext::Explicit {quantity_type:quantity}},&[],None,&registry,&StandardInvariantChecker).unwrap();
-    let conditional=pse_quantity::resolved::infer_operation(&OpRequest::Conditional,&[physical.clone(),physical.clone()],None,&registry,&StandardInvariantChecker).unwrap();
-    let boundary=AdmittedContractBoundary::prepare(&physical,&physical,&registry).unwrap();
-    let mut builder=BodyBuilder::new(crate::initialize().unwrap(),&registry,&StandardInvariantChecker,1,BodyLimits::default()).unwrap();
-    let input=builder.input_admitted(0,physical,source()).unwrap();
-    let literal=builder.literal_admitted(2.,&plan,literal,source()).unwrap();
-    let guard=builder.compare(crate::guarded::Comparison::Le,&input,&literal,source()).unwrap();
-    let value=builder.conditional_admitted(guard,|_|Ok(input),|_|Ok(literal),conditional,source()).unwrap();
-    let value=builder.contract_boundary_admitted(value,&boundary).unwrap();
-    let body=builder.prepare(&[value]).unwrap();
-    let control=pse_diagnostics::Cancellation::new(false);
-    let compiled=body.compile(&[0],&[0],DerivativeOrder::Value,Optimization::default(),crate::jets::EvaluationLimits::default(),&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
-    for (input,expected) in [(1.,1.),(3.,2.)] {
-        let value=compiled.worker().evaluate(&[input],DerivativeOrder::Value,&mut pse_kernels::ProviderBindings::new(),&control.flag()).unwrap();
-        assert_eq!(value.values,vec![expected]);
+    use pse_quantity::{
+        AdmittedContractBoundary, CanonicalConversionPlan, ResolvedPhysicalContract,
+        infer::OpRequest,
+    };
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let physical = ResolvedPhysicalContract::named(quantity, IndexSet::new(), &registry).unwrap();
+    let unit = registry
+        .unit(registry.quantity_type(quantity).unwrap().canonical_unit)
+        .unwrap();
+    let plan = CanonicalConversionPlan::resolved(&registry, quantity, unit).unwrap();
+    let literal = pse_quantity::resolved::infer_operation(
+        &OpRequest::Literal {
+            unit,
+            context: pse_quantity::literal::LiteralContext::Explicit {
+                quantity_type: quantity,
+            },
+        },
+        &[],
+        None,
+        &registry,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let conditional = pse_quantity::resolved::infer_operation(
+        &OpRequest::Conditional,
+        &[physical.clone(), physical.clone()],
+        None,
+        &registry,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let boundary = AdmittedContractBoundary::prepare(&physical, &physical, &registry).unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let input = builder.input_admitted(0, physical, source()).unwrap();
+    let literal = builder
+        .literal_admitted(2., &plan, literal, source())
+        .unwrap();
+    let guard = builder
+        .compare(crate::guarded::Comparison::Le, &input, &literal, source())
+        .unwrap();
+    let value = builder
+        .conditional_admitted(guard, |_| Ok(input), |_| Ok(literal), conditional, source())
+        .unwrap();
+    let value = builder
+        .contract_boundary_admitted(value, &boundary)
+        .unwrap();
+    let body = builder.prepare(&[value]).unwrap();
+    let control = pse_diagnostics::Cancellation::new(false);
+    let compiled = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
+        )
+        .unwrap();
+    for (input, expected) in [(1., 1.), (3., 2.)] {
+        let value = compiled
+            .worker()
+            .evaluate(
+                &[input],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &control.flag(),
+            )
+            .unwrap();
+        assert_eq!(value.values, vec![expected]);
     }
-    let length=match registry.physical_name("Length").unwrap() {pse_quantity::PhysicalName::QuantityType(id)=>id,other=>panic!("{other:?}")};
-    assert!(boundary.apply_contract(&ResolvedPhysicalContract::named(length,IndexSet::new(),&registry).unwrap()).is_err());
+    let length = match registry.physical_name("Length").unwrap() {
+        pse_quantity::PhysicalName::QuantityType(id) => id,
+        other => panic!("{other:?}"),
+    };
+    assert!(
+        boundary
+            .apply_contract(
+                &ResolvedPhysicalContract::named(length, IndexSet::new(), &registry).unwrap()
+            )
+            .is_err()
+    );
 }

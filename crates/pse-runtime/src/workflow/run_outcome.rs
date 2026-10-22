@@ -105,10 +105,19 @@ impl RunOutcome {
             Self::Modeling { request, .. } => RunRequest::Modeling(request),
             Self::Simulation { request, .. } => RunRequest::Simulation(request),
             Self::Fit { request, .. } => RunRequest::Fit(request),
-            Self::Horizon { execution: HorizonRunOutcome::Full { requests, .. }, .. } => RunRequest::Modeling(requests),
-            Self::Horizon { request, execution: HorizonRunOutcome::Compact(_), .. } => RunRequest::Horizon(request),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Full { requests, .. },
+                ..
+            } => RunRequest::Modeling(requests),
+            Self::Horizon {
+                request,
+                execution: HorizonRunOutcome::Compact(_),
+                ..
+            } => RunRequest::Horizon(request),
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { problem, initial, .. } => RunRequest::Shooting { problem, initial },
+            Self::Shooting {
+                problem, initial, ..
+            } => RunRequest::Shooting { problem, initial },
         }
     }
     pub(super) fn original_request(&self) -> RunRequest<'_> {
@@ -120,12 +129,24 @@ impl RunOutcome {
     pub(super) fn report(&self) -> Result<RunReport<'_>, &Arc<WorkflowError>> {
         match self {
             Self::Modeling { result, .. } => result.as_ref().map(RunReport::Modeling),
-            Self::Simulation { result, .. } => result.as_ref().map(|report| RunReport::Simulation(report.as_ref())),
-            Self::Fit { result, .. } => result.as_ref().map(|report| RunReport::Fit(report.as_ref())),
-            Self::Horizon { execution: HorizonRunOutcome::Full { result, .. }, .. } => result.as_ref().map(RunReport::Modeling),
-            Self::Horizon { execution: HorizonRunOutcome::Compact(result), .. } => result.as_ref().map(RunReport::Horizon),
+            Self::Simulation { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::Simulation(report.as_ref())),
+            Self::Fit { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::Fit(report.as_ref())),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Full { result, .. },
+                ..
+            } => result.as_ref().map(RunReport::Modeling),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Compact(result),
+                ..
+            } => result.as_ref().map(RunReport::Horizon),
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { result, .. } => result.as_ref().map(|report| RunReport::Shooting(report.as_ref())),
+            Self::Shooting { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::Shooting(report.as_ref())),
         }
     }
     pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> {
@@ -133,8 +154,14 @@ impl RunOutcome {
             Self::Modeling { result, .. } => result.as_ref().err(),
             Self::Simulation { result, .. } => result.as_ref().err(),
             Self::Fit { result, .. } => result.as_ref().err(),
-            Self::Horizon { execution: HorizonRunOutcome::Full { result, .. }, .. } => result.as_ref().err(),
-            Self::Horizon { execution: HorizonRunOutcome::Compact(result), .. } => result.as_ref().err(),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Full { result, .. },
+                ..
+            } => result.as_ref().err(),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Compact(result),
+                ..
+            } => result.as_ref().err(),
             #[cfg(feature = "solver-diffsol")]
             Self::Shooting { result, .. } => result.as_ref().err(),
         }
@@ -144,17 +171,31 @@ impl RunOutcome {
             Self::Modeling { result, .. } => *result = Err(error),
             Self::Simulation { result, .. } => *result = Err(error),
             Self::Fit { result, .. } => *result = Err(error),
-            Self::Horizon { execution: HorizonRunOutcome::Full { result, .. }, .. } => *result = Err(error),
-            Self::Horizon { execution: HorizonRunOutcome::Compact(result), .. } => *result = Err(error),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Full { result, .. },
+                ..
+            } => *result = Err(error),
+            Self::Horizon {
+                execution: HorizonRunOutcome::Compact(result),
+                ..
+            } => *result = Err(error),
             #[cfg(feature = "solver-diffsol")]
             Self::Shooting { result, .. } => *result = Err(error),
         }
     }
     #[cfg(feature = "solver-diffsol")]
-    pub(in crate::workflow) fn horizon_refused(request: HorizonRequest, error: Arc<WorkflowError>) -> Self {
+    pub(in crate::workflow) fn horizon_refused(
+        request: HorizonRequest,
+        error: Arc<WorkflowError>,
+    ) -> Self {
         let execution = match &request.original.output {
-            crate::workflow::StudyOutputDemand::Full {} => HorizonRunOutcome::Full { requests: Vec::new(), result: Err(error) },
-            crate::workflow::StudyOutputDemand::Compact { .. } => HorizonRunOutcome::Compact(Err(error)),
+            crate::workflow::StudyOutputDemand::Full {} => HorizonRunOutcome::Full {
+                requests: Vec::new(),
+                result: Err(error),
+            },
+            crate::workflow::StudyOutputDemand::Compact { .. } => {
+                HorizonRunOutcome::Compact(Err(error))
+            }
         };
         Self::Horizon { request, execution }
     }
@@ -168,18 +209,39 @@ pub(super) trait PairedOperation: Send + Sync + 'static {
 }
 impl PairedOperation for Vec<ModelingSolvePreparation> {
     type Report = Vec<ModelingResult>;
-    fn request(&self) -> RunRequest<'_> { RunRequest::Modeling(self) }
-    fn finish(self, result: Report<Self::Report>) -> RunOutcome { RunOutcome::Modeling { request: self, result } }
+    fn request(&self) -> RunRequest<'_> {
+        RunRequest::Modeling(self)
+    }
+    fn finish(self, result: Report<Self::Report>) -> RunOutcome {
+        RunOutcome::Modeling {
+            request: self,
+            result,
+        }
+    }
 }
 impl PairedOperation for Box<ModelingSimulation> {
     type Report = Box<ModelingTrajectory>;
-    fn request(&self) -> RunRequest<'_> { RunRequest::Simulation(self) }
-    fn finish(self, result: Report<Self::Report>) -> RunOutcome { RunOutcome::Simulation { request: self, result } }
+    fn request(&self) -> RunRequest<'_> {
+        RunRequest::Simulation(self)
+    }
+    fn finish(self, result: Report<Self::Report>) -> RunOutcome {
+        RunOutcome::Simulation {
+            request: self,
+            result,
+        }
+    }
 }
 impl PairedOperation for Box<PreparedFit> {
     type Report = Box<FitReport>;
-    fn request(&self) -> RunRequest<'_> { RunRequest::Fit(self) }
-    fn finish(self, result: Report<Self::Report>) -> RunOutcome { RunOutcome::Fit { request: self, result } }
+    fn request(&self) -> RunRequest<'_> {
+        RunRequest::Fit(self)
+    }
+    fn finish(self, result: Report<Self::Report>) -> RunOutcome {
+        RunOutcome::Fit {
+            request: self,
+            result,
+        }
+    }
 }
 #[cfg(feature = "solver-diffsol")]
 pub(super) struct ShootingOperation {
@@ -189,6 +251,17 @@ pub(super) struct ShootingOperation {
 #[cfg(feature = "solver-diffsol")]
 impl PairedOperation for ShootingOperation {
     type Report = Box<crate::workflow::ShootingReport>;
-    fn request(&self) -> RunRequest<'_> { RunRequest::Shooting { problem: &self.problem, initial: &self.initial } }
-    fn finish(self, result: Report<Self::Report>) -> RunOutcome { RunOutcome::Shooting { problem: self.problem, initial: self.initial, result } }
+    fn request(&self) -> RunRequest<'_> {
+        RunRequest::Shooting {
+            problem: &self.problem,
+            initial: &self.initial,
+        }
+    }
+    fn finish(self, result: Report<Self::Report>) -> RunOutcome {
+        RunOutcome::Shooting {
+            problem: self.problem,
+            initial: self.initial,
+            result,
+        }
+    }
 }

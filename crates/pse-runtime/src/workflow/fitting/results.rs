@@ -432,19 +432,40 @@ impl RunResult {
                 }
                 if let Some(residual) = &r.residual {
                     if let Some(stopping) = residual.stopping {
-                        metric("residual_lm", "criteria_version", Metric::Integer(i64::from(stopping.criteria.version()))).await?;
+                        metric(
+                            "residual_lm",
+                            "criteria_version",
+                            Metric::Integer(i64::from(stopping.criteria.version())),
+                        )
+                        .await?;
                         for (name, value) in [
-                            ("relative_cost_change", stopping.criteria.relative_cost_change()),
+                            (
+                                "relative_cost_change",
+                                stopping.criteria.relative_cost_change(),
+                            ),
                             ("relative_step", stopping.criteria.relative_step()),
-                            ("column_residual_cosine", stopping.criteria.column_residual_cosine()),
+                            (
+                                "column_residual_cosine",
+                                stopping.criteria.column_residual_cosine(),
+                            ),
                         ] {
                             metric("residual_lm", name, Metric::Real(value)).await?;
                         }
                         for (name, value) in [
                             ("parameter_update_limit", stopping.parameter_update_limit),
-                            ("residual_evaluation_limit", stopping.residual_evaluation_limit),
+                            (
+                                "residual_evaluation_limit",
+                                stopping.residual_evaluation_limit,
+                            ),
                         ] {
-                            metric("residual_lm", name, Metric::Integer(i64::try_from(value).map_err(|_| contract("LM recorded work limit exceeds integer transport"))?)).await?;
+                            metric(
+                                "residual_lm",
+                                name,
+                                Metric::Integer(i64::try_from(value).map_err(|_| {
+                                    contract("LM recorded work limit exceeds integer transport")
+                                })?),
+                            )
+                            .await?;
                         }
                     }
                     metric(
@@ -901,8 +922,8 @@ async fn uncertainty(
         }
     }
     // The covariance propagated to the included predictions through the responses (S4).
-    let publish_propagation = request.wants(propagated_covariances::RELATION_ID)
-        && !propagated.skip_next();
+    let publish_propagation =
+        request.wants(propagated_covariances::RELATION_ID) && !propagated.skip_next();
     if (request.wants(local_validity::RELATION_ID) || publish_propagation)
         && let Some(covariance) = report.covariance.as_ref().filter(|_| predictions)
     {
@@ -955,13 +976,28 @@ async fn uncertainty(
             reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
             detail: "the fit's responses are unavailable".into(),
         });
-        let point = report.solve.as_ref().and_then(|solve| solve.evidence.local.as_ref())
+        let point = report
+            .solve
+            .as_ref()
+            .and_then(|solve| solve.evidence.local.as_ref())
             .and_then(|point| point.as_ref().ok());
         let input = covariance.propagation_input(
-            crate::math::settings::CovarianceOrigin::QualifiedFit { run_id, record: None },
-            p.source_identity, physical,
-            crate::workflow::local_analysis::record(covariance.values.as_ref().map(|_| &())
-                .map_err(|withheld| (withheld.reason(), withheld.to_string())), point, false), pool,
+            crate::math::settings::CovarianceOrigin::QualifiedFit {
+                run_id,
+                record: None,
+            },
+            p.source_identity,
+            physical,
+            crate::workflow::local_analysis::record(
+                covariance
+                    .values
+                    .as_ref()
+                    .map(|_| &())
+                    .map_err(|withheld| (withheld.reason(), withheld.to_string())),
+                point,
+                false,
+            ),
+            pool,
         );
         let (result, _derived) = crate::workflow::uncertainty::propagate(
             input.as_ref().map_err(Clone::clone),
@@ -989,7 +1025,16 @@ async fn uncertainty(
             .map_err(relation)?;
         if publish_propagation && let Ok(result) = result {
             propagated
-                .push(result.into_row(run_id, 0, included.iter().map(|(_, observation)| observation.port.unit.as_id()).collect()))
+                .push(
+                    result.into_row(
+                        run_id,
+                        0,
+                        included
+                            .iter()
+                            .map(|(_, observation)| observation.port.unit.as_id())
+                            .collect(),
+                    ),
+                )
                 .await
                 .map_err(relation)?;
         }
@@ -1129,7 +1174,10 @@ impl RunResult {
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
         use pse_relations::generated::runtime::fitted_parameter_cells as cells;
-        let crate::workflow::RunOutcome::Fit { request: prepared, result: Ok(report) } = &self.outcome
+        let crate::workflow::RunOutcome::Fit {
+            request: prepared,
+            result: Ok(report),
+        } = &self.outcome
         else {
             return Err(contract(
                 "parameter publication requires a completed fitting run",

@@ -58,6 +58,55 @@ impl BodyBuilder<'_> {
         partial: &[usize],
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        if partial.len() > 8 || partial.iter().any(|index| *index >= arguments.len()) {
+            return Err(MathError::Contract(
+                "abstract scientific partial coordinates".into(),
+            ));
+        }
+        let admission = if partial.is_empty() {
+            None
+        } else {
+            let contracts = partial
+                .iter()
+                .map(|index| {
+                    arguments
+                        .get(*index)
+                        .map(|argument| argument.quantity.clone())
+                        .ok_or_else(|| {
+                            MathError::Contract("abstract scientific partial coordinates".into())
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Some(pse_quantity::resolved::infer_partial(
+                &result,
+                &contracts,
+                self.registry,
+                self.checker,
+            )?)
+        };
+        self.scientific_placeholder_admitted(
+            witness,
+            function,
+            result,
+            arguments,
+            (partial, admission),
+            source,
+        )
+    }
+    /// Consume the exact prepared scientific partial admission, without consulting a
+    /// mutable or narrowed physical registry during numerical witness construction.
+    /// # Errors
+    /// Wrong partial profile, changed nominal operand contracts or exhausted bounds.
+    pub fn scientific_placeholder_admitted(
+        &mut self,
+        witness: &mut ScientificWitness,
+        function: SemanticId,
+        result: ResolvedPhysicalContract,
+        arguments: &[TypedValue],
+        derivative: (&[usize], Option<ResolvedInference>),
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let (partial, admission) = derivative;
         self.tick()?;
         if partial.len() > 8 || partial.iter().any(|index| *index >= arguments.len()) {
             return Err(MathError::Contract(
@@ -76,21 +125,27 @@ impl BodyBuilder<'_> {
             witness.symbols.push(self.context.pool.function(slot)?);
             slot
         };
-        let quantity = if partial.is_empty() {
-            result
-        } else {
-            let contracts = partial
-                .iter()
-                .map(|index| arguments[*index].quantity.clone())
-                .collect::<Vec<_>>();
-            let admission = pse_quantity::resolved::infer_partial(
-                &result,
-                &contracts,
-                self.registry,
-                self.checker,
-            )?;
-            self.admissions.push(admission.clone());
-            admission.result
+        let quantity = match (partial.is_empty(), admission) {
+            (true, None) => result,
+            (false, Some(admission)) => {
+                let indices = result.indices().clone();
+                let nominal = TypedValue {
+                    quantity: result,
+                    indices,
+                    atom: Atom::num(0),
+                    effects: BTreeSet::new(),
+                    source,
+                };
+                let operands = std::iter::once(&nominal)
+                    .chain(partial.iter().map(|index| &arguments[*index]))
+                    .collect::<Vec<_>>();
+                self.consume_admission(admission, &operands)?.result
+            }
+            _ => {
+                return Err(MathError::Contract(
+                    "scientific placeholder partial admission profile differs".into(),
+                ));
+            }
         };
         Ok(TypedValue {
             atom: library::function(

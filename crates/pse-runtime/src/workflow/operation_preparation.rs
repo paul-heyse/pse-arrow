@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared operation admission; hosts supply transport and their original cancellation owner.
 use super::{
-    AdmittedBinding, AdmittedHorizonValues, DeclaredExecution, DeclaredProcedure,
-    ModelingPackage, ModelingSolvePreparation, OperationRequest, OperationSource,
-    PreparationSettings, PreparedStudyOperation, RunHandle, Runtime, WorkflowError, contract,
+    AdmittedBinding, AdmittedHorizonValues, DeclaredExecution, DeclaredProcedure, ModelingPackage,
+    ModelingSolvePreparation, OperationRequest, OperationSource, PreparationSettings,
+    PreparedStudyOperation, RunHandle, Runtime, WorkflowError, contract,
 };
 use crate::{CancelSource, math::settings::SolveSettings};
 use pse_model::generated::{enums::ModelingAnalysisRoute, identities::DeclarationId};
@@ -17,12 +17,12 @@ pub enum RuntimeOperationRequest {
         /// Selected authored case.
         case: DeclarationId,
         /// Complete native controls.
-        settings: SolveSettings,
+        settings: Box<SolveSettings>,
     },
     /// The unchanged study-admitted operation vocabulary and its contextual horizon values.
     Study {
         /// Scientific request, independent of occurrence identity and output selection.
-        operation: OperationRequest,
+        operation: Box<OperationRequest>,
         /// Explicit requested result retention, independent of occurrence identity.
         output: super::StudyOutputDemand,
         /// Already admitted physical horizon assignments, when present.
@@ -44,7 +44,10 @@ fn projection_refusal(reason: &str) -> WorkflowError {
         [],
         pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
     );
-    diagnostic.observations.insert("reason".into(), pse_model::diagnostic::Observation::Text(reason.into()));
+    diagnostic.observations.insert(
+        "reason".into(),
+        pse_model::diagnostic::Observation::Text(reason.into()),
+    );
     diagnostic.into()
 }
 impl RuntimeOperationRequest {
@@ -53,10 +56,14 @@ impl RuntimeOperationRequest {
     /// Host-only work and an unresolved declared route have no study descriptor.
     pub fn into_study(self) -> Result<OperationRequest, WorkflowError> {
         match self {
-            Self::Study { operation, .. } => Ok(operation),
-            Self::DeclaredCase { .. } => Err(projection_refusal("study projection requires the runtime-admitted declared route")),
+            Self::Study { operation, .. } => Ok(*operation),
+            Self::DeclaredCase { .. } => Err(projection_refusal(
+                "study projection requires the runtime-admitted declared route",
+            )),
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { .. } => Err(projection_refusal("shooting is a host capability, outside StudyOperation Version<8>")),
+            Self::Shooting { .. } => Err(projection_refusal(
+                "shooting is a host capability, outside StudyOperation Version<8>",
+            )),
         }
     }
 }
@@ -81,12 +88,21 @@ impl PreparedOperation {
     /// Horizon identity requires the contextual horizon admission.
     pub fn identity(&self) -> Result<pse_ids::ContentHash, WorkflowError> {
         match self {
-            Self::Study(PreparedStudyOperation::DeclaredCase(prepared)) => prepared.solve.request_identity().map(|key| key.as_id()).map_err(crate::math::MathRuntimeError::from).map_err(Into::into),
+            Self::Study(PreparedStudyOperation::DeclaredCase(prepared)) => prepared
+                .solve
+                .request_identity()
+                .map(|key| key.as_id())
+                .map_err(crate::math::MathRuntimeError::from)
+                .map_err(Into::into),
             Self::Study(PreparedStudyOperation::Simulation(prepared)) => Ok(prepared.identity()),
             Self::Study(PreparedStudyOperation::Fit(prepared)) => Ok(prepared.identity()),
-            Self::Study(PreparedStudyOperation::Horizon(_)) => Err(contract("horizon identity requires its contextual admission")),
+            Self::Study(PreparedStudyOperation::Horizon(_)) => Err(contract(
+                "horizon identity requires its contextual admission",
+            )),
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { problem, initial } => Ok(problem.request_identity(initial.as_deref()).as_id()),
+            Self::Shooting { problem, initial } => {
+                Ok(problem.request_identity(initial.as_deref()).as_id())
+            }
         }
     }
     /// Runtime already retained by the actual prepared scientific owner.
@@ -104,17 +120,25 @@ impl PreparedOperation {
         match self {
             Self::Study(prepared) => Ok(prepared),
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { .. } => Err(projection_refusal("shooting has no StudyOperation Version<8> projection")),
+            Self::Shooting { .. } => Err(projection_refusal(
+                "shooting has no StudyOperation Version<8> projection",
+            )),
         }
     }
     /// Start through the same joined supervisor used by durable workers.
     /// # Errors
     /// Original operation admission and execution refusals retain their causes.
-    pub async fn start(&self, runtime: &Runtime, cancel: &CancelSource) -> Result<RunHandle, WorkflowError> {
+    pub async fn start(
+        &self,
+        runtime: &Runtime,
+        cancel: &CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
         match self {
             Self::Study(prepared) => prepared.start(runtime, cancel).await,
             #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { problem, initial } => problem.start_replay_with_cancel(initial.clone(), cancel),
+            Self::Shooting { problem, initial } => {
+                problem.start_replay_with_cancel(initial.clone(), cancel)
+            }
         }
     }
 }
@@ -134,15 +158,36 @@ impl ModelingPackage {
         source.check(self)?;
         let driver = self.runtime.shared.math().preparation_driver(cancel)?;
         match request {
-            RuntimeOperationRequest::DeclaredCase { case, settings } => Ok(PreparedOperation::Study(
-                PreparedStudyOperation::DeclaredCase(Box::new(self.prepare_case_operation(
-                    case, &settings, preparation, None, binding, &driver,
-                ).await?)),
-            )),
-            RuntimeOperationRequest::Study { operation, output, admitted_horizon } => {
+            RuntimeOperationRequest::DeclaredCase { case, settings } => Ok(
+                PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(
+                    self.prepare_case_operation(
+                        case,
+                        &settings,
+                        preparation,
+                        None,
+                        binding,
+                        &driver,
+                    )
+                    .await?,
+                ))),
+            ),
+            RuntimeOperationRequest::Study {
+                operation,
+                output,
+                admitted_horizon,
+            } => {
                 let admitted_horizon = match admitted_horizon {
                     Some(values) => Some(values),
-                    None => super::study_operations::admit_horizon_values(self, source, preparation, &operation, &driver).await?,
+                    None => {
+                        super::study_operations::admit_horizon_values(
+                            self,
+                            source,
+                            preparation,
+                            &operation,
+                            &driver,
+                        )
+                        .await?
+                    }
                 };
                 super::study_operations::OperationPreparation {
                     source,
@@ -151,14 +196,19 @@ impl ModelingPackage {
                     output: &output,
                     admitted_horizon: admitted_horizon.as_ref(),
                     binding,
-                }.prepare(self, &driver).await.map(PreparedOperation::Study)
+                }
+                .prepare(self, &driver)
+                .await
+                .map(PreparedOperation::Study)
             }
             #[cfg(feature = "solver-diffsol")]
             RuntimeOperationRequest::Shooting { problem, initial } => {
                 if binding.is_some_and(|binding| !binding.entries.is_empty())
                     || !std::sync::Arc::ptr_eq(&self.runtime.shared, &problem.runtime.shared)
                 {
-                    return Err(contract("shooting request has unsupported bindings or another runtime"));
+                    return Err(contract(
+                        "shooting request has unsupported bindings or another runtime",
+                    ));
                 }
                 Ok(PreparedOperation::Shooting { problem, initial })
             }
@@ -174,7 +224,9 @@ impl ModelingPackage {
         binding: Option<&AdmittedBinding>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let execution = self.admit_declared_request(case, preparation, settings.clone(), cancel).await?;
+        let execution = self
+            .admit_declared_request(case, preparation, settings.clone(), cancel)
+            .await?;
         if !matches!(execution.procedure, DeclaredProcedure::Solve)
             || expected_route.is_some_and(|route| execution.route != route)
         {
@@ -183,11 +235,13 @@ impl ModelingPackage {
                 pse_diagnostics::DiagnosticStage::StudyAdmission,
                 [case.as_id()],
                 pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
-            ).into());
+            )
+            .into());
         }
         #[cfg(test)]
         super::study_operations::observe_declared_admission();
-        self.prepare_operation_execution(execution, binding, None, cancel).await
+        self.prepare_operation_execution(execution, binding, None, cancel)
+            .await
     }
 
     /// Existing lane admissions and immediate requests share the same binding lowering.
@@ -198,17 +252,28 @@ impl ModelingPackage {
         current_view: Option<&mut super::study_operations::CurrentNumericalView>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let Some(binding) = binding else { return self.prepare_declared(&execution, cancel).await; };
+        let Some(binding) = binding else {
+            return self.prepare_declared(&execution, cancel).await;
+        };
         execution.prepared_model(self)?;
         self.validate_binding(execution.model.compiled(), binding)?;
         let bound_source = self.retain_bound_source(binding)?;
         execution.analysis.case.members = binding.values();
         let analysis = execution.analysis;
-        let resolution = self.resolve_prepared_case_with_current_view(
-            execution.model, analysis.case, analysis.order, analysis.compiler, analysis.solver,
-            analysis.numerical, super::modeling::cases::CaseOverrides::default(), false,
-            current_view, cancel,
-        ).await?;
+        let resolution = self
+            .resolve_prepared_case_with_current_view(
+                execution.model,
+                analysis.case,
+                analysis.order,
+                analysis.compiler,
+                analysis.solver,
+                analysis.numerical,
+                super::modeling::cases::CaseOverrides::default(),
+                false,
+                current_view,
+                cancel,
+            )
+            .await?;
         let mut prepared = self.finish_case(resolution, cancel).await?;
         prepared.bound_source = Some(bound_source);
         Ok(prepared)

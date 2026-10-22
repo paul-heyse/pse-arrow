@@ -462,9 +462,11 @@ mod selection_tests {
         assert_eq!(receipt.pid, std::process::id());
         assert_eq!(receipt.run, "run:bb");
         assert_eq!(receipt.attempt, "cc");
-        let detail =
-            crate::observation_detail::read_detailed_collection(&output.join("records.jsonl"), 1 << 20)
-                .unwrap();
+        let detail = crate::observation_detail::read_detailed_collection(
+            &output.join("records.jsonl"),
+            1 << 20,
+        )
+        .unwrap();
         assert_eq!(detail.outcome, DetailOutcome::Complete);
         assert_eq!(detail.families[0].acknowledged, 1);
         drop(_entered);

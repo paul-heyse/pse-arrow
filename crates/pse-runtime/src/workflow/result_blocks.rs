@@ -166,7 +166,11 @@ pub(super) fn visible_size(
     values: &mut usize,
 ) -> Result<usize, ResultBlockError> {
     pse_columnar::ipc_file::visible_size(data, values, MAX_VALUES).map_err(|error| match error {
-        datafusion::arrow::error::ArrowError::InvalidArgumentError(message) if message == "field value bound" => ResultBlockError::Invalid("field value bound"),
+        datafusion::arrow::error::ArrowError::InvalidArgumentError(message)
+            if message == "field value bound" =>
+        {
+            ResultBlockError::Invalid("field value bound")
+        }
         error => ResultBlockError::Arrow(error),
     })
 }

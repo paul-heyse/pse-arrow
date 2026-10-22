@@ -4,8 +4,8 @@
 
 pub use pse_diagnostics::{CaptureKind, CaptureOutputKind, CaptureStatus};
 
-use crate::observation_detail::{CaptureBudget, CaptureError};
 use crate::observation::{ProcessLocator, read_checkpoint};
+use crate::observation_detail::{CaptureBudget, CaptureError};
 use pse_diagnostics::observation::OperationId;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};

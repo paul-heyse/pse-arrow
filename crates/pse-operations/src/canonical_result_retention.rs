@@ -38,20 +38,45 @@ impl CanonicalStore {
     // Only fixed local queries select original source owners; no caller-supplied
     // table/field or inferred result unit grants reclamation authority. Reading
     // this hint is postcommit: unavailable detail defers GC, never the mutation.
-    async fn reclaim_result_source_after_commit(&self, key: &str, query: &'static str, deadline: tokio::time::Instant) {
-        crate::canonical_retention::postcommit_cleanup(deadline, "canonical_result_retention::postcommit_source_owner_deferred", async {
-        let problem = crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
-            let mut response = bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, query).bind(("key",key.to_owned()))).await?;
-            let row = response.take::<Option<Object>>(0)?;
-            row.map(|mut row| canonical_codec::decode_string(canonical_codec::required(&mut row,"problem")?).map_err(CanonicalError::from)).transpose()
-        }).await;
-        match problem {
-            Ok(Some(problem)) => self.reclaim_source_after_commit(&problem, deadline).await,
-            Ok(None) => {},
-            Err(error) => return Err(error),
-        }
-        Ok(())
-        }).await;
+    async fn reclaim_result_source_after_commit(
+        &self,
+        key: &str,
+        query: &'static str,
+        deadline: tokio::time::Instant,
+    ) {
+        crate::canonical_retention::postcommit_cleanup(
+            deadline,
+            "canonical_result_retention::postcommit_source_owner_deferred",
+            async {
+                let problem = crate::canonical::transport::metadata_scope(
+                    crate::canonical::MetadataResponse::Header,
+                    async {
+                        let mut response = bounded_query(
+                            self.db
+                                .metadata_query(crate::canonical::MetadataResponse::Header, query)
+                                .bind(("key", key.to_owned())),
+                        )
+                        .await?;
+                        let row = response.take::<Option<Object>>(0)?;
+                        row.map(|mut row| {
+                            canonical_codec::decode_string(canonical_codec::required(
+                                &mut row, "problem",
+                            )?)
+                            .map_err(CanonicalError::from)
+                        })
+                        .transpose()
+                    },
+                )
+                .await;
+                match problem {
+                    Ok(Some(problem)) => self.reclaim_source_after_commit(&problem, deadline).await,
+                    Ok(None) => {}
+                    Err(error) => return Err(error),
+                }
+                Ok(())
+            },
+        )
+        .await;
     }
 
     /// Withdraw a terminal study's retention obligation without deleting its
@@ -129,7 +154,10 @@ impl CanonicalStore {
     /// and no live reader, retained study or analysis needs them. This atomically
     /// fences future claims/reads and releases every selected run source root.
     /// Repeating it resumes the same retirement after an uncertain acknowledgment.
-    pub async fn forget_run_results(&self, run: &str) -> Result<ResultReclamationPage, CanonicalError> {
+    pub async fn forget_run_results(
+        &self,
+        run: &str,
+    ) -> Result<ResultReclamationPage, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
@@ -712,7 +740,10 @@ mod canonical_result_retention_server_unit {
             let foreground = foreground.expect("retirement follows the drained reader");
             assert_eq!(foreground.batches, 1);
             let rest = cleanup(&store, &request.key).await;
-            assert_eq!((foreground.batches + rest.0, foreground.sets + rest.1), (3, 1));
+            assert_eq!(
+                (foreground.batches + rest.0, foreground.sets + rest.1),
+                (3, 1)
+            );
         }
         assert_eq!(store.database(), database);
         store.remove_isolated_fixture().await.unwrap();

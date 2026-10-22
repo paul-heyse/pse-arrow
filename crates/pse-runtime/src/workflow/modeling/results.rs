@@ -1057,15 +1057,21 @@ impl ModelingPackage {
             .scope(async {
                 let mut prepared = prepared;
                 prepared.compiler = compiler;
-                let joined = self.runtime.start_modeling(vec![prepared], false, cancel).await?
-                    .wait().await?;
+                let joined = self
+                    .runtime
+                    .start_modeling(vec![prepared], false, cancel)
+                    .await?
+                    .wait()
+                    .await?;
                 let super::super::RunOutcome::Modeling { result, .. } = &joined.outcome else {
                     return Err(contract("authored modeling operation required"));
                 };
-                result.as_ref().map_err(|error| WorkflowError::Shared(error.clone()))?
-                    .first().cloned()
+                result
+                    .as_ref()
+                    .map_err(|error| WorkflowError::Shared(error.clone()))?
+                    .first()
+                    .cloned()
                     .ok_or_else(|| contract("authored solve completed without a result"))
-
             })
             .await
     }

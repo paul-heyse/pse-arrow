@@ -591,7 +591,10 @@ impl RunResult {
         if matches!(self.request(), RunRequest::Horizon(_)) {
             return self.assessments.clone();
         }
-        if let super::RunOutcome::Simulation { result: Ok(trajectory), .. } = &self.outcome
+        if let super::RunOutcome::Simulation {
+            result: Ok(trajectory),
+            ..
+        } = &self.outcome
         {
             return vec![trajectory.assessment().clone()];
         }
@@ -607,61 +610,72 @@ impl RunResult {
                     decision: refused(CandidateRefusal::ModelChecks),
                     accuracy: vec![],
                 };
-                let (report, numerical, constant, policy, completed) =
-                    match &self.outcome {
-                        super::RunOutcome::Fit { request: p, result: Ok(r) } => {
-                            let policy = &p.problem.numerics.policy;
-                            (
-                                r.solve.as_ref(),
-                                r.quality.as_ref().map(|q| q.feasible()),
-                                r.solve.is_none() && r.residual.is_none() && r.candidate.is_some(),
-                                policy,
-                                r.completion.clone().unwrap_or_else(unavailable),
-                            )
-                        }
-                        super::RunOutcome::Modeling { request: p, .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests: p, .. }, .. } => {
-                            if let Some(r) = self.modeling_result(step) {
-                                let (report, numerical, constant) = match &r.outcome {
-                                    crate::math::solves::Outcome::Native(n) => (
-                                        Some(n.as_ref()),
-                                        n.quality.as_ref().map(|q| q.feasible()),
-                                        false,
-                                    ),
-                                    crate::math::solves::Outcome::Constant(c) => {
-                                        (None, Some(c.quality.feasible()), true)
-                                    }
-                                    crate::math::solves::Outcome::Rejected(_) => {
-                                        (None, None, false)
-                                    }
-                                };
-                                (
-                                    report,
-                                    numerical,
-                                    constant,
-                                    &p[step].solve.numerics().policy,
-                                    r.completion.clone(),
-                                )
-                            } else {
-                                (None, None, false, &default, unavailable())
-                            }
-                        }
-                        super::RunOutcome::Simulation { request: p, result: Ok(r) } => (
-                            None,
-                            None,
-                            false,
-                            &p.numerics().policy,
-                            r.completion().clone(),
-                        ),
-                        #[cfg(feature = "solver-diffsol")]
-                        super::RunOutcome::Shooting { problem: p, result: Ok(r), .. } => (
+                let (report, numerical, constant, policy, completed) = match &self.outcome {
+                    super::RunOutcome::Fit {
+                        request: p,
+                        result: Ok(r),
+                    } => {
+                        let policy = &p.problem.numerics.policy;
+                        (
                             r.solve.as_ref(),
                             r.quality.as_ref().map(|q| q.feasible()),
-                            r.solve.is_none() && r.candidate.is_some(),
-                            &p.numerics().policy,
-                            r.completion.clone(),
-                        ),
-                        _ => (None, None, false, &default, unavailable()),
-                    };
+                            r.solve.is_none() && r.residual.is_none() && r.candidate.is_some(),
+                            policy,
+                            r.completion.clone().unwrap_or_else(unavailable),
+                        )
+                    }
+                    super::RunOutcome::Modeling { request: p, .. }
+                    | super::RunOutcome::Horizon {
+                        execution: super::HorizonRunOutcome::Full { requests: p, .. },
+                        ..
+                    } => {
+                        if let Some(r) = self.modeling_result(step) {
+                            let (report, numerical, constant) = match &r.outcome {
+                                crate::math::solves::Outcome::Native(n) => (
+                                    Some(n.as_ref()),
+                                    n.quality.as_ref().map(|q| q.feasible()),
+                                    false,
+                                ),
+                                crate::math::solves::Outcome::Constant(c) => {
+                                    (None, Some(c.quality.feasible()), true)
+                                }
+                                crate::math::solves::Outcome::Rejected(_) => (None, None, false),
+                            };
+                            (
+                                report,
+                                numerical,
+                                constant,
+                                &p[step].solve.numerics().policy,
+                                r.completion.clone(),
+                            )
+                        } else {
+                            (None, None, false, &default, unavailable())
+                        }
+                    }
+                    super::RunOutcome::Simulation {
+                        request: p,
+                        result: Ok(r),
+                    } => (
+                        None,
+                        None,
+                        false,
+                        &p.numerics().policy,
+                        r.completion().clone(),
+                    ),
+                    #[cfg(feature = "solver-diffsol")]
+                    super::RunOutcome::Shooting {
+                        problem: p,
+                        result: Ok(r),
+                        ..
+                    } => (
+                        r.solve.as_ref(),
+                        r.quality.as_ref().map(|q| q.feasible()),
+                        r.solve.is_none() && r.candidate.is_some(),
+                        &p.numerics().policy,
+                        r.completion.clone(),
+                    ),
+                    _ => (None, None, false, &default, unavailable()),
+                };
                 let mut row = completed.assessment_row(
                     self.run_id,
                     self.modeling_step(step) as i64,

@@ -121,7 +121,13 @@ impl Runtime {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                let supervisor = match RunSupervisor::new(self.clone(), attempt, Some(cancel), None, admitted.history) {
+                let supervisor = match RunSupervisor::new(
+                    self.clone(),
+                    attempt,
+                    Some(cancel),
+                    None,
+                    admitted.history,
+                ) {
                     Ok(supervisor) => supervisor,
                     Err(error) => {
                         admitted.close_sources().await?;
@@ -138,8 +144,16 @@ impl Runtime {
                     },
                     Some(_) => None,
                 };
-                Ok(supervisor.spawn(move |supervisor| crate::invocation::scope(async move {
-                        let RunSupervisor { runtime, run_id, durable, progress: stream, checks: cancel, .. } = supervisor;
+                Ok(supervisor.spawn(move |supervisor| {
+                    crate::invocation::scope(async move {
+                        let RunSupervisor {
+                            runtime,
+                            run_id,
+                            durable,
+                            progress: stream,
+                            checks: cancel,
+                            ..
+                        } = supervisor;
                         use futures_util::FutureExt;
                         let source_owner = admitted.clone();
                         let scopes = admitted
@@ -165,7 +179,11 @@ impl Runtime {
                                     return RunResult::joined(
                                         run_id,
                                         runtime,
-                                        crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
+                                        crate::workflow::RunOutcome::horizon_refused(
+                                            admitted.request(),
+                                            Arc::new(error),
+                                        ),
+                                        None,
                                     )
                                     .refused(durable)
                                     .await;
@@ -181,7 +199,11 @@ impl Runtime {
                                     return RunResult::joined(
                                         run_id,
                                         runtime,
-                                        crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
+                                        crate::workflow::RunOutcome::horizon_refused(
+                                            admitted.request(),
+                                            Arc::new(error),
+                                        ),
+                                        None,
                                     )
                                     .refused(durable)
                                     .await;
@@ -197,7 +219,11 @@ impl Runtime {
                                 return RunResult::joined(
                                     run_id,
                                     runtime,
-                                    crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
+                                    crate::workflow::RunOutcome::horizon_refused(
+                                        admitted.request(),
+                                        Arc::new(error),
+                                    ),
+                                    None,
                                 )
                                 .refused(durable)
                                 .await;
@@ -237,7 +263,8 @@ impl Runtime {
                             recorder.ready();
                         }
                         result
-                    })))
+                    })
+                }))
             })
             .await
     }
@@ -1383,7 +1410,13 @@ impl Loop {
             let mut result = RunResult::joined(
                 run_id,
                 runtime,
-                crate::workflow::RunOutcome::Horizon { request: admitted.request(), execution: crate::workflow::HorizonRunOutcome::Full { requests, result: report } },
+                crate::workflow::RunOutcome::Horizon {
+                    request: admitted.request(),
+                    execution: crate::workflow::HorizonRunOutcome::Full {
+                        requests,
+                        result: report,
+                    },
+                },
                 None,
             );
             result.modeling_failure = failure;
@@ -1396,13 +1429,14 @@ impl Loop {
                 summary_error,
                 detail_membership,
             });
-            let original = outcome
-                .map(|()| report.clone())
-                .map_err(Arc::new);
+            let original = outcome.map(|()| report.clone()).map_err(Arc::new);
             let mut result = RunResult::joined(
                 run_id,
                 runtime,
-                crate::workflow::RunOutcome::Horizon { request: admitted.request(), execution: crate::workflow::HorizonRunOutcome::Compact(original) },
+                crate::workflow::RunOutcome::Horizon {
+                    request: admitted.request(),
+                    execution: crate::workflow::HorizonRunOutcome::Compact(original),
+                },
                 None,
             );
             result.horizon_output = Some(report);
@@ -1726,7 +1760,10 @@ impl Loop {
                 let mut original = RunResult::joined(
                     self.run_id,
                     self.admitted.sources[0].runtime.clone(),
-                    crate::workflow::RunOutcome::Modeling { request: vec![request], result: Err(error.clone()) },
+                    crate::workflow::RunOutcome::Modeling {
+                        request: vec![request],
+                        result: Err(error.clone()),
+                    },
                     None,
                 );
                 original.modeling_origin = attempt;
@@ -1742,7 +1779,10 @@ impl Loop {
         let mut original = RunResult::joined(
             self.run_id,
             self.admitted.sources[0].runtime.clone(),
-            crate::workflow::RunOutcome::Modeling { request: vec![request], result: Ok(vec![result.clone()]) },
+            crate::workflow::RunOutcome::Modeling {
+                request: vec![request],
+                result: Ok(vec![result.clone()]),
+            },
             None,
         );
         original.modeling_origin = attempt;

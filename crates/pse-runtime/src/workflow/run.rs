@@ -8,13 +8,13 @@
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
 //! records its typed termination before its result is published to waiters.
 use super::{
-    Runtime, WorkflowError, RunOutcome, RunRequest, RunReport, contract,
-    run_outcome::PairedOperation,
+    RunOutcome, RunReport, RunRequest, Runtime, WorkflowError, contract,
     durable::{Canceller, Durability, DurableAttempt, RunDurability},
+    run_outcome::PairedOperation,
 };
 use crate::math::{MathRuntimeError, Submission};
-use pse_backend_native::solve::{Event, Progress};
 use futures_util::FutureExt;
+use pse_backend_native::solve::{Event, Progress};
 use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
@@ -156,7 +156,6 @@ impl RunHandle {
     pub fn canonical_attempt_key(&self) -> Option<&str> {
         self.canonical_keys.as_ref().map(|keys| keys.1.as_str())
     }
-
 }
 fn observations_for(
     run: RunId,
@@ -359,7 +358,8 @@ impl RunResult {
                 // Keep the original failure when science already failed. An
                 // unadmitted cancelled owner only settles its existing attempt;
                 // it must not start a second payload publisher past capacity.
-                let prior = result.error()
+                let prior = result
+                    .error()
                     .or_else(|| result.completion.as_ref().err())
                     .cloned();
                 let interrupted = match admission {
@@ -454,7 +454,8 @@ impl RunResult {
                     self.modeling_error(step)
                         .map(WorkflowError::boundary_diagnostic)
                 }),
-            None => self.error()
+            None => self
+                .error()
                 .map(|error| error.boundary_diagnostic())
                 .or_else(|| {
                     (!self.usable())
@@ -491,8 +492,7 @@ impl RunResult {
             .as_ref()
             .map(|recorder| recorder.projection())
             .unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
-        let family = match self.original_request()
-        {
+        let family = match self.original_request() {
             RunRequest::Horizon(_) => "horizon",
             RunRequest::Modeling(_) => "modeling",
             RunRequest::Simulation(_) => "simulation",
@@ -509,7 +509,11 @@ impl RunResult {
                 ProductAvailability::Unavailable
             },
         }];
-        if let RunOutcome::Fit { request: prepared, result } = &self.outcome {
+        if let RunOutcome::Fit {
+            request: prepared,
+            result,
+        } = &self.outcome
+        {
             let report = result.as_ref().ok().map(Box::as_ref);
             let availability = |requested: bool, available: bool| {
                 if !requested {
@@ -667,10 +671,18 @@ impl RunResult {
         self.outcome.report().map_err(AsRef::as_ref)
     }
     /// The authoritative paired input and typed result.
-    pub fn outcome(&self) -> &RunOutcome { &self.outcome }
-    pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> { self.outcome.error() }
-    pub(super) fn fail_report(&mut self, error: Arc<WorkflowError>) { self.outcome.fail(error); }
-    pub(super) fn original_request(&self) -> RunRequest<'_> { self.outcome.original_request() }
+    pub fn outcome(&self) -> &RunOutcome {
+        &self.outcome
+    }
+    pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> {
+        self.outcome.error()
+    }
+    pub(super) fn fail_report(&mut self, error: Arc<WorkflowError>) {
+        self.outcome.fail(error);
+    }
+    pub(super) fn original_request(&self) -> RunRequest<'_> {
+        self.outcome.original_request()
+    }
     /// Original immutable declarations for each requested step, including unattempted steps.
     pub fn request(&self) -> RunRequest<'_> {
         self.outcome.request()
@@ -793,7 +805,9 @@ impl RunSupervisor {
         history: usize,
     ) -> Result<Self, WorkflowError> {
         let durable = attempt_for(&runtime, attempt)?;
-        let run_id = durable.as_ref().and_then(DurableAttempt::claimed_run)
+        let run_id = durable
+            .as_ref()
+            .and_then(DurableAttempt::claimed_run)
             .unwrap_or_else(pse_operations::mint_id);
         Ok(Self {
             runtime,
@@ -811,7 +825,10 @@ impl RunSupervisor {
         &self,
         receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     ) -> RunHandle {
-        let canonical_keys = self.durable.as_ref().map(|attempt| attempt.canonical_keys(self.run_id));
+        let canonical_keys = self
+            .durable
+            .as_ref()
+            .map(|attempt| attempt.canonical_keys(self.run_id));
         RunHandle {
             observation: observations_for(self.run_id, canonical_keys.as_ref()),
             lease: Arc::new(Lease::new(self.checks.clone(), self.durable.is_some())),
@@ -849,59 +866,117 @@ impl RunSupervisor {
     where
         Operation: PairedOperation,
         T: Send + 'static,
-        Dispatch: FnOnce(Submission) -> Result<crate::math::solves::SolveHandle<T>, WorkflowError> + Send + 'static,
-        Finish: FnOnce(crate::math::solves::SolveHandle<T>, Option<DurableAttempt>) -> Finished + Send + 'static,
-        Finished: Future<Output = (NativeFinished<Operation::Report>, Option<DurableAttempt>)> + Send + 'static,
+        Dispatch: FnOnce(Submission) -> Result<crate::math::solves::SolveHandle<T>, WorkflowError>
+            + Send
+            + 'static,
+        Finish: FnOnce(crate::math::solves::SolveHandle<T>, Option<DurableAttempt>) -> Finished
+            + Send
+            + 'static,
+        Finished: Future<Output = (NativeFinished<Operation::Report>, Option<DurableAttempt>)>
+            + Send
+            + 'static,
     {
-        let deadline = self.checks.deadline().ok_or_else(|| contract("native run deadline absent"))?;
-        let (submission, signal) = submission(&self.native, &self.progress, self.durable.is_some(), deadline);
+        let deadline = self
+            .checks
+            .deadline()
+            .ok_or_else(|| contract("native run deadline absent"))?;
+        let (submission, signal) = submission(
+            &self.native,
+            &self.progress,
+            self.durable.is_some(),
+            deadline,
+        );
         let mut dispatch = Some(move || dispatch(submission));
         let immediate = if self.durable.is_none() {
-            Some(dispatch.take().ok_or_else(|| contract("native dispatch absent"))?()?)
-        } else { None };
+            Some(dispatch
+                .take()
+                .ok_or_else(|| contract("native dispatch absent"))?(
+            )?)
+        } else {
+            None
+        };
         Ok(self.spawn(move |mut supervisor| async move {
             let registered = async {
                 if let Some(attempt) = supervisor.durable.as_mut() {
-                    attempt.register(supervisor.run_id, &operation.request()).await?;
+                    attempt
+                        .register(supervisor.run_id, &operation.request())
+                        .await?;
                     let checks = supervisor.checks.clone();
                     attempt.start(Arc::new(move || checks.cancel())).await?;
                 }
                 Ok::<(), WorkflowError>(())
-            }.await;
+            }
+            .await;
             let handle = match registered {
                 Err(error) => {
                     if let Some(handle) = immediate {
                         handle.cancel();
                         let _ = handle.finish().await;
                     }
-                    return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
-                        .refused(supervisor.durable).await;
+                    return RunResult::joined(
+                        supervisor.run_id,
+                        supervisor.runtime,
+                        operation.finish(Err(Arc::new(error))),
+                        None,
+                    )
+                    .refused(supervisor.durable)
+                    .await;
                 }
                 Ok(()) => match immediate {
                     Some(handle) => Ok(handle),
-                    None => dispatch.take().ok_or_else(|| contract("native dispatch absent")).and_then(|dispatch| dispatch()),
+                    None => dispatch
+                        .take()
+                        .ok_or_else(|| contract("native dispatch absent"))
+                        .and_then(|dispatch| dispatch()),
                 },
             };
             let handle = match handle {
                 Ok(handle) => handle,
-                Err(error) => return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
-                    .refused(supervisor.durable).await,
+                Err(error) => {
+                    return RunResult::joined(
+                        supervisor.run_id,
+                        supervisor.runtime,
+                        operation.finish(Err(Arc::new(error))),
+                        None,
+                    )
+                    .refused(supervisor.durable)
+                    .await;
+                }
             };
             if let Err(error) = admitted(signal).await {
                 handle.cancel();
                 let _ = handle.finish().await;
-                return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
-                    .refused(supervisor.durable).await;
+                return RunResult::joined(
+                    supervisor.run_id,
+                    supervisor.runtime,
+                    operation.finish(Err(Arc::new(error))),
+                    None,
+                )
+                .refused(supervisor.durable)
+                .await;
             }
             let join = crate::invocation::stage("native_join_and_workflow_postsolve");
             let ((report, owner), durable) = finish(handle, supervisor.durable).await;
-            join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
-            RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(report), owner)
-                .finished(durable, supervisor.checks.token().is_cancelled()).await
+            join.finish(if report.is_ok() {
+                crate::invocation::InvocationOutcome::Completed
+            } else {
+                crate::invocation::InvocationOutcome::Failed
+            });
+            RunResult::joined(
+                supervisor.run_id,
+                supervisor.runtime,
+                operation.finish(report),
+                owner,
+            )
+            .finished(durable, supervisor.checks.token().is_cancelled())
+            .await
         }))
     }
 }
-type NativeFinished<T> = (Result<T, Arc<WorkflowError>>, Option<Arc<pse_columnar::AllocationLease>>);
+type NativeFinished<T> = (
+    Result<T, Arc<WorkflowError>>,
+    Option<Arc<pse_columnar::AllocationLease>>,
+);
 async fn finish_native_report<T: Send + 'static>(
     handle: crate::math::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>,
     durable: Option<DurableAttempt>,
@@ -931,11 +1006,15 @@ where
         super::worker::poll_worker_action(inner.as_mut(), context)
     });
     crate::invocation::TransferredContext::capture().scope(async move {
-        checks.join_native(&native, work, || {
-            if let Some(context) = pse_diagnostics::observation::current().filter(|context| context.is_active()) {
-                context.boolean("run.stop_requested", true);
-            }
-        }).await
+        checks
+            .join_native(&native, work, || {
+                if let Some(context) =
+                    pse_diagnostics::observation::current().filter(|context| context.is_active())
+                {
+                    context.boolean("run.stop_requested", true);
+                }
+            })
+            .await
     })
 }
 
@@ -1174,9 +1253,18 @@ impl super::ShootingProblem {
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
                 .ok_or_else(|| contract("submitted task deadline extent"))?;
-            let supervisor = RunSupervisor::new(self.runtime.clone(), None, parent.as_ref(), Some(deadline), 256)?;
+            let supervisor = RunSupervisor::new(
+                self.runtime.clone(),
+                None,
+                parent.as_ref(),
+                Some(deadline),
+                256,
+            )?;
             let run_id = supervisor.run_id;
-            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("shooting deadline absent"))?;
+            let deadline = supervisor
+                .checks
+                .deadline()
+                .ok_or_else(|| contract("shooting deadline absent"))?;
             let prepared = self.clone();
             let mut declared_profile = self.solver.clone();
             if initial.is_some() {
@@ -1186,29 +1274,34 @@ impl super::ShootingProblem {
             let native = self.runtime.native().clone();
             let job_bytes = self.job_bytes()?;
             let dispatch = move |submission| {
-                native.submit_with_storage(
-                    declared_profile.controls.threads,
-                    job_bytes,
-                    submission,
-                    move |flag, progress, storage| {
-                        let report = prepared.solve(
-                            run_id,
-                            pse_kernels::ExecutionScope::new(flag, Some(deadline)),
-                            progress,
-                            start.as_deref(),
-                            &declared_profile,
-                            Some(storage),
-                        )?;
-                        let retained = report
-                            .numeric_bytes()
-                            .checked_add(prepared.solver.controls.report_allowance()?)
-                            .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
-                        Ok((Box::new(report), retained))
-                    },
-                ).map_err(WorkflowError::from)
+                native
+                    .submit_with_storage(
+                        declared_profile.controls.threads,
+                        job_bytes,
+                        submission,
+                        move |flag, progress, storage| {
+                            let report = prepared.solve(
+                                run_id,
+                                pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                                progress,
+                                start.as_deref(),
+                                &declared_profile,
+                                Some(storage),
+                            )?;
+                            let retained = report
+                                .numeric_bytes()
+                                .checked_add(prepared.solver.controls.report_allowance()?)
+                                .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
+                            Ok((Box::new(report), retained))
+                        },
+                    )
+                    .map_err(WorkflowError::from)
             };
             supervisor.start_native(
-                super::run_outcome::ShootingOperation { problem: self.clone(), initial },
+                super::run_outcome::ShootingOperation {
+                    problem: self.clone(),
+                    initial,
+                },
                 dispatch,
                 finish_native_report,
             )
@@ -1278,48 +1371,61 @@ impl super::PreparedFit {
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.problem.runtime.admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            let supervisor = RunSupervisor::new(self.problem.runtime.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
+            let supervisor = RunSupervisor::new(
+                self.problem.runtime.clone(),
+                attempt,
+                parent.as_ref(),
+                Some(deadline),
+                256,
+            )?;
             let run_id = supervisor.run_id;
-            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("fit deadline absent"))?;
+            let deadline = supervisor
+                .checks
+                .deadline()
+                .ok_or_else(|| contract("fit deadline absent"))?;
             let prepared = self.clone();
             // Estimation admits only its own demand. Profile teams acquire their next
             // stage after the estimate reaches the quiescent phase boundary.
-            let workers = self.problem.profile_workers(self.problem.runtime.native().cores());
+            let workers = self
+                .problem
+                .profile_workers(self.problem.runtime.native().cores());
             let cores = self.problem.profile.solver.controls.threads;
             let bytes = self.problem.bytes;
             let native = self.problem.runtime.native().clone();
             #[cfg(test)]
             let entry = family_worker_entry();
             let dispatch = move |submission| {
-                native.submit_with_storage(
-                    cores,
-                    bytes,
-                    submission,
-                    move |flag, progress, storage| {
-                        #[cfg(test)]
-                        if let Some(entry) = entry {
-                            entry(&flag);
-                        }
-                        let allowance = prepared
-                            .problem
-                            .profile
-                            .solver
-                            .controls
-                            .report_allowance()?;
-                        let report = prepared.execute(
-                            run_id,
-                            pse_kernels::ExecutionScope::new(flag, Some(deadline)),
-                            progress,
-                            workers,
-                            Some(storage),
-                        )?;
-                        let retained = report
-                            .numeric_bytes()
-                            .checked_add(allowance)
-                            .ok_or(MathRuntimeError::Limit("fit result extent"))?;
-                        Ok((Box::new(report), retained))
-                    },
-                ).map_err(WorkflowError::from)
+                native
+                    .submit_with_storage(
+                        cores,
+                        bytes,
+                        submission,
+                        move |flag, progress, storage| {
+                            #[cfg(test)]
+                            if let Some(entry) = entry {
+                                entry(&flag);
+                            }
+                            let allowance = prepared
+                                .problem
+                                .profile
+                                .solver
+                                .controls
+                                .report_allowance()?;
+                            let report = prepared.execute(
+                                run_id,
+                                pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                                progress,
+                                workers,
+                                Some(storage),
+                            )?;
+                            let retained = report
+                                .numeric_bytes()
+                                .checked_add(allowance)
+                                .ok_or(MathRuntimeError::Limit("fit result extent"))?;
+                            Ok((Box::new(report), retained))
+                        },
+                    )
+                    .map_err(WorkflowError::from)
             };
             supervisor.start_native(Box::new(self.clone()), dispatch, finish_native_report)
         }))
@@ -1346,10 +1452,18 @@ impl super::ModelingSolvePreparation {
     ) -> Result<Self, WorkflowError> {
         let snapshot = self.source.runtime.snapshot_primal_values(batches)?;
         let plan = &self.model.case.compiled().plan;
-        let columns = plan.columns().iter().copied().collect::<std::collections::BTreeSet<_>>();
-        let ports = plan.structure().variables().iter()
+        let columns = plan
+            .columns()
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        let ports = plan
+            .structure()
+            .variables()
+            .iter()
             .filter(|variable| columns.contains(&variable.port.id))
-            .map(|variable| variable.port.clone()).collect::<Vec<_>>();
+            .map(|variable| variable.port.clone())
+            .collect::<Vec<_>>();
         let values = snapshot.admit(&self.source.quantities, &ports)?;
         self.solve = self
             .solve
@@ -1834,7 +1948,10 @@ mod cancellation_tests {
         let worker = crate::CancelSource::new();
         let durable = worker.child_with_deadline(None);
         drop(super::Lease::new(durable.clone(), true));
-        assert!(!durable.token().is_cancelled(), "caller disconnect does not stop durable work");
+        assert!(
+            !durable.token().is_cancelled(),
+            "caller disconnect does not stop durable work"
+        );
         let explicit = worker.child_with_deadline(None);
         let lease = super::Lease::new(explicit.clone(), true);
         lease.cancel();
@@ -1851,11 +1968,18 @@ mod cancellation_tests {
         let observed = native.clone();
         source.cancel();
         let candidate = super::joined_with_cancel(
-            move || async move { assert!(observed.is_cancelled()); 7 },
+            move || async move {
+                assert!(observed.is_cancelled());
+                7
+            },
             native,
             source,
-        ).await;
-        assert_eq!(candidate, 7, "drain retains its typed candidate for original assessment");
+        )
+        .await;
+        assert_eq!(
+            candidate, 7,
+            "drain retains its typed candidate for original assessment"
+        );
     }
     #[tokio::test]
     async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {

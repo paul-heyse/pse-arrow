@@ -396,7 +396,12 @@ pub fn analyze(
             let p = problem(matrix, rows, pivot, milp, policy)?;
             // problem() constructs normalized multipliers and support decisions, all
             // explicitly dimensionless; metadata never comes from SolveReport.
-            let coordinates = p.contract.variables.iter().map(|variable| variable.id).collect();
+            let coordinates = p
+                .contract
+                .variables
+                .iter()
+                .map(|variable| variable.id)
+                .collect();
             let identity = layout(&p);
             let stamp = Compatibility {
                 layout: identity,

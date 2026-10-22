@@ -317,8 +317,10 @@ impl MemberFacts {
         analysis: bool,
     ) -> Result<Option<Self>, WorkflowError> {
         if !analysis
-            && batch.relation_id() != pse_relations::generated::runtime::scientific_contexts::RELATION_ID
-            && batch.relation_id() != pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID
+            && batch.relation_id()
+                != pse_relations::generated::runtime::scientific_contexts::RELATION_ID
+            && batch.relation_id()
+                != pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID
         {
             return Ok(None);
         }
@@ -1465,11 +1467,17 @@ impl Runtime {
         Box::pin(async move {
             let protected = self.select_scientific_input(run, attempt).await?;
             let mut prepared = Vec::new();
-            use pse_relations::generated::runtime::{scientific_contexts, computation_runs};
             use pse_model::generated::products::ScientificRelation;
+            use pse_relations::generated::runtime::{computation_runs, scientific_contexts};
             for member in [
-                ScientificRelation { id: scientific_contexts::RELATION_ID, name: scientific_contexts::QUALIFIED_NAME },
-                ScientificRelation { id: computation_runs::RELATION_ID, name: computation_runs::QUALIFIED_NAME },
+                ScientificRelation {
+                    id: scientific_contexts::RELATION_ID,
+                    name: scientific_contexts::QUALIFIED_NAME,
+                },
+                ScientificRelation {
+                    id: computation_runs::RELATION_ID,
+                    name: computation_runs::QUALIFIED_NAME,
+                },
             ] {
                 let spec = self
                     .registry()

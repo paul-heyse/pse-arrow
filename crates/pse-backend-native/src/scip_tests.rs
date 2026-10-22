@@ -225,6 +225,8 @@ fn case_of(
             variables,
             (0..parameters.len()).map(parameter).collect(),
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,

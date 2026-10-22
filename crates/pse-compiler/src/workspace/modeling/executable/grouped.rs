@@ -1,43 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Normalize each consuming expression once, then bind semantic coordinates into CasePlan.
+//! Prepare model-issued typed regions and bind their semantic coordinates into CasePlan.
 use super::*;
+use pse_kernels::Port;
+use pse_math::binding::{Contribution, InstanceBinding, Row, SlotBinding, Variable};
 
-/// Complete immutable body dependencies; the digest excludes revision attribution.
+/// Exact compact resolved owner. Instance attribution and actual input bindings live
+/// in PlannedInstance; this reusable body holds only canonical typed coordinates.
 #[derive(Clone, Debug)]
 struct BodyInput {
     identity: pse_ids::roles::SemanticBodyHash,
-    expression: Expr,
-    formals: Vec<Formal>,
-    functions: BTreeMap<String, pse_modeling::Function>,
-    providers: BTreeMap<String, ProviderCall>,
-    hints: BTreeMap<String, QuantityTypeId>,
-    validity: BTreeMap<String, crate::typed_math::Validity>,
-    quantity: QuantityTypeId,
+    syntax: pse_modeling::resolved::ResolvedSyntax,
+    inputs: Vec<pse_modeling::resolved::SymbolIx>,
+    support: pse_modeling::resolved::PhysicalSupport,
+    providers: crate::typed_math::SelectedProviders,
     physical: ContentHash,
-    context: BodyPhysicalContext,
     limits: BodyLimits,
-}
-#[derive(Clone, Debug)]
-enum BodyPhysicalContext {
-    Consumed(Arc<pse_quantity::premises::PhysicalPremises>),
-    Complete(Arc<QuantityRegistry>, Arc<PhysicalPreconditions>),
-}
-impl BodyPhysicalContext {
-    fn context(&self) -> (&QuantityRegistry, &PhysicalPreconditions) {
-        match self {
-            Self::Consumed(premises) => premises.context(),
-            Self::Complete(registry, facts) => (registry, facts),
-        }
-    }
-    fn retained_bytes(&self) -> usize {
-        match self {
-            Self::Consumed(premises) => premises.retained_bytes(),
-            Self::Complete(registry, facts) => registry
-                .allocation_extent()
-                .saturating_add(facts.allocation_extent()),
-        }
-    }
 }
 impl PartialEq for BodyInput {
     fn eq(&self, other: &Self) -> bool {
@@ -56,63 +34,19 @@ struct BodyKey<'db> {
 }
 fn body_key_heap((input,): &(Arc<BodyInput>,)) -> usize {
     size_of::<BodyInput>()
-        + input.context.retained_bytes()
-        + pse_modeling::expression::retained_bytes(&input.expression)
-        + input
-            .formals
-            .iter()
-            .map(|f| size_of::<Formal>() + f.path.capacity())
-            .sum::<usize>()
-        + input
-            .functions
-            .iter()
-            .map(|(n, f)| n.capacity() + f.retained_bytes() + 64)
-            .sum::<usize>()
-        + input
-            .providers
-            .iter()
-            .map(|(name, provider)| {
-                let spec = provider.descriptor.spec();
-                name.capacity()
-                    + 512
-                    + spec.shapes.retained_bytes()
-                    + size_of_val(spec.inputs.as_slice())
-                    + size_of_val(spec.outputs.as_slice())
-            })
-            .sum::<usize>()
-        + input
-            .hints
-            .keys()
-            .map(|name| name.capacity() + 128)
-            .sum::<usize>()
-        + input
-            .validity
-            .iter()
-            .map(|(name, range)| {
-                name.capacity()
-                    + 512
-                    + pse_modeling::expression::retained_bytes(&range.lower)
-                    + pse_modeling::expression::retained_bytes(&range.upper)
-            })
-            .sum::<usize>()
+        .saturating_add(input.syntax.retained_bytes())
+        .saturating_add(size_of_val(input.inputs.as_slice()))
+        .saturating_add(input.support.retained_bytes())
+        .saturating_add(input.providers.retained_bytes())
 }
 #[salsa::tracked(returns(clone), lru = 64, heap_size = body_heap)]
-fn semantic_body(
-    db: &dyn CompilerDb,
-    inventory: Inventory,
-    key: BodyKey<'_>,
-) -> Result<Arc<AdmittedBody>> {
+fn semantic_body(db: &dyn CompilerDb, key: BodyKey<'_>) -> Result<Arc<AdmittedBody>> {
     checkpoint(db);
     let input = key.input(db);
     let retained = match db.body_retention() {
         Some(cache) => match cache.get(input.identity) {
             Ok(body) => body,
-            Err(error) => {
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.count("compiler.body_retention_lookup_refusals", "count", 1);
-                }
-                body_refused(db, error)
-            }
+            Err(error) => body_refused(db, error),
         },
         None => None,
     };
@@ -126,20 +60,17 @@ fn semantic_body(
         .entered();
         if body.semantic_identity() != Some(input.identity) || body.spec.physical != input.physical
         {
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.count("compiler.body_retention_incompatibilities", "count", 1);
-            }
-            body_refused(
-                db,
-                MathError::Contract(
-                    "retained body has a different immutable dependency closure".into(),
-                ),
-            );
+            body_refused(db, MathError::Contract("retained body has a different immutable dependency closure for its exact resolved product".into()));
         }
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("compiler.semantic_body_retention_reuses", "count", 1);
         }
-        admit_live_body(db, input.identity, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
+        admit_live_body(
+            db,
+            input.identity,
+            body.descriptor_bytes()
+                .saturating_add(body.math.retained_bytes()),
+        );
         return Ok(body);
     }
     let _phase = pse_diagnostics::observation::current().map(|context| {
@@ -154,8 +85,6 @@ fn semantic_body(
         }
         context.phase("compiler.semantic_body_admission")
     });
-    // Enter only after retained lookup misses: a query validation/cache hit is not
-    // a fresh arithmetic admission. The benchmark subscriber observes this owner.
     let admission = tracing::info_span!(
         "pse.case.semantic_body_admission",
         product = "body",
@@ -164,67 +93,19 @@ fn semantic_body(
     );
     let _admission = admission.enter();
     let generation = db.body_retention().map(|cache| cache.generation());
-    let (quantities, preconditions) = input.context.context();
-    let (mut body, eligible) = match &input.context {
-        BodyPhysicalContext::Complete(_, _) => (
-            materialize(
-                input,
-                quantities,
-                preconditions,
-                input.physical,
-                db.cancel(),
-            )?,
-            true,
-        ),
-        BodyPhysicalContext::Consumed(premises) => {
-            let result = pse_quantity::premises::capture(quantities, preconditions, || {
-                materialize(
-                    input,
-                    quantities,
-                    preconditions,
-                    input.physical,
-                    db.cancel(),
-                )
-            });
-            match result {
-                Ok((body, Some(actual))) if premises.covers(&actual) => (body, true),
-                _ => {
-                    // An incomplete sparse preflight is reuse ineligibility, not
-                    // invalid science. The existing complete interpreter runs afresh;
-                    // broad tracked inputs fence its memo and it has no portable key.
-                    let registry = inventory.quantities(db);
-                    let facts = inventory.preconditions(db);
-                    pse_quantity::premises::unsupported();
-                    (
-                        materialize(
-                            input,
-                            registry,
-                            facts,
-                            crate::physical_identity::complete(registry, facts),
-                            db.cancel(),
-                        )?,
-                        false,
-                    )
-                }
-            }
-        }
-    };
-    body.math = Arc::new(
-        Arc::unwrap_or_clone(body.math)
-            .with_checked_members(input.validity.values().map(|range| range.target).collect())?,
-    );
+    let body = Arc::new(materialize(input, db.cancel())?.for_semantic_identity(input.identity)?);
     checkpoint(db);
-    let body = Arc::new(if eligible {
-        body.for_semantic_identity(input.identity)
-    } else {
-        body
-    });
-    admit_live_body(db, input.identity, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
+    admit_live_body(
+        db,
+        input.identity,
+        body.descriptor_bytes()
+            .saturating_add(body.math.retained_bytes()),
+    );
     admission.record("success", true);
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("compiler.semantic_body_admissions_completed", "count", 1);
     }
-    if eligible && let Some(cache) = db.body_retention() {
+    if let Some(cache) = db.body_retention() {
         return match cache.retain(generation.unwrap_or(u64::MAX), input.identity, body.clone()) {
             Ok(retained) if retained.as_ref() == body.as_ref() => Ok(retained),
             Ok(_) => body_refused(
@@ -236,35 +117,20 @@ fn semantic_body(
     }
     Ok(body)
 }
-fn materialize(
-    input: &BodyInput,
-    registry: &QuantityRegistry,
-    facts: &PhysicalPreconditions,
-    physical: ContentHash,
-    cancel: &Arc<AtomicBool>,
-) -> Result<AdmittedBody> {
+fn materialize(input: &BodyInput, cancel: &Arc<AtomicBool>) -> Result<AdmittedBody> {
     let _phase = pse_diagnostics::observation::phase("compiler.body_materialization");
+    let (registry, facts) = input.support.context()?;
     Ok(crate::typed_math::Request {
         definition: SemanticId::NIL,
-        expressions: std::slice::from_ref(&input.expression),
-        formals: &input.formals,
-        domains: &BTreeMap::new(),
-        groups: &BTreeMap::new(),
+        syntax: &input.syntax,
+        inputs: &input.inputs,
+        support: &input.support,
         providers: &input.providers,
-        literals: &BTreeMap::new(),
-        physical,
+        physical: input.physical,
         structure: input.identity.as_id(),
         limits: input.limits,
     }
-    .admit_modeling_outputs(
-        registry,
-        facts,
-        cancel,
-        &input.functions,
-        &[input.quantity],
-        &input.hints,
-        &input.validity,
-    )?)
+    .admit(registry, facts, cancel)?)
 }
 fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
     value
@@ -277,147 +143,114 @@ fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
 /// An unportable fallback still occupies its input's Salsa memo. This locator is
 /// capacity bookkeeping only and never grants semantic-body reuse eligibility.
 pub(super) fn memo_key(body: &AdmittedBody) -> pse_ids::roles::SemanticBodyHash {
-    body.semantic_identity().unwrap_or_else(|| pse_ids::roles::SemanticBodyHash::from_id(body.spec.structure))
+    body.semantic_identity()
+        .unwrap_or_else(|| pse_ids::roles::SemanticBodyHash::from_id(body.spec.structure))
 }
 
 pub(super) fn configure(db: &mut CompilerDatabase, n: usize) {
     semantic_body::set_lru_capacity(db, n);
 }
 
-fn predicate_expressions(predicate: &dsl::Predicate, pending: &mut Vec<Expr>) {
-    use dsl::PredicateKind;
-    match &predicate.kind {
-        PredicateKind::Compare { lhs, rhs, .. } => {
-            pending.push(lhs.as_ref().clone());
-            pending.push(rhs.as_ref().clone());
-        }
-        PredicateKind::In { expr, .. } | PredicateKind::Atom(expr) => {
-            pending.push(expr.as_ref().clone())
-        }
-        PredicateKind::And(a, b) | PredicateKind::Or(a, b) => {
-            predicate_expressions(a, pending);
-            predicate_expressions(b, pending);
-        }
-        PredicateKind::Not(p) => predicate_expressions(p, pending),
-        PredicateKind::Bool(_) | PredicateKind::Null => {}
-    }
-}
-/// Follow only functions and provider calls the body can actually consume.
-fn dependencies(
-    expression: &Expr,
-    validity: &BTreeMap<String, crate::typed_math::Validity>,
-    available: &BTreeMap<String, pse_modeling::Function>,
-) -> (BTreeMap<String, pse_modeling::Function>, BTreeSet<String>) {
-    let mut pending = vec![expression.clone()];
-    // Member-range checks are consumed by Lower::validated independently of the
-    // arithmetic expression. normalize has already trimmed these to demanded members.
-    for range in validity.values() {
-        pending.push(range.lower.clone());
-        pending.push(range.upper.clone());
-    }
-    let mut functions = BTreeMap::new();
-    let mut providers = BTreeSet::new();
-    while let Some(mut expression) = pending.pop() {
-        let _: std::result::Result<(), std::convert::Infallible> =
-            expression.try_walk_mut(|node| {
-                if let ExprKind::Kernel { name, .. } = &node.kind {
-                    providers.insert(name.clone());
-                }
-                let name = match &node.kind {
-                    ExprKind::NamedCall { name, .. } => Some(dsl::render_path(name)),
-                    ExprKind::Partial { function, .. } => Some(dsl::render_path(function)),
-                    _ => None,
-                };
-                if let Some(name) = name
-                    && !functions.contains_key(&name)
-                    && let Some(function) = available.get(&name)
-                {
-                    if let Some(body) = &function.body {
-                        pending.push(body.clone());
-                    }
-                    // Validity and envelope predicates may themselves call functions.
-                    if let Some(validity) = &function.validity {
-                        predicate_expressions(validity, &mut pending);
-                    }
-                    for guard in &function.envelopes {
-                        predicate_expressions(&guard.predicate, &mut pending);
-                    }
-                    for usage in &function.applicability_uses {
-                        for predicate in &usage.predicates {
-                            predicate_expressions(predicate, &mut pending);
-                        }
-                        pending.extend(usage.inputs.iter().cloned());
-                    }
-                    // Contextual admission retains the actual common-state anchor
-                    // expressions too, independently of the numerical wrapper body.
-                    let translation = match &function.physical_operation {
-                        Some(pse_modeling::PhysicalOperation::ReferenceTranslation(
-                            translation,
-                        ))
-                        | Some(pse_modeling::PhysicalOperation::ReferenceAnchorMean {
-                            translation,
-                            ..
-                        }) => Some(translation),
-                        _ => None,
-                    };
-                    if let Some(translation) = translation {
-                        pending.push(translation.temperature.clone());
-                        pending.push(translation.pressure.clone());
-                        for anchor in &translation.anchors {
-                            pending.extend(anchor.values.iter().cloned());
-                        }
-                    }
-                    if let Some(external) = &function.external {
-                        providers.insert(external.implementation.clone());
-                    }
-                    functions.insert(name.clone(), function.clone());
-                }
-                Ok(())
-            });
-    }
-    (functions, providers)
-}
-use pse_kernels::Port;
-use pse_math::binding::{
-    CaseLimits, CaseStructure, Contribution, InstanceBinding, Row, SlotBinding, Target, Variable,
-};
-
 impl ModelingOutput {
     /// Stable output-row identity; presentation order is independent of assembly order.
     pub fn row_id(&self) -> SemanticId {
+        use pse_model::generated::enums::ModelingAnnotationKind as Annotation;
+        use pse_modeling::derived::{
+            AnnotationComponent as Component, Relationship as R, TestComponent as Test,
+        };
         match self {
-            Self::ConditionalBoundary(id) => {
-                pse_ids::named_id(*id, "conditional-boundary-residual")
+            Self::Equation { id, .. } => *id,
+            Self::LevelBound { row, .. } => *row,
+            Self::ConditionalBoundary(symbol) => {
+                R::ConditionalBoundaryResidual { symbol: *symbol }.identity()
             }
-            Self::Inventory(id) => pse_ids::named_id(*id, "conserved-inventory-output"),
-            Self::InventoryTransfer { balance, event } => pse_ids::named_id(
-                pse_ids::named_id(*balance, &format!("event-{event}")),
-                "conserved-transfer-output",
-            ),
-            Self::InitialState { state, equation } => {
-                pse_ids::named_id(*state, &format!("initial-state-{equation}"))
+            Self::Inventory(balance) => {
+                R::ConservedInventoryOutput { balance: *balance }.identity()
             }
-            Self::DynamicRate { state, .. } => pse_ids::named_id(*state, "dynamic-rate"),
-            Self::Test { id, component } => pse_ids::named_id(*id, &format!("test-{component:?}")),
+            Self::InventoryTransfer { balance, event } => R::InventoryTransferOutput {
+                balance: *balance,
+                event: *event,
+            }
+            .identity(),
+            Self::InitialState { state, equation } => R::InitialStateOutput {
+                state: *state,
+                equation: *equation,
+            }
+            .identity(),
+            Self::DynamicRate { state, .. } => R::DynamicRateOutput { state: *state }.identity(),
+            Self::Test { id, component } => R::TestOutput {
+                test: *id,
+                component: match component {
+                    ModelingTestValue::Actual => Test::Actual,
+                    ModelingTestValue::Expected => Test::Expected,
+                    ModelingTestValue::Tolerance => Test::Tolerance,
+                    ModelingTestValue::RelativeTolerance => Test::RelativeTolerance,
+                },
+            }
+            .identity(),
             Self::Hint {
                 target,
                 declaration,
                 kind,
-            } => pse_ids::named_id(
-                pse_ids::named_id(*target, &declaration.to_string()),
-                &format!("hint-{kind:?}"),
-            ),
-            Self::OriginalEquation(id) => pse_ids::named_id(*id, "original-residual"),
-            Self::Penalty(id) => pse_ids::named_id(*id, "elastic-penalty"),
+            } => {
+                let (kind, component) = match kind {
+                    ModelingHint::Start => (Annotation::Start, Component::Value),
+                    ModelingHint::Nominal => (Annotation::Nominal, Component::Value),
+                    ModelingHint::Lower => (Annotation::Bounds, Component::Lower),
+                    ModelingHint::Upper => (Annotation::Bounds, Component::Upper),
+                    ModelingHint::ValidLower => (Annotation::Valid, Component::Lower),
+                    ModelingHint::ValidUpper => (Annotation::Valid, Component::Upper),
+                    ModelingHint::Check => (Annotation::Check, Component::Value),
+                    ModelingHint::ObjectiveBound(ObjectiveBound::Lower { strict }) => (
+                        Annotation::Check,
+                        Component::ObjectiveLower { strict: *strict },
+                    ),
+                    ModelingHint::ObjectiveBound(ObjectiveBound::Upper { strict }) => (
+                        Annotation::Check,
+                        Component::ObjectiveUpper { strict: *strict },
+                    ),
+                    ModelingHint::AccuracyGoalTime => (Annotation::AccuracyGoal, Component::Time),
+                    ModelingHint::AccuracyGoalResolution => {
+                        (Annotation::AccuracyGoal, Component::Resolution)
+                    }
+                    ModelingHint::AccuracyGoalLower => {
+                        (Annotation::AccuracyGoal, Component::CriterionLower)
+                    }
+                    ModelingHint::AccuracyGoalUpper => {
+                        (Annotation::AccuracyGoal, Component::CriterionUpper)
+                    }
+                    ModelingHint::EngineeringScaleValue => {
+                        (Annotation::EngineeringScale, Component::Value)
+                    }
+                };
+                R::AnnotationOutput {
+                    target: *target,
+                    declaration: *declaration,
+                    kind,
+                    component,
+                }
+                .identity()
+            }
+            Self::OriginalEquation(equation) => R::OriginalEquationResidual {
+                equation: *equation,
+            }
+            .identity(),
+            Self::Penalty(equation) => R::ElasticPenalty {
+                equation: *equation,
+            }
+            .identity(),
             Self::Term {
                 equation, ordinal, ..
-            } => pse_ids::named_id(*equation, &format!("original-term-{ordinal}")),
-            Self::Equation { id, .. } => *id,
-            Self::LevelBound { row, .. } => *row,
-            Self::Member(id) => pse_ids::named_id(*id, "modeling-member-output"),
-            Self::Contribution { contribution, .. } => {
-                pse_ids::named_id(*contribution, "modeling-contribution-output")
+            } => R::OriginalTerm {
+                equation: *equation,
+                ordinal: *ordinal as u64,
             }
+            .identity(),
+            Self::Member(symbol) => R::MemberOutput { symbol: *symbol }.identity(),
+            Self::Contribution { contribution, .. } => R::ContributionOutput {
+                contribution: *contribution,
+            }
+            .identity(),
         }
     }
 }
@@ -518,157 +351,6 @@ impl AdmittedModeling {
     }
 }
 
-/// A trimmed consumer expression with its formals, gathered inputs, local quantities
-/// and validity ranges.
-type Normalized = (
-    Expr,
-    Vec<Formal>,
-    Vec<SemanticId>,
-    BTreeMap<String, QuantityTypeId>,
-    BTreeMap<String, crate::typed_math::Validity>,
-    BTreeMap<SemanticId, SemanticId>,
-);
-/// Trim expression members to the consumer's transitive dependencies and rename local
-/// symbols by dependency order. Global IDs survive only in the instance gather.
-fn normalize(
-    expression: &Expr,
-    runtime: &BTreeMap<&str, (&Formal, SemanticId)>,
-    quantities: &BTreeMap<String, QuantityTypeId>,
-    validity: &BTreeMap<String, crate::typed_math::Validity>,
-) -> Result<Normalized> {
-    let (bindings, body) = match &expression.kind {
-        ExprKind::Let { bindings, body } => (bindings.as_slice(), body.as_ref()),
-        _ => ([].as_slice(), expression),
-    };
-    let locals = bindings
-        .iter()
-        .map(|(n, e)| (n.clone(), e))
-        .collect::<BTreeMap<_, _>>();
-    struct Rename<'a> {
-        locals: &'a BTreeMap<String, &'a Expr>,
-        runtime: &'a BTreeMap<&'a str, (&'a Formal, SemanticId)>,
-        names: BTreeMap<String, String>,
-        bindings: Vec<(String, Expr)>,
-        formals: Vec<Formal>,
-        inputs: Vec<SemanticId>,
-        quantities: &'a BTreeMap<String, QuantityTypeId>,
-        hints: BTreeMap<String, QuantityTypeId>,
-        active: BTreeSet<String>,
-        validity: &'a BTreeMap<String, crate::typed_math::Validity>,
-        normalized_validity: BTreeMap<String, crate::typed_math::Validity>,
-        checked_members: BTreeMap<SemanticId, SemanticId>,
-    }
-    impl Rename<'_> {
-        fn expression(&mut self, source: &Expr) -> Result<Expr> {
-            let mut result = source.clone();
-            result.try_walk_mut(|node| -> Result<()> {
-                let ExprKind::Path(path) = &mut node.kind else {
-                    return Ok(());
-                };
-                if path.segments.len() != 1 || !path.segments[0].indices.is_empty() {
-                    return Ok(());
-                }
-                let name = path.segments[0].name.clone();
-                if let Some(fresh) = self.names.get(&name) {
-                    path.segments[0].name = fresh.clone();
-                    return Ok(());
-                }
-                if let Some((formal, id)) = self.runtime.get(name.as_str()) {
-                    let fresh = format!("input_{}", self.inputs.len());
-                    self.inputs.push(*id);
-                    self.formals.push(Formal {
-                        path: fresh.clone(),
-                        quantity: formal.quantity,
-                    });
-                    self.names.insert(name.clone(), fresh.clone());
-                    path.segments[0].name = fresh;
-                } else if let Some(expression) = self.locals.get(&name) {
-                    if !self.active.insert(name.clone()) {
-                        return Err(CompileError::Missing("cyclic consumer dependency".into()));
-                    }
-                    let expression = self.expression(expression)?;
-                    self.active.remove(&name);
-                    let fresh = format!("member_{}", self.bindings.len());
-                    self.bindings.push((fresh.clone(), expression));
-                    if let Some(q) = self.quantities.get(&name) {
-                        self.hints.insert(fresh.clone(), *q);
-                    }
-                    self.names.insert(name.clone(), fresh.clone());
-                    path.segments[0].name = fresh;
-                }
-                if let Some(range) = self.validity.get(&name).cloned() {
-                    let lower = self.expression(&range.lower)?;
-                    let upper = self.expression(&range.upper)?;
-                    let fresh = self
-                        .names
-                        .get(&name)
-                        .ok_or_else(|| {
-                            CompileError::Missing("validity target was not normalized".into())
-                        })?
-                        .clone();
-                    let mut token = FramedHasher::new(pse_ids::Frame::ModelingCheckedMemberV1);
-                    token.str(&fresh);
-                    let token = token.finish_id();
-                    if self
-                        .checked_members
-                        .insert(token, range.target)
-                        .is_some_and(|old| old != range.target)
-                    {
-                        return Err(CompileError::Missing(
-                            "ambiguous checked member binding".into(),
-                        ));
-                    }
-                    self.normalized_validity.insert(
-                        fresh,
-                        crate::typed_math::Validity {
-                            lower,
-                            upper,
-                            source: range.source,
-                            target: token,
-                        },
-                    );
-                }
-                Ok(())
-            })?;
-            Ok(result)
-        }
-    }
-    let mut rename = Rename {
-        locals: &locals,
-        runtime,
-        names: BTreeMap::new(),
-        bindings: vec![],
-        formals: vec![],
-        inputs: vec![],
-        quantities,
-        hints: BTreeMap::new(),
-        active: BTreeSet::new(),
-        validity,
-        normalized_validity: BTreeMap::new(),
-        checked_members: BTreeMap::new(),
-    };
-    let body = rename.expression(body)?;
-    let expression = if rename.bindings.is_empty() {
-        body
-    } else {
-        Expr {
-            kind: ExprKind::Let {
-                bindings: rename.bindings,
-                body: Box::new(body),
-            },
-            span: Span::default(),
-        }
-    };
-    Ok((
-        expression,
-        rename.formals,
-        rename.inputs,
-        rename.hints,
-        rename.normalized_validity,
-        rename.checked_members,
-    ))
-}
-
 /// Owned assembly instructions. No Salsa identity escapes the planning operation.
 #[derive(Clone, Debug)]
 pub(super) struct PlannedModeling {
@@ -693,6 +375,8 @@ struct PlannedInstance {
     input: Arc<BodyInput>,
     instance: SemanticId,
     checked_members: BTreeMap<SemanticId, SemanticId>,
+    checked_sources: BTreeMap<SemanticId, SemanticId>,
+    occurrences: BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
     slots: Vec<SlotBinding>,
     contributions: Vec<Contribution>,
 }
@@ -704,16 +388,11 @@ impl PlannedModeling {
             .iter()
             .map(|instance| instance.input.identity)
     }
-    pub(super) fn providers(&self) -> BTreeMap<String, (ContentHash, usize)> {
+    pub(super) fn providers(&self) -> BTreeMap<ContentHash, pse_kernels::AdmittedProvider> {
         self.instances
             .iter()
-            .flat_map(|instance| instance.input.providers.iter())
-            .map(|(name, provider)| {
-                (
-                    name.clone(),
-                    (provider.descriptor.spec().identity(), provider.output),
-                )
-            })
+            .flat_map(|instance| instance.input.providers.descriptors())
+            .map(|(identity, descriptor)| (*identity, descriptor.clone()))
             .collect()
     }
     pub(super) fn retained_bytes(&self) -> usize {
@@ -748,8 +427,19 @@ impl PlannedModeling {
                 .map(|instance| {
                     size_of_val(instance)
                         + body_key_heap(&(instance.input.clone(),))
-                        + instance.checked_members.len()
+                        + (instance.checked_members.len() + instance.checked_sources.len())
                             * (size_of::<(SemanticId, SemanticId)>() + 96)
+                        + instance
+                            .occurrences
+                            .values()
+                            .map(|source| {
+                                size_of::<pse_model::diagnostic::SourceLocation>()
+                                    + 128
+                                    + source.path.capacity()
+                                    + source.name.as_ref().map_or(0, String::capacity)
+                                    + source.occurrence_role.as_ref().map_or(0, String::capacity)
+                            })
+                            .sum::<usize>()
                         + size_of_val(instance.slots.as_slice())
                         + size_of_val(instance.contributions.as_slice())
                 })
@@ -783,22 +473,7 @@ pub(super) fn plan(
     p: &Projection,
     supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<PlannedModeling> {
-    let (implicit, mut providers) = implicit::admit(db, inventory, p, supplied)?;
-    if !implicit.is_empty() {
-        pse_quantity::premises::unsupported();
-    }
-    for function in p.functions.values() {
-        if let Some(external) = &function.external {
-            let call =
-                provider(db, inventory, external.implementation.clone()).ok_or_else(|| {
-                    CompileError::Missing(format!(
-                        "external implementation {}",
-                        external.implementation
-                    ))
-                })?;
-            providers.insert(external.implementation.clone(), call);
-        }
-    }
+    let (implicit, direct_providers) = implicit::admit(db, inventory, p, supplied)?;
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
     let mut ports = BTreeMap::new();
@@ -921,26 +596,31 @@ pub(super) fn plan(
     };
     let mut instances = vec![];
     let mut rows = vec![];
-    let complete_physical = crate::physical_identity::complete(registry, checker);
-    let runtime = p
-        .formals
-        .iter()
-        .zip(&p.inputs)
-        .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
-        .collect::<BTreeMap<_, _>>();
-    if let Some(context) = pse_diagnostics::observation::current() {
-        context.count("compiler.projection_lookups", "count", 1);
-        context.count(
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: registry,
+        preconditions: checker.as_ref(),
+        scope: &p.physical_scope,
+    };
+    if let Some(observation) = pse_diagnostics::observation::current() {
+        observation.count("compiler.projection_lookups", "count", 1);
+        observation.count(
             "compiler.projection_lookup_entries",
             "count",
-            runtime.len() as u64,
+            ports.len() as u64,
         );
     }
     let mut conservation_rows = BTreeMap::<SemanticId, Vec<(SemanticId, f64)>>::new();
     for (row, terms) in &p.conservation {
-        for (term, sign) in terms { conservation_rows.entry(*term).or_default().push((*row, *sign)); }
+        for (term, sign) in terms {
+            conservation_rows
+                .entry(*term)
+                .or_default()
+                .push((*row, *sign));
+        }
     }
-    for (index, (expression, output)) in p.expressions.iter().zip(&p.outputs).enumerate() {
+    for (index, (region, output)) in p.regions.iter().zip(&p.outputs).enumerate() {
         checkpoint(db);
         if let ModelingOutput::Equation {
             id,
@@ -956,111 +636,76 @@ pub(super) fn plan(
             });
             continue;
         }
-        let (expression, formals, inputs, hints, validity, checked_members) =
-            normalize(expression, &runtime, &p.local_quantities, &p.validity)?;
-        let (functions, provider_names) = dependencies(&expression, &validity, &p.functions);
-        let selected_providers: BTreeMap<_, _> = provider_names
-            .iter()
-            .filter_map(|n| providers.get(n).map(|v| (n.clone(), v.clone())))
-            .collect();
-        let prepass = crate::typed_math::Request {
-            definition: SemanticId::NIL,
-            expressions: std::slice::from_ref(&expression),
-            formals: &formals,
-            domains: &BTreeMap::new(),
-            groups: &BTreeMap::new(),
-            providers: &selected_providers,
-            literals: &BTreeMap::new(),
-            physical: complete_physical,
-            structure: complete_physical,
-            limits: p.body_limits,
-        }
-        .physical_modeling_outputs(
-            registry,
-            checker,
-            db.cancel(),
-            &functions,
-            &[p.quantities[index]],
-            &hints,
-            &validity,
-        )?;
-        let (physical, context) = match prepass {
-            Some(premises) => (
-                crate::physical_identity::consumed(&premises),
-                BodyPhysicalContext::Consumed(Arc::new(premises)),
-            ),
-            None => {
-                pse_quantity::premises::unsupported();
-                (
-                    complete_physical,
-                    BodyPhysicalContext::Complete(registry.clone(), checker.clone()),
-                )
-            }
+        let region = implicit::resolve_region(&p.model, region, &implicit, &context)?;
+        let mut lookup = |name: &str| {
+            provider(db, inventory, name.to_owned()).ok_or_else(|| {
+                MathError::Contract(format!("unregistered external implementation {name}"))
+            })
         };
+        let selected_providers = crate::typed_math::prepare_selected_providers(
+            &region.syntax,
+            &region.support,
+            &mut lookup,
+            &direct_providers,
+            &context,
+        )?;
+        let mut physical = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+        frame_physical_scope(&mut physical, &p.physical_scope);
+        region.support.frame(&mut physical);
+        selected_providers.frame(&mut physical);
+        let physical = physical.finish_hash();
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV5);
-        frame_physical_scope(&mut h, &p.physical_scope);
-        h.str(&dsl::render_expr(&expression))
-            .id(&p.quantities[index].as_id())
-            .hash(&physical)
-            .u64(p.body_limits.slots as u64)
+        h.hash(&region.syntax.identity()?).hash(&physical);
+        region.syntax.frame_input_layout(&region.inputs, &mut h)?;
+        h.u64(p.body_limits.slots as u64)
             .u64(p.body_limits.occurrences as u64);
-        h.u64(formals.len() as u64);
-        for f in &formals {
-            h.str(&f.path).id(&f.quantity.as_id());
-        }
-        h.u64(hints.len() as u64);
-        for (n, q) in &hints {
-            h.str(n).id(&q.as_id());
-        }
-        h.u64(validity.len() as u64);
-        for (name, range) in &validity {
-            h.str(name)
-                .id(&range.source)
-                .id(&range.target)
-                .str(&dsl::render_expr(&range.lower))
-                .str(&dsl::render_expr(&range.upper));
-        }
-        h.u64(functions.len() as u64);
-        for (name, function) in &functions {
-            // Specialized function IDs already frame body, signature, validity,
-            // imported data, applicability and physical operation admission.
-            h.str(name).id(&function.id.as_id());
-        }
-        h.u64(selected_providers.len() as u64);
-        for (name, provider) in &selected_providers {
-            h.str(name)
-                .hash(&provider.descriptor.spec().identity())
-                .u64(provider.output as u64);
-        }
         let identity = pse_ids::roles::SemanticBodyHash::from_id(h.finish_hash());
         let input = Arc::new(BodyInput {
             identity,
-            expression,
-            formals: formals.clone(),
-            functions,
+            syntax: region.syntax.clone(),
+            inputs: region.inputs.clone(),
+            support: region.support.clone(),
             providers: selected_providers,
-            hints,
-            validity,
-            quantity: p.quantities[index],
             physical,
-            context,
             limits: p.body_limits,
         });
-        let slots = inputs
+        let actual = region
+            .bindings
             .iter()
-            .zip(&formals)
-            .map(|(id, f)| {
-                SlotBinding::new(
-                    &ports[id],
+            .map(|binding| (binding.local, binding.actual))
+            .collect::<BTreeMap<_, _>>();
+        let slots = region
+            .inputs
+            .iter()
+            .map(|slot| {
+                let id = actual.get(slot).ok_or_else(|| {
+                    CompileError::Missing("selected input has no actual instance binding".into())
+                })?;
+                let source = ports.get(id).ok_or_else(|| {
+                    CompileError::Missing("selected input is absent from actual case ports".into())
+                })?;
+                let quantity = region
+                    .support
+                    .input(*slot)?
+                    .require_named()
+                    .map_err(MathError::from)?;
+                Ok(SlotBinding::new(
+                    source,
                     &Port {
                         id: *id,
-                        quantity: f.quantity,
-                        unit: registry.quantity_type(f.quantity)?.canonical_unit,
+                        quantity,
+                        unit: registry
+                            .quantity_type(quantity)
+                            .map_err(MathError::from)?
+                            .canonical_unit,
                     },
                     registry,
-                )
+                )?)
             })
-            .collect::<std::result::Result<Vec<_>, MathError>>()?;
+            .collect::<Result<Vec<_>>>()?;
+        let checked_members = region.checked_members.clone();
+        let checked_sources = region.checked_sources.clone();
+        let occurrences = region.occurrences.clone();
         let (lower, upper) = match output.constraint() {
             Some((_, EquationSense::Eq)) => (0.0, 0.0),
             Some((_, EquationSense::Le)) => (f64::NEG_INFINITY, 0.0),
@@ -1086,7 +731,11 @@ pub(super) fn plan(
         }];
         if let ModelingOutput::Contribution { contribution, .. } = output {
             for (row, sign) in conservation_rows.get(contribution).into_iter().flatten() {
-                contributions.push(Contribution { output: 0, target: Target::Row(*row), scale: *sign });
+                contributions.push(Contribution {
+                    output: 0,
+                    target: Target::Row(*row),
+                    scale: *sign,
+                });
             }
         }
         if matches!(output, ModelingOutput::Penalty(_)) {
@@ -1109,6 +758,8 @@ pub(super) fn plan(
             input,
             instance: id,
             checked_members,
+            checked_sources,
+            occurrences,
             slots,
             contributions,
         });
@@ -1155,33 +806,52 @@ pub(super) fn complete(
     let mut instances = Vec::with_capacity(planned.instances.len());
     for instance in planned.instances {
         checkpoint(db);
-        match &instance.input.context {
-            BodyPhysicalContext::Consumed(premises) => {
-                premises.observe(inventory.quantities(db), inventory.preconditions(db));
-            }
-            BodyPhysicalContext::Complete(_, _) => pse_quantity::premises::unsupported(),
+        if !instance
+            .input
+            .support
+            .observe(inventory.quantities(db), inventory.preconditions(db))?
+            || !instance
+                .input
+                .providers
+                .observe(inventory.quantities(db), inventory.preconditions(db))?
+        {
+            return Err(MathError::Contract(
+                "planned resolved physical or provider premises changed before body admission"
+                    .into(),
+            )
+            .into());
         }
         let requested = instance.input.identity;
         let key = BodyKey::new(db, instance.input);
-        let body = pse_quantity::premises::without_recording(|| semantic_body(db, inventory, key))
-            .map_err(|cause| MathError::Instance {
+        let body = pse_quantity::premises::without_recording(|| semantic_body(db, key)).map_err(
+            |cause| MathError::Instance {
                 instance: instance.instance,
                 checked_members: instance.checked_members.clone(),
+                checked_sources: instance.checked_sources.clone(),
+                occurrences: instance.occurrences.clone(),
                 cause: Box::new(MathError::Typed {
                     retained: cause.retained_bytes(),
                     cause: pse_model::diagnostic::DiagnosticCause::new(cause),
                 }),
-            })?;
+            },
+        )?;
         if body.semantic_identity() != Some(requested) {
             pse_quantity::premises::unsupported();
         }
-        admit_live_body(db, requested, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
+        admit_live_body(
+            db,
+            requested,
+            body.descriptor_bytes()
+                .saturating_add(body.math.retained_bytes()),
+        );
         let key = body.spec.key();
         bodies.insert(key, body);
         instances.push(InstanceBinding {
             instance: instance.instance,
             body: key,
             checked_members: (instance.checked_members).into(),
+            checked_sources: (instance.checked_sources).into(),
+            occurrences: instance.occurrences.into(),
             slots: (instance.slots).into(),
             contributions: instance.contributions,
         });
@@ -1368,6 +1038,16 @@ mod dependency_tests {
             workspace
                 .publish_modeling(rows, PhysicalScope::default())
                 .unwrap();
+            let (catalog, request) = workspace
+                .modeling_request(
+                    root,
+                    root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                )
+                .unwrap();
+            let projected =
+                projection(&workspace.db, workspace.inventory, catalog, request).unwrap();
             let admitted = workspace
                 .admit_modeling(
                     root,
@@ -1376,9 +1056,9 @@ mod dependency_tests {
                     Limits::default(),
                 )
                 .unwrap();
-            (workspace, admitted)
+            (workspace, admitted, projected)
         };
-        let (workspace, admitted) = admit_source(source);
+        let (workspace, admitted, projected) = admit_source(source);
         let equations = admitted
             .outputs
             .iter()
@@ -1413,11 +1093,90 @@ mod dependency_tests {
                 .values()
                 .any(|other| other == actual)
         }));
-        let token = |path: &str| {
-            let mut hash = FramedHasher::new(pse_ids::Frame::ModelingCheckedMemberV1);
-            hash.str(path);
-            hash.finish_id()
-        };
+        use pse_modeling::derived::{LocalRole, Relationship};
+        // Tokens come from the exact physical region that admitted these original
+        // ranges. Catalogue identities only verify the producer's canonical role
+        // correspondence; no test-local spelling generates replacement authority.
+        let ranges_by_instance = instances
+            .iter()
+            .map(|binding| {
+                let index = projected.outputs.iter().position(|output| {
+                matches!(output, ModelingOutput::Equation { id, .. } if *id == binding.instance)
+            }).unwrap();
+                let region = &projected.regions[index];
+                assert_eq!(&*binding.checked_members, &region.checked_members);
+                assert_eq!(&*binding.checked_sources, &region.checked_sources);
+                assert_eq!(&*binding.occurrences, &region.occurrences);
+                let layout = region.syntax.canonical_layout().unwrap();
+                let mut roles = BTreeMap::new();
+                for range in region.support.checked_ranges(&region.syntax).unwrap() {
+                    let canonical = layout
+                        .symbols
+                        .iter()
+                        .find(|symbol| symbol.symbol == range.symbol)
+                        .unwrap();
+                    assert_eq!(
+                        range.member,
+                        Relationship::CheckedMember {
+                            role: canonical.role,
+                            ordinal: canonical.ordinal as u64,
+                        }
+                        .identity()
+                    );
+                    assert_eq!(
+                        range.source,
+                        Relationship::CheckedValiditySource {
+                            role: canonical.role,
+                            ordinal: canonical.ordinal as u64,
+                        }
+                        .identity()
+                    );
+                    assert_ne!(
+                        range.member, range.source,
+                        "member and declaring source remain independent roles"
+                    );
+                    let actual = region
+                        .bindings
+                        .iter()
+                        .find(|value| value.local == range.symbol)
+                        .unwrap()
+                        .actual;
+                    assert_eq!(region.checked_members[&range.member], actual);
+                    let original = projected.model.symbols.slot(actual).unwrap();
+                    assert_eq!(
+                        region.checked_sources[&range.source],
+                        projected.model.member_range_sources[&original]
+                    );
+                    assert!(
+                        roles
+                            .insert(canonical.role, (range.member, range.source, actual))
+                            .is_none()
+                    );
+                }
+                assert_eq!(
+                    roles.keys().copied().collect::<BTreeSet<_>>(),
+                    BTreeSet::from([LocalRole::Coordinate, LocalRole::Member])
+                );
+                let coordinate = roles[&LocalRole::Coordinate].2;
+                let local = roles[&LocalRole::Member].2;
+                assert!(projected.model.symbols[&coordinate].definition.is_none());
+                assert!(projected.model.symbols[&local].definition.is_some());
+                assert_eq!(binding.slots.len(), 1);
+                assert_eq!(binding.slots[0].source(), coordinate);
+                assert_ne!(coordinate, local);
+                (binding.instance, roles)
+            })
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            instances[0].checked_sources.keys().collect::<Vec<_>>(),
+            instances[1].checked_sources.keys().collect::<Vec<_>>()
+        );
+        assert!(instances[0].checked_sources.values().all(|actual| {
+            !instances[1]
+                .checked_sources
+                .values()
+                .any(|other| other == actual)
+        }));
         let cancellation = pse_diagnostics::Cancellation::default();
         let plan = admitted
             .plan(
@@ -1428,19 +1187,24 @@ mod dependency_tests {
             )
             .unwrap();
         // Missing or invented attribution is rejected before evaluator construction.
-        for extra in [false, true] {
+        for (source_map, extra) in [(false, false), (false, true), (true, false), (true, true)] {
             let mut invalid = admitted.case.instances().to_vec();
             let invalid_binding = invalid
                 .iter_mut()
                 .find(|binding| binding.instance == instances[0].instance)
                 .unwrap();
+            let map = if source_map {
+                &mut invalid_binding.checked_sources
+            } else {
+                &mut invalid_binding.checked_members
+            };
             if extra {
-                Arc::make_mut(&mut invalid_binding.checked_members).insert(
+                Arc::make_mut(map).insert(
                     SemanticId::from_bytes([123; 16]),
                     SemanticId::from_bytes([124; 16]),
                 );
             } else {
-                Arc::make_mut(&mut invalid_binding.checked_members).pop_first();
+                Arc::make_mut(map).pop_first();
             }
             let structure = Arc::new(
                 CaseStructure::new(
@@ -1465,17 +1229,22 @@ mod dependency_tests {
                 AssemblyLimits::default(),
                 &cancellation.flag(),
             );
-            assert!(
-                matches!(refused, Err(MathError::Contract(message)) if message == "incomplete or invalid checked-member attribution")
-            );
+            let expected = if source_map {
+                "incomplete or invalid checked-source attribution"
+            } else {
+                "incomplete or invalid checked-member attribution"
+            };
+            assert!(matches!(refused, Err(MathError::Contract(message)) if message == expected));
         }
         let mut rebound = admitted.case.instances().to_vec();
         let first = rebound
             .iter_mut()
             .find(|binding| binding.instance == instances[0].instance)
             .unwrap();
-        Arc::make_mut(&mut first.checked_members)
-            .insert(token("member_0"), SemanticId::from_bytes([124; 16]));
+        Arc::make_mut(&mut first.checked_members).insert(
+            ranges_by_instance[&instances[0].instance][&LocalRole::Member].0,
+            SemanticId::from_bytes([124; 16]),
+        );
         let rebound = CaseStructure::new(
             admitted.case.variables().to_vec(),
             admitted.case.parameters().to_vec(),
@@ -1528,21 +1297,33 @@ mod dependency_tests {
         };
         assert!(worker.constraints(&values).is_ok());
         for binding in &instances {
+            let coordinate = ranges_by_instance[&binding.instance][&LocalRole::Coordinate];
+            let local = ranges_by_instance[&binding.instance][&LocalRole::Member];
             // Input is within its range but the computed local is outside its own range.
-            values.scalars.insert(binding.slots[0].source(), 1.0);
+            values.scalars.insert(coordinate.2, 1.0);
             let diagnostic = worker
                 .constraints(&values)
                 .unwrap_err()
                 .boundary_diagnostic(DiagnosticStage::Evaluation);
             assert_eq!(
                 diagnostic.validity.as_ref().unwrap().members,
-                vec![binding.checked_members[&token("member_0")]]
+                vec![binding.checked_members[&local.0]]
             );
             assert_eq!(diagnostic.causes[0].validity, diagnostic.validity);
+            assert_eq!(
+                diagnostic.validity.as_ref().unwrap().source,
+                binding.checked_sources[&local.1]
+            );
+            assert!(
+                binding
+                    .checked_sources
+                    .keys()
+                    .all(|token| !diagnostic.sources.contains(token))
+            );
             assert!(
                 diagnostic
                     .sources
-                    .contains(&binding.checked_members[&token("member_0")])
+                    .contains(&binding.checked_members[&local.0])
             );
             assert!(
                 binding
@@ -1550,19 +1331,29 @@ mod dependency_tests {
                     .keys()
                     .all(|local| !diagnostic.sources.contains(local))
             );
-            values.scalars.insert(binding.slots[0].source(), 4.0);
+            values.scalars.insert(coordinate.2, 4.0);
             let diagnostic = worker
                 .constraints(&values)
                 .unwrap_err()
                 .boundary_diagnostic(DiagnosticStage::Evaluation);
             assert_eq!(
                 diagnostic.validity.as_ref().unwrap().members,
-                vec![binding.checked_members[&token("input_0")]]
+                vec![binding.checked_members[&coordinate.0]]
+            );
+            assert_eq!(
+                diagnostic.validity.as_ref().unwrap().source,
+                binding.checked_sources[&coordinate.1]
+            );
+            assert!(
+                binding
+                    .checked_sources
+                    .keys()
+                    .all(|token| !diagnostic.sources.contains(token))
             );
             assert!(
                 diagnostic
                     .sources
-                    .contains(&binding.checked_members[&token("input_0")])
+                    .contains(&binding.checked_members[&coordinate.0])
             );
             assert!(
                 binding
@@ -1570,10 +1361,10 @@ mod dependency_tests {
                     .keys()
                     .all(|local| !diagnostic.sources.contains(local))
             );
-            values.scalars.insert(binding.slots[0].source(), 2.0);
+            values.scalars.insert(coordinate.2, 2.0);
         }
         assert!(worker.constraints(&values).is_ok());
-        let (_, changed_range) = admit_source(&source.replace("valid z(3,6)", "valid z(3,7)"));
+        let (_, changed_range, _) = admit_source(&source.replace("valid z(3,6)", "valid z(3,7)"));
         let changed = changed_range
             .case
             .instances()
@@ -1581,7 +1372,7 @@ mod dependency_tests {
             .find(|binding| binding.instance == instances[0].instance)
             .unwrap();
         assert_ne!(instances[0].body, changed.body);
-        let (_, changed_type) = admit_source(
+        let (_, changed_type, _) = admit_source(
             &source
                 .replace("Scalar", "Time")
                 .replace("valid x(1,3)", "valid x(1{s},3{s})")
@@ -1606,9 +1397,10 @@ mod dependency_tests {
         let token = SemanticId::from_bytes([1; 16]);
         let actual = SemanticId::from_bytes([2; 16]);
         let source = SemanticId::from_bytes([3; 16]);
+        let source_token = SemanticId::from_bytes([4; 16]);
         let inner = MathError::Validity(Box::new(ValidityLineage {
             layer: ModelingValidityLayer::Closure,
-            source,
+            source: source_token,
             form: None,
             sets: vec![],
             variables: vec![],
@@ -1627,6 +1419,8 @@ mod dependency_tests {
         let error = MathError::Instance {
             instance: source,
             checked_members: BTreeMap::from([(token, actual)]),
+            checked_sources: BTreeMap::from([(source_token, source)]),
+            occurrences: BTreeMap::new(),
             cause: Box::new(MathError::Typed {
                 retained,
                 cause: DiagnosticCause::new(compiler),
@@ -1634,6 +1428,8 @@ mod dependency_tests {
         };
         let projected = error.boundary_diagnostic(DiagnosticStage::ModelingAdmission);
         assert_eq!(projected.class, expected_class);
+        assert_eq!(projected.validity.as_ref().unwrap().source, source);
+        assert!(!projected.sources.contains(&source_token));
         assert_eq!(projected.validity.as_ref().unwrap().members, vec![actual]);
         assert!(projected.sources.contains(&token));
         let native = &projected.causes[0];
@@ -1648,6 +1444,8 @@ mod dependency_tests {
 
     #[test]
     fn overlapping_consumer_locals_keep_independent_validity_and_shared_lookup() {
+        use pse_diagnostics::DiagnosticStage;
+        use pse_model::diagnostic::DiagnosticProjection;
         let source = "package p { def Root { var x:Scalar; var y:Scalar; var limit:Scalar; let shared:Scalar=x+y; let left:Scalar=2*shared; let right:Scalar=3*shared; let unused:Scalar=log(-1); annotation valid shared(0,limit); annotation valid left(0,20); annotation valid right(0,30); eq a:left==6; eq b:right==9; } }";
         let rows = crate::authored_transfer_tests::rows(source);
         let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
@@ -1659,14 +1457,6 @@ mod dependency_tests {
         workspace
             .publish_modeling(rows, PhysicalScope::default())
             .unwrap();
-        let model = workspace
-            .specialize_modeling(
-                root,
-                root_instance(root),
-                Bindings::default(),
-                Limits::default(),
-            )
-            .unwrap();
         let (catalog, request) = workspace
             .modeling_request(
                 root,
@@ -1676,48 +1466,84 @@ mod dependency_tests {
             )
             .unwrap();
         let projected = projection(&workspace.db, workspace.inventory, catalog, request).unwrap();
-        let runtime = projected
-            .formals
-            .iter()
-            .zip(&projected.inputs)
-            .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
-            .collect::<BTreeMap<_, _>>();
-        let equations = projected
-            .outputs
-            .iter()
-            .enumerate()
-            .filter(|(_, output)| matches!(output, ModelingOutput::Equation { .. }))
-            .map(|(index, _)| index)
-            .collect::<Vec<_>>();
-        assert_eq!(equations.len(), 2);
         let member = |name: &str| {
-            model
+            projected
+                .model
                 .symbols
                 .values()
                 .find(|symbol| symbol.lineage.path.ends_with(&format!(".{name}")))
                 .unwrap()
                 .id
         };
+        let equations = projected
+            .outputs
+            .iter()
+            .enumerate()
+            .filter_map(|(index, output)| {
+                matches!(output, ModelingOutput::Equation { .. }).then_some(index)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(equations.len(), 2);
         let mut actual_members = Vec::new();
         for index in equations {
-            let (expression, formals, inputs, _, validity, members) = normalize(
-                &projected.expressions[index],
-                &runtime,
-                &projected.local_quantities,
-                &projected.validity,
-            )
-            .unwrap();
-            assert_eq!(formals.len(), 3);
-            assert_eq!(inputs.len(), 3);
-            assert!(
-                inputs.contains(&member("limit")),
-                "validity-only input is retained"
+            let region = &projected.regions[index];
+            let actual = region
+                .bindings
+                .iter()
+                .map(|binding| (binding.local, binding.actual))
+                .collect::<BTreeMap<_, _>>();
+            let inputs = region
+                .inputs
+                .iter()
+                .map(|slot| actual[slot])
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                inputs,
+                BTreeSet::from([member("x"), member("y"), member("limit")])
             );
-            assert_eq!(validity.len(), 2);
-            let members = members.values().copied().collect::<BTreeSet<_>>();
+            assert_eq!(
+                region.inputs.len(),
+                inputs.len(),
+                "one input slot per actual independent coordinate"
+            );
+            assert!(
+                region.reads.guards.contains(&member("limit")),
+                "validity-only input stays in the actual guard closure"
+            );
+            assert!(
+                !region.reads.numeric.contains(&member("limit")),
+                "a guard-only endpoint must not acquire numerical authority"
+            );
+            let ranges = region.support.checked_ranges(&region.syntax).unwrap();
+            assert_eq!(ranges.len(), 2);
+            assert_eq!(region.checked_members.len(), 2);
+            assert_eq!(region.checked_sources.len(), 2);
+            assert!(
+                ranges
+                    .iter()
+                    .all(|range| region.checked_members.contains_key(&range.member)
+                        && region.checked_sources.contains_key(&range.source))
+            );
+            assert!(
+                region
+                    .checked_members
+                    .keys()
+                    .all(|token| !region.checked_sources.contains_key(token))
+            );
+            let members = region
+                .checked_members
+                .values()
+                .copied()
+                .collect::<BTreeSet<_>>();
             assert!(members.contains(&member("shared")));
             assert_eq!(members.len(), 2);
-            assert!(!dsl::render_expr(&expression).contains("log"));
+            assert!(
+                region
+                    .bindings
+                    .iter()
+                    .all(|binding| binding.actual != member("unused")),
+                "unused invalid local has no selected binding"
+            );
             actual_members.push(members);
         }
         assert!(actual_members.iter().any(
@@ -1746,7 +1572,7 @@ mod dependency_tests {
             snapshot
                 .metrics
                 .iter()
-                .find(|m| m.name == "compiler.projection_lookups")
+                .find(|metric| metric.name == "compiler.projection_lookups")
                 .unwrap()
                 .cumulative,
             Value::Count(1)
@@ -1755,17 +1581,98 @@ mod dependency_tests {
             snapshot
                 .metrics
                 .iter()
-                .find(|m| m.name == "compiler.projection_lookup_entries")
+                .find(|metric| metric.name == "compiler.projection_lookup_entries")
                 .unwrap()
                 .cumulative,
-            Value::Count(runtime.len() as u64)
+            Value::Count(projected.inputs.len() as u64)
         );
+        let admitted = complete(&workspace.db, workspace.inventory, planned).unwrap();
+        let cancellation = pse_diagnostics::Cancellation::default();
+        let assembly = Arc::new(
+            admitted
+                .plan(
+                    &workspace.inputs.quantities,
+                    DerivativeOrder::Second,
+                    AssemblyLimits::default(),
+                    &cancellation.flag(),
+                )
+                .unwrap()
+                .compile(
+                    Default::default(),
+                    Default::default(),
+                    &pse_kernels::ExecutionScope::new(cancellation.clone(), None),
+                )
+                .unwrap(),
+        );
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancellation);
+        let mut values = CaseValues {
+            scalars: BTreeMap::from([
+                (member("x"), 1.0),
+                (member("y"), 2.0),
+                (member("limit"), 4.0),
+            ]),
+        };
+        assert!(
+            worker.constraints(&values).is_ok(),
+            "the actual selected arithmetic must not evaluate unused log(-1)"
+        );
+        values.scalars.insert(member("limit"), 2.0);
+        let diagnostic = worker
+            .constraints(&values)
+            .unwrap_err()
+            .boundary_diagnostic(DiagnosticStage::Evaluation);
+        assert_eq!(
+            diagnostic.validity.as_ref().unwrap().members,
+            vec![member("shared")]
+        );
+        assert!(
+            !diagnostic
+                .validity
+                .as_ref()
+                .unwrap()
+                .members
+                .contains(&member("left"))
+        );
+        assert!(
+            !diagnostic
+                .validity
+                .as_ref()
+                .unwrap()
+                .members
+                .contains(&member("right"))
+        );
+        drop(worker);
+        workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
     }
 
     #[test]
     fn demanded_member_ranges_retain_only_their_transitive_functions() {
-        let source = "package p { fn bottom(x:Scalar)->Scalar=1+x; fn lower(x:Scalar)->Scalar=bottom(x); fn upper(x:Scalar)->Scalar=3+x; def Root { var x:Scalar; annotation valid x(lower(0),upper(0)); eq e:x==2; } }";
-        let rows = crate::authored_transfer_tests::rows(source);
+        let revision = ContentHash::from_bytes([31; 32]);
+        let data = ContentHash::from_bytes([32; 32]);
+        let source = format!(
+            "package p {{ fn bottom(x:Scalar)->Scalar=1+x; fn lower(x:Scalar)->Scalar=bottom(x); fn upper(x:Scalar)->Scalar=3+x; fn unrelated(x:Scalar)->Scalar external \"unused-range-provider\" revision \"{revision}\" data \"{data}\" output 0 derivatives 2 source analytic smoothness 2; def Root {{ var x:Scalar; annotation valid x(lower(0),upper(0)); eq e:x==2; }} }}"
+        );
+        let rows = crate::authored_transfer_tests::rows(&source);
+        let declaration = |name: &str| {
+            rows.iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let expected = BTreeSet::from([
+            declaration("bottom"),
+            declaration("lower"),
+            declaration("upper"),
+        ]);
+        let unrelated = declaration("unrelated");
         let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
         let mut workspace = CompilerWorkspace::new(
             crate::authored_transfer_tests::context(),
@@ -1789,85 +1696,89 @@ mod dependency_tests {
             .iter()
             .position(|output| matches!(output, ModelingOutput::Equation { .. }))
             .unwrap();
-        let (expression, _, _, _, validity, _) = normalize(
-            &projected.expressions[ordinal],
-            &projected
-                .formals
-                .iter()
-                .zip(&projected.inputs)
-                .map(|(formal, id)| (formal.path.as_str(), (formal, *id)))
-                .collect(),
-            &projected.local_quantities,
-            &projected.validity,
-        )
-        .unwrap();
-        assert_eq!(validity.len(), 1);
-        let mut available = projected.functions.clone();
-        available.insert(
-            "unrelated".into(),
-            available.values().next().unwrap().clone(),
-        );
-        let (functions, providers) = dependencies(&expression, &validity, &available);
+        let region = &projected.regions[ordinal];
         assert_eq!(
-            functions.len(),
-            3,
-            "lower, its bottom dependency, and upper"
+            region.support.checked_ranges(&region.syntax).unwrap().len(),
+            1
         );
-        assert!(!functions.contains_key("unrelated"));
-        assert!(providers.is_empty());
-        // Contextual wrappers also retain concrete anchor expressions outside their
-        // arithmetic body. Their calls use the same transitive worklist.
-        let scalar = workspace.inputs.quantities.neutral_dimensionless().unwrap();
-        let magnitude = pse_quantity::CanonicalConversionPlan::registered(
-            &workspace.inputs.quantities,
-            scalar,
-            workspace
-                .inputs
-                .quantities
-                .quantity_type(scalar)
-                .unwrap()
-                .canonical_unit,
+        assert_eq!(region.checked_members.len(), 1);
+        let member = projected
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        assert_eq!(
+            region.checked_members.values().copied().collect::<Vec<_>>(),
+            vec![member]
+        );
+        fn functions(
+            syntax: &pse_modeling::resolved::ResolvedSyntax,
+            seen: &mut BTreeSet<ContentHash>,
+            declarations: &mut BTreeSet<DeclarationId>,
+        ) {
+            for slot in syntax.canonical_layout().unwrap().functions {
+                let product = &syntax.functions[slot].product;
+                declarations.insert(product.declaration);
+                if seen.insert(product.identity) {
+                    functions(&product.syntax, seen, declarations);
+                }
+            }
+        }
+        let mut selected = BTreeSet::new();
+        functions(&region.syntax, &mut BTreeSet::new(), &mut selected);
+        assert_eq!(
+            selected, expected,
+            "lower, its bottom dependency, and upper are reached solely through the demanded range"
+        );
+        assert!(!selected.contains(&unrelated));
+        let planned = plan(
+            &workspace.db,
+            workspace.inventory,
+            &projected,
+            BTreeMap::new(),
         )
-        .unwrap()
-        .apply(1.0)
         .unwrap();
-        let mut wrapper = available.values().next().unwrap().clone();
-        wrapper.body = Some(dsl::parse_expr("0").unwrap());
-        wrapper.validity = None;
-        wrapper.envelopes.clear();
-        wrapper.applicability_uses.clear();
-        wrapper.physical_operation = Some(pse_modeling::PhysicalOperation::ReferenceTranslation(
-            pse_modeling::contextual::ReferenceTranslation {
-                source: scalar,
-                target: scalar,
-                source_anchor: wrapper.id,
-                target_anchor: wrapper.id,
-                temperature: dsl::parse_expr("0").unwrap(),
-                pressure: dsl::parse_expr("0").unwrap(),
-                component_kind: wrapper.id,
-                provenance: vec![],
-                anchors: vec![pse_modeling::contextual::ReferenceAnchorPair {
-                    member: SemanticId::NIL,
-                    values: [
-                        validity.values().next().unwrap().lower.clone(),
-                        validity.values().next().unwrap().upper.clone(),
-                    ],
-                    temperature: magnitude,
-                    pressure: magnitude,
-                }],
-            },
-        ));
-        available.insert("contextual_wrapper".into(), wrapper);
-        let (anchored, _) = dependencies(
-            &dsl::parse_expr("contextual_wrapper()").unwrap(),
-            &BTreeMap::new(),
-            &available,
+        for instance in &planned.instances {
+            assert_eq!(instance.input.providers.descriptors().count(), 0);
+            assert_eq!(instance.input.providers.calls().count(), 0);
+        }
+        // No registration exists for unused-range-provider. Planning, materialization,
+        // and the public preparation must all succeed without selecting it.
+        let admitted = complete(&workspace.db, workspace.inventory, planned).unwrap();
+        let cancellation = pse_diagnostics::Cancellation::default();
+        let assembly = Arc::new(
+            admitted
+                .plan(
+                    &workspace.inputs.quantities,
+                    DerivativeOrder::Second,
+                    AssemblyLimits::default(),
+                    &cancellation.flag(),
+                )
+                .unwrap()
+                .compile(
+                    Default::default(),
+                    Default::default(),
+                    &pse_kernels::ExecutionScope::new(cancellation.clone(), None),
+                )
+                .unwrap(),
         );
-        assert_eq!(anchored.len(), functions.len() + 1);
-        assert!(functions.keys().all(|name| anchored.contains_key(name)));
-        assert!(!anchored.contains_key("unrelated"));
-        // Exercise admission too: a scalar equation's range functions must reach the
-        // mathematical consumer, even though no function occurs in its arithmetic.
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancellation);
+        let mut values = CaseValues {
+            scalars: BTreeMap::from([(member, 2.0)]),
+        };
+        assert!(worker.constraints(&values).is_ok());
+        use pse_model::diagnostic::DiagnosticProjection;
+        for outside in [0.0, 4.0] {
+            values.scalars.insert(member, outside);
+            let diagnostic = worker
+                .constraints(&values)
+                .unwrap_err()
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+            assert_eq!(diagnostic.validity.as_ref().unwrap().members, vec![member]);
+        }
+        drop(worker);
         workspace
             .prepare_modeling_cancellable(
                 root,

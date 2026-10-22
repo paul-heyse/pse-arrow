@@ -41,7 +41,10 @@ impl RunResult {
         &self,
         request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let super::RunOutcome::Shooting { problem, result, .. } = &self.outcome else {
+        let super::RunOutcome::Shooting {
+            problem, result, ..
+        } = &self.outcome
+        else {
             return Err(contract("shooting request mismatch"));
         };
         let validation = self.result_validation_context();

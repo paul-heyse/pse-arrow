@@ -391,6 +391,20 @@ impl MathService {
         view: &Preparation,
         model: &modeling::ModelingPreparation,
     ) -> Result<Preparation, MathRuntimeError> {
+        let existing = view.executable.get().cloned();
+        let executable_bytes = match &existing {
+            Some(executable) => executable
+                .assembly
+                .source_context_allocation_bound()?
+                .checked_add(
+                    size_of::<ExecutableCase>()
+                        + size_of::<std::sync::OnceLock<Arc<ExecutableCase>>>(),
+                )
+                .and_then(|bytes| bytes.checked_add(size_of_val(executable._artifacts.as_slice())))
+                .ok_or(MathRuntimeError::Limit("receiving executable extent"))?,
+            None => size_of::<std::sync::OnceLock<Arc<ExecutableCase>>>(),
+        };
+        let plan_bytes = view.compiled().plan.source_context_allocation_bound()?;
         let bytes = model
             .compiled()
             .model
@@ -398,14 +412,38 @@ impl MathService {
             .len()
             .checked_mul(4 * size_of::<pse_compiler::typed_math::Occurrence>() + 1024)
             .and_then(|bytes| bytes.checked_add(2 * size_of::<PreparedCase>() + 1024))
+            .and_then(|bytes| bytes.checked_add(executable_bytes))
+            .and_then(|bytes| bytes.checked_add(plan_bytes))
             .ok_or(MathRuntimeError::Limit("revision attribution extent"))?;
         let lease = self.reserve("math:revision-attribution", bytes)?;
         let mut prepared = view.compiled().receive_modeling_context(model.compiled())?;
-        // The receiving model owns the actual current physical allocations. Share
-        // eligible immutable plans/programs while replacing their context shell.
+        // Current source allocations retain the receiving model's actual admission.
         prepared.quantities = prepared.quantities.with_owner(model._owner.clone());
         prepared.preconditions = prepared.preconditions.with_owner(model._owner.clone());
-        self.own_rebind(view, prepared, lease)
+        // A receiving context has its own initialization cell: an in-flight old
+        // context may still publish into the old cell after our snapshot above.
+        let executable = Arc::new(std::sync::OnceLock::new());
+        let received = self.own_binding_fields(prepared, lease, executable.clone())?;
+        if let Some(existing) = existing {
+            let assembly = Arc::new(
+                existing
+                    .assembly
+                    .receive_source_context(received.compiled().plan.clone())?,
+            );
+            executable
+                .set(Arc::new(ExecutableCase {
+                    assembly,
+                    _artifacts: existing._artifacts.clone(),
+                    _layout: existing._layout.clone(),
+                    _owner: received._owner.clone(),
+                }))
+                .map_err(|_| {
+                    MathRuntimeError::Infrastructure(
+                        "receiving executable was already initialized".into(),
+                    )
+                })?;
+        }
+        Ok(received)
     }
     /// Retain each current allocation independently. Reused fields already carry their
     /// own component anchor; no preceding whole binding becomes their ancestor.

@@ -108,16 +108,20 @@ impl Problem {
         let support = self
             .parameter_source
             .prepared_support()
-            .incidence(&coordinates, scope.cancellation())?
-            .upgrade(order, scope.cancellation())?
-            .at_order(order)?;
-        let body = support.compile_product_reusing(
-            kind,
-            self.parameter_source.optimization(),
-            self.parameter_source.evaluation_limits(),
-            scope,
-            self.parameter_source.scalar_products(),
-        )?;
+            .incidence(&coordinates, scope.cancellation())
+            .map_err(|error| self.parameter_source.bindings().evaluation_error(error))?
+            .upgrade(order, scope.cancellation())
+            .and_then(|support| support.at_order(order))
+            .map_err(|error| self.parameter_source.bindings().evaluation_error(error))?;
+        let body = support
+            .compile_product_reusing(
+                kind,
+                self.parameter_source.optimization(),
+                self.parameter_source.evaluation_limits(),
+                scope,
+                self.parameter_source.scalar_products(),
+            )
+            .map_err(|error| self.parameter_source.bindings().evaluation_error(error))?;
         let visits = body
             .census()
             .map(|order| order.provider_stages)
@@ -139,6 +143,7 @@ impl Problem {
                 })
                 .ok_or(MathError::Limit("implicit residual product storage"))?,
         )?;
+        let body = SourceBody::new(Arc::new(body), self.parameter_source.bindings().clone())?;
         let program = Arc::new(ResidualProduct {
             kind,
             columns: columns.to_vec(),

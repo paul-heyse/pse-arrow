@@ -87,7 +87,9 @@ pub(crate) struct EvaluatorConstruction {
     pub(crate) entries: usize,
     pub(crate) instructions: usize,
 }
-fn source_operations<'a>(expressions: impl IntoIterator<Item = &'a Atom>) -> Result<usize, MathError> {
+fn source_operations<'a>(
+    expressions: impl IntoIterator<Item = &'a Atom>,
+) -> Result<usize, MathError> {
     let mut operations = 0usize;
     let mut failed = false;
     for expression in expressions {
@@ -245,7 +247,12 @@ struct ScalarProductQuery<'a> {
     definitions: &'a [(Atom, Atom)],
 }
 impl<'a> ScalarProductQuery<'a> {
-    fn new(expressions: &'a [Atom], parameters: &'a [Atom], options: Optimization, definitions: &'a [(Atom, Atom)]) -> Self {
+    fn new(
+        expressions: &'a [Atom],
+        parameters: &'a [Atom],
+        options: Optimization,
+        definitions: &'a [(Atom, Atom)],
+    ) -> Self {
         Self {
             expressions,
             parameters,
@@ -262,7 +269,9 @@ impl<'a> ScalarProductQuery<'a> {
             context.count(
                 "math.scalar_key_vector_allocations",
                 "count",
-                u64::from(!self.expressions.is_empty()) + u64::from(!self.parameters.is_empty()) + u64::from(!self.definitions.is_empty()),
+                u64::from(!self.expressions.is_empty())
+                    + u64::from(!self.parameters.is_empty())
+                    + u64::from(!self.definitions.is_empty()),
             );
         }
         Arc::new((
@@ -275,12 +284,21 @@ impl<'a> ScalarProductQuery<'a> {
 }
 impl Hash for ScalarProductQuery<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.expressions, self.parameters, self.options, self.definitions).hash(state);
+        (
+            self.expressions,
+            self.parameters,
+            self.options,
+            self.definitions,
+        )
+            .hash(state);
     }
 }
 impl Equivalent<Arc<ScalarProductKey>> for ScalarProductQuery<'_> {
     fn equivalent(&self, key: &Arc<ScalarProductKey>) -> bool {
-        self.expressions == key.0 && self.parameters == key.1 && self.options == key.2 && self.definitions == key.3
+        self.expressions == key.0
+            && self.parameters == key.1
+            && self.options == key.2
+            && self.definitions == key.3
     }
 }
 
@@ -475,14 +493,20 @@ impl ScalarCache {
                     context.count("math.scalar_constructions", "count", 1);
                     context.phase("math.scalar_construction")
                 });
-                let source_operations = add(source_operations(expressions)?, source_operations(definitions.iter().map(|(_, rhs)| rhs))?)?;
-                let source_atom_operations =
-                    expressions.iter().chain(definitions.iter().map(|(_, rhs)| rhs)).try_fold(0, |sum, expression| {
+                let source_operations = add(
+                    source_operations(expressions)?,
+                    source_operations(definitions.iter().map(|(_, rhs)| rhs))?,
+                )?;
+                let source_atom_operations = expressions
+                    .iter()
+                    .chain(definitions.iter().map(|(_, rhs)| rhs))
+                    .try_fold(0, |sum, expression| {
                         add(sum, total(expression.count_operations())?)
                     })?;
                 source_limit.check(source_operations, source_atom_operations)?;
                 let source_bytes = expressions
-                    .iter().chain(definitions.iter().map(|(_, rhs)| rhs))
+                    .iter()
+                    .chain(definitions.iter().map(|(_, rhs)| rhs))
                     .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
                 let initial = construction_shape(
                     source_bytes,
@@ -500,13 +524,20 @@ impl ScalarCache {
                     .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
                 let key_bytes = add(
                     add(size_of::<ScalarProductKey>(), 2 * size_of::<usize>())?,
-                    mul(add(add(expressions.len(), parameters.len())?, mul(2, definitions.len())?)?, size_of::<Atom>())?,
+                    mul(
+                        add(
+                            add(expressions.len(), parameters.len())?,
+                            mul(2, definitions.len())?,
+                        )?,
+                        size_of::<Atom>(),
+                    )?,
                 )?;
                 crate::construction::additional(add(
                     mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
                     add(initial.instructions, add(atoms, key_bytes)?)?,
                 )?)?;
-                let evaluator = exact_evaluator(expressions, parameters, definitions, options, cancelled)?;
+                let evaluator =
+                    exact_evaluator(expressions, parameters, definitions, options, cancelled)?;
                 let export = evaluator.export_instructions();
                 let facts = EvaluatorFacts::inspect(
                     &export,
@@ -564,7 +595,15 @@ pub(crate) fn bounded_scalar_evaluator(
     limits: EvaluationLimits,
     scalars: &mut ScalarCache,
 ) -> Result<FloatingEvaluator, MathError> {
-    bounded_defined_scalar_evaluator(expressions, parameters, &[], options, cancelled, limits, scalars)
+    bounded_defined_scalar_evaluator(
+        expressions,
+        parameters,
+        &[],
+        options,
+        cancelled,
+        limits,
+        scalars,
+    )
 }
 
 pub(crate) fn bounded_defined_scalar_evaluator(
@@ -749,18 +788,60 @@ mod tests {
         let second = [(a, x + 1)];
         let cancel = Arc::new(AtomicBool::new(false));
         let mut cache = ScalarCache::default();
-        let mut one = bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
-        let mut two = bounded_defined_scalar_evaluator(&outputs, &parameters, &second, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
-        assert_eq!(cache.len(), 2, "equal outputs with different definitions are distinct programs");
+        let mut one = bounded_defined_scalar_evaluator(
+            &outputs,
+            &parameters,
+            &first,
+            Optimization::default(),
+            &cancel,
+            EvaluationLimits::default(),
+            &mut cache,
+        )
+        .unwrap();
+        let mut two = bounded_defined_scalar_evaluator(
+            &outputs,
+            &parameters,
+            &second,
+            Optimization::default(),
+            &cancel,
+            EvaluationLimits::default(),
+            &mut cache,
+        )
+        .unwrap();
+        assert_eq!(
+            cache.len(),
+            2,
+            "equal outputs with different definitions are distinct programs"
+        );
         let mut value = [0.];
         one.evaluator.try_evaluate(&[3.], &mut value).unwrap();
         assert_eq!(value, [9.]);
         two.evaluator.try_evaluate(&[3.], &mut value).unwrap();
         assert_eq!(value, [4.]);
-        bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
+        bounded_defined_scalar_evaluator(
+            &outputs,
+            &parameters,
+            &first,
+            Optimization::default(),
+            &cancel,
+            EvaluationLimits::default(),
+            &mut cache,
+        )
+        .unwrap();
         assert_eq!(cache.builds(), 2);
         let mut refused = ScalarCache::default();
-        assert!(matches!(crate::construction::scoped(Arc::new(Refuse), || bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut refused)), Err(MathError::Limit("test pool full"))));
+        assert!(matches!(
+            crate::construction::scoped(Arc::new(Refuse), || bounded_defined_scalar_evaluator(
+                &outputs,
+                &parameters,
+                &first,
+                Optimization::default(),
+                &cancel,
+                EvaluationLimits::default(),
+                &mut refused
+            )),
+            Err(MathError::Limit("test pool full"))
+        ));
         assert!(refused.freeze().is_empty());
     }
 
@@ -866,7 +947,8 @@ mod tests {
             crate::construction::scoped(Arc::new(Refuse), || {
                 cache.admit_prepare(
                     &expressions,
-                    &parameters, &[],
+                    &parameters,
+                    &[],
                     options,
                     &cancel,
                     EvaluationLimits::default(),
@@ -885,7 +967,8 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters, &[],
+                &parameters,
+                &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -900,7 +983,8 @@ mod tests {
         cache
             .admit_prepare(
                 expressions.as_ref(),
-                parameters.as_ref(), &[],
+                parameters.as_ref(),
+                &[],
                 Optimization {
                     evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
                     ..options
@@ -955,7 +1039,8 @@ mod tests {
             cache
                 .admit_prepare(
                     &expressions,
-                    &parameters, &[],
+                    &parameters,
+                    &[],
                     options,
                     &cancel,
                     EvaluationLimits::default(),
@@ -990,7 +1075,8 @@ mod tests {
         assert!(matches!(
             cache.admit_prepare(
                 &expressions,
-                &parameters, &[],
+                &parameters,
+                &[],
                 Optimization {
                     cores: 0,
                     ..options
@@ -1005,7 +1091,8 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters, &[],
+                &parameters,
+                &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -1026,7 +1113,8 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters, &[],
+                &parameters,
+                &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -1178,7 +1266,8 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                std::slice::from_ref(&x), &[],
+                std::slice::from_ref(&x),
+                &[],
                 Optimization::default(),
                 &cancel,
                 EvaluationLimits::default(),

@@ -322,7 +322,10 @@ impl CanonicalConversionRecord {
     /// Inline record plus the owned complete physical type shape.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(
-            self.context.shape.capacity().saturating_mul(size_of::<crate::EntityKindId>())
+            self.context
+                .shape
+                .capacity()
+                .saturating_mul(size_of::<crate::EntityKindId>()),
         )
     }
 }
@@ -347,7 +350,9 @@ impl RepresentationConversionPlan {
         source: UnitId,
         target: UnitId,
     ) -> Result<Self, Error> {
-        Ok(Self { operation: CheckedRepresentationPlan::registered(registry, quantity, source, target)? })
+        Ok(Self {
+            operation: CheckedRepresentationPlan::registered(registry, quantity, source, target)?,
+        })
     }
     /// Apply the admitted edge, multiplication before addition and never mul_add.
     /// An identity edge still performs both operations, matching convert_spec_for_type.
@@ -358,20 +363,36 @@ impl RepresentationConversionPlan {
         self.operation.apply(value)
     }
     /// Actual quantity selected by the original admission.
-    pub const fn quantity(&self) -> QuantityTypeId { self.operation.quantity }
+    pub const fn quantity(&self) -> QuantityTypeId {
+        self.operation.quantity
+    }
     /// Complete physical contract retained by the original admission.
-    pub fn context(&self) -> &crate::QuantityTypeKey { &self.operation.context }
+    pub fn context(&self) -> &crate::QuantityTypeKey {
+        &self.operation.context
+    }
     /// Declared source representation.
-    pub const fn source_unit(&self) -> UnitId { self.operation.source }
+    pub const fn source_unit(&self) -> UnitId {
+        self.operation.source
+    }
     /// Declared destination representation, which need not be canonical.
-    pub const fn target_unit(&self) -> UnitId { self.operation.target }
+    pub const fn target_unit(&self) -> UnitId {
+        self.operation.target
+    }
     /// Exact admitted multiplier, also used for provider chain factors.
-    pub fn scale(&self) -> f64 { self.operation.scale() }
+    pub fn scale(&self) -> f64 {
+        self.operation.scale()
+    }
     /// Exact admitted point offset; differences retain the owner's positive zero.
-    pub fn offset(&self) -> f64 { self.operation.offset() }
+    pub fn offset(&self) -> f64 {
+        self.operation.offset()
+    }
     /// Actual retained heap extent of the complete contract, excluding the inline plan.
     pub fn heap_bytes(&self) -> usize {
-        self.operation.context.shape.capacity().saturating_mul(size_of::<crate::EntityKindId>())
+        self.operation
+            .context
+            .shape
+            .capacity()
+            .saturating_mul(size_of::<crate::EntityKindId>())
     }
     /// Frame the complete retained contract, coefficients and fixed application mode.
     pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
@@ -381,16 +402,28 @@ impl RepresentationConversionPlan {
             .str(self.operation.context.scale_kind.as_str());
         for id in [
             self.operation.context.basis.map(crate::BasisId::as_id),
-            self.operation.context.reference_state.map(crate::ReferenceStateId::as_id),
-            self.operation.context.subject_kind.map(crate::EntityKindId::as_id),
+            self.operation
+                .context
+                .reference_state
+                .map(crate::ReferenceStateId::as_id),
+            self.operation
+                .context
+                .subject_kind
+                .map(crate::EntityKindId::as_id),
         ] {
             hash.bool(id.is_some());
-            if let Some(id) = id { hash.id(&id); }
+            if let Some(id) = id {
+                hash.id(&id);
+            }
         }
         hash.u64(self.operation.context.shape.len() as u64);
-        for axis in &self.operation.context.shape { hash.id(&axis.as_id()); }
-        hash.id(&self.operation.source.as_id()).id(&self.operation.target.as_id())
-            .u64(self.operation.scale_bits).u64(self.operation.offset_bits)
+        for axis in &self.operation.context.shape {
+            hash.id(&axis.as_id());
+        }
+        hash.id(&self.operation.source.as_id())
+            .id(&self.operation.target.as_id())
+            .u64(self.operation.scale_bits)
+            .u64(self.operation.offset_bits)
             .str("multiply-then-add");
     }
     // This helper is private to the representation owner and called only after
@@ -399,16 +432,29 @@ impl RepresentationConversionPlan {
         let scale = f64::from_bits(record.scale_bits);
         let offset = f64::from_bits(record.offset_bits);
         if !scale.is_finite() || scale <= 0.0 || !offset.is_finite() {
-            return Err(crate::resolved::refusal("physical.representation_receipt", "invalid retained direct representation coefficients"));
+            return Err(crate::resolved::refusal(
+                "physical.representation_receipt",
+                "invalid retained direct representation coefficients",
+            ));
         }
-        if record.context.scale_kind == crate::ScaleKind::Difference && record.offset_bits != 0.0_f64.to_bits() {
-            return Err(crate::resolved::refusal("physical.representation_receipt", "difference representation receipt has an offset"));
+        if record.context.scale_kind == crate::ScaleKind::Difference
+            && record.offset_bits != 0.0_f64.to_bits()
+        {
+            return Err(crate::resolved::refusal(
+                "physical.representation_receipt",
+                "difference representation receipt has an offset",
+            ));
         }
-        Ok(Self { operation: CheckedRepresentationPlan {
-            quantity: record.quantity, context: record.context.clone(),
-            source: record.source, target: record.target,
-            scale_bits: record.scale_bits, offset_bits: record.offset_bits,
-        } })
+        Ok(Self {
+            operation: CheckedRepresentationPlan {
+                quantity: record.quantity,
+                context: record.context.clone(),
+                source: record.source,
+                target: record.target,
+                scale_bits: record.scale_bits,
+                offset_bits: record.offset_bits,
+            },
+        })
     }
 }
 
@@ -427,9 +473,12 @@ impl RepresentationConversionRecord {
     /// Capture one already admitted direct conversion, with no re-resolution.
     pub fn capture(value: &RepresentationConversionPlan) -> Self {
         Self {
-            quantity: value.operation.quantity, context: value.operation.context.clone(),
-            source: value.operation.source, target: value.operation.target,
-            scale_bits: value.operation.scale_bits, offset_bits: value.operation.offset_bits,
+            quantity: value.operation.quantity,
+            context: value.operation.context.clone(),
+            source: value.operation.source,
+            target: value.operation.target,
+            scale_bits: value.operation.scale_bits,
+            offset_bits: value.operation.offset_bits,
         }
     }
     /// Restore only this complete record within the existing qualified recipe session.
@@ -439,7 +488,12 @@ impl RepresentationConversionRecord {
     }
     /// Inline record plus the actual owned complete contract shape extent.
     pub fn retained_bytes(&self) -> usize {
-        size_of::<Self>().saturating_add(self.context.shape.capacity().saturating_mul(size_of::<crate::EntityKindId>()))
+        size_of::<Self>().saturating_add(
+            self.context
+                .shape
+                .capacity()
+                .saturating_mul(size_of::<crate::EntityKindId>()),
+        )
     }
 }
 
@@ -462,20 +516,26 @@ impl CanonicalConversionPlan {
         let offset = f64::from_bits(record.offset_bits);
         if !scale.is_finite() || scale <= 0.0 || !offset.is_finite() {
             return Err(crate::resolved::refusal(
-                "physical.conversion_receipt", "invalid retained representation coefficients",
+                "physical.conversion_receipt",
+                "invalid retained representation coefficients",
             ));
         }
-        if record.context.scale_kind == crate::ScaleKind::Difference && record.offset_bits != 0.0_f64.to_bits() {
+        if record.context.scale_kind == crate::ScaleKind::Difference
+            && record.offset_bits != 0.0_f64.to_bits()
+        {
             return Err(crate::resolved::refusal(
-                "physical.conversion_receipt", "difference conversion receipt has an offset",
+                "physical.conversion_receipt",
+                "difference conversion receipt has an offset",
             ));
         }
-        if record.already_canonical && (
-            record.source != record.target || record.scale_bits != 1.0_f64.to_bits()
-                || record.offset_bits != 0.0_f64.to_bits()
-        ) {
+        if record.already_canonical
+            && (record.source != record.target
+                || record.scale_bits != 1.0_f64.to_bits()
+                || record.offset_bits != 0.0_f64.to_bits())
+        {
             return Err(crate::resolved::refusal(
-                "physical.conversion_receipt", "already-canonical receipt is not an identity representation",
+                "physical.conversion_receipt",
+                "already-canonical receipt is not an identity representation",
             ));
         }
         Ok(CanonicalConversionPlan {
@@ -857,8 +917,13 @@ mod canonical_tests {
 
     // The test payload consists only of witnesses actually admitted just above;
     // this models the private parent-to-child recipe channel, never user DTO authority.
-    #[allow(unsafe_code, reason = "controlled test fixture transfers actual admitted quantity records through the private scientific recipe boundary")]
-    fn qualified_record_fixture(value: &impl serde::Serialize) -> pse_ids::scientific_replay::QualifiedScientificRecipe {
+    #[allow(
+        unsafe_code,
+        reason = "controlled test fixture transfers actual admitted quantity records through the private scientific recipe boundary"
+    )]
+    fn qualified_record_fixture(
+        value: &impl serde::Serialize,
+    ) -> pse_ids::scientific_replay::QualifiedScientificRecipe {
         use pse_ids::scientific_replay::{QualifiedScientificRecipe, admitted_recipe_payload_hash};
         let payload = serde_json::to_vec(value).unwrap();
         let digest = admitted_recipe_payload_hash(&payload);
@@ -866,24 +931,35 @@ mod canonical_tests {
         // isolated immutable test channel, with their exact complete payload.
         unsafe {
             QualifiedScientificRecipe::from_admitted_process_message(
-                payload, digest, pse_ids::ContentHash::from_bytes([91; 32]),
+                payload,
+                digest,
+                pse_ids::ContentHash::from_bytes([91; 32]),
                 pse_ids::ContentHash::from_bytes([92; 32]),
             )
-        }.unwrap()
+        }
+        .unwrap()
     }
 
     fn empty_receipt_stream() -> crate::resolved::receipts::ReceiptStream {
-        crate::resolved::receipts::capture(|| Ok::<_, Error>(())).unwrap().1
+        crate::resolved::receipts::capture(|| Ok::<_, Error>(()))
+            .unwrap()
+            .1
     }
 
     fn record_boundaries() -> (
         crate::resolved::AdmittedContractBoundary,
         crate::resolved::AdmittedOutputBoundary,
     ) {
-        use crate::resolved::{AdmittedContractBoundary, AdmittedOutputBoundary, ResolvedPhysicalContract};
+        use crate::resolved::{
+            AdmittedContractBoundary, AdmittedOutputBoundary, ResolvedPhysicalContract,
+        };
         let registry = registry();
-        let source = ResolvedPhysicalContract::named(id(31).into(), crate::IndexSet::new(), &registry).unwrap();
-        let target = ResolvedPhysicalContract::named(id(30).into(), crate::IndexSet::new(), &registry).unwrap();
+        let source =
+            ResolvedPhysicalContract::named(id(31).into(), crate::IndexSet::new(), &registry)
+                .unwrap();
+        let target =
+            ResolvedPhysicalContract::named(id(30).into(), crate::IndexSet::new(), &registry)
+                .unwrap();
         (
             AdmittedContractBoundary::prepare(&source, &source, &registry).unwrap(),
             AdmittedOutputBoundary::declared_contract(id(42), source, target).unwrap(),
@@ -899,9 +975,15 @@ mod canonical_tests {
                 for target in 1..=6 {
                     let direct = convert_spec_for_type(
                         registry.unit(id(source).into()).unwrap(),
-                        registry.unit(id(target).into()).unwrap(), context,
+                        registry.unit(id(target).into()).unwrap(),
+                        context,
                     );
-                    let admitted = RepresentationConversionPlan::registered(&registry, quantity, id(source).into(), id(target).into());
+                    let admitted = RepresentationConversionPlan::registered(
+                        &registry,
+                        quantity,
+                        id(source).into(),
+                        id(target).into(),
+                    );
                     match (direct, admitted) {
                         (Ok(expected), Ok(actual)) => {
                             assert_eq!(actual.quantity(), quantity);
@@ -914,24 +996,48 @@ mod canonical_tests {
                                 let scaled = value * expected.scale;
                                 let result = scaled + expected.offset;
                                 if result.is_finite() {
-                                    assert_eq!(actual.apply(value).unwrap().to_bits(), result.to_bits());
+                                    assert_eq!(
+                                        actual.apply(value).unwrap().to_bits(),
+                                        result.to_bits()
+                                    );
                                 } else {
-                                    assert!(matches!(actual.apply(value), Err(Error::NonfiniteConversion { .. })));
+                                    assert!(matches!(
+                                        actual.apply(value),
+                                        Err(Error::NonfiniteConversion { .. })
+                                    ));
                                 }
                             }
                             for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-                                assert!(matches!(actual.apply(value), Err(Error::NonfiniteMagnitude { .. })));
+                                assert!(matches!(
+                                    actual.apply(value),
+                                    Err(Error::NonfiniteMagnitude { .. })
+                                ));
                             }
                         }
                         (Err(_), Err(_)) => {}
-                        _ => panic!("direct representation admission differs from existing conversion owner"),
+                        _ => panic!(
+                            "direct representation admission differs from existing conversion owner"
+                        ),
                     }
                 }
             }
         }
-        let identity = RepresentationConversionPlan::registered(&registry, id(30).into(), id(1).into(), id(1).into()).unwrap();
+        let identity = RepresentationConversionPlan::registered(
+            &registry,
+            id(30).into(),
+            id(1).into(),
+            id(1).into(),
+        )
+        .unwrap();
         assert_eq!(identity.apply(-0.0).unwrap().to_bits(), 0.0_f64.to_bits());
-        assert_eq!(CanonicalConversionPlan::canonical(&registry, id(30).into()).unwrap().apply(-0.0).unwrap().bits(), (-0.0_f64).to_bits());
+        assert_eq!(
+            CanonicalConversionPlan::canonical(&registry, id(30).into())
+                .unwrap()
+                .apply(-0.0)
+                .unwrap()
+                .bits(),
+            (-0.0_f64).to_bits()
+        );
     }
 
     #[test]
@@ -939,44 +1045,98 @@ mod canonical_tests {
         use crate::resolved::receipts;
         let registry = registry();
         let plans = [
-            RepresentationConversionPlan::registered(&registry, id(30).into(), id(2).into(), id(5).into()).unwrap(),
-            RepresentationConversionPlan::registered(&registry, id(30).into(), id(5).into(), id(2).into()).unwrap(),
-            RepresentationConversionPlan::registered(&registry, id(31).into(), id(2).into(), id(6).into()).unwrap(),
-            RepresentationConversionPlan::registered(&registry, id(30).into(), id(1).into(), id(1).into()).unwrap(),
+            RepresentationConversionPlan::registered(
+                &registry,
+                id(30).into(),
+                id(2).into(),
+                id(5).into(),
+            )
+            .unwrap(),
+            RepresentationConversionPlan::registered(
+                &registry,
+                id(30).into(),
+                id(5).into(),
+                id(2).into(),
+            )
+            .unwrap(),
+            RepresentationConversionPlan::registered(
+                &registry,
+                id(31).into(),
+                id(2).into(),
+                id(6).into(),
+            )
+            .unwrap(),
+            RepresentationConversionPlan::registered(
+                &registry,
+                id(30).into(),
+                id(1).into(),
+                id(1).into(),
+            )
+            .unwrap(),
         ];
-        let records = plans.iter().map(RepresentationConversionRecord::capture).collect::<Vec<_>>();
-        for record in &records { assert!(record.restore().is_err()); }
+        let records = plans
+            .iter()
+            .map(RepresentationConversionRecord::capture)
+            .collect::<Vec<_>>();
+        for record in &records {
+            assert!(record.restore().is_err());
+        }
         let mut unknown = serde_json::to_value(&records[0]).unwrap();
-        unknown.as_object_mut().unwrap().insert("unexpected".into(), serde_json::Value::Bool(true));
+        unknown
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<RepresentationConversionRecord>(unknown).is_err());
         let stream = empty_receipt_stream();
         let recipe = qualified_record_fixture(&(&stream, &records));
-        let decoded: Vec<RepresentationConversionRecord> = serde_json::from_slice(&serde_json::to_vec(&records).unwrap()).unwrap();
+        let decoded: Vec<RepresentationConversionRecord> =
+            serde_json::from_slice(&serde_json::to_vec(&records).unwrap()).unwrap();
         assert_eq!(decoded, records);
         receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
             for (record, original) in decoded.iter().zip(&plans) {
                 let restored = record.restore()?;
                 assert_eq!(&restored, original);
-                let mut expected = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
-                let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+                let mut expected =
+                    pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+                let mut actual =
+                    pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
                 original.frame(&mut expected);
                 restored.frame(&mut actual);
                 assert_eq!(actual.finish_hash(), expected.finish_hash());
                 for value in [-0.0, 0.0, 1.0 - f64::EPSILON, 298.15] {
-                    assert_eq!(restored.apply(value)?.to_bits(), original.apply(value)?.to_bits());
+                    assert_eq!(
+                        restored.apply(value)?.to_bits(),
+                        original.apply(value)?.to_bits()
+                    );
                 }
-                assert_eq!(record.retained_bytes(), size_of::<RepresentationConversionRecord>() + record.context.shape.capacity() * size_of::<crate::EntityKindId>());
+                assert_eq!(
+                    record.retained_bytes(),
+                    size_of::<RepresentationConversionRecord>()
+                        + record.context.shape.capacity() * size_of::<crate::EntityKindId>()
+                );
             }
-            assert_eq!(decoded[3].restore()?.apply(-0.0)?.to_bits(), 0.0_f64.to_bits());
+            assert_eq!(
+                decoded[3].restore()?.apply(-0.0)?.to_bits(),
+                0.0_f64.to_bits()
+            );
             Ok(())
-        }).unwrap();
-        for record in &decoded { assert!(record.restore().is_err()); }
+        })
+        .unwrap();
+        for record in &decoded {
+            assert!(record.restore().is_err());
+        }
     }
 
     #[test]
     fn direct_representation_record_refuses_altered_full_context_and_coefficients() {
         use crate::resolved::receipts;
-        let plan = RepresentationConversionPlan::registered(&registry(), id(30).into(), id(2).into(), id(5).into()).unwrap();
+        let plan = RepresentationConversionPlan::registered(
+            &registry(),
+            id(30).into(),
+            id(2).into(),
+            id(5).into(),
+        )
+        .unwrap();
         let record = RepresentationConversionRecord::capture(&plan);
         let stream = empty_receipt_stream();
         let recipe = qualified_record_fixture(&(&stream, &record));
@@ -985,43 +1145,86 @@ mod canonical_tests {
             for key in ["quantity", "source", "target"] {
                 let mut value = serde_json::to_value(&record).unwrap();
                 value[key] = serde_json::to_value(id(99)).unwrap();
-                assert!(serde_json::from_value::<RepresentationConversionRecord>(value).unwrap().restore().is_err());
+                assert!(
+                    serde_json::from_value::<RepresentationConversionRecord>(value)
+                        .unwrap()
+                        .restore()
+                        .is_err()
+                );
             }
             for key in ["kind", "basis", "reference_state", "subject_kind"] {
                 let mut value = serde_json::to_value(&record).unwrap();
                 value["context"][key] = serde_json::to_value(id(99)).unwrap();
-                assert!(serde_json::from_value::<RepresentationConversionRecord>(value).unwrap().restore().is_err());
+                assert!(
+                    serde_json::from_value::<RepresentationConversionRecord>(value)
+                        .unwrap()
+                        .restore()
+                        .is_err()
+                );
             }
             let mut value = serde_json::to_value(&record).unwrap();
             value["context"]["shape"] = serde_json::json!([id(99)]);
-            assert!(serde_json::from_value::<RepresentationConversionRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<RepresentationConversionRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             let mut value = serde_json::to_value(&record).unwrap();
             value["context"]["scale_kind"] = serde_json::json!("difference");
-            assert!(serde_json::from_value::<RepresentationConversionRecord>(value).unwrap().restore().is_err());
-            for (key, bits) in [("scale_bits", 2.0_f64.to_bits()), ("offset_bits", (-0.0_f64).to_bits())] {
+            assert!(
+                serde_json::from_value::<RepresentationConversionRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
+            for (key, bits) in [
+                ("scale_bits", 2.0_f64.to_bits()),
+                ("offset_bits", (-0.0_f64).to_bits()),
+            ] {
                 let mut value = serde_json::to_value(&record).unwrap();
                 value[key] = serde_json::json!(bits);
-                assert!(serde_json::from_value::<RepresentationConversionRecord>(value).unwrap().restore().is_err());
+                assert!(
+                    serde_json::from_value::<RepresentationConversionRecord>(value)
+                        .unwrap()
+                        .restore()
+                        .is_err()
+                );
             }
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     #[test]
     fn direct_representation_private_owner_refuses_malformed_numeric_record_fields() {
         let point = RepresentationConversionRecord::capture(
-            &RepresentationConversionPlan::registered(&registry(), id(30).into(), id(2).into(), id(1).into()).unwrap(),
+            &RepresentationConversionPlan::registered(
+                &registry(),
+                id(30).into(),
+                id(2).into(),
+                id(1).into(),
+            )
+            .unwrap(),
         );
         for scale in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -0.0, -1.0] {
-            let mut altered = point.clone(); altered.scale_bits = scale.to_bits();
+            let mut altered = point.clone();
+            altered.scale_bits = scale.to_bits();
             assert!(RepresentationConversionPlan::from_qualified_record(&altered).is_err());
         }
         for offset in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            let mut altered = point.clone(); altered.offset_bits = offset.to_bits();
+            let mut altered = point.clone();
+            altered.offset_bits = offset.to_bits();
             assert!(RepresentationConversionPlan::from_qualified_record(&altered).is_err());
         }
         let mut difference = RepresentationConversionRecord::capture(
-            &RepresentationConversionPlan::registered(&registry(), id(31).into(), id(2).into(), id(1).into()).unwrap(),
+            &RepresentationConversionPlan::registered(
+                &registry(),
+                id(31).into(),
+                id(2).into(),
+                id(1).into(),
+            )
+            .unwrap(),
         );
         for offset in [1.0_f64, -0.0] {
             difference.offset_bits = offset.to_bits();
@@ -1046,13 +1249,22 @@ mod canonical_tests {
         assert!(output.restore().is_err());
         assert!(conversion.restore().is_err());
         let mut value = serde_json::to_value(&ordinary).unwrap();
-        value.as_object_mut().unwrap().insert("unexpected".into(), serde_json::Value::Bool(true));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<ContractBoundaryRecord>(value).is_err());
         let mut value = serde_json::to_value(&output).unwrap();
-        value.as_object_mut().unwrap().insert("unexpected".into(), serde_json::Value::Bool(true));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<OutputBoundaryRecord>(value).is_err());
         let mut value = serde_json::to_value(&conversion).unwrap();
-        value.as_object_mut().unwrap().insert("unexpected".into(), serde_json::Value::Bool(true));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<CanonicalConversionRecord>(value).is_err());
     }
 
@@ -1070,35 +1282,52 @@ mod canonical_tests {
             CanonicalConversionPlan::registered(&registry, id(30).into(), id(1).into()).unwrap(),
             CanonicalConversionPlan::canonical(&registry, id(30).into()).unwrap(),
         ];
-        let conversions = plans.iter().map(CanonicalConversionRecord::capture).collect::<Vec<_>>();
+        let conversions = plans
+            .iter()
+            .map(CanonicalConversionRecord::capture)
+            .collect::<Vec<_>>();
         let stream = empty_receipt_stream();
-        let recipe = qualified_record_fixture(&(&stream, &ordinary_record, &output_record, &conversions));
-        let ordinary_decoded: ContractBoundaryRecord = serde_json::from_slice(&serde_json::to_vec(&ordinary_record).unwrap()).unwrap();
-        let output_decoded: OutputBoundaryRecord = serde_json::from_slice(&serde_json::to_vec(&output_record).unwrap()).unwrap();
-        let conversions_decoded: Vec<CanonicalConversionRecord> = serde_json::from_slice(&serde_json::to_vec(&conversions).unwrap()).unwrap();
+        let recipe =
+            qualified_record_fixture(&(&stream, &ordinary_record, &output_record, &conversions));
+        let ordinary_decoded: ContractBoundaryRecord =
+            serde_json::from_slice(&serde_json::to_vec(&ordinary_record).unwrap()).unwrap();
+        let output_decoded: OutputBoundaryRecord =
+            serde_json::from_slice(&serde_json::to_vec(&output_record).unwrap()).unwrap();
+        let conversions_decoded: Vec<CanonicalConversionRecord> =
+            serde_json::from_slice(&serde_json::to_vec(&conversions).unwrap()).unwrap();
         receipts::replay(&stream, recipe.records(), || -> Result<(), Error> {
             let restored = ordinary_decoded.restore()?;
             assert_eq!(&restored, &ordinary);
             assert_eq!(restored.source(), ordinary.source());
             assert_eq!(restored.target(), ordinary.target());
-            let mut expected = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
-            let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            let mut expected =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            let mut actual =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
             ordinary.frame(&mut expected);
             restored.frame(&mut actual);
             assert_eq!(actual.finish_hash(), expected.finish_hash());
-            assert_eq!(restored.apply_contract(ordinary.source())?, ordinary.apply_contract(ordinary.source())?);
+            assert_eq!(
+                restored.apply_contract(ordinary.source())?,
+                ordinary.apply_contract(ordinary.source())?
+            );
             assert!(restored.apply_contract(output.target()).is_err());
             let restored = output_decoded.restore()?;
             assert_eq!(&restored, &output);
             assert_eq!(restored.operation(), id(42));
             assert_eq!(restored.source(), output.source());
             assert_eq!(restored.target(), output.target());
-            let mut expected = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
-            let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            let mut expected =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+            let mut actual =
+                pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
             output.frame(&mut expected);
             restored.frame(&mut actual);
             assert_eq!(actual.finish_hash(), expected.finish_hash());
-            assert_eq!(restored.apply_contract(output.source())?, output.apply_contract(output.source())?);
+            assert_eq!(
+                restored.apply_contract(output.source())?,
+                output.apply_contract(output.source())?
+            );
             assert!(restored.apply_contract(output.target()).is_err());
             for (record, original) in conversions_decoded.iter().zip(&plans) {
                 let restored = record.restore()?;
@@ -1108,16 +1337,27 @@ mod canonical_tests {
                 assert_eq!(restored.canonical_unit(), original.canonical_unit());
                 assert_eq!(restored.scale().to_bits(), original.scale().to_bits());
                 assert_eq!(restored.offset().to_bits(), original.offset().to_bits());
-                assert_eq!(record.retained_bytes(), size_of::<CanonicalConversionRecord>() + record.context.shape.capacity() * size_of::<crate::EntityKindId>());
+                assert_eq!(
+                    record.retained_bytes(),
+                    size_of::<CanonicalConversionRecord>()
+                        + record.context.shape.capacity() * size_of::<crate::EntityKindId>()
+                );
                 for value in [-0.0, 0.0, 1.0 - f64::EPSILON, 298.15] {
                     assert_eq!(restored.apply(value)?.bits(), original.apply(value)?.bits());
                 }
                 assert!(restored.apply(f64::INFINITY).is_err());
             }
-            assert_eq!(conversions_decoded[4].restore()?.apply(-0.0)?.bits(), (-0.0_f64).to_bits());
-            assert_ne!(conversions_decoded[3].restore()?.apply(-0.0)?.bits(), (-0.0_f64).to_bits());
+            assert_eq!(
+                conversions_decoded[4].restore()?.apply(-0.0)?.bits(),
+                (-0.0_f64).to_bits()
+            );
+            assert_ne!(
+                conversions_decoded[3].restore()?.apply(-0.0)?.bits(),
+                (-0.0_f64).to_bits()
+            );
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         assert!(ordinary_decoded.restore().is_err());
         assert!(output_decoded.restore().is_err());
         assert!(conversions_decoded[0].restore().is_err());
@@ -1140,34 +1380,78 @@ mod canonical_tests {
             assert!(conversion.restore().is_ok());
             let mut value = serde_json::to_value(&ordinary).unwrap();
             value["scale_bits"] = serde_json::json!((1.0 + f64::EPSILON).to_bits());
-            assert!(serde_json::from_value::<ContractBoundaryRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<ContractBoundaryRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             let mut value = serde_json::to_value(&ordinary).unwrap();
             value["source"]["scale_bits"] = serde_json::json!(2.0_f64.to_bits());
-            assert!(serde_json::from_value::<ContractBoundaryRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<ContractBoundaryRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             let mut value = serde_json::to_value(&output).unwrap();
             value["operation"] = serde_json::to_value(id(99)).unwrap();
-            assert!(serde_json::from_value::<OutputBoundaryRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<OutputBoundaryRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             let mut value = serde_json::to_value(&output).unwrap();
             value["source"] = value["target"].clone();
-            assert!(serde_json::from_value::<OutputBoundaryRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<OutputBoundaryRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             for key in ["quantity", "source", "target"] {
                 let mut value = serde_json::to_value(&conversion).unwrap();
                 value[key] = serde_json::to_value(id(99)).unwrap();
-                assert!(serde_json::from_value::<CanonicalConversionRecord>(value).unwrap().restore().is_err());
+                assert!(
+                    serde_json::from_value::<CanonicalConversionRecord>(value)
+                        .unwrap()
+                        .restore()
+                        .is_err()
+                );
             }
             let mut value = serde_json::to_value(&conversion).unwrap();
             value["context"]["shape"] = serde_json::json!([id(99)]);
-            assert!(serde_json::from_value::<CanonicalConversionRecord>(value).unwrap().restore().is_err());
-            for (key, bits) in [("scale_bits", 2.0_f64.to_bits()), ("offset_bits", (-0.0_f64).to_bits())] {
+            assert!(
+                serde_json::from_value::<CanonicalConversionRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
+            for (key, bits) in [
+                ("scale_bits", 2.0_f64.to_bits()),
+                ("offset_bits", (-0.0_f64).to_bits()),
+            ] {
                 let mut value = serde_json::to_value(&conversion).unwrap();
                 value[key] = serde_json::json!(bits);
-                assert!(serde_json::from_value::<CanonicalConversionRecord>(value).unwrap().restore().is_err());
+                assert!(
+                    serde_json::from_value::<CanonicalConversionRecord>(value)
+                        .unwrap()
+                        .restore()
+                        .is_err()
+                );
             }
             let mut value = serde_json::to_value(&conversion).unwrap();
             value["already_canonical"] = serde_json::Value::Bool(true);
-            assert!(serde_json::from_value::<CanonicalConversionRecord>(value).unwrap().restore().is_err());
+            assert!(
+                serde_json::from_value::<CanonicalConversionRecord>(value)
+                    .unwrap()
+                    .restore()
+                    .is_err()
+            );
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     #[test]

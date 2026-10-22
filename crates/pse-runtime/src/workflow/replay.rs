@@ -827,7 +827,9 @@ impl ScientificReplay {
     }
 }
 impl RunResult {
-    pub(super) fn replay_request(&self) -> RunRequest<'_> { self.original_request() }
+    pub(super) fn replay_request(&self) -> RunRequest<'_> {
+        self.original_request()
+    }
     pub(super) fn replay_traces(
         &self,
     ) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
@@ -850,7 +852,8 @@ impl RunResult {
                     _ => Box::new(std::iter::empty()),
                 },
             };
-        let failed = self.error()
+        let failed = self
+            .error()
             .and_then(|error| error.strategy_trace())
             .map(|trace| {
                 (
@@ -2716,7 +2719,15 @@ mod tests {
             .map(|(id, value)| (*id, value.to_bits()))
             .collect::<BTreeMap<_, _>>();
         let expected_starts = serde_json::to_vec(&prepared.starts).unwrap();
-        let result = Arc::new(RunResult::joined(RunId::from_bytes([91; 16]), runtime, crate::workflow::RunOutcome::Modeling { request: vec![prepared], result: Err(Arc::new(contract("failed before dispatch"))) }, None));
+        let result = Arc::new(RunResult::joined(
+            RunId::from_bytes([91; 16]),
+            runtime,
+            crate::workflow::RunOutcome::Modeling {
+                request: vec![prepared],
+                result: Err(Arc::new(contract("failed before dispatch"))),
+            },
+            None,
+        ));
         assert!(
             result
                 .replay()
@@ -2792,7 +2803,8 @@ impl OriginalSimulationInputs {
             ));
         }
         let binding_bytes = encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8);
-        let bytes = size_of::<Self>().saturating_add(binding_bytes)
+        let bytes = size_of::<Self>()
+            .saturating_add(binding_bytes)
             .saturating_add(1024)
             .saturating_add(crate::math::modeling::bindings_bytes(bindings))
             .saturating_add(encoded_extent(profile, EXPORT_MAX)?.saturating_mul(8))
@@ -2852,7 +2864,9 @@ impl OriginalSimulationInputs {
             _owner: owner,
         }))
     }
-    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> { self.document.binding.as_ref() }
+    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> {
+        self.document.binding.as_ref()
+    }
     pub(in crate::workflow) fn document(&self, source: usize) -> ReplaySimulationConstructor {
         ReplaySimulationConstructor {
             source,
@@ -2971,7 +2985,8 @@ impl OriginalFitInputs {
         binding: Option<&super::AdmittedBinding>,
         residual_lm_criteria: super::ResidualLmCriteria,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let extent = size_of::<Self>().saturating_add(encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8))
+        let extent = size_of::<Self>()
+            .saturating_add(encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8))
             .saturating_add(1024)
             .saturating_add(profile_extent(&profile.solver)?)
             .saturating_add(
@@ -3002,7 +3017,9 @@ impl OriginalFitInputs {
             _owner: owner,
         }))
     }
-    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> { self.document.binding.as_ref() }
+    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> {
+        self.document.binding.as_ref()
+    }
     pub(super) fn document(&self, source: usize) -> ReplayFitConstructor {
         ReplayFitConstructor {
             source,
@@ -3027,7 +3044,9 @@ pub struct ReplayFitConstructor {
     /// Complete original native/scientific policy.
     pub solver: ReplaySolverSettings,
     /// Complete original integration controls by experiment identity.
-    #[schemars(with = "pse_ids::document::KeyedMap<pse_modeling::InstanceId, super::SimulationProfile>")]
+    #[schemars(
+        with = "pse_ids::document::KeyedMap<pse_modeling::InstanceId, super::SimulationProfile>"
+    )]
     pub simulations: BTreeMap<pse_modeling::InstanceId, super::SimulationProfile>,
     /// Original response rank cutoff.
     pub rank_tolerance: f64,
@@ -3051,7 +3070,9 @@ impl ReplayFitConstructor {
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedFit, WorkflowError> {
         if self.residual_lm_criteria != super::ResidualLmCriteria::current() {
-            return Err(contract("recorded residual LM criteria are unsupported by this build"));
+            return Err(contract(
+                "recorded residual LM criteria are unsupported by this build",
+            ));
         }
         package
             .prepare_fit_bound(

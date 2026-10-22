@@ -50,14 +50,21 @@ impl RunResult {
             ids.push(accuracy_goal_assessments::RELATION_ID);
         }
         match &self.outcome {
-            super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Compact(_), .. } => {
+            super::RunOutcome::Horizon {
+                execution: super::HorizonRunOutcome::Compact(_),
+                ..
+            } => {
                 ids.extend(super::horizon::prefix::summary_ids());
                 if let Some(report) = &self.horizon_output {
                     ids.extend(report.summaries.keys());
                     ids.extend(&report.detail_membership);
                 }
             }
-            super::RunOutcome::Modeling { .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { .. }, .. } => ids.extend([
+            super::RunOutcome::Modeling { .. }
+            | super::RunOutcome::Horizon {
+                execution: super::HorizonRunOutcome::Full { .. },
+                ..
+            } => ids.extend([
                 scientific_contexts::RELATION_ID,
                 solve_runs::RELATION_ID,
                 solve_variables::RELATION_ID,
@@ -871,9 +878,12 @@ pub(super) async fn push_native_metrics(
             start_snapshot_extent(start)?,
             || {
                 use crate::boundary_documents::BoundaryDocument;
-                let bytes = <pse_backend_native::solve::SubmittedStartRecord as BoundaryDocument>::WIRE.to_vec(&start.snapshot())
-                    .map_err(|error| contract(format!("submitted start encoding: {error}")))?;
-                String::from_utf8(bytes).map(Metric::Text)
+                let bytes =
+                    <pse_backend_native::solve::SubmittedStartRecord as BoundaryDocument>::WIRE
+                        .to_vec(&start.snapshot())
+                        .map_err(|error| contract(format!("submitted start encoding: {error}")))?;
+                String::from_utf8(bytes)
+                    .map(Metric::Text)
                     .map_err(|error| contract(format!("submitted start UTF-8: {error}")))
             },
         )

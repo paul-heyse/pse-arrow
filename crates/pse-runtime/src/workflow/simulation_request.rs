@@ -30,7 +30,10 @@ pub struct PhysicalFitRequest {
 impl PhysicalFitRequest {
     /// Wrap the sole fitting-settings declaration in its required physical interpretation.
     pub fn new(settings: super::FitPreparationDocument<PhysicalSimulationRequest>) -> Self {
-        Self { version: Version, settings }
+        Self {
+            version: Version,
+            settings,
+        }
     }
     /// Own each decoded physical experiment request under the receiving deployment.
     pub fn retain(mut self, runtime: &super::Runtime) -> Result<Self, WorkflowError> {
@@ -43,14 +46,25 @@ impl PhysicalFitRequest {
 impl PhysicalSimulationRequest {
     /// Construct pending controls from owned values, with no external buffers retained.
     pub fn new(controls: IntegrationControls<Vec<ScientificCoordinateValue>>) -> Self {
-        Self { version: Version, controls, custody: None }
+        Self {
+            version: Version,
+            controls,
+            custody: None,
+        }
     }
     /// Retain decoded/request scalar storage under the existing deployment budget.
     pub fn retain(mut self, runtime: &super::Runtime) -> Result<Self, WorkflowError> {
-        let extent = super::replay::encoded_extent(&self, runtime.shared.budget().math.workspace_bytes)?
-            .checked_mul(8).and_then(|bytes| bytes.checked_add(size_of::<Self>() + 512))
-            .ok_or_else(|| contract("physical simulation request extent"))?;
-        self.custody = Some(runtime.shared.math().reserve("workflow:physical-simulation-request", extent)?);
+        let extent =
+            super::replay::encoded_extent(&self, runtime.shared.budget().math.workspace_bytes)?
+                .checked_mul(8)
+                .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 512))
+                .ok_or_else(|| contract("physical simulation request extent"))?;
+        self.custody = Some(
+            runtime
+                .shared
+                .math()
+                .reserve("workflow:physical-simulation-request", extent)?,
+        );
         Ok(self)
     }
     pub(in crate::workflow) fn admit(
@@ -61,17 +75,31 @@ impl PhysicalSimulationRequest {
         parameters: &[Port],
         state_scales: &[f64],
     ) -> Result<Profile, WorkflowError> {
-        if states.len() != state_scales.len() { return Err(contract("physical state scale inventory differs")); }
+        if states.len() != state_scales.len() {
+            return Err(contract("physical state scale inventory differs"));
+        }
         let state = admit_tolerances(registry, states, &self.controls.atol)?;
         let output = admit_tolerances(registry, integrals, &self.controls.out_atol)?;
         let parameter = admit_tolerances(registry, parameters, &self.controls.parameter_scales)?;
-        let atol = states.iter().zip(state_scales).map(|(port, scale)| {
-            let tolerance = state[&port.id] / scale.abs();
-            if !scale.is_finite() || *scale <= 0.0 || !tolerance.is_finite() || tolerance <= 0.0 { return Err(contract("normalized physical state tolerance must be finite and positive")); }
-            Ok(tolerance)
-        }).collect::<Result<Vec<_>, WorkflowError>>()?;
+        let atol = states
+            .iter()
+            .zip(state_scales)
+            .map(|(port, scale)| {
+                let tolerance = state[&port.id] / scale.abs();
+                if !scale.is_finite() || *scale <= 0.0 || !tolerance.is_finite() || tolerance <= 0.0
+                {
+                    return Err(contract(
+                        "normalized physical state tolerance must be finite and positive",
+                    ));
+                }
+                Ok(tolerance)
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
         let out_atol = integrals.iter().map(|port| output[&port.id]).collect();
         let parameter_scales = parameters.iter().map(|port| parameter[&port.id]).collect();
-        Ok(self.controls.clone().with_coordinates(atol, out_atol, parameter_scales))
+        Ok(self
+            .controls
+            .clone()
+            .with_coordinates(atol, out_atol, parameter_scales))
     }
 }

@@ -386,6 +386,8 @@ impl CaseWorker {
                 let binding = &self.assembly.structure.instances()[group.instance];
                 let context = |cause| MathError::Instance {
                     instance: binding.instance,
+                    occurrences: binding.occurrences.as_ref().clone(),
+                    checked_sources: binding.checked_sources.as_ref().clone(),
                     checked_members: binding.checked_members.as_ref().clone(),
                     cause: Box::new(cause),
                 };
@@ -576,6 +578,8 @@ mod tests {
                 vec![InstanceBinding {
                     instance: id(20),
                     body: key,
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
                     checked_members: Default::default(),
                     slots: (1..3)
                         .map(|n| SlotBinding::new(&port(n), &port(n), &registry).unwrap())

@@ -856,7 +856,8 @@ impl ModelingPackage {
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
-        self.prepare_initialization_stages(a, InitializationStageValues::Canonical(stages), cancel).await
+        self.prepare_initialization_stages(a, InitializationStageValues::Canonical(stages), cancel)
+            .await
     }
     /// Admit sparse physical stage coordinates against the actual resolved case.
     #[cfg(feature = "solver-kinsol")]
@@ -866,8 +867,12 @@ impl ModelingPackage {
         stages: &super::InitializationStages,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
-        let mut prepared = self.prepare_initialization_stages(a, InitializationStageValues::Physical(stages), cancel).await?;
-        prepared.prepared.retain_physical_input(Arc::new(stages.clone()));
+        let mut prepared = self
+            .prepare_initialization_stages(a, InitializationStageValues::Physical(stages), cancel)
+            .await?;
+        prepared
+            .prepared
+            .retain_physical_input(Arc::new(stages.clone()));
         Ok(prepared)
     }
     #[cfg(feature = "solver-kinsol")]
@@ -902,14 +907,21 @@ impl ModelingPackage {
                 let stages = match stages {
                     InitializationStageValues::Physical(stages) => {
                         let structure = resolved.model.case.compiled().plan.structure();
-                        let ports = structure.variables().iter().map(|variable| variable.port.clone())
-                            .chain(structure.parameters().iter().cloned()).collect::<Vec<_>>();
+                        let ports = structure
+                            .variables()
+                            .iter()
+                            .map(|variable| variable.port.clone())
+                            .chain(structure.parameters().iter().cloned())
+                            .collect::<Vec<_>>();
                         stages.admit(&self.quantities, &ports)?
                     }
                     #[cfg(test)]
                     InitializationStageValues::Canonical(stages) => stages,
                 };
-                let profile = crate::math::initialization::InitializationProfile { solver: a.solver.clone(), stages };
+                let profile = crate::math::initialization::InitializationProfile {
+                    solver: a.solver.clone(),
+                    stages,
+                };
                 let prepared = self
                     .runtime
                     .native()

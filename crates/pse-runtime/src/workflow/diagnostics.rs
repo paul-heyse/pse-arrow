@@ -538,6 +538,8 @@ mod tests {
         let instance = pse_ids::SemanticId::from_bytes([1; 16]);
         let source_id = pse_ids::SemanticId::from_bytes([2; 16]);
         let e = pse_math::MathError::Instance {
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: Default::default(),
             instance,
             cause: Box::new(pse_math::MathError::Domain {

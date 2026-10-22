@@ -5,14 +5,19 @@ use super::*;
 use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingOutput, Profile};
-use pse_modeling::Bindings;
 use pse_model::generated::enums::ModelingAnalysisRoute as Route;
 use pse_model::generated::identities::RunId;
+use pse_modeling::Bindings;
 use pse_modeling::Limits;
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
     generated::authored::fit_cases,
 };
+
+struct FitPreparationInput<'a> {
+    binding: Option<&'a super::super::AdmittedBinding>,
+    pending: Option<&'a BTreeMap<InstanceId, super::super::PhysicalSimulationRequest>>,
+}
 
 /// Registry-owned experiment and parameter selection intent; measurements belong to typed records.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -74,12 +79,27 @@ fn port(model: &ModelingPreparation, id: SemanticId) -> Result<Port, WorkflowErr
         .cloned()
         .ok_or_else(|| contract("a shared fit parameter must bind a numerical parameter member"))
 }
-type FitSource = (Bindings, ModelingCaseBindings, ModelingPreparation, BTreeMap<usize, SemanticId>);
-fn fit_binding_refusal(class: pse_model::diagnostic::BoundaryClass, members: impl IntoIterator<Item = SemanticId>, reason: &str) -> WorkflowError {
-    let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(class,
-        pse_diagnostics::DiagnosticStage::StudyBinding, members,
-        pse_diagnostics::DiagnosticRule::StudyBindingTarget);
-    diagnostic.observations.insert("reason".into(), pse_model::diagnostic::Observation::Text(reason.into()));
+type FitSource = (
+    Bindings,
+    ModelingCaseBindings,
+    ModelingPreparation,
+    BTreeMap<usize, SemanticId>,
+);
+fn fit_binding_refusal(
+    class: pse_model::diagnostic::BoundaryClass,
+    members: impl IntoIterator<Item = SemanticId>,
+    reason: &str,
+) -> WorkflowError {
+    let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
+        class,
+        pse_diagnostics::DiagnosticStage::StudyBinding,
+        members,
+        pse_diagnostics::DiagnosticRule::StudyBindingTarget,
+    );
+    diagnostic.observations.insert(
+        "reason".into(),
+        pse_model::diagnostic::Observation::Text(reason.into()),
+    );
     diagnostic.into()
 }
 impl ModelingPackage {
@@ -96,72 +116,173 @@ impl ModelingPackage {
         Ok(self)
     }
     /// Admit global fit-parameter quantities through every experiment's shared physical port.
-    pub(in crate::workflow) async fn admit_fit_overlay(&self, id: FitId, overlay: &super::super::PointOverlay, limits: Limits, cancel: &crate::CancelSource) -> Result<super::super::AdmittedBinding, WorkflowError> {
+    pub(in crate::workflow) async fn admit_fit_overlay(
+        &self,
+        id: FitId,
+        overlay: &super::super::PointOverlay,
+        limits: Limits,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::super::AdmittedBinding, WorkflowError> {
         let declaration = self.fit_declaration(id).await?;
         let (sources, _) = self.fit_sources(&declaration, limits, cancel).await?;
         let mut entries = BTreeMap::new();
         for assignment in &overlay.assignments {
             let super::super::BindingTarget::Member(member) = assignment.target else {
-                return Err(fit_binding_refusal(pse_model::diagnostic::BoundaryClass::Unsupported, [], "fit point targets require an explicit global parameter identity"));
+                return Err(fit_binding_refusal(
+                    pse_model::diagnostic::BoundaryClass::Unsupported,
+                    [],
+                    "fit point targets require an explicit global parameter identity",
+                ));
             };
-            let index = declaration.parameters.iter().position(|parameter| parameter.symbol_id == member)
-                .ok_or_else(|| fit_binding_refusal(pse_model::diagnostic::BoundaryClass::InvalidModel, [member], "fit point target is not a declared global parameter"))?;
-            let (model, local) = sources.iter().find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
+            let index = declaration
+                .parameters
+                .iter()
+                .position(|parameter| parameter.symbol_id == member)
+                .ok_or_else(|| {
+                    fit_binding_refusal(
+                        pse_model::diagnostic::BoundaryClass::InvalidModel,
+                        [member],
+                        "fit point target is not a declared global parameter",
+                    )
+                })?;
+            let (model, local) = sources
+                .iter()
+                .find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
-            let mut entry = self.admit_target_quantity(model.compiled(), local, &assignment.value)?;
+            let mut entry =
+                self.admit_target_quantity(model.compiled(), local, &assignment.value)?;
             entry.member = member;
             entry.supplied = assignment.target.clone();
             if entries.insert(member, entry).is_some() {
-                return Err(fit_binding_refusal(pse_model::diagnostic::BoundaryClass::InvalidModel, [member], "duplicate fit parameter assignment"));
+                return Err(fit_binding_refusal(
+                    pse_model::diagnostic::BoundaryClass::InvalidModel,
+                    [member],
+                    "duplicate fit parameter assignment",
+                ));
             }
         }
-        Ok(super::super::AdmittedBinding { revision: self.revision.identity(), context: self.physical.identity(), entries })
+        Ok(super::super::AdmittedBinding {
+            revision: self.revision.identity(),
+            context: self.physical.identity(),
+            entries,
+        })
     }
-    pub(in crate::workflow) async fn validate_fit_binding(&self, id: FitId, binding: &super::super::AdmittedBinding, limits: Limits, cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+    pub(in crate::workflow) async fn validate_fit_binding(
+        &self,
+        id: FitId,
+        binding: &super::super::AdmittedBinding,
+        limits: Limits,
+        cancel: &crate::CancelSource,
+    ) -> Result<(), WorkflowError> {
         let declaration = self.fit_declaration(id).await?;
         let (sources, _) = self.fit_sources(&declaration, limits, cancel).await?;
         self.validate_fit_source_binding(&declaration, &sources, binding)
     }
-    fn validate_fit_source_binding(&self, declaration: &FitDeclaration, sources: &[FitSource], binding: &super::super::AdmittedBinding) -> Result<(), WorkflowError> {
-        if binding.revision != self.revision.identity() || binding.context != self.physical.identity() {
-            return Err(fit_binding_refusal(pse_model::diagnostic::BoundaryClass::Incompatible, [], "fit binding source/context differs"));
+    fn validate_fit_source_binding(
+        &self,
+        declaration: &FitDeclaration,
+        sources: &[FitSource],
+        binding: &super::super::AdmittedBinding,
+    ) -> Result<(), WorkflowError> {
+        if binding.revision != self.revision.identity()
+            || binding.context != self.physical.identity()
+        {
+            return Err(fit_binding_refusal(
+                pse_model::diagnostic::BoundaryClass::Incompatible,
+                [],
+                "fit binding source/context differs",
+            ));
         }
         for (member, entry) in &binding.entries {
-            let index = declaration.parameters.iter().position(|parameter| parameter.symbol_id == *member)
-                .ok_or_else(|| fit_binding_refusal(pse_model::diagnostic::BoundaryClass::Incompatible, [*member], "fit binding target is not a global parameter"))?;
-            if entry.member != *member || !entry.parameter || entry.supplied != super::super::BindingTarget::Member(*member) {
-                return Err(fit_binding_refusal(pse_model::diagnostic::BoundaryClass::Incompatible, [*member], "fit binding must retain its global parameter role"));
+            let index = declaration
+                .parameters
+                .iter()
+                .position(|parameter| parameter.symbol_id == *member)
+                .ok_or_else(|| {
+                    fit_binding_refusal(
+                        pse_model::diagnostic::BoundaryClass::Incompatible,
+                        [*member],
+                        "fit binding target is not a global parameter",
+                    )
+                })?;
+            if entry.member != *member
+                || !entry.parameter
+                || entry.supplied != super::super::BindingTarget::Member(*member)
+            {
+                return Err(fit_binding_refusal(
+                    pse_model::diagnostic::BoundaryClass::Incompatible,
+                    [*member],
+                    "fit binding must retain its global parameter role",
+                ));
             }
-            let (model, local) = sources.iter().find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
+            let (model, local) = sources
+                .iter()
+                .find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
             let mut local_entry = entry.clone();
             local_entry.member = local;
-            self.validate_binding(model.compiled(), &super::super::AdmittedBinding {
-                revision: binding.revision, context: binding.context,
-                entries: BTreeMap::from([(local, local_entry)]),
-            })?;
+            self.validate_binding(
+                model.compiled(),
+                &super::super::AdmittedBinding {
+                    revision: binding.revision,
+                    context: binding.context,
+                    entries: BTreeMap::from([(local, local_entry)]),
+                },
+            )?;
         }
         Ok(())
     }
-    async fn fit_sources(&self, declaration: &FitDeclaration, limits: Limits, cancel: &crate::CancelSource) -> Result<(Vec<FitSource>, Vec<Port>), WorkflowError> {
+    async fn fit_sources(
+        &self,
+        declaration: &FitDeclaration,
+        limits: Limits,
+        cancel: &crate::CancelSource,
+    ) -> Result<(Vec<FitSource>, Vec<Port>), WorkflowError> {
         let mut sources = Vec::new();
         let mut ports: Vec<Option<Port>> = vec![None; declaration.parameters.len()];
         for experiment in &declaration.experiments {
-            let (mut bindings, case) = self.declared_case(experiment.case_id, experiment.route, limits, cancel).await?;
-            bindings.demand.extend(experiment.bindings.iter().map(|binding| binding.path.clone()));
-            bindings.demand.extend(declaration.observations.iter().filter(|observation| observation.experiment_id == experiment.experiment_id).map(|observation| observation.output_path.clone()));
+            let (mut bindings, case) = self
+                .declared_case(experiment.case_id, experiment.route, limits, cancel)
+                .await?;
+            bindings.demand.extend(
+                experiment
+                    .bindings
+                    .iter()
+                    .map(|binding| binding.path.clone()),
+            );
+            bindings.demand.extend(
+                declaration
+                    .observations
+                    .iter()
+                    .filter(|observation| observation.experiment_id == experiment.experiment_id)
+                    .map(|observation| observation.output_path.clone()),
+            );
             bindings.demand.sort();
             bindings.demand.dedup();
-            let model = self.prepare(experiment.case_id, experiment.experiment_id, bindings.clone(), limits, cancel).await?;
+            let model = self
+                .prepare(
+                    experiment.case_id,
+                    experiment.experiment_id,
+                    bindings.clone(),
+                    limits,
+                    cancel,
+                )
+                .await?;
             let mut local = BTreeMap::new();
             let mut local_ids = BTreeSet::new();
             for binding in &experiment.bindings {
-                let parameter = declaration.parameters.iter().position(|parameter| parameter.symbol_id == binding.parameter_id)
+                let parameter = declaration
+                    .parameters
+                    .iter()
+                    .position(|parameter| parameter.symbol_id == binding.parameter_id)
                     .ok_or_else(|| contract("experiment binds an undeclared fit parameter"))?;
                 let member = member(&model, &binding.path)?;
                 let mut parameter_port = port(&model, member)?;
                 parameter_port.id = binding.parameter_id;
-                if ports[parameter].as_ref().is_some_and(|old| old != &parameter_port) {
+                if ports[parameter]
+                    .as_ref()
+                    .is_some_and(|old| old != &parameter_port)
+                {
                     return Err(contract("shared parameter physical contract mismatch"));
                 }
                 ports[parameter] = Some(parameter_port);
@@ -171,7 +292,10 @@ impl ModelingPackage {
             }
             sources.push((bindings, case, model, local));
         }
-        let ports = ports.into_iter().map(|port| port.ok_or_else(|| contract("fit parameter has no experiment binding"))).collect::<Result<Vec<_>, _>>()?;
+        let ports = ports
+            .into_iter()
+            .map(|port| port.ok_or_else(|| contract("fit parameter has no experiment binding")))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok((sources, ports))
     }
     /// Compile authored case paths once; trial parameter values never enter source queries.
@@ -183,33 +307,80 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
-        self.prepare_fit_bound(id, profile, compiler, limits, None, cancel).await
+        self.prepare_fit_bound(id, profile, compiler, limits, None, cancel)
+            .await
     }
     /// Build each point's declared values, numerical premises and fresh experiment ICs together.
     pub(in crate::workflow) async fn prepare_fit_bound(
-        &self, id: FitId, profile: FitProfile, compiler: Profile, limits: Limits,
-        binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
+        &self,
+        id: FitId,
+        profile: FitProfile,
+        compiler: Profile,
+        limits: Limits,
+        binding: Option<&super::super::AdmittedBinding>,
+        cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
-        self.prepare_fit_input(id, profile, compiler, limits, binding, None, cancel).await
+        self.prepare_fit_input(
+            id,
+            profile,
+            compiler,
+            limits,
+            FitPreparationInput {
+                binding,
+                pending: None,
+            },
+            cancel,
+        )
+        .await
     }
     /// Prepare fitting with physically typed experiment controls under one shared owner.
     pub async fn prepare_physical_fit(
-        &self, id: FitId, request: super::super::PhysicalFitRequest,
-        compiler: Profile, limits: Limits, binding: Option<&super::super::AdmittedBinding>,
+        &self,
+        id: FitId,
+        request: super::super::PhysicalFitRequest,
+        compiler: Profile,
+        limits: Limits,
+        binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
         let request = request.retain(&self.runtime)?;
         let pending = request.settings.simulations.clone();
-        let profiles = pending.iter().map(|(id, request)| (*id, request.controls.clone().with_coordinates(Vec::new(), Vec::new(), Vec::new()))).collect();
+        let profiles = pending
+            .iter()
+            .map(|(id, request)| {
+                (
+                    *id,
+                    request
+                        .controls
+                        .clone()
+                        .with_coordinates(Vec::new(), Vec::new(), Vec::new()),
+                )
+            })
+            .collect();
         let profile = request.settings.with_simulations(profiles).profile()?;
-        self.prepare_fit_input(id, profile, compiler, limits, binding, Some(&pending), cancel).await
+        self.prepare_fit_input(
+            id,
+            profile,
+            compiler,
+            limits,
+            FitPreparationInput {
+                binding,
+                pending: Some(&pending),
+            },
+            cancel,
+        )
+        .await
     }
     async fn prepare_fit_input(
-        &self, id: FitId, profile: FitProfile, compiler: Profile, limits: Limits,
-        binding: Option<&super::super::AdmittedBinding>,
-        pending: Option<&BTreeMap<InstanceId, super::super::PhysicalSimulationRequest>>,
+        &self,
+        id: FitId,
+        profile: FitProfile,
+        compiler: Profile,
+        limits: Limits,
+        input: FitPreparationInput<'_>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        let FitPreparationInput { binding, pending } = input;
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let mut original_profile = profile.clone();
@@ -217,7 +388,7 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let (mut problem, assessments) = self
-                    .prepare_fit_problem_bound(id, profile, compiler, limits, binding, pending, cancel)
+                    .prepare_fit_problem_bound(id, profile, compiler, limits, FitPreparationInput { binding, pending }, cancel)
                     .await?;
                 original_profile.simulations = problem.profile.simulations.clone();
                 let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(self, id, &original_profile, compiler, limits, binding, problem.residual_lm_criteria)?;
@@ -321,14 +492,29 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
-        self.prepare_fit_problem_bound(id, profile, compiler, limits, None, None, cancel).await
+        self.prepare_fit_problem_bound(
+            id,
+            profile,
+            compiler,
+            limits,
+            FitPreparationInput {
+                binding: None,
+                pending: None,
+            },
+            cancel,
+        )
+        .await
     }
     async fn prepare_fit_problem_bound(
-        &self, id: FitId, mut profile: FitProfile, compiler: Profile, limits: Limits,
-        binding: Option<&super::super::AdmittedBinding>,
-        pending: Option<&BTreeMap<InstanceId, super::super::PhysicalSimulationRequest>>,
+        &self,
+        id: FitId,
+        mut profile: FitProfile,
+        compiler: Profile,
+        limits: Limits,
+        input: FitPreparationInput<'_>,
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
+        let FitPreparationInput { binding, pending } = input;
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
@@ -483,10 +669,18 @@ impl ModelingPackage {
                 }
                 for ((_, case, _, local), experiment) in sources.iter_mut().zip(&d.experiments) {
                     for binding in &experiment.bindings {
-                        let parameter = d.parameters.iter().position(|parameter| parameter.symbol_id == binding.parameter_id)
-                            .ok_or_else(|| contract("experiment binds an undeclared fit parameter"))?;
-                        if !local.contains_key(&parameter) { return Err(contract("fit parameter binding inventory differs")); }
-                        case.values.insert(binding.path.clone(), d.parameters[parameter].value);
+                        let parameter = d
+                            .parameters
+                            .iter()
+                            .position(|parameter| parameter.symbol_id == binding.parameter_id)
+                            .ok_or_else(|| {
+                                contract("experiment binds an undeclared fit parameter")
+                            })?;
+                        if !local.contains_key(&parameter) {
+                            return Err(contract("fit parameter binding inventory differs"));
+                        }
+                        case.values
+                            .insert(binding.path.clone(), d.parameters[parameter].value);
                     }
                 }
                 // The actual admitted steady inventories prove this residual-only shape before
@@ -722,8 +916,14 @@ impl ModelingPackage {
                                 cancel,
                             )
                             .await?;
-                        if let Some(request) = pending.and_then(|requests| requests.get(&e.experiment_id)) {
-                            let admitted = request.controls.clone().with_coordinates(simulation.profile().atol.clone(), simulation.profile().out_atol.clone(), simulation.profile().parameter_scales.clone());
+                        if let Some(request) =
+                            pending.and_then(|requests| requests.get(&e.experiment_id))
+                        {
+                            let admitted = request.controls.clone().with_coordinates(
+                                simulation.profile().atol.clone(),
+                                simulation.profile().out_atol.clone(),
+                                simulation.profile().parameter_scales.clone(),
+                            );
                             profile.simulations.insert(e.experiment_id, admitted);
                             simulation.retain_physical_request(request);
                         }
@@ -1376,17 +1576,24 @@ impl PreparedFit {
 #[cfg(test)]
 mod parameter_point_tests {
     use super::*;
-    use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
     use crate::workflow::tests::{compiler_profile, id};
+    use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
 
     #[tokio::test]
     async fn fit_parameter_points_preserve_roles_fresh_starts_units_and_replay() {
         let original = regression::package(regression::declared(), [1.; 4]).await;
         let mut physical = original.physical.clone();
         let quantity = physical.quantities.neutral_dimensionless().unwrap();
-        let canonical = physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
+        let canonical = physical
+            .quantities
+            .quantity_type(quantity)
+            .unwrap()
+            .canonical_unit;
         let mut percent = physical.quantities.unit(canonical).unwrap().clone();
-        percent.id = UnitId::from_id(pse_ids::named_id(canonical.as_id(), "fit-parameter-percent"));
+        percent.id = UnitId::from_id(pse_ids::named_id(
+            canonical.as_id(),
+            "fit-parameter-percent",
+        ));
         percent.symbol = "fit-percent".into();
         percent.scale_to_canonical = 0.01;
         // This representation is a new atom, rather than the canonical unit's empty product.
@@ -1395,64 +1602,171 @@ mod parameter_point_tests {
         let mut builder = physical.quantities.to_builder();
         builder.unit(percent);
         physical.quantities = Arc::new(builder.build().unwrap());
-        physical.key = pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+        physical.key = pse_compiler::workspace::physical_identity(
+            &physical.quantities,
+            &physical.preconditions,
+        );
         let mut declarations = original.fit_declarations().await.unwrap();
         declarations.fits[0].parameters[0].fixed = true;
         declarations.fits[0].parameters[1].lower = None;
         declarations.fits[0].parameters[1].upper = None;
-        let package = original.runtime.modeling_package(original.declarations().await.unwrap().to_vec(), physical).await.unwrap()
-            .with_fit_declarations(declarations.clone()).await.unwrap();
+        let package = original
+            .runtime
+            .modeling_package(original.declarations().await.unwrap().to_vec(), physical)
+            .await
+            .unwrap()
+            .with_fit_declarations(declarations.clone())
+            .await
+            .unwrap();
         let fit = id(32).into();
-        let overlay = |fixed, free, unit| PointOverlay { assignments: vec![
-            BindingAssignment { target: BindingTarget::Member(id(1)), value: BindingQuantity {
-                magnitude: pse_model::scalars::FiniteBound::try_new(fixed).unwrap(), quantity: quantity.as_id(), unit,
-            } },
-            BindingAssignment { target: BindingTarget::Member(id(2)), value: BindingQuantity {
-                magnitude: pse_model::scalars::FiniteBound::try_new(free).unwrap(), quantity: quantity.as_id(), unit,
-            } },
-        ] };
+        let overlay = |fixed, free, unit| PointOverlay {
+            assignments: vec![
+                BindingAssignment {
+                    target: BindingTarget::Member(id(1)),
+                    value: BindingQuantity {
+                        magnitude: pse_model::scalars::FiniteBound::try_new(fixed).unwrap(),
+                        quantity: quantity.as_id(),
+                        unit,
+                    },
+                },
+                BindingAssignment {
+                    target: BindingTarget::Member(id(2)),
+                    value: BindingQuantity {
+                        magnitude: pse_model::scalars::FiniteBound::try_new(free).unwrap(),
+                        quantity: quantity.as_id(),
+                        unit,
+                    },
+                },
+            ],
+        };
         let mut profile = regression::profile(HessianMode::GaussNewton, None);
         profile.optimizer = FitOptimizer::ResidualLm;
         profile.solver.selection = native::solve::SolverSelection::Auto;
         let cancel = crate::CancelSource::new();
-        let canonical_binding = package.admit_fit_overlay(fit, &overlay(2., 3., canonical.as_id()), Limits::default(), &cancel).await.unwrap();
+        let canonical_binding = package
+            .admit_fit_overlay(
+                fit,
+                &overlay(2., 3., canonical.as_id()),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
         let operation = crate::workflow::StudyOperation {
-            version: pse_model::document::Version, source: crate::workflow::OperationSource::of(&package),
-            preparation: crate::workflow::PreparationSettings { compiler: compiler_profile(), limits: Limits::default() },
-            operation: crate::workflow::OperationRequest::Fit(crate::workflow::FitOperation { fit,
+            version: pse_model::document::Version,
+            source: crate::workflow::OperationSource::of(&package),
+            preparation: crate::workflow::PreparationSettings {
+                compiler: compiler_profile(),
+                limits: Limits::default(),
+            },
+            operation: crate::workflow::OperationRequest::Fit(crate::workflow::FitOperation {
+                fit,
                 settings: crate::workflow::PhysicalFitRequest::new(FitPreparationDocument {
                     optimizer: FitOptimizer::ResidualLm,
                     solver: crate::math::settings::SolveSettings {
                         intent: SolveIntent::Optimize,
-                        controls: native::solve::Controls { hessian: HessianMode::GaussNewton, ..Default::default() },
+                        controls: native::solve::Controls {
+                            hessian: HessianMode::GaussNewton,
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
-                    simulations: BTreeMap::new(), rank_tolerance: 1e-8, max_cells: 100000,
-                    derivatives: FitDerivatives::Responses, experiment_workers: pse_model::scalar!(PositiveCount(1)), uncertainty: None,
+                    simulations: BTreeMap::new(),
+                    rank_tolerance: 1e-8,
+                    max_cells: 100000,
+                    derivatives: FitDerivatives::Responses,
+                    experiment_workers: pse_model::scalar!(PositiveCount(1)),
+                    uncertainty: None,
                 }),
-            }), output: crate::workflow::StudyOutputDemand::Full {}, admitted_horizon: None,
+            }),
+            output: crate::workflow::StudyOutputDemand::Full {},
+            admitted_horizon: None,
         };
-        let (converted, seed_need) = package.admit_operation_overlay(&operation, &overlay(200., 300., percent_id.as_id()), &mut None, &cancel).await.unwrap();
+        let (converted, seed_need) = package
+            .admit_operation_overlay(
+                &operation,
+                &overlay(200., 300., percent_id.as_id()),
+                &mut None,
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
         assert_eq!(converted.identity(), canonical_binding.identity());
-        let crate::workflow::PreparedStudyOperation::Fit(first) = package.prepare_bound_operation(&operation, &converted, &cancel).await.unwrap() else { panic!("fit point"); };
+        let crate::workflow::PreparedStudyOperation::Fit(first) = package
+            .prepare_bound_operation(&operation, &converted, &cancel)
+            .await
+            .unwrap()
+        else {
+            panic!("fit point");
+        };
         assert_eq!(first.problem.initial, vec![3.]);
         assert!(first.declaration().parameters[0].fixed);
         assert!(!first.declaration().parameters[1].fixed);
-        assert_eq!(first.declaration().parameters[0].lower, declarations.fits[0].parameters[0].lower);
-        assert_eq!(first.declaration().parameters[1].scale, declarations.fits[0].parameters[1].scale);
+        assert_eq!(
+            first.declaration().parameters[0].lower,
+            declarations.fits[0].parameters[0].lower
+        );
+        assert_eq!(
+            first.declaration().parameters[1].scale,
+            declarations.fits[0].parameters[1].scale
+        );
         let mut fresh_declarations = declarations.clone();
         fresh_declarations.fits[0].parameters[0].value = 2.;
         fresh_declarations.fits[0].parameters[1].value = 3.;
-        let fresh_source = package.clone().with_fit_declarations(fresh_declarations).await.unwrap();
-        let fresh = fresh_source.prepare_fit(fit, profile.clone(), compiler_profile(), Limits::default(), &cancel).await.unwrap();
+        let fresh_source = package
+            .clone()
+            .with_fit_declarations(fresh_declarations)
+            .await
+            .unwrap();
+        let fresh = fresh_source
+            .prepare_fit(
+                fit,
+                profile.clone(),
+                compiler_profile(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_eq!(first.problem.initial, fresh.problem.initial);
-        assert_eq!(serde_json::to_value(first.declaration()).unwrap(), serde_json::to_value(fresh.declaration()).unwrap());
-        let next_binding = package.admit_fit_overlay(fit, &overlay(4., 5., canonical.as_id()), Limits::default(), &cancel).await.unwrap();
-        let next = package.prepare_fit_bound(fit, profile.clone(), compiler_profile(), Limits::default(), Some(&next_binding), &cancel).await.unwrap();
+        assert_eq!(
+            serde_json::to_value(first.declaration()).unwrap(),
+            serde_json::to_value(fresh.declaration()).unwrap()
+        );
+        let next_binding = package
+            .admit_fit_overlay(
+                fit,
+                &overlay(4., 5., canonical.as_id()),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let next = package
+            .prepare_fit_bound(
+                fit,
+                profile.clone(),
+                compiler_profile(),
+                Limits::default(),
+                Some(&next_binding),
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_eq!(next.problem.initial, vec![5.]);
         assert_eq!(first.problem.initial, vec![3.]);
-        let retry = package.prepare_fit_bound(fit, profile, compiler_profile(), Limits::default(), Some(&converted), &cancel).await.unwrap();
+        let retry = package
+            .prepare_fit_bound(
+                fit,
+                profile,
+                compiler_profile(),
+                Limits::default(),
+                Some(&converted),
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert_eq!(retry.identity(), first.identity());
         assert_eq!(retry.problem.initial, vec![3.]);
         let constructor = first.original_inputs.document(0);
@@ -1462,6 +1776,14 @@ mod parameter_point_tests {
         assert_eq!(replay.problem.initial, first.problem.initial);
         let mut ambiguous = overlay(2., 3., canonical.as_id());
         ambiguous.assignments[0].target = BindingTarget::Path("a".into());
-        assert_eq!(package.admit_fit_overlay(fit, &ambiguous, Limits::default(), &cancel).await.unwrap_err().boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::Unsupported);
+        assert_eq!(
+            package
+                .admit_fit_overlay(fit, &ambiguous, Limits::default(), &cancel)
+                .await
+                .unwrap_err()
+                .boundary_diagnostic()
+                .class,
+            pse_model::diagnostic::BoundaryClass::Unsupported
+        );
     }
 }

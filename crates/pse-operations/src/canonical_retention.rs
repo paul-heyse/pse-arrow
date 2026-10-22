@@ -63,7 +63,9 @@ impl RetentionOwner {
 /// `after` observes that frontier and absence completes the current pass.
 /// Edge-heavy versions keep their candidate at the cursor until its bounded edge
 /// pages have been removed, so a caller does not lose the orphan frontier.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ReclamationPage {
     /// Observed canonical frontier; no caller supplies or resets this cursor.
@@ -168,7 +170,8 @@ impl CanonicalStore {
     /// Explicitly forget only this revision's default history root. Durable run,
     /// product, analysis, attempt and protected-reader roots remain independent.
     pub async fn forget_history(&self, revision: &Revision) -> Result<(), CanonicalError> {
-        self.drop_retained_root(revision, &RetentionOwner::History(revision.key.clone())).await
+        self.drop_retained_root(revision, &RetentionOwner::History(revision.key.clone()))
+            .await
     }
 
     /// Drop exactly a history or product owner's expected selection. Lifecycle roots
@@ -183,48 +186,49 @@ impl CanonicalStore {
         activity
             .scope(async {
                 let deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
-                within_clock(
-                    deadline,
-                    async {
-                        owner.validate()?;
-                        if matches!(
-                            owner,
-                            RetentionOwner::Run(_)
-                                | RetentionOwner::Analysis(_)
-                                | RetentionOwner::ActiveAttempt(_)
-                        ) {
-                            return Err(CanonicalError::Configuration(
-                                "lifecycle roots are released only by their owning retirement"
-                                    .into(),
-                            ));
-                        }
-                        let mut attempt = 0;
-                        loop {
-                            self.ensure_writes()?;
-                            let result = bounded_query(
-                                self.db
-                                    .query(DROP_ROOT)
-                                    .bind(("problem", revision.problem.clone()))
-                                    .bind(("revision", revision.key.clone()))
-                                    .bind(("root", owner.key()))
-                                    .bind(("owner_kind", owner.parts().0))
-                                    .bind(("owner", owner.parts().1.to_owned())),
-                            )
-                            .await
-                            .map(|_| ());
-                            match result {
-                                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                                    tokio::task::yield_now().await;
-                                    attempt += 1;
-                                }
-                                Ok(()) => return Ok(()),
-                                Err(error) => return Err(error.exhaust_conflict("canonical_retention", RETRIES as u32)),
+                within_clock(deadline, async {
+                    owner.validate()?;
+                    if matches!(
+                        owner,
+                        RetentionOwner::Run(_)
+                            | RetentionOwner::Analysis(_)
+                            | RetentionOwner::ActiveAttempt(_)
+                    ) {
+                        return Err(CanonicalError::Configuration(
+                            "lifecycle roots are released only by their owning retirement".into(),
+                        ));
+                    }
+                    let mut attempt = 0;
+                    loop {
+                        self.ensure_writes()?;
+                        let result = bounded_query(
+                            self.db
+                                .query(DROP_ROOT)
+                                .bind(("problem", revision.problem.clone()))
+                                .bind(("revision", revision.key.clone()))
+                                .bind(("root", owner.key()))
+                                .bind(("owner_kind", owner.parts().0))
+                                .bind(("owner", owner.parts().1.to_owned())),
+                        )
+                        .await
+                        .map(|_| ());
+                        match result {
+                            Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                                tokio::task::yield_now().await;
+                                attempt += 1;
+                            }
+                            Ok(()) => return Ok(()),
+                            Err(error) => {
+                                return Err(
+                                    error.exhaust_conflict("canonical_retention", RETRIES as u32)
+                                );
                             }
                         }
-                    },
-                )
+                    }
+                })
                 .await?;
-                self.reclaim_source_after_commit(&revision.problem, deadline).await;
+                self.reclaim_source_after_commit(&revision.problem, deadline)
+                    .await;
                 Ok(())
             })
             .await
@@ -233,7 +237,10 @@ impl CanonicalStore {
     /// Continue one canonical cursor through at most 64 closed intervals.
     /// Protected candidates advance the frontier; a partial physical cleanup keeps
     /// its predecessor. End-of-pass reset is atomic and later calls revisit holds.
-    pub async fn reclaim_source_page(&self, problem: &str) -> Result<ReclamationPage, CanonicalError> {
+    pub async fn reclaim_source_page(
+        &self,
+        problem: &str,
+    ) -> Result<ReclamationPage, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
             within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
@@ -266,10 +273,18 @@ impl CanonicalStore {
 
     /// The committed mutation has already left its timeout owner; cleanup keeps
     /// the same original deadline and cannot replace its immutable receipt.
-    pub(crate) async fn reclaim_source_after_commit(&self, problem: &str, deadline: tokio::time::Instant) {
-        postcommit_cleanup(deadline, "canonical_retention::postcommit_source_page_deferred", self.reclaim_source_page(problem)).await;
+    pub(crate) async fn reclaim_source_after_commit(
+        &self,
+        problem: &str,
+        deadline: tokio::time::Instant,
+    ) {
+        postcommit_cleanup(
+            deadline,
+            "canonical_retention::postcommit_source_page_deferred",
+            self.reclaim_source_page(problem),
+        )
+        .await;
     }
-
 }
 
 const RETAIN: &str = r#"BEGIN;
@@ -312,18 +327,22 @@ fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
-
-
 #[cfg(test)]
 mod postcommit_clock_tests {
     use super::*;
-    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
 
     #[tokio::test]
-    async fn committed_receipt_survives_cleanup_deadline_and_original_clock_is_not_renewed() -> Result<(), CanonicalError> {
+    async fn committed_receipt_survives_cleanup_deadline_and_original_clock_is_not_renewed()
+    -> Result<(), CanonicalError> {
         struct Dropped(Arc<AtomicBool>);
         impl Drop for Dropped {
-            fn drop(&mut self) { self.0.store(true, Ordering::SeqCst); }
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
         }
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(100);
         let receipt = within_clock(deadline, async { Ok(37_u64) }).await?;
@@ -335,20 +354,38 @@ mod postcommit_clock_tests {
             entered.store(true, Ordering::SeqCst);
             gate.notified().await;
             Ok(true)
-        }).await;
-        assert_eq!(receipt, 37, "cleanup expiry does not replace the committed acknowledgment");
+        })
+        .await;
+        assert_eq!(
+            receipt, 37,
+            "cleanup expiry does not replace the committed acknowledgment"
+        );
         assert!(!deferred);
         assert!(entered.load(Ordering::SeqCst));
-        assert!(dropped.load(Ordering::SeqCst), "the bounded cleanup drains synchronously");
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "the bounded cleanup drains synchronously"
+        );
         let started_after_expiry = AtomicBool::new(false);
         let repeated = postcommit_cleanup(deadline, "test:expired_postcommit_deferred", async {
             started_after_expiry.store(true, Ordering::SeqCst);
             Ok(true)
-        }).await;
+        })
+        .await;
         assert!(!repeated);
-        assert!(!started_after_expiry.load(Ordering::SeqCst), "no fresh cleanup budget or request after original expiry");
-        let explicit = within_clock(deadline, std::future::pending::<Result<(), CanonicalError>>()).await;
-        assert!(matches!(explicit, Err(CanonicalError::Timeout)), "an explicit continuation remains a typed failure");
+        assert!(
+            !started_after_expiry.load(Ordering::SeqCst),
+            "no fresh cleanup budget or request after original expiry"
+        );
+        let explicit = within_clock(
+            deadline,
+            std::future::pending::<Result<(), CanonicalError>>(),
+        )
+        .await;
+        assert!(
+            matches!(explicit, Err(CanonicalError::Timeout)),
+            "an explicit continuation remains a typed failure"
+        );
         Ok(())
     }
 }
@@ -412,77 +449,179 @@ mod canonical_server_unit {
     #[tokio::test]
     async fn canonical_source_cursor_reopens_past_a_protected_first_page() {
         let (store, database) = fixture().await;
-        let initial = (0..64).map(|index| {
-            let mut value = edit(&format!("protected-{index}"), 0);
-            value.logical = format!("protected-{index}"); value.name = value.logical.clone();
-            value.version.as_mut().unwrap().logical = value.logical.clone(); value
-        }).collect::<Vec<_>>();
-        let first = store.edit("cursor-problem", None, "a-first", &initial).await.unwrap();
-        let pin = store.protect(first.clone(), Duration::from_secs(60)).await.unwrap();
-        let last = (0..6).map(|index| {
-            let mut value = edit(&format!("unprotected-{index}"), 0);
-            value.logical = format!("unprotected-{index}"); value.name = value.logical.clone();
-            value.version.as_mut().unwrap().logical = value.logical.clone(); value
-        }).collect::<Vec<_>>();
-        let mut replacement = initial.iter().cloned().map(|mut value| {value.version=None; value}).collect::<Vec<_>>();
+        let initial = (0..64)
+            .map(|index| {
+                let mut value = edit(&format!("protected-{index}"), 0);
+                value.logical = format!("protected-{index}");
+                value.name = value.logical.clone();
+                value.version.as_mut().unwrap().logical = value.logical.clone();
+                value
+            })
+            .collect::<Vec<_>>();
+        let first = store
+            .edit("cursor-problem", None, "a-first", &initial)
+            .await
+            .unwrap();
+        let pin = store
+            .protect(first.clone(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        let last = (0..6)
+            .map(|index| {
+                let mut value = edit(&format!("unprotected-{index}"), 0);
+                value.logical = format!("unprotected-{index}");
+                value.name = value.logical.clone();
+                value.version.as_mut().unwrap().logical = value.logical.clone();
+                value
+            })
+            .collect::<Vec<_>>();
+        let mut replacement = initial
+            .iter()
+            .cloned()
+            .map(|mut value| {
+                value.version = None;
+                value
+            })
+            .collect::<Vec<_>>();
         replacement.extend(last.clone());
-        let second = store.edit("cursor-problem", Some("a-first"), "b-second", &replacement).await.unwrap();
-        let removals = last.into_iter().map(|mut value| {value.version=None; value}).collect::<Vec<_>>();
-        store.edit("cursor-problem", Some("b-second"), "c-empty", &removals).await.unwrap();
+        let second = store
+            .edit("cursor-problem", Some("a-first"), "b-second", &replacement)
+            .await
+            .unwrap();
+        let removals = last
+            .into_iter()
+            .map(|mut value| {
+                value.version = None;
+                value
+            })
+            .collect::<Vec<_>>();
+        store
+            .edit("cursor-problem", Some("b-second"), "c-empty", &removals)
+            .await
+            .unwrap();
         store.forget_history(&first).await.unwrap();
         let mut cursor = bounded_query(store.db.query("SELECT source_reclaim_after FROM ONLY type::record('canonical_guards','retention:cursor-problem');")).await.unwrap();
         let mut cursor = cursor.take::<Option<Object>>(0).unwrap().unwrap();
-        let after = canonical_codec::decode_string(canonical_codec::required(&mut cursor,"source_reclaim_after").unwrap()).unwrap();
-        assert!(!after.is_empty(), "the first protected page advances its canonical frontier");
+        let after = canonical_codec::decode_string(
+            canonical_codec::required(&mut cursor, "source_reclaim_after").unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !after.is_empty(),
+            "the first protected page advances its canonical frontier"
+        );
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
-        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap(); options.database = database.clone();
-        let peer = crate::testing::canonical_fixture_peer(&store,&options).unwrap();
+        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = database.clone();
+        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
         peer.forget_history(&second).await.unwrap();
-        for index in 0..6 { assert!(store.object(&format!("unprotected-{index}")).await.unwrap().is_none(), "later candidates are not starved by the first64 protected intervals"); }
-        for index in 0..64 { assert!(store.object(&format!("protected-{index}")).await.unwrap().is_some()); }
+        for index in 0..6 {
+            assert!(
+                store
+                    .object(&format!("unprotected-{index}"))
+                    .await
+                    .unwrap()
+                    .is_none(),
+                "later candidates are not starved by the first64 protected intervals"
+            );
+        }
+        for index in 0..64 {
+            assert!(
+                store
+                    .object(&format!("protected-{index}"))
+                    .await
+                    .unwrap()
+                    .is_some()
+            );
+        }
         store.release(&pin).await.unwrap();
         let page = peer.reclaim_source_page("cursor-problem").await.unwrap();
-        assert_eq!((page.examined,page.memberships,page.versions),(64,64,64));
+        assert_eq!(
+            (page.examined, page.memberships, page.versions),
+            (64, 64, 64)
+        );
         let end = peer.reclaim_source_page("cursor-problem").await.unwrap();
-        assert_eq!(end.examined,0); assert!(end.after.is_none());
+        assert_eq!(end.examined, 0);
+        assert!(end.after.is_none());
         drop(peer);
-        remove(&store,&database).await;
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
-    async fn source_activation_replay_and_postcommit_cleanup_failure_preserve_receipts() -> Result<(), CanonicalError> {
-        let (store,database) = fixture().await;
-        let start = wire::SCHEMA.find("DEFINE FUNCTION fn::pse_retention_v1::source_step(").unwrap();
+    async fn source_activation_replay_and_postcommit_cleanup_failure_preserve_receipts()
+    -> Result<(), CanonicalError> {
+        let (store, database) = fixture().await;
+        let start = wire::SCHEMA
+            .find("DEFINE FUNCTION fn::pse_retention_v1::source_step(")
+            .unwrap();
         let suffix = &wire::SCHEMA[start..];
-        let next = suffix["DEFINE FUNCTION ".len()..].find("DEFINE FUNCTION ").unwrap()+"DEFINE FUNCTION ".len();
+        let next = suffix["DEFINE FUNCTION ".len()..]
+            .find("DEFINE FUNCTION ")
+            .unwrap()
+            + "DEFINE FUNCTION ".len();
         let original = &suffix[..next];
-        let restored = original.replacen("DEFINE FUNCTION ","DEFINE FUNCTION OVERWRITE ",1);
-        let refused = restored.replacen("-> object {","-> object { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable';",1);
-        assert_ne!(refused,restored);
-        for direct in [true,false] {
+        let restored = original.replacen("DEFINE FUNCTION ", "DEFINE FUNCTION OVERWRITE ", 1);
+        let refused = restored.replacen(
+            "-> object {",
+            "-> object { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable';",
+            1,
+        );
+        assert_ne!(refused, restored);
+        for direct in [true, false] {
             bounded_query(store.db.query(refused.clone())).await?;
-            let problem = if direct {"receipt-direct"} else {"receipt-stage-ack"};
+            let problem = if direct {
+                "receipt-direct"
+            } else {
+                "receipt-stage-ack"
+            };
             let operation = format!("{problem}-first");
             let version = format!("{problem}-v1");
             let second_version = format!("{problem}-v2");
-            let edits = [edit(&version,0)];
-            let crate::canonical_staging::StageOutcome::Closed(stage) = store.stage_edits(problem,None,&operation,&edits).await? else {
-                return Err(CanonicalError::Configuration("fresh cleanup fixture was unexpectedly acknowledged".into()));
+            let edits = [edit(&version, 0)];
+            let crate::canonical_staging::StageOutcome::Closed(stage) =
+                store.stage_edits(problem, None, &operation, &edits).await?
+            else {
+                return Err(CanonicalError::Configuration(
+                    "fresh cleanup fixture was unexpectedly acknowledged".into(),
+                ));
             };
             let first = store.activate_source_stage(&stage).await?;
-            let second = store.edit(problem,Some(&operation),&format!("{problem}-second"),&[edit(&second_version,0)]).await?;
+            let second = store
+                .edit(
+                    problem,
+                    Some(&operation),
+                    &format!("{problem}-second"),
+                    &[edit(&second_version, 0)],
+                )
+                .await?;
             store.forget_history(&first).await?;
-            assert!(store.object(&version).await?.is_some(), "failed postcommit cleanup stays explicitly pending");
-            assert!(store.reclaim_source_page(problem).await.is_err(), "explicit continuation retains its typed cleanup failure");
-            assert_eq!(store.revision(&first.key).await?,Some(first.clone()));
-            assert_eq!(store.revision(&second.key).await?,Some(second.clone()));
+            assert!(
+                store.object(&version).await?.is_some(),
+                "failed postcommit cleanup stays explicitly pending"
+            );
+            assert!(
+                store.reclaim_source_page(problem).await.is_err(),
+                "explicit continuation retains its typed cleanup failure"
+            );
+            assert_eq!(store.revision(&first.key).await?, Some(first.clone()));
+            assert_eq!(store.revision(&second.key).await?, Some(second.clone()));
             bounded_query(store.db.query(restored.clone())).await?;
-            let replay = if direct {store.activate_source_stage(&stage).await?} else {store.edit(problem,None,&operation,&edits).await?};
-            assert_eq!(replay,first,"an immutable acknowledgment remains success after GC failure");
-            assert!(store.object(&version).await?.is_none(), "both immutable-ACK paths actually drive the deferred page");
+            let replay = if direct {
+                store.activate_source_stage(&stage).await?
+            } else {
+                store.edit(problem, None, &operation, &edits).await?
+            };
+            assert_eq!(
+                replay, first,
+                "an immutable acknowledgment remains success after GC failure"
+            );
+            assert!(
+                store.object(&version).await?.is_none(),
+                "both immutable-ACK paths actually drive the deferred page"
+            );
             assert!(store.object(&second_version).await?.is_some());
         }
-        remove(&store,&database).await;
+        remove(&store, &database).await;
         Ok(())
     }
 
@@ -502,7 +641,10 @@ mod canonical_server_unit {
             )
             .await
             .unwrap();
-        let pin = store.protect(first.clone(), Duration::from_secs(60)).await.unwrap();
+        let pin = store
+            .protect(first.clone(), Duration::from_secs(60))
+            .await
+            .unwrap();
         store.forget_history(&first).await.unwrap();
         let before_protected_reclaim = retention_generation(&store, "guarded").await;
         let protected = store.reclaim_source_page("guarded").await.unwrap();
@@ -648,7 +790,11 @@ mod canonical_server_unit {
             .await
             .unwrap();
         assert_eq!(
-            store.reclaim_source_page("problem").await.unwrap().memberships,
+            store
+                .reclaim_source_page("problem")
+                .await
+                .unwrap()
+                .memberships,
             0
         );
         let pin = store
@@ -657,14 +803,22 @@ mod canonical_server_unit {
             .unwrap();
         store.forget_history(&first).await.unwrap();
         assert_eq!(
-            store.reclaim_source_page("problem").await.unwrap().memberships,
+            store
+                .reclaim_source_page("problem")
+                .await
+                .unwrap()
+                .memberships,
             0
         );
         let owner = RetentionOwner::History("deliberate-retention".into());
         store.retain_revision(&first, &owner).await.unwrap();
         store.release(&pin).await.unwrap();
         assert_eq!(
-            store.reclaim_source_page("problem").await.unwrap().memberships,
+            store
+                .reclaim_source_page("problem")
+                .await
+                .unwrap()
+                .memberships,
             0
         );
         assert!(store.drop_retained_root(&second, &owner).await.is_err());
@@ -685,10 +839,7 @@ mod canonical_server_unit {
                 .await
                 .is_err()
         );
-        let two = store
-            .reclaim_source_page("problem")
-            .await
-            .unwrap();
+        let two = store.reclaim_source_page("problem").await.unwrap();
         // Root withdrawal already reclaimed the first 64 edges; the first
         // explicit continuation reclaimed the next 64.
         assert_eq!(two.edges, 2);
@@ -846,7 +997,11 @@ mod canonical_server_unit {
             .unwrap();
         store.forget_history(&first).await.unwrap();
         assert_eq!(
-            store.reclaim_source_page("problem").await.unwrap().memberships,
+            store
+                .reclaim_source_page("problem")
+                .await
+                .unwrap()
+                .memberships,
             0
         );
         tokio::time::sleep(Duration::from_millis(1100)).await;
@@ -892,23 +1047,42 @@ mod canonical_server_unit {
         // Activation examined the first 64 closed intervals while the default
         // history root still protected them. Withdrawal resumes its persisted
         // frontier; it does not restart the scan at the beginning.
-        let position: Option<Object> = store.db.select(("canonical_guards", "retention:problem")).await.unwrap();
-        assert!(wire::decode_canonical_guards(position.unwrap()).unwrap().source_reclaim_after.is_some());
+        let position: Option<Object> = store
+            .db
+            .select(("canonical_guards", "retention:problem"))
+            .await
+            .unwrap();
+        assert!(
+            wire::decode_canonical_guards(position.unwrap())
+                .unwrap()
+                .source_reclaim_after
+                .is_some()
+        );
         let protected: Vec<Object> = store.db.select("canonical_memberships").await.unwrap();
         assert_eq!(protected.len(), 70);
         store.forget_history(&first).await.unwrap();
         let remaining: Vec<Object> = store.db.select("canonical_memberships").await.unwrap();
-        assert_eq!(remaining.len(), 64, "withdrawal completes only the six-candidate tail of the canonical pass");
-        let position: Option<Object> = store.db.select(("canonical_guards", "retention:problem")).await.unwrap();
-        assert!(wire::decode_canonical_guards(position.unwrap()).unwrap().source_reclaim_after.is_none());
+        assert_eq!(
+            remaining.len(),
+            64,
+            "withdrawal completes only the six-candidate tail of the canonical pass"
+        );
+        let position: Option<Object> = store
+            .db
+            .select(("canonical_guards", "retention:problem"))
+            .await
+            .unwrap();
+        assert!(
+            wire::decode_canonical_guards(position.unwrap())
+                .unwrap()
+                .source_reclaim_after
+                .is_none()
+        );
         let page = store.reclaim_source_page("problem").await.unwrap();
         assert_eq!(page.examined, 64);
         assert_eq!(page.memberships, 64);
         assert_eq!(page.versions, 64);
-        let last = store
-            .reclaim_source_page("problem")
-            .await
-            .unwrap();
+        let last = store.reclaim_source_page("problem").await.unwrap();
         assert_eq!(last.examined, 0);
         assert_eq!(last.memberships, 0);
         assert_eq!(last.versions, 0);

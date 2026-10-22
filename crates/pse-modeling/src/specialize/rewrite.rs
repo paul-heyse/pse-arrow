@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+use crate::resolved::{
+    Binding, Node, Reference, ResolvedPredicate,
+    construction::{Rewritten, RewrittenEquation, RewrittenPredicate},
+};
 use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
 /// The owning instance, the member declaration and the member's index coordinates.
 pub(super) type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
+/// Exact current instance and lexical expansion environment for a rewrite.
+#[derive(Clone, Copy)]
+pub(crate) struct RewriteContext<'a> {
+    pub(crate) instance: InstanceId,
+    pub(crate) env: &'a Environment,
+    pub(crate) chain: &'a [DeclarationId],
+}
 impl Engine<'_, '_> {
     fn set_source_origin(
         &self,
@@ -374,12 +385,13 @@ impl Engine<'_, '_> {
         expression: &Expr,
         local: &Environment,
         chain: &[DeclarationId],
-    ) -> Result<Expr> {
+    ) -> Result<Rewritten> {
         self.reserve(1)?;
         let at = chain
             .last()
             .copied()
             .unwrap_or(self.states[&instance].definition);
+        let source = self.original_expression_source(expression, at)?;
         let in_function = self.p.functions.contains_key(&at);
         let mut env = if in_function {
             Environment::new()
@@ -387,12 +399,21 @@ impl Engine<'_, '_> {
             self.states[&instance].env.clone()
         };
         env.extend(local.clone());
-        let kind = match &expression.kind {
-            ExprKind::Number(n) => ExprKind::Number(n.clone()),
+        let (node, kind) = match &expression.kind {
+            ExprKind::Number(n) => (Node::Number(n.clone()), ExprKind::Number(n.clone())),
             ExprKind::Path(path) => {
                 let text = dsl::render_path(path);
                 if let Some(value) = self.lexical.get(&text) {
-                    return Ok(value.clone());
+                    let inspection = value.clone();
+                    let reference =
+                        self.lexical_references.get(&text).cloned().ok_or_else(|| {
+                            invalid(at, "lexical value lacks its actual typed binding")
+                        })?;
+                    return self.construction.pair(
+                        Node::Reference(reference),
+                        inspection.kind,
+                        source,
+                    );
                 }
                 if path.segments.len() == 1
                     && let Some(group) = self.indexed_arguments.get(&path.segments[0].name)
@@ -402,22 +423,24 @@ impl Engine<'_, '_> {
                         .iter()
                         .map(|e| self.eval_ast_with(at, &env, e, None))
                         .collect::<Result<Vec<_>>>()?;
-                    return group
-                        .iter()
-                        .find(|(key, _)| *key == coordinates)
-                        .map(|(_, e)| e.clone())
-                        .ok_or_else(|| {
-                            invalid(at, "function coordinate outside actual membership")
-                        });
+                    let selected = group.members.get(&coordinates).cloned().ok_or_else(|| {
+                        invalid(at, "function coordinate outside actual membership")
+                    })?;
+                    return self.construction.pair(
+                        Node::Reference(selected.reference),
+                        selected.inspection.kind,
+                        source,
+                    );
                 }
                 if let Some(value) = env.get(&text) {
                     if !in_function
                         && path.segments.len() == 1
                         && path.segments[0].indices.is_empty()
                     {
-                        return self.scope_parameter_expression(instance, &text, value, at);
+                        return self.scope_parameter_expression(instance, &text, value, at, source);
                     }
-                    return self.scientific_value_expression(instance, path, value, at, &env);
+                    return self
+                        .scientific_value_expression(instance, path, value, at, &env, source);
                 }
                 // A pure function's free names belong to its definition scope. A caller
                 // instance cannot capture a table, entity or constant with a same-named member.
@@ -430,7 +453,8 @@ impl Engine<'_, '_> {
                             span: Span::default(),
                         },
                     )?;
-                    return self.scientific_value_expression(instance, path, &value, at, &env);
+                    return self
+                        .scientific_value_expression(instance, path, &value, at, &env, source);
                 }
                 // Tables and attributes are immutable admitted data, never I/O from this operation.
                 let first = path
@@ -452,7 +476,13 @@ impl Engine<'_, '_> {
                             self.resolve_path(instance, at, path, &env, true)
                     {
                         let id = self.symbol(owner, member, &coordinates, chain)?;
-                        return self.symbol_value_expression(owner, member, &coordinates, id);
+                        return self.symbol_value_expression(
+                            owner,
+                            member,
+                            &coordinates,
+                            id,
+                            source,
+                        );
                     }
                     let value = self.eval_ast(
                         at,
@@ -462,44 +492,85 @@ impl Engine<'_, '_> {
                             span: Span::default(),
                         },
                     )?;
-                    return self.scientific_value_expression(instance, path, &value, at, &env);
+                    return self
+                        .scientific_value_expression(instance, path, &value, at, &env, source);
                 }
                 let (owner, member, coordinates) =
                     self.resolve_path(instance, at, path, &env, false)?;
                 let id = self.symbol(owner, member, &coordinates, chain)?;
-                return self.symbol_value_expression(owner, member, &coordinates, id);
+                return self.symbol_value_expression(owner, member, &coordinates, id, source);
             }
-            ExprKind::Neg(e) => ExprKind::Neg(Box::new(self.rewrite(instance, e, &env, chain)?)),
-            ExprKind::Binary { op, lhs, rhs } => ExprKind::Binary {
-                op: *op,
-                lhs: Box::new(self.rewrite(instance, lhs, &env, chain)?),
-                rhs: Box::new(self.rewrite(instance, rhs, &env, chain)?),
-            },
-            ExprKind::Call { function, args } => ExprKind::Call {
-                function: *function,
-                args: args
+            ExprKind::Neg(e) => {
+                let value = self.rewrite(instance, e, &env, chain)?;
+                (
+                    Node::Neg(value.root),
+                    ExprKind::Neg(Box::new(value.inspection)),
+                )
+            }
+            ExprKind::Binary { op, lhs, rhs } => {
+                let lhs = self.rewrite(instance, lhs, &env, chain)?;
+                let rhs = self.rewrite(instance, rhs, &env, chain)?;
+                (
+                    Node::Binary {
+                        op: *op,
+                        lhs: lhs.root,
+                        rhs: rhs.root,
+                    },
+                    ExprKind::Binary {
+                        op: *op,
+                        lhs: Box::new(lhs.inspection),
+                        rhs: Box::new(rhs.inspection),
+                    },
+                )
+            }
+            ExprKind::Call { function, args } => {
+                let args = args
                     .iter()
-                    .map(|e| self.rewrite(instance, e, &env, chain))
-                    .collect::<Result<_>>()?,
-            },
+                    .map(|arg| self.rewrite(instance, arg, &env, chain))
+                    .collect::<Result<Vec<_>>>()?;
+                let roots = args.iter().map(|arg| arg.root).collect();
+                let inspection = args.into_iter().map(|arg| arg.inspection).collect();
+                (
+                    Node::Call {
+                        function: *function,
+                        args: roots,
+                    },
+                    ExprKind::Call {
+                        function: *function,
+                        args: inspection,
+                    },
+                )
+            }
             ExprKind::NamedCall { name, args } => {
                 if let Some(value) = self.physical_operation_call(
-                    instance,
+                    RewriteContext {
+                        instance,
+                        env: &env,
+                        chain,
+                    },
                     at,
                     &dsl::render_path(name),
                     args,
-                    &env,
-                    chain,
+                    source.clone(),
                 )? {
                     return Ok(value);
                 }
-                if let Some(value) =
-                    self.contextual_call(instance, at, &dsl::render_path(name), args, &env, chain)?
-                {
+                if let Some(value) = self.contextual_call(
+                    RewriteContext {
+                        instance,
+                        env: &env,
+                        chain,
+                    },
+                    at,
+                    &dsl::render_path(name),
+                    args,
+                    source.clone(),
+                )? {
                     return Ok(value);
                 }
                 let function = self.resolve_function(instance, at, name, &env)?;
                 self.function_call(instance, function, args, &[], &env, chain)?
+                    .into_parts()
             }
             ExprKind::Partial {
                 function,
@@ -508,10 +579,21 @@ impl Engine<'_, '_> {
             } => {
                 let function = self.resolve_function(instance, at, function, &env)?;
                 self.function_call(instance, function, args, wrt, &env, chain)?
+                    .into_parts()
             }
             ExprKind::Reduce { kind, binder, body } => {
                 if *kind == ReduceKind::Integral {
-                    return self.integral(instance, binder, body, &env, chain, None);
+                    return self.integral(
+                        RewriteContext {
+                            instance,
+                            env: &env,
+                            chain,
+                        },
+                        binder,
+                        body,
+                        None,
+                        source,
+                    );
                 }
                 let types = self.source_types(at, &env)?;
                 let domain_type = crate::expression::infer(
@@ -547,9 +629,14 @@ impl Engine<'_, '_> {
                 else {
                     return Err(invalid(at, "finite reduction set required"));
                 };
-                let carrier=crate::resolved::Carrier {kind:crate::resolved::CarrierKind::OrderedSet, element:*element.clone(), members:values.clone().into()};
-                let mut selected_members=Vec::new();
+                let carrier = crate::resolved::Carrier {
+                    kind: crate::resolved::CarrierKind::OrderedSet,
+                    element: *element.clone(),
+                    members: values.clone().into(),
+                };
+                let mut selected_members = Vec::new();
                 let saved = self.lexical.remove(&binder.var);
+                let saved_reference = self.lexical_references.remove(&binder.var);
                 let mut terms = Vec::new();
                 for value in values {
                     let mut local = env.clone();
@@ -576,110 +663,26 @@ impl Engine<'_, '_> {
                 if let Some(saved) = saved {
                     self.lexical.insert(binder.var.clone(), saved);
                 }
-                if let Type::Quantity(scheme) = &prototype {
-                    let quantity = scheme
-                        .resolve_contract_with_evidence(
-                            self.c.quantities,
-                            &BTreeMap::new(),
-                            self.c.preconditions,
-                        )
-                        .map_err(|e| invalid(at, e.to_string()))?;
-                    let (reduction, domain) =
-                        crate::expression::finite_reduction(*kind, &element, at)?;
-                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingResolvedFunctionV1);
-                    hash.str("finite-reduction");
-                    crate::resolved::frame_type(&carrier.element, &mut hash);
-                    hash.u64(carrier.members.len() as u64);
-                    for member in carrier.members.iter() {member.frame(&mut hash);}
-                    hash.u64(selected_members.len() as u64);
-                    for member in &selected_members {member.frame(&mut hash);}
-                    hash.str(kind.as_str());
-                    quantity.frame(&mut hash);
-                    hash.bool(domain.is_some()).u64(terms.len() as u64);
-                    if let Some(domain) = domain {
-                        hash.id(&domain.as_id());
-                    }
-                    // A lowered reduction is a synthesized function declaration.
-                    let id = DeclarationId::from(hash.finish_id());
-                    let name = format!("f_{}", id.as_id().to_hex());
-                    self.finite_collector.reduction(name.clone(), carrier, selected_members)?;
-                    self.model
-                        .functions
-                        .entry(name.clone())
-                        .or_insert(crate::Function {
-                            applicability: Vec::new(),
-                            applicability_uses: Vec::new(),
-                            prerequisites: Vec::new(),
-                            physical_admissions: BTreeMap::new(),
-                            physical_operation: None,
-                            reduction: Some(crate::FiniteReduction {
-                                kind: reduction,
-                                domain,
-                                prototype: quantity,
-                            }),
-                            validity: None,
-                            envelopes: Vec::new(),
-                            validity_reads: crate::envelope::Reads::default(),
-                            external: None,
-                            continuity: None,
-                            id,
-                            variables: BTreeSet::new(),
-                            arguments: (0..terms.len())
-                                .map(|i| (format!("term_{i}"), prototype.clone()))
-                                .collect(),
-                            result: result_type,
-                            body: None,
-                        });
-                    return Ok(Expr {
-                        kind: ExprKind::NamedCall {
-                            name: Path::single(name),
-                            args: terms,
-                        },
-                        span: Span::default(),
-                    });
+                if let Some(reference) = saved_reference {
+                    self.lexical_references
+                        .insert(binder.var.clone(), reference);
                 }
-                let mut iter = terms.into_iter();
-                let mut result = if let Some(first) = iter.next() {
-                    first
-                } else {
-                    let ty = if *kind == ReduceKind::Prod {
-                        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
-                            self.c
-                                .quantities
-                                .neutral_dimensionless()
-                                .ok_or_else(|| invalid(at, "neutral type absent"))?,
-                        ))
-                    } else {
-                        crate::expression::infer(
-                            expression,
-                            &self.source_types(at, &env)?,
-                            self.p,
-                            self.c,
-                            at,
-                            None,
-                        )?
-                    };
-                    self.constant(if *kind == ReduceKind::Prod { 1.0 } else { 0.0 }, &ty, at)?
-                };
-                for rhs in iter {
-                    result = Expr {
-                        kind: ExprKind::Binary {
-                            op: if *kind == ReduceKind::Prod {
-                                BinaryOp::Mul
-                            } else {
-                                BinaryOp::Add
-                            },
-                            lhs: Box::new(result),
-                            rhs: Box::new(rhs),
-                        },
-                        span: Span::default(),
-                    };
-                }
-                return Ok(result);
+                return self.finish_finite_reduction(
+                    *kind,
+                    finite::ReductionSelection {
+                        carrier,
+                        selected: selected_members.into(),
+                    },
+                    (prototype, result_type),
+                    terms,
+                    source,
+                    at,
+                );
             }
-            ExprKind::Fold { .. } => return self.fold(instance, expression, &env, chain),
+            ExprKind::Fold { .. } => return self.fold(instance, expression, &env, chain, source),
             ExprKind::Let { bindings, body } => {
                 let saved = self.lexical.clone();
+                let saved_references = self.lexical_references.clone();
                 let saved_types = self.function_types.clone();
                 let saved_locals = self.source_locals.clone();
                 let mut alias_nodes = self.set_alias_sources.len();
@@ -691,6 +694,7 @@ impl Engine<'_, '_> {
                 self.reserve(alias_nodes)?;
                 let saved_aliases = self.set_alias_sources.clone();
                 let mut output = Vec::new();
+                let mut resolved_bindings = Vec::new();
                 let mut env = env.clone();
                 for (name, value) in bindings {
                     let ty = crate::expression::infer(
@@ -722,6 +726,7 @@ impl Engine<'_, '_> {
                                     )
                                 })?;
                         self.lexical.remove(name);
+                        self.lexical_references.remove(name);
                         env.insert(name.clone(), value);
                         self.source_locals.insert(name.clone());
                         self.set_alias_sources.remove(name);
@@ -734,6 +739,10 @@ impl Engine<'_, '_> {
                         continue;
                     }
                     let value = self.rewrite(instance, value, &env, chain)?;
+                    let binding = self.construction.binding(Binding::Value(value.root))?;
+                    resolved_bindings.push(binding);
+                    self.lexical_references
+                        .insert(name.clone(), Reference::Lexical(binding));
                     self.function_types.insert(name.clone(), ty);
                     self.local_serial += 1;
                     let fresh = format!("__local_{}", self.local_serial);
@@ -751,20 +760,28 @@ impl Engine<'_, '_> {
                     );
                     self.source_locals.insert(name.clone());
                     self.set_alias_sources.remove(name);
-                    output.push((fresh, value));
+                    output.push((fresh, value.inspection));
                 }
                 let result = self.rewrite(instance, body, &env, chain);
                 self.lexical = saved;
+                self.lexical_references = saved_references;
                 self.function_types = saved_types;
                 self.source_locals = saved_locals;
                 self.set_alias_sources = saved_aliases;
                 if output.is_empty() {
                     return result;
                 }
-                ExprKind::Let {
-                    bindings: output,
-                    body: Box::new(result?),
-                }
+                let result = result?;
+                (
+                    Node::Let {
+                        bindings: resolved_bindings,
+                        body: result.root,
+                    },
+                    ExprKind::Let {
+                        bindings: output,
+                        body: Box::new(result.inspection),
+                    },
+                )
             }
             ExprKind::Conditional {
                 guard,
@@ -774,6 +791,7 @@ impl Engine<'_, '_> {
                 let static_env = self.numerical_guard_environment(&env).into_owned();
                 let static_guard = self.static_source_predicate(instance, guard, &static_env, at);
                 if let Ok(selected) = static_guard {
+                    self.record_static_guard(guard, selected, at)?;
                     return self.rewrite(
                         instance,
                         if selected { then } else { otherwise },
@@ -786,14 +804,31 @@ impl Engine<'_, '_> {
                     .rewrite(instance, then, &env, chain)
                     .and_then(|then| Ok((then, self.rewrite(instance, otherwise, &env, chain)?)));
                 let (then, otherwise) = branches?;
-                ExprKind::Conditional {
-                    guard: Box::new(guard),
-                    then: Box::new(then),
-                    otherwise: Box::new(otherwise),
-                }
+                (
+                    Node::Conditional {
+                        guard: guard.root,
+                        then: then.root,
+                        otherwise: otherwise.root,
+                    },
+                    ExprKind::Conditional {
+                        guard: Box::new(guard.inspection),
+                        then: Box::new(then.inspection),
+                        otherwise: Box::new(otherwise.inspection),
+                    },
+                )
             }
             ExprKind::Derivative { body, wrt } => {
-                return self.derivative(instance, body, wrt, &env, chain, None);
+                return self.derivative(
+                    RewriteContext {
+                        instance,
+                        env: &env,
+                        chain,
+                    },
+                    body,
+                    wrt,
+                    None,
+                    source,
+                );
             }
             ExprKind::Kernel { .. } => {
                 return Err(ModelingError::Unsupported {
@@ -802,12 +837,14 @@ impl Engine<'_, '_> {
                 });
             }
         };
-        Ok(Expr {
-            kind,
-            span: Span::default(),
-        })
+        self.pair_expression(node, kind, source, Some(expression))
     }
-    pub(super) fn value_expression(&mut self, value: &Value, at: DeclarationId) -> Result<Expr> {
+    pub(super) fn value_expression(
+        &mut self,
+        value: &Value,
+        at: DeclarationId,
+        source: crate::resolved::Source,
+    ) -> Result<Rewritten> {
         if let Value::Coordinate { id, .. } = value
             && let Some(axis) = self
                 .model
@@ -815,56 +852,75 @@ impl Engine<'_, '_> {
                 .values()
                 .find(|axis| axis.coordinate == *id)
         {
-            return Ok(symbol_expr(axis.time));
+            let slot = self.model.symbols.slot(axis.time).ok_or_else(|| {
+                invalid(at, "integrated coordinate lacks its authoritative scalar")
+            })?;
+            return self.construction.pair(
+                Node::Reference(Reference::Symbol(slot)),
+                symbol_expr(axis.time).kind,
+                source,
+            );
         }
-        let number = match value {
-            Value::Number { bits, quantity } | Value::Coordinate { bits, quantity, .. } => {
-                return self.constant(
+        match value {
+            Value::Number { bits, quantity } | Value::Coordinate { bits, quantity, .. } => self
+                .constant(
                     f64::from_bits(*bits),
                     &Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity)),
                     at,
-                );
+                    source,
+                ),
+            Value::Integer(value) => {
+                let number = Number {
+                    exact_integer: Some(i128::from(*value)),
+                    value: *value as f64,
+                    unit: None,
+                };
+                self.construction.pair(
+                    Node::Number(number.clone()),
+                    ExprKind::Number(number),
+                    source,
+                )
             }
-            Value::Integer(v) => Number {
-                exact_integer: Some(i128::from(*v)),
-                value: *v as f64,
-                unit: None,
-            },
-            _ => {
-                return Err(invalid(
-                    at,
-                    "non-numeric static value used in a runtime expression",
-                ));
-            }
-        };
-        Ok(Expr {
-            kind: ExprKind::Number(number),
-            span: Span::default(),
-        })
+            _ => Err(invalid(
+                at,
+                "non-numeric static value used in a runtime expression",
+            )),
+        }
     }
     pub(super) fn rewrite_equation(
         &mut self,
         instance: InstanceId,
-        e: &Equation,
+        equation: &Equation,
         env: &Environment,
         chain: &[DeclarationId],
-    ) -> Result<Equation> {
-        let kind = match &e.kind {
-            EquationKind::Relation { lhs, sense, rhs } => EquationKind::Relation {
-                lhs: self.rewrite(instance, lhs, env, chain)?,
-                sense: *sense,
-                rhs: self.rewrite(instance, rhs, env, chain)?,
-            },
+    ) -> Result<RewrittenEquation> {
+        let at = chain
+            .last()
+            .copied()
+            .unwrap_or(self.states[&instance].definition);
+        match &equation.kind {
+            EquationKind::Relation { lhs, sense, rhs } => {
+                let lhs = self.rewrite(instance, lhs, env, chain)?;
+                let rhs = self.rewrite(instance, rhs, env, chain)?;
+                Ok(RewrittenEquation {
+                    lhs: lhs.root,
+                    sense: *sense,
+                    rhs: rhs.root,
+                    inspection: Equation {
+                        kind: EquationKind::Relation {
+                            lhs: lhs.inspection,
+                            sense: *sense,
+                            rhs: rhs.inspection,
+                        },
+                        span: equation.span,
+                    },
+                })
+            }
             EquationKind::Conditional {
                 guard,
                 then,
                 otherwise,
             } => {
-                // As in `rewrite`: attribution falls back to the instance's definition.
-                let at = chain
-                    .last()
-                    .copied()
-                    .unwrap_or(self.states[&instance].definition);
                 let selected = Evaluator {
                     lexical_bases: Some(&self.lexical_bases),
                     package: self.p,
@@ -877,50 +933,58 @@ impl Engine<'_, '_> {
                     selections: Some(&self.selection_collector),
                 }
                 .predicate(guard)?;
-                return self.rewrite_equation(
+                self.record_static_guard(guard, selected, at)?;
+                self.rewrite_equation(
                     instance,
                     if selected { then } else { otherwise },
                     env,
                     chain,
-                );
+                )
             }
-        };
-        Ok(Equation {
-            kind,
-            span: Span::default(),
-        })
+        }
     }
     pub(crate) fn rewrite_predicate(
         &mut self,
         instance: InstanceId,
-        p: &Predicate,
+        predicate: &Predicate,
         env: &Environment,
         chain: &[DeclarationId],
-    ) -> Result<Predicate> {
-        // Immutable guards (including optional-row presence) are decided in the same
-        // source frame as a function body. Only guards with runtime inputs survive.
+    ) -> Result<RewrittenPredicate> {
         let at = chain
             .last()
             .copied()
             .unwrap_or(self.states[&instance].definition);
+        let source = self.original_predicate_source(predicate, at)?;
         let static_env = self.numerical_guard_environment(env).into_owned();
-        if let Ok(value) = self.static_source_predicate(instance, p, &static_env, at) {
-            return Ok(Predicate {
-                kind: PredicateKind::Bool(value),
-                span: Span::default(),
-            });
+        if let Ok(value) = self.static_source_predicate(instance, predicate, &static_env, at) {
+            self.record_static_guard(predicate, value, at)?;
+            return self.pair_predicate(
+                ResolvedPredicate::Bool(value),
+                PredicateKind::Bool(value),
+                source,
+            );
         }
-        let kind = match &p.kind {
-            PredicateKind::Compare { op, lhs, rhs } => PredicateKind::Compare {
-                op: *op,
-                lhs: Box::new(self.rewrite(instance, lhs, env, chain)?),
-                rhs: Box::new(self.rewrite(instance, rhs, env, chain)?),
-            },
-            PredicateKind::Atom(e) => {
-                // Presence is a static query. A missing dependency of that query is
-                // its actual refusal, rather than an unresolved function named present.
-                if matches!(&e.kind, ExprKind::NamedCall { name, .. } if name.is_ident("present")) {
-                    return (Evaluator {
+        let (node, inspection) = match &predicate.kind {
+            PredicateKind::Compare { op, lhs, rhs } => {
+                let lhs = self.rewrite(instance, lhs, env, chain)?;
+                let rhs = self.rewrite(instance, rhs, env, chain)?;
+                (
+                    ResolvedPredicate::Compare {
+                        op: *op,
+                        lhs: lhs.root,
+                        rhs: rhs.root,
+                    },
+                    PredicateKind::Compare {
+                        op: *op,
+                        lhs: Box::new(lhs.inspection),
+                        rhs: Box::new(rhs.inspection),
+                    },
+                )
+            }
+            PredicateKind::Atom(expression) => {
+                if matches!(&expression.kind,ExprKind::NamedCall {name,..} if name.is_ident("present"))
+                {
+                    let value = Evaluator {
                         lexical_bases: Some(&self.lexical_bases),
                         package: self.p,
                         physical: self.c,
@@ -930,31 +994,55 @@ impl Engine<'_, '_> {
                         stack: Vec::new(),
                         reader: self.reader,
                         selections: Some(&self.selection_collector),
-                    })
-                    .predicate(p)
-                    .map(|value| Predicate {
-                        kind: PredicateKind::Bool(value),
-                        span: Span::default(),
-                    });
+                    }
+                    .predicate(predicate)?;
+                    self.record_static_guard(predicate, value, at)?;
+                    return self.pair_predicate(
+                        ResolvedPredicate::Bool(value),
+                        PredicateKind::Bool(value),
+                        source,
+                    );
                 }
-                PredicateKind::Atom(Box::new(self.rewrite(instance, e, env, chain)?))
+                let expression = self.rewrite(instance, expression, env, chain)?;
+                (
+                    ResolvedPredicate::Atom(expression.root),
+                    PredicateKind::Atom(Box::new(expression.inspection)),
+                )
             }
-            PredicateKind::And(a, b) => PredicateKind::And(
-                Box::new(self.rewrite_predicate(instance, a, env, chain)?),
-                Box::new(self.rewrite_predicate(instance, b, env, chain)?),
-            ),
-            PredicateKind::Or(a, b) => PredicateKind::Or(
-                Box::new(self.rewrite_predicate(instance, a, env, chain)?),
-                Box::new(self.rewrite_predicate(instance, b, env, chain)?),
-            ),
-            PredicateKind::Not(p) => {
-                PredicateKind::Not(Box::new(self.rewrite_predicate(instance, p, env, chain)?))
+            PredicateKind::And(lhs, rhs) => {
+                let lhs = self.rewrite_predicate(instance, lhs, env, chain)?;
+                let rhs = self.rewrite_predicate(instance, rhs, env, chain)?;
+                (
+                    ResolvedPredicate::And(lhs.root, rhs.root),
+                    PredicateKind::And(Box::new(lhs.inspection), Box::new(rhs.inspection)),
+                )
             }
-            other => other.clone(),
+            PredicateKind::Or(lhs, rhs) => {
+                let lhs = self.rewrite_predicate(instance, lhs, env, chain)?;
+                let rhs = self.rewrite_predicate(instance, rhs, env, chain)?;
+                (
+                    ResolvedPredicate::Or(lhs.root, rhs.root),
+                    PredicateKind::Or(Box::new(lhs.inspection), Box::new(rhs.inspection)),
+                )
+            }
+            PredicateKind::Not(value) => {
+                let value = self.rewrite_predicate(instance, value, env, chain)?;
+                (
+                    ResolvedPredicate::Not(value.root),
+                    PredicateKind::Not(Box::new(value.inspection)),
+                )
+            }
+            PredicateKind::In { .. } => {
+                return Err(invalid(
+                    at,
+                    "finite membership must be selected from its actual static carrier",
+                ));
+            }
+            PredicateKind::Bool(value) => {
+                (ResolvedPredicate::Bool(*value), PredicateKind::Bool(*value))
+            }
+            PredicateKind::Null => (ResolvedPredicate::Null, PredicateKind::Null),
         };
-        Ok(Predicate {
-            kind,
-            span: Span::default(),
-        })
+        self.pair_predicate(node, inspection, source)
     }
 }

@@ -79,9 +79,12 @@ pub struct DeploymentHost {
 }
 impl std::fmt::Debug for DeploymentHost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DeploymentHost").field("artifact", &self.artifact)
-            .field("receipt", &self.receipt).field("target", &self.target)
-            .field("anchor", &self.anchor).finish_non_exhaustive()
+        f.debug_struct("DeploymentHost")
+            .field("artifact", &self.artifact)
+            .field("receipt", &self.receipt)
+            .field("target", &self.target)
+            .field("anchor", &self.anchor)
+            .finish_non_exhaustive()
     }
 }
 impl CanonicalDeployment {
@@ -93,7 +96,10 @@ impl CanonicalDeployment {
     /// `verify_loaded` must verify this actual artifact immediately on both calls.
     /// # Errors
     /// Original host verification, observation, cancellation or store refusal.
-    #[allow(unsafe_code, reason = "ADR-0164 composition roots retain their per-host provenance assertion")]
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 composition roots retain their per-host provenance assertion"
+    )]
     pub async unsafe fn open_observed(
         math: &std::sync::Arc<crate::math::MathService>,
         host: DeploymentHost,
@@ -103,12 +109,18 @@ impl CanonicalDeployment {
         verify_loaded: impl Fn() -> Result<(), super::WorkflowError>,
     ) -> Result<Self, super::WorkflowError> {
         use crate::math::portable::{PortableError, ReplayAdmission};
-        let typed = |error: PortableError| super::WorkflowError::Typed(
-            pse_model::diagnostic::DiagnosticCause::new(pse_model::diagnostic::project_typed(
-                &error, pse_diagnostics::DiagnosticStage::ModelingAdmission,
-            )),
-        );
-        let checkpoint = || stop.checkpoint().map_err(|_| super::WorkflowError::Math(crate::math::MathRuntimeError::Cancelled));
+        let typed = |error: PortableError| {
+            super::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(
+                pse_model::diagnostic::project_typed(
+                    &error,
+                    pse_diagnostics::DiagnosticStage::ModelingAdmission,
+                ),
+            ))
+        };
+        let checkpoint = || {
+            stop.checkpoint()
+                .map_err(|_| super::WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))
+        };
         let deadline = std::time::Instant::now()
             .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
             .ok_or_else(|| super::contract("deployment startup deadline extent"))?;
@@ -116,14 +128,33 @@ impl CanonicalDeployment {
         verify_loaded()?;
         // SAFETY: the caller is the actual controlled composition root and asserts
         // the receipt provenance contract above; no generic embedding is admitted.
-        let startup = unsafe { math.observe_deployment_runtime(host.artifact, host.receipt.clone(), host.target, deadline, stop) }
-            .await.map_err(typed)?;
+        let startup = unsafe {
+            math.observe_deployment_runtime(
+                host.artifact,
+                host.receipt.clone(),
+                host.target,
+                deadline,
+                stop,
+            )
+        }
+        .await
+        .map_err(typed)?;
         let producer = if host.receipt.is_some() {
             startup.producer.clone().map(Into::into)
         } else {
             // SAFETY: the same host supplies its own code anchor and complete
             // bounded configuration under the controlled reconstruction contract.
-            match unsafe { math.observe_local_runtime(host.target, host.anchor, host.configuration, deadline, stop) }.await {
+            match unsafe {
+                math.observe_local_runtime(
+                    host.target,
+                    host.anchor,
+                    host.configuration,
+                    deadline,
+                    stop,
+                )
+            }
+            .await
+            {
                 Ok(producer) => Some(producer),
                 Err(PortableError::Qualification(_)) => None,
                 Err(error) => return Err(typed(error)),
@@ -131,11 +162,19 @@ impl CanonicalDeployment {
         };
         verify_loaded()?;
         checkpoint()?;
-        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(state, database)?;
+        let options =
+            pse_operations::canonical::CanonicalOptions::from_state_for_database(state, database)?;
         let store = CanonicalStore::connect(&options).await?;
         checkpoint()?;
         store.open().await?;
         checkpoint()?;
-        Ok(Self::new(store, OuterAttestation { source: startup.outer.source, build: startup.outer.build }, producer))
+        Ok(Self::new(
+            store,
+            OuterAttestation {
+                source: startup.outer.source,
+                build: startup.outer.build,
+            },
+            producer,
+        ))
     }
 }

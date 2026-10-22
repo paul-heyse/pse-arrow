@@ -30,7 +30,9 @@ documents::projection!(DeclarationExport => native::DeclarationInventory);
 type SingularModeTuple = (f64, Vec<f64>, Vec<f64>, Option<f64>, Option<f64>, f64, f64);
 
 /// Preserve the registry declaration role; contextual membership remains runtime admission.
-fn declaration(value: Identity<DeclarationId>) -> DeclarationId { value.0 }
+fn declaration(value: Identity<DeclarationId>) -> DeclarationId {
+    value.0
+}
 
 /// A decoded covariance document carries no process-local statistical authority.
 /// Recover it only from the retained actual fit, checking the complete document.
@@ -40,11 +42,20 @@ fn covariance_source(
     source: Option<&NativeRunResult>,
 ) -> PyResult<()> {
     if let Some(source) = source {
-        let covariance = settings.sensitivity.as_mut()
+        let covariance = settings
+            .sensitivity
+            .as_mut()
             .and_then(|request| request.propagation.as_mut())
             .map(|propagation| &mut propagation.covariance)
-            .ok_or_else(|| invalid(py, "a covariance source requires a covariance propagation request"))?;
-        source.inner.reconcile_parameter_covariance(covariance)
+            .ok_or_else(|| {
+                invalid(
+                    py,
+                    "a covariance source requires a covariance propagation request",
+                )
+            })?;
+        source
+            .inner
+            .reconcile_parameter_covariance(covariance)
             .map_err(|error| errors::diagnostic(py, &error))?;
     }
     Ok(())
@@ -54,7 +65,10 @@ fn preparation_settings(
     value: Option<documents::DocumentInput<native::PreparationSettings>>,
     limits: pse_modeling::Limits,
 ) -> native::PreparationSettings {
-    value.map_or_else(|| native::PreparationSettings::with_limits(limits), |value| value.0)
+    value.map_or_else(
+        || native::PreparationSettings::with_limits(limits),
+        |value| value.0,
+    )
 }
 /// Decode the flow selection through its Rust-owned document contract.
 fn flow_selection(
@@ -320,10 +334,29 @@ impl NativeModelingPackage {
         let fit = fit_id.0;
         let cancel = CancelSource::new();
         let preparation = native::PreparationSettings::with_limits(self.limits);
-        let inner = blocking(py, &self.owner,
-            self.inner.prepare_operation(&native::OperationSource::of(&self.inner), &preparation,
-                native::RuntimeOperationRequest::Study { operation: native::OperationRequest::Fit(native::FitOperation { fit, settings: request }), output: native::StudyOutputDemand::Full {}, admitted_horizon: None }, None, &cancel), || cancel.cancel())?;
-        Ok(NativePreparedOperation { owner: self.owner.clone(), inner })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.prepare_operation(
+                &native::OperationSource::of(&self.inner),
+                &preparation,
+                native::RuntimeOperationRequest::Study {
+                    operation: Box::new(native::OperationRequest::Fit(native::FitOperation {
+                        fit,
+                        settings: request,
+                    })),
+                    output: native::StudyOutputDemand::Full {},
+                    admitted_horizon: None,
+                },
+                None,
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner,
+        })
     }
 
     fn with_limits(&self, limits: &ModelingLimits) -> Self {
@@ -347,10 +380,22 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let policy: native::ModelingNonlinearPolicy = documents::decode_document(py, "nonlinear explanation", policy, self.owner.shared.budget().math.workspace_bytes)?;
-        let inner = blocking(py, &self.owner,
-            self.inner.explain_case_request(root, &preparation, settings, policy, &cancel), || cancel.cancel())?;
-        Ok(NativeModelingNonlinearExplanation { inner: Arc::new(inner) })
+        let policy: native::ModelingNonlinearPolicy = documents::decode_document(
+            py,
+            "nonlinear explanation",
+            policy,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .explain_case_request(root, &preparation, settings, policy, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingNonlinearExplanation {
+            inner: Arc::new(inner),
+        })
     }
     #[expect(
         clippy::too_many_arguments,
@@ -371,12 +416,34 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let controls: native::DiagnosticSamplesControls = documents::controls(py, "diagnostic sample controls", controls, self.owner.shared.budget().math.workspace_bytes)?;
-        let samples = self.inner.snapshot_diagnostic_samples(samples.0.into_reader()?)
+        let controls: native::DiagnosticSamplesControls = documents::controls(
+            py,
+            "diagnostic sample controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let samples = self
+            .inner
+            .snapshot_diagnostic_samples(samples.0.into_reader()?)
             .map_err(|error| errors::diagnostic(py, &error))?;
-        let inner = blocking(py, &self.owner,
-            self.inner.diagnose_samples_request(root, &preparation, settings, samples, diagnostics.policy.clone(), controls, origin.map(|value| value.0), &cancel), || cancel.cancel())?;
-        Ok(NativeModelingDiagnosticSamples { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.diagnose_samples_request(
+                root,
+                &preparation,
+                settings,
+                samples,
+                diagnostics.policy.clone(),
+                controls,
+                origin.map(|value| value.0),
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingDiagnosticSamples {
+            inner: Arc::new(inner),
+        })
     }
     /// The case's authored fixture declares its modes, events and scheduled inputs.
     fn prepare_simulation(
@@ -388,10 +455,31 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let cancel = CancelSource::new();
         let preparation = native::PreparationSettings::with_limits(self.limits);
-        let inner = blocking(py, &self.owner,
-            self.inner.prepare_operation(&native::OperationSource::of(&self.inner), &preparation,
-                native::RuntimeOperationRequest::Study { operation: native::OperationRequest::Simulation(native::SimulationOperation { case: root, settings: Some(settings.request.clone()) }), output: native::StudyOutputDemand::Full {}, admitted_horizon: None }, None, &cancel), || cancel.cancel())?;
-        Ok(NativePreparedOperation { owner: self.owner.clone(), inner })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.prepare_operation(
+                &native::OperationSource::of(&self.inner),
+                &preparation,
+                native::RuntimeOperationRequest::Study {
+                    operation: Box::new(native::OperationRequest::Simulation(
+                        native::SimulationOperation {
+                            case: root,
+                            settings: Some(settings.request.clone()),
+                        },
+                    )),
+                    output: native::StudyOutputDemand::Full {},
+                    admitted_horizon: None,
+                },
+                None,
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner,
+        })
     }
     fn simulate(
         &self,
@@ -402,9 +490,16 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.simulate_case_request(root, &preparation, settings.request.clone(), &cancel), || cancel.cancel())?;
-        Ok(NativeModelingTrajectory { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .simulate_case_request(root, &preparation, settings.request.clone(), &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingTrajectory {
+            inner: Arc::new(inner),
+        })
     }
     fn diagnostic_source_map(
         &self,
@@ -418,9 +513,20 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        blocking(py, &self.owner,
-            self.inner.source_map_request(root, &preparation, settings, maximum_bytes, time_limit, &cancel), || cancel.cancel())
-            .map(documents::DocumentValue)
+        blocking(
+            py,
+            &self.owner,
+            self.inner.source_map_request(
+                root,
+                &preparation,
+                settings,
+                maximum_bytes,
+                time_limit,
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )
+        .map(documents::DocumentValue)
     }
     #[pyo3(signature=(case_id, settings, diagnostics, *, origin=None))]
     fn diagnose(
@@ -435,9 +541,22 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.diagnose_case_request(root, &preparation, settings, diagnostics.policy.clone(), origin.map(|value| value.0), &cancel), || cancel.cancel())?;
-        Ok(NativeModelingDiagnostics { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.diagnose_case_request(
+                root,
+                &preparation,
+                settings,
+                diagnostics.policy.clone(),
+                origin.map(|value| value.0),
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingDiagnostics {
+            inner: Arc::new(inner),
+        })
     }
     #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
     fn diagnose_linear(
@@ -449,7 +568,12 @@ impl NativeModelingPackage {
         origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
         let settings = settings.0;
-        let controls: native::LinearDiagnosticControls = documents::controls(py, "linear diagnostic controls", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let controls: native::LinearDiagnosticControls = documents::controls(
+            py,
+            "linear diagnostic controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         #[cfg(not(feature = "solver-highs"))]
         {
             let _ = (case_id, settings, controls, origin);
@@ -460,9 +584,22 @@ impl NativeModelingPackage {
             let root = declaration(case_id);
             let preparation = native::PreparationSettings::with_limits(self.limits);
             let cancel = CancelSource::new();
-            let inner = blocking(py, &self.owner,
-                self.inner.diagnose_linear_request(root, &preparation, settings, controls, origin.map(|value| value.0), &cancel), || cancel.cancel())?;
-            Ok(NativeModelingNativeAnalysis { inner: Arc::new(inner) })
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner.diagnose_linear_request(
+                    root,
+                    &preparation,
+                    settings,
+                    controls,
+                    origin.map(|value| value.0),
+                    &cancel,
+                ),
+                || cancel.cancel(),
+            )?;
+            Ok(NativeModelingNativeAnalysis {
+                inner: Arc::new(inner),
+            })
         }
     }
     #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
@@ -475,7 +612,12 @@ impl NativeModelingPackage {
         origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
         let settings = settings.0;
-        let controls: native::JacobianDiagnosticControls = documents::controls(py, "Jacobian diagnostic controls", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let controls: native::JacobianDiagnosticControls = documents::controls(
+            py,
+            "Jacobian diagnostic controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         #[cfg(not(feature = "solver-highs"))]
         {
             let _ = (case_id, settings, controls, origin);
@@ -486,9 +628,22 @@ impl NativeModelingPackage {
             let root = declaration(case_id);
             let preparation = native::PreparationSettings::with_limits(self.limits);
             let cancel = CancelSource::new();
-            let inner = blocking(py, &self.owner,
-                self.inner.diagnose_jacobian_request(root, &preparation, settings, controls, origin.map(|value| value.0), &cancel), || cancel.cancel())?;
-            Ok(NativeModelingNativeAnalysis { inner: Arc::new(inner) })
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner.diagnose_jacobian_request(
+                    root,
+                    &preparation,
+                    settings,
+                    controls,
+                    origin.map(|value| value.0),
+                    &cancel,
+                ),
+                || cancel.cancel(),
+            )?;
+            Ok(NativeModelingNativeAnalysis {
+                inner: Arc::new(inner),
+            })
         }
     }
     #[pyo3(signature=(case_id, settings, *, overrides=None))]
@@ -503,10 +658,22 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let overrides: native::InitializationOverrides = documents::controls(py, "initialization", overrides, self.owner.shared.budget().math.workspace_bytes)?;
-        let inner = blocking(py, &self.owner,
-            self.inner.initialize_case_request(root, &preparation, settings, overrides, &cancel), || cancel.cancel())?;
-        Ok(NativeModelingInitialization { inner: Arc::new(inner) })
+        let overrides: native::InitializationOverrides = documents::controls(
+            py,
+            "initialization",
+            overrides,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .initialize_case_request(root, &preparation, settings, overrides, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingInitialization {
+            inner: Arc::new(inner),
+        })
     }
     /// Admit local scientific intent without publication prerequisites.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<NativeLocalStudy> {
@@ -555,13 +722,23 @@ impl NativeModelingPackage {
             owner: local.owner.clone(),
         })
     }
-    fn inspect(&self, py: Python<'_>, case_id: Identity<DeclarationId>, settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>) -> PyResult<documents::DocumentValue<native::ModelingInspection>> {
+    fn inspect(
+        &self,
+        py: Python<'_>,
+        case_id: Identity<DeclarationId>,
+        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
+    ) -> PyResult<documents::DocumentValue<native::ModelingInspection>> {
         let settings = settings.0;
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let inspection = blocking(py, &self.owner,
-            self.inner.inspect_case_request(root, &preparation, settings, &cancel), || cancel.cancel())?;
+        let inspection = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .inspect_case_request(root, &preparation, settings, &cancel),
+            || cancel.cancel(),
+        )?;
         Ok(documents::DocumentValue(inspection))
     }
 
@@ -576,10 +753,24 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let selection = flow_selection(py, selection, self.owner.shared.budget().math.workspace_bytes)?;
-        let inner = blocking(py, &self.owner,
-            self.inner.prepare_flow_request(root, &preparation, settings, selection, &cancel), || cancel.cancel())?;
-        Ok(NativePreparedFlow { owner: self.owner.clone(), math: self.owner.shared.math().clone(), package: self.inner.clone(), inner })
+        let selection = flow_selection(
+            py,
+            selection,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .prepare_flow_request(root, &preparation, settings, selection, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedFlow {
+            owner: self.owner.clone(),
+            math: self.owner.shared.math().clone(),
+            package: self.inner.clone(),
+            inner,
+        })
     }
     fn prepare_recycle(
         &self,
@@ -594,12 +785,35 @@ impl NativeModelingPackage {
         {
             let root = declaration(case_id);
             let preparation = native::PreparationSettings::with_limits(self.limits);
-            let selection = flow_selection(py, selection, self.owner.shared.budget().math.workspace_bytes)?;
-            let request: native::RecycleRequest = documents::decode_document(py, "recycle", request, self.owner.shared.budget().math.workspace_bytes / 4)?;
+            let selection = flow_selection(
+                py,
+                selection,
+                self.owner.shared.budget().math.workspace_bytes,
+            )?;
+            let request: native::RecycleRequest = documents::decode_document(
+                py,
+                "recycle",
+                request,
+                self.owner.shared.budget().math.workspace_bytes / 4,
+            )?;
             let cancel = CancelSource::new();
-            let inner = blocking(py, &self.owner,
-                self.inner.prepare_recycle_request(root, &preparation, settings, selection, request, &cancel), || cancel.cancel())?;
-            Ok(NativePreparedStrategy { owner: self.owner.clone(), inner: strategies::Strategy::Recycle(Box::new(inner)) })
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner.prepare_recycle_request(
+                    root,
+                    &preparation,
+                    settings,
+                    selection,
+                    request,
+                    &cancel,
+                ),
+                || cancel.cancel(),
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Recycle(Box::new(inner)),
+            })
         }
         #[cfg(not(feature = "native-solvers"))]
         {
@@ -619,12 +833,27 @@ impl NativeModelingPackage {
         {
             let root = declaration(case_id);
             let preparation = native::PreparationSettings::with_limits(self.limits);
-            let stages = self.inner.snapshot_initialization_stages(stages.0.into_reader()?)
+            let stages = self
+                .inner
+                .snapshot_initialization_stages(stages.0.into_reader()?)
                 .map_err(|error| errors::diagnostic(py, &error))?;
             let cancel = CancelSource::new();
-            let inner = blocking(py, &self.owner,
-                self.inner.prepare_initialization_request(root, &preparation, settings, stages, &cancel), || cancel.cancel())?;
-            Ok(NativePreparedStrategy { owner: self.owner.clone(), inner: strategies::Strategy::Initialization(Box::new(inner)) })
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner.prepare_initialization_request(
+                    root,
+                    &preparation,
+                    settings,
+                    stages,
+                    &cancel,
+                ),
+                || cancel.cancel(),
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Initialization(Box::new(inner)),
+            })
         }
         #[cfg(not(feature = "native-solvers"))]
         {
@@ -632,7 +861,10 @@ impl NativeModelingPackage {
             Err(invalid(py, "initialization workflow is not linked"))
         }
     }
-    fn declarations(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<DeclarationExport>> {
+    fn declarations(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<DeclarationExport>> {
         use pse_model::HeapUsage;
         let declarations = blocking(py, &self.owner, self.inner.declarations(), || {})?;
         let bytes = declarations
@@ -647,13 +879,18 @@ impl NativeModelingPackage {
             .try_grow(bytes)
             .map_err(|error| errors::diagnostic(py, &pse_columnar::CanonError::from(error)))?;
         Ok(documents::DocumentValue(DeclarationExport {
-            document: native::DeclarationInventory { declarations: declarations.to_vec() },
+            document: native::DeclarationInventory {
+                declarations: declarations.to_vec(),
+            },
             _source: declarations,
             _owner: pse_columnar::AllocationLease::new(scratch),
         }))
     }
     /// Explicit complete source Arrow export, independent of routine preparation.
-    fn source_tables(&self, py: Python<'_>) -> PyResult<BTreeMap<Identity<SemanticId>, inspection::TableStream>> {
+    fn source_tables(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<BTreeMap<Identity<SemanticId>, inspection::TableStream>> {
         let tables = blocking(py, &self.owner, self.inner.source_tables(), || {})?;
         tables
             .into_iter()
@@ -702,12 +939,24 @@ impl NativeModelingPackage {
         preparation: Option<documents::DocumentInput<native::PreparationSettings>>,
     ) -> PyResult<NativeModelingConformance> {
         let preparation = preparation_settings(preparation, self.limits);
-        let controls: native::ConformanceControls = documents::controls(py, "conformance controls", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let controls: native::ConformanceControls = documents::controls(
+            py,
+            "conformance controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings.0;
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.conform_request(&preparation, settings, controls, &cancel), || cancel.cancel())?;
-        Ok(NativeModelingConformance { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .conform_request(&preparation, settings, controls, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingConformance {
+            inner: Arc::new(inner),
+        })
     }
     #[pyo3(signature=(case_id, settings, *, preparation=None, covariance_source=None))]
     fn prepare_solve(
@@ -723,11 +972,25 @@ impl NativeModelingPackage {
         self::covariance_source(py, &mut settings, covariance_source)?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.prepare_operation(&native::OperationSource::of(&self.inner), &preparation,
-                native::RuntimeOperationRequest::DeclaredCase { case: root, settings }, None, &cancel),
-            || cancel.cancel())?;
-        Ok(NativePreparedOperation { owner: self.owner.clone(), inner })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.prepare_operation(
+                &native::OperationSource::of(&self.inner),
+                &preparation,
+                native::RuntimeOperationRequest::DeclaredCase {
+                    case: root,
+                    settings: Box::new(settings),
+                },
+                None,
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner,
+        })
     }
     /// Apply typed transient coordinates without exporting or editing source declarations.
     #[pyo3(signature=(case_id, overlay, settings, *, preparation=None, covariance_source=None))]
@@ -742,14 +1005,22 @@ impl NativeModelingPackage {
     ) -> PyResult<NativeModelingResult> {
         let allowance = self.owner.shared.budget().math.workspace_bytes;
         let preparation = preparation_settings(preparation, self.limits);
-        let overlay: native::PointOverlay = documents::decode(py, "point overlay", overlay, allowance / 4)?;
+        let overlay: native::PointOverlay =
+            documents::decode(py, "point overlay", overlay, allowance / 4)?;
         let mut settings = settings.0;
         self::covariance_source(py, &mut settings, covariance_source)?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.execute_bound_request(root, &overlay, &preparation, settings, &cancel), || cancel.cancel())?;
-        Ok(NativeModelingResult { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .execute_bound_request(root, &overlay, &preparation, settings, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingResult {
+            inner: Arc::new(inner),
+        })
     }
     #[pyo3(signature=(case_id, settings, *, preparation=None, covariance_source=None))]
     fn solve_case(
@@ -765,9 +1036,16 @@ impl NativeModelingPackage {
         self::covariance_source(py, &mut settings, covariance_source)?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
-        let inner = blocking(py, &self.owner,
-            self.inner.execute_case_request(root, &preparation, settings, &cancel), || cancel.cancel())?;
-        Ok(NativeModelingResult { inner: Arc::new(inner) })
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .execute_case_request(root, &preparation, settings, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingResult {
+            inner: Arc::new(inner),
+        })
     }
 }
 
@@ -806,14 +1084,16 @@ impl NativeModelingNonlinearExplanation {
         self.inner
             .candidate_rows
             .iter()
-            .copied().map(Identity)
+            .copied()
+            .map(Identity)
             .collect()
     }
     fn background_variables(&self) -> Vec<Identity<SemanticId>> {
         self.inner
             .background_variables
             .iter()
-            .copied().map(Identity)
+            .copied()
+            .map(Identity)
             .collect()
     }
     fn attempts(&self) -> Vec<NativeModelingElasticAttempt> {
@@ -846,7 +1126,8 @@ impl NativeModelingElasticAttempt {
         self.owner.attempts[self.index]
             .omitted
             .iter()
-            .copied().map(Identity)
+            .copied()
+            .map(Identity)
             .collect()
     }
     fn result(&self) -> Option<NativeModelingResult> {
@@ -930,8 +1211,12 @@ impl ModelingDiagnosticSettings {
         Ok(Self { policy })
     }
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
-        String::from_utf8(<native::ModelingDiagnosticPolicy as documents::DocumentType>::WIRE.to_vec(&self.policy).map_err(|error| invalid(py, error.to_string()))?)
-            .map_err(|error| invalid(py, error.to_string()))
+        String::from_utf8(
+            <native::ModelingDiagnosticPolicy as documents::DocumentType>::WIRE
+                .to_vec(&self.policy)
+                .map_err(|error| invalid(py, error.to_string()))?,
+        )
+        .map_err(|error| invalid(py, error.to_string()))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -980,7 +1265,10 @@ impl NativeModelingNativeAnalysis {
             .attempts
             .get(index)
             .cloned()
-            .map(|inner| NativeAttempt { inner, primal_coordinates: self.inner.primal_coordinates.get(index).cloned() })
+            .map(|inner| NativeAttempt {
+                inner,
+                primal_coordinates: self.inner.primal_coordinates.get(index).cloned(),
+            })
             .ok_or_else(|| invalid(py, "native diagnostic attempt index"))
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
@@ -1149,10 +1437,11 @@ impl NativeModelingInitialization {
             .map(inspection::DiagnosticReport::observe)
     }
     fn committed_values(&self) -> Option<BTreeMap<Identity<SemanticId>, f64>> {
-        self.inner
-            .committed
-            .as_ref()
-            .map(|v| v.iter().map(|(id, value)| (Identity(*id), *value)).collect())
+        self.inner.committed.as_ref().map(|v| {
+            v.iter()
+                .map(|(id, value)| (Identity(*id), *value))
+                .collect()
+        })
     }
     fn attempts(&self) -> Vec<NativeModelingInitializationAttempt> {
         (0..self.inner.attempts.len())
@@ -1250,7 +1539,11 @@ impl NativeLocalStudy {
     }
     #[getter]
     fn points(&self) -> Vec<documents::DocumentValue<&native::StudyPointDefinition>> {
-        self.inner.points.iter().map(documents::DocumentValue).collect()
+        self.inner
+            .points
+            .iter()
+            .map(documents::DocumentValue)
+            .collect()
     }
     #[getter]
     fn variants(&self) -> Option<documents::DocumentValue<&native::LazyStudyDefinition>> {
@@ -1310,7 +1603,11 @@ impl NativeStudyReport {
     fn conclusion(&self) -> documents::DocumentValue<&native::StudyConclusion> {
         documents::DocumentValue(&self.inner.decision.conclusion)
     }
-    fn outcome(&self, py: Python<'_>, index: usize) -> PyResult<documents::DocumentValue<&native::PointOutcome>> {
+    fn outcome(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> PyResult<documents::DocumentValue<&native::PointOutcome>> {
         let outcome = self
             .inner
             .outcomes
@@ -1329,7 +1626,11 @@ impl NativeStudyReport {
             Some(native::StudyOccurrenceResult::Compact(_))
         ))
     }
-    fn compact_completion(&self, py: Python<'_>, index: usize) -> PyResult<documents::DocumentValue<&native::Completion>> {
+    fn compact_completion(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> PyResult<documents::DocumentValue<&native::Completion>> {
         let result = self
             .inner
             .results
@@ -1539,7 +1840,11 @@ impl NativeModelingConformance {
             .map(inspection::DiagnosticReport::observe)
             .ok_or_else(|| invalid(py, "conformance failure ordinal outside report"))
     }
-    fn trajectory(&self, py: Python<'_>, fixture_id: Identity<DeclarationId>) -> PyResult<NativeModelingTrajectory> {
+    fn trajectory(
+        &self,
+        py: Python<'_>,
+        fixture_id: Identity<DeclarationId>,
+    ) -> PyResult<NativeModelingTrajectory> {
         self.inner
             .trajectories
             .get(&declaration(fixture_id))
@@ -1565,7 +1870,8 @@ impl NativeModelingConformance {
         self.inner
             .fixtures()
             .iter()
-            .copied().map(Identity)
+            .copied()
+            .map(Identity)
             .collect()
     }
     fn fixture_statuses(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
@@ -1574,7 +1880,11 @@ impl NativeModelingConformance {
             .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
-    fn result(&self, py: Python<'_>, fixture_id: Identity<DeclarationId>) -> PyResult<NativeModelingResult> {
+    fn result(
+        &self,
+        py: Python<'_>,
+        fixture_id: Identity<DeclarationId>,
+    ) -> PyResult<NativeModelingResult> {
         let identity = declaration(fixture_id);
         let inner = self.inner.results.get(&identity).ok_or_else(|| {
             invalid(
@@ -1596,7 +1906,11 @@ pub(crate) struct NativeModelingResult {
 impl NativeModelingResult {
     /// Exact selected parent/context and submitted attribution for a transient solve.
     fn bound_source(&self) -> Option<documents::DocumentValue<&native::AdmittedBinding>> {
-        self.inner.prepared.bound_source.as_ref().map(|binding| documents::DocumentValue(&***binding))
+        self.inner
+            .prepared
+            .bound_source
+            .as_ref()
+            .map(|binding| documents::DocumentValue(&***binding))
     }
     #[getter]
     fn binding_identity(&self) -> Option<HashValue> {
@@ -1630,7 +1944,12 @@ impl NativeModelingResult {
         match &self.inner.outcome {
             pse_runtime::math::solves::Outcome::Native(report) => Ok(Some(NativeAttempt {
                 inner: report.as_ref().clone(),
-                primal_coordinates: Some(self.inner.prepared.primal_coordinates().map_err(|error| errors::diagnostic(py, &error))?),
+                primal_coordinates: Some(
+                    self.inner
+                        .prepared
+                        .primal_coordinates()
+                        .map_err(|error| errors::diagnostic(py, &error))?,
+                ),
             })),
             _ => Ok(None),
         }

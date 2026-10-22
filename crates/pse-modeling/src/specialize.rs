@@ -11,7 +11,6 @@ mod symbols;
 pub use symbols::Symbols;
 mod fold;
 mod functions;
-mod group;
 mod lexical;
 mod physical_operations;
 mod process;
@@ -19,13 +18,19 @@ pub use process::{
     InventoryBalance, InventoryInitialCondition, MaterialPort, StateKey, StateSpecification,
 };
 mod rewrite;
+pub(crate) use rewrite::RewriteContext;
+mod construction;
+pub(crate) use construction::OriginalGuard;
+mod constructed;
+mod operations;
+mod reductions;
+mod transform_graph;
 mod transformations;
 pub use transformations::{Continuation, Elastic};
 pub(crate) mod value;
 use crate::{
     CheckedPackage, Declaration, ModelingError, Result, Selected, Type, TypeContext, invalid,
 };
-pub use group::DispatchBody;
 use pse_authoring::dsl::{
     self, BinaryOp, Equation, EquationKind, EquationSense, Expr, ExprKind, Number, Path,
     PathSegment, Span,
@@ -258,7 +263,7 @@ impl Closure {
         self.mode != Mode::Accounting
     }
 }
-/// One actual definition instance, sharing executable structure with its dispatch group.
+/// One actual definition instance and its realized member declarations.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instance {
     /// Stable identity.
@@ -271,30 +276,26 @@ pub struct Instance {
     pub members: BTreeMap<String, DeclarationId>,
     /// Initialization stages from this instance's effective inherited contract.
     pub stages: BTreeSet<String>,
-    /// Body specialization identity.
-    pub group: ContentHash,
-    /// Semantic coordinates bound to the shared body.
-    pub coordinates: Vec<SemanticId>,
-    /// Semantic rows bound to the shared body.
-    pub rows: Vec<SemanticId>,
     /// Human-readable path.
     pub path: String,
 }
-/// Selected implementations grouped independently of per-instance coefficient values.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DispatchGroup {
-    /// Complete specialization identity.
-    pub key: ContentHash,
-    /// Reused definition.
-    pub definition: DeclarationId,
-    /// Shared normalized finite body.
-    pub body: std::sync::Arc<DispatchBody>,
-    /// Actual instances.
-    pub instances: Vec<InstanceId>,
+/// Actual roots of a checked expectation; tolerance remains a physical quantity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExpectationRoots {
+    /// Observed output.
+    pub actual: crate::resolved::NodeIx,
+    /// Independent reference output.
+    pub expected: crate::resolved::NodeIx,
+    /// Absolute physical resolution.
+    pub tolerance: crate::resolved::NodeIx,
+    /// Dimensionless relative resolution.
+    pub relative_tolerance: crate::resolved::NodeIx,
 }
 /// A checked source test, evaluated by the ordinary math owner.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Expectation {
+    /// Sole executable expectation components, in original semantic order.
+    pub roots: ExpectationRoots,
     /// Test identity.
     pub id: SemanticId,
     /// Observed expression.
@@ -313,6 +314,29 @@ pub struct Expectation {
 /// Finite specialization product and its independent inspection/closure views.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpecializedModel {
+    /// Actual finite construction allowance, also bounding original-source correspondence expansion.
+    pub construction_limit: usize,
+    /// Actual selected authored declaration ranges, for generated operations with no field coordinate.
+    pub source_declarations: BTreeMap<DeclarationId, pse_authoring::SourceSpan>,
+    /// Sole executable syntax owner; original Expr payloads below are inspection only.
+    pub resolved: crate::resolved::ResolvedSyntax,
+    /// Exact source-owned physical obligations attached during the one rewrite.
+    pub physical_admissions:
+        BTreeMap<crate::resolved::NodeIx, crate::expression::admission::PhysicalAdmission>,
+    /// Actual declared contextual literal contracts at their emitted operations.
+    pub literal_contracts: BTreeMap<crate::resolved::NodeIx, Type>,
+    /// Issued reference roots for every actual scalar, including pure numerical inputs.
+    pub symbol_roots: BTreeMap<SemanticId, crate::resolved::NodeIx>,
+    /// Actual annotation declarations for closure ranges; separate from reusable syntax.
+    pub member_range_sources: BTreeMap<crate::resolved::SymbolIx, SemanticId>,
+    /// Exact roots of admitted outer and alternative equations.
+    pub equation_roots: BTreeMap<SemanticId, crate::resolved::Relation>,
+    /// Actual contribution roots, before closure accumulation or numerical normalization.
+    pub contribution_roots: BTreeMap<SemanticId, crate::resolved::NodeIx>,
+    /// Producer-issued reached semantic relationships.
+    pub derivations: crate::derived::Facts,
+    /// Source dependencies selected before static guards are simplified.
+    pub(crate) original_guards: Vec<OriginalGuard>,
     /// Selected checked source fields belong to this revision, independently of shared mathematics.
     source_occurrences: std::sync::Arc<
         BTreeMap<
@@ -363,8 +387,6 @@ pub struct SpecializedModel {
     pub exchanges: BTreeMap<SemanticId, crate::contextual::PairedExchange>,
     /// Definition instances.
     pub instances: BTreeMap<InstanceId, Instance>,
-    /// Shared implementation groups.
-    pub groups: BTreeMap<ContentHash, DispatchGroup>,
     /// Port identities refer to existing variables, never copies.
     pub ports: BTreeMap<SemanticId, Port>,
     /// Authored incidence limits, independent of scientific port names.
@@ -449,6 +471,9 @@ struct State {
 struct NumericalSource {
     instance: InstanceId,
     declaration: DeclarationId,
+    role: String,
+    position: usize,
+    part: usize,
     expression: Expr,
     env: std::sync::Arc<Environment>,
 }
@@ -463,6 +488,10 @@ struct ReplicatedEquation {
 pub(crate) struct Engine<'a, 'b> {
     selection_collector: crate::scientific_selection::Collector,
     finite_collector: finite::Collector,
+    construction: crate::resolved::construction::Construction,
+    originals: Vec<std::sync::Arc<construction::OriginalScope>>,
+    original_guards: Vec<OriginalGuard>,
+    lexical_references: BTreeMap<String, crate::resolved::Reference>,
     pub(crate) p: &'a CheckedPackage,
     pub(crate) c: &'a TypeContext<'b>,
     limits: Limits,
@@ -478,9 +507,11 @@ pub(crate) struct Engine<'a, 'b> {
     stack: Vec<DeclarationId>,
     count: usize,
     lexical: BTreeMap<String, Expr>,
-    indexed_arguments: BTreeMap<String, Vec<(Vec<Value>, Expr)>>,
+    indexed_arguments: BTreeMap<String, functions::IndexedSelection>,
     function_stack: Vec<DeclarationId>,
     function_types: BTreeMap<String, Type>,
+    function_substitutions: pse_quantity::scheme::Substitution,
+    function_symbols: Option<Symbols>,
     lexical_bases: lexical::LexicalBases,
     preset_stack: Vec<DeclarationId>,
     local_serial: usize,
@@ -491,11 +522,13 @@ pub(crate) struct Engine<'a, 'b> {
     replicated: Vec<ReplicatedEquation>,
     pending_inventories: Vec<(InstanceId, Declaration, Environment)>,
     /// Original integrated initial rows captured before any inventory lowers them.
-    inventory_initial_sources: BTreeMap<SemanticId, (SemanticId, Expr, Lineage)>,
+    inventory_initial_sources:
+        BTreeMap<SemanticId, (SemanticId, crate::resolved::NodeIx, Expr, Lineage)>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
     /// Form realizations by the instance and form they realize: every instance of a
     /// definition realizes its own occurrences of that definition's forms.
     form_realizations: BTreeMap<(InstanceId, DeclarationId), (forms::Realized, DeclarationId)>,
+    form_sources: Vec<crate::resolved::Source>,
     facts: Environment,
     objective_level: Option<usize>,
     cancel: &'a dyn Fn() -> bool,
@@ -595,10 +628,15 @@ pub fn specialize_with_discretizer(
     let mut engine = Engine {
         selection_collector: crate::scientific_selection::Collector::default(),
         finite_collector: finite::Collector::default(),
+        construction: crate::resolved::construction::Construction::new(limits.items),
+        originals: Vec::new(),
+        original_guards: Vec::new(),
+        lexical_references: BTreeMap::new(),
         p: package,
         c: &context,
         limits,
         model: SpecializedModel {
+            construction_limit: limits.items,
             engineering_rules: crate::annotation::engineering_rules(package)?,
             ..SpecializedModel::default()
         },
@@ -615,6 +653,8 @@ pub fn specialize_with_discretizer(
         indexed_arguments: BTreeMap::new(),
         function_stack: Vec::new(),
         function_types: BTreeMap::new(),
+        function_substitutions: BTreeMap::new(),
+        function_symbols: None,
         lexical_bases: lexical::LexicalBases::default(),
         preset_stack: Vec::new(),
         local_serial: 0,
@@ -624,6 +664,7 @@ pub fn specialize_with_discretizer(
         inventory_initial_sources: BTreeMap::new(),
         relaxations: BTreeMap::new(),
         form_realizations: BTreeMap::new(),
+        form_sources: Vec::new(),
         facts: ambient.clone(),
         objective_level: crate::analysis::objective_level(&bindings.facts)?,
         discretizer,
@@ -649,12 +690,15 @@ pub fn specialize_with_discretizer(
     engine.replicated_equations()?;
     for name in &bindings.demand {
         let expr = dsl::parse_expr(name).map_err(|e| invalid(root, e.to_string()))?;
-        let resolved = engine.with_instance_selections(instance, |engine| {
-            engine.rewrite(instance, &expr, &Environment::new(), &[root])
+        let ExprKind::Path(path) = &expr.kind else {
+            return Err(invalid(root, "a caller demand requires a member path"));
+        };
+        let id = engine.with_instance_selections(instance, |engine| {
+            let (owner, member, coordinates) =
+                engine.resolve_path(instance, root, path, &Environment::new(), true)?;
+            engine.symbol(owner, member, &coordinates, &[root])
         })?;
-        if let Some(id) = engine.model.symbols.reference(&resolved) {
-            engine.model.paths.insert(name.clone(), id);
-        }
+        engine.model.paths.insert(name.clone(), id);
     }
     for id in engine.model.regimes.keys() {
         if !engine
@@ -697,6 +741,90 @@ pub fn specialize_with_discretizer(
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect(),
     );
+    for declaration in &selected {
+        if let Some(row) = package.declarations.get(declaration) {
+            let start = u32::try_from(row.source_start).map_err(|_| {
+                invalid(
+                    *declaration,
+                    "original declaration start is outside source span representation",
+                )
+            })?;
+            let end = u32::try_from(row.source_end).map_err(|_| {
+                invalid(
+                    *declaration,
+                    "original declaration end is outside source span representation",
+                )
+            })?;
+            engine.model.source_declarations.insert(
+                *declaration,
+                pse_authoring::SourceSpan::new(row.document_id, start, end),
+            );
+        }
+    }
+    let scalar_sources = engine
+        .model
+        .symbols
+        .values()
+        .map(|symbol| (symbol.id, symbol.lineage.declaration))
+        .collect::<Vec<_>>();
+    for (id, declaration) in scalar_sources {
+        let source = crate::resolved::Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration,
+                role: "derived.scalar_reference".into(),
+                position: 0,
+            },
+            span: Span::default(),
+            coordinate: None,
+        };
+        let value = engine.selected_scalar(id, source)?;
+        engine.model.symbol_roots.insert(id, value.root);
+    }
+    for annotation in &engine.model.annotations {
+        if let (
+            crate::annotation::AnnotationRoots::Valid { lower, upper },
+            crate::annotation::AnnotationValue::Valid { layer, .. },
+        ) = (&annotation.roots, &annotation.value)
+        {
+            let slot = engine
+                .model
+                .symbols
+                .slot(annotation.target)
+                .ok_or_else(|| {
+                    invalid(
+                        annotation.lineage.declaration,
+                        "closure range target has no scalar owner",
+                    )
+                })?;
+            engine.construction.member_range(
+                slot,
+                crate::resolved::MemberRange {
+                    lower: *lower,
+                    upper: *upper,
+                    layer: *layer,
+                },
+            )?;
+            if engine
+                .model
+                .member_range_sources
+                .insert(slot, annotation.lineage.declaration.as_id())
+                .is_some()
+            {
+                return Err(invalid(
+                    annotation.lineage.declaration,
+                    "one scalar has conflicting original closure ranges",
+                ));
+            }
+        }
+    }
+    let (admissions, literals) = engine.construction.take_support();
+    engine.model.physical_admissions = admissions;
+    engine.model.literal_contracts = literals;
+    engine.model.resolved =
+        engine
+            .construction
+            .finish(engine.model.symbols.clone(), Vec::new(), Vec::new())?;
+    engine.model.original_guards = engine.original_guards;
     engine.model.finite_facts = engine.finite_collector.finish();
     engine.model.selection_closures = engine.selection_collector.into_inner();
     Ok(engine.model)
@@ -932,9 +1060,20 @@ impl Engine<'_, '_> {
                 )]);
             }
         }
-        let expression = self.rewrite(instance, &expression, env, &[at])?;
-        let target = self.model.symbols.reference(&expression)
-            .ok_or_else(|| invalid(at, "annotation must target a member or equation"))?;
+        // A target binds a declared member, never a numerical expression. Resolve
+        // remaining paths directly so fixture fields retain their own source role
+        // and an unknown member cannot masquerade as a missing annotation field.
+        let ExprKind::Path(path) = &expression.kind else {
+            return Err(invalid(at, "annotation must target a member or equation"));
+        };
+        let (owner, member, coordinates) = self.resolve_path(instance, at, path, env, true)?;
+        if !matches!(
+            self.p.declarations[&member].value.kind,
+            Kind::Variable | Kind::Parameter | Kind::Let | Kind::Alias
+        ) {
+            return Err(invalid(at, "annotation must target a member or equation"));
+        }
+        let target = self.symbol(owner, member, &coordinates, &[at])?;
         Ok(vec![(
             target,
             self.model.symbols[&target].ty.clone(),
@@ -1073,6 +1212,18 @@ impl Engine<'_, '_> {
                 continue;
             }
             if let StaticValue::Expression(expression) = argument {
+                let field = self
+                    .p
+                    .expression_occurrence(at, "binding.expression", 0)
+                    .ok_or_else(|| {
+                        invalid(at, "constructor source lacks its original checked field")
+                    })?;
+                let part = crate::expression::inventory::field(&field.syntax)
+                    .iter()
+                    .position(|root| std::ptr::eq(*root, expression))
+                    .ok_or_else(|| {
+                        invalid(at, "constructor argument lacks its original grammar root")
+                    })?;
                 let env = if let Some(env) = &source_env {
                     std::sync::Arc::clone(env)
                 } else {
@@ -1088,6 +1239,9 @@ impl Engine<'_, '_> {
                     .or_insert(NumericalSource {
                         instance: owner,
                         declaration: at,
+                        role: "binding.expression".into(),
+                        position: 0,
+                        part,
                         expression: expression.clone(),
                         env,
                     });
@@ -1122,160 +1276,66 @@ impl Engine<'_, '_> {
         )?;
         Ok(std::sync::Arc::new(env.clone()))
     }
-    fn inline_evidence_members(
-        &mut self,
-        expression: &Expr,
-        visited: &mut BTreeSet<SemanticId>,
-        depth: usize,
-    ) -> Result<Expr> {
-        if depth >= self.limits.depth {
-            return Err(ModelingError::Budget(
-                "numerical prerequisite member depth".into(),
-            ));
-        }
-        let mut expression = expression.clone();
-        expression.try_walk_mut(|node| -> Result<()> {
-            self.reserve(1)?;
-            let ExprKind::Path(path) = &node.kind else {
-                return Ok(());
-            };
-            let [segment] = path.segments.as_slice() else {
-                return Ok(());
-            };
-            let Some(id) = self.model.symbols.named(&segment.name).and_then(|slot| self.model.symbols.at(slot)).map(|symbol| symbol.id)
-            else {
-                return Ok(());
-            };
-            let Some(definition) = self
-                .model
-                .symbols
-                .get(&id)
-                .and_then(|s| s.expression.clone())
-            else {
-                return Ok(());
-            };
-            if !visited.insert(id) {
-                return Err(invalid(id, "cyclic numerical prerequisite member"));
-            }
-            let result = self.inline_evidence_members(&definition, visited, depth + 1);
-            visited.remove(&id);
-            *node = result?;
-            Ok(())
-        })?;
-        Ok(expression)
-    }
-    fn has_applicability_effect(&self, expression: &Expr) -> bool {
-        let mut pending = Vec::new();
-        let calls = |expression: &Expr, pending: &mut Vec<String>| {
-            expression.walk(|node| match &node.kind {
-                ExprKind::NamedCall { name, .. } | ExprKind::Partial { function: name, .. } => {
-                    pending.push(dsl::render_path(name));
-                }
-                _ => {}
-            });
-        };
-        calls(expression, &mut pending);
-        let mut seen = BTreeSet::new();
-        while let Some(name) = pending.pop() {
-            if !seen.insert(name.clone()) {
-                continue;
-            }
-            if let Some(function) = self.model.functions.get(&name) {
-                if !function.applicability_uses.is_empty() {
-                    return true;
-                }
-                if let Some(body) = &function.body {
-                    calls(body, &mut pending);
-                }
-            }
-        }
-        false
-    }
     fn numerical_source_expression(
         &mut self,
-        consumer: InstanceId,
-        source: &NumericalSource,
-        value: Expr,
-        ty: Type,
-    ) -> Result<Expr> {
-        // The default owns its lexical environment. A numerical caller's local aliases
-        // and function arguments cannot capture any name in that source.
+        source_owner: &NumericalSource,
+        value: crate::resolved::construction::Rewritten,
+        source: crate::resolved::Source,
+    ) -> Result<crate::resolved::construction::Rewritten> {
         let lexical = std::mem::take(&mut self.lexical);
+        let references = std::mem::take(&mut self.lexical_references);
         let indexed = std::mem::take(&mut self.indexed_arguments);
         let types = std::mem::take(&mut self.function_types);
         let locals = std::mem::take(&mut self.source_locals);
         let aliases = std::mem::take(&mut self.set_alias_sources);
-        let result = self.with_instance_selections(source.instance, |engine| {
-            engine.rewrite(
-                source.instance,
-                &source.expression,
-                &source.env,
-                &[source.declaration],
+        let result = self.with_instance_selections(source_owner.instance, |engine| {
+            engine.with_original_part(
+                source_owner.declaration,
+                &source_owner.role,
+                source_owner.position,
+                source_owner.part,
+                &source_owner.expression,
+                |engine| {
+                    engine.rewrite(
+                        source_owner.instance,
+                        &source_owner.expression,
+                        &source_owner.env,
+                        &[source_owner.declaration],
+                    )
+                },
             )
         });
         self.lexical = lexical;
+        self.lexical_references = references;
         self.indexed_arguments = indexed;
         self.function_types = types;
         self.source_locals = locals;
         self.set_alias_sources = aliases;
-        let prerequisite = self.inline_evidence_members(&result?, &mut BTreeSet::new(), 0)?;
-        if !self.has_applicability_effect(&prerequisite) {
+        let prerequisite = result?;
+        if !self
+            .construction
+            .has_effect(prerequisite.root, &self.model.symbols)?
+        {
             return Ok(value);
         }
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingParameterReadV1);
-        identity
-            .id(&consumer.as_id())
-            .id(&source.instance.as_id())
-            .id(&source.declaration.as_id())
-            .str(&dsl::render_expr(&source.expression))
-            .str(&dsl::render_expr(&prerequisite))
-            .str(&dsl::render_expr(&value))
-            .u64(source.env.len() as u64);
-        for (name, value) in source.env.iter() {
-            identity.str(name);
-            value.frame(&mut identity);
-        }
-        if let Some(scheme) = ty.quantity_scheme() {
-            scheme.frame(&mut identity);
-        }
-        identity.bool(ty.physical_refinement().is_some());
-        if let Some(refinement) = ty.physical_refinement() {
-            refinement.frame(&mut identity);
-        }
-        identity.u64(1).u64(1);
-        let id = DeclarationId::from(identity.finish_id());
-        let name = format!("f_{}", id.as_id().to_hex());
-        self.reserve(1)?;
-        self.model
-            .functions
-            .entry(name.clone())
-            .or_insert(crate::Function {
-                applicability: Vec::new(),
-                applicability_uses: Vec::new(),
-                prerequisites: vec![1],
-                physical_admissions: BTreeMap::new(),
-                physical_operation: None,
-                reduction: None,
-                validity: None,
-                envelopes: Vec::new(),
-                validity_reads: Default::default(),
-                external: None,
-                continuity: None,
-                id,
-                variables: BTreeSet::new(),
-                arguments: vec![("value".into(), ty.clone()), ("source".into(), ty.clone())],
-                result: ty,
-                body: Some(Expr {
-                    kind: ExprKind::Path(Path::single("value")),
-                    span: Span::default(),
-                }),
-            });
-        Ok(Expr {
-            kind: ExprKind::NamedCall {
-                name: Path::single(name),
-                args: vec![value, prerequisite],
+        let root = self.construction.node(
+            crate::resolved::Node::Sequence {
+                value: value.root,
+                prerequisites: vec![prerequisite.root],
             },
-            span: Span::default(),
+            source,
+        )?;
+        // Inspection retains the same independent source observations, without any callable
+        // identity or alternate executable wrapper. Let ordering is inspection syntax only.
+        Ok(crate::resolved::construction::Rewritten {
+            root,
+            inspection: Expr {
+                kind: ExprKind::Let {
+                    bindings: vec![("__source_observation".into(), prerequisite.inspection)],
+                    body: Box::new(value.inspection),
+                },
+                span: Span::default(),
+            },
         })
     }
     fn scope_parameter_expression(
@@ -1284,13 +1344,14 @@ impl Engine<'_, '_> {
         name: &str,
         value: &Value,
         at: DeclarationId,
-    ) -> Result<Expr> {
-        let expression = self.value_expression(value, at)?;
-        let Some(ty) = value_type(value).filter(|ty| ty.quantity_scheme().is_some()) else {
+        source: crate::resolved::Source,
+    ) -> Result<crate::resolved::construction::Rewritten> {
+        let expression = self.value_expression(value, at, source.clone())?;
+        if !value_type(value).is_some_and(|ty| ty.quantity_scheme().is_some()) {
             return Ok(expression);
-        };
+        }
         let key = (instance, name.to_owned());
-        let Some(source) = self.numerical_sources.get(&key).cloned() else {
+        let Some(owner) = self.numerical_sources.get(&key).cloned() else {
             return Ok(expression);
         };
         if self.numerical_source_stack.contains(&key) {
@@ -1302,7 +1363,7 @@ impl Engine<'_, '_> {
             ));
         }
         self.numerical_source_stack.push(key);
-        let result = self.numerical_source_expression(instance, &source, expression, ty);
+        let result = self.numerical_source_expression(&owner, expression, source);
         self.numerical_source_stack.pop();
         result
     }
@@ -1312,28 +1373,35 @@ impl Engine<'_, '_> {
         member: DeclarationId,
         coordinates: &[(String, Value)],
         symbol: SemanticId,
-    ) -> Result<Expr> {
+        source: crate::resolved::Source,
+    ) -> Result<crate::resolved::construction::Rewritten> {
+        let slot = self
+            .model
+            .symbols
+            .slot(symbol)
+            .ok_or_else(|| invalid(member, "selected scalar lacks its authoritative slot"))?;
+        let expression = self.construction.pair(
+            crate::resolved::Node::Reference(crate::resolved::Reference::Symbol(slot)),
+            symbol_expr(symbol).kind,
+            source.clone(),
+        )?;
         let row = &self.p.declarations[&member];
-        if matches!(row.value.kind, Kind::Let | Kind::Alias)
-            && let Some(expression) = self.model.symbols[&symbol].expression.clone()
+        if row.value.kind != Kind::Parameter
+            || row
+                .value
+                .binding
+                .as_ref()
+                .and_then(|binding| binding.expression.as_deref())
+                .is_none()
         {
-            let expanded = self.inline_evidence_members(&expression, &mut BTreeSet::new(), 0)?;
-            if self.has_applicability_effect(&expanded) {
-                return Ok(expanded);
-            }
+            return Ok(expression);
         }
-        let Some(_expression) = row
-            .value
-            .binding
-            .as_ref()
-            .and_then(|b| b.expression.as_deref())
-            .filter(|_| row.value.kind == Kind::Parameter)
-        else {
-            return Ok(symbol_expr(symbol));
-        };
-        let source = NumericalSource {
+        let owner = NumericalSource {
             instance,
             declaration: member,
+            role: "binding.expression".into(),
+            position: 0,
+            part: 0,
             expression: self
                 .p
                 .expression_at(member, "binding.expression", 0)?
@@ -1343,12 +1411,7 @@ impl Engine<'_, '_> {
                 coordinates,
             ))?,
         };
-        self.numerical_source_expression(
-            instance,
-            &source,
-            symbol_expr(symbol),
-            self.model.symbols[&symbol].ty.clone(),
-        )
+        self.numerical_source_expression(&owner, expression, source)
     }
     fn predicate(&self, at: DeclarationId, env: &Environment, role: &str) -> Result<bool> {
         let p = self.p.predicate_at(at, role, 0)?;
@@ -1528,6 +1591,9 @@ impl Engine<'_, '_> {
                     .or_insert(NumericalSource {
                         instance: id,
                         declaration: definition,
+                        role: "scope.parameters.default_value".into(),
+                        position,
+                        part: 0,
                         expression: expression.clone(),
                         env: retained_env,
                     });
@@ -1616,10 +1682,7 @@ impl Engine<'_, '_> {
                 parent,
                 definition,
                 members: members.clone(),
-                group: ContentHash::from_bytes([0; 32]),
                 stages: available_stages,
-                coordinates: Vec::new(),
-                rows: Vec::new(),
                 path,
             },
         );
@@ -2020,14 +2083,32 @@ impl Engine<'_, '_> {
                             .p
                             .expression_at(*member, "binding.expression", 0)?
                             .clone();
-                        let target = self.rewrite(
-                            id,
+                        let target = self.with_original_expression(
+                            *member,
+                            "binding.expression",
+                            0,
                             &expr,
-                            &coordinates_env(&env, &coordinates),
-                            &[*member],
+                            |engine| {
+                                engine.rewrite(
+                                    id,
+                                    &expr,
+                                    &coordinates_env(&env, &coordinates),
+                                    &[*member],
+                                )
+                            },
                         )?;
-                        let symbol = self.model.symbols.reference(&target)
-                            .ok_or_else(|| invalid(*member, "port must refer to a symbol"))?;
+                        let Some(crate::resolved::Node::Reference(
+                            crate::resolved::Reference::Symbol(slot),
+                        )) = self.construction.get(target.root)
+                        else {
+                            return Err(invalid(*member, "port must refer to an actual scalar"));
+                        };
+                        let symbol = self
+                            .model
+                            .symbols
+                            .at(*slot)
+                            .ok_or_else(|| invalid(*member, "port scalar is outside its owner"))?
+                            .id;
                         if self.model.symbols[&symbol].ty != self.p.types[member] {
                             return Err(invalid(*member, "port physical contract differs"));
                         }
@@ -2067,48 +2148,95 @@ impl Engine<'_, '_> {
                     self.process_connection(id, &r, &env)?;
                 }
                 Selected::Expectation(test) => {
-                    let mut rewrite = |role: &str| -> Result<Expr> {
-                        self.rewrite(
-                            id,
-                            self.p.expression_at(*member, role, 0)?,
-                            &env,
-                            &[*member],
-                        )
+                    let actual =
+                        self.rewrite_field(id, *member, "expectation.actual", 0, &env, &[*member])?;
+                    let ty = self.constructed_type(actual.root)?;
+                    let scope = RewriteContext {
+                        instance: id,
+                        env: &env,
+                        chain: &[*member],
                     };
-                    let actual = rewrite("expectation.actual")?;
-                    let expected = rewrite("expectation.expected")?;
-                    let tolerance = rewrite("expectation.tolerance")?;
+                    let expected = self.rewrite_physical_field(
+                        scope,
+                        *member,
+                        "expectation.expected",
+                        0,
+                        Some(&ty),
+                    )?;
+                    let difference = pse_quantity::scheme::Scheme::Delta(Box::new(
+                        ty.quantity_scheme()
+                            .ok_or_else(|| {
+                                invalid(*member, "test expectation requires quantities")
+                            })?
+                            .clone(),
+                    ))
+                    .resolve_with_evidence(
+                        self.c.quantities,
+                        &BTreeMap::new(),
+                        self.c.preconditions,
+                    )
+                    .map_err(|error| invalid(*member, error.to_string()))?;
+                    let difference =
+                        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(difference));
+                    let tolerance = self.rewrite_physical_field(
+                        scope,
+                        *member,
+                        "expectation.tolerance",
+                        0,
+                        Some(&difference),
+                    )?;
                     let relative_tolerance = if test.relative_tolerance.is_some() {
-                        rewrite("expectation.relative_tolerance")?
+                        let scalar = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+                            self.c.quantities.neutral_dimensionless().ok_or_else(|| {
+                                invalid(
+                                    *member,
+                                    "relative tolerance requires a neutral scalar type",
+                                )
+                            })?,
+                        ));
+                        self.rewrite_physical_field(
+                            scope,
+                            *member,
+                            "expectation.relative_tolerance",
+                            0,
+                            Some(&scalar),
+                        )?
                     } else {
-                        Expr {
-                            kind: ExprKind::Number(Number {
+                        let source = crate::resolved::Source {
+                            field: crate::expression::occurrences::OccurrenceKey {
+                                declaration: *member,
+                                role: "derived.expectation_relative_zero".into(),
+                                position: 0,
+                            },
+                            span: Span::default(),
+                            coordinate: None,
+                        };
+                        self.construction.number(
+                            Number {
                                 exact_integer: Some(0),
                                 value: 0.0,
                                 unit: None,
-                            }),
-                            span: Span::default(),
-                        }
+                            },
+                            source,
+                        )?
                     };
-                    let types = crate::TypeScope::new(&self.model.symbols);
-                    let ty = crate::expression::infer(
-                        &actual,
-                        &types,
-                        &self.model.function_contracts(self.p),
-                        self.c,
-                        *member,
-                        None,
-                    )?;
+                    let roots = ExpectationRoots {
+                        actual: actual.root,
+                        expected: expected.root,
+                        tolerance: tolerance.root,
+                        relative_tolerance: relative_tolerance.root,
+                    };
                     let test_id = member_id(id, *member, &[]);
                     self.reserve(1)?;
                     self.model.expectations.insert(
                         test_id,
                         Expectation {
                             id: test_id,
-                            actual,
-                            expected,
-                            tolerance,
-                            relative_tolerance,
+                            actual: actual.inspection,
+                            expected: expected.inspection,
+                            tolerance: tolerance.inspection,
+                            relative_tolerance: relative_tolerance.inspection,
+                            roots,
                             ty,
                             lineage: self.lineage(id, &r, &[*member]),
                         },
@@ -2159,7 +2287,8 @@ impl Engine<'_, '_> {
         };
         let local = coordinates_env(env, coordinates);
         if !self.equation_defined(equation, &local)? {
-            self.finite_collector.absent(finite::MemberKey::new(id, member, coordinates))?;
+            self.finite_collector
+                .absent(finite::MemberKey::new(id, member, coordinates))?;
             return Ok(());
         }
         if self.initial_equation(id, member, equation, &local)? {
@@ -2167,14 +2296,19 @@ impl Engine<'_, '_> {
                 .initial_equations
                 .insert(member_id(id, member, coordinates));
         }
-        let equation = self.rewrite_equation(id, equation, &local, &[member])?;
+        let equation =
+            self.with_original_equation(member, "equation.expression", 0, equation, |engine| {
+                engine.rewrite_equation(id, equation, &local, &[member])
+            })?;
         if e.condition.is_some() {
             return self.indicator_equation(id, &r, coordinates, equation, env);
         }
         self.reserve(1)?;
+        let row = member_id(id, member, coordinates);
+        self.model.equation_roots.insert(row, equation.relation());
         self.model.equations.push(Row {
-            id: member_id(id, member, coordinates),
-            equation,
+            id: row,
+            equation: equation.inspection,
             lineage: self.lineage(id, &r, &[member]),
         });
         Ok(())
@@ -2258,37 +2392,44 @@ impl Engine<'_, '_> {
             for row in output {
                 self.checkpoint()?;
                 let local = coordinates_env(env, &row);
-                let (domain, domain_type) = match crate::temporal::index_domain(self.p, at, position)? {
-                    crate::temporal::IndexDomain::Authored { position } => {
-                        (self.eval_field(at, &local, &role, position, None)?,
-                         self.finite_domain_type(at, &local, &role, position)?)
-                    }
-                    crate::temporal::IndexDomain::Temporal { policy, axis } => {
-                        let mut owner = Some(instance);
-                        let mut mesh = None;
-                        while let Some(candidate) = owner {
-                            let state = &self.states[&candidate];
-                            if state.members.values().any(|member| *member == axis) {
-                                mesh = self.model.meshes.get(&member_id(candidate, axis, &[]));
-                                if mesh.is_some() {
-                                    break;
+                let (domain, domain_type) =
+                    match crate::temporal::index_domain(self.p, at, position)? {
+                        crate::temporal::IndexDomain::Authored { position } => (
+                            self.eval_field(at, &local, &role, position, None)?,
+                            self.finite_domain_type(at, &local, &role, position)?,
+                        ),
+                        crate::temporal::IndexDomain::Temporal { policy, axis } => {
+                            let mut owner = Some(instance);
+                            let mut mesh = None;
+                            while let Some(candidate) = owner {
+                                let state = &self.states[&candidate];
+                                if state.members.values().any(|member| *member == axis) {
+                                    mesh = self.model.meshes.get(&member_id(candidate, axis, &[]));
+                                    if mesh.is_some() {
+                                        break;
+                                    }
                                 }
+                                owner = state.parent;
                             }
-                            owner = state.parent;
-                        }
-                        let mesh = mesh.ok_or_else(|| {
-                            invalid(
-                                policy,
-                                format!(
-                                    "resolved temporal axis {} has no active realization",
-                                    axis.as_id().to_hex()
-                                ),
+                            let mesh = mesh.ok_or_else(|| {
+                                invalid(
+                                    policy,
+                                    format!(
+                                        "resolved temporal axis {} has no active realization",
+                                        axis.as_id().to_hex()
+                                    ),
+                                )
+                            })?;
+                            (
+                                Value::Set(mesh.points.clone()),
+                                self.p
+                                    .types
+                                    .get(&axis)
+                                    .cloned()
+                                    .ok_or_else(|| invalid(axis, "temporal carrier type absent"))?,
                             )
-                        })?;
-                        (Value::Set(mesh.points.clone()), self.p.types.get(&axis).cloned()
-                            .ok_or_else(|| invalid(axis, "temporal carrier type absent"))?)
-                    }
-                };
+                        }
+                    };
                 let Value::Set(values) = domain else {
                     return Err(invalid(at, "finite domain required"));
                 };
@@ -2338,7 +2479,8 @@ impl Engine<'_, '_> {
         chain: &[DeclarationId],
     ) -> Result<SemanticId> {
         let id = self.symbol_member_body(instance, member, coordinates, chain)?;
-        self.finite_collector.member(finite::MemberKey::new(instance, member, coordinates), id)?;
+        self.finite_collector
+            .member(finite::MemberKey::new(instance, member, coordinates), id)?;
         Ok(id)
     }
     fn symbol_member_body(
@@ -2377,16 +2519,21 @@ impl Engine<'_, '_> {
                 .closures
                 .get(&id)
                 .ok_or_else(|| invalid(member, "accounting coordinate absent"))?;
-            if !self.model.symbols.contains_key(&id) {self.model.symbols.insert(id, Symbol {
-                definition: None,
-                id,
-                ty: closure.ty.clone(),
-                role: Kind::Let,
-                domain: Domain::Continuous,
-                expression: None,
-                initial: None,
-                lineage: closure.lineage.clone(),
-            });}
+            if !self.model.symbols.contains_key(&id) {
+                self.model.symbols.insert(
+                    id,
+                    Symbol {
+                        definition: None,
+                        id,
+                        ty: closure.ty.clone(),
+                        role: Kind::Let,
+                        domain: Domain::Continuous,
+                        expression: None,
+                        initial: None,
+                        lineage: closure.lineage.clone(),
+                    },
+                );
+            }
             self.states
                 .get_mut(&instance)
                 .ok_or_else(|| invalid(member, "accounting owner absent"))?
@@ -2404,7 +2551,16 @@ impl Engine<'_, '_> {
                 .get(&member)
                 .cloned()
                 .ok_or_else(|| invalid(member, "alternative indicator type absent"))?;
-            let zero = self.typed_zero(&ty, member)?;
+            let source = crate::resolved::Source {
+                field: crate::expression::occurrences::OccurrenceKey {
+                    declaration: member,
+                    role: "derived.alternative_start".into(),
+                    position: 0,
+                },
+                span: Span::default(),
+                coordinate: None,
+            };
+            let zero = self.constant(0.0, &ty, member, source)?;
             let mut lineage = self.lineage(instance, &row, &[member]);
             // Name the indicator by its disjunction path, as authors reference it.
             let mut names = Vec::new();
@@ -2435,7 +2591,8 @@ impl Engine<'_, '_> {
             );
             self.model.annotations.push(crate::annotation::Annotation {
                 target: id,
-                value: crate::annotation::AnnotationValue::Start(zero),
+                value: crate::annotation::AnnotationValue::Start(zero.inspection),
+                roots: crate::annotation::AnnotationRoots::Scalar { value: zero.root },
                 lineage,
             });
             self.states
@@ -2456,8 +2613,12 @@ impl Engine<'_, '_> {
                 .expression_at(member, "binding.expression", 0)?
                 .clone();
             let env = coordinates_env(&self.states[&instance].env, coordinates);
-            let target = self.rewrite(instance, &expr, &env, chain)?;
-            return self.model.symbols.reference(&target)
+            let target =
+                self.with_original_expression(member, "binding.expression", 0, &expr, |engine| {
+                    engine.rewrite(instance, &expr, &env, chain)
+                })?;
+            return self
+                .symbol_of_root(target.root)
                 .ok_or_else(|| invalid(member, "port target must name a symbol"));
         }
         let owner = if row.value.kind == Kind::Parameter && b.indices.is_empty() {
@@ -2541,20 +2702,41 @@ impl Engine<'_, '_> {
                     .p
                     .expression_at(member, "binding.expression", 0)?
                     .clone();
-                let expr = self.rewrite(instance, &expr, &env, &demand)?;
-                self.model
+                let expr = self.with_original_expression(
+                    member,
+                    "binding.expression",
+                    0,
+                    &expr,
+                    |engine| engine.rewrite(instance, &expr, &env, &demand),
+                )?;
+                let symbol = self
+                    .model
                     .symbols
                     .get_mut(&id)
-                    .ok_or_else(|| invalid(id, "symbol missing"))?
-                    .expression = Some(expr);
+                    .ok_or_else(|| invalid(id, "symbol missing"))?;
+                symbol.definition = Some(expr.root);
+                symbol.expression = Some(expr.inspection);
             }
         }
         if b.defined_by.is_some() {
             let equation = self.p.equation_at(member, "binding.defined_by", 0)?.clone();
-            let equation = self.rewrite_equation(instance, &equation, &env, &demand)?;
+            let equation = self.with_original_equation(
+                member,
+                "binding.defined_by",
+                0,
+                &equation,
+                |engine| engine.rewrite_equation(instance, &equation, &env, &demand),
+            )?;
+            let row_id = self
+                .model
+                .derivations
+                .publish(crate::derived::Relationship::DefiningEquation { symbol: id })?;
+            self.model
+                .equation_roots
+                .insert(row_id, equation.relation());
             self.model.equations.push(Row {
-                id: pse_ids::named_id(id, "defining-equation"),
-                equation,
+                id: row_id,
+                equation: equation.inspection,
                 lineage: self.lineage(instance, &row, &demand),
             });
         }
@@ -2591,24 +2773,22 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(id, "accumulator target absent"))?
             .ty
             .clone();
-        let expression = self
-            .p
-            .expression_at(id, "contribution.expression", 0)?
-            .clone();
-        let mut expression = self.rewrite(instance, &expression, &env, &[id])?;
-        let types = crate::TypeScope::new(&self.model.symbols);
-        let actual = crate::expression::infer(
-            &expression,
-            &types,
-            &self.model.function_contracts(self.p),
-            self.c,
-            id,
-            if c.role == Role::Directed {
-                None
-            } else {
-                Some(&ty)
-            },
-        )?;
+        let mut expression = if c.role == Role::Directed {
+            self.rewrite_field(instance, id, "contribution.expression", 0, &env, &[id])?
+        } else {
+            self.rewrite_physical_field(
+                RewriteContext {
+                    instance,
+                    env: &env,
+                    chain: &[id],
+                },
+                id,
+                "contribution.expression",
+                0,
+                Some(&ty),
+            )?
+        };
+        let actual = self.constructed_type(expression.root)?;
         if c.role == Role::Directed {
             let boundary = self.model.closures[&target]
                 .boundary
@@ -2661,13 +2841,21 @@ impl Engine<'_, '_> {
             })?;
             expression = self.physical_transfer_function(
                 id,
-                actual.clone(),
-                payload,
+                (actual.clone(), payload),
                 crate::PhysicalOperation::TransferMagnitude {
                     source: refinement.clone(),
                 },
                 1,
                 expression,
+                crate::resolved::Source {
+                    field: crate::expression::occurrences::OccurrenceKey {
+                        declaration: id,
+                        role: "contribution.expression".into(),
+                        position: 0,
+                    },
+                    span: Span::default(),
+                    coordinate: None,
+                },
             )?;
         } else if actual.physical_refinement().is_some() {
             return Err(invalid(
@@ -2677,10 +2865,14 @@ impl Engine<'_, '_> {
         } else if actual != ty {
             return Err(invalid(id, "contribution physical contract differs"));
         }
+        let contribution = member_id(instance, id, coordinates);
+        self.model
+            .contribution_roots
+            .insert(contribution, expression.root);
         let term = Contribution {
-            id: member_id(instance, id, coordinates),
+            id: contribution,
             role: c.role,
-            expression,
+            expression: expression.inspection,
             lineage: self.lineage(instance, row, &[id]),
         };
         self.model
@@ -2707,49 +2899,67 @@ impl Engine<'_, '_> {
             }
         }
         self.finish_process_states()?;
-        for closure in self.model.closures.values() {
-            let zero = self.typed_zero(&closure.ty, closure.lineage.declaration)?;
+        // Original contribution order, signs and exact roots remain the conservation
+        // authority. Typed edges are emitted with the same independent inspection equation.
+        let closures = self.model.closures.values().cloned().collect::<Vec<_>>();
+        for closure in closures {
+            let source = crate::resolved::Source {
+                field: crate::expression::occurrences::OccurrenceKey {
+                    declaration: closure.lineage.declaration,
+                    role: "derived.closure_sum".into(),
+                    position: 0,
+                },
+                span: Span::default(),
+                coordinate: None,
+            };
+            let zero = self.constant(
+                0.0,
+                &closure.ty,
+                closure.lineage.declaration,
+                source.clone(),
+            )?;
             let mut sum = zero.clone();
             for term in &closure.terms {
-                let negative = term.sign() < 0.0;
-                sum = Expr {
-                    kind: ExprKind::Binary {
-                        op: if negative {
-                            BinaryOp::Sub
-                        } else {
-                            BinaryOp::Add
-                        },
-                        lhs: Box::new(sum),
-                        rhs: Box::new(term.expression.clone()),
-                    },
-                    span: Span::default(),
+                let root = *self.model.contribution_roots.get(&term.id).ok_or_else(|| {
+                    invalid(
+                        term.lineage.declaration,
+                        "original contribution lacks its constructed root",
+                    )
+                })?;
+                let term_value = crate::resolved::construction::Rewritten {
+                    root,
+                    inspection: term.expression.clone(),
                 };
+                sum = self.generated_binary(
+                    if term.sign() < 0.0 {
+                        BinaryOp::Sub
+                    } else {
+                        BinaryOp::Add
+                    },
+                    sum,
+                    term_value,
+                    source.clone(),
+                )?;
             }
             if closure.mode == Mode::Conservation && !closure.observation_only {
-                self.model.equations.push(Row {
-                    id: pse_ids::named_id(closure.id, "conservation"),
-                    equation: Equation {
-                        kind: EquationKind::Relation {
-                            lhs: sum,
-                            sense: EquationSense::Eq,
-                            rhs: zero,
-                        },
-                        span: Span::default(),
-                    },
-                    lineage: closure.lineage.clone(),
-                });
+                let relationship = crate::derived::Relationship::ClosureConservation {
+                    closure: closure.id,
+                };
+                let id = self.model.derivations.publish(relationship)?;
+                let equation = Self::generated_relation(sum, EquationSense::Eq, zero, source.span);
+                self.retain_row(id, equation, closure.lineage)?;
             } else if matches!(closure.mode, Mode::Accounting | Mode::Observation) {
                 self.model.symbols.insert(
                     closure.id,
                     Symbol {
-                        definition: None,
+                        definition: Some(sum.root),
                         id: closure.id,
-                        ty: closure.ty.clone(),
+                        ty: closure.ty,
                         role: Kind::Let,
                         domain: Domain::Continuous,
-                        expression: Some(sum),
+                        expression: Some(sum.inspection),
                         initial: None,
-                        lineage: closure.lineage.clone(),
+                        lineage: closure.lineage,
                     },
                 );
             }
@@ -2765,10 +2975,33 @@ impl Engine<'_, '_> {
                     sense: EquationSense::Eq,
                 } = &source.equation.kind
                 {
-                    for (target, value) in [(lhs, rhs), (rhs, lhs)] {
-                        let Some(symbol) = self.model.symbols.reference(target) else {
+                    let relation = self.model.equation_roots.get(&source.id).ok_or_else(|| {
+                        invalid(
+                            source.lineage.declaration,
+                            "original initial equation lacks its constructed roots",
+                        )
+                    })?;
+                    for (target, value_root, value) in [
+                        (relation.lhs, relation.rhs, rhs),
+                        (relation.rhs, relation.lhs, lhs),
+                    ] {
+                        let Some(crate::resolved::Node::Reference(
+                            crate::resolved::Reference::Symbol(slot),
+                        )) = self.construction.get(target)
+                        else {
                             continue;
                         };
+                        let symbol = self
+                            .model
+                            .symbols
+                            .at(*slot)
+                            .ok_or_else(|| {
+                                invalid(
+                                    source.lineage.declaration,
+                                    "initial equation target is outside its symbol owner",
+                                )
+                            })?
+                            .id;
                         if !self
                             .model
                             .symbols
@@ -2779,7 +3012,10 @@ impl Engine<'_, '_> {
                         }
                         if self
                             .inventory_initial_sources
-                            .insert(symbol, (source.id, value.clone(), source.lineage.clone()))
+                            .insert(
+                                symbol,
+                                (source.id, value_root, value.clone(), source.lineage.clone()),
+                            )
                             .is_some()
                         {
                             return Err(invalid(
@@ -2798,36 +3034,9 @@ impl Engine<'_, '_> {
         self.select_formulation(formulation)?;
         self.apply_relaxations()?;
         self.admit_objectives()?;
-        self.group_bodies()?;
-        self.admit_function_occurrences()?;
+
         self.model.equations.sort_by_key(|r| r.id);
         Ok(())
-    }
-    fn typed_zero(&self, ty: &Type, at: DeclarationId) -> Result<Expr> {
-        let s = ty
-            .quantity_scheme()
-            .ok_or_else(|| invalid(at, "accumulator requires quantity"))?;
-        let id = s
-            .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
-            .map_err(|e| invalid(at, e.to_string()))?;
-        let q = self
-            .c
-            .quantities
-            .quantity_type(id)
-            .map_err(|e| invalid(at, e.to_string()))?;
-        let unit = self
-            .c
-            .quantities
-            .unit_product(q.canonical_unit)
-            .map_err(|e| invalid(at, e.to_string()))?;
-        Ok(Expr {
-            kind: ExprKind::Number(Number {
-                exact_integer: None,
-                value: 0.0,
-                unit: Some(unit),
-            }),
-            span: Span::default(),
-        })
     }
 }
 fn member_id(
@@ -2908,19 +3117,17 @@ impl SpecializedModel {
     /// The declared integral a member names: the integral itself, or the one reached by
     /// following exact symbol aliases. A sum or scaled expression names none.
     pub fn integral_of(&self, member: SemanticId) -> Option<SemanticId> {
-        let mut target = member;
-        let mut visited = BTreeSet::new();
-        while !self.integrals.contains_key(&target) {
-            if !visited.insert(target) {
-                return None;
-            }
-            target = self
-                .symbols
-                .get(&target)
-                .and_then(|symbol| symbol.expression.as_ref())
-                .and_then(|expression| self.symbols.reference(expression))?;
-        }
-        Some(target)
+        integral_alias(
+            member,
+            &self.symbols,
+            |id| self.integrals.contains_key(&id),
+            |root| match self.resolved.nodes.get(root) {
+                Some(crate::resolved::Node::Reference(crate::resolved::Reference::Symbol(
+                    slot,
+                ))) => Some(*slot),
+                _ => None,
+            },
+        )
     }
     /// The typed refusal of a derived parameter's realization, naming its subject (ADR-0104).
     pub fn realization_refusal(
@@ -3107,4 +3314,23 @@ mod facts_wire {
         }
         Ok(values)
     }
+}
+
+/// One exact typed alias walk is shared by construction-time and published graph owners.
+fn integral_alias(
+    member: SemanticId,
+    symbols: &Symbols,
+    is_integral: impl Fn(SemanticId) -> bool,
+    reference: impl Fn(crate::resolved::NodeIx) -> Option<crate::resolved::SymbolIx>,
+) -> Option<SemanticId> {
+    let mut current = member;
+    let mut visited = BTreeSet::new();
+    while !is_integral(current) {
+        if !visited.insert(current) {
+            return None;
+        }
+        let definition = symbols.get(&current)?.definition?;
+        current = symbols.at(reference(definition)?)?.id;
+    }
+    Some(current)
 }

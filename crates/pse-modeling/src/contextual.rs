@@ -1029,13 +1029,64 @@ mod tests {
             scope: &crate::PhysicalScope::default(),
         };
         let package = crate::check(&crate::kernel_types::try_source(text)?, &context)?;
-        crate::specialize(
+        let prepared = crate::specialize(
             &package,
             package.names[root],
             InstanceId::from_bytes([7; 16]),
             &crate::Bindings::default(),
             crate::Limits::default(),
-        )
+        )?;
+        // Exercise the actual downstream physical receiver. Inspection Exprs and
+        // their display-only function spellings establish no new admission.
+        for relation in prepared.equation_roots.values() {
+            prepared.prepare_region(
+                crate::resolved::RegionRequest {
+                    outputs: &[crate::resolved::RegionOutput::RelationResidual(*relation)],
+                    validity: &[],
+                },
+                &context,
+            )?;
+        }
+        Ok(prepared)
+    }
+    fn prepared_products(
+        model: &crate::SpecializedModel,
+    ) -> Vec<std::sync::Arc<crate::resolved::FunctionProduct>> {
+        let mut pending = model
+            .resolved
+            .functions
+            .iter()
+            .map(|selection| selection.product.clone())
+            .collect::<Vec<_>>();
+        let mut seen = BTreeSet::new();
+        let mut output = Vec::new();
+        while let Some(product) = pending.pop() {
+            // Local traversal memo only; actual products and typed edges remain authoritative.
+            if !seen.insert(std::sync::Arc::as_ptr(&product)) {
+                continue;
+            }
+            pending.extend(
+                product
+                    .syntax
+                    .functions
+                    .iter()
+                    .map(|selection| selection.product.clone()),
+            );
+            if let Some(crate::resolved::OperationMeaning::Transfer { result, .. }) =
+                &product.physical_operation
+            {
+                assert_eq!(product.result.physical_refinement(), Some(result));
+                let body = product.body.unwrap();
+                let facts = product.physical.node(body).unwrap();
+                let boundary = product.output_boundary.as_ref().unwrap();
+                assert_eq!(boundary.operation(), product.declaration.as_id());
+                let (target, scale) = boundary.apply_contract(&facts.contract).unwrap();
+                assert_eq!(&target, boundary.target());
+                assert!(scale.is_finite() && scale > 0.0);
+            }
+            output.push(product);
+        }
+        output
     }
     #[test]
     fn directed_transfers_bind_actual_instances_and_consume_one_orientation() {
@@ -1059,9 +1110,9 @@ mod tests {
                 .iter()
                 .all(|closure| closure.terms.len() == 1 && closure.terms[0].sign() == 1.0)
         );
-        assert!(prepared.functions.values().any(|function| matches!(
-            function.physical_operation,
-            Some(crate::PhysicalOperation::Transfer {
+        assert!(prepared_products(&prepared).iter().any(|function| matches!(
+            &function.physical_operation,
+            Some(crate::resolved::OperationMeaning::Transfer {
                 factor: -1,
                 exchange: Some(_),
                 ..
@@ -1102,12 +1153,48 @@ mod tests {
         let prepared = model(text, "p.Root").unwrap();
         let closure = prepared.closures.values().next().unwrap();
         assert_eq!(closure.terms.len(), 2);
-        assert!(
-            prepared
-                .equations
-                .iter()
-                .any(|row| { row.id == pse_ids::named_id(closure.id, "conservation") })
-        );
+        let row = prepared
+            .derivations
+            .require(crate::derived::Relationship::ClosureConservation {
+                closure: closure.id,
+            })
+            .unwrap();
+        assert!(prepared.equations.iter().any(|equation| equation.id == row));
+        let relation = *prepared.equation_roots.get(&row).unwrap();
+        let (registry, _) = crate::kernel_types::physical();
+        let checks = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let scope = crate::PhysicalScope::default();
+        let context = crate::TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &registry,
+            preconditions: &checks,
+            scope: &scope,
+        };
+        let region = prepared
+            .prepare_region(
+                crate::resolved::RegionRequest {
+                    outputs: &[
+                        crate::resolved::RegionOutput::Value(relation.lhs),
+                        crate::resolved::RegionOutput::Value(relation.rhs),
+                    ],
+                    validity: &[],
+                },
+                &context,
+            )
+            .unwrap();
+        let crate::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(power)) = &closure.ty
+        else {
+            panic!("declared material-energy accumulator contract");
+        };
+        for root in &region.syntax.outputs {
+            let support = region.support.node(*root).unwrap();
+            assert_eq!(support.contract.require_named().unwrap(), *power);
+            assert!(support.ty.physical_refinement().is_none());
+        }
         assert!(
             model(
                 &text.replace("transfer(heat,wall,Into)", "transfer(heat,wall,OutOf)"),
@@ -1131,9 +1218,9 @@ mod tests {
           def Root:Derived { let q:EnergyTransferRate=25{W}; eq directed:heat==transfer(q,wall,Into); }
         }"#;
         let prepared = model(text, "p.Root").unwrap();
-        assert!(prepared.functions.values().any(|function| matches!(
-            function.physical_operation,
-            Some(crate::PhysicalOperation::Transfer {
+        assert!(prepared_products(&prepared).iter().any(|function| matches!(
+            &function.physical_operation,
+            Some(crate::resolved::OperationMeaning::Transfer {
                 result: PhysicalRefinement::Transfer {
                     boundary: BoundaryRef::Bound { .. },
                     ..
@@ -1185,9 +1272,9 @@ mod tests {
             assert_eq!(first.len(), 1);
             assert_eq!(first, second);
             coordinates.insert(first.clone());
-            assert!(prepared.functions.values().any(|function| matches!(
+            assert!(prepared_products(&prepared).iter().any(|function| matches!(
                 &function.physical_operation,
-                Some(crate::PhysicalOperation::Transfer { result: PhysicalRefinement::Transfer { boundary, .. }, factor: -1, exchange: Some(_), .. }) if boundary == &exchange.second
+                Some(crate::resolved::OperationMeaning::Transfer { result: PhysicalRefinement::Transfer { boundary, .. }, factor: -1, exchange: Some(_), .. }) if boundary == &exchange.second
             )));
         }
         assert_eq!(coordinates.len(), 2);
@@ -1223,11 +1310,11 @@ mod tests {
         }"#;
         let prepared = model(text, "p.Root").unwrap();
         assert_eq!(prepared.exchanges.len(), 4);
-        let reflected = prepared
-            .functions
-            .values()
+        let products = prepared_products(&prepared);
+        let reflected = products
+            .iter()
             .filter_map(|function| match &function.physical_operation {
-                Some(crate::PhysicalOperation::Transfer {
+                Some(crate::resolved::OperationMeaning::Transfer {
                     result: PhysicalRefinement::Transfer { boundary, .. },
                     factor: -1,
                     exchange: Some(_),

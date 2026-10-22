@@ -101,7 +101,12 @@ fn fixture() -> Registry {
         ),
         ("index", FieldContract::extended(ExtensionUse::IndexTuple)),
         ("span", FieldContract::extended(ExtensionUse::SourceSpan)),
-        ("dsl", FieldContract::extended(ExtensionUse::ExprDsl(pse_schema::model::ExpressionGrammar::Expression))),
+        (
+            "dsl",
+            FieldContract::extended(ExtensionUse::ExprDsl(
+                pse_schema::model::ExpressionGrammar::Expression,
+            )),
+        ),
         ("path", FieldContract::extended(ExtensionUse::TargetPath)),
         (
             "ordinal",

@@ -253,13 +253,22 @@ mod status_contract {
             ("NOT_OPTIMAL", UNO_NOT_OPTIMAL),
             ("FEASIBLE_KKT_POINT", UNO_FEASIBLE_KKT_POINT),
             ("FEASIBLE_FJ_POINT", UNO_FEASIBLE_FJ_POINT),
-            ("INFEASIBLE_STATIONARY_POINT", UNO_INFEASIBLE_STATIONARY_POINT),
+            (
+                "INFEASIBLE_STATIONARY_POINT",
+                UNO_INFEASIBLE_STATIONARY_POINT,
+            ),
             ("FEASIBLE_SMALL_STEP", UNO_FEASIBLE_SMALL_STEP),
             ("INFEASIBLE_SMALL_STEP", UNO_INFEASIBLE_SMALL_STEP),
             ("DIVERGING_ITERATE", UNO_DIVERGING_ITERATE),
             ("UNBOUNDED_OBJECTIVE", UNO_UNBOUNDED_OBJECTIVE),
         ] {
-            assert!(header.lines().any(|line| line.trim().trim_end_matches(',') == format!("PSE_UNO_{name} = {value}")), "{name}: Rust and C bridge disagree");
+            assert!(
+                header
+                    .lines()
+                    .any(|line| line.trim().trim_end_matches(',')
+                        == format!("PSE_UNO_{name} = {value}")),
+                "{name}: Rust and C bridge disagree"
+            );
         }
     }
 }
@@ -696,8 +705,11 @@ mod tests {
         };
         // SLP has no L-BFGS histories or dense operator materialization: zero
         // SQP allowance must not refuse this distinct native profile.
-        let mut handle = create_with_limit(&mut fixture, profile,
-            if profile == SLP { 0 } else { 8 << 20 });
+        let mut handle = create_with_limit(
+            &mut fixture,
+            profile,
+            if profile == SLP { 0 } else { 8 << 20 },
+        );
         assert_eq!(
             // SAFETY: the owned bridge handle is live and result is a separate writable output slot.
             unsafe { pse_uno_solve(handle, &0.0, 1, ptr::null_mut(), 0) },

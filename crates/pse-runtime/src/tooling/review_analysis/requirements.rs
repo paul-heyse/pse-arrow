@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared question prerequisites over exact supplied subjects; no live reconstruction.
 use super::{AnalysisQuestion, AnalysisRequest, AnalysisSourceReference};
-use crate::{observation::ObservationError};
-use crate::tooling::{frozen_inspection::FrozenEvidenceSet};
+use crate::observation::ObservationError;
+use crate::tooling::frozen_inspection::FrozenEvidenceSet;
 use pse_diagnostics::observation::{OperationId, Value};
 use serde::{Deserialize, Serialize};
 

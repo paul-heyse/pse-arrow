@@ -278,6 +278,40 @@ pub struct ContributionDependencies {
     pub execution: BTreeSet<SemanticId>,
 }
 impl CasePlan {
+    /// Refresh only current source attribution after exact numerical compatibility.
+    /// Prepared supports, sparse layouts and immutable numerical programs stay shared.
+    pub fn receive_source_context(&self, current: &CaseStructure) -> Result<Self, MathError> {
+        let structure = self.structure.receive_source_context(current)?;
+        for binding in structure.instances() {
+            let body = self.bodies.get(&binding.body).ok_or_else(|| {
+                MathError::Contract("receiving source body is absent from cached plan".into())
+            })?;
+            crate::SourceBindings::check_inventory(
+                binding.instance,
+                body,
+                &binding.checked_members,
+                &binding.checked_sources,
+                &binding.occurrences,
+            )?;
+        }
+        let mut received = self.clone();
+        received.structure = Arc::new(structure);
+        Ok(received)
+    }
+    /// Conservative receiving-shell copy allowance, with original numerical payloads shared.
+    pub fn source_context_allocation_bound(&self) -> Result<usize, MathError> {
+        self.structure
+            .source_context_allocation_bound()?
+            .checked_add(
+                self.bodies
+                    .len()
+                    .checked_mul(size_of::<(ContentHash, Arc<PreparedBody>)>() + 96)
+                    .ok_or(MathError::Limit("receiving plan source body wrappers"))?,
+            )
+            .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 4096))
+            .ok_or(MathError::Limit("receiving plan source context extent"))
+    }
+
     /// Validate actual typed body/slot/output contracts without preparing arithmetic.
     /// # Errors
     /// Missing or incompatible contracts, ambiguous accumulation, or cancellation.
@@ -318,6 +352,31 @@ impl CasePlan {
             {
                 return Err(MathError::Contract(
                     "incomplete or invalid checked-member attribution".into(),
+                ));
+            }
+            if !body
+                .checked_sources()
+                .iter()
+                .eq(binding.checked_sources.keys())
+                || binding
+                    .checked_sources
+                    .values()
+                    .any(|id| *id == SemanticId::NIL)
+            {
+                return Err(MathError::Contract(
+                    "incomplete or invalid checked-source attribution".into(),
+                ));
+            }
+            if !body
+                .occurrence_tokens()
+                .iter()
+                .eq(binding.occurrences.keys())
+                || binding.occurrences.iter().any(|(token, location)| {
+                    *token == SemanticId::NIL || location.source == SemanticId::NIL
+                })
+            {
+                return Err(MathError::Contract(
+                    "incomplete or invalid original occurrence attribution".into(),
                 ));
             }
             if body.input_count() != binding.slots.len() {
@@ -754,6 +813,26 @@ impl CasePlan {
                 size_of_val(binding.checked_members.as_ref())
                     + 2 * size_of::<usize>()
                     + binding.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96),
+            ));
+            components.push((
+                "binding-sources",
+                Arc::as_ptr(&binding.checked_sources) as usize,
+                size_of_val(binding.checked_sources.as_ref())
+                    + 2 * size_of::<usize>()
+                    + binding.checked_sources.len() * (size_of::<(SemanticId, SemanticId)>() + 96),
+            ));
+            components.push((
+                "binding-occurrences",
+                Arc::as_ptr(&binding.occurrences) as usize,
+                size_of_val(binding.occurrences.as_ref())
+                    + 2 * size_of::<usize>()
+                    + binding.occurrences.len()
+                        * (size_of::<(SemanticId, pse_model::diagnostic::SourceLocation)>() + 96)
+                    + binding
+                        .occurrences
+                        .values()
+                        .map(pse_model::diagnostic::SourceLocation::heap_bytes)
+                        .sum::<usize>(),
             ));
         }
         components
@@ -1253,6 +1332,8 @@ impl CasePlan {
                     instance: binding.instance,
                     body: binding.body,
                     slots: binding.slots.clone(),
+                    occurrences: binding.occurrences.clone(),
+                    checked_sources: binding.checked_sources.clone(),
                     checked_members: binding.checked_members.clone(),
                     contributions,
                 });
@@ -1430,6 +1511,8 @@ impl CasePlan {
                     instance: binding.instance,
                     body: binding.body,
                     slots: binding.slots.clone(),
+                    occurrences: binding.occurrences.clone(),
+                    checked_sources: binding.checked_sources.clone(),
                     checked_members: binding.checked_members.clone(),
                     contributions: ordinals
                         .into_iter()
@@ -2768,6 +2851,41 @@ pub struct OccurrenceDemand<'a> {
     pub coordinates: &'a [usize],
 }
 impl CaseAssembly {
+    /// Use a validated receiving plan shell while retaining these exact compiled programs.
+    pub fn receive_source_context(&self, plan: Arc<CasePlan>) -> Result<Self, MathError> {
+        if !self.plan.structure.same_numerical(&plan.structure)
+            || self.plan.allocation_identity()[1..] != plan.allocation_identity()[1..]
+            || self.plan.order != plan.order
+            || self.plan.available != plan.available
+            || self.plan.actions != plan.actions
+            || self.plan.limits != plan.limits
+            || !Arc::ptr_eq(&self.plan.row_contributions, &plan.row_contributions)
+            || !Arc::ptr_eq(&self.plan.ownership, &plan.ownership)
+            || !Arc::ptr_eq(&self.plan.product_weights, &plan.product_weights)
+            || self.plan.bodies.len() != plan.bodies.len()
+            || !self
+                .plan
+                .bodies
+                .iter()
+                .zip(&plan.bodies)
+                .all(|((a, body), (b, received))| a == b && Arc::ptr_eq(body, received))
+        {
+            return Err(MathError::Contract(
+                "receiving assembly is not the same numerical plan".into(),
+            ));
+        }
+        let mut received = self.clone();
+        received.plan = plan;
+        Ok(received)
+    }
+    /// Conservative copied assembly metadata; all numerical artifacts retain their own owners.
+    pub fn source_context_allocation_bound(&self) -> Result<usize, MathError> {
+        self.plan
+            .operation_layout_allocation_bound()?
+            .checked_add(size_of::<Self>() + 4096)
+            .ok_or(MathError::Limit("receiving assembly source context extent"))
+    }
+
     /// Borrow occurrence/template selectors without diagnostic admission or support copies.
     pub fn occurrence_demands(&self) -> impl Iterator<Item = OccurrenceDemand<'_>> {
         let requests = &self.requests;
@@ -3455,6 +3573,8 @@ impl CaseWorker {
             };
             let context = |cause| MathError::Instance {
                 instance: binding.instance,
+                occurrences: binding.occurrences.as_ref().clone(),
+                checked_sources: binding.checked_sources.as_ref().clone(),
                 checked_members: binding.checked_members.as_ref().clone(),
                 cause: Box::new(cause),
             };
@@ -4464,6 +4584,8 @@ impl CaseWorker {
                 }
                 return Err(MathError::Instance {
                     instance: binding.instance,
+                    occurrences: binding.occurrences.as_ref().clone(),
+                    checked_sources: binding.checked_sources.as_ref().clone(),
                     checked_members: binding.checked_members.as_ref().clone(),
                     cause: Box::new(cause),
                 });
@@ -4884,6 +5006,8 @@ mod ownership_tests {
                 bindings.push(InstanceBinding {
                     instance: id(n + 10),
                     body: key,
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
                     checked_members: Default::default(),
                     slots: vec![SlotBinding::new(&port(n + 30), &port(230), &registry).unwrap()]
                         .into(),
@@ -5160,6 +5284,8 @@ mod instance_reuse_tests {
                     .map(|i| InstanceBinding {
                         instance: id(i + 10),
                         body: key,
+                        occurrences: Default::default(),
+                        checked_sources: Default::default(),
                         checked_members: Default::default(),
                         slots: vec![
                             SlotBinding::new(

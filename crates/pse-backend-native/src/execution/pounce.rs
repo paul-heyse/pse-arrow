@@ -36,7 +36,10 @@ static CAPABILITY: Capability = Capability {
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
 };
 #[cfg(feature = "pounce")]
-fn recovery_settings(controls: &crate::solve::Controls, settings: &BackendSettings) -> Result<crate::settings::pounce::Settings, ProblemError> {
+fn recovery_settings(
+    controls: &crate::solve::Controls,
+    settings: &BackendSettings,
+) -> Result<crate::settings::pounce::Settings, ProblemError> {
     let settings = match settings {
         BackendSettings::Default => crate::settings::pounce::Settings::default(),
         BackendSettings::Pounce(settings) => settings.clone(),
@@ -63,7 +66,11 @@ impl BackendExecution for Pounce {
         #[cfg(feature = "pounce")]
         {
             let settings = recovery_settings(controls, settings)?;
-            Ok(crate::pounce::second_opinion_capacity(controls, &settings, permission.replacement_start))
+            Ok(crate::pounce::second_opinion_capacity(
+                controls,
+                &settings,
+                permission.replacement_start,
+            ))
         }
         #[cfg(not(feature = "pounce"))]
         {
@@ -82,16 +89,28 @@ impl BackendExecution for Pounce {
         {
             let settings = recovery_settings(controls, settings)?;
             if report.backend != Backend::Pounce {
-                return Err(ProblemError::Contract("recovery observation belongs to another backend".into()));
+                return Err(ProblemError::Contract(
+                    "recovery observation belongs to another backend".into(),
+                ));
             }
-            crate::pounce::second_opinion_profiles(controls, &settings, report, permission.replacement_start)
-                .map(|profiles| profiles.into_iter().map(|profile| super::RecoveryProfile {
-                    label: profile.label,
-                    controls: profile.controls,
-                    settings: BackendSettings::Pounce(profile.settings),
-                    replaces_start: profile.replaces_start,
-                    perturbation: profile.perturbation,
-                }).collect())
+            crate::pounce::second_opinion_profiles(
+                controls,
+                &settings,
+                report,
+                permission.replacement_start,
+            )
+            .map(|profiles| {
+                profiles
+                    .into_iter()
+                    .map(|profile| super::RecoveryProfile {
+                        label: profile.label,
+                        controls: profile.controls,
+                        settings: BackendSettings::Pounce(profile.settings),
+                        replaces_start: profile.replaces_start,
+                        perturbation: profile.perturbation,
+                    })
+                    .collect()
+            })
         }
         #[cfg(not(feature = "pounce"))]
         {
@@ -281,14 +300,47 @@ mod recovery_capacity_tests {
         let settings = crate::settings::pounce::Settings::default();
         for replacement_start in [false, true] {
             let permission = crate::execution::RecoveryPermission { replacement_start };
-            let expected = crate::pounce::second_opinion_capacity(&controls, &settings, replacement_start);
-            assert_eq!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Pounce(settings.clone()), permission).unwrap(), expected);
-            assert_eq!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Default, permission).unwrap(), expected);
+            let expected =
+                crate::pounce::second_opinion_capacity(&controls, &settings, replacement_start);
+            assert_eq!(
+                ADAPTER
+                    .recovery_capacity(
+                        &controls,
+                        &BackendSettings::Pounce(settings.clone()),
+                        permission
+                    )
+                    .unwrap(),
+                expected
+            );
+            assert_eq!(
+                ADAPTER
+                    .recovery_capacity(&controls, &BackendSettings::Default, permission)
+                    .unwrap(),
+                expected
+            );
         }
         let permission = crate::execution::RecoveryPermission::default();
-        assert!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Highs(crate::settings::highs::Settings::default()), permission).is_err());
-        let mut invalid = controls.clone(); invalid.threads = 0;
-        assert!(ADAPTER.recovery_capacity(&invalid, &BackendSettings::Default, permission).is_err());
-        assert_eq!(crate::execution::adapter(Backend::Highs).recovery_capacity(&controls, &BackendSettings::Default, permission).unwrap(), 0);
+        assert!(
+            ADAPTER
+                .recovery_capacity(
+                    &controls,
+                    &BackendSettings::Highs(crate::settings::highs::Settings::default()),
+                    permission
+                )
+                .is_err()
+        );
+        let mut invalid = controls.clone();
+        invalid.threads = 0;
+        assert!(
+            ADAPTER
+                .recovery_capacity(&invalid, &BackendSettings::Default, permission)
+                .is_err()
+        );
+        assert_eq!(
+            crate::execution::adapter(Backend::Highs)
+                .recovery_capacity(&controls, &BackendSettings::Default, permission)
+                .unwrap(),
+            0
+        );
     }
 }

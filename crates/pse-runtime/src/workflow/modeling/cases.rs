@@ -498,7 +498,9 @@ impl ModelingPackage {
                     values.scalars.insert(id, value);
                     starts.insert(id, StartSource::Fixed);
                 }
-                let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?;
+                let annotations = product
+                    .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+                    .map_err(crate::math::MathRuntimeError::from)?;
                 let hints = hints(product)?;
                 let mut pending = hints
                     .iter()
@@ -552,11 +554,13 @@ impl ModelingPackage {
                         )
                         .await?;
                     for (target, declaration, _, row) in &ready {
-                        let (value, _) = annotations.select_start(pse_compiler::workspace::NumericalStartValues {
-                            supplied_value: values.scalars.get(target).copied(),
-                            authored_hint: Some(observed[row]),
-                            ..Default::default()
-                        }).ok_or_else(|| contract("missing resolved start"))?;
+                        let (value, _) = annotations
+                            .select_start(pse_compiler::workspace::NumericalStartValues {
+                                supplied_value: values.scalars.get(target).copied(),
+                                authored_hint: Some(observed[row]),
+                                ..Default::default()
+                            })
+                            .ok_or_else(|| contract("missing resolved start"))?;
                         if !value.is_finite() {
                             return Err(contract("nonfinite start result"));
                         }
@@ -1711,15 +1715,21 @@ impl ModelingPackage {
                 nominal_point.scalars.insert(t.id, value);
             }
         }
-        let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?;
+        let annotations = product
+            .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+            .map_err(crate::math::MathRuntimeError::from)?;
         let schemes = annotations.outer_scales().collect::<Vec<_>>();
-        let term_rows = schemes.iter().try_fold(BTreeSet::new(), |mut rows, scale| {
-            let pse_compiler::workspace::ScalingObservations::Rows(observed) = &scale.observations else {
-                return Err(contract("outer numerical scaling requires rows"));
-            };
-            rows.extend(observed);
-            Ok(rows)
-        })?;
+        let term_rows = schemes
+            .iter()
+            .try_fold(BTreeSet::new(), |mut rows, scale| {
+                let pse_compiler::workspace::ScalingObservations::Rows(observed) =
+                    &scale.observations
+                else {
+                    return Err(contract("outer numerical scaling requires rows"));
+                };
+                rows.extend(observed);
+                Ok(rows)
+            })?;
         if !schemes.is_empty() {
             let terms = self
                 .observe_registered(
@@ -2636,7 +2646,12 @@ pub(in crate::workflow) fn lower_closure_requirements(
         .filter(|c| !c.observation_only)
     {
         if let Some(target) = targets.iter().find(|t| {
-            t.kind == NumericalTarget::Row && t.id == pse_ids::named_id(closure.id, "conservation")
+            t.kind == NumericalTarget::Row
+                && t.id
+                    == pse_modeling::derived::Relationship::ClosureConservation {
+                        closure: closure.id,
+                    }
+                    .identity()
         }) {
             let obligation = closure
                 .requirements
@@ -2671,7 +2686,10 @@ pub(in crate::workflow) fn conservation_row_requirements(
         closure.mode == pse_model::generated::enums::ModelingAccumulatorMode::Conservation
             && !closure.observation_only
     }) {
-        let row = pse_ids::named_id(closure.id, "conservation");
+        let row = pse_modeling::derived::Relationship::ClosureConservation {
+            closure: closure.id,
+        }
+        .identity();
         let Some(target) = targets
             .iter()
             .find(|target| target.kind == NumericalTarget::Row && target.id == row)
@@ -2800,13 +2818,17 @@ impl Inner {
 fn hints(
     product: &pse_compiler::workspace::PreparedModeling,
 ) -> Result<Vec<(SemanticId, DeclarationId, ModelingHint, SemanticId)>, WorkflowError> {
-    product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?
-        .outer_hints().map(|hint| {
+    product
+        .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+        .map_err(crate::math::MathRuntimeError::from)?
+        .outer_hints()
+        .map(|hint| {
             let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
                 return Err(contract("outer numerical observation requires a row"));
             };
             Ok((hint.target, hint.declaration, hint.kind, row))
-        }).collect()
+        })
+        .collect()
 }
 
 fn variables(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<SemanticId> {
@@ -3895,7 +3917,11 @@ mod tests {
                 .closures
                 .values()
                 .find(|closure| {
-                    pse_ids::named_id(closure.id, "conservation") == source.declaration.target_id
+                    pse_modeling::derived::Relationship::ClosureConservation {
+                        closure: closure.id,
+                    }
+                    .identity()
+                        == source.declaration.target_id
                 })
                 .unwrap();
             assert_eq!(
@@ -5478,16 +5504,14 @@ mod root_unavailable_tests {
                     .satisfied,
                 Some(false)
             );
-            assert!(
-                model
-                    .compiled()
-                    .admitted
-                    .case()
-                    .rows()
-                    .iter()
-                    .all(|row| row.id != closure.id
-                        && row.id != pse_ids::named_id(closure.id, "conservation"))
-            );
+            assert!(model.compiled().admitted.case().rows().iter().all(|row| {
+                row.id != closure.id
+                    && row.id
+                        != pse_modeling::derived::Relationship::ClosureConservation {
+                            closure: closure.id,
+                        }
+                        .identity()
+            }));
         }
     }
     #[tokio::test]

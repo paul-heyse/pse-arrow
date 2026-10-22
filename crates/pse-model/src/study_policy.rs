@@ -25,7 +25,10 @@ pub enum PredictionEntry {
     ContinueFromSeed,
 }
 /// Evaluate the actual start rules before any prediction effect.
-pub fn prediction_entry(rules: &crate::strategy::StartRules, sample_available: bool) -> PredictionEntry {
+pub fn prediction_entry(
+    rules: &crate::strategy::StartRules,
+    sample_available: bool,
+) -> PredictionEntry {
     use crate::strategy::{StartOrigin, StartPolicy};
     if rules.policy == StartPolicy::Explicit {
         PredictionEntry::PreserveExplicit
@@ -76,9 +79,11 @@ pub const fn prediction_choice(result: PredictionResult) -> PredictionChoice {
     use crate::diagnostic::BoundaryClass;
     match result {
         PredictionResult::Accepted => PredictionChoice::UsePrediction,
-        PredictionResult::Unavailable | PredictionResult::Failed {
+        PredictionResult::Unavailable
+        | PredictionResult::Failed {
             stage: PredictionStage::Proposal,
-            class: BoundaryClass::Unsupported | BoundaryClass::Incompatible | BoundaryClass::Numerical,
+            class:
+                BoundaryClass::Unsupported | BoundaryClass::Incompatible | BoundaryClass::Numerical,
         } => PredictionChoice::ContinueFromSeed,
         PredictionResult::Failed { .. } => PredictionChoice::Propagate,
     }
@@ -1316,15 +1321,35 @@ mod study_policy_unit {
 #[cfg(test)]
 mod prediction_tests {
     use super::*;
-    use crate::{diagnostic::BoundaryClass, strategy::{StartOrigin, StartPolicy, StartRules}};
+    use crate::{
+        diagnostic::BoundaryClass,
+        strategy::{StartOrigin, StartPolicy, StartRules},
+    };
 
     #[test]
     fn prediction_entry_preserves_explicit_and_requires_both_declared_origin_and_sample() {
-        for policy in [StartPolicy::Explicit, StartPolicy::NoPriorStart, StartPolicy::PreviousAccepted] {
+        for policy in [
+            StartPolicy::Explicit,
+            StartPolicy::NoPriorStart,
+            StartPolicy::PreviousAccepted,
+        ] {
             for declared in [false, true] {
                 for sample in [false, true] {
-                    let rules = StartRules { policy, recovery: if declared { vec![StartOrigin::Predicted] } else { vec![] } };
-                    let expected = if policy == StartPolicy::Explicit { PredictionEntry::PreserveExplicit } else if declared && sample { PredictionEntry::Attempt } else { PredictionEntry::ContinueFromSeed };
+                    let rules = StartRules {
+                        policy,
+                        recovery: if declared {
+                            vec![StartOrigin::Predicted]
+                        } else {
+                            vec![]
+                        },
+                    };
+                    let expected = if policy == StartPolicy::Explicit {
+                        PredictionEntry::PreserveExplicit
+                    } else if declared && sample {
+                        PredictionEntry::Attempt
+                    } else {
+                        PredictionEntry::ContinueFromSeed
+                    };
                     assert_eq!(prediction_entry(&rules, sample), expected);
                 }
             }
@@ -1332,12 +1357,48 @@ mod prediction_tests {
     }
     #[test]
     fn only_proposal_unavailability_falls_back_and_screening_or_sample_failure_propagates() {
-        assert_eq!(prediction_choice(PredictionResult::Accepted), PredictionChoice::UsePrediction);
-        assert_eq!(prediction_choice(PredictionResult::Unavailable), PredictionChoice::ContinueFromSeed);
-        for class in [BoundaryClass::Unsupported, BoundaryClass::Incompatible, BoundaryClass::Numerical, BoundaryClass::InvalidModel, BoundaryClass::TrialRejected, BoundaryClass::Nonfinite, BoundaryClass::Conflict, BoundaryClass::Inconclusive, BoundaryClass::Cancelled, BoundaryClass::ResourceLimit, BoundaryClass::Infrastructure, BoundaryClass::Internal] {
-            for stage in [PredictionStage::Sample, PredictionStage::Proposal, PredictionStage::Screening] {
-                let fallback = stage == PredictionStage::Proposal && matches!(class, BoundaryClass::Unsupported | BoundaryClass::Incompatible | BoundaryClass::Numerical);
-                assert_eq!(prediction_choice(PredictionResult::Failed { stage, class }), if fallback { PredictionChoice::ContinueFromSeed } else { PredictionChoice::Propagate });
+        assert_eq!(
+            prediction_choice(PredictionResult::Accepted),
+            PredictionChoice::UsePrediction
+        );
+        assert_eq!(
+            prediction_choice(PredictionResult::Unavailable),
+            PredictionChoice::ContinueFromSeed
+        );
+        for class in [
+            BoundaryClass::Unsupported,
+            BoundaryClass::Incompatible,
+            BoundaryClass::Numerical,
+            BoundaryClass::InvalidModel,
+            BoundaryClass::TrialRejected,
+            BoundaryClass::Nonfinite,
+            BoundaryClass::Conflict,
+            BoundaryClass::Inconclusive,
+            BoundaryClass::Cancelled,
+            BoundaryClass::ResourceLimit,
+            BoundaryClass::Infrastructure,
+            BoundaryClass::Internal,
+        ] {
+            for stage in [
+                PredictionStage::Sample,
+                PredictionStage::Proposal,
+                PredictionStage::Screening,
+            ] {
+                let fallback = stage == PredictionStage::Proposal
+                    && matches!(
+                        class,
+                        BoundaryClass::Unsupported
+                            | BoundaryClass::Incompatible
+                            | BoundaryClass::Numerical
+                    );
+                assert_eq!(
+                    prediction_choice(PredictionResult::Failed { stage, class }),
+                    if fallback {
+                        PredictionChoice::ContinueFromSeed
+                    } else {
+                        PredictionChoice::Propagate
+                    }
+                );
             }
         }
     }

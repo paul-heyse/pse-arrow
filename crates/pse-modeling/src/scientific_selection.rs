@@ -205,41 +205,6 @@ impl SelectionClosure {
         }
     }
 }
-/// Frame immutable admitted products in source-occurrence order.
-pub(crate) fn frame(
-    selections: &Selections,
-    package: &crate::CheckedPackage,
-    hash: &mut pse_ids::FramedHasher,
-) {
-    hash.str("scientific-selections-v1")
-        .u64(selections.len() as u64);
-    for (occurrence, closure) in selections {
-        hash.id(&occurrence.declaration.as_id())
-            .id(&occurrence.dependencies.as_id())
-            .str(&occurrence.expression);
-        closure.frame(hash);
-        for value in &closure.records {
-            if let Value::Entity { id, .. } = value
-                && let Some(record) = package.record(*id)
-            {
-                hash.id(&record.kind.as_id())
-                    .id(&record.origin.as_id())
-                    .u64(record.values.len() as u64);
-                for (name, value) in &record.values {
-                    hash.str(name);
-                    value.frame(hash);
-                }
-                hash.u64(record.uncertainties.len() as u64);
-                for (name, uncertainty) in &record.uncertainties {
-                    hash.str(name)
-                        .str(uncertainty.kind.as_str())
-                        .u64(uncertainty.magnitude.to_bits());
-                }
-            }
-        }
-    }
-}
-
 /// Retain package-admitted closure products when their actual context is consumed.
 pub(crate) fn retain_context(
     package: &crate::CheckedPackage,

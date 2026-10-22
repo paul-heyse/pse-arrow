@@ -4,10 +4,7 @@
 #[cfg(test)]
 use super::InnerWorker;
 use super::{InnerSolver, Options, Problem};
-use crate::{
-    MathError,
-    guarded::{CompiledBody, Worker},
-};
+use crate::{MathError, SourceBody, execution::SourceWorker};
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use std::{
@@ -41,9 +38,9 @@ pub struct RegimeFactoryBranch {
     /// Root problem of this alternative.
     pub residual: super::Factory,
     /// Program returning one indicator: zero when the alternative is ineligible.
-    pub eligibility: Arc<CompiledBody>,
+    pub eligibility: SourceBody,
     /// Program returning the selection score and its absolute tie tolerance.
-    pub criterion: Arc<CompiledBody>,
+    pub criterion: SourceBody,
     /// Conditional exact nonlinear selection program; static graph evidence needs none.
     pub isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
 }
@@ -520,10 +517,10 @@ pub struct Regime {
     problem: Arc<Problem>,
     solver: super::SolverWorker,
     configuration: super::ConfigurationWorker,
-    eligibility: Worker,
-    criterion: Worker,
-    eligibility_source: Arc<CompiledBody>,
-    criterion_source: Arc<CompiledBody>,
+    eligibility: SourceWorker,
+    criterion: SourceWorker,
+    eligibility_source: SourceBody,
+    criterion_source: SourceBody,
     isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
     isolation_identity: Option<pse_ids::ContentHash>,
     eligibility_trial: crate::execution::TrialEvaluation,
@@ -638,18 +635,17 @@ mod tests {
                             ]
                         }
                     };
-                    Arc::new(
-                        b.finish(
-                            &outputs,
-                            if kind == 0 {
-                                DerivativeOrder::Second
-                            } else {
-                                DerivativeOrder::First
-                            },
-                            crate::library::Optimization::default(),
-                            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                        )
-                        .unwrap(),
+                    crate::implicit::finish_body_for_test(
+                        id,
+                        b,
+                        &outputs,
+                        if kind == 0 {
+                            DerivativeOrder::Second
+                        } else {
+                            DerivativeOrder::First
+                        },
+                        crate::library::Optimization::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
                     )
                 };
                 let problem = Arc::new(
@@ -1445,14 +1441,13 @@ mod tests {
                 .unwrap();
             body.binary(Binary::Sub, square, one, None, id).unwrap()
         };
-        let body = Arc::new(
-            body.finish(
-                &[residual],
-                DerivativeOrder::Second,
-                crate::library::Optimization::default(),
-                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
-            )
-            .unwrap(),
+        let body = crate::implicit::finish_body_for_test(
+            id,
+            body,
+            &[residual],
+            DerivativeOrder::Second,
+            crate::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
         );
         let previous = &selected.alternatives[0].problem;
         selected.alternatives[0].problem = Arc::new(
@@ -1697,7 +1692,7 @@ mod tests {
                 DerivativeOrder::First,
             )
             .unwrap();
-            let malformed = Arc::new(
+            let malformed_compiled = Arc::new(
                 malformed
                     .compile(
                         &(0..malformed.output_count()).collect::<Vec<_>>(),
@@ -1709,6 +1704,8 @@ mod tests {
                     )
                     .unwrap(),
             );
+            let malformed =
+                crate::implicit::source_body_for_test(r.problem.id, &malformed, malformed_compiled);
             let mut r = Regime::new(
                 r.problem,
                 options,
@@ -1889,8 +1886,8 @@ impl Regime {
     pub fn new(
         problem: Arc<Problem>,
         options: Options,
-        eligibility: Arc<CompiledBody>,
-        criterion: Arc<CompiledBody>,
+        eligibility: SourceBody,
+        criterion: SourceBody,
         solver: Arc<dyn InnerSolver>,
     ) -> Result<Self, MathError> {
         problem.validate_options(&options)?;

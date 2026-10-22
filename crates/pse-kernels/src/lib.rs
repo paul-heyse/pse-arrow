@@ -1143,4 +1143,31 @@ impl pse_model::diagnostic::DiagnosticProjection for ProviderError {
             _ => self.boundary_diagnostic(stage),
         }
     }
+    fn boundary_diagnostic_with_bindings(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Nested { cause, .. } => {
+                cause.boundary_diagnostic_with_bindings(stage, members, sources)
+            }
+            _ => self.boundary_diagnostic(stage),
+        }
+    }
+    fn boundary_diagnostic_with_occurrences(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        members: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        occurrences: &std::collections::BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Nested { cause, .. } => {
+                cause.boundary_diagnostic_with_occurrences(stage, members, sources, occurrences)
+            }
+            _ => self.boundary_diagnostic(stage),
+        }
+    }
 }

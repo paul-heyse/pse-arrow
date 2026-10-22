@@ -2480,12 +2480,21 @@ mod tests {
     #[test]
     fn context_text_limit_reports_effective_policy_and_absent_collection() {
         for (requested, effective) in [(0, 1), (37, 37), (1024, 256)] {
-            let hub = ObservationHub::new(Policy { max_text_bytes: requested, ..Default::default() });
+            let hub = ObservationHub::new(Policy {
+                max_text_bytes: requested,
+                ..Default::default()
+            });
             let operation = hub.start("text-limit");
             assert_eq!(operation.context().text_limit_bytes(), Some(effective));
         }
-        let disabled = ObservationHub::new(Policy { enabled: false, ..Default::default() });
-        assert_eq!(disabled.start("disabled").context().text_limit_bytes(), None);
+        let disabled = ObservationHub::new(Policy {
+            enabled: false,
+            ..Default::default()
+        });
+        assert_eq!(
+            disabled.start("disabled").context().text_limit_bytes(),
+            None
+        );
     }
 
     #[derive(Default)]

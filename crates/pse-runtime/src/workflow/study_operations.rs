@@ -4,10 +4,9 @@
 //! Reconstructable study operations dispatch through their existing operation owners.
 use super::Runtime;
 use super::{
-    AdvancedStep, Arrival, DeclaredProcedure, Horizon,
-    HorizonController, HorizonEstimator, HorizonInput, HorizonSignal, ModelingPackage,
-    ModelingSimulation, ModelingSolvePreparation, PreparedFit, RunHandle, RunResult,
-    WindowInput, WorkflowError,
+    AdvancedStep, Arrival, DeclaredProcedure, Horizon, HorizonController, HorizonEstimator,
+    HorizonInput, HorizonSignal, ModelingPackage, ModelingSimulation, ModelingSolvePreparation,
+    PreparedFit, RunHandle, RunResult, WindowInput, WorkflowError,
 };
 use crate::CancelSource;
 use crate::math::settings::SolveSettings;
@@ -16,9 +15,9 @@ use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
 use pse_model::document::Version;
-use pse_model::generated::enums::ModelingAnalysisRoute;
 #[cfg(test)]
 use pse_model::generated::enums::FitDerivatives;
+use pse_model::generated::enums::ModelingAnalysisRoute;
 use pse_model::generated::identities::{DeclarationId, FitId};
 use pse_model::scalars::PositiveCount;
 use pse_model::study::{ScientificFacts, SeedNeed, SeedRole};
@@ -78,7 +77,10 @@ pub struct PreparationSettings {
 impl PreparationSettings {
     /// Runtime-owned default compiler policy under explicitly selected expansion limits.
     pub fn with_limits(limits: Limits) -> Self {
-        Self { limits, ..Self::default() }
+        Self {
+            limits,
+            ..Self::default()
+        }
     }
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -601,31 +603,68 @@ impl OperationPreparation<'_> {
             ));
         }
         if let Some(binding) = self.binding {
-            if binding.revision != self.source.revision || binding.context != self.source.physical_context {
-                return Err(refusal(DiagnosticRule::StudyBindingRevision, BoundaryClass::Incompatible,
-                    binding.entries.keys().copied(), "operation binding source/context differs"));
+            if binding.revision != self.source.revision
+                || binding.context != self.source.physical_context
+            {
+                return Err(refusal(
+                    DiagnosticRule::StudyBindingRevision,
+                    BoundaryClass::Incompatible,
+                    binding.entries.keys().copied(),
+                    "operation binding source/context differs",
+                ));
             }
-            if matches!(self.operation, OperationRequest::Horizon(_)) && !binding.entries.is_empty() {
-                return Err(refusal(DiagnosticRule::StudyOperationUnsupported, BoundaryClass::Unsupported,
-                    binding.entries.keys().copied(), "horizon point has no parameter overlay builder"));
+            if matches!(self.operation, OperationRequest::Horizon(_)) && !binding.entries.is_empty()
+            {
+                return Err(refusal(
+                    DiagnosticRule::StudyOperationUnsupported,
+                    BoundaryClass::Unsupported,
+                    binding.entries.keys().copied(),
+                    "horizon point has no parameter overlay builder",
+                ));
             }
         }
         let compiler = self.preparation.compiler;
         let limits = self.preparation.limits;
         match &self.operation {
-            OperationRequest::DeclaredCase(case) => Ok(PreparedStudyOperation::DeclaredCase(Box::new(
-                package.prepare_case_operation(case.case, &case.settings, self.preparation,
-                    Some(case.route), self.binding, cancel).await?,
-            ))),
+            OperationRequest::DeclaredCase(case) => {
+                Ok(PreparedStudyOperation::DeclaredCase(Box::new(
+                    package
+                        .prepare_case_operation(
+                            case.case,
+                            &case.settings,
+                            self.preparation,
+                            Some(case.route),
+                            self.binding,
+                            cancel,
+                        )
+                        .await?,
+                )))
+            }
             OperationRequest::Simulation(simulation) => {
                 Ok(PreparedStudyOperation::Simulation(Box::new(
-                    package.declared_simulation_request(simulation.case, compiler,
-                        simulation.settings.as_ref(), limits, self.binding, cancel).await?,
+                    package
+                        .declared_simulation_request(
+                            simulation.case,
+                            compiler,
+                            simulation.settings.as_ref(),
+                            limits,
+                            self.binding,
+                            cancel,
+                        )
+                        .await?,
                 )))
             }
             OperationRequest::Fit(fit) => Ok(PreparedStudyOperation::Fit(Box::new(
-                package.prepare_physical_fit(fit.fit, fit.settings.clone(), compiler,
-                    limits, self.binding, cancel).await?,
+                package
+                    .prepare_physical_fit(
+                        fit.fit,
+                        fit.settings.clone(),
+                        compiler,
+                        limits,
+                        self.binding,
+                        cancel,
+                    )
+                    .await?,
             ))),
             OperationRequest::Horizon(spec) => {
                 if !cfg!(feature = "solver-diffsol") {
@@ -816,7 +855,6 @@ impl OperationPreparation<'_> {
             }
         }
     }
-
 }
 
 pub(in crate::workflow) async fn admit_horizon_values(
@@ -826,95 +864,89 @@ pub(in crate::workflow) async fn admit_horizon_values(
     operation: &OperationRequest,
     cancel: &CancelSource,
 ) -> Result<Option<AdmittedHorizonValues>, WorkflowError> {
-        source.check(package)?;
-        let OperationRequest::Horizon(spec) = operation else {
-            return Ok(None);
-        };
-        let compiler = preparation.compiler;
-        let limits = preparation.limits;
-        let plant = package
-            .declared_simulation_request(
-                spec.plant.case,
-                compiler,
-                spec.plant.settings.as_ref(),
-                limits,
-                None,
-                cancel,
-            )
-            .await?;
-        let inputs = spec
-            .inputs
-            .iter()
-            .map(|input| {
-                package.admit_target_quantity(
-                    plant.model().compiled(),
-                    input.parameter,
-                    &input.initial,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut arrival = Vec::new();
-        let mut trajectories = BTreeMap::new();
-        if let Some(estimate) = &spec.estimator {
-            let execution = declared_paths(
-                package,
-                &estimate.case,
-                compiler,
-                limits,
-                cancel,
-                estimate
-                    .arrival
-                    .iter()
-                    .map(|prior| prior.prior.clone())
-                    .collect(),
-            )
-            .await?;
-            for prior in &estimate.arrival {
-                let member = target_member(execution.model.compiled(), &prior.prior)?;
-                arrival.push(package.admit_target_quantity(
-                    execution.model.compiled(),
-                    member,
-                    &prior.initial,
-                )?);
+    source.check(package)?;
+    let OperationRequest::Horizon(spec) = operation else {
+        return Ok(None);
+    };
+    let compiler = preparation.compiler;
+    let limits = preparation.limits;
+    let plant = package
+        .declared_simulation_request(
+            spec.plant.case,
+            compiler,
+            spec.plant.settings.as_ref(),
+            limits,
+            None,
+            cancel,
+        )
+        .await?;
+    let inputs = spec
+        .inputs
+        .iter()
+        .map(|input| {
+            package.admit_target_quantity(plant.model().compiled(), input.parameter, &input.initial)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut arrival = Vec::new();
+    let mut trajectories = BTreeMap::new();
+    if let Some(estimate) = &spec.estimator {
+        let execution = declared_paths(
+            package,
+            &estimate.case,
+            compiler,
+            limits,
+            cancel,
+            estimate
+                .arrival
+                .iter()
+                .map(|prior| prior.prior.clone())
+                .collect(),
+        )
+        .await?;
+        for prior in &estimate.arrival {
+            let member = target_member(execution.model.compiled(), &prior.prior)?;
+            arrival.push(package.admit_target_quantity(
+                execution.model.compiled(),
+                member,
+                &prior.initial,
+            )?);
+        }
+    }
+    if let Some(control) = &spec.controller {
+        let execution = declared_paths(
+            package,
+            &control.case,
+            compiler,
+            limits,
+            cancel,
+            control
+                .bindings
+                .iter()
+                .filter(|binding| matches!(binding.signal, HorizonSignalDocument::Trajectory(_)))
+                .map(|binding| binding.target.clone())
+                .collect(),
+        )
+        .await?;
+        for (index, binding) in control.bindings.iter().enumerate() {
+            if let HorizonSignalDocument::Trajectory(values) = &binding.signal {
+                let member = target_member(execution.model.compiled(), &binding.target)?;
+                trajectories.insert(
+                    index,
+                    values
+                        .iter()
+                        .map(|q| {
+                            package.admit_target_quantity(execution.model.compiled(), member, q)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
             }
         }
-        if let Some(control) = &spec.controller {
-            let execution = declared_paths(
-                package,
-                &control.case,
-                compiler,
-                limits,
-                cancel,
-                control
-                    .bindings
-                    .iter()
-                    .filter(|binding| {
-                        matches!(binding.signal, HorizonSignalDocument::Trajectory(_))
-                    })
-                    .map(|binding| binding.target.clone())
-                    .collect(),
-            )
-            .await?;
-            for (index, binding) in control.bindings.iter().enumerate() {
-                if let HorizonSignalDocument::Trajectory(values) = &binding.signal {
-                    let member = target_member(execution.model.compiled(), &binding.target)?;
-                    trajectories.insert(
-                        index,
-                        values
-                            .iter()
-                            .map(|q| {
-                                package.admit_target_quantity(execution.model.compiled(), member, q)
-                            })
-                            .collect::<Result<Vec<_>, _>>()?,
-                    );
-                }
-            }
-        }
-        Ok(Some(AdmittedHorizonValues {
-            inputs,
-            arrival,
-            trajectories,
-        }))
+    }
+    Ok(Some(AdmittedHorizonValues {
+        inputs,
+        arrival,
+        trajectories,
+    }))
 }
 
 impl StudyOperation {
@@ -938,25 +970,43 @@ impl StudyOperation {
         }
         let OperationRequest::DeclaredCase(_) = &self.operation else {
             *admission = None;
-            if binding.revision != package.revision.identity() || binding.context != package.physical.identity() {
-                return Err(refusal(DiagnosticRule::StudyBindingRevision, BoundaryClass::Incompatible, [], "study parameter binding source/context differs"));
+            if binding.revision != package.revision.identity()
+                || binding.context != package.physical.identity()
+            {
+                return Err(refusal(
+                    DiagnosticRule::StudyBindingRevision,
+                    BoundaryClass::Incompatible,
+                    [],
+                    "study parameter binding source/context differs",
+                ));
             }
             match &self.operation {
                 OperationRequest::Simulation(simulation) => {
-                    let execution = package.declared_execution(
-                        simulation.case, self.preparation.compiler, Default::default(), Default::default(),
-                        self.preparation.limits, cancel,
-                    ).await?;
+                    let execution = package
+                        .declared_execution(
+                            simulation.case,
+                            self.preparation.compiler,
+                            Default::default(),
+                            Default::default(),
+                            self.preparation.limits,
+                            cancel,
+                        )
+                        .await?;
                     package.validate_binding(execution.model.compiled(), binding)?;
                     super::bindings::require_parameter_binding(binding)?;
                 }
                 OperationRequest::Fit(fit) => {
                     fit.settings.settings.solver.clone().profile()?;
-                    package.validate_fit_binding(fit.fit, binding, self.preparation.limits, cancel).await?;
+                    package
+                        .validate_fit_binding(fit.fit, binding, self.preparation.limits, cancel)
+                        .await?;
                 }
                 OperationRequest::Horizon(_) => {
                     if !binding.entries.is_empty() {
-                        return Err(super::bindings::parameter_binding_refusal(binding, "horizon point has no parameter overlay builder"));
+                        return Err(super::bindings::parameter_binding_refusal(
+                            binding,
+                            "horizon point has no parameter overlay builder",
+                        ));
                     }
                 }
                 OperationRequest::DeclaredCase(_) => {}
@@ -987,7 +1037,15 @@ impl StudyOperation {
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<(), WorkflowError> {
-        if let Some(values) = admit_horizon_values(package, &self.source, &self.preparation, &self.operation, cancel).await? {
+        if let Some(values) = admit_horizon_values(
+            package,
+            &self.source,
+            &self.preparation,
+            &self.operation,
+            cancel,
+        )
+        .await?
+        {
             self.admitted_horizon = Some(values);
         }
         Ok(())
@@ -1032,7 +1090,9 @@ impl StudyOperation {
             output: &self.output,
             admitted_horizon: self.admitted_horizon.as_ref(),
             binding: None,
-        }.prepare(package, cancel).await
+        }
+        .prepare(package, cancel)
+        .await
     }
 
     /// Consumed seed role: unsupported combinations refuse before scheduling.
@@ -1097,10 +1157,12 @@ impl PreparedStudyOperation {
         }
         let dispatch = extent(|attempt| self.start_attempt(runtime, cancel, attempt));
         let branch = match self {
-            Self::DeclaredCase(case) => {
-                extent(|attempt| runtime.start_attempt(vec![case.as_ref().clone()], attempt, cancel))
+            Self::DeclaredCase(case) => extent(|attempt| {
+                runtime.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
+            }),
+            Self::Simulation(simulation) => {
+                extent(|attempt| simulation.start_attempt(attempt, cancel))
             }
-            Self::Simulation(simulation) => extent(|attempt| simulation.start_attempt(attempt, cancel)),
             Self::Fit(fit) => extent(|attempt| fit.start_attempt(attempt, cancel)),
             Self::Horizon(horizon) => {
                 #[cfg(feature = "solver-diffsol")]
@@ -1142,7 +1204,9 @@ impl PreparedStudyOperation {
                 Self::Simulation(simulation) => {
                     super::worker::boxed_worker_action(|| simulation.start_attempt(attempt, cancel))
                 }
-                Self::Fit(fit) => super::worker::boxed_worker_action(|| fit.start_attempt(attempt, cancel)),
+                Self::Fit(fit) => {
+                    super::worker::boxed_worker_action(|| fit.start_attempt(attempt, cancel))
+                }
                 Self::Horizon(horizon) => {
                     #[cfg(feature = "solver-diffsol")]
                     {
@@ -1578,21 +1642,44 @@ mod study_operation_unit {
 
     #[test]
     fn study_v8_physical_intent_owns_defaults_and_refuses_old_or_duplicate_controls() {
-        let settings: crate::workflow::PhysicalFitRequest = serde_json::from_str(r#"{"version":1,"settings":{"solver":{"version":5}}}"#).unwrap();
+        let settings: crate::workflow::PhysicalFitRequest =
+            serde_json::from_str(r#"{"version":1,"settings":{"solver":{"version":5}}}"#).unwrap();
         assert!(settings.settings.simulations.is_empty());
         assert_eq!(settings.settings.experiment_workers.into_inner(), 1);
-        assert_eq!(settings.settings.optimizer, crate::workflow::FitOptimizer::Automatic);
+        assert_eq!(
+            settings.settings.optimizer,
+            crate::workflow::FitOptimizer::Automatic
+        );
         assert_eq!(settings.settings.rank_tolerance, 1e-8);
-        assert!(serde_json::from_str::<crate::workflow::PhysicalFitRequest>(r#"{"version":1,"settings":{"solver":{"version":5},"max_cells":2,"max_cells":3}}"#).is_err());
-        assert!(serde_json::from_str::<crate::workflow::PhysicalFitRequest>(r#"{"version":1,"version":1,"settings":{"solver":{"version":5}}}"#).is_err());
-        let value = operation(OperationRequest::Fit(FitOperation { fit: FitId::from_bytes([7;16]), settings }));
+        assert!(
+            serde_json::from_str::<crate::workflow::PhysicalFitRequest>(
+                r#"{"version":1,"settings":{"solver":{"version":5},"max_cells":2,"max_cells":3}}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<crate::workflow::PhysicalFitRequest>(
+                r#"{"version":1,"version":1,"settings":{"solver":{"version":5}}}"#
+            )
+            .is_err()
+        );
+        let value = operation(OperationRequest::Fit(FitOperation {
+            fit: FitId::from_bytes([7; 16]),
+            settings,
+        }));
         let mut encoded = serde_json::to_value(&value).unwrap();
         assert_eq!(encoded["version"], 8);
         assert_eq!(encoded["operation"]["request"]["settings"]["version"], 1);
         // Version7 had a different simulation/fit meaning and has no compatibility reader.
         encoded["version"] = serde_json::json!(7);
         assert!(serde_json::from_value::<StudyOperation>(encoded).is_err());
-        let mut simulation = serde_json::to_value(operation(OperationRequest::Simulation(SimulationOperation { case: case().case, settings: None }))).unwrap();
+        let mut simulation = serde_json::to_value(operation(OperationRequest::Simulation(
+            SimulationOperation {
+                case: case().case,
+                settings: None,
+            },
+        )))
+        .unwrap();
         simulation["operation"]["request"]["profile"] = serde_json::json!({"version":3});
         assert!(serde_json::from_value::<StudyOperation>(simulation).is_err());
     }
@@ -1603,20 +1690,28 @@ mod study_operation_unit {
             OperationRequest::DeclaredCase(case()),
             OperationRequest::Simulation(SimulationOperation {
                 case: case().case,
-                settings: Some(crate::workflow::PhysicalSimulationRequest::new(pse_backend_native::dynamics::Profile::default().with_coordinates(Vec::new(), Vec::new(), Vec::new()))),
+                settings: Some(crate::workflow::PhysicalSimulationRequest::new(
+                    pse_backend_native::dynamics::Profile::default().with_coordinates(
+                        Vec::new(),
+                        Vec::new(),
+                        Vec::new(),
+                    ),
+                )),
             }),
             OperationRequest::Fit(FitOperation {
                 fit: FitId::from_bytes([7; 16]),
-                settings: crate::workflow::PhysicalFitRequest::new(crate::workflow::FitPreparationDocument {
-                    optimizer: crate::workflow::FitOptimizer::NativeNlp,
-                    solver: SolveSettings::default(),
-                    simulations: BTreeMap::new(),
-                    rank_tolerance: 1e-6,
-                    max_cells: 12_345,
-                    derivatives: FitDerivatives::Responses,
-                    experiment_workers: pse_model::scalar!(PositiveCount(1)),
-                    uncertainty: None,
-                }),
+                settings: crate::workflow::PhysicalFitRequest::new(
+                    crate::workflow::FitPreparationDocument {
+                        optimizer: crate::workflow::FitOptimizer::NativeNlp,
+                        solver: SolveSettings::default(),
+                        simulations: BTreeMap::new(),
+                        rank_tolerance: 1e-6,
+                        max_cells: 12_345,
+                        derivatives: FitDerivatives::Responses,
+                        experiment_workers: pse_model::scalar!(PositiveCount(1)),
+                        uncertainty: None,
+                    },
+                ),
             }),
         ];
         for request in requests {

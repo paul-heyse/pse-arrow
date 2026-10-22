@@ -2,13 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native columnar admission, buffer ownership and engine error boundaries.
-use pse_ids::{
-    ContentHash, FramedHasher, SemanticId, canonical_f32_bits, canonical_f64_bits,
-};
+use pse_ids::{ContentHash, FramedHasher, SemanticId, canonical_f32_bits, canonical_f64_bits};
 pub mod allocation_extent;
-pub mod ipc_file;
 pub mod contract;
 pub mod generated;
+pub mod ipc_file;
 pub mod native_field;
 pub mod native_value;
 pub mod owned_buffer;

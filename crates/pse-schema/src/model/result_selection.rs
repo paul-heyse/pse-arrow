@@ -19,12 +19,24 @@ pub enum ResultSelectionRole {
 impl ResultSelectionRole {
     /// Stable field facet spelling.
     pub const fn as_str(self) -> &'static str {
-        match self { Self::Run => "run", Self::Owner => "owner", Self::Step => "step",
-            Self::Experiment => "experiment", Self::Value => "value" }
+        match self {
+            Self::Run => "run",
+            Self::Owner => "owner",
+            Self::Step => "step",
+            Self::Experiment => "experiment",
+            Self::Value => "value",
+        }
     }
     /// Closed lookup; an unknown role is never treated as a value.
     pub fn from_name(name: &str) -> Option<Self> {
-        [Self::Run, Self::Owner, Self::Step, Self::Experiment, Self::Value]
-            .into_iter().find(|role| role.as_str() == name)
+        [
+            Self::Run,
+            Self::Owner,
+            Self::Step,
+            Self::Experiment,
+            Self::Value,
+        ]
+        .into_iter()
+        .find(|role| role.as_str() == name)
     }
 }

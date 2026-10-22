@@ -187,16 +187,17 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues, ScalingObservations, ViewChoice, ViewPolicy, ViewReason,
-    AdmittedImplicit, AdmittedModeling, AutomaticCausalUnit, BoundLookup, BoundLookupKey,
-    BoundStructure, ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument,
-    FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning,
-    ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
+    AdmittedImplicit, AdmittedModeling, AnnotationObservation, AutomaticCausalUnit, BoundLookup,
+    BoundLookupKey, BoundStructure, CompilerView, ConditionalUnitInventory, Derivation, Derived,
+    FlowConnectionDocument, FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities,
+    ImplicitMeaning, ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
     ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
     ModelingHint, ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks,
     ModelingPreparationFrontier, ModelingRevision, ModelingTestValue, ModelingValidityResult,
-    ModelingVariableState, ObjectiveBound, PreparedModeling, SelectionEquivalence,
-    SelectionNeighborhood, SemanticModeling,
+    ModelingVariableState, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations,
+    NumericalScale, NumericalStartSource, NumericalStartValues, ObjectiveBound, PreparedModeling,
+    ScalingObservations, SelectionEquivalence, SelectionNeighborhood, SemanticModeling, ViewChoice,
+    ViewPolicy, ViewReason,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -240,18 +241,26 @@ impl CompilerDb for CompilerDatabase {
     fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>> {
         &self.body_refusal
     }
-    fn live_retention(&self) -> &std::sync::Mutex<LiveRetention> { &self.live_retention }
+    fn live_retention(&self) -> &std::sync::Mutex<LiveRetention> {
+        &self.live_retention
+    }
 }
 fn admit_live_body(db: &dyn CompilerDb, key: pse_ids::roles::SemanticBodyHash, bytes: usize) {
     let admitted = db.live_retention().lock().is_ok_and(|mut live| {
-        if live.bodies.contains_key(&key) { return true; }
+        if live.bodies.contains_key(&key) {
+            return true;
+        }
         let next = live.bytes.saturating_add(bytes).saturating_add(128);
-        if next > live.limit { return false; }
+        if next > live.limit {
+            return false;
+        }
         live.bytes = next;
         live.bodies.insert(key, bytes);
         true
     });
-    if !admitted { body_refused(db, MathError::Limit("live root retained bytes")); }
+    if !admitted {
+        body_refused(db, MathError::Limit("live root retained bytes"));
+    }
 }
 // Resource admission is an effect. Abort tracked evaluation so a transient refusal
 // never becomes a retained semantic result, then recover its typed cause at the front door.
@@ -1684,7 +1693,10 @@ impl CompilerWorkspace {
             projection_scratch_limit: limits.input_bytes,
             body_retention: None,
             body_refusal: Default::default(),
-            live_retention: Arc::new(std::sync::Mutex::new(LiveRetention { limit: limits.retained_bytes, ..Default::default() })),
+            live_retention: Arc::new(std::sync::Mutex::new(LiveRetention {
+                limit: limits.retained_bytes,
+                ..Default::default()
+            })),
         };
         let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
@@ -1778,7 +1790,11 @@ impl CompilerWorkspace {
     /// Reserve count capacity before evaluating the incoming root, keeping the
     /// previous live set resident for equality/backdating during the transition.
     fn admit_live_root(&mut self, bodies: usize, bytes: usize) -> Result<()> {
-        let count = self.live_bodies.len().saturating_add(bodies).max(self.limits.query_values);
+        let count = self
+            .live_bodies
+            .len()
+            .saturating_add(bodies)
+            .max(self.limits.query_values);
         // The generation census includes the old resident memo values. Add the
         // incoming owned construction before any newly materialized memo is kept.
         let working = self.retention_usage().1.saturating_add(bytes);
@@ -1788,17 +1804,36 @@ impl CompilerWorkspace {
         }
         modeling::executable::configure(&mut self.db, count);
         if let Ok(mut live) = self.db.live_retention.lock() {
-            *live = LiveRetention { bodies: self.live_bodies.clone(), bytes: working, limit: self.limits.retained_bytes };
+            *live = LiveRetention {
+                bodies: self.live_bodies.clone(),
+                bytes: working,
+                limit: self.limits.retained_bytes,
+            };
         }
         Ok(())
     }
-    fn retain_live_root(&mut self, bodies: BTreeMap<pse_ids::roles::SemanticBodyHash, usize>, bytes: usize) {
+    fn retain_live_root(
+        &mut self,
+        bodies: BTreeMap<pse_ids::roles::SemanticBodyHash, usize>,
+        bytes: usize,
+    ) {
         self.live_bodies = bodies;
         // The transition is complete: older roots are disposable. The current
         // live set remains inside the count cache rather than merely in an Arc.
-        modeling::executable::configure(&mut self.db, self.live_bodies.len().max(self.limits.query_values));
+        modeling::executable::configure(
+            &mut self.db,
+            self.live_bodies.len().max(self.limits.query_values),
+        );
         if let Ok(mut live) = self.db.live_retention.lock() {
-            *live = LiveRetention { bodies: self.live_bodies.clone(), bytes: self.live_bodies.values().copied().fold(bytes, usize::saturating_add), limit: self.limits.retained_bytes };
+            *live = LiveRetention {
+                bodies: self.live_bodies.clone(),
+                bytes: self
+                    .live_bodies
+                    .values()
+                    .copied()
+                    .fold(bytes, usize::saturating_add),
+                limit: self.limits.retained_bytes,
+            };
         }
     }
     fn retention_exceeded(&self) -> bool {
@@ -1809,9 +1844,19 @@ impl CompilerWorkspace {
     /// Library heaps without Salsa heap callbacks remain outside this observation.
     pub fn retention_usage(&self) -> (usize, usize) {
         let report = <dyn Database>::memory_usage(&self.db);
-        let live_entries = self.live_bodies.len().saturating_add(self.db.live_retention.lock().map_or(0, |live| live.bodies.len()));
+        let live_entries = self.live_bodies.len().saturating_add(
+            self.db
+                .live_retention
+                .lock()
+                .map_or(0, |live| live.bodies.len()),
+        );
         report.structs.iter().chain(report.queries.values()).fold(
-            (self.granular.entries().saturating_add(live_entries), self.granular.known_bytes(&self.db).saturating_add(live_entries.saturating_mul(256))),
+            (
+                self.granular.entries().saturating_add(live_entries),
+                self.granular
+                    .known_bytes(&self.db)
+                    .saturating_add(live_entries.saturating_mul(256)),
+            ),
             |(entries, bytes), info| {
                 (
                     entries.saturating_add(info.count()),
@@ -1963,6 +2008,31 @@ impl pse_model::diagnostic::DiagnosticProjection for CompileError {
             _ => self.boundary_diagnostic(stage),
         }
     }
+    fn boundary_diagnostic_with_bindings(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        members: &BTreeMap<SemanticId, SemanticId>,
+        sources: &BTreeMap<SemanticId, SemanticId>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Math(error) => error.boundary_diagnostic_with_bindings(stage, members, sources),
+            _ => self.boundary_diagnostic(stage),
+        }
+    }
+    fn boundary_diagnostic_with_occurrences(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        members: &BTreeMap<SemanticId, SemanticId>,
+        sources: &BTreeMap<SemanticId, SemanticId>,
+        occurrences: &BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Math(error) => {
+                error.boundary_diagnostic_with_occurrences(stage, members, sources, occurrences)
+            }
+            _ => self.boundary_diagnostic(stage),
+        }
+    }
 }
 
 impl CompileError {
@@ -2031,6 +2101,8 @@ mod directional_identity_tests {
                     .collect(),
                 vec![],
                 vec![InstanceBinding {
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
                     checked_members: Default::default(),
                     instance: id(7),
                     body: key,

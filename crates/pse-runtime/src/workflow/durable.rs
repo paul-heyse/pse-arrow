@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
-use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 #[cfg(all(test, feature = "canonical-tests"))]
 use super::RunReport;
+use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
+use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
@@ -76,23 +76,45 @@ struct LeasePolicyFields {
 }
 impl LeasePolicy {
     /// Admit authority timing and queue bounds once, before any canonical effect.
-    pub fn new(lease: Duration, heartbeat: Duration, batch: usize, flush: Duration) -> Result<Self, WorkflowError> {
+    pub fn new(
+        lease: Duration,
+        heartbeat: Duration,
+        batch: usize,
+        flush: Duration,
+    ) -> Result<Self, WorkflowError> {
         if lease.is_zero() || heartbeat.is_zero() || heartbeat >= lease {
-            return Err(contract("worker heartbeat must be positive and shorter than its lease"));
+            return Err(contract(
+                "worker heartbeat must be positive and shorter than its lease",
+            ));
         }
         if !(1..=512).contains(&batch) || flush.is_zero() {
-            return Err(contract("progress queue capacity must be 1..=512 and flush delay positive"));
+            return Err(contract(
+                "progress queue capacity must be 1..=512 and flush delay positive",
+            ));
         }
-        Ok(Self { lease, heartbeat, batch, flush })
+        Ok(Self {
+            lease,
+            heartbeat,
+            batch,
+            flush,
+        })
     }
     /// Admitted server authority lifetime.
-    pub const fn lease(self) -> Duration { self.lease }
+    pub const fn lease(self) -> Duration {
+        self.lease
+    }
     /// Admitted authority renewal interval.
-    pub const fn heartbeat(self) -> Duration { self.heartbeat }
+    pub const fn heartbeat(self) -> Duration {
+        self.heartbeat
+    }
     /// Admitted observed-event queue capacity.
-    pub const fn batch(self) -> usize { self.batch }
+    pub const fn batch(self) -> usize {
+        self.batch
+    }
     /// Admitted maximum event flush delay.
-    pub const fn flush(self) -> Duration { self.flush }
+    pub const fn flush(self) -> Duration {
+        self.flush
+    }
 }
 impl TryFrom<LeasePolicyFields> for LeasePolicy {
     type Error = WorkflowError;
@@ -102,13 +124,24 @@ impl TryFrom<LeasePolicyFields> for LeasePolicy {
 }
 impl From<LeasePolicy> for LeasePolicyFields {
     fn from(policy: LeasePolicy) -> Self {
-        Self { version: pse_model::document::Version, lease: policy.lease, heartbeat: policy.heartbeat, batch: policy.batch, flush: policy.flush }
+        Self {
+            version: pse_model::document::Version,
+            lease: policy.lease,
+            heartbeat: policy.heartbeat,
+            batch: policy.batch,
+            flush: policy.flush,
+        }
     }
 }
 impl Default for LeasePolicy {
     fn default() -> Self {
         // These constants satisfy the constructor's invariant.
-        Self { lease: Duration::from_secs(30), heartbeat: Duration::from_secs(10), batch: 64, flush: Duration::from_millis(200) }
+        Self {
+            lease: Duration::from_secs(30),
+            heartbeat: Duration::from_secs(10),
+            batch: 64,
+            flush: Duration::from_millis(200),
+        }
     }
 }
 /// The sole canonical store, worker identity and renewal policy.
@@ -2249,7 +2282,9 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         retryable: false,
     }
 }
-fn identities(request: &RunRequest<'_>) -> Result<(ContentHash, Option<ContentHash>), WorkflowError> {
+fn identities(
+    request: &RunRequest<'_>,
+) -> Result<(ContentHash, Option<ContentHash>), WorkflowError> {
     let math = |e: pse_backend_native::ProblemError| {
         WorkflowError::Math(crate::math::MathRuntimeError::from(e))
     };
@@ -3197,7 +3232,18 @@ async fn append_seeds(
 ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     let reservation =
         MemoryConsumer::new("canonical:acknowledged-seed-identities").register(&operations.pool);
-    let (super::RunOutcome::Modeling { request: requests, result: Ok(steps) } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests, result: Ok(steps) }, .. }) = &result.outcome
+    let (super::RunOutcome::Modeling {
+        request: requests,
+        result: Ok(steps),
+    }
+    | super::RunOutcome::Horizon {
+        execution:
+            super::HorizonRunOutcome::Full {
+                requests,
+                result: Ok(steps),
+            },
+        ..
+    }) = &result.outcome
     else {
         return Ok((Vec::new(), pse_columnar::AllocationLease::new(reservation)));
     };
@@ -5591,7 +5637,15 @@ mod canonical_durable_codec {
         let RunReport::Modeling(steps) = original.report().unwrap() else {
             unreachable!()
         };
-        let result = RunResult::joined(original.run_id, runtime, crate::workflow::RunOutcome::Modeling { request: requests.clone(), result: Ok(steps.clone()) }, None)
+        let result = RunResult::joined(
+            original.run_id,
+            runtime,
+            crate::workflow::RunOutcome::Modeling {
+                request: requests.clone(),
+                result: Ok(steps.clone()),
+            },
+            None,
+        )
         .completed();
         let captured = serde_json::to_value(result.completion().unwrap()).unwrap();
         let (operations, fence) = claimed().await;

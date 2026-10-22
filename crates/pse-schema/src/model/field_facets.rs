@@ -103,13 +103,21 @@ mod tests {
     fn result_access_roles_do_not_change_the_referenced_value_domain() {
         use crate::model::{FieldContract, ResultSelectionRole};
         let value = FieldContract::native(arrow_schema::DataType::Float64);
-        let selected = value.clone()
+        let selected = value
+            .clone()
             .with_result_selection(ResultSelectionRole::Value)
             .with_result_sort(0);
         assert_eq!(selected.value_type(), value.value_type());
-        assert_ne!(selected, value, "the occurrence still owns its access declaration");
+        assert_ne!(
+            selected, value,
+            "the occurrence still owns its access declaration"
+        );
         let registry = crate::catalog::assemble().unwrap();
-        let field = registry.relation("runtime.fit_parameters").unwrap().column("value").unwrap();
+        let field = registry
+            .relation("runtime.fit_parameters")
+            .unwrap()
+            .column("value")
+            .unwrap();
         let bound = crate::arrow::field_for(&registry, field).unwrap();
         assert_eq!(bound.metadata()[KEY_RESULT_SELECTION], "value");
     }
@@ -119,28 +127,79 @@ mod tests {
         use crate::model::ResultSelectionRole as R;
         let registry = &crate::catalog::assemble().unwrap();
         for (name, owner, partition, expected_sort) in [
-            ("solve_variables", "symbol_id", Some(("step", R::Step)), vec!["run_id", "step", "symbol_id"]),
-            ("solve_constraints", "row_id", Some(("step", R::Step)), vec!["run_id", "step", "row_id"]),
-            ("fit_parameters", "parameter_id", None, vec!["run_id", "parameter_id"]),
-            ("fit_observations", "observation_id", Some(("experiment_id", R::Experiment)), vec!["run_id", "experiment_id", "observation_id"]),
+            (
+                "solve_variables",
+                "symbol_id",
+                Some(("step", R::Step)),
+                vec!["run_id", "step", "symbol_id"],
+            ),
+            (
+                "solve_constraints",
+                "row_id",
+                Some(("step", R::Step)),
+                vec!["run_id", "step", "row_id"],
+            ),
+            (
+                "fit_parameters",
+                "parameter_id",
+                None,
+                vec!["run_id", "parameter_id"],
+            ),
+            (
+                "fit_observations",
+                "observation_id",
+                Some(("experiment_id", R::Experiment)),
+                vec!["run_id", "experiment_id", "observation_id"],
+            ),
             ("simulation_samples", "symbol_id", None, vec![]),
         ] {
             let relation = registry.relation(&format!("runtime.{name}")).unwrap();
-            assert_eq!(relation.column("run_id").unwrap().result_selection_role(), Some(R::Run));
-            assert_eq!(relation.column(owner).unwrap().result_selection_role(), Some(R::Owner));
+            assert_eq!(
+                relation.column("run_id").unwrap().result_selection_role(),
+                Some(R::Run)
+            );
+            assert_eq!(
+                relation.column(owner).unwrap().result_selection_role(),
+                Some(R::Owner)
+            );
             if let Some((field, role)) = partition {
-                assert_eq!(relation.column(field).unwrap().result_selection_role(), Some(role));
+                assert_eq!(
+                    relation.column(field).unwrap().result_selection_role(),
+                    Some(role)
+                );
             }
-            let mut order = relation.columns.iter().filter_map(|field| field.result_sort_ordinal().map(|ordinal| (ordinal, field.name()))).collect::<Vec<_>>();
+            let mut order = relation
+                .columns
+                .iter()
+                .filter_map(|field| {
+                    field
+                        .result_sort_ordinal()
+                        .map(|ordinal| (ordinal, field.name()))
+                })
+                .collect::<Vec<_>>();
             order.sort_unstable();
-            assert_eq!(order.into_iter().map(|(_, name)| name).collect::<Vec<_>>(), expected_sort);
-            for field in relation.columns.iter().filter(|field| field.result_selection_role().is_some()) {
+            assert_eq!(
+                order.into_iter().map(|(_, name)| name).collect::<Vec<_>>(),
+                expected_sort
+            );
+            for field in relation
+                .columns
+                .iter()
+                .filter(|field| field.result_selection_role().is_some())
+            {
                 let bound = crate::arrow::field_for(registry, field).unwrap();
-                assert_eq!(bound.metadata()[KEY_RESULT_SELECTION], field.result_selection_role().unwrap().as_str());
+                assert_eq!(
+                    bound.metadata()[KEY_RESULT_SELECTION],
+                    field.result_selection_role().unwrap().as_str()
+                );
             }
         }
         let fit = registry.relation("runtime.fit_parameters").unwrap();
-        assert!(!fit.columns.iter().any(|field| field.result_selection_role() == Some(R::Step)));
+        assert!(
+            !fit.columns
+                .iter()
+                .any(|field| field.result_selection_role() == Some(R::Step))
+        );
     }
 
     #[test]
@@ -149,20 +208,48 @@ mod tests {
         let declarations = registry.relation("authored.modeling_declarations").unwrap();
         assert_eq!(declarations.key.version, 26);
         let value = declarations.column("value").unwrap();
-        let function = value.children().into_iter().find(|field| field.name() == "function").unwrap();
-        let body = function.children().into_iter().find(|field| field.name() == "body").unwrap();
-        assert_eq!(body.extension(), Some(crate::model::ExtensionUse::ExprDsl(crate::model::ExpressionGrammar::Expression)));
+        let function = value
+            .children()
+            .into_iter()
+            .find(|field| field.name() == "function")
+            .unwrap();
+        let body = function
+            .children()
+            .into_iter()
+            .find(|field| field.name() == "body")
+            .unwrap();
+        assert_eq!(
+            body.extension(),
+            Some(crate::model::ExtensionUse::ExprDsl(
+                crate::model::ExpressionGrammar::Expression
+            ))
+        );
         let bound = crate::arrow::field_for(registry, &body).unwrap();
         assert_eq!(bound.metadata()[KEY_EXPRESSION_ROLE], "function.body");
         assert_eq!(bound.metadata()[KEY_EXPRESSION_ORDINAL], "list");
-        let metadata: serde_json::Value = serde_json::from_str(&bound.metadata()[KEY_EXTENSION_METADATA]).unwrap();
+        let metadata: serde_json::Value =
+            serde_json::from_str(&bound.metadata()[KEY_EXTENSION_METADATA]).unwrap();
         assert_eq!(metadata["grammar"], "expression");
-        assert_eq!(metadata["grammar_version"], crate::model::expression::GRAMMAR_VERSION);
-        let annotation = value.children().into_iter().find(|field| field.name() == "annotation").unwrap();
+        assert_eq!(
+            metadata["grammar_version"],
+            crate::model::expression::GRAMMAR_VERSION
+        );
+        let annotation = value
+            .children()
+            .into_iter()
+            .find(|field| field.name() == "annotation")
+            .unwrap();
         let bound = crate::arrow::field_for(registry, &annotation).unwrap();
-        let cases: Vec<crate::model::expression::AnnotationSyntax> = serde_json::from_str(&bound.metadata()[KEY_EXPRESSION_CASES]).unwrap();
-        assert!(cases.iter().any(|case| case.kind == "check" && case.grammar.as_deref() == Some("predicate") && case.count == 1));
-        assert!(cases.iter().any(|case| case.kind == "engineering_rule" && !case.target && case.grammar.is_none()));
+        let cases: Vec<crate::model::expression::AnnotationSyntax> =
+            serde_json::from_str(&bound.metadata()[KEY_EXPRESSION_CASES]).unwrap();
+        assert!(cases.iter().any(|case| case.kind == "check"
+            && case.grammar.as_deref() == Some("predicate")
+            && case.count == 1));
+        assert!(
+            cases.iter().any(|case| case.kind == "engineering_rule"
+                && !case.target
+                && case.grammar.is_none())
+        );
     }
 
     #[test]

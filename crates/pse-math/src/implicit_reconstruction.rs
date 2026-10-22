@@ -2389,6 +2389,7 @@ mod tests {
                 )
                 .unwrap(),
         );
+        let body = crate::implicit::source_body_for_test(id, &prepared, body);
         let unknowns = vec![Unknown {
             id,
             lower: -10.0,

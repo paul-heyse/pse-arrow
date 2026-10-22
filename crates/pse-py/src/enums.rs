@@ -21,7 +21,8 @@ impl<T: RegistryEnum> FromPyObject<'_, '_> for EnumValue<T> {
     fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         if !value.is_instance(T::python_type(value.py())?)? {
             return Err(pyo3::exceptions::PyTypeError::new_err(format!(
-                "expected pse.contracts.enums.{}", T::NAME
+                "expected pse.contracts.enums.{}",
+                T::NAME
             )));
         }
         let wire: String = value.getattr("value")?.extract()?;

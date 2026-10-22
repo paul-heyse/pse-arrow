@@ -1371,7 +1371,15 @@ mod tests {
             "control reaches the real preparation-identity factory callback path"
         );
         let configurations_before = configuration_calls.load(std::sync::atomic::Ordering::SeqCst);
-        let result = Arc::new(RunResult::joined(RunId::from_bytes([92; 16]), runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![prepared], result: Err(Arc::new(contract("retained pre-dispatch failure"))) }, None));
+        let result = Arc::new(RunResult::joined(
+            RunId::from_bytes([92; 16]),
+            runtime.clone(),
+            crate::workflow::RunOutcome::Modeling {
+                request: vec![prepared],
+                result: Err(Arc::new(contract("retained pre-dispatch failure"))),
+            },
+            None,
+        ));
         let run_context = result
             .review_context(&ReviewContextRequest::default())
             .unwrap();

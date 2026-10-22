@@ -6968,12 +6968,9 @@ fn selected_preparation_uses_one_plan_and_carries_observation_structure() {
 
 #[test]
 fn selected_shared_observation_body_demands_only_its_implicit_provider_output() {
-    use crate::typed_math::{Formal, Request};
-    use pse_authoring::dsl;
     use pse_math::binding::{
         CaseLimits, CaseStructure, Contribution, InstanceBinding, SlotBinding, Target,
     };
-    use pse_quantity::standard::StandardInvariantChecker;
     let (mut workspace, _, _, root) = setup(
         "package p {def Root {var x:Scalar; implicit alpha {var y:Scalar;eq e:y==x;}realize solve_alpha on alpha using nested; implicit beta {var z:Scalar;eq e:z==x;}realize solve_beta on beta using nested;eq a:alpha.y==2;eq b:beta.z==3;}}",
     );
@@ -6981,7 +6978,6 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     let inners = admitted.implicit.values().collect::<Vec<_>>();
     assert_eq!(inners.len(), 2);
     let registry = &workspace.inputs.quantities;
-    let quantity = registry.neutral_dimensionless().unwrap();
     let providers = BTreeMap::from([
         (
             "first".into(),
@@ -6998,31 +6994,29 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             },
         ),
     ]);
-    let expressions = [
-        dsl::parse_expr("kernel.first(x)").unwrap(),
-        dsl::parse_expr("kernel.second(x)").unwrap(),
-    ];
-    let formals = [Formal {
-        path: "x".into(),
-        quantity,
-    }];
-    let cancel = Cancellation::new(false);
-    let body = Arc::new(
-        Request {
-            definition: SemanticId::from_bytes([74; 16]),
-            expressions: &expressions,
-            formals: &formals,
-            domains: &BTreeMap::new(),
-            groups: &BTreeMap::new(),
-            providers: &providers,
-            literals: &BTreeMap::new(),
-            physical: ContentHash::from_bytes([75; 32]),
-            structure: ContentHash::from_bytes([76; 32]),
-            limits: BodyLimits::default(),
-        }
-        .admit(registry, &StandardInvariantChecker, &cancel)
-        .unwrap(),
+    let mut context = workspace.inputs.clone();
+    context.providers.extend(providers);
+    let external = |name: &str, descriptor: &pse_kernels::AdmittedProvider| {
+        let spec = descriptor.spec();
+        format!(
+            "fn {name}(x:Scalar)->Scalar external \"{name}\" revision \"{}\" data \"{}\" output 0 derivatives {} source {} smoothness {};",
+            spec.revision,
+            spec.data,
+            spec.derivatives as u8,
+            spec.derivative_source.as_str(),
+            spec.smoothness as u8
+        )
+    };
+    let source = format!(
+        "package direct {{ {} {} def Root {{ var x:Scalar;let first_out:Scalar=first(x);let second_out:Scalar=second(x); }} }}",
+        external("first", &inners[0].descriptor),
+        external("second", &inners[1].descriptor)
     );
+    let fixture =
+        crate::typed_math::direct_tests::fixture(context, &source, &["first_out", "second_out"])
+            .unwrap();
+    let cancel = Cancellation::new(false);
+    let body = Arc::new(fixture.admit(&cancel).unwrap());
     let key = body.spec().key();
     let original = &admitted.case;
     assert_eq!(original.variables().len(), 1);
@@ -7044,7 +7038,9 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         .map(|(output, row)| InstanceBinding {
             instance: row.id,
             body: key,
-            checked_members: Default::default(),
+            checked_members: fixture.region.checked_members.clone().into(),
+            checked_sources: fixture.region.checked_sources.clone().into(),
+            occurrences: fixture.region.occurrences.clone().into(),
             slots: (vec![SlotBinding::new(variable, variable, registry).unwrap()]).into(),
             contributions: vec![Contribution {
                 output,

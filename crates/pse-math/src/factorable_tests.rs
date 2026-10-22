@@ -127,6 +127,8 @@ fn case(
             variables,
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,

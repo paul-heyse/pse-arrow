@@ -3,11 +3,13 @@
 
 //! Catalogue of semantic derivations. Producers publish facts; consumers require those facts.
 use crate::{DeclarationId, InstanceId, Result, invalid};
-use pse_ids::{FramedHasher, SemanticId};
+use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use std::collections::BTreeMap;
 
 /// Component of a checked source expectation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum TestComponent {
     /// Observed result.
     Actual,
@@ -19,7 +21,9 @@ pub enum TestComponent {
     RelativeTolerance,
 }
 /// Component within the declared annotation kind, independent of output presentation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum AnnotationComponent {
     /// Single annotation argument.
     Value,
@@ -28,11 +32,15 @@ pub enum AnnotationComponent {
     /// Upper endpoint.
     Upper,
     /// Lower objective boundary.
-    ObjectiveLower { /// Whether equality is excluded.
-        strict: bool },
+    ObjectiveLower {
+        /// Whether equality is excluded.
+        strict: bool,
+    },
     /// Upper objective boundary.
-    ObjectiveUpper { /// Whether equality is excluded.
-        strict: bool },
+    ObjectiveUpper {
+        /// Whether equality is excluded.
+        strict: bool,
+    },
     /// Physical time.
     Time,
     /// Physical resolution.
@@ -43,7 +51,9 @@ pub enum AnnotationComponent {
     CriterionUpper,
 }
 /// A canonical body-local role. Parameters are never free derivative coordinates.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum LocalRole {
     /// Independent derivative input.
     Coordinate,
@@ -85,6 +95,8 @@ pub enum RoleKind {
     AnnotationComponent,
     /// Body-local coordinate role.
     LocalRole,
+    /// Complete framed consumed mathematical content.
+    Content,
 }
 /// One ordered field in a relationship's framing contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -95,46 +107,124 @@ pub struct RoleSpec {
     pub kind: RoleKind,
 }
 
-trait FrameValue { fn frame(&self, hash: &mut FramedHasher); }
-impl FrameValue for SemanticId { fn frame(&self, hash: &mut FramedHasher) { hash.id(self); } }
-impl FrameValue for DeclarationId { fn frame(&self, hash: &mut FramedHasher) { hash.id(&self.as_id()); } }
-impl FrameValue for InstanceId { fn frame(&self, hash: &mut FramedHasher) { hash.id(&self.as_id()); } }
-impl FrameValue for u64 { fn frame(&self, hash: &mut FramedHasher) { hash.u64(*self); } }
+trait FrameValue {
+    fn frame(&self, hash: &mut FramedHasher);
+}
+impl FrameValue for ContentHash {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.hash(self);
+    }
+}
+impl FrameValue for SemanticId {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.id(self);
+    }
+}
+impl FrameValue for DeclarationId {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.id(&self.as_id());
+    }
+}
+impl FrameValue for InstanceId {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.id(&self.as_id());
+    }
+}
+impl FrameValue for u64 {
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.u64(*self);
+    }
+}
 impl FrameValue for TestComponent {
-    fn frame(&self, hash: &mut FramedHasher) { hash.str(match self {
-        Self::Actual => "actual", Self::Expected => "expected", Self::Tolerance => "tolerance",
-        Self::RelativeTolerance => "relative_tolerance",
-    }); }
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.str(match self {
+            Self::Actual => "actual",
+            Self::Expected => "expected",
+            Self::Tolerance => "tolerance",
+            Self::RelativeTolerance => "relative_tolerance",
+        });
+    }
 }
 impl FrameValue for AnnotationComponent {
     fn frame(&self, hash: &mut FramedHasher) {
         match self {
-            Self::Value => { hash.str("value"); }, Self::Lower => { hash.str("lower"); }, Self::Upper => { hash.str("upper"); },
-            Self::ObjectiveLower { strict } => { hash.str("objective_lower").bool(*strict); },
-            Self::ObjectiveUpper { strict } => { hash.str("objective_upper").bool(*strict); },
-            Self::Time => { hash.str("time"); }, Self::Resolution => { hash.str("resolution"); },
-            Self::CriterionLower => { hash.str("criterion_lower"); }, Self::CriterionUpper => { hash.str("criterion_upper"); },
+            Self::Value => {
+                hash.str("value");
+            }
+            Self::Lower => {
+                hash.str("lower");
+            }
+            Self::Upper => {
+                hash.str("upper");
+            }
+            Self::ObjectiveLower { strict } => {
+                hash.str("objective_lower").bool(*strict);
+            }
+            Self::ObjectiveUpper { strict } => {
+                hash.str("objective_upper").bool(*strict);
+            }
+            Self::Time => {
+                hash.str("time");
+            }
+            Self::Resolution => {
+                hash.str("resolution");
+            }
+            Self::CriterionLower => {
+                hash.str("criterion_lower");
+            }
+            Self::CriterionUpper => {
+                hash.str("criterion_upper");
+            }
         }
     }
 }
 impl FrameValue for LocalRole {
-    fn frame(&self, hash: &mut FramedHasher) { hash.str(match self {
-        Self::Coordinate => "coordinate", Self::Parameter => "parameter", Self::Member => "member",
-    }); }
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.str(match self {
+            Self::Coordinate => "coordinate",
+            Self::Parameter => "parameter",
+            Self::Member => "member",
+        });
+    }
 }
 impl FrameValue for pse_model::generated::enums::ModelingAnnotationKind {
-    fn frame(&self, hash: &mut FramedHasher) { hash.str(self.as_str()); }
+    fn frame(&self, hash: &mut FramedHasher) {
+        hash.str(self.as_str());
+    }
 }
 macro_rules! field_type {
-    (Declaration) => { DeclarationId }; (Instance) => { InstanceId }; (Ordinal) => { u64 };
-    (TestComponent) => { TestComponent }; (AnnotationKind) => { pse_model::generated::enums::ModelingAnnotationKind };
-    (AnnotationComponent) => { AnnotationComponent }; (LocalRole) => { LocalRole };
-    ($identity:ident) => { SemanticId };
+    (Declaration) => {
+        DeclarationId
+    };
+    (Instance) => {
+        InstanceId
+    };
+    (Ordinal) => {
+        u64
+    };
+    (Content) => {
+        ContentHash
+    };
+    (TestComponent) => {
+        TestComponent
+    };
+    (AnnotationKind) => {
+        pse_model::generated::enums::ModelingAnnotationKind
+    };
+    (AnnotationComponent) => {
+        AnnotationComponent
+    };
+    (LocalRole) => {
+        LocalRole
+    };
+    ($identity:ident) => {
+        SemanticId
+    };
 }
 macro_rules! relationships {
     ($( $variant:ident => $tag:literal { $( $field:ident : $role:ident ),* $(,)? } ),* $(,)?) => {
         /// Typed derived relationship and its complete ordered payload.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
         pub enum Relationship { $(#[doc = concat!("Declared semantic derivation `", $tag, "`.")]
             $variant { $(#[doc = concat!("Typed ", stringify!($role), " role.")] $field: field_type!($role),)* },)* }
         impl Relationship {
@@ -156,12 +246,20 @@ macro_rules! relationships {
     };
 }
 relationships! {
+    SubstitutedMember => "substituted_member" {member:Symbol,meaning:Content},
+    ReconstructionResultView => "reconstruction_result_view" {owner:Declaration,callee:Content},
+    FunctionBodyInputView => "function_body_input_view" {owner:Declaration,ordinal:Ordinal,meaning:Content},
+    DefiningEquation => "defining_equation" {symbol:Symbol},
+    ContinuityRow => "continuity_row" {family:Symbol,element:Ordinal},
+    ContinuousIntegral => "continuous_integral" {content:Content},
+    IntegralFlux => "integral_flux" {result:Symbol},
     ClosureConservation => "closure_conservation" { closure: Closure },
     ConditionalBoundaryValue => "conditional_boundary_value" { symbol: Symbol },
     ConditionalBoundaryResidual => "conditional_boundary_residual" { symbol: Symbol },
     ConservedInventoryOutput => "conserved_inventory_output" { balance: Inventory },
     InventoryTransferOutput => "inventory_transfer_output" { balance: Inventory, event: Event },
     InitialStateOutput => "initial_state_output" { state: State, equation: Row },
+    IntegratedRateCoordinate => "integrated_rate_coordinate" { state: State },
     DynamicRateOutput => "dynamic_rate_output" { state: State },
     TestOutput => "test_output" { test: Expectation, component: TestComponent },
     AnnotationOutput => "annotation_output" { target: Symbol, declaration: Declaration, kind: AnnotationKind, component: AnnotationComponent },
@@ -180,16 +278,24 @@ relationships! {
     InventoryRate => "inventory_rate" { balance: Inventory },
     TemporalClosure => "temporal_closure" { closure: Closure },
     CheckedMember => "checked_member" { role: LocalRole, ordinal: Ordinal },
+    CheckedValiditySource => "checked_validity_source" { role: LocalRole, ordinal: Ordinal },
 }
 
 /// Explicit reached derivations retained with a resolved product, independently of numerical values.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Facts { values: BTreeMap<Relationship, SemanticId>, owners: BTreeMap<SemanticId, Relationship> }
+pub struct Facts {
+    values: BTreeMap<Relationship, SemanticId>,
+    owners: BTreeMap<SemanticId, Relationship>,
+}
 impl Facts {
     /// Publish exactly one complete typed derivation, detecting an identity collision.
     pub fn publish(&mut self, relationship: Relationship) -> Result<SemanticId> {
         let identity = relationship.identity();
-        if self.owners.get(&identity).is_some_and(|prior| *prior != relationship) {
+        if self
+            .owners
+            .get(&identity)
+            .is_some_and(|prior| *prior != relationship)
+        {
             return Err(invalid(identity, "derived relationship identity collision"));
         }
         self.owners.insert(identity, relationship);
@@ -198,13 +304,27 @@ impl Facts {
     }
     /// A required reached relationship cannot become a silent missing lookup.
     pub fn require(&self, relationship: Relationship) -> Result<SemanticId> {
-        self.values.get(&relationship).copied().ok_or_else(|| invalid(SemanticId::NIL,
-            format!("required derived relationship {} absent", relationship.name())))
+        self.values.get(&relationship).copied().ok_or_else(|| {
+            invalid(
+                SemanticId::NIL,
+                format!(
+                    "required derived relationship {} absent",
+                    relationship.name()
+                ),
+            )
+        })
     }
     /// Exact reached inventory, for inspection and retained allocation accounting.
-    pub fn iter(&self) -> impl Iterator<Item = (&Relationship, &SemanticId)> { self.values.iter() }
+    pub fn iter(&self) -> impl Iterator<Item = (&Relationship, &SemanticId)> {
+        self.values.iter()
+    }
     /// Conservative map allocation extent; no external Arc is claimed as residency.
-    pub fn retained_bytes(&self) -> usize { self.values.len().saturating_add(self.owners.len()).saturating_mul(size_of::<(Relationship, SemanticId)>() + 96) }
+    pub fn retained_bytes(&self) -> usize {
+        self.values
+            .len()
+            .saturating_add(self.owners.len())
+            .saturating_mul(size_of::<(Relationship, SemanticId)>() + 96)
+    }
 }
 
 #[cfg(test)]
@@ -216,12 +336,45 @@ mod tests {
         let row = Relationship::ClosureConservation { closure: id };
         let output = Relationship::MemberOutput { symbol: id };
         assert_ne!(row.identity(), output.identity());
-        assert_eq!(row.roles(), &[RoleSpec {name: "closure", kind: RoleKind::Closure}]);
+        assert_ne!(
+            Relationship::IntegratedRateCoordinate { state: id }.identity(),
+            Relationship::DynamicRateOutput { state: id }.identity()
+        );
+        assert_ne!(
+            Relationship::CheckedMember {
+                role: LocalRole::Coordinate,
+                ordinal: 0
+            }
+            .identity(),
+            Relationship::CheckedValiditySource {
+                role: LocalRole::Coordinate,
+                ordinal: 0
+            }
+            .identity()
+        );
+        assert_eq!(
+            row.roles(),
+            &[RoleSpec {
+                name: "closure",
+                kind: RoleKind::Closure
+            }]
+        );
         let mut facts = Facts::default();
         assert!(facts.require(row).is_err());
         assert_eq!(facts.publish(row).unwrap(), row.identity());
         assert_eq!(facts.require(row).unwrap(), row.identity());
         assert!(facts.require(output).is_err());
-        assert_ne!(Relationship::CheckedMember {role: LocalRole::Coordinate, ordinal: 0}.identity(), Relationship::CheckedMember {role: LocalRole::Parameter, ordinal: 0}.identity());
+        assert_ne!(
+            Relationship::CheckedMember {
+                role: LocalRole::Coordinate,
+                ordinal: 0
+            }
+            .identity(),
+            Relationship::CheckedMember {
+                role: LocalRole::Parameter,
+                ordinal: 0
+            }
+            .identity()
+        );
     }
 }

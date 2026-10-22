@@ -424,17 +424,42 @@ impl SpecializedModel {
     /// Conservative owned specialization storage, excluding separately owned library math.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.resolved.retained_bytes()
+            + map(&self.source_declarations, |_, _| 0)
+            + map(&self.physical_admissions, |_, admission| {
+                admission.retained_bytes()
+            })
+            + map(&self.literal_contracts, |_, contract| ty(contract))
+            + map(&self.symbol_roots, |_, _| 0)
+            + map(&self.member_range_sources, |_, _| 0)
+            + map(&self.equation_roots, |_, _| 0)
+            + map(&self.contribution_roots, |_, _| 0)
+            + self.derivations.retained_bytes()
+            + self.original_guards.capacity() * size_of::<crate::specialize::OriginalGuard>()
+            + self
+                .original_guards
+                .iter()
+                .map(|guard| {
+                    guard.source.field.role.capacity()
+                        + guard.declarations.len() * (size_of::<crate::DeclarationId>() + 64)
+                })
+                .sum::<usize>()
             + crate::expression::occurrences::retained_bytes(self.source_occurrences())
             + self.finite_facts.retained_bytes()
             + selections(&self.selection_closures)
             + map(&self.root_selections, |_, s| match s {
-                crate::specialize::RootSelection::Branch(p) => predicate(p),
+                crate::specialize::RootSelection::Branch { inspection, .. } => {
+                    predicate(inspection)
+                }
                 crate::specialize::RootSelection::Operational {
                     anchors,
                     settings,
                     neighborhood,
+                    anchor_roots,
+                    ..
                 } => {
                     settings.capacity()
+                        + map(anchor_roots, |_, _| 0)
                         + map(anchors, |_, e| expression(e))
                         + neighborhood.as_ref().map_or(0, predicate)
                 }
@@ -588,18 +613,7 @@ impl SpecializedModel {
                         .iter()
                         .map(|s| s.capacity() + size_of::<String>() + 64)
                         .sum::<usize>()
-                    + (v.coordinates.capacity() + v.rows.capacity())
-                        * size_of::<pse_ids::SemanticId>()
                     + map(&v.members, |n, _| n.capacity())
-            })
-            + map(&self.groups, |_, v| {
-                v.instances.capacity() * size_of::<pse_ids::SemanticId>()
-                    + v.body.coordinates.capacity()
-                        * size_of::<(Type, pse_model::generated::enums::ModelingDeclarationKind)>()
-                    + v.body.coordinates.iter().map(|(t, _)| ty(t)).sum::<usize>()
-                    + map(&v.body.expressions, |_, e| expression(e))
-                    + v.body.equations.capacity() * size_of::<Equation>()
-                    + v.body.equations.iter().map(equation).sum::<usize>()
             })
             + map(&self.ports, |_, v| lineage(&v.lineage))
             + map(&self.state_specifications, |_, v| {

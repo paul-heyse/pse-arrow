@@ -8,8 +8,8 @@
     reason = "native admission controls fail on invalid setup or unexpected operation variants"
 )]
 use super::super::{
-    BindingAssignment, BindingQuantity, BindingTarget, PointOverlay, PreparedStudyOperation,
-    StudyPoint, StudyPointPolicy,
+    BindingAssignment, BindingQuantity, BindingTarget, FitPreparationDocument, PointOverlay,
+    PreparedStudyOperation, StudyPoint, StudyPointPolicy,
 };
 use super::*;
 use pse_model::scalars::{FiniteBound, PositiveCount, Tolerance};
@@ -134,29 +134,58 @@ fn prior_overlay(package: &ModelingPackage, magnitude: f64, unit: &str) -> Point
 #[tokio::test]
 async fn host_and_study_requests_share_case_preparation_and_keep_study_route_assertion() {
     let (package, operation) = control_operation().await;
-    let OperationRequest::DeclaredCase(case) = &operation.operation else { panic!("declared case"); };
+    let OperationRequest::DeclaredCase(case) = &operation.operation else {
+        panic!("declared case");
+    };
     let cancel = CancelSource::new();
     let (prepared, admissions) = counted_declared_admissions(async {
-        let host = package.prepare_operation(
-            &operation.source,
-            &operation.preparation,
-            crate::workflow::RuntimeOperationRequest::DeclaredCase { case: case.case, settings: case.settings.clone() },
-            None,
-            &cancel,
-        ).await.unwrap().into_study().unwrap();
+        let host = package
+            .prepare_operation(
+                &operation.source,
+                &operation.preparation,
+                crate::workflow::RuntimeOperationRequest::DeclaredCase {
+                    case: case.case,
+                    settings: Box::new(case.settings.clone()),
+                },
+                None,
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .into_study()
+            .unwrap();
         let study = operation.prepare(&package, &cancel).await.unwrap();
         (host, study)
-    }).await;
-    assert_eq!(admissions, 2, "both callers use the shared declared admission owner");
-    let (PreparedStudyOperation::DeclaredCase(host), PreparedStudyOperation::DeclaredCase(study)) = prepared else { panic!("paired case preparations"); };
-    assert_eq!(host.solve.request_identity().unwrap(), study.solve.request_identity().unwrap());
+    })
+    .await;
+    assert_eq!(
+        admissions, 2,
+        "both callers use the shared declared admission owner"
+    );
+    let (PreparedStudyOperation::DeclaredCase(host), PreparedStudyOperation::DeclaredCase(study)) =
+        prepared
+    else {
+        panic!("paired case preparations");
+    };
+    assert_eq!(
+        host.solve.request_identity().unwrap(),
+        study.solve.request_identity().unwrap()
+    );
     assert_eq!(host.solve.numerics().key, study.solve.numerics().key);
-    assert_eq!(crate::math::solves::profile_key(&host.profile).unwrap(), crate::math::solves::profile_key(&study.profile).unwrap());
+    assert_eq!(
+        crate::math::solves::profile_key(&host.profile).unwrap(),
+        crate::math::solves::profile_key(&study.profile).unwrap()
+    );
     let mut wrong_route = operation;
-    let OperationRequest::DeclaredCase(case) = &mut wrong_route.operation else { panic!("declared case"); };
+    let OperationRequest::DeclaredCase(case) = &mut wrong_route.operation else {
+        panic!("declared case");
+    };
     case.route = ModelingAnalysisRoute::Integrated;
     let error = wrong_route.prepare(&package, &cancel).await.unwrap_err();
-    assert_eq!(error.boundary_diagnostic().class, BoundaryClass::Unsupported);
+    assert_eq!(
+        error.boundary_diagnostic().class,
+        BoundaryClass::Unsupported
+    );
 }
 
 #[tokio::test]
@@ -954,9 +983,16 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
     let mut forged = canonical.arrival[0].clone();
     forged.member = alternate;
     assert!(
-        operation
-            .validate_entry(&package, model.model.compiled(), prior, &forged)
-            .is_err()
+        OperationPreparation {
+            source: &operation.source,
+            preparation: &operation.preparation,
+            operation: &operation.operation,
+            output: &operation.output,
+            admitted_horizon: operation.admitted_horizon.as_ref(),
+            binding: None,
+        }
+        .validate_entry(&package, model.model.compiled(), prior, &forged)
+        .is_err()
     );
     let mut incompatible = operation.clone();
     let OperationRequest::Horizon(spec) = &mut incompatible.operation else {

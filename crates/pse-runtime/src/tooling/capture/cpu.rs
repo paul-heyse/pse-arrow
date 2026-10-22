@@ -2,9 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit perf process sampling and save-only Samply conversion; no UI/server or target stop.
 
-use super::{CaptureOutput, CaptureOutputKind, CaptureRequest, CaptureStatus, Shared, document, failure, source_partial, target};
-use crate::observation_detail::{CaptureError};
+use super::{
+    CaptureOutput, CaptureOutputKind, CaptureRequest, CaptureStatus, Shared, document, failure,
+    source_partial, target,
+};
 use crate::observation::{ProcessCheckpoint, ProcessLocator, read_checkpoint};
+use crate::observation_detail::CaptureError;
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Read, Write},

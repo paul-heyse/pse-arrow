@@ -43,9 +43,21 @@ impl NativePreparedFlow {
             async { handle.finish().await.map_err(native::WorkflowError::from) },
             || cancel.cancel(),
         )?;
-        let primal_coordinates = result.attempt.as_ref().map(|_| self.package.auxiliary_primal_coordinates(&result.dimensionless_coordinates))
-            .transpose().map_err(|error| errors::diagnostic(py, &error))?;
-        NativeStrategyResult::new(py, StrategyResult::Tears(Box::new(result)), &self.owner, primal_coordinates)
+        let primal_coordinates = result
+            .attempt
+            .as_ref()
+            .map(|_| {
+                self.package
+                    .auxiliary_primal_coordinates(&result.dimensionless_coordinates)
+            })
+            .transpose()
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        NativeStrategyResult::new(
+            py,
+            StrategyResult::Tears(Box::new(result)),
+            &self.owner,
+            primal_coordinates,
+        )
     }
 }
 
@@ -74,7 +86,8 @@ impl NativePreparedStrategy {
         match &self.inner {
             Strategy::Cone(p) => Ok(vec![p.solve().route().into()]),
             #[cfg(feature = "native-solvers")]
-            Strategy::Recycle(prepared) => prepared.route()
+            Strategy::Recycle(prepared) => prepared
+                .route()
                 .map(|route| vec![route.into()])
                 .map_err(|error| Python::attach(|py| errors::diagnostic(py, &error))),
             #[cfg(feature = "native-solvers")]
@@ -133,8 +146,10 @@ impl NativePreparedStrategy {
             Strategy::Recycle(prepared) => prepared.primal_coordinates(),
             #[cfg(feature = "native-solvers")]
             Strategy::Initialization(prepared) => prepared.primal_coordinates(),
-        }.map_err(|error| errors::diagnostic(py, &error))?;
-        let mut result = NativeStrategyResult::new(py, result, &self.owner, Some(primal_coordinates))?;
+        }
+        .map_err(|error| errors::diagnostic(py, &error))?;
+        let mut result =
+            NativeStrategyResult::new(py, result, &self.owner, Some(primal_coordinates))?;
         #[cfg(feature = "native-solvers")]
         let selected_context = review_context
             .map(|request| {
@@ -196,7 +211,12 @@ pub(crate) struct NativeStrategyResult {
     review_context_failure: Option<String>,
 }
 impl NativeStrategyResult {
-    fn new(py: Python<'_>, inner: StrategyResult, owner: &Arc<runtime::Runtime>, primal_coordinates: Option<native::PrimalCoordinates>) -> PyResult<Self> {
+    fn new(
+        py: Python<'_>,
+        inner: StrategyResult,
+        owner: &Arc<runtime::Runtime>,
+        primal_coordinates: Option<native::PrimalCoordinates>,
+    ) -> PyResult<Self> {
         type Trace = (
             pse_model::generated::identities::RunId,
             usize,
@@ -248,7 +268,10 @@ impl NativeStrategyResult {
 #[pymethods]
 impl NativeStrategyResult {
     /// Return only explicitly selected descriptive facts retained at the original join.
-    fn review_context(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<Arc<native::ReviewContext>>> {
+    fn review_context(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<Arc<native::ReviewContext>>> {
         if let Some(error) = &self.review_context_failure {
             return Err(invalid(
                 py,
@@ -265,14 +288,18 @@ impl NativeStrategyResult {
     }
     /// Identity of the actual submitted numerical operation; structural tears have none.
     #[getter]
-    fn run_id(&self) -> Option<crate::identities::Identity<pse_model::generated::identities::RunId>> {
+    fn run_id(
+        &self,
+    ) -> Option<crate::identities::Identity<pse_model::generated::identities::RunId>> {
         match self.inner.as_ref() {
             StrategyResult::Tears(_) => None,
             StrategyResult::Cone(report) => Some(crate::identities::Identity(report.run_id)),
             #[cfg(feature = "native-solvers")]
             StrategyResult::Recycle(report) => Some(crate::identities::Identity(report.run_id)),
             #[cfg(feature = "native-solvers")]
-            StrategyResult::Initialization(report) => Some(crate::identities::Identity(report.run_id)),
+            StrategyResult::Initialization(report) => {
+                Some(crate::identities::Identity(report.run_id))
+            }
         }
     }
     /// Generated observations from retained traces, with their original operation identity.
@@ -285,7 +312,10 @@ impl NativeStrategyResult {
     /// typed failure that preceded one, so indices are shared by reports and failures.
     fn attempts(&self) -> Vec<NativeStrategyAttempt> {
         let report = |r: &SolveReport| NativeStrategyAttempt {
-            report: Some(NativeAttempt { inner: r.clone(), primal_coordinates: self.primal_coordinates.clone() }),
+            report: Some(NativeAttempt {
+                inner: r.clone(),
+                primal_coordinates: self.primal_coordinates.clone(),
+            }),
             ..Default::default()
         };
         match self.inner.as_ref() {
@@ -325,15 +355,17 @@ impl NativeStrategyResult {
     fn initialization(&self) -> Option<documents::DocumentValue<native::InitializationDocument>> {
         #[cfg(feature = "native-solvers")]
         if let StrategyResult::Initialization(report) = self.inner.as_ref() {
-            return Some(documents::DocumentValue(native::InitializationDocument::from(report.as_ref())));
+            return Some(documents::DocumentValue(
+                native::InitializationDocument::from(report.as_ref()),
+            ));
         }
         None
     }
-    fn tears(&self) -> Option<documents::DocumentValue<pse_runtime::math::flows::TearSelectionDocument>> {
+    fn tears(
+        &self,
+    ) -> Option<documents::DocumentValue<pse_runtime::math::flows::TearSelectionDocument>> {
         if let StrategyResult::Tears(report) = self.inner.as_ref() {
-            return report
-                .document()
-                .map(documents::DocumentValue);
+            return report.document().map(documents::DocumentValue);
         }
         None
     }
@@ -438,8 +470,19 @@ impl NativeAttempt {
         self.inner.candidate.as_ref().and_then(|c| c.objective)
     }
     fn primal(&self, py: Python<'_>) -> PyResult<physical_input::PhysicalOutput> {
-        let coordinates = self.primal_coordinates.as_ref().ok_or_else(|| invalid(py, "native primal physical coordinate meaning is unavailable"))?;
-        coordinates.table(&self.inner).map(|table| physical_input::PhysicalOutput(pyo3_arrow::PyRecordBatch::new(table.batch().clone())))
+        let coordinates = self.primal_coordinates.as_ref().ok_or_else(|| {
+            invalid(
+                py,
+                "native primal physical coordinate meaning is unavailable",
+            )
+        })?;
+        coordinates
+            .table(&self.inner)
+            .map(|table| {
+                physical_input::PhysicalOutput(pyo3_arrow::PyRecordBatch::new(
+                    table.batch().clone(),
+                ))
+            })
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
@@ -474,7 +517,12 @@ impl NativeAttempt {
             .map(|inner| NativeStart { inner })
     }
     /// Actual input seed receipt, distinct from available output starts.
-    fn start_receipt(&self) -> Option<documents::DocumentValue<pse_backend_native::solve::SubmittedStartRef<'_>>> {
-        self.inner.start_receipt.as_ref().map(|start| documents::DocumentValue(start.snapshot()))
+    fn start_receipt(
+        &self,
+    ) -> Option<documents::DocumentValue<pse_backend_native::solve::SubmittedStartRef<'_>>> {
+        self.inner
+            .start_receipt
+            .as_ref()
+            .map(|start| documents::DocumentValue(start.snapshot()))
     }
 }

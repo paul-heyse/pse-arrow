@@ -62,14 +62,6 @@ impl<'a> FunctionContracts<'a> {
             reconstruction: None,
         }
     }
-    pub(crate) fn for_reconstruction(&self, operation: Option<&'a PhysicalOperation>) -> Self {
-        Self {
-            package: self.package,
-            functions: self.functions,
-            reconstruction: operation
-                .filter(|operation| matches!(operation, PhysicalOperation::Reconstruction { .. })),
-        }
-    }
     /// Resolve against this specialization's current finite function owner.
     pub fn resolve(&self, owner: DeclarationId, name: &str) -> Option<DeclarationId> {
         FunctionAdmission::resolve(self, owner, name)

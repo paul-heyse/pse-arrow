@@ -2,8 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Versioned conformance campaign documents; fixture policy remains authored authority.
 use super::{PreparationSettings, WorkflowError, contract};
-use pse_model::{document::Version, generated::enums::{ConformanceExecution, ConformancePresolve, NativeBackend, NativeSolveIntent}};
-use serde::{Serialize, Deserialize};
+use pse_model::{
+    document::Version,
+    generated::enums::{
+        ConformanceExecution, ConformancePresolve, NativeBackend, NativeSolveIntent,
+    },
+};
+use serde::{Deserialize, Serialize};
 
 /// Execution settings shared by all selected authored fixtures in one campaign.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -65,16 +70,36 @@ pub struct RunSettings {
     /// Diagnostic threshold profile path, relative to the manifest at ingress.
     pub diagnostics: Option<String>,
 }
-fn one() -> usize { 1 }
-fn time_limit() -> f64 { 600.0 }
-fn root() -> NativeSolveIntent { NativeSolveIntent::Root }
-fn presolve() -> ConformancePresolve { ConformancePresolve::Auto }
-fn fixtures() -> usize { 1024 }
-fn checks() -> usize { 16384 }
-fn cells() -> usize { 100000 }
-fn step() -> f64 { 1e-6 }
-fn tolerance() -> f64 { 1e-4 }
-fn native() -> ConformanceExecution { ConformanceExecution::Native }
+fn one() -> usize {
+    1
+}
+fn time_limit() -> f64 {
+    600.0
+}
+fn root() -> NativeSolveIntent {
+    NativeSolveIntent::Root
+}
+fn presolve() -> ConformancePresolve {
+    ConformancePresolve::Auto
+}
+fn fixtures() -> usize {
+    1024
+}
+fn checks() -> usize {
+    16384
+}
+fn cells() -> usize {
+    100000
+}
+fn step() -> f64 {
+    1e-6
+}
+fn tolerance() -> f64 {
+    1e-4
+}
+fn native() -> ConformanceExecution {
+    ConformanceExecution::Native
+}
 /// A package closure selected once within a conformance campaign.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -113,15 +138,27 @@ impl ConformanceManifest {
     pub fn load(path: &std::path::Path) -> Result<Self, WorkflowError> {
         use std::io::Read as _;
         const MAXIMUM_BYTES: u64 = 16 << 20;
-        let file = std::fs::File::open(path).map_err(|error| contract(format!("{}: {error}", path.display())))?;
+        let file = std::fs::File::open(path)
+            .map_err(|error| contract(format!("{}: {error}", path.display())))?;
         let mut bytes = Vec::new();
-        file.take(MAXIMUM_BYTES + 1).read_to_end(&mut bytes).map_err(|error| contract(error.to_string()))?;
-        if bytes.len() as u64 > MAXIMUM_BYTES { return Err(contract("conformance manifest extent")); }
+        file.take(MAXIMUM_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| contract(error.to_string()))?;
+        if bytes.len() as u64 > MAXIMUM_BYTES {
+            return Err(contract("conformance manifest extent"));
+        }
         let text = std::str::from_utf8(&bytes).map_err(|error| contract(error.to_string()))?;
         #[derive(Deserialize)]
-        struct Header { version: u32 }
+        struct Header {
+            version: u32,
+        }
         let header: Header = toml::from_str(text).map_err(|error| contract(error.to_string()))?;
-        if header.version != 1 { return Err(contract(format!("unsupported conformance manifest version {} (current: 1)", header.version))); }
+        if header.version != 1 {
+            return Err(contract(format!(
+                "unsupported conformance manifest version {} (current: 1)",
+                header.version
+            )));
+        }
         let manifest: Self = toml::from_str(text).map_err(|error| contract(error.to_string()))?;
         manifest.admit_paths(path)
     }
@@ -132,21 +169,47 @@ impl ConformanceManifest {
         let mut manifest = self;
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
         let mut names = std::collections::BTreeSet::new();
-        if manifest.runs.is_empty() { return Err(contract("conformance runs must be nonempty")); }
+        if manifest.runs.is_empty() {
+            return Err(contract("conformance runs must be nonempty"));
+        }
         for run in &manifest.runs {
-            if run.name.is_empty() || !run.name.bytes().all(|ch| ch.is_ascii_alphanumeric() || ch == b'_' || ch == b'-') || !names.insert(&run.name) {
-                return Err(contract("conformance runs must be uniquely named by file stems"));
+            if run.name.is_empty()
+                || !run
+                    .name
+                    .bytes()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == b'_' || ch == b'-')
+                || !names.insert(&run.name)
+            {
+                return Err(contract(
+                    "conformance runs must be uniquely named by file stems",
+                ));
             }
-            for root in std::iter::once(&run.package).chain(std::iter::once(&run.physical)).chain(&run.dependencies) {
+            for root in std::iter::once(&run.package)
+                .chain(std::iter::once(&run.physical))
+                .chain(&run.dependencies)
+            {
                 if !parent.join(root).join("package.toml").is_file() {
-                    return Err(contract(format!("run {} names {root}, which has no package.toml", run.name)));
+                    return Err(contract(format!(
+                        "run {} names {root}, which has no package.toml",
+                        run.name
+                    )));
                 }
             }
         }
         if let Some(profile) = &manifest.settings.diagnostics {
             let resolved = parent.join(profile);
-            if !resolved.is_file() { return Err(contract(format!("diagnostics names {}, which is not a file", resolved.display()))); }
-            manifest.settings.diagnostics = Some(resolved.to_str().ok_or_else(|| contract("diagnostic profile path is not UTF-8"))?.into());
+            if !resolved.is_file() {
+                return Err(contract(format!(
+                    "diagnostics names {}, which is not a file",
+                    resolved.display()
+                )));
+            }
+            manifest.settings.diagnostics = Some(
+                resolved
+                    .to_str()
+                    .ok_or_else(|| contract("diagnostic profile path is not UTF-8"))?
+                    .into(),
+            );
         }
         Ok(manifest)
     }
@@ -157,7 +220,8 @@ mod tests {
     use super::*;
     #[test]
     fn settings_defaults_and_versions_follow_the_rust_owner() {
-        let settings: RunSettings = serde_json::from_str(r#"{"version":1,"memory_limit_bytes":1024}"#).unwrap();
+        let settings: RunSettings =
+            serde_json::from_str(r#"{"version":1,"memory_limit_bytes":1024}"#).unwrap();
         assert_eq!(settings.threads, 1);
         assert_eq!(settings.time_limit_seconds, 600.0);
         assert_eq!(settings.maximum_checks, 16384);
@@ -165,16 +229,31 @@ mod tests {
         assert_eq!(settings.presolve, ConformancePresolve::Auto);
         assert!(settings.preparation.is_none());
         assert!(serde_json::from_str::<RunSettings>(r#"{"memory_limit_bytes":1024}"#).is_err());
-        assert!(serde_json::from_str::<RunSettings>(r#"{"version":2,"memory_limit_bytes":1024}"#).is_err());
-        assert!(serde_json::from_str::<RunSettings>(r#"{"version":1,"memory_limit_bytes":1024,"unknown":true}"#).is_err());
+        assert!(
+            serde_json::from_str::<RunSettings>(r#"{"version":2,"memory_limit_bytes":1024}"#)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_str::<RunSettings>(
+                r#"{"version":1,"memory_limit_bytes":1024,"unknown":true}"#
+            )
+            .is_err()
+        );
     }
     #[test]
     fn manifest_refuses_version_before_current_nested_settings() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("campaign.toml");
-        std::fs::write(&path, "version = 2\n[settings]\nmemory_limit_bytes = 'not current'\n").unwrap();
+        std::fs::write(
+            &path,
+            "version = 2\n[settings]\nmemory_limit_bytes = 'not current'\n",
+        )
+        .unwrap();
         let error = ConformanceManifest::load(&path).unwrap_err().to_string();
-        assert!(error.contains("unsupported conformance manifest version 2"), "{error}");
+        assert!(
+            error.contains("unsupported conformance manifest version 2"),
+            "{error}"
+        );
     }
     #[test]
     fn manifest_context_admission_preserves_relative_paths_and_names() {
@@ -190,10 +269,27 @@ mod tests {
         let admitted = ConformanceManifest::load(&path).unwrap();
         assert_eq!(admitted.runs[0].execution, ConformanceExecution::Pure);
         assert_eq!(admitted.runs[0].package, "model");
-        assert_eq!(admitted.settings.diagnostics.as_deref(), directory.path().join("diagnostics.json").to_str());
+        assert_eq!(
+            admitted.settings.diagnostics.as_deref(),
+            directory.path().join("diagnostics.json").to_str()
+        );
         std::fs::write(&path, format!("{source}[[runs]]\nversion = 1\nname = 'first'\npackage = 'model'\nphysical = 'physical'\n")).unwrap();
-        assert!(ConformanceManifest::load(&path).unwrap_err().to_string().contains("uniquely"));
-        std::fs::write(&path, source.replace("package = 'model'", "package = 'missing'")).unwrap();
-        assert!(ConformanceManifest::load(&path).unwrap_err().to_string().contains("package.toml"));
+        assert!(
+            ConformanceManifest::load(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("uniquely")
+        );
+        std::fs::write(
+            &path,
+            source.replace("package = 'model'", "package = 'missing'"),
+        )
+        .unwrap();
+        assert!(
+            ConformanceManifest::load(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("package.toml")
+        );
     }
 }

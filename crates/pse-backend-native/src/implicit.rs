@@ -478,9 +478,52 @@ impl InnerWorker for Kinsol {
     }
 }
 
+/// Handcrafted fixtures have actual source IDs and no local attribution tokens.
+#[cfg(test)]
+pub(crate) fn source_body_for_test(
+    instance: pse_ids::SemanticId,
+    prepared: &pse_math::guarded::PreparedBody,
+    compiled: Arc<pse_math::guarded::CompiledBody>,
+) -> pse_math::SourceBody {
+    assert!(prepared.checked_members().is_empty());
+    assert!(prepared.checked_sources().is_empty());
+    assert!(prepared.occurrence_tokens().is_empty());
+    let bindings = pse_math::SourceBindings::new(
+        instance,
+        prepared,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    )
+    .unwrap();
+    pse_math::SourceBody::new(compiled, bindings).unwrap()
+}
+#[cfg(test)]
+fn finish_source_body_for_test(
+    instance: pse_ids::SemanticId,
+    builder: pse_math::typed::BodyBuilder<'_>,
+    outputs: &[pse_math::typed::TypedValue],
+    order: DerivativeOrder,
+    options: pse_math::library::Optimization,
+    scope: &pse_kernels::ExecutionScope,
+) -> pse_math::SourceBody {
+    let prepared = builder.prepare(outputs).unwrap();
+    let compiled = prepared
+        .compile(
+            &(0..prepared.output_count()).collect::<Vec<_>>(),
+            &(0..prepared.input_count()).collect::<Vec<_>>(),
+            order,
+            options,
+            Default::default(),
+            scope,
+        )
+        .unwrap();
+    source_body_for_test(instance, &prepared, Arc::new(compiled))
+}
+
 #[cfg(test)]
 pub(crate) fn test_residual_bodies(
-    parameter: Arc<pse_math::guarded::CompiledBody>,
+    parameter: pse_math::SourceBody,
 ) -> pse_math::implicit::ResidualBodies {
     let n = parameter.prepared_support().outputs().len();
     let order = parameter.compiled_order().min(DerivativeOrder::First);
@@ -519,7 +562,10 @@ pub(crate) fn test_residual_bodies(
             )
             .unwrap(),
     );
-    pse_math::implicit::ResidualBodies { unknown, source }
+    pse_math::implicit::ResidualBodies {
+        unknown: pse_math::SourceBody::new(unknown, parameter.bindings().clone()).unwrap(),
+        source: pse_math::SourceBody::new(source, parameter.bindings().clone()).unwrap(),
+    }
 }
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
@@ -904,15 +950,13 @@ mod tests {
             .binary(pse_math::typed::Binary::Sub, y, p, None, id)
             .unwrap();
         let revision = builder.admission_identity();
-        let body = Arc::new(
-            builder
-                .finish(
-                    &[residual],
-                    DerivativeOrder::First,
-                    Default::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_source_body_for_test(
+            id,
+            builder,
+            &[residual],
+            DerivativeOrder::First,
+            Default::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         );
         let unknowns = vec![Unknown {
             id: unknown,
@@ -1178,15 +1222,13 @@ mod tests {
                     id,
                 )
                 .unwrap();
-            let body = Arc::new(
-                builder
-                    .finish(
-                        &[a, b],
-                        order,
-                        pse_math::library::Optimization::default(),
-                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                    )
-                    .unwrap(),
+            let body = finish_source_body_for_test(
+                id,
+                builder,
+                &[a, b],
+                order,
+                pse_math::library::Optimization::default(),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             );
             Problem::new(
                 id,
@@ -1433,15 +1475,13 @@ mod tests {
                     .unwrap(),
             );
         }
-        let body = Arc::new(
-            builder
-                .finish(
-                    &residuals,
-                    DerivativeOrder::First,
-                    pse_math::library::Optimization::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_source_body_for_test(
+            id,
+            builder,
+            &residuals,
+            DerivativeOrder::First,
+            pse_math::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         );
         let mut problem = Arc::new(
             Problem::new(
@@ -1585,15 +1625,13 @@ mod tests {
         let residual = builder
             .binary(pse_math::typed::Binary::Sub, y, p, None, id)
             .unwrap();
-        let body = Arc::new(
-            builder
-                .finish(
-                    &[residual],
-                    DerivativeOrder::Second,
-                    pse_math::library::Optimization::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_source_body_for_test(
+            id,
+            builder,
+            &[residual],
+            DerivativeOrder::Second,
+            pse_math::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         );
         let problem = Arc::new(
             Problem::new(
@@ -1659,15 +1697,13 @@ mod tests {
         let residual = builder
             .binary(pse_math::typed::Binary::Sub, square, p, None, id)
             .unwrap();
-        let body = Arc::new(
-            builder
-                .finish(
-                    &[residual],
-                    DerivativeOrder::Second,
-                    pse_math::library::Optimization::default(),
-                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-                )
-                .unwrap(),
+        let body = finish_source_body_for_test(
+            id,
+            builder,
+            &[residual],
+            DerivativeOrder::Second,
+            pse_math::library::Optimization::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         );
         let problem = Arc::new(
             Problem::new(

@@ -7,7 +7,13 @@ use pse_model::scalars::PositiveCount;
 
 /// Decoded fit preparation. Native fitting resolves its selected model and experiments.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields, bound(serialize = "Simulation: serde::Serialize", deserialize = "Simulation: serde::Deserialize<'de>"))]
+#[serde(
+    deny_unknown_fields,
+    bound(
+        serialize = "Simulation: serde::Serialize",
+        deserialize = "Simulation: serde::Deserialize<'de>"
+    )
+)]
 #[schemars(rename = "FitPreparationDocumentFor{Simulation}")]
 #[schemars(bound = "Simulation: schemars::JsonSchema + serde::Serialize")]
 pub struct FitPreparationDocument<Simulation = crate::workflow::SimulationProfile> {
@@ -18,21 +24,29 @@ pub struct FitPreparationDocument<Simulation = crate::workflow::SimulationProfil
     pub solver: crate::math::settings::SolveSettings,
     /// Native dynamic settings by experiment identity.
     #[serde(default)]
-    #[schemars(with = "pse_ids::document::KeyedMap<pse_model::generated::identities::InstanceId, Simulation>")]
-    pub simulations: std::collections::BTreeMap<
-        pse_model::generated::identities::InstanceId,
-        Simulation,
-    >,
-    #[serde(default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_rank_tolerance")]
+    #[schemars(
+        with = "pse_ids::document::KeyedMap<pse_model::generated::identities::InstanceId, Simulation>"
+    )]
+    pub simulations:
+        std::collections::BTreeMap<pse_model::generated::identities::InstanceId, Simulation>,
+    #[serde(
+        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_rank_tolerance"
+    )]
     #[doc = "Rank tolerance for fit admission."]
     pub rank_tolerance: f64,
-    #[serde(default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_max_cells")]
+    #[serde(
+        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_max_cells"
+    )]
     #[doc = "Maximum native fit workspace cells."]
     pub max_cells: usize,
-    #[serde(default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_derivatives")]
+    #[serde(
+        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_derivatives"
+    )]
     #[doc = "Requested derivative evidence policy."]
     pub derivatives: super::FitDerivatives,
-    #[serde(default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_experiment_workers")]
+    #[serde(
+        default = "FitPreparationDocument::<crate::workflow::SimulationProfile>::default_experiment_workers"
+    )]
     #[doc = "Finite independent experiment workers, separately from profile chains."]
     pub experiment_workers: PositiveCount,
     #[serde(default)]
@@ -41,11 +55,21 @@ pub struct FitPreparationDocument<Simulation = crate::workflow::SimulationProfil
 }
 impl<Simulation> FitPreparationDocument<Simulation> {
     /// Project experiment controls once without a second fitting-settings declaration.
-    pub fn with_simulations<Admitted>(self, simulations: std::collections::BTreeMap<pse_model::generated::identities::InstanceId, Admitted>) -> FitPreparationDocument<Admitted> {
+    pub fn with_simulations<Admitted>(
+        self,
+        simulations: std::collections::BTreeMap<
+            pse_model::generated::identities::InstanceId,
+            Admitted,
+        >,
+    ) -> FitPreparationDocument<Admitted> {
         FitPreparationDocument {
-            optimizer: self.optimizer, solver: self.solver, simulations,
-            rank_tolerance: self.rank_tolerance, max_cells: self.max_cells,
-            derivatives: self.derivatives, experiment_workers: self.experiment_workers,
+            optimizer: self.optimizer,
+            solver: self.solver,
+            simulations,
+            rank_tolerance: self.rank_tolerance,
+            max_cells: self.max_cells,
+            derivatives: self.derivatives,
+            experiment_workers: self.experiment_workers,
             uncertainty: self.uncertainty,
         }
     }

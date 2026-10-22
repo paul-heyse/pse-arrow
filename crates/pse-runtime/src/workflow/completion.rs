@@ -47,14 +47,23 @@ impl RunResult {
             .environment
             .identity();
         match &self.outcome {
-            super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Compact(_), .. } => {
+            super::RunOutcome::Horizon {
+                execution: super::HorizonRunOutcome::Compact(_),
+                ..
+            } => {
                 return if self.original_completion_captured {
                     self.completion.clone().map_err(WorkflowError::Shared)
                 } else {
                     Ok(product)
                 };
             }
-            super::RunOutcome::Modeling { request: requests, .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests, .. }, .. } => {
+            super::RunOutcome::Modeling {
+                request: requests, ..
+            }
+            | super::RunOutcome::Horizon {
+                execution: super::HorizonRunOutcome::Full { requests, .. },
+                ..
+            } => {
                 for (ordinal, request) in requests.iter().enumerate() {
                     let step = self.modeling_step(ordinal) as i64;
                     if let Some(result) = self.modeling_result(ordinal) {
@@ -300,7 +309,11 @@ impl RunResult {
                 });
             }
             #[cfg(feature = "solver-diffsol")]
-            super::RunOutcome::Shooting { problem: p, initial, result } => {
+            super::RunOutcome::Shooting {
+                problem: p,
+                initial,
+                result,
+            } => {
                 let report = result.as_ref().ok().map(Box::as_ref);
                 if let Some(r) = report {
                     product
@@ -770,7 +783,15 @@ mod tests {
                 owner.clone(),
                 None,
             );
-            let mut result = RunResult::joined(run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![prepared.clone()], result: Ok(vec![step]) }, None);
+            let mut result = RunResult::joined(
+                run_id,
+                runtime.clone(),
+                crate::workflow::RunOutcome::Modeling {
+                    request: vec![prepared.clone()],
+                    result: Ok(vec![step]),
+                },
+                None,
+            );
             result.assessments = result.assess_candidates();
             let completion = result.capture_completion().unwrap();
             let [solve] = completion.solves.as_slice() else {

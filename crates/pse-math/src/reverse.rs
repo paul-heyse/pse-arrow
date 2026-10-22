@@ -151,23 +151,59 @@ fn plan_pullbacks(
     let mut result = Vec::new();
     for stage in &prepared.stages {
         scope.check().map_err(crate::error::scope_error)?;
-        let mut plan = PullbackPlan { partial_calls: 0, construction_bytes: 0, children: Vec::new() };
+        let mut plan = PullbackPlan {
+            partial_calls: 0,
+            construction_bytes: 0,
+            children: Vec::new(),
+        };
         match &stage.stage {
-            Stage::Block { expressions, outputs, .. } => {
-                let region = stage.region.as_ref().ok_or_else(|| MathError::Contract("pullback source region".into()))?;
+            Stage::Block {
+                expressions,
+                outputs,
+                ..
+            } => {
+                let region = stage
+                    .region
+                    .as_ref()
+                    .ok_or_else(|| MathError::Contract("pullback source region".into()))?;
                 plan.partial_calls = region.inputs.len();
-                *calls = calls.checked_add(plan.partial_calls).ok_or(MathError::Limit("local symbolic derivative calls"))?;
-                if *calls > limits.operations { return Err(MathError::Limit("local symbolic derivative calls")); }
-                let source = expressions.iter().try_fold(0usize, |n, expression| n.checked_add(expression.as_view().get_byte_size())).ok_or(MathError::Limit("local pullback source extent"))?;
+                *calls = calls
+                    .checked_add(plan.partial_calls)
+                    .ok_or(MathError::Limit("local symbolic derivative calls"))?;
+                if *calls > limits.operations {
+                    return Err(MathError::Limit("local symbolic derivative calls"));
+                }
+                let source = expressions
+                    .iter()
+                    .try_fold(0usize, |n, expression| {
+                        n.checked_add(expression.as_view().get_byte_size())
+                    })
+                    .ok_or(MathError::Limit("local pullback source extent"))?;
                 // One weighted local product, one symbolic partial per input.
                 // Second actions dualize this same gradient on one tangent axis.
-                plan.construction_bytes = outputs.len().checked_mul(128).and_then(|n| n.checked_add(source)).and_then(|n| n.checked_mul(plan.partial_calls.checked_add(1)?)).and_then(|n| n.checked_mul(8)).ok_or(MathError::Limit("local pullback construction"))?;
-                limits.allocation(plan.partial_calls.checked_add(outputs.len()).ok_or(MathError::Limit("local pullback source extent"))?)?;
+                plan.construction_bytes = outputs
+                    .len()
+                    .checked_mul(128)
+                    .and_then(|n| n.checked_add(source))
+                    .and_then(|n| n.checked_mul(plan.partial_calls.checked_add(1)?))
+                    .and_then(|n| n.checked_mul(8))
+                    .ok_or(MathError::Limit("local pullback construction"))?;
+                limits.allocation(
+                    plan.partial_calls
+                        .checked_add(outputs.len())
+                        .ok_or(MathError::Limit("local pullback source extent"))?,
+                )?;
             }
             Stage::Branch { .. } => {
-                for child in &stage.children { plan.children.push(plan_pullbacks(child, limits, scope, calls)?); }
+                for child in &stage.children {
+                    plan.children
+                        .push(plan_pullbacks(child, limits, scope, calls)?);
+                }
             }
-            Stage::Provider { .. } | Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
+            Stage::Provider { .. }
+            | Stage::Require { .. }
+            | Stage::Domain { .. }
+            | Stage::Applicability { .. } => {}
         }
         result.push(plan);
     }
@@ -227,9 +263,18 @@ fn compile_pullbacks(
                     if region.inputs.is_empty() {
                         return Ok(Pullback::Control);
                     }
-                    if plan.partial_calls != region.inputs.len() { return Err(MathError::Contract("pullback preflight input extent".into())); }
-                    cost.operations = cost.operations.checked_add(plan.partial_calls).ok_or(MathError::Limit("local symbolic derivative calls"))?;
-                    if cost.operations > limits.operations { return Err(MathError::Limit("local symbolic derivative calls")); }
+                    if plan.partial_calls != region.inputs.len() {
+                        return Err(MathError::Contract(
+                            "pullback preflight input extent".into(),
+                        ));
+                    }
+                    cost.operations = cost
+                        .operations
+                        .checked_add(plan.partial_calls)
+                        .ok_or(MathError::Limit("local symbolic derivative calls"))?;
+                    if cost.operations > limits.operations {
+                        return Err(MathError::Limit("local symbolic derivative calls"));
+                    }
                     crate::construction::additional(plan.construction_bytes)?;
                     let weights = (0..outputs.len())
                         .map(|i| library::formal(next_formal + i))
@@ -432,7 +477,9 @@ fn compile_pullbacks(
                     then: compile_pullbacks(
                         &prepared.children[0],
                         then,
-                        plan.children.first().ok_or_else(|| MathError::Contract("missing then pullback plan".into()))?,
+                        plan.children.first().ok_or_else(|| {
+                            MathError::Contract("missing then pullback plan".into())
+                        })?,
                         second,
                         options,
                         limits,
@@ -446,7 +493,9 @@ fn compile_pullbacks(
                     otherwise: compile_pullbacks(
                         &prepared.children[1],
                         otherwise,
-                        plan.children.get(1).ok_or_else(|| MathError::Contract("missing otherwise pullback plan".into()))?,
+                        plan.children.get(1).ok_or_else(|| {
+                            MathError::Contract("missing otherwise pullback plan".into())
+                        })?,
                         second,
                         options,
                         limits,

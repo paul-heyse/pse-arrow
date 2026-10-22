@@ -743,8 +743,13 @@ impl PreparedFit {
             preparation_identity: p.key,
             profile_identity: p.profile_key.as_id(),
             configuration: configuration.into(),
-            binding: self.original_inputs.binding().map(serde_json::to_vec)
-                .transpose().map_err(|error| contract(error.to_string()))?.map(Into::into),
+            binding: self
+                .original_inputs
+                .binding()
+                .map(serde_json::to_vec)
+                .transpose()
+                .map_err(|error| contract(error.to_string()))?
+                .map(Into::into),
             state: Vec::new(),
             inputs,
             outputs,

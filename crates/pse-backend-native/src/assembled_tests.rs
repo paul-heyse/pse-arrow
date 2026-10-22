@@ -73,6 +73,8 @@ fn fixture_provider_order(
             }],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(4),
                 body: key,

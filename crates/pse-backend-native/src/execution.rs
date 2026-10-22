@@ -72,7 +72,11 @@ pub(crate) fn original_scope(execution: &Execution) -> OriginalScope {
 /// Actual foreign allowance of the current admitted synchronous numerical operation.
 /// Direct library callers without an execution scope retain their explicit API limits.
 pub(crate) fn foreign_allowance() -> Option<usize> {
-    ORIGINAL.with(|held| held.borrow().as_ref().and_then(|execution| execution.memory))
+    ORIGINAL.with(|held| {
+        held.borrow()
+            .as_ref()
+            .and_then(|execution| execution.memory)
+    })
 }
 /// Carry the actual attempt's control through synchronous mathematical primitives.
 /// Nested scopes restore their caller; other native threads inherit no control or permit.
@@ -538,9 +542,22 @@ impl<'a> Problem<'a> {
         restarts: Option<&'a crate::kinsol::RestartSchedule>,
     ) -> Result<Self, ProblemError> {
         match function {
-            crate::kinsol::Function::FixedPoint(oracle) => Ok(Self::FixedPoint { oracle, initial, settings, restarts }),
-            crate::kinsol::Function::Picard { oracle, linear } => Ok(Self::Picard { oracle, linear, initial, settings, restarts }),
-            crate::kinsol::Function::Equations(_) => Err(ProblemError::Contract("map execution requires an explicit fixed-point map or Picard splitting".into())),
+            crate::kinsol::Function::FixedPoint(oracle) => Ok(Self::FixedPoint {
+                oracle,
+                initial,
+                settings,
+                restarts,
+            }),
+            crate::kinsol::Function::Picard { oracle, linear } => Ok(Self::Picard {
+                oracle,
+                linear,
+                initial,
+                settings,
+                restarts,
+            }),
+            crate::kinsol::Function::Equations(_) => Err(ProblemError::Contract(
+                "map execution requires an explicit fixed-point map or Picard splitting".into(),
+            )),
         }
     }
 }
@@ -617,7 +634,10 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// Capabilities of the selected method. Foreign or unsupported settings are refused
     /// before an inspection row can promise a route; contextual admission remains separate.
     fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
-        if settings.backend().is_some_and(|backend| backend != self.backend()) {
+        if settings
+            .backend()
+            .is_some_and(|backend| backend != self.backend())
+        {
             return Err(foreign(self.backend()));
         }
         Ok(*self.capability())
@@ -728,9 +748,11 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         &self,
         requirements: &Requirements<'_>,
     ) -> Option<pse_kernels::DerivativeOrder> {
-        self.capability_for(requirements.settings).ok().and_then(|capability| {
-            crate::routing::derivative_demand(&capability, requirements.controls)
-        })
+        self.capability_for(requirements.settings)
+            .ok()
+            .and_then(|capability| {
+                crate::routing::derivative_demand(&capability, requirements.controls)
+            })
     }
     /// Exact executable operation product for the admitted method.
     fn required_artifact(
@@ -745,7 +767,9 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn assess(&self, requirements: &Requirements<'_>) -> crate::routing::Eligibility {
         let selected = self.capability_for(requirements.settings);
         let mut assessment = crate::routing::assess_static(
-            self.backend(), selected.as_ref().unwrap_or(self.capability()), requirements,
+            self.backend(),
+            selected.as_ref().unwrap_or(self.capability()),
+            requirements,
         );
         if let Err(cause) = selected {
             assessment.refuse(cause);
@@ -949,7 +973,9 @@ impl Table {
         backend: Backend,
         settings: &BackendSettings,
     ) -> Result<pse_model::generated::runtime::solver_capabilities::Row, ProblemError> {
-        let adapter = self.get(backend).filter(|adapter| adapter.linked())
+        let adapter = self
+            .get(backend)
+            .filter(|adapter| adapter.linked())
             .ok_or_else(|| unlinked(backend))?;
         Ok(adapter.capability_for(settings)?.row(backend))
     }

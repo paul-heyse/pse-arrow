@@ -695,8 +695,9 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
         #[serde(rename = "version")]
         _version: CheckpointVersion,
     }
-    let _: Header = serde_json::from_slice(&bytes)
-        .map_err(|error| ObservationError::Format(format!("diagnostic checkpoint version: {error}")))?;
+    let _: Header = serde_json::from_slice(&bytes).map_err(|error| {
+        ObservationError::Format(format!("diagnostic checkpoint version: {error}"))
+    })?;
     let image: ProcessCheckpoint = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
     if image.operations.iter().any(|operation| {
@@ -824,6 +825,21 @@ pub(crate) fn native_execution_scope() -> Option<ThreadScope> {
     process_diagnostics().execution(operation)
 }
 
+/// Default diagnostic directory shared with process publication; no registry is initialized.
+pub fn default_directory() -> PathBuf {
+    std::env::var_os("PSE_DIAGNOSTICS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var_os("XDG_STATE_HOME")
+                .map(PathBuf::from)
+                .or_else(|| {
+                    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state"))
+                })
+                .unwrap_or_else(std::env::temp_dir)
+                .join("pse/diagnostics")
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -835,15 +851,23 @@ mod tests {
         owner.publish().unwrap();
         let path = owner.checkpoint_path();
         let image = read_checkpoint(&path).unwrap();
-        let original: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let original: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
         assert_eq!(original["version"], 4);
         assert!(original.get("document_version").is_none());
-        assert_eq!(ProcessCheckpoint::WIRE, crate::boundary_documents::Wire::Native);
-        let projected: serde_json::Value = serde_json::from_slice(&ProcessCheckpoint::WIRE.to_vec(&image).unwrap()).unwrap();
+        assert_eq!(
+            ProcessCheckpoint::WIRE,
+            crate::boundary_documents::Wire::Native
+        );
+        let projected: serde_json::Value =
+            serde_json::from_slice(&ProcessCheckpoint::WIRE.to_vec(&image).unwrap()).unwrap();
         assert_eq!(projected, original);
         let schema = schemars::schema_for!(ProcessCheckpoint).to_value();
         assert_eq!(schema["properties"]["version"]["const"], 4);
-        for bytes in [br#"{"version":3,"operations":"wrong current shape"}"#.as_slice(), br#"{"version":4,"version":4}"#.as_slice()] {
+        for bytes in [
+            br#"{"version":3,"operations":"wrong current shape"}"#.as_slice(),
+            br#"{"version":4,"version":4}"#.as_slice(),
+        ] {
             std::fs::write(&path, bytes).unwrap();
             let error = read_checkpoint(&path).unwrap_err().to_string();
             assert!(error.contains("version"), "{error}");
@@ -1348,19 +1372,4 @@ mod tests {
         assert_eq!(b, second_context.id());
         assert!(pse_diagnostics::observation::current().is_none());
     }
-}
-
-/// Default diagnostic directory shared with process publication; no registry is initialized.
-pub fn default_directory() -> PathBuf {
-    std::env::var_os("PSE_DIAGNOSTICS_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("XDG_STATE_HOME")
-                .map(PathBuf::from)
-                .or_else(|| {
-                    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state"))
-                })
-                .unwrap_or_else(std::env::temp_dir)
-                .join("pse/diagnostics")
-        })
 }

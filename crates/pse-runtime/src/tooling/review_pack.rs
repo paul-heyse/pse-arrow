@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Selected offline publication. The index alone authorizes local member reads.
 use crate::tooling::{frozen_inspection::FrozenEvidenceSet, review_analysis::AnalysisDocument};
-use pse_columnar::CancellationToken;
 use crate::workflow::PackResultSelection;
+use pse_columnar::CancellationToken;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -136,7 +136,9 @@ pub struct PackDiagnosticTable {
 }
 impl PackDiagnosticTable {
     /// Resolve the actual pinned registry interpretation without projecting or querying data.
-    pub fn new(request: crate::tooling::review_query::ReviewTableRequest) -> Result<Self, PackError> {
+    pub fn new(
+        request: crate::tooling::review_query::ReviewTableRequest,
+    ) -> Result<Self, PackError> {
         let name = crate::tooling::review_query::table_relation(&request);
         let registry = pse_schema::registry().map_err(|e| invalid(e.to_string()))?;
         let relation = registry
@@ -446,7 +448,8 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
                     PackMemberRole::Detail | PackMemberRole::Engine | PackMemberRole::Query
                 )
                 || table.source.member != "frozen"
-                || table.source.pointer != crate::tooling::review_query::table_source(&table.request)
+                || table.source.pointer
+                    != crate::tooling::review_query::table_source(&table.request)
                 || table.relation != crate::tooling::review_query::table_relation(&table.request))
         {
             return Err(invalid(

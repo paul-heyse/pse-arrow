@@ -1022,6 +1022,11 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
 }
+#[derive(Debug)]
+pub(super) struct ProfileAlgorithm {
+    pub(super) route: FitRoute,
+    pub(super) stopping: ResidualLmCriteria,
+}
 impl FitProblem {
     /// Run the fit, then derive its covariance and requested intervals, solving up to
     /// `workers` profile chains at once.
@@ -1034,15 +1039,29 @@ impl FitProblem {
         workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        self.execute_profile_with_lm(solver, route, scope, progress, workers, admission, self.residual_lm_criteria)
+        self.execute_profile_with_lm(
+            solver,
+            ProfileAlgorithm {
+                route,
+                stopping: self.residual_lm_criteria,
+            },
+            scope,
+            progress,
+            workers,
+            admission,
+        )
     }
     /// Keep inquiry policy variation inside the actual native lifetime and scientific finish owner.
     pub(super) fn execute_profile_with_lm(
-        self: &Arc<Self>, solver: &SolverProfile, route: FitRoute,
-        scope: pse_kernels::ExecutionScope, progress: Arc<native::solve::Progress>, workers: usize,
+        self: &Arc<Self>,
+        solver: &SolverProfile,
+        algorithm: ProfileAlgorithm,
+        scope: pse_kernels::ExecutionScope,
+        progress: Arc<native::solve::Progress>,
+        workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-        stopping: ResidualLmCriteria,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
+        let ProfileAlgorithm { route, stopping } = algorithm;
         let operation = pse_diagnostics::observation::current().map(|parent| {
             parent.child(
                 "fit.execution",
@@ -1122,7 +1141,14 @@ impl FitProblem {
             oracle.objective(&[])?;
             (None, None, Some(vec![]))
         } else if route == FitRoute::ResidualLm {
-            let (report, candidate) = residual::solve_using(self, execution.clone(), &self.initial, None, scratch.clone(), stopping)?;
+            let (report, candidate) = residual::solve_using(
+                self,
+                execution.clone(),
+                &self.initial,
+                None,
+                scratch.clone(),
+                stopping,
+            )?;
             (None, Some(report), Some(candidate))
         } else {
             let oracle = FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;

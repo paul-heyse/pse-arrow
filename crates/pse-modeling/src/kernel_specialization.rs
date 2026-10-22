@@ -353,7 +353,7 @@ fn recursion_is_separate_from_simultaneous_equations() {
     assert_eq!(m.equations.len(), 3);
 }
 #[test]
-fn indexed_dispatch_groups_implementations() {
+fn indexed_dispatch_preserves_selected_implementations() {
     let m = run(
         r#"package p {
  entity kind thing {} entity thing a {} entity thing b {} entity thing c {}
@@ -369,14 +369,17 @@ fn indexed_dispatch_groups_implementations() {
     )
     .unwrap();
     assert_eq!(m.instances.len(), 4);
-    let sizes = m
-        .groups
+    let mut definitions = std::collections::BTreeMap::new();
+    for child in m
+        .instances
         .values()
-        .map(|g| g.instances.len())
-        .collect::<Vec<_>>();
-    assert_eq!(sizes.iter().sum::<usize>(), 4);
-    assert!(sizes.contains(&2));
-    assert_eq!(m.groups.len(), 3);
+        .filter(|instance| instance.parent.is_some())
+    {
+        *definitions.entry(child.definition).or_insert(0usize) += 1;
+    }
+    let mut counts = definitions.into_values().collect::<Vec<_>>();
+    counts.sort_unstable();
+    assert_eq!(counts, [1, 2]);
 }
 #[test]
 fn accumulator_closure_controls() {
@@ -608,7 +611,7 @@ fn annotations_resolve_existing_targets_and_physical_expressions() {
 }
 
 #[test]
-fn shared_dispatch_bodies_exclude_numeric_initial_values() {
+fn sibling_equations_preserve_structure_when_parameter_initial_values_change() {
     let text = "package p { def D { param p: Scalar = 2; var x: Scalar; eq e: x == p; } def Root { child a = D(); child b = D(); } }";
     let before = run(text, "p.Root", Bindings::default()).unwrap();
     let after = run(
@@ -617,21 +620,11 @@ fn shared_dispatch_bodies_exclude_numeric_initial_values() {
         Bindings::default(),
     )
     .unwrap();
-    assert_eq!(
-        before.groups.keys().collect::<Vec<_>>(),
-        after.groups.keys().collect::<Vec<_>>()
-    );
-    let group = before
-        .groups
-        .values()
-        .find(|g| g.instances.len() == 2)
-        .unwrap();
-    assert_eq!(group.body.equations.len(), 1);
-    let (expressions, equations) = before.bound_bodies().unwrap();
-    assert!(expressions.is_empty());
-    assert_eq!(equations.len(), 2);
-    for row in &before.equations {
-        assert!(row.equation.structural_eq(&equations[&row.id]));
+    assert_eq!(before.equations.len(), 2);
+    assert_eq!(after.equations.len(), 2);
+    for (before, after) in before.equations.iter().zip(&after.equations) {
+        assert_eq!(before.id, after.id);
+        assert!(before.equation.structural_eq(&after.equation));
     }
     assert!(
         before
@@ -1433,8 +1426,9 @@ fn presence_guard_retains_the_required_lookup_refusal() {
 
 #[test]
 fn actual_finite_facts_preserve_empty_declared_carriers_order_and_aliases() {
-    use specialize::finite::{FamilyKey, DomainKey};
-    let model = run("package p {
+    use specialize::finite::{DomainKey, FamilyKey};
+    let model = run(
+        "package p {
         entity kind item {} entity item a {} entity item b {}
         set ordered:Set<item>={b,a}; set empty:Set<item>={};
         def Root { var x[j in ordered]:Scalar; var unused[j in empty]:Scalar;
@@ -1442,20 +1436,127 @@ fn actual_finite_facts_preserve_empty_declared_carriers_order_and_aliases() {
             eq selected[j in ordered]:x[j]==1;
             eq force:shared==2;
         }
-    }", "p.Root", Bindings::default()).unwrap();
+    }",
+        "p.Root",
+        Bindings::default(),
+    )
+    .unwrap();
     let instance = *model.instances.keys().next().unwrap();
-    let x = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".x")).unwrap();
-    let family = FamilyKey {instance, declaration:x.lineage.declaration, role:"binding.indices.domain".into(), parents:vec![]};
+    let x = model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".x"))
+        .unwrap();
+    let family = FamilyKey {
+        instance,
+        declaration: x.lineage.declaration,
+        role: "binding.indices.domain".into(),
+        parents: vec![],
+    };
     let rows = model.finite_facts.family(&family).unwrap();
     assert_eq!(rows.len(), 2);
-    let carrier = model.finite_facts.domain(&DomainKey {family, position:0, prefix:vec![]}).unwrap();
+    let carrier = model
+        .finite_facts
+        .domain(&DomainKey {
+            family,
+            position: 0,
+            prefix: vec![],
+        })
+        .unwrap();
     assert!(matches!(carrier.element, Type::Entity(_)));
-    assert_eq!(carrier.members.as_ref(), rows.iter().map(|row| row[0].clone()).collect::<Vec<_>>());
-    let empty = model.finite_facts.domains().find(|(_, carrier)| carrier.members.is_empty()).unwrap();
+    assert_eq!(
+        carrier.members.as_ref(),
+        rows.iter().map(|row| row[0].clone()).collect::<Vec<_>>()
+    );
+    let empty = model
+        .finite_facts
+        .domains()
+        .find(|(_, carrier)| carrier.members.is_empty())
+        .unwrap();
     assert!(matches!(empty.1.element, Type::Entity(_)));
-    assert!(model.finite_facts.family(&empty.0.family).unwrap().is_empty());
-    let shared=model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".shared")).unwrap();
-    let key=specialize::finite::MemberKey {instance, declaration:shared.lineage.declaration, tuple:vec![]};
+    assert!(
+        model
+            .finite_facts
+            .family(&empty.0.family)
+            .unwrap()
+            .is_empty()
+    );
+    let shared = model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".shared"))
+        .unwrap();
+    let key = specialize::finite::MemberKey {
+        instance,
+        declaration: shared.lineage.declaration,
+        tuple: vec![],
+    };
     assert_eq!(model.finite_facts.require_member(&key).unwrap(), shared.id);
-    assert!(model.finite_facts.retained_bytes()>0);
+    assert!(model.finite_facts.retained_bytes() > 0);
+}
+
+#[test]
+fn expectation_literals_retain_original_quantity_context_in_separate_regions() {
+    use crate::resolved::{RegionOutput, RegionRequest};
+    use std::collections::BTreeMap;
+    let text = "package p {test Root {param cp:MolarCp=-1{J/(mol*K)}; expect cp == -1{J/(mol*K)} tolerance 1e-8{J/(mol*K)};}}";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    let (registry, _) = physical();
+    let facts = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+    let scope = PhysicalScope::default();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &facts,
+        scope: &scope,
+    };
+    let test = model.expectations.values().next().unwrap();
+    let actual = test
+        .ty
+        .quantity_scheme()
+        .unwrap()
+        .resolve_contract_with_evidence(&registry, &BTreeMap::new(), &facts)
+        .unwrap();
+    let difference =
+        pse_quantity::scheme::Scheme::Delta(Box::new(test.ty.quantity_scheme().unwrap().clone()))
+            .resolve_contract_with_evidence(&registry, &BTreeMap::new(), &facts)
+            .unwrap();
+    for (root, expected) in [
+        (test.roots.expected, &actual),
+        (test.roots.tolerance, &difference),
+    ] {
+        let region = model
+            .prepare_region(
+                RegionRequest {
+                    outputs: &[RegionOutput::Value(root)],
+                    validity: &[],
+                },
+                &context,
+            )
+            .unwrap();
+        let output = region.support.node(region.syntax.outputs[0]).unwrap();
+        assert_eq!(&output.contract, expected);
+        let literals = region
+            .syntax
+            .canonical_layout()
+            .unwrap()
+            .nodes
+            .into_iter()
+            .filter_map(|slot| region.support.node(slot).unwrap().literal.as_ref())
+            .collect::<Vec<_>>();
+        assert_eq!(literals.len(), 1);
+        assert_eq!(
+            literals[0].conversion.quantity(),
+            expected.require_named().unwrap()
+        );
+    }
+    assert!(
+        run(
+            &text.replace("tolerance 1e-8{J/(mol*K)}", "tolerance 1e-8{s}"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
 }

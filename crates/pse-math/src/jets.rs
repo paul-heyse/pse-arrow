@@ -62,11 +62,17 @@ pub struct ProductPreflight {
 }
 impl ProductPreflight {
     /// Complete selected body, support, original output map and coordinate order.
-    pub fn support(&self) -> &crate::guarded::PreparedSupport { &self.support }
+    pub fn support(&self) -> &crate::guarded::PreparedSupport {
+        &self.support
+    }
     /// Mathematical product whose runtime seed/weight contract will be consumed.
-    pub fn kind(&self) -> ProductKind { self.kind }
+    pub fn kind(&self) -> ProductKind {
+        self.kind
+    }
     /// Construction route fixed before any transient capacity or library operation.
-    pub fn route(&self) -> ProductRoute { self.route }
+    pub fn route(&self) -> ProductRoute {
+        self.route
+    }
 }
 impl ProductKind {
     pub(crate) fn required_order(self, support: DerivativeOrder) -> DerivativeOrder {
@@ -446,7 +452,9 @@ impl SymbolicComposition {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
         let n = layout.coordinates.len();
         let estimate = arity
             .checked_mul(layout.width())
@@ -485,7 +493,9 @@ impl SymbolicComposition {
         let mut inputs = vec![LiftInput::Value];
         if layout.order >= DerivativeOrder::First {
             for i in 0..arity {
-                if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                    return Err(MathError::Cancelled);
+                }
                 let d = generic.derivative(
                     Indeterminate::try_from(local[i].clone())
                         .map_err(|e| MathError::Library(e.clone()))?,
@@ -517,8 +527,14 @@ impl SymbolicComposition {
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
-        Ok(Self { expressions, parameters, inputs })
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        Ok(Self {
+            expressions,
+            parameters,
+            inputs,
+        })
     }
 }
 impl ProviderLift {
@@ -531,7 +547,11 @@ impl ProviderLift {
         cancelled: &Arc<AtomicBool>,
         scalars: &mut library::ScalarCache,
     ) -> Result<Self, MathError> {
-        let SymbolicComposition { expressions, parameters, inputs } = SymbolicComposition::new(arity, layout, limits, cancelled)?;
+        let SymbolicComposition {
+            expressions,
+            parameters,
+            inputs,
+        } = SymbolicComposition::new(arity, layout, limits, cancelled)?;
         let library::FloatingEvaluator {
             evaluator, facts, ..
         } = library::bounded_scalar_evaluator(
@@ -562,7 +582,15 @@ mod tests {
         let limits = EvaluationLimits::default();
         let layout = JetLayout::new(vec![0, 1], DerivativeOrder::Second, limits).unwrap();
         let cancel = Arc::new(AtomicBool::new(false));
-        let mut lift = ProviderLift::compile(2, &layout, Optimization::default(), limits, &cancel, &mut library::ScalarCache::default()).unwrap();
+        let mut lift = ProviderLift::compile(
+            2,
+            &layout,
+            Optimization::default(),
+            limits,
+            &cancel,
+            &mut library::ScalarCache::default(),
+        )
+        .unwrap();
         // a=x², b=xy, f(a,b)=ab+a² at (x,y)=(2,3). Argument bindings
         // are raw derivatives; generated output has Taylor diagonal coefficients.
         let arguments = [[4., 4., 0., 2., 0., 0.], [6., 3., 2., 0., 1., 0.]];
@@ -578,10 +606,15 @@ mod tests {
                 _ => panic!("unexpected binary composition input"),
             };
         }
-        lift.evaluator.try_evaluate(&lift.scratch, &mut lift.output).unwrap();
+        lift.evaluator
+            .try_evaluate(&lift.scratch, &mut lift.output)
+            .unwrap();
         assert_eq!(lift.output, [40., 68., 8., 42., 12., 0.]);
         cancel.store(true, std::sync::atomic::Ordering::Release);
-        assert!(matches!(SymbolicComposition::new(2, &layout, limits, &cancel), Err(MathError::Cancelled)));
+        assert!(matches!(
+            SymbolicComposition::new(2, &layout, limits, &cancel),
+            Err(MathError::Cancelled)
+        ));
     }
 
     #[test]

@@ -1120,7 +1120,12 @@ mod tests {
         let mut old = serde_json::to_value(source).unwrap();
         old["version"] = 1.into();
         let bytes = serde_json::to_vec(&old).unwrap();
-        assert!(crate::tooling::frozen_inspection::decode_document::<InvocationEvidenceDocument, 2>(&bytes).is_err());
+        assert!(
+            crate::tooling::frozen_inspection::decode_document::<InvocationEvidenceDocument, 2>(
+                &bytes
+            )
+            .is_err()
+        );
         assert!(serde_json::from_slice::<InvocationEvidenceDocument>(&bytes).is_err());
     }
     #[test]
@@ -1616,8 +1621,16 @@ mod tests {
         let encoded = serde_json::to_vec(&source).unwrap();
         let schema = schemars::schema_for!(InvocationEvidenceDocument).to_value();
         assert_eq!(schema["properties"]["version"]["const"], 2);
-        assert_eq!(serde_json::from_slice::<serde_json::Value>(&encoded).unwrap()["version"], 2);
-        assert!(serde_json::from_slice::<serde_json::Value>(&encoded).unwrap().get("document_version").is_none());
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&encoded).unwrap()["version"],
+            2
+        );
+        assert!(
+            serde_json::from_slice::<serde_json::Value>(&encoded)
+                .unwrap()
+                .get("document_version")
+                .is_none()
+        );
         let expected = explain_invocation(&source, ComparisonPolicy::default());
         drop(source);
         let dir = tempfile::tempdir().unwrap();

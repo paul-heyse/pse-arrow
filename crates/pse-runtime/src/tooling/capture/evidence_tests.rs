@@ -284,10 +284,10 @@ async fn evidence_registered_memtable_queries_typed_availability_without_reinter
 }
 #[test]
 fn evidence_invocation_and_failed_capture_keep_independent_readiness_and_raw_links() {
+    use crate::invocation::{InvocationEndpoints, InvocationOutcome};
     use crate::tooling::capture::{
         CaptureKind, CaptureLoss, CaptureOutput, CaptureOutputKind, CaptureStatus, CaptureSymbols,
     };
-    use crate::invocation::{InvocationEndpoints, InvocationOutcome};
     use pse_model::generated::identities::RunId;
     let run_id = RunId::from_bytes([73; 16]);
     let invocation = InvocationEvidenceDocument {

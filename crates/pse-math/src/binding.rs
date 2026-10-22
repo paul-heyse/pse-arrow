@@ -346,6 +346,10 @@ pub struct InstanceBinding {
     pub body: ContentHash,
     /// Total body-local checked-member token to actual member attribution, including computed locals.
     pub checked_members: Arc<BTreeMap<SemanticId, SemanticId>>,
+    /// Total local closure-source token to actual annotation source attribution.
+    pub checked_sources: Arc<BTreeMap<SemanticId, SemanticId>>,
+    /// Exact original operation source correspondence for this actual receiver.
+    pub occurrences: Arc<BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>>,
     /// Inputs in formal order, preserving multiplicity and aliasing.
     pub slots: Arc<Vec<SlotBinding>>,
     /// Output contributions; repeated targets deliberately accumulate.
@@ -524,6 +528,92 @@ impl PartialEq for CaseStructure {
     }
 }
 impl CaseStructure {
+    pub(crate) fn receive_source_context(&self, source: &Self) -> Result<Self, MathError> {
+        let mut received = self.clone();
+        for binding in &mut received.instances {
+            let position = source
+                .instances
+                .binary_search_by_key(&binding.instance, |current| current.instance)
+                .map_err(|_| {
+                    MathError::Contract("receiving instance is absent from current source".into())
+                })?;
+            let original = &source.instances[position];
+            if binding.body != original.body {
+                return Err(MathError::Contract(
+                    "receiving body differs from current source".into(),
+                ));
+            }
+            let mut contributions = original.contributions.iter();
+            if binding.slots != original.slots
+                || binding.checked_members != original.checked_members
+                || binding.checked_sources != original.checked_sources
+                || !binding.occurrences.keys().eq(original.occurrences.keys())
+                || !binding
+                    .contributions
+                    .iter()
+                    .all(|part| contributions.any(|current| current == part))
+            {
+                return Err(MathError::Contract(
+                    "receiving source differs from cached numerical instance projection".into(),
+                ));
+            }
+            binding.occurrences = original.occurrences.clone();
+        }
+        Ok(received)
+    }
+    pub(crate) fn source_context_allocation_bound(&self) -> Result<usize, MathError> {
+        use pse_model::forms::NativeConstraint;
+        let overflow = || MathError::Limit("receiving case structure extent");
+        let mut bytes = size_of::<Self>()
+            .checked_add(self.selection_bytes())
+            .ok_or_else(overflow)?;
+        for extent in [
+            size_of_val(self.instances.as_slice()),
+            size_of_val(self.rows.as_slice()),
+            size_of_val(self.objectives.as_slice()),
+            size_of_val(self.degradations.as_slice()),
+            size_of_val(self.requirements.as_slice()),
+            size_of_val(self.native.as_slice()),
+        ] {
+            bytes = bytes.checked_add(extent).ok_or_else(overflow)?;
+        }
+        for binding in &self.instances {
+            bytes = bytes
+                .checked_add(size_of_val(binding.contributions.as_slice()))
+                .ok_or_else(overflow)?;
+        }
+        for constraint in &self.native {
+            let extent = match constraint {
+                NativeConstraint::Indicator { .. } => 0,
+                NativeConstraint::Sos { members, .. } => size_of_val(members.as_slice()),
+                NativeConstraint::Logic { operands, .. } => size_of_val(operands.as_slice()),
+                NativeConstraint::Cardinality { members, .. } => size_of_val(members.as_slice()),
+            };
+            bytes = bytes.checked_add(extent).ok_or_else(overflow)?;
+        }
+        bytes
+            .checked_add(2 * size_of::<usize>())
+            .ok_or_else(overflow)
+    }
+    pub(crate) fn same_numerical(&self, other: &Self) -> bool {
+        self.variables().iter().eq(other.variables())
+            && self.parameters() == other.parameters()
+            && self.rows == other.rows
+            && self.objectives == other.objectives
+            && self.degradations == other.degradations
+            && self.native == other.native
+            && self.requirements == other.requirements
+            && self.instances.len() == other.instances.len()
+            && self.instances.iter().zip(&other.instances).all(|(a, b)| {
+                a.instance == b.instance
+                    && a.body == b.body
+                    && a.slots == b.slots
+                    && a.contributions == b.contributions
+                    && a.checked_members == b.checked_members
+                    && a.checked_sources == b.checked_sources
+                    && a.occurrences.keys().eq(b.occurrences.keys())
+            })
+    }
     /// Admit identities, closed bounds and resource limits without inspecting values.
     /// # Errors
     /// Duplicate variables/instances/rows, malformed bounds or exceeded budgets.
@@ -715,6 +805,8 @@ impl CaseStructure {
             slot_count = slot_count
                 .checked_add(instance.slots.len())
                 .and_then(|count| count.checked_add(instance.checked_members.len()))
+                .and_then(|count| count.checked_add(instance.checked_sources.len()))
+                .and_then(|count| count.checked_add(instance.occurrences.len()))
                 .ok_or(MathError::Limit("case slots"))?;
             if slot_count > limits.slots || instance.contributions.is_empty() {
                 return Err(MathError::Limit("case slots or empty output layout"));
@@ -869,6 +961,14 @@ impl CaseStructure {
             h.u64(b.checked_members.len() as u64);
             for (token, actual) in b.checked_members.iter() {
                 h.id(token).id(actual);
+            }
+            h.u64(b.checked_sources.len() as u64);
+            for (token, actual) in b.checked_sources.iter() {
+                h.id(token).id(actual);
+            }
+            h.u64(b.occurrences.len() as u64);
+            for token in b.occurrences.keys() {
+                h.id(token);
             }
             h.u64(b.contributions.len() as u64);
             for c in &b.contributions {
@@ -1243,6 +1343,8 @@ mod selected_binding_tests {
         let binding = InstanceBinding {
             instance: SemanticId::NIL,
             body: ContentHash::from_bytes([0; 32]),
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: (BTreeMap::new()).into(),
             contributions: vec![],
             slots: (vec![

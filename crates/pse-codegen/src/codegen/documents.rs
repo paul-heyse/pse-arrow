@@ -40,7 +40,11 @@ pub const PYTHON_ROOT: &str = "python/pse/contracts/documents";
 
 /// The committed trees this generator owns.
 pub fn roots() -> Vec<PathBuf> {
-    vec![PathBuf::from(SCHEMA_ROOT), PathBuf::from(PYTHON_ROOT), PathBuf::from("crates/pse-py/src/generated")]
+    vec![
+        PathBuf::from(SCHEMA_ROOT),
+        PathBuf::from(PYTHON_ROOT),
+        PathBuf::from("crates/pse-py/src/generated"),
+    ]
 }
 
 /// One Rust-owned document: its published name and its derived JSON Schema.
@@ -75,82 +79,182 @@ pub struct CatalogueDocument {
 /// Differing output definitions are named independently; equal definitions stay shared.
 /// # Errors
 /// Conflicting owner definitions, unsupported schema constructs, or invalid Rust paths.
-pub fn generate_catalogue(reg: &Registry, catalogue: &[CatalogueDocument], fingerprint: pse_ids::ContentHash) -> Result<GeneratedTree, SchemaError> {
+pub fn generate_catalogue(
+    reg: &Registry,
+    catalogue: &[CatalogueDocument],
+    fingerprint: pse_ids::ContentHash,
+) -> Result<GeneratedTree, SchemaError> {
     let mut input = Emitter::new(reg);
     let mut output = Emitter::new(reg);
     for entry in catalogue {
-        let document = Document { name: entry.slug.clone(), schema: entry.schema.clone() };
-        if entry.output { output.collect(&document)?; } else { input.collect(&document)?; }
+        let document = Document {
+            name: entry.slug.clone(),
+            schema: entry.schema.clone(),
+        };
+        if entry.output {
+            output.collect(&document)?;
+        } else {
+            input.collect(&document)?;
+        }
     }
     let input_names = directional_names(&input.definitions)?;
     let output_names = directional_names(&output.definitions)?;
-    let mut changed = output_names.iter().filter_map(|(name, schema)| {
-        input_names.get(name).filter(|other| *other != schema).map(|_| name.clone())
-    }).collect::<BTreeSet<_>>();
+    let mut changed = output_names
+        .iter()
+        .filter_map(|(name, schema)| {
+            input_names
+                .get(name)
+                .filter(|other| *other != schema)
+                .map(|_| name.clone())
+        })
+        .collect::<BTreeSet<_>>();
     loop {
-        let additions = output_names.iter().filter(|(name, schema)| {
-            input_names.contains_key(*name) && !changed.contains(*name) && refers_to(schema, &changed)
-        }).map(|(name,_)|name.clone()).collect::<Vec<_>>();
-        if additions.is_empty() { break; }
+        let additions = output_names
+            .iter()
+            .filter(|(name, schema)| {
+                input_names.contains_key(*name)
+                    && !changed.contains(*name)
+                    && refers_to(schema, &changed)
+            })
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        if additions.is_empty() {
+            break;
+        }
         changed.extend(additions);
     }
     let mut documents = Vec::new();
-    let mut registrations = BTreeMap::<String, (String, Option<String>, Option<String>, Option<u32>, String)>::new();
+    let mut registrations =
+        BTreeMap::<String, (String, Option<String>, Option<String>, Option<u32>, String)>::new();
     for entry in catalogue {
         let mut schema = entry.schema.clone();
-        let title = text(&schema, "title").ok_or_else(|| error(format!("catalogue root {} has no title", entry.slug)))?.to_owned();
+        let title = text(&schema, "title")
+            .ok_or_else(|| error(format!("catalogue root {} has no title", entry.slug)))?
+            .to_owned();
         if title != entry.name {
-            return Err(error(format!("catalogue root {} declares {} but owner title is {title}", entry.slug, entry.name)));
+            return Err(error(format!(
+                "catalogue root {} declares {} but owner title is {title}",
+                entry.slug, entry.name
+            )));
         }
-        let resolved_name = if entry.output && changed.contains(&title) { format!("{title}Output") } else { title.clone() };
-        if entry.output { rename_output(&mut schema, &changed); }
-        let registration = registrations.entry(entry.name.clone()).or_insert_with(|| (entry.rust_type.clone(), None, None, entry.version, entry.wire.clone()));
-        if registration.0 != entry.rust_type || registration.3 != entry.version || registration.4 != entry.wire { return Err(error(format!("conflicting catalogue owner for {}", entry.name))); }
-        if entry.output { registration.2 = Some(resolved_name); } else { registration.1 = Some(resolved_name); }
-        documents.push(Document { name: format!("{}.{}", entry.slug, if entry.output { "output" } else { "input" }), schema });
+        let resolved_name = if entry.output && changed.contains(&title) {
+            format!("{title}Output")
+        } else {
+            title.clone()
+        };
+        if entry.output {
+            rename_output(&mut schema, &changed);
+        }
+        let registration = registrations.entry(entry.name.clone()).or_insert_with(|| {
+            (
+                entry.rust_type.clone(),
+                None,
+                None,
+                entry.version,
+                entry.wire.clone(),
+            )
+        });
+        if registration.0 != entry.rust_type
+            || registration.3 != entry.version
+            || registration.4 != entry.wire
+        {
+            return Err(error(format!(
+                "conflicting catalogue owner for {}",
+                entry.name
+            )));
+        }
+        if entry.output {
+            registration.2 = Some(resolved_name);
+        } else {
+            registration.1 = Some(resolved_name);
+        }
+        documents.push(Document {
+            name: format!(
+                "{}.{}",
+                entry.slug,
+                if entry.output { "output" } else { "input" }
+            ),
+            schema,
+        });
     }
     let mut tree = generate(reg, &documents)?;
-    let mut rust = String::from("// SPDX-License-Identifier: MIT OR Apache-2.0\n// Copyright (c) 2026 Paul Heyse\n// @generated by pse-codegen; do not edit\n");
+    let mut rust = String::from(
+        "// SPDX-License-Identifier: MIT OR Apache-2.0\n// Copyright (c) 2026 Paul Heyse\n// @generated by pse-codegen; do not edit\n",
+    );
     for (_, (owner, input, output, version, wire)) in registrations {
-        let input = input.or_else(|| output.clone()).ok_or_else(|| error("empty document direction"))?;
+        let input = input
+            .or_else(|| output.clone())
+            .ok_or_else(|| error("empty document direction"))?;
         let output = output.unwrap_or_else(|| input.clone());
-        let version = version.map_or_else(|| "None".to_owned(), |version| format!("Some({version})"));
+        let version =
+            version.map_or_else(|| "None".to_owned(), |version| format!("Some({version})"));
         let distinct = input != output;
-        let _ = writeln!(rust, "impl crate::documents::DocumentType for {owner} {{ const INPUT_NAME: &'static str = {input:?}; const OUTPUT_NAME: &'static str = {output:?}; const DISTINCT_DIRECTIONS: bool = {distinct}; const VERSION: Option<u32> = {version}; const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::{wire}; }}");
+        let _ = writeln!(
+            rust,
+            "impl crate::documents::DocumentType for {owner} {{ const INPUT_NAME: &'static str = {input:?}; const OUTPUT_NAME: &'static str = {output:?}; const DISTINCT_DIRECTIONS: bool = {distinct}; const VERSION: Option<u32> = {version}; const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::{wire}; }}"
+        );
     }
     let rust = syn::parse_file(&rust).map_err(|cause| error(cause.to_string()))?;
     let root = PathBuf::from("crates/pse-py/src/generated/documents.rs");
     tree.files.insert(root, format!("// SPDX-License-Identifier: MIT OR Apache-2.0\n// Copyright (c) 2026 Paul Heyse\n// @generated by pse-codegen; do not edit\n{}", prettyplease::unparse(&rust)).into_bytes());
-    let python = tree.files.get_mut(&PathBuf::from(format!("{PYTHON_ROOT}/__init__.py"))).ok_or_else(|| error("generated documents module absent"))?;
-    python.extend_from_slice(format!("\nSCHEMA_SET_FINGERPRINT = {:?}\n", fingerprint.to_prefixed()).as_bytes());
+    let python = tree
+        .files
+        .get_mut(&PathBuf::from(format!("{PYTHON_ROOT}/__init__.py")))
+        .ok_or_else(|| error("generated documents module absent"))?;
+    python.extend_from_slice(
+        format!(
+            "\nSCHEMA_SET_FINGERPRINT = {:?}\n",
+            fingerprint.to_prefixed()
+        )
+        .as_bytes(),
+    );
     Ok(tree)
 }
 // Titled tagged alternatives are named Python classes even though schemars keeps
 // them inline. Their actual directional shapes participate in the same namespace.
-fn directional_names(definitions: &BTreeMap<String, Value>) -> Result<BTreeMap<String, Value>, SchemaError> {
+fn directional_names(
+    definitions: &BTreeMap<String, Value>,
+) -> Result<BTreeMap<String, Value>, SchemaError> {
     fn visit(value: &Value, names: &mut BTreeMap<String, Value>) -> Result<(), SchemaError> {
         if let Value::Object(object) = value {
             if let Some(Value::String(title)) = object.get("title") {
                 let mut schema = value.clone();
-                schema.as_object_mut().ok_or_else(|| error("named schema is not an object"))?.remove("title");
+                schema
+                    .as_object_mut()
+                    .ok_or_else(|| error("named schema is not an object"))?
+                    .remove("title");
                 match names.get(title) {
-                    Some(previous) if *previous != schema => return Err(error(format!("two different directional schemas are named {title}"))),
-                    Some(_) => {},
-                    None => { names.insert(title.clone(), schema); },
+                    Some(previous) if *previous != schema => {
+                        return Err(error(format!(
+                            "two different directional schemas are named {title}"
+                        )));
+                    }
+                    Some(_) => {}
+                    None => {
+                        names.insert(title.clone(), schema);
+                    }
                 }
             }
-            for child in object.values() { visit(child, names)?; }
+            for child in object.values() {
+                visit(child, names)?;
+            }
         } else if let Value::Array(values) = value {
-            for child in values { visit(child, names)?; }
+            for child in values {
+                visit(child, names)?;
+            }
         }
         Ok(())
     }
     let mut names = definitions.clone();
-    for definition in definitions.values() { visit(definition, &mut names)?; }
+    for definition in definitions.values() {
+        visit(definition, &mut names)?;
+    }
     Ok(names)
 }
 fn refers_to(schema: &Value, names: &BTreeSet<String>) -> bool {
-    if reference(schema).is_some_and(|name| names.contains(name)) { return true; }
+    if reference(schema).is_some_and(|name| names.contains(name)) {
+        return true;
+    }
     match schema {
         Value::Object(values) => values.values().any(|value| refers_to(value, names)),
         Value::Array(values) => values.iter().any(|value| refers_to(value, names)),
@@ -160,17 +264,39 @@ fn refers_to(schema: &Value, names: &BTreeSet<String>) -> bool {
 fn rename_output(schema: &mut Value, names: &BTreeSet<String>) {
     if let Value::Object(values) = schema {
         if let Some(Value::String(reference)) = values.get_mut("$ref")
-            && let Some(name) = reference.strip_prefix("#/$defs/") && names.contains(name) {
+            && let Some(name) = reference.strip_prefix("#/$defs/")
+            && names.contains(name)
+        {
             *reference = format!("#/$defs/{name}Output");
         }
-        if let Some(Value::String(title)) = values.get_mut("title") && names.contains(title) { *title = format!("{title}Output"); }
+        if let Some(Value::String(title)) = values.get_mut("title")
+            && names.contains(title)
+        {
+            *title = format!("{title}Output");
+        }
         if let Some(Value::Object(definitions)) = values.get_mut("$defs") {
             let old = std::mem::take(definitions);
-            *definitions = old.into_iter().map(|(name,value)| (if names.contains(&name) { format!("{name}Output") } else { name }, value)).collect();
+            *definitions = old
+                .into_iter()
+                .map(|(name, value)| {
+                    (
+                        if names.contains(&name) {
+                            format!("{name}Output")
+                        } else {
+                            name
+                        },
+                        value,
+                    )
+                })
+                .collect();
         }
-        for value in values.values_mut() { rename_output(value, names); }
+        for value in values.values_mut() {
+            rename_output(value, names);
+        }
     } else if let Value::Array(values) = schema {
-        for value in values { rename_output(value, names); }
+        for value in values {
+            rename_output(value, names);
+        }
     }
 }
 
@@ -529,7 +655,9 @@ impl<'a> Emitter<'a> {
             if fresh {
                 self.classes.insert(class.clone(), source);
             } else if self.classes.get(&class) != Some(&source) {
-                return Err(error(format!("{name}: the class {class} has conflicting definitions")));
+                return Err(error(format!(
+                    "{name}: the class {class} has conflicting definitions"
+                )));
             }
             members.push(class);
         }
@@ -581,7 +709,12 @@ impl<'a> Emitter<'a> {
             .filter(|field| tag.is_none_or(|(tag_field, _)| tag_field != field.as_str()))
             .cloned()
             .collect::<Vec<_>>();
-        names.sort_by_key(|field| (!matches!(field.as_str(), "version" | "document_version"), field.clone()));
+        names.sort_by_key(|field| {
+            (
+                !matches!(field.as_str(), "version" | "document_version"),
+                field.clone(),
+            )
+        });
         // The docstring is the body of a class with no fields; `pass` would be redundant.
         let _ = writeln!(source, "    {}", docstring(&doc));
         if !names.is_empty() {
@@ -597,9 +730,16 @@ impl<'a> Emitter<'a> {
                     .and_then(|property| property.get("const"))
                     .and_then(Value::as_u64)
             {
-                let _ = writeln!(source, "    _pse_required_version: ClassVar[int] = {version}");
+                let _ = writeln!(
+                    source,
+                    "    _pse_required_version: ClassVar[int] = {version}"
+                );
                 if field != "version" {
-                    let _ = writeln!(source, "    _pse_required_version_field: ClassVar[str] = {}", py_str(field));
+                    let _ = writeln!(
+                        source,
+                        "    _pse_required_version_field: ClassVar[str] = {}",
+                        py_str(field)
+                    );
                 }
                 source.push('\n');
             }
@@ -959,7 +1099,11 @@ impl<'a> Emitter<'a> {
                 "SemanticId" | "ContentHash" => format!("v.{role}"),
                 _ => format!("identities.{role}"),
             };
-            return Ok(if types(schema).1 { format!("{role} | None") } else { role });
+            return Ok(if types(schema).1 {
+                format!("{role} | None")
+            } else {
+                role
+            });
         }
         if let Some(name) = reference(schema) {
             return self.named(name);
@@ -1248,32 +1392,53 @@ mod tests {
     #[test]
     fn catalogue_preserves_directional_defaults_and_names_dependent_output_types() {
         let registry = crate::registry().unwrap();
-        let schema = |required: bool| serde_json::json!({
-            "title": "DirectionalProbe", "type": "object", "additionalProperties": false,
-            "properties": { "settings": { "$ref": "#/$defs/DirectionalSettings" } },
-            "required": ["settings"],
-            "$defs": { "DirectionalSettings": {
-                "type": "object", "additionalProperties": false,
-                "properties": { "count": { "type": "integer", "default": 2 } },
-                "required": if required { vec!["count"] } else { vec![] },
-            } },
-        });
+        let schema = |required: bool| {
+            serde_json::json!({
+                "title": "DirectionalProbe", "type": "object", "additionalProperties": false,
+                "properties": { "settings": { "$ref": "#/$defs/DirectionalSettings" } },
+                "required": ["settings"],
+                "$defs": { "DirectionalSettings": {
+                    "type": "object", "additionalProperties": false,
+                    "properties": { "count": { "type": "integer", "default": 2 } },
+                    "required": if required { vec!["count"] } else { vec![] },
+                } },
+            })
+        };
         let entry = |output| CatalogueDocument {
-            name: "DirectionalProbe".into(), slug: "directional-probe".into(),
-            rust_type: "example::DirectionalProbe".into(), output, version: None, wire: "Native".into(),
+            name: "DirectionalProbe".into(),
+            slug: "directional-probe".into(),
+            rust_type: "example::DirectionalProbe".into(),
+            output,
+            version: None,
+            wire: "Native".into(),
             schema: schema(output),
         };
-        let tree = generate_catalogue(registry, &[entry(false), entry(true)], pse_ids::ContentHash::from_bytes([7; 32])).unwrap();
-        let python = String::from_utf8(tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone()).unwrap();
+        let tree = generate_catalogue(
+            registry,
+            &[entry(false), entry(true)],
+            pse_ids::ContentHash::from_bytes([7; 32]),
+        )
+        .unwrap();
+        let python = String::from_utf8(
+            tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone(),
+        )
+        .unwrap();
         assert!(python.contains("class DirectionalProbe("));
         assert!(python.contains("class DirectionalProbeOutput("));
         assert!(python.contains("class DirectionalSettingsOutput("));
         assert!(python.contains("SCHEMA_SET_FINGERPRINT = "));
-        let registration = String::from_utf8(tree.files[&PathBuf::from("crates/pse-py/src/generated/documents.rs")].clone()).unwrap();
+        let registration = String::from_utf8(
+            tree.files[&PathBuf::from("crates/pse-py/src/generated/documents.rs")].clone(),
+        )
+        .unwrap();
         assert!(registration.contains("INPUT_NAME: &'static str = \"DirectionalProbe\""));
         assert!(registration.contains("OUTPUT_NAME: &'static str = \"DirectionalProbeOutput\""));
-        assert!(tree.files.contains_key(&PathBuf::from("docs/generated/schema/directional-probe.input.schema.json")));
-        assert!(tree.files.contains_key(&PathBuf::from("docs/generated/schema/directional-probe.output.schema.json")));
+        assert!(tree.files.contains_key(&PathBuf::from(
+            "docs/generated/schema/directional-probe.input.schema.json"
+        )));
+        assert!(tree.files.contains_key(&PathBuf::from(
+            "docs/generated/schema/directional-probe.output.schema.json"
+        )));
     }
 
     #[test]
@@ -1290,8 +1455,10 @@ mod tests {
     #[test]
     fn map_keys_use_declared_identity_role_instead_of_hex_pattern_inference() {
         let registry = crate::registry().unwrap();
-        let map = |names| serde_json::json!({"type":"object", "propertyNames": names,
-            "patternProperties":{"^[0-9a-f]{32}$":{"type":"integer"}},"additionalProperties":false});
+        let map = |names| {
+            serde_json::json!({"type":"object", "propertyNames": names,
+            "patternProperties":{"^[0-9a-f]{32}$":{"type":"integer"}},"additionalProperties":false})
+        };
         let schema = serde_json::json!({"title":"IdentityMaps","type":"object","additionalProperties":false,"required":["instances","literal_keys"],
             "properties":{"instances":map(serde_json::json!({"type":"string","x-pse-identity":"InstanceId","pattern":"^[0-9a-f]{32}$"})),
                 "literal_keys":map(serde_json::json!({"type":"string","pattern":"^[0-9a-f]{32}$"}))}});
@@ -1303,20 +1470,37 @@ mod tests {
     #[test]
     fn directional_tagged_alternatives_keep_changed_and_shared_shapes_distinct() {
         let registry = crate::registry().unwrap();
-        let schema = |output| serde_json::json!({"title":"EngineChoice","oneOf":[
-            {"title":"ConfigurableEngine","type":"object","additionalProperties":false,
-                "properties":{"engine":{"const":"configured","type":"string"},"count":{"type":"integer","default":2}},
-                "required":if output {vec!["engine","count"]} else {vec!["engine"]}},
-            {"title":"DisabledEngine","type":"object","additionalProperties":false,
-                "properties":{"engine":{"const":"disabled","type":"string"}},"required":["engine"]}
-        ]});
-        let entry = |output| CatalogueDocument { name:"EngineChoice".into(),slug:"engine-choice".into(),
-            rust_type:"example::EngineChoice".into(),output,version:None,wire:"Native".into(),schema:schema(output) };
-        let tree = generate_catalogue(registry,&[entry(false),entry(true)],pse_ids::ContentHash::NIL).unwrap();
-        let source = String::from_utf8(tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone()).unwrap();
+        let schema = |output| {
+            serde_json::json!({"title":"EngineChoice","oneOf":[
+                {"title":"ConfigurableEngine","type":"object","additionalProperties":false,
+                    "properties":{"engine":{"const":"configured","type":"string"},"count":{"type":"integer","default":2}},
+                    "required":if output {vec!["engine","count"]} else {vec!["engine"]}},
+                {"title":"DisabledEngine","type":"object","additionalProperties":false,
+                    "properties":{"engine":{"const":"disabled","type":"string"}},"required":["engine"]}
+            ]})
+        };
+        let entry = |output| CatalogueDocument {
+            name: "EngineChoice".into(),
+            slug: "engine-choice".into(),
+            rust_type: "example::EngineChoice".into(),
+            output,
+            version: None,
+            wire: "Native".into(),
+            schema: schema(output),
+        };
+        let tree = generate_catalogue(
+            registry,
+            &[entry(false), entry(true)],
+            pse_ids::ContentHash::NIL,
+        )
+        .unwrap();
+        let source = String::from_utf8(
+            tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone(),
+        )
+        .unwrap();
         assert!(source.contains("class ConfigurableEngine("));
         assert!(source.contains("class ConfigurableEngineOutput("));
-        assert_eq!(source.matches("class DisabledEngine(").count(),1);
+        assert_eq!(source.matches("class DisabledEngine(").count(), 1);
         assert!(source.contains("EngineChoiceOutput = ConfigurableEngineOutput | DisabledEngine"));
     }
 
@@ -1425,18 +1609,40 @@ mod tests {
                 "required":["version"], "properties":{"version":{"type":"string"}}}}
         });
         let entry = CatalogueDocument {
-            name: "ExportedProbe".into(), slug: "exported-probe".into(),
-            rust_type: "example::Probe".into(), output: false, version: Some(1),
-            wire: "FlatV1".into(), schema,
+            name: "ExportedProbe".into(),
+            slug: "exported-probe".into(),
+            rust_type: "example::Probe".into(),
+            output: false,
+            version: Some(1),
+            wire: "FlatV1".into(),
+            schema,
         };
-        let tree = generate_catalogue(registry, &[entry], pse_ids::ContentHash::from_bytes([9; 32])).unwrap();
-        let source = String::from_utf8(tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone()).unwrap();
+        let tree = generate_catalogue(
+            registry,
+            &[entry],
+            pse_ids::ContentHash::from_bytes([9; 32]),
+        )
+        .unwrap();
+        let source = String::from_utf8(
+            tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone(),
+        )
+        .unwrap();
         assert!(source.contains("class ExportedProbe("));
         assert!(source.contains("class ExportedProbeBody("));
-        assert_eq!(source.matches("_pse_required_version: ClassVar[int]").count(), 1);
-        assert!(source.contains("_pse_required_version_field: ClassVar[str] = \"document_version\""));
+        assert_eq!(
+            source
+                .matches("_pse_required_version: ClassVar[int]")
+                .count(),
+            1
+        );
+        assert!(
+            source.contains("_pse_required_version_field: ClassVar[str] = \"document_version\"")
+        );
         assert!(source.contains("version: str"));
-        let native = String::from_utf8(tree.files[&PathBuf::from("crates/pse-py/src/generated/documents.rs")].clone()).unwrap();
+        let native = String::from_utf8(
+            tree.files[&PathBuf::from("crates/pse-py/src/generated/documents.rs")].clone(),
+        )
+        .unwrap();
         assert!(native.contains("Wire::FlatV1"));
     }
 

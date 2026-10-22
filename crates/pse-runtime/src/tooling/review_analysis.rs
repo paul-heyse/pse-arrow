@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded, passive cross-owner questions over explicitly supplied immutable facts.
 //! No classifier here changes scientific acceptance or activates collection.
-use crate::{observation::ObservationError};
-use crate::tooling::{frozen_inspection::{FrozenEvidenceSet, RecordedWindow}};
+use crate::observation::ObservationError;
+use crate::tooling::frozen_inspection::{FrozenEvidenceSet, RecordedWindow};
 use pse_diagnostics::{
     NextObservation, StatementKind,
     observation::{CoherentRecord, OperationId, ProducerId, Value},

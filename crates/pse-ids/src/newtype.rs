@@ -223,7 +223,7 @@ mod tests {
     }
 
     crate::semantic_id_newtype! { /// Registry schema role control.
-        RegistryControlId: RegistrySemanticId }
+    RegistryControlId: RegistrySemanticId }
     #[test]
     fn registry_role_schema_retains_base_shape_and_explicit_role() {
         let schema = schemars::schema_for!(RegistryControlId);
@@ -233,7 +233,10 @@ mod tests {
         let base = base.as_value();
         assert_eq!(schema["type"], base["type"]);
         assert_eq!(schema["pattern"], base["pattern"]);
-        assert_eq!(serde_json::to_value(RegistryControlId::from_bytes([1;16])).unwrap(), serde_json::to_value(SemanticId::from_bytes([1;16])).unwrap());
+        assert_eq!(
+            serde_json::to_value(RegistryControlId::from_bytes([1; 16])).unwrap(),
+            serde_json::to_value(SemanticId::from_bytes([1; 16])).unwrap()
+        );
     }
 
     #[test]

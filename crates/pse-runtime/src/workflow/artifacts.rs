@@ -132,7 +132,9 @@ pub(super) fn prepare_scientific_member(
     analysis: bool,
 ) -> Result<PreparedScientificMember, WorkflowError> {
     if batch.relation_id() != relation.id {
-        return Err(contract("scientific member name and admitted relation identity differ"));
+        return Err(contract(
+            "scientific member name and admitted relation identity differ",
+        ));
     }
     let name = relation.name;
     let owner = MemoryConsumer::new("canonical:prepared-scientific-member")
@@ -787,7 +789,9 @@ impl Runtime {
                     .iter()
                     .find(|set| set.name == spec.id.to_string())
                 else {
-                    return Err(contract(format!("scientific artifact is missing required relation {name}")));
+                    return Err(contract(format!(
+                        "scientific artifact is missing required relation {name}"
+                    )));
                 };
                 if copied.len().saturating_add(set.batch_count.max(1) as usize) > 64 {
                     return Err(contract(

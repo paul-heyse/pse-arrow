@@ -114,7 +114,9 @@ pub struct InvocationEvidenceDocument {
 }
 impl InvocationEvidenceDocument {
     /// Actual fixed version of this original joined-evidence encoding.
-    pub const fn version(&self) -> u32 { InvocationVersion::NUMBER }
+    pub const fn version(&self) -> u32 {
+        InvocationVersion::NUMBER
+    }
     /// Validate factual coordinates before matching saved evidence; no native admission occurs.
     pub fn validate(&self) -> Result<(), crate::observation::ObservationError> {
         let invalid = |message: &str| crate::observation::ObservationError::Format(message.into());

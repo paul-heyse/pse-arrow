@@ -16,8 +16,7 @@ pub use pse_model::generated::runtime::{
 };
 use pse_model::generated::runtime::{
     canonical_result_block_outputs::Row as ResultOutput,
-    canonical_result_blocks::Row as ResultBlock,
-    canonical_result_sets::Row as ResultSet,
+    canonical_result_blocks::Row as ResultBlock, canonical_result_sets::Row as ResultSet,
 };
 use serde::{Deserialize, Serialize};
 use std::{future::IntoFuture, time::Duration};
@@ -2730,8 +2729,7 @@ impl ResultBlockAppend {
         owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
     ) -> Result<Self, CanonicalError> {
         identity(operation)?;
-        if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
-        {
+        if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key) {
             return Err(CanonicalError::Configuration(
                 "result index metadata must have strictly ordered identities".into(),
             ));
@@ -2775,18 +2773,34 @@ impl ResultBlockAppend {
         };
         let mut admitted_block = block.cloned();
         if let Some(facts) = &payload.facts
-            && (facts.rows() != row_count || facts.relation().to_string() != name || admitted_block.is_none()) {
-            return Err(CanonicalError::Configuration("admitted result facts differ from append coordinates".into()));
+            && (facts.rows() != row_count
+                || facts.relation().to_string() != name
+                || admitted_block.is_none())
+        {
+            return Err(CanonicalError::Configuration(
+                "admitted result facts differ from append coordinates".into(),
+            ));
         }
-        let statistics = payload.facts.as_ref().map(|facts| {
-            facts.encode_bound(&pse_relations::result_batch::StatisticsBinding {
-                instance: batch.file_instance.clone(), digest: batch.file_digest.clone(),
-                index: batch.file_batch_index, interpretation: wire::INTERPRETATION.into(),
-            }).map(pse_model::Bytes::from).map_err(|error| CanonicalError::Configuration(error.to_string()))
-        }).transpose()?;
+        let statistics = payload
+            .facts
+            .as_ref()
+            .map(|facts| {
+                facts
+                    .encode_bound(&pse_relations::result_batch::StatisticsBinding {
+                        instance: batch.file_instance.clone(),
+                        digest: batch.file_digest.clone(),
+                        index: batch.file_batch_index,
+                        interpretation: wire::INTERPRETATION.into(),
+                    })
+                    .map(pse_model::Bytes::from)
+                    .map_err(|error| CanonicalError::Configuration(error.to_string()))
+            })
+            .transpose()?;
         if let Some(block) = &mut admitted_block {
             if block.statistics.is_some() && block.statistics != statistics {
-                return Err(CanonicalError::Configuration("supplied statistics lack the actual admitted-file proof".into()));
+                return Err(CanonicalError::Configuration(
+                    "supplied statistics lack the actual admitted-file proof".into(),
+                ));
             }
             block.statistics = statistics;
         }
@@ -3375,16 +3389,25 @@ impl AdmittedSealedResultFile {
     /// Bind the complete original bytes, schema relation and native member count.
     /// # Errors
     /// A physical file differs from the actual admitted encoder product.
-    pub fn bind(file: crate::canonical_files::SealedFile, admitted: pse_relations::result_batch::AdmittedResultFile) -> Result<Self, CanonicalError> {
+    pub fn bind(
+        file: crate::canonical_files::SealedFile,
+        admitted: pse_relations::result_batch::AdmittedResultFile,
+    ) -> Result<Self, CanonicalError> {
         let descriptor = file.descriptor();
         if descriptor.encoding != crate::canonical_files::ARROW_IPC_FILE
             || descriptor.schema != admitted.relation().to_string()
             || descriptor.batch_count != admitted.facts().len() as u64
             || descriptor.bytes != admitted.bytes().len() as u64
-            || descriptor.digest != result_payload_digest(admitted.bytes()) {
-            return Err(CanonicalError::Configuration("sealed result file differs from admitted bytes".into()));
+            || descriptor.digest != result_payload_digest(admitted.bytes())
+        {
+            return Err(CanonicalError::Configuration(
+                "sealed result file differs from admitted bytes".into(),
+            ));
         }
-        Ok(Self { file, facts: admitted.facts().to_vec().into() })
+        Ok(Self {
+            file,
+            facts: admitted.facts().to_vec().into(),
+        })
     }
 }
 impl ResultPayload {
@@ -3446,7 +3469,10 @@ impl ResultPayload {
         index: u64,
         owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
     ) -> Result<Self, CanonicalError> {
-        let facts = usize::try_from(index).ok().and_then(|index| admitted.facts.get(index)).cloned()
+        let facts = usize::try_from(index)
+            .ok()
+            .and_then(|index| admitted.facts.get(index))
+            .cloned()
             .ok_or_else(|| CanonicalError::Configuration("admitted file member absent".into()))?;
         let mut payload = Self::from_sealed_owned(admitted.file.clone(), index, owner)?;
         payload.facts = Some(facts);
@@ -4418,8 +4444,7 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
-                    {
+                    if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key) {
                         return Err(CanonicalError::Configuration(
                             "result index metadata must have strictly ordered identities".into(),
                         ));
@@ -5346,12 +5371,27 @@ mod canonical_result_admission_unit {
         let fence = ack_fence();
         for _ in 0..2 {
             let seed = append_item(&fence, "values", 0, vec![1]);
-            let mut block = wire::decode_canonical_result_blocks(match seed.item.get("block").unwrap() {
-                Value::Object(block) => block.clone(), _ => panic!("fixture block"),
-            }).unwrap();
+            let mut block =
+                wire::decode_canonical_result_blocks(match seed.item.get("block").unwrap() {
+                    Value::Object(block) => block.clone(),
+                    _ => panic!("fixture block"),
+                })
+                .unwrap();
             block.statistics = Some(br#"{"rows":1,"minimum":-999,"maximum":-999}"#.to_vec().into());
-            let result = ResultBlockAppend::new(&fence, "forged-equal-replay", "values", 0, seed.payload, 1, &block, &[], std::sync::Arc::new(()));
-            assert!(matches!(result, Err(CanonicalError::Configuration(message)) if message.contains("actual admitted-file proof")));
+            let result = ResultBlockAppend::new(
+                &fence,
+                "forged-equal-replay",
+                "values",
+                0,
+                seed.payload,
+                1,
+                &block,
+                &[],
+                std::sync::Arc::new(()),
+            );
+            assert!(
+                matches!(result, Err(CanonicalError::Configuration(message)) if message.contains("actual admitted-file proof"))
+            );
         }
     }
     #[test]

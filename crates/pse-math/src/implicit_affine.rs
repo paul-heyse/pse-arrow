@@ -198,6 +198,7 @@ mod tests {
             )
             .unwrap(),
         );
+        let compiled = source_body_for_test(id, &body, compiled);
         let problem = Arc::new(
             Problem::new(
                 id,
@@ -325,6 +326,7 @@ mod tests {
             )
             .unwrap(),
         );
+        let compiled = source_body_for_test(id, &body, compiled);
         let problem = Arc::new(
             Problem::new(
                 id,

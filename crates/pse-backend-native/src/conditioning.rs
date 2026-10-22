@@ -157,7 +157,10 @@ where
         });
     }
     let matrix = feral::CscMatrix::from_triplets(order, &rows, &cols, &values).map_err(native)?;
-    let (solver, inertia) = factor(&matrix, crate::execution::foreign_allowance().unwrap_or(usize::MAX))?;
+    let (solver, inertia) = factor(
+        &matrix,
+        crate::execution::foreign_allowance().unwrap_or(usize::MAX),
+    )?;
     Ok(Kkt {
         inertia,
         condition_1norm: crate::observation::scoped(
@@ -231,24 +234,50 @@ pub(crate) fn admit_factor(
     matrix: &feral::CscMatrix,
     allowance: usize,
 ) -> Result<(), ProblemError> {
-    let held_matrix = matrix.col_ptr.capacity().checked_add(matrix.row_idx.capacity())
+    let held_matrix = matrix
+        .col_ptr
+        .capacity()
+        .checked_add(matrix.row_idx.capacity())
         .and_then(|entries| entries.checked_mul(size_of::<usize>()))
-        .and_then(|bytes| matrix.values.capacity().checked_mul(size_of::<f64>()).and_then(|values| bytes.checked_add(values)))
+        .and_then(|bytes| {
+            matrix
+                .values
+                .capacity()
+                .checked_mul(size_of::<f64>())
+                .and_then(|values| bytes.checked_add(values))
+        })
         .ok_or_else(|| ProblemError::memory("FERAL held matrix extent"))?;
-    let held_factor = solver.work_estimate().map_or(0, |estimate| estimate.factor_bytes);
-    let held = held_matrix.checked_add(held_factor)
+    let held_factor = solver
+        .work_estimate()
+        .map_or(0, |estimate| estimate.factor_bytes);
+    let held = held_matrix
+        .checked_add(held_factor)
         .ok_or_else(|| ProblemError::memory("FERAL held factor extent"))?;
-    if held > allowance { return Err(ProblemError::memory("FERAL held storage exceeds factor allowance")); }
-    let symbolic = feral::symbolic::symbolic_factorize(matrix, &Default::default()).map_err(native)?;
+    if held > allowance {
+        return Err(ProblemError::memory(
+            "FERAL held storage exceeds factor allowance",
+        ));
+    }
+    let symbolic =
+        feral::symbolic::symbolic_factorize(matrix, &Default::default()).map_err(native)?;
     let estimate = symbolic.work_estimate();
-    crate::observation::integer("conditioning.feral.symbolic.peak_bytes", "bytes", i64::try_from(estimate.peak_bytes).unwrap_or(i64::MAX));
+    crate::observation::integer(
+        "conditioning.feral.symbolic.peak_bytes",
+        "bytes",
+        i64::try_from(estimate.peak_bytes).unwrap_or(i64::MAX),
+    );
     // A retained factor may have escalated its ordering on the previous numeric
     // call. Cover its cached symbolic geometry as well as a new-pattern default.
-    let peak = estimate.peak_bytes.max(solver.work_estimate().map_or(0, |held| held.peak_bytes));
-    let required = held.checked_add(peak)
+    let peak = estimate
+        .peak_bytes
+        .max(solver.work_estimate().map_or(0, |held| held.peak_bytes));
+    let required = held
+        .checked_add(peak)
         .ok_or_else(|| ProblemError::memory("FERAL symbolic peak extent"))?;
     if required > allowance {
-        return Err(ProblemError::memory("FERAL symbolic peak exceeds numeric factor allowance"));
+        return Err(ProblemError::memory(
+            "FERAL symbolic peak exceeds numeric factor allowance",
+        ));
     }
     Ok(())
 }
@@ -516,7 +545,8 @@ mod tests {
 
     #[test]
     fn feral_symbolic_peak_refuses_before_numeric_factorization() {
-        let matrix = feral::CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2., 1., -1.]).unwrap();
+        let matrix =
+            feral::CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2., 1., -1.]).unwrap();
         let symbolic = feral::symbolic::symbolic_factorize(&matrix, &Default::default()).unwrap();
         let held = (matrix.col_ptr.capacity() + matrix.row_idx.capacity()) * size_of::<usize>()
             + matrix.values.capacity() * size_of::<f64>();
@@ -524,9 +554,16 @@ mod tests {
         assert!(exact > held);
         let mut solver = feral::Solver::new().with_parallel(false);
         assert!(factor_into(&mut solver, &matrix, exact - 1).is_err());
-        assert_eq!(solver.symbolic_call_count(), 0, "Solver::factor was not entered");
+        assert_eq!(
+            solver.symbolic_call_count(),
+            0,
+            "Solver::factor was not entered"
+        );
         assert!(solver.inertia().is_none());
-        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (1, 1, 0));
+        assert_eq!(
+            factor_into(&mut solver, &matrix, usize::MAX).unwrap(),
+            (1, 1, 0)
+        );
         assert_eq!(solver.symbolic_call_count(), 1);
     }
 
@@ -581,11 +618,17 @@ mod tests {
         assert_eq!(solver.symbolic_call_count(), 1);
         matrix.values[2] = 2.;
         matrix.values[5] = 0.;
-        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 1, 1));
+        assert_eq!(
+            factor_into(&mut solver, &matrix, usize::MAX).unwrap(),
+            (2, 1, 1)
+        );
         assert_eq!(solver.symbolic_call_count(), 1);
         assert!(solver.last_factor_stats().unwrap().pattern_reused);
         matrix.values[5] = 1.;
-        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 2, 0));
+        assert_eq!(
+            factor_into(&mut solver, &matrix, usize::MAX).unwrap(),
+            (2, 2, 0)
+        );
         assert_eq!(solver.symbolic_call_count(), 1);
         // Equal order and nnz with a different row structure must reanalyse.
         matrix.row_idx[2] = 2;
@@ -593,7 +636,10 @@ mod tests {
         // This remains sorted lower-triangle CSC; new values remove dependence.
         matrix.values[1] = 0.;
         matrix.values[2] = 1.;
-        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 2, 0));
+        assert_eq!(
+            factor_into(&mut solver, &matrix, usize::MAX).unwrap(),
+            (2, 2, 0)
+        );
         assert_eq!(solver.symbolic_call_count(), 2);
         let snapshot = operation
             .reader()

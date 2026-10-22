@@ -101,18 +101,30 @@ impl AdmittedBinding {
             .collect()
     }
 }
-pub(in crate::workflow) fn parameter_binding_refusal(binding: &AdmittedBinding, reason: &str) -> WorkflowError {
+pub(in crate::workflow) fn parameter_binding_refusal(
+    binding: &AdmittedBinding,
+    reason: &str,
+) -> WorkflowError {
     let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
         pse_model::diagnostic::BoundaryClass::Unsupported,
         pse_diagnostics::DiagnosticStage::StudyBinding,
-        binding.entries.keys().copied(), pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
+        binding.entries.keys().copied(),
+        pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
     );
-    diagnostic.observations.insert("reason".into(), pse_model::diagnostic::Observation::Text(reason.into()));
+    diagnostic.observations.insert(
+        "reason".into(),
+        pse_model::diagnostic::Observation::Text(reason.into()),
+    );
     diagnostic.into()
 }
-pub(in crate::workflow) fn require_parameter_binding(binding: &AdmittedBinding) -> Result<(), WorkflowError> {
+pub(in crate::workflow) fn require_parameter_binding(
+    binding: &AdmittedBinding,
+) -> Result<(), WorkflowError> {
     if binding.entries.values().any(|entry| !entry.parameter) {
-        return Err(parameter_binding_refusal(binding, "this operation accepts parameter points only"));
+        return Err(parameter_binding_refusal(
+            binding,
+            "this operation accepts parameter points only",
+        ));
     }
     Ok(())
 }
@@ -162,15 +174,28 @@ impl ModelingPackage {
                 *admission = None;
                 match &operation.operation {
                     super::OperationRequest::Simulation(simulation) => {
-                        let execution = self.declared_execution_with_demand(
-                            simulation.case, operation.preparation.compiler, Default::default(),
-                            Default::default(), operation.preparation.limits,
-                            overlay.assignments.iter().filter_map(|assignment| match &assignment.target {
-                                BindingTarget::Path(path) => Some(path.clone()), BindingTarget::Member(_) => None,
-                            }).collect(), cancel,
-                        ).await?;
+                        let execution = self
+                            .declared_execution_with_demand(
+                                simulation.case,
+                                operation.preparation.compiler,
+                                Default::default(),
+                                Default::default(),
+                                operation.preparation.limits,
+                                overlay
+                                    .assignments
+                                    .iter()
+                                    .filter_map(|assignment| match &assignment.target {
+                                        BindingTarget::Path(path) => Some(path.clone()),
+                                        BindingTarget::Member(_) => None,
+                                    })
+                                    .collect(),
+                                cancel,
+                            )
+                            .await?;
                         if !matches!(execution.procedure, super::DeclaredProcedure::Integrate(_)) {
-                            return Err(super::contract("simulation point requires an authored integration procedure"));
+                            return Err(super::contract(
+                                "simulation point requires an authored integration procedure",
+                            ));
                         }
                         let binding = self.admit_overlay(execution.model.compiled(), overlay)?;
                         require_parameter_binding(&binding)?;
@@ -178,10 +203,18 @@ impl ModelingPackage {
                     }
                     super::OperationRequest::Fit(fit) => {
                         fit.settings.settings.solver.clone().profile()?;
-                        let binding = self.admit_fit_overlay(fit.fit, overlay, operation.preparation.limits, cancel).await?;
+                        let binding = self
+                            .admit_fit_overlay(
+                                fit.fit,
+                                overlay,
+                                operation.preparation.limits,
+                                cancel,
+                            )
+                            .await?;
                         return Ok((binding, pse_model::study::SeedNeed::NotNeeded));
                     }
-                    super::OperationRequest::DeclaredCase(_) | super::OperationRequest::Horizon(_) => {}
+                    super::OperationRequest::DeclaredCase(_)
+                    | super::OperationRequest::Horizon(_) => {}
                 }
                 if !overlay.assignments.is_empty() {
                     return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
@@ -266,19 +299,29 @@ impl ModelingPackage {
                         )
                         .into());
                     }
-                    let prepared = self.prepare_operation_execution(execution, Some(binding), current_view, cancel).await?;
+                    let prepared = self
+                        .prepare_operation_execution(execution, Some(binding), current_view, cancel)
+                        .await?;
                     return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
                         prepared,
                     )));
                 }
-                operation.admit_binding_seed_need(self, binding, admission, cancel).await?;
+                operation
+                    .admit_binding_seed_need(self, binding, admission, cancel)
+                    .await?;
                 self.prepare_operation(
-                    &operation.source, &operation.preparation,
+                    &operation.source,
+                    &operation.preparation,
                     super::RuntimeOperationRequest::Study {
-                        operation: operation.operation.clone(), output: operation.output.clone(),
+                        operation: Box::new(operation.operation.clone()),
+                        output: operation.output.clone(),
                         admitted_horizon: operation.admitted_horizon.clone(),
-                    }, Some(binding), cancel,
-                ).await?.into_study()
+                    },
+                    Some(binding),
+                    cancel,
+                )
+                .await?
+                .into_study()
             })
             .await
     }

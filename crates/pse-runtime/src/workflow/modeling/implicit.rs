@@ -70,13 +70,27 @@ impl HintResolver for TrialHints {
         if semantic_anchor.is_some_and(|anchor| anchor.len() != self.unknowns.len()) {
             return Err(failure("implicit semantic anchor extent"));
         }
-        let selected = self.annotations.hints.iter().map(|hint| {
-            let pse_compiler::workspace::AnnotationObservation::Position(position) = hint.observation else {
-                return Err(failure("implicit numerical observation requires an output position"));
-            };
-            let value = *observed.get(position).ok_or_else(|| failure("implicit numerical observation extent"))?;
-            Ok(((hint.target, hint.kind), (hint.declaration, hint.target_kind, value)))
-        }).collect::<Result<BTreeMap<_, _>, MathError>>()?;
+        let selected = self
+            .annotations
+            .hints
+            .iter()
+            .map(|hint| {
+                let pse_compiler::workspace::AnnotationObservation::Position(position) =
+                    hint.observation
+                else {
+                    return Err(failure(
+                        "implicit numerical observation requires an output position",
+                    ));
+                };
+                let value = *observed
+                    .get(position)
+                    .ok_or_else(|| failure("implicit numerical observation extent"))?;
+                Ok((
+                    (hint.target, hint.kind),
+                    (hint.declaration, hint.target_kind, value),
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, MathError>>()?;
         let hint = |id, kind| selected.get(&(id, kind)).map(|(_, _, v)| *v);
         let mut declarations = self.declarations.clone();
         for ((target, kind), (source, target_kind, value)) in &selected {
@@ -95,8 +109,12 @@ impl HintResolver for TrialHints {
         if let Some(terms) = terms {
             let scales = self.annotations.outer_scales().collect::<Vec<_>>();
             let expected = scales.iter().try_fold(0, |end, scale| {
-                let pse_compiler::workspace::ScalingObservations::Range(range) = &scale.observations else {
-                    return Err(failure("implicit numerical scaling requires an output range"));
+                let pse_compiler::workspace::ScalingObservations::Range(range) =
+                    &scale.observations
+                else {
+                    return Err(failure(
+                        "implicit numerical scaling requires an output range",
+                    ));
                 };
                 Ok(end.max(range.end))
             })?;
@@ -104,14 +122,25 @@ impl HintResolver for TrialHints {
                 return Err(failure("implicit original-term extent"));
             }
             for scale in scales {
-                let pse_compiler::workspace::ScalingObservations::Range(range) = &scale.observations else {
-                    return Err(failure("implicit numerical scaling requires an output range"));
+                let pse_compiler::workspace::ScalingObservations::Range(range) =
+                    &scale.observations
+                else {
+                    return Err(failure(
+                        "implicit numerical scaling requires an output range",
+                    ));
                 };
-                let values = terms.get(range.clone()).ok_or_else(|| failure("implicit original-term range"))?;
+                let values = terms
+                    .get(range.clone())
+                    .ok_or_else(|| failure("implicit original-term range"))?;
                 let value = pse_math::numerics::term_scale(scale.scheme, values)?;
                 declarations.push(cases::requirement(
-                    self.lineage, scale.target, NumericalTarget::Row, scale.declaration,
-                    NumericalSource::DerivedNominal, None, Some(value),
+                    self.lineage,
+                    scale.target,
+                    NumericalTarget::Row,
+                    scale.declaration,
+                    NumericalSource::DerivedNominal,
+                    None,
+                    Some(value),
                 ));
             }
         }
@@ -131,18 +160,23 @@ impl HintResolver for TrialHints {
                     "fixing a nested unknown requires inline realization",
                 ));
             }
-            let lower = self.annotations.effective_bound(
-                state.and_then(|s| s.lower), hint(*id, ModelingHint::Lower),
-            ).unwrap_or(f64::NEG_INFINITY);
-            let upper = self.annotations.effective_bound(
-                state.and_then(|s| s.upper), hint(*id, ModelingHint::Upper),
-            ).unwrap_or(f64::INFINITY);
-            let (value, _) = self.annotations.select_start(pse_compiler::workspace::NumericalStartValues {
-                semantic_anchor: semantic_anchor.and_then(|a| a.get(index)).copied(),
-                supplied_value: self.values.get(id).copied(),
-                authored_hint: hint(*id, ModelingHint::Start),
-                ..Default::default()
-            }).ok_or_else(|| failure("missing deterministic start for implicit unknown"))?;
+            let lower = self
+                .annotations
+                .effective_bound(state.and_then(|s| s.lower), hint(*id, ModelingHint::Lower))
+                .unwrap_or(f64::NEG_INFINITY);
+            let upper = self
+                .annotations
+                .effective_bound(state.and_then(|s| s.upper), hint(*id, ModelingHint::Upper))
+                .unwrap_or(f64::INFINITY);
+            let (value, _) = self
+                .annotations
+                .select_start(pse_compiler::workspace::NumericalStartValues {
+                    semantic_anchor: semantic_anchor.and_then(|a| a.get(index)).copied(),
+                    supplied_value: self.values.get(id).copied(),
+                    authored_hint: hint(*id, ModelingHint::Start),
+                    ..Default::default()
+                })
+                .ok_or_else(|| failure("missing deterministic start for implicit unknown"))?;
             if !value.is_finite()
                 || lower.is_nan()
                 || upper.is_nan()
@@ -911,19 +945,30 @@ mod tests {
             annotations: Arc::new(pse_compiler::workspace::NumericalAnnotations {
                 mode: pse_compiler::workspace::NumericalAnnotationMode::Implicit,
                 hints: vec![pse_compiler::workspace::NumericalAnnotation {
-                    target: x, declaration, kind: ModelingHint::Nominal, quantity,
+                    target: x,
+                    declaration,
+                    kind: ModelingHint::Nominal,
+                    quantity,
                     observation: pse_compiler::workspace::AnnotationObservation::Position(0),
-                    target_kind: NumericalTarget::Variable, nested: false, constant_bound: false,
+                    target_kind: NumericalTarget::Variable,
+                    nested: false,
+                    constant_bound: false,
                     reads: BTreeSet::new(),
-                }].into(),
+                }]
+                .into(),
                 scales: vec![pse_compiler::workspace::NumericalScale {
-                    target: row, declaration,
+                    target: row,
+                    declaration,
                     scheme: pse_model::generated::enums::ConstraintScalingScheme::InverseSum,
-                    observations: pse_compiler::workspace::ScalingObservations::Range(0..3), nested: false,
-                }].into(),
-                start_precedence: vec![pse_compiler::workspace::NumericalStartSource::SemanticAnchor,
+                    observations: pse_compiler::workspace::ScalingObservations::Range(0..3),
+                    nested: false,
+                }]
+                .into(),
+                start_precedence: vec![
+                    pse_compiler::workspace::NumericalStartSource::SemanticAnchor,
                     pse_compiler::workspace::NumericalStartSource::SuppliedValue,
-                    pse_compiler::workspace::NumericalStartSource::AuthoredHint],
+                    pse_compiler::workspace::NumericalStartSource::AuthoredHint,
+                ],
                 bounds_overrides_first: true,
             }),
             values: BTreeMap::from([(x, 1.)]),

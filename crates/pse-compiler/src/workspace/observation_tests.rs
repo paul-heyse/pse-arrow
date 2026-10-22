@@ -299,31 +299,13 @@ fn actual_preparation_owner_phases_close_on_success_and_cancellation() {
             )
             .is_err()
         );
-        let expression = pse_authoring::dsl::parse_expr("1").unwrap();
-        let registry = pse_quantity::standard::standard_registry().unwrap();
-        let h = ContentHash::from_bytes([93; 32]);
-        let error = crate::typed_math::Request {
-            definition: SemanticId::NIL,
-            expressions: std::slice::from_ref(&expression),
-            formals: &[],
-            domains: &BTreeMap::new(),
-            groups: &BTreeMap::new(),
-            providers: &BTreeMap::new(),
-            literals: &BTreeMap::new(),
-            physical: h,
-            structure: h,
-            limits: BodyLimits::default(),
-        }
-        .admit_modeling_outputs(
-            &registry,
-            &pse_quantity::standard::StandardInvariantChecker,
-            &Arc::new(AtomicBool::new(true)),
-            &BTreeMap::new(),
-            &[],
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+        let fixture = crate::typed_math::direct_tests::fixture(
+            crate::authored_transfer_tests::context(),
+            "package direct {def Root {let out:Scalar=1;}}",
+            &["out"],
         )
-        .unwrap_err();
+        .unwrap();
+        let error = fixture.admit(&Arc::new(AtomicBool::new(true))).unwrap_err();
         assert!(matches!(error, MathError::Cancelled));
     }
     closed(&context, "modeling.specialization");

@@ -1578,6 +1578,15 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             )
             .unwrap(),
     );
+    let residual_sources = pse_math::SourceBindings::new(
+        binding.instance,
+        residual,
+        binding.checked_members.as_ref().clone(),
+        binding.checked_sources.as_ref().clone(),
+        binding.occurrences.as_ref().clone(),
+    )
+    .unwrap();
+    let body = pse_math::SourceBody::new(body, residual_sources.clone()).unwrap();
     let q = binding.slots[0].quantity();
     assert_eq!(binding.slots[1].quantity(), q);
     let unit_id = physical.quantities.quantity_type(q).unwrap().canonical_unit;
@@ -1619,6 +1628,22 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     .unwrap()
     .unwrap();
     assert_eq!(projection.residuals.len(), 1);
+    let eligibility_sources = pse_math::SourceBindings::new(
+        binding.instance,
+        &eligibility,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    )
+    .unwrap();
+    let criterion_sources = pse_math::SourceBindings::new(
+        binding.instance,
+        &criterion,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    )
+    .unwrap();
     let eligibility = Arc::new(
         eligibility
             .compile(
@@ -1643,6 +1668,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             )
             .unwrap(),
     );
+    let eligibility = pse_math::SourceBody::new(eligibility, eligibility_sources).unwrap();
+    let criterion = pse_math::SourceBody::new(criterion, criterion_sources).unwrap();
     let port = |id| pse_kernels::Port {
         id,
         quantity: q,
@@ -1686,18 +1713,22 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 .unwrap(),
                 spec,
                 bodies: pse_math::implicit::ResidualBodies {
-                    unknown: Arc::new(
-                        residual
-                            .compile(
-                                &[output.output],
-                                &[0],
-                                DerivativeOrder::First,
-                                Optimization::default(),
-                                pse_math::jets::EvaluationLimits::default(),
-                                &ExecutionScope::new(flag.clone(), None),
-                            )
-                            .unwrap(),
-                    ),
+                    unknown: pse_math::SourceBody::new(
+                        Arc::new(
+                            residual
+                                .compile(
+                                    &[output.output],
+                                    &[0],
+                                    DerivativeOrder::First,
+                                    Optimization::default(),
+                                    pse_math::jets::EvaluationLimits::default(),
+                                    &ExecutionScope::new(flag.clone(), None),
+                                )
+                                .unwrap(),
+                        ),
+                        residual_sources.clone(),
+                    )
+                    .unwrap(),
                     source: body,
                 },
                 unknowns: unknowns.clone(),
@@ -2436,17 +2467,29 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     let eligibility = make(&[1.0]);
     let criterion = make(&[0.0, 0.0]);
     let compile = |body: &pse_math::guarded::PreparedBody, outputs: &[usize]| {
-        Arc::new(
-            body.compile(
-                outputs,
-                &[0],
-                DerivativeOrder::First,
-                pse_math::library::Optimization::default(),
-                pse_math::jets::EvaluationLimits::default(),
-                &ExecutionScope::new(flag.clone(), None),
-            )
-            .unwrap(),
+        let bindings = pse_math::SourceBindings::new(
+            row,
+            body,
+            Default::default(),
+            Default::default(),
+            Default::default(),
         )
+        .unwrap();
+        pse_math::SourceBody::new(
+            Arc::new(
+                body.compile(
+                    outputs,
+                    &[0],
+                    DerivativeOrder::First,
+                    pse_math::library::Optimization::default(),
+                    pse_math::jets::EvaluationLimits::default(),
+                    &ExecutionScope::new(flag.clone(), None),
+                )
+                .unwrap(),
+            ),
+            bindings,
+        )
+        .unwrap()
     };
     let isolation = pse_math::factorable::root_isolation_program_for_outputs(
         row,
@@ -2505,6 +2548,15 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                             )
                             .unwrap(),
                     );
+                    let sources = pse_math::SourceBindings::new(
+                        row,
+                        &residual,
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                    )
+                    .unwrap();
+                    let source = pse_math::SourceBody::new(source, sources).unwrap();
                     pse_math::implicit::ResidualBodies {
                         unknown: compile(&residual, &[0]),
                         source,
@@ -3785,6 +3837,15 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             )
             .unwrap(),
         );
+        let sources = pse_math::SourceBindings::new(
+            row,
+            &body,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        )
+        .unwrap();
+        let source = pse_math::SourceBody::new(source, sources.clone()).unwrap();
         let proof = Arc::new(
             pse_math::factorable::single_root_isolation_program(row, &body, &flag, 10_000)
                 .unwrap()
@@ -3810,17 +3871,21 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                     smoothness: DerivativeOrder::First,
                 },
                 bodies: pse_math::implicit::ResidualBodies {
-                    unknown: Arc::new(
-                        body.compile(
-                            &[0],
-                            &[0],
-                            DerivativeOrder::First,
-                            pse_math::library::Optimization::default(),
-                            pse_math::jets::EvaluationLimits::default(),
-                            &ExecutionScope::new(flag.clone(), None),
-                        )
-                        .unwrap(),
-                    ),
+                    unknown: pse_math::SourceBody::new(
+                        Arc::new(
+                            body.compile(
+                                &[0],
+                                &[0],
+                                DerivativeOrder::First,
+                                pse_math::library::Optimization::default(),
+                                pse_math::jets::EvaluationLimits::default(),
+                                &ExecutionScope::new(flag.clone(), None),
+                            )
+                            .unwrap(),
+                        ),
+                        sources.clone(),
+                    )
+                    .unwrap(),
                     source,
                 },
                 unknowns: unknowns.clone(),

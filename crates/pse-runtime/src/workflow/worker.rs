@@ -833,11 +833,19 @@ mod lane_tests {
         let runtime = super::super::durable_tests::durable_runtime();
         for report_failed in [false, true] {
             let prior = Arc::new(contract("original scientific or completion failure"));
-            let mut result = RunResult::joined(RunId::from_id(SemanticId::NIL), runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![], result: if report_failed {
-                    Err(prior.clone())
-                } else {
-                    Ok(vec![])
-                } }, None);
+            let mut result = RunResult::joined(
+                RunId::from_id(SemanticId::NIL),
+                runtime.clone(),
+                crate::workflow::RunOutcome::Modeling {
+                    request: vec![],
+                    result: if report_failed {
+                        Err(prior.clone())
+                    } else {
+                        Ok(vec![])
+                    },
+                },
+                None,
+            );
             result.original_completion_captured = true;
             result.completion = Err(prior.clone());
             let mut attempt = DurableAttempt::new(operations(&runtime).unwrap()).unwrap();
@@ -2082,12 +2090,20 @@ impl Runtime {
             let held = lane
                 .scope()
                 .ok_or_else(|| contract("worker native lane source permission absent"))?;
-            let result = held.during(cancel, async {
-            let mut launch: futures_util::future::BoxFuture<'_, _> = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
-            let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
-            // The supervisor owns a child of this lane's drain source.
-            handle.wait().await
-        }).await?;
+            let result = held
+                .during(cancel, async {
+                    let mut launch: futures_util::future::BoxFuture<'_, _> =
+                        boxed_worker_action(|| {
+                            prepared.operation.start_attempt(self, cancel, attempt)
+                        });
+                    let handle = futures_util::future::poll_fn(|context| {
+                        poll_worker_action(launch.as_mut(), context)
+                    })
+                    .await?;
+                    // The supervisor owns a child of this lane's drain source.
+                    handle.wait().await
+                })
+                .await?;
             let record = match result.durability() {
                 RunDurability::Durable(record) => record.clone(),
                 RunDurability::Ephemeral => {
@@ -2148,7 +2164,9 @@ impl Runtime {
                 claim.fence.attempt(),
             )
         });
-        let detail_context = detail.as_ref().map(crate::observation_detail::DetailSession::context);
+        let detail_context = detail
+            .as_ref()
+            .map(crate::observation_detail::DetailSession::context);
         let original_context = pse_diagnostics::observation::current();
         let mut execution: futures_util::future::BoxFuture<'_, _> =
             boxed_worker_action(|| execute(claim));

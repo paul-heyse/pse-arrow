@@ -2,10 +2,15 @@
 // Copyright (c) 2026 Paul Heyse
 //! Immutable formulation changes retaining original-space meaning and lineage.
 use super::*;
+use crate::resolved::{NodeIx, Relation, Source, construction::Rewritten};
 
 /// One relaxed constraint with an independently observable original equation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Elastic {
+    /// Sole executable original relation before slack insertion.
+    pub original_relation: Relation,
+    /// Sole executable dimensionless penalty.
+    pub penalty_root: NodeIx,
     /// Original equation and physical provenance before slack insertion.
     pub original: Row,
     /// Nonnegative auxiliary variables, ordered positive then negative for equalities.
@@ -167,9 +172,6 @@ impl Engine<'_, '_> {
         self.model
             .annotations
             .retain(|a| !policy.omitted.contains(&a.target));
-        for instance in self.model.instances.values_mut() {
-            instance.rows.retain(|r| !policy.omitted.contains(r));
-        }
         for (target, nominal) in &policy.elastic {
             let Value::Number { quantity, bits } = nominal else {
                 return Err(invalid(
@@ -218,12 +220,32 @@ impl Engine<'_, '_> {
                     "elastic target must be a selected relation",
                 ));
             };
-            let mut residual = binary(BinaryOp::Sub, lhs.clone(), rhs.clone());
+            let original_relation = *self.model.equation_roots.get(&target).ok_or_else(|| {
+                invalid(target, "elastic original lacks its constructed relation")
+            })?;
+            let source = Source {
+                field: crate::expression::occurrences::OccurrenceKey {
+                    declaration: lineage.declaration,
+                    role: "derived.elastic".into(),
+                    position: 0,
+                },
+                span: Span::default(),
+                coordinate: None,
+            };
+            let left = Rewritten {
+                root: original_relation.lhs,
+                inspection: lhs.clone(),
+            };
+            let right = Rewritten {
+                root: original_relation.rhs,
+                inspection: rhs.clone(),
+            };
+            let mut residual = self.generated_binary(BinaryOp::Sub, left, right, source.clone())?;
             let count = if *sense == EquationSense::Eq { 2 } else { 1 };
             self.reserve(count)?;
             let mut slacks = Vec::new();
             let mut penalty = None;
-            let zero = self.typed_zero(&ty, lineage.declaration)?;
+            let zero = self.constant(0.0, &ty, lineage.declaration, source.clone())?;
             let nominal_id = pse_ids::named_id(target, "elastic-nominal");
             let mut nominal_lineage = lineage.clone();
             nominal_lineage.path = format!("{}.elastic_nominal", original.lineage.path);
@@ -241,7 +263,7 @@ impl Engine<'_, '_> {
                     lineage: nominal_lineage,
                 },
             );
-            let denominator = symbol_expr(nominal_id);
+            let denominator = self.selected_scalar(nominal_id, source.clone())?;
             let Type::Quantity(s) = &ty else {
                 return Err(invalid(target, "elastic physical residual required"));
             };
@@ -270,13 +292,14 @@ impl Engine<'_, '_> {
                 );
                 self.model.annotations.push(crate::annotation::Annotation {
                     target: id,
-                    value: crate::annotation::AnnotationValue::Start(zero.clone()),
+                    value: crate::annotation::AnnotationValue::Start(zero.inspection.clone()),
+                    roots: crate::annotation::AnnotationRoots::Scalar { value: zero.root },
                     lineage: provenance,
                 });
-                let slack = symbol_expr(id);
+                let slack = self.selected_scalar(id, source.clone())?;
                 let subtract =
                     (*sense == EquationSense::Le) || (*sense == EquationSense::Eq && ordinal == 0);
-                residual = binary(
+                residual = self.generated_binary(
                     if subtract {
                         BinaryOp::Sub
                     } else {
@@ -284,41 +307,39 @@ impl Engine<'_, '_> {
                     },
                     residual,
                     slack.clone(),
-                );
-                let term = binary(BinaryOp::Div, slack, denominator.clone());
+                    source.clone(),
+                )?;
+                let term = self.generated_binary(
+                    BinaryOp::Div,
+                    slack,
+                    denominator.clone(),
+                    source.clone(),
+                )?;
                 penalty = Some(match penalty {
                     None => term,
-                    Some(value) => binary(BinaryOp::Add, value, term),
+                    Some(value) => {
+                        self.generated_binary(BinaryOp::Add, value, term, source.clone())?
+                    }
                 });
                 slacks.push(id);
             }
-            self.model.equations[index].equation = Equation {
-                kind: EquationKind::Relation {
-                    lhs: residual,
-                    sense: *sense,
-                    rhs: zero,
-                },
-                span: Span::default(),
-            };
+            let relation = Self::generated_relation(residual, *sense, zero, source.span);
+            self.model
+                .equation_roots
+                .insert(target, relation.relation());
+            self.model.equations[index].equation = relation.inspection;
+            let penalty = penalty.ok_or_else(|| invalid(target, "elastic penalty absent"))?;
             self.model.elastic.insert(
                 target,
                 Elastic {
                     original,
+                    original_relation,
                     slacks,
-                    penalty: penalty.ok_or_else(|| invalid(target, "elastic penalty absent"))?,
+                    penalty_root: penalty.root,
+                    penalty: penalty.inspection,
                 },
             );
         }
         Ok(())
-    }
-}
-fn binary(op: BinaryOp, lhs: Expr, rhs: Expr) -> Expr {
-    Expr {
-        kind: ExprKind::Binary {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        },
-        span: Span::default(),
     }
 }

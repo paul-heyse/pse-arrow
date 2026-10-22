@@ -4,8 +4,8 @@
 use super::modeling::assessment::Obligations;
 use super::staged::Staged;
 use super::{
-    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport,
-    RunResult, StudyDefinition, WorkflowError,
+    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport, RunResult,
+    StudyDefinition, WorkflowError,
 };
 use futures_util::{FutureExt, StreamExt};
 use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
@@ -134,7 +134,10 @@ impl StudyOccurrenceResult {
     /// read retained rows through the canonical result selector.
     pub fn report(&self) -> Result<RunReport<'_>, WorkflowError> {
         match self {
-            Self::Ephemeral(result) => result.outcome.report().map_err(|error| WorkflowError::Shared(error.clone())),
+            Self::Ephemeral(result) => result
+                .outcome
+                .report()
+                .map_err(|error| WorkflowError::Shared(error.clone())),
             Self::Retained { .. } => Err(super::contract(
                 "persisted occurrence requires a connected result selection",
             )),
@@ -1422,7 +1425,10 @@ async fn execute_lane_inner(
                 let result = RunResult::joined(
                     pse_operations::mint_id(),
                     package.runtime.clone(),
-                    super::RunOutcome::Modeling { request, result: report },
+                    super::RunOutcome::Modeling {
+                        request,
+                        result: report,
+                    },
                     None,
                 )
                 .finished(None, cancel.token().is_cancelled())
@@ -1623,7 +1629,8 @@ async fn settle_occurrence(
     let diagnostic =
         result_diagnostic(&result).map(|diagnostic| diagnostic.with_revision(revision));
     let completed = result.report().is_ok();
-    let fatal = result.error()
+    let fatal = result
+        .error()
         .or_else(|| result.completion.as_ref().err())
         .filter(|error| {
             matches!(
@@ -1787,9 +1794,17 @@ async fn execute(
                     .await
                     .map(|result| vec![result]);
                 Ok(Arc::new(
-                    RunResult::joined(run_id, package.runtime.clone(), super::RunOutcome::Modeling { request, result: report }, None)
-                        .finished(None, cancel.token().is_cancelled())
-                        .await,
+                    RunResult::joined(
+                        run_id,
+                        package.runtime.clone(),
+                        super::RunOutcome::Modeling {
+                            request,
+                            result: report,
+                        },
+                        None,
+                    )
+                    .finished(None, cancel.token().is_cancelled())
+                    .await,
                 ))
             }
             operation => {

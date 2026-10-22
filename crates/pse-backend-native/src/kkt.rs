@@ -1184,12 +1184,19 @@ pub(crate) fn analyse(
     // A nonsingular KKT matrix has independent active gradients (`Aᵀy = 0` would give it the
     // null vector `(0, y)`), so only a singular one needs their rank, from
     // In([I Aᵀ; A 0]) = (n, r, a − r), to split its zero eigenvalues.
-    let diagnostic_allowance = budget.bytes.checked_sub(solver.work_estimate().map_or(0, |estimate| estimate.factor_bytes))
+    let diagnostic_allowance = budget
+        .bytes
+        .checked_sub(
+            solver
+                .work_estimate()
+                .map_or(0, |estimate| estimate.factor_bytes),
+        )
         .ok_or_else(|| ProblemError::memory("held KKT factor exceeds diagnostic allowance"))?;
     let (mut diagnostic, rank) = if inertia.2 == 0 {
         (None, active)
     } else {
-        let (licq, (_, rank, _)) = crate::conditioning::factor(&licq.matrix(order)?, diagnostic_allowance)?;
+        let (licq, (_, rank, _)) =
+            crate::conditioning::factor(&licq.matrix(order)?, diagnostic_allowance)?;
         (Some(licq), rank)
     };
     let deficiency = active
@@ -1227,7 +1234,9 @@ pub(crate) fn analyse(
         }
         let released = released.matrix(order)?;
         let inertia = match &mut diagnostic {
-            Some(diagnostic) => crate::conditioning::factor_into(diagnostic, &released, diagnostic_allowance)?,
+            Some(diagnostic) => {
+                crate::conditioning::factor_into(diagnostic, &released, diagnostic_allowance)?
+            }
             None => crate::conditioning::factor(&released, diagnostic_allowance)?.1,
         };
         // The strongly active gradients are independent, a subset of an independent set.

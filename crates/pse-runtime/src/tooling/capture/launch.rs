@@ -2,9 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit command launch with sampling enabled before its first scientific instruction.
 
-use super::{CaptureDocument, CaptureKind, CaptureLoss, CaptureSession, CaptureStatus, CaptureSymbols, CaptureTarget, cpu, document, failure};
-use crate::observation_detail::{CaptureBudget, CaptureError};
+use super::{
+    CaptureDocument, CaptureKind, CaptureLoss, CaptureSession, CaptureStatus, CaptureSymbols,
+    CaptureTarget, cpu, document, failure,
+};
 use crate::observation::ProcessLocator;
+use crate::observation_detail::{CaptureBudget, CaptureError};
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -333,7 +336,8 @@ pub(crate) fn spawn_owned_command(command: &mut Command) -> Result<LaunchedComma
     let locator = ProcessLocator::for_pid(child.id());
     let process_fd = match owned_pid(child.id()).and_then(|pid| {
         rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty())
-            .map_err(std::io::Error::from).map_err(Into::into)
+            .map_err(std::io::Error::from)
+            .map_err(Into::into)
     }) {
         Ok(fd) => fd,
         Err(error) => {
@@ -347,7 +351,12 @@ pub(crate) fn spawn_owned_command(command: &mut Command) -> Result<LaunchedComma
             return Err(error);
         }
     };
-    Ok(LaunchedCommand { child, locator, finished: None, process_fd })
+    Ok(LaunchedCommand {
+        child,
+        locator,
+        finished: None,
+        process_fd,
+    })
 }
 
 /// Launch CPU capture before exec. A refused/failed optional sampler still releases the command.
@@ -412,7 +421,8 @@ fn launch_with(
         command.current_dir(cwd);
     }
     let mut command = spawn_owned_command(&mut command)?;
-    let gate = command.child
+    let gate = command
+        .child
         .stdin
         .take()
         .ok_or_else(|| CaptureError::Invalid("launch exec gate unavailable".into()))?;

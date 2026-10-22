@@ -301,7 +301,7 @@ impl PreparedModeling {
                     .push(Occurrence {
                         id: identity.finish_id(),
                         definition: key.declaration.as_id(),
-                        span: Span {
+                        span: dsl::Span {
                             start: value.source.start,
                             end: value.source.end,
                         },
@@ -388,6 +388,7 @@ impl PreparedCase {
         received.quantities = model.context.quantities.clone().into();
         received.preconditions = model.context.preconditions.clone().into();
         received.occurrences = model.shared_occurrences().into();
+        received.plan = Arc::new(self.plan.receive_source_context(&model.admitted.case)?);
         Ok(received)
     }
     /// Known metadata copied by binding comparison and a product-sharing rebind.

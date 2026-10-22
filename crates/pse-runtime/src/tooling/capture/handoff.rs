@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Optional copied scientific context at a cooperating joined owner. Never reconstruction.
 use crate::observation_detail::CaptureError;
-use crate::{workflow::{ReviewContextDocument, ReviewContextRequest, RunResult}};
-use crate::tooling::{frozen_inspection::FrozenEvidenceSet};
+use crate::tooling::frozen_inspection::FrozenEvidenceSet;
+use crate::workflow::{ReviewContextDocument, ReviewContextRequest, RunResult};
 use pse_diagnostics::observation::OperationId;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
@@ -231,8 +231,10 @@ impl ReviewHandoffSession {
             serde_json::to_vec(&*invocation).map_err(|error| invalid(error.to_string()))?;
         let mut evidence = FrozenEvidenceSet::default();
         evidence.contexts.push(
-            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 1>(&context_bytes)
-                .map_err(|error| invalid(error.to_string()))?,
+            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 1>(
+                &context_bytes,
+            )
+            .map_err(|error| invalid(error.to_string()))?,
         );
         evidence.engine_observations.extend(
             evidence.contexts[0]
@@ -621,10 +623,11 @@ mod tests {
         .unwrap();
         assert!(handoff.retain_context(&context).is_err());
         handoff.finish(true);
-        let receipt: ReviewHandoffReceipt = crate::tooling::frozen_inspection::read_document::<_, 1>(
-            &directory.path().join("review/index.json"),
-        )
-        .unwrap();
+        let receipt: ReviewHandoffReceipt =
+            crate::tooling::frozen_inspection::read_document::<_, 1>(
+                &directory.path().join("review/index.json"),
+            )
+            .unwrap();
         assert_eq!(receipt.state, ReviewHandoffState::Incomplete);
         assert!(receipt.members.is_empty());
         assert!(!receipt.errors.is_empty());

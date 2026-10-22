@@ -526,7 +526,10 @@ mod native {
         };
         // Batch member factors are serial (pool_width=1), while the batch itself
         // may still use the wider admitted team from the original controls.
-        let parallel = members.iter().flatten().any(|member| member.input.controls.threads > 1);
+        let parallel = members
+            .iter()
+            .flatten()
+            .any(|member| member.input.controls.threads > 1);
         let uniform = jobs.first().is_some_and(|f| {
             jobs.iter().all(|j| {
                 j.quadratic
@@ -544,26 +547,6 @@ mod native {
             // native entry point while installing each member's copied context on
             // its actual worker; a shared backend factory cannot identify a member.
             return map_jobs(&jobs, parallel, |j| {
-                    let operation = observation_context.as_ref().map(|context| {
-                        context.child(
-                            "pounce_convex.member",
-                            pse_diagnostics::observation::Relationship::Nested,
-                        )
-                    });
-                    let _entered = operation
-                        .as_ref()
-                        .map(|operation| operation.context().enter());
-                    let solution = crate::observation::scoped("pounce_convex.qp_ipm", || {
-                        solve_qp_ipm(j.problem, j.options, backend(&j.linear, j.pool_width))
-                    });
-                    observe_solution(&solution);
-                    if let Some(operation) = operation {
-                        operation.finish(pse_diagnostics::observation::Outcome::Completed);
-                    }
-                    Some(solution)
-                });
-        }
-        map_jobs(&jobs, parallel, |j| {
                 let operation = observation_context.as_ref().map(|context| {
                     context.child(
                         "pounce_convex.member",
@@ -573,24 +556,44 @@ mod native {
                 let _entered = operation
                     .as_ref()
                     .map(|operation| operation.context().enter());
-                crate::observation::unavailable(
-                    "pounce_convex.live_iteration",
-                    "IPM route returns its solution after solve; no callback in this entry point",
-                );
-                let solution = crate::observation::scoped("pounce_convex.solve", || {
-                    solve_socp_ipm(
-                        j.problem,
-                        j.specs,
-                        j.options,
-                        backend(&j.linear, j.pool_width),
-                    )
+                let solution = crate::observation::scoped("pounce_convex.qp_ipm", || {
+                    solve_qp_ipm(j.problem, j.options, backend(&j.linear, j.pool_width))
                 });
                 observe_solution(&solution);
                 if let Some(operation) = operation {
                     operation.finish(pse_diagnostics::observation::Outcome::Completed);
                 }
                 Some(solution)
-            })
+            });
+        }
+        map_jobs(&jobs, parallel, |j| {
+            let operation = observation_context.as_ref().map(|context| {
+                context.child(
+                    "pounce_convex.member",
+                    pse_diagnostics::observation::Relationship::Nested,
+                )
+            });
+            let _entered = operation
+                .as_ref()
+                .map(|operation| operation.context().enter());
+            crate::observation::unavailable(
+                "pounce_convex.live_iteration",
+                "IPM route returns its solution after solve; no callback in this entry point",
+            );
+            let solution = crate::observation::scoped("pounce_convex.solve", || {
+                solve_socp_ipm(
+                    j.problem,
+                    j.specs,
+                    j.options,
+                    backend(&j.linear, j.pool_width),
+                )
+            });
+            observe_solution(&solution);
+            if let Some(operation) = operation {
+                operation.finish(pse_diagnostics::observation::Outcome::Completed);
+            }
+            Some(solution)
+        })
     }
 
     fn observe_solution(solution: &QpSolution) {
@@ -929,7 +932,9 @@ mod native {
         fn single_thread_batch_stays_on_caller_with_preinitialized_host_pool() {
             // Initialize an embedding-host global pool before entering the adapter.
             // A host that already initialized it is equally valid.
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(3).build_global();
+            let _ = rayon::ThreadPoolBuilder::new()
+                .num_threads(3)
+                .build_global();
             assert!(rayon::current_num_threads() > 0);
             let caller = std::thread::current().id();
             let serial = crate::pounce::with_threads(1, 4 << 20, || {
@@ -938,7 +943,8 @@ mod native {
                     assert_eq!(rayon::current_thread_index(), None);
                     value * value
                 }))
-            }).unwrap();
+            })
+            .unwrap();
             assert_eq!(serial, vec![1, 4, 9]);
             let parallel = crate::pounce::with_threads(2, 4 << 20, || {
                 Ok::<_, crate::ProblemError>(super::map_jobs(&[1, 2, 3], true, |value| {
@@ -947,7 +953,8 @@ mod native {
                     assert_eq!(rayon::current_num_threads(), 2);
                     value * value
                 }))
-            }).unwrap();
+            })
+            .unwrap();
             assert_eq!(parallel, serial);
         }
 

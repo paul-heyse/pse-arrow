@@ -427,8 +427,8 @@ pub fn table_arrow(
     request: &ReviewTableRequest,
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<datafusion::arrow::record_batch::RecordBatch, crate::observation_detail::CaptureError> {
-    use crate::tooling::capture::{evidence};
-use crate::observation_detail::{CaptureError};
+    use crate::observation_detail::CaptureError;
+    use crate::tooling::capture::evidence;
     if request.memory_bytes == 0 || request.memory_bytes > 64 << 20 {
         return Err(CaptureError::Invalid(
             "review view needs a finite allocation at most 64 MiB".into(),

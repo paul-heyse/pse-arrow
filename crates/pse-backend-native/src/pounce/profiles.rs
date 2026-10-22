@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Pure library second-opinion descriptions lowered to acting, immutable profiles.
 use super::Settings;
+pub use crate::execution::StartPerturbation;
 use crate::{
     ProblemError,
     solve::{Controls, OptionValue, SolveReport},
@@ -9,7 +10,6 @@ use crate::{
 use pounce_rs::pounce_algorithm::second_opinion::{
     SecondOpinionAvailability, SecondOpinionTrigger, second_opinion_rungs,
 };
-pub use crate::execution::StartPerturbation;
 /// One noncumulative native profile. Every member is derived from the baseline.
 #[derive(Clone, Debug)]
 pub struct SecondOpinionProfile {

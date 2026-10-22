@@ -191,21 +191,36 @@ pub struct DocumentSchema {
 struct ExportNames<'a>(&'a std::collections::BTreeMap<String, String>);
 impl schemars::transform::Transform for ExportNames<'_> {
     fn transform(&mut self, schema: &mut schemars::Schema) {
-        if let Some(title) = schema.get("title").and_then(serde_json::Value::as_str).and_then(|title| self.0.get(title)) {
+        if let Some(title) = schema
+            .get("title")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|title| self.0.get(title))
+        {
             schema.insert("title".into(), title.clone().into());
         }
-        if let Some(reference) = schema.get("$ref").and_then(serde_json::Value::as_str).and_then(|reference| reference.strip_prefix("#/$defs/")) {
+        if let Some(reference) = schema
+            .get("$ref")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|reference| reference.strip_prefix("#/$defs/"))
+        {
             let name = reference.replace("~1", "/").replace("~0", "~");
             if let Some(export) = self.0.get(&name) {
-                schema.insert("$ref".into(), format!("#/$defs/{}", export.replace('~', "~0").replace('/', "~1")).into());
+                schema.insert(
+                    "$ref".into(),
+                    format!("#/$defs/{}", export.replace('~', "~0").replace('/', "~1")).into(),
+                );
             }
         }
-        if let Some(definitions) = schema.get_mut("$defs").and_then(serde_json::Value::as_object_mut) {
+        if let Some(definitions) = schema
+            .get_mut("$defs")
+            .and_then(serde_json::Value::as_object_mut)
+        {
             for (original, export) in self.0 {
-                if original != export && !definitions.contains_key(export) {
-                    if let Some(definition) = definitions.remove(original) {
-                        definitions.insert(export.clone(), definition);
-                    }
+                if original != export
+                    && !definitions.contains_key(export)
+                    && let Some(definition) = definitions.remove(original)
+                {
+                    definitions.insert(export.clone(), definition);
                 }
             }
         }
@@ -224,7 +239,12 @@ macro_rules! implement_wire {
 }
 crate::for_each_boundary_document!(implement_wire);
 
-fn schema<T: schemars::JsonSchema + BoundaryDocument>(name: &'static str, slug: &'static str, rust_type: &'static str, direction: Direction) -> DocumentSchema {
+fn schema<T: schemars::JsonSchema + BoundaryDocument>(
+    name: &'static str,
+    slug: &'static str,
+    rust_type: &'static str,
+    direction: Direction,
+) -> DocumentSchema {
     let settings = schemars::generate::SchemaSettings::draft2020_12();
     let settings = match direction {
         Direction::Input => settings.for_deserialize(),
@@ -239,9 +259,22 @@ fn schema<T: schemars::JsonSchema + BoundaryDocument>(name: &'static str, slug: 
     schemars::transform::Transform::transform(&mut ExportNames(&export_names()), &mut schema);
     let mut schema = schema.to_value();
     schema.sort_all_objects();
-    let field = match T::WIRE { Wire::Native => "version", Wire::FlatV1 | Wire::ValueV1 => "document_version" };
-    let version = schema["properties"][field]["const"].as_u64().and_then(|version| u32::try_from(version).ok());
-    DocumentSchema { name, slug, rust_type, direction, version, wire: T::WIRE, schema }
+    let field = match T::WIRE {
+        Wire::Native => "version",
+        Wire::FlatV1 | Wire::ValueV1 => "document_version",
+    };
+    let version = schema["properties"][field]["const"]
+        .as_u64()
+        .and_then(|version| u32::try_from(version).ok());
+    DocumentSchema {
+        name,
+        slug,
+        rust_type,
+        direction,
+        version,
+        wire: T::WIRE,
+        schema,
+    }
 }
 fn export_names() -> std::collections::BTreeMap<String, String> {
     macro_rules! aliases {
@@ -269,10 +302,18 @@ fn export_names() -> std::collections::BTreeMap<String, String> {
 }
 /// Derive each root with a fresh direction-specific schemars generator.
 pub fn schemas() -> Vec<DocumentSchema> {
-    fn input<T: schemars::JsonSchema + serde::de::DeserializeOwned + BoundaryDocument>(name: &'static str, slug: &'static str, owner: &'static str) -> DocumentSchema {
+    fn input<T: schemars::JsonSchema + serde::de::DeserializeOwned + BoundaryDocument>(
+        name: &'static str,
+        slug: &'static str,
+        owner: &'static str,
+    ) -> DocumentSchema {
         schema::<T>(name, slug, owner, Direction::Input)
     }
-    fn output<T: schemars::JsonSchema + serde::Serialize + BoundaryDocument>(name: &'static str, slug: &'static str, owner: &'static str) -> DocumentSchema {
+    fn output<T: schemars::JsonSchema + serde::Serialize + BoundaryDocument>(
+        name: &'static str,
+        slug: &'static str,
+        owner: &'static str,
+    ) -> DocumentSchema {
         schema::<T>(name, slug, owner, Direction::Output)
     }
     macro_rules! collect {
@@ -301,8 +342,12 @@ pub fn schemas() -> Vec<DocumentSchema> {
 /// # Errors
 /// Canonical framing refused a schema value.
 pub fn fingerprint() -> Result<pse_ids::ContentHash, pse_ids::document::FrameError> {
-    static FINGERPRINT: std::sync::OnceLock<Result<pse_ids::ContentHash, pse_ids::document::FrameError>> = std::sync::OnceLock::new();
-    FINGERPRINT.get_or_init(|| pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &schemas())).clone()
+    static FINGERPRINT: std::sync::OnceLock<
+        Result<pse_ids::ContentHash, pse_ids::document::FrameError>,
+    > = std::sync::OnceLock::new();
+    FINGERPRINT
+        .get_or_init(|| pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &schemas()))
+        .clone()
 }
 
 #[cfg(test)]
@@ -311,7 +356,8 @@ mod tests {
     #[test]
     fn exported_names_reach_nested_generics_without_rewriting_document_values() {
         use schemars::transform::Transform;
-        let names = std::collections::BTreeMap::from([("Internal/Generic~Name".into(), "Public".into())]);
+        let names =
+            std::collections::BTreeMap::from([("Internal/Generic~Name".into(), "Public".into())]);
         let mut schema = schemars::json_schema!({
             "title": "Internal/Generic~Name",
             "$defs": {"Internal/Generic~Name": {"type": "object"}},
@@ -321,9 +367,15 @@ mod tests {
         ExportNames(&names).transform(&mut schema);
         assert_eq!(schema.as_value()["title"], "Public");
         assert!(schema.as_value()["$defs"].get("Public").is_some());
-        assert_eq!(schema.as_value()["properties"]["nested"]["$ref"], "#/$defs/Public");
+        assert_eq!(
+            schema.as_value()["properties"]["nested"]["$ref"],
+            "#/$defs/Public"
+        );
         assert_eq!(schema.as_value()["const"]["title"], "Internal/Generic~Name");
-        assert_eq!(schema.as_value()["const"]["$ref"], "#/$defs/Internal~1Generic~0Name");
+        assert_eq!(
+            schema.as_value()["const"]["$ref"],
+            "#/$defs/Internal~1Generic~0Name"
+        );
         assert_ne!(
             <crate::workflow::FitPreparationDocument as schemars::JsonSchema>::schema_name(),
             <crate::workflow::FitPreparationDocument<crate::workflow::PhysicalSimulationRequest> as schemars::JsonSchema>::schema_name(),
@@ -336,14 +388,33 @@ mod tests {
         for root in &roots {
             assert!(names.insert((root.slug, root.direction)));
             assert_eq!(root.schema["title"], root.name, "{}", root.slug);
-            assert!(root.version.is_some(), "unversioned standalone root {}", root.slug);
-            let field = if root.wire == Wire::Native { "version" } else { "document_version" };
-            assert!(root.schema["required"].as_array().unwrap().iter().any(|value| value == field), "missing required header {}", root.slug);
+            assert!(
+                root.version.is_some(),
+                "unversioned standalone root {}",
+                root.slug
+            );
+            let field = if root.wire == Wire::Native {
+                "version"
+            } else {
+                "document_version"
+            };
+            assert!(
+                root.schema["required"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|value| value == field),
+                "missing required header {}",
+                root.slug
+            );
         }
         assert_eq!(fingerprint().unwrap(), fingerprint().unwrap());
         let expected = pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &roots).unwrap();
         let mut changed = roots;
         changed[0].direction = Direction::Output;
-        assert_ne!(expected, pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &changed).unwrap());
+        assert_ne!(
+            expected,
+            pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &changed).unwrap()
+        );
     }
 }

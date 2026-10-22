@@ -137,7 +137,11 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg)?)?;
-    emit(&mut tree, format!("{ROOT}/result_selection.rs"), result_selection::render(reg)?)?;
+    emit(
+        &mut tree,
+        format!("{ROOT}/result_selection.rs"),
+        result_selection::render(reg)?,
+    )?;
     emit(&mut tree, format!("{ROOT}/structures.rs"), structures(reg)?)?;
     emit(
         &mut tree,
@@ -181,7 +185,11 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     semantic::split(&mut tree, reg)?;
     semantic::facts(&mut tree, reg)?;
-    emit(&mut tree, "crates/pse-model/src/generated/products.rs", products::render(reg)?)?;
+    emit(
+        &mut tree,
+        "crates/pse-model/src/generated/products.rs",
+        products::render(reg)?,
+    )?;
     // After the split: typed ids are declared in pse-model and only re-exported here.
     identities::emit(&mut tree, reg)?;
     Ok(tree)

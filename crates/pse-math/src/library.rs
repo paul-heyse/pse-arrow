@@ -195,7 +195,11 @@ pub struct Optimization {
 }
 impl Optimization {
     pub(crate) fn validate(self) -> Result<(), MathError> {
-        if self.cores == 0 || self.cores > 64 || self.horner_iterations > 1000 || self.cpe_iterations > 32 {
+        if self.cores == 0
+            || self.cores > 64
+            || self.horner_iterations > 1000
+            || self.cpe_iterations > 32
+        {
             return Err(MathError::Contract("optimizer budget".into()));
         }
         Ok(())
@@ -237,9 +241,16 @@ struct AbortBinding {
 }
 impl AbortBinding {
     fn new(producer: Arc<std::sync::atomic::AtomicBool>) -> Self {
-        Self { producer: std::sync::Mutex::new(Some(producer)), observed: std::sync::atomic::AtomicBool::new(false) }
+        Self {
+            producer: std::sync::Mutex::new(Some(producer)),
+            observed: std::sync::atomic::AtomicBool::new(false),
+        }
     }
-    fn finish<T>(&self, result: T, producer: &std::sync::atomic::AtomicBool) -> Result<T, MathError> {
+    fn finish<T>(
+        &self,
+        result: T,
+        producer: &std::sync::atomic::AtomicBool,
+    ) -> Result<T, MathError> {
         if self.observed.load(std::sync::atomic::Ordering::Acquire)
             || producer.load(std::sync::atomic::Ordering::Acquire)
         {
@@ -264,7 +275,10 @@ impl AbortBinding {
             },
             |flag| {
                 let cancelled = flag.load(std::sync::atomic::Ordering::Acquire);
-                if cancelled { self.observed.store(true, std::sync::atomic::Ordering::Release); }
+                if cancelled {
+                    self.observed
+                        .store(true, std::sync::atomic::Ordering::Release);
+                }
                 cancelled
             },
         )
@@ -287,13 +301,17 @@ fn exact_evaluator(
     options: Optimization,
     cancelled: &Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ExpressionEvaluator<Complex<Rational>>, MathError> {
-    if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+        return Err(MathError::Cancelled);
+    }
     options.validate()?;
     crate::context()?;
     let abort = Arc::new(AbortBinding::new(cancelled.clone()));
     let detach = DetachAbort(abort.clone());
     let mut functions = symbolica::evaluate::FunctionMap::new();
-    functions.add_aliases(definitions.iter().cloned()).map_err(|error| MathError::Library(error.to_string()))?;
+    functions
+        .add_aliases(definitions.iter().cloned())
+        .map_err(|error| MathError::Library(error.to_string()))?;
     let ev = Atom::evaluator_multiple(expressions, parameters)
         .function_map(functions)
         // The direct translator resolves aliases as a shared instruction DAG;
@@ -331,8 +349,8 @@ fn exact_evaluator(
 mod admission;
 pub use admission::ScalarProducts;
 pub(crate) use admission::{
-    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, bounded_defined_scalar_evaluator, evaluator_construction,
-    evaluator_construction_shape,
+    ScalarCache, bounded_defined_scalar_evaluator, bounded_evaluator, bounded_scalar_evaluator,
+    evaluator_construction, evaluator_construction_shape,
 };
 
 /// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.
@@ -488,9 +506,15 @@ mod abort_binding_tests {
         // Even a subsequently cleared caller flag cannot rehabilitate an optimizer
         // result whose construction already observed an abort.
         producer.store(false, std::sync::atomic::Ordering::Release);
-        assert!(matches!(binding.finish("successful truncated result", &producer), Err(MathError::Cancelled)));
+        assert!(matches!(
+            binding.finish("successful truncated result", &producer),
+            Err(MathError::Cancelled)
+        ));
         let fresh = AbortBinding::new(producer.clone());
-        assert_eq!(fresh.finish("complete result", &producer).unwrap(), "complete result");
+        assert_eq!(
+            fresh.finish("complete result", &producer).unwrap(),
+            "complete result"
+        );
     }
     #[test]
     fn constructor_abort_binding_is_fresh_nested_and_restored_after_unwind() {

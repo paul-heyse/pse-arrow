@@ -18,7 +18,10 @@ pub use policy::CacheBudget;
 
 use datafusion::{
     common::Result,
-    execution::{cache::cache_manager::CacheManagerConfig, memory_pool::{MemoryPool, MemoryReservation}},
+    execution::{
+        cache::cache_manager::CacheManagerConfig,
+        memory_pool::{MemoryPool, MemoryReservation},
+    },
 };
 use envelope::Envelope;
 use std::sync::{Arc, Mutex, atomic::AtomicUsize};
@@ -134,7 +137,9 @@ impl NativeCacheService {
     /// retain their owners, and pending loads cannot publish across this epoch.
     pub fn invalidate(&self) {
         for component in self.components() {
-            if component.storage_bound() { component.invalidate(); }
+            if component.storage_bound() {
+                component.invalidate();
+            }
         }
     }
     /// Reserve the actual native syntax/model capacity and shared execution allowances.
@@ -230,4 +235,3 @@ async fn admit(
         permit = gate.acquire_owned() => permit.map_err(|error| datafusion::common::DataFusionError::External(Box::new(error))),
     }
 }
-

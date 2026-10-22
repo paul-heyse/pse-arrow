@@ -280,8 +280,10 @@ impl Factor {
                 let mut solver = retained
                     .and_then(|retained| Arc::try_unwrap(retained.factor.solver).ok())
                     .unwrap_or_else(|| feral::Solver::new().with_parallel(false));
-                let numeric_allowance = self.limits.bytes.checked_sub(allowance)
-                    .ok_or_else(|| ProblemError::memory("activity release scratch exceeds factor allowance"))?;
+                let numeric_allowance =
+                    self.limits.bytes.checked_sub(allowance).ok_or_else(|| {
+                        ProblemError::memory("activity release scratch exceeds factor allowance")
+                    })?;
                 crate::conditioning::admit_factor(&solver, &matrix, numeric_allowance)?;
                 self.state.refactorizations.set(count + 1);
                 crate::conditioning::publish_factor_summary(&solver, false);

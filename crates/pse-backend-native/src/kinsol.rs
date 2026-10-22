@@ -385,10 +385,13 @@ impl Settings {
         };
         let constraints = self.validate_contract(c, representation, &guards)?;
         if let Function::Picard { linear, .. } = function
-            && (linear.nrows() != c.variables.len() || linear.ncols() != c.variables.len()
+            && (linear.nrows() != c.variables.len()
+                || linear.ncols() != c.variables.len()
                 || linear.val().iter().any(|v| !v.is_finite()))
         {
-            return Err(ProblemError::Contract("Picard splitting dimensions or nonfinite values".into()));
+            return Err(ProblemError::Contract(
+                "Picard splitting dimensions or nonfinite values".into(),
+            ));
         }
         let original = match function {
             Function::Equations(o) => o.jacobian_pattern(),
@@ -447,7 +450,8 @@ impl Settings {
             ));
         }
         if !matches!(representation, Strategy::FixedPoint | Strategy::Picard)
-            && !m.consumes_directional_only() {
+            && !m.consumes_directional_only()
+        {
             c.square()?;
         } else {
             c.validate(pse_kernels::DerivativeOrder::Value)?;
@@ -463,7 +467,9 @@ impl Settings {
         if let Linear::Dense { limit } = m.linear
             && n > limit.into_inner()
         {
-            return Err(ProblemError::Unsupported("KINSOL dense dimension limit".into()));
+            return Err(ProblemError::Unsupported(
+                "KINSOL dense dimension limit".into(),
+            ));
         }
         Ok(constraints)
     }

@@ -148,14 +148,34 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
     metadata.retain(|key, _| !key.starts_with("pse.domain."));
     let mut semantic = semantic_metadata(reg, &contract, path)?;
     for (domain, bound) in [
-        (crate::model::field_facets::EXPRESSION_ROLE, crate::model::field_facets::KEY_EXPRESSION_ROLE),
-        (crate::model::field_facets::EXPRESSION_ORDINAL, crate::model::field_facets::KEY_EXPRESSION_ORDINAL),
-        (crate::model::field_facets::EXPRESSION_BINDER, crate::model::field_facets::KEY_EXPRESSION_BINDER),
-        (crate::model::field_facets::EXPRESSION_CASES, crate::model::field_facets::KEY_EXPRESSION_CASES),
-        (crate::model::field_facets::RESULT_SELECTION, crate::model::field_facets::KEY_RESULT_SELECTION),
-        (crate::model::field_facets::RESULT_SORT, crate::model::field_facets::KEY_RESULT_SORT),
+        (
+            crate::model::field_facets::EXPRESSION_ROLE,
+            crate::model::field_facets::KEY_EXPRESSION_ROLE,
+        ),
+        (
+            crate::model::field_facets::EXPRESSION_ORDINAL,
+            crate::model::field_facets::KEY_EXPRESSION_ORDINAL,
+        ),
+        (
+            crate::model::field_facets::EXPRESSION_BINDER,
+            crate::model::field_facets::KEY_EXPRESSION_BINDER,
+        ),
+        (
+            crate::model::field_facets::EXPRESSION_CASES,
+            crate::model::field_facets::KEY_EXPRESSION_CASES,
+        ),
+        (
+            crate::model::field_facets::RESULT_SELECTION,
+            crate::model::field_facets::KEY_RESULT_SELECTION,
+        ),
+        (
+            crate::model::field_facets::RESULT_SORT,
+            crate::model::field_facets::KEY_RESULT_SORT,
+        ),
     ] {
-        if let Some(value) = field.metadata().get(domain) { semantic.insert(bound.to_owned(), value.clone()); }
+        if let Some(value) = field.metadata().get(domain) {
+            semantic.insert(bound.to_owned(), value.clone());
+        }
     }
     semantic.insert(KEY_ROLE.to_owned(), contract.role().as_str().to_owned());
     if let QuantityContract::Column(name) = contract.quantity() {

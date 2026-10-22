@@ -9,6 +9,10 @@
 //! keeps the authored structure as [`NativeConstraint`] metadata that routing refuses on
 //! a backend without the handler.
 use super::*;
+use crate::resolved::{
+    Binding, Node, NodeIx, Reference, Source,
+    construction::{Rewritten, RewrittenEquation},
+};
 use pse_authoring::dsl::Proposition;
 use pse_model::{
     forms::{LogicOperand, NativeConstraint},
@@ -17,6 +21,60 @@ use pse_model::{
     },
 };
 
+macro_rules! form_sym {
+    ($engine:expr,$id:expr) => {{
+        let id = $id;
+        let source = $engine.form_source()?;
+        $engine.selected_scalar(id, source)?
+    }};
+}
+macro_rules! form_bin {
+    ($engine:expr,$op:expr,$lhs:expr,$rhs:expr $(,)?) => {{
+        let lhs = $lhs;
+        let rhs = $rhs;
+        let source = $engine.form_source()?;
+        $engine.generated_binary($op, lhs, rhs, source)?
+    }};
+}
+macro_rules! form_neg {
+    ($engine:expr,$value:expr) => {{
+        let value = $value;
+        let source = $engine.form_source()?;
+        $engine.generated_neg(value, source)?
+    }};
+}
+macro_rules! form_sum {
+    ($engine:expr,$values:expr) => {{
+        let values = $values;
+        let source = $engine.form_source()?;
+        $engine.form_balanced_sum(values, source)?
+    }};
+}
+macro_rules! form_zero {
+    ($engine:expr,$ty:expr,$at:expr) => {{
+        let ty = $ty;
+        let source = $engine.form_source()?;
+        $engine.constant(0.0, ty, $at, source)?
+    }};
+}
+macro_rules! form_row {
+    ($engine:expr,$id:expr,$lhs:expr,$sense:expr,$rhs:expr,$lineage:expr $(,)?) => {{
+        let id = $id;
+        let lhs = $lhs;
+        let sense = $sense;
+        let rhs = $rhs;
+        let lineage = $lineage;
+        $engine.push_row(id, lhs, sense, rhs, lineage)
+    }};
+}
+macro_rules! logic_row {
+    ($lowering:expr,$engine:expr,$lhs:expr,$sense:expr,$rhs:expr $(,)?) => {{
+        let lhs = $lhs;
+        let sense = $sense;
+        let rhs = $rhs;
+        $lowering.row($engine, lhs, sense, rhs)
+    }};
+}
 /// The default relative margin by which a derived big-M is widened outward.
 pub const DEFAULT_BIG_M_MARGIN: f64 = 1e-6;
 
@@ -165,9 +223,9 @@ impl Form {
 /// A disjunct row before realization.
 struct DisjunctRow {
     id: SemanticId,
-    lhs: Expr,
+    lhs: Rewritten,
     sense: EquationSense,
-    rhs: Expr,
+    rhs: Rewritten,
     lineage: Lineage,
 }
 /// Dependence of an expression on a variable set.
@@ -179,6 +237,55 @@ enum Class {
 }
 
 impl Engine<'_, '_> {
+    fn with_form_source<T>(
+        &mut self,
+        at: DeclarationId,
+        apply: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        self.form_sources.push(Source {
+            field: crate::expression::occurrences::OccurrenceKey {
+                declaration: at,
+                role: "derived.constraint_form".into(),
+                position: 0,
+            },
+            span: Span::default(),
+            coordinate: None,
+        });
+        let result = apply(self);
+        self.form_sources.pop();
+        result
+    }
+    fn form_source(&self) -> Result<Source> {
+        self.form_sources.last().cloned().ok_or_else(|| {
+            invalid(
+                SemanticId::NIL,
+                "form construction has no actual original source owner",
+            )
+        })
+    }
+    fn form_balanced_sum(
+        &mut self,
+        mut values: Vec<Rewritten>,
+        source: Source,
+    ) -> Result<Option<Rewritten>> {
+        if values.is_empty() {
+            return Ok(None);
+        }
+        while values.len() > 1 {
+            let mut next = Vec::with_capacity(values.len().div_ceil(2));
+            let mut previous = values.into_iter();
+            while let Some(lhs) = previous.next() {
+                next.push(if let Some(rhs) = previous.next() {
+                    self.generated_binary(BinaryOp::Add, lhs, rhs, source.clone())?
+                } else {
+                    lhs
+                });
+            }
+            values = next;
+        }
+        Ok(values.pop())
+    }
+
     /// Register a realization declaration whose target is a constraint form or disjunction.
     pub(super) fn register_form_realization(
         &mut self,
@@ -429,7 +536,7 @@ impl Engine<'_, '_> {
         lineage: Lineage,
         at: DeclarationId,
     ) -> Result<SemanticId> {
-        let zero = self.typed_zero(&ty, at)?;
+        let zero = form_zero!(self, &ty, at);
         self.reserve(1)?;
         self.model.symbols.insert(
             id,
@@ -446,7 +553,8 @@ impl Engine<'_, '_> {
         );
         self.model.annotations.push(crate::annotation::Annotation {
             target: id,
-            value: crate::annotation::AnnotationValue::Start(zero),
+            value: crate::annotation::AnnotationValue::Start(zero.inspection),
+            roots: crate::annotation::AnnotationRoots::Scalar { value: zero.root },
             lineage,
         });
         Ok(id)
@@ -490,30 +598,26 @@ impl Engine<'_, '_> {
     fn push_row(
         &mut self,
         id: SemanticId,
-        lhs: Expr,
+        lhs: Rewritten,
         sense: EquationSense,
-        rhs: Expr,
+        rhs: Rewritten,
         lineage: Lineage,
     ) -> Result<SemanticId> {
         self.reserve(1)?;
-        self.model.equations.push(Row {
+        self.retain_row(
             id,
-            equation: Equation {
-                kind: EquationKind::Relation { lhs, sense, rhs },
-                span: Span::default(),
-            },
+            Self::generated_relation(lhs, sense, rhs, Span::default()),
             lineage,
-        });
+        )?;
         Ok(id)
     }
     fn type_of(
         &self,
-        expression: &Expr,
-        contracts: &dyn crate::FunctionAdmission,
-        at: DeclarationId,
+        expression: &Rewritten,
+        _contracts: &dyn crate::FunctionAdmission,
+        _at: DeclarationId,
     ) -> Result<Type> {
-        let types = crate::TypeScope::new(&self.model.symbols);
-        crate::expression::infer(expression, &types, contracts, self.c, at, None)
+        self.constructed_type(expression.root)
     }
     /// Resolve an authored member path to an existing binary variable.
     fn binary_operand(
@@ -524,8 +628,10 @@ impl Engine<'_, '_> {
         at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = self.p.expression_at(at, role, 0)?.clone();
-        let expression = self.rewrite(instance, &expression, env, &[at])?;
-        self.model.symbols.reference(&expression)
+        let expression = self.with_original_expression(at, role, 0, &expression, |engine| {
+            engine.rewrite(instance, &expression, env, &[at])
+        })?;
+        self.symbol_of_root(expression.root)
             .filter(|id| {
                 self.model
                     .symbols
@@ -542,7 +648,7 @@ impl Engine<'_, '_> {
         at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = self.rewrite(instance, expression, env, &[at])?;
-        self.model.symbols.reference(&expression)
+        self.symbol_of_root(expression.root)
             .filter(|id| {
                 self.model
                     .symbols
@@ -554,7 +660,7 @@ impl Engine<'_, '_> {
                     at,
                     format!(
                         "{} must name a binary variable",
-                        dsl::render_expr(&expression)
+                        dsl::render_expr(&expression.inspection)
                     ),
                 )
             })
@@ -584,7 +690,19 @@ impl Engine<'_, '_> {
         instance: InstanceId,
         row: &Declaration,
         coordinates: &[(String, Value)],
-        equation: Equation,
+        equation: RewrittenEquation,
+        env: &Environment,
+    ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.indicator_equation_inner(instance, row, coordinates, equation, env)
+        })
+    }
+    fn indicator_equation_inner(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        coordinates: &[(String, Value)],
+        equation: RewrittenEquation,
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;
@@ -596,14 +714,25 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(at, "indicator condition absent"))?;
         let local = coordinates_env(env, coordinates);
         let variable = self.binary_operand(instance, "equation.condition.variable", &local, at)?;
-        let EquationKind::Relation { lhs, sense, rhs } = equation.kind else {
-            return Err(invalid(at, "an indicator constraint is a relation"));
+        let (lhs, sense, rhs) = match equation.inspection.kind {
+            EquationKind::Relation { lhs, sense, rhs } => (
+                Rewritten {
+                    root: equation.lhs,
+                    inspection: lhs,
+                },
+                sense,
+                Rewritten {
+                    root: equation.rhs,
+                    inspection: rhs,
+                },
+            ),
+            _ => return Err(invalid(at, "an indicator constraint is a relation")),
         };
         let id = member_id(instance, at, coordinates);
         let lineage = self.lineage(instance, row, &[at]);
         let realized = self.realization(Form::Indicator, instance, at)?;
         if realized == Realized::Other(Policy::Indicator) {
-            let row = self.push_row(id, lhs, sense, rhs, lineage)?;
+            let row = form_row!(self, id, lhs, sense, rhs, lineage)?;
             self.model.native.push(NativeConstraint::Indicator {
                 row,
                 variable,
@@ -622,9 +751,14 @@ impl Engine<'_, '_> {
         let one = self.indicator_one(instance, at)?;
         // The relaxation factor is zero exactly when the row must hold.
         let relax = if condition.active {
-            bin(BinaryOp::Sub, sym(one), sym(variable))
+            form_bin!(
+                self,
+                BinaryOp::Sub,
+                form_sym!(self, one),
+                form_sym!(self, variable)
+            )
         } else {
-            sym(variable)
+            form_sym!(self, variable)
         };
         let (rows, variables) = self.relaxed(
             instance, at, id, lhs, sense, rhs, relax, &realized, lineage, env,
@@ -653,30 +787,34 @@ impl Engine<'_, '_> {
         instance: InstanceId,
         source: DeclarationId,
         id: SemanticId,
-        lhs: Expr,
+        lhs: Rewritten,
         sense: EquationSense,
-        rhs: Expr,
-        relax: Expr,
+        rhs: Rewritten,
+        relax: Rewritten,
         realized: &Realized,
         lineage: Lineage,
         env: &Environment,
     ) -> Result<(Vec<SemanticId>, Vec<SemanticId>)> {
-        let residual = bin(BinaryOp::Sub, lhs, rhs);
+        let residual = form_bin!(self, BinaryOp::Sub, lhs, rhs);
         let ty = self.type_of(&residual, &self.model.function_contracts(self.p), source)?;
         let mut variables = Vec::new();
         let (residual, upper, lower) = match realized {
             Realized::BigM(expression) => {
-                let m = self.rewrite(instance, expression, env, &[source])?;
-                let types = crate::TypeScope::new(&self.model.symbols);
-                if crate::expression::infer(
-                    &m,
-                    &types,
-                    &self.model.function_contracts(self.p),
-                    self.c,
-                    source,
-                    Some(&ty),
-                )? != ty
-                {
+                let owner = self
+                    .form_realizations
+                    .get(&(instance, source))
+                    .map(|(_, owner)| *owner)
+                    .ok_or_else(|| {
+                        invalid(source, "authored big-M lacks its actual realization owner")
+                    })?;
+                let m = self.with_original_expression(
+                    owner,
+                    "realization.argument",
+                    0,
+                    expression,
+                    |engine| engine.rewrite(instance, expression, env, &[owner]),
+                )?;
+                if self.constructed_type(m.root)? != ty {
                     return Err(invalid(
                         source,
                         "an authored big-M has the row's physical type",
@@ -689,19 +827,23 @@ impl Engine<'_, '_> {
                     self.model.symbols.insert(
                         m_id,
                         Symbol {
-                            definition: None,
+                            definition: Some(m.root),
                             id: m_id,
                             ty: ty.clone(),
                             role: Kind::Let,
                             domain: Domain::Continuous,
-                            expression: Some(m),
+                            expression: Some(m.inspection),
                             initial: None,
                             lineage: self.derived_lineage(&lineage, "big_m"),
                         },
                     );
                 }
                 variables.push(m_id);
-                (residual, sym(m_id), neg(sym(m_id)))
+                (
+                    residual,
+                    form_sym!(self, m_id),
+                    form_neg!(self, form_sym!(self, m_id)),
+                )
             }
             Realized::DerivedBigM(margin) => {
                 let residual_id = pse_ids::named_id(id, "disjunct-residual");
@@ -709,12 +851,12 @@ impl Engine<'_, '_> {
                 self.model.symbols.insert(
                     residual_id,
                     Symbol {
-                        definition: None,
+                        definition: Some(residual.root),
                         id: residual_id,
                         ty: ty.clone(),
                         role: Kind::Let,
                         domain: Domain::Continuous,
-                        expression: Some(residual),
+                        expression: Some(residual.inspection),
                         initial: None,
                         lineage: self.derived_lineage(&lineage, "residual"),
                     },
@@ -738,41 +880,43 @@ impl Engine<'_, '_> {
                 };
                 // Only the sides the row's sense needs are derived.
                 variables.push(residual_id);
-                let mut side = |upper: bool, engine: &mut Self| -> Result<Expr> {
+                let mut side = |upper: bool, engine: &mut Self| -> Result<Rewritten> {
                     let needed = if upper {
                         sense != EquationSense::Ge
                     } else {
                         sense != EquationSense::Le
                     };
                     if !needed {
-                        return Ok(sym(residual_id));
+                        return Ok(form_sym!(engine, residual_id));
                     }
                     let id = bound(upper, engine)?;
                     variables.push(id);
-                    Ok(sym(id))
+                    Ok(form_sym!(engine, id))
                 };
                 let up = side(true, self)?;
                 let down = side(false, self)?;
-                (sym(residual_id), up, down)
+                (form_sym!(self, residual_id), up, down)
             }
             _ => return Err(invalid(source, "big-M realization expected")),
         };
         let mut rows = Vec::new();
         if matches!(sense, EquationSense::Le | EquationSense::Eq) {
-            rows.push(self.push_row(
+            rows.push(form_row!(
+                self,
                 pse_ids::named_id(id, "big-m-upper-row"),
                 residual.clone(),
                 EquationSense::Le,
-                bin(BinaryOp::Mul, upper, relax.clone()),
+                form_bin!(self, BinaryOp::Mul, upper, relax.clone()),
                 lineage.clone(),
             )?);
         }
         if matches!(sense, EquationSense::Ge | EquationSense::Eq) {
-            rows.push(self.push_row(
+            rows.push(form_row!(
+                self,
                 pse_ids::named_id(id, "big-m-lower-row"),
                 residual,
                 EquationSense::Ge,
-                bin(BinaryOp::Mul, lower, relax),
+                form_bin!(self, BinaryOp::Mul, lower, relax),
                 lineage,
             )?);
         }
@@ -781,6 +925,17 @@ impl Engine<'_, '_> {
 
     /// `disjunction name { alternative … }`, lowered inner-first (ADR-0104 §1).
     pub(super) fn disjunction(
+        &mut self,
+        instance: InstanceId,
+        declaration: DeclarationId,
+        env: &Environment,
+        parent: Option<SemanticId>,
+    ) -> Result<()> {
+        self.with_form_source(declaration, |engine| {
+            engine.disjunction_inner(instance, declaration, env, parent)
+        })
+    }
+    fn disjunction_inner(
         &mut self,
         instance: InstanceId,
         declaration: DeclarationId,
@@ -846,13 +1001,20 @@ impl Engine<'_, '_> {
             }
         }
         let one = self.indicator_one(instance, declaration)?;
-        let selected = sum(indicators.iter().map(|id| sym(*id)).collect())
-            .ok_or_else(|| invalid(declaration, "disjunction without alternatives"))?;
-        let mut rows = vec![self.push_row(
+        let selected = form_sum!(
+            self,
+            indicators
+                .iter()
+                .map(|id| Ok(form_sym!(self, *id)))
+                .collect::<Result<Vec<_>>>()?
+        )
+        .ok_or_else(|| invalid(declaration, "disjunction without alternatives"))?;
+        let mut rows = vec![form_row!(
+            self,
             pse_ids::named_id(base, "select-one"),
             selected,
             EquationSense::Eq,
-            sym(parent.unwrap_or(one)),
+            form_sym!(self, parent.unwrap_or(one)),
             lineage.clone(),
         )?];
         let mut variables = indicators.clone();
@@ -864,7 +1026,7 @@ impl Engine<'_, '_> {
             Realized::Other(Policy::Indicator) => {
                 for (rows_k, indicator) in disjuncts.into_iter().zip(&indicators) {
                     for r in rows_k {
-                        let row = self.push_row(r.id, r.lhs, r.sense, r.rhs, r.lineage)?;
+                        let row = form_row!(self, r.id, r.lhs, r.sense, r.rhs, r.lineage)?;
                         self.model.native.push(NativeConstraint::Indicator {
                             row,
                             variable: *indicator,
@@ -878,7 +1040,12 @@ impl Engine<'_, '_> {
             Realized::BigM(_) | Realized::DerivedBigM(_) => {
                 for (rows_k, indicator) in disjuncts.into_iter().zip(&indicators) {
                     for r in rows_k {
-                        let relax = bin(BinaryOp::Sub, sym(one), sym(*indicator));
+                        let relax = form_bin!(
+                            self,
+                            BinaryOp::Sub,
+                            form_sym!(self, one),
+                            form_sym!(self, *indicator)
+                        );
                         let (derived_rows, derived) = self.relaxed(
                             instance,
                             declaration,
@@ -973,15 +1140,27 @@ impl Engine<'_, '_> {
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let equation = self.p.equation_at(child, "equation.expression", 0)?.clone();
-                        let equation = self.rewrite_equation(
+                        let equation = self.rewrite_equation_field(
                             instance,
-                            &equation,
+                            child,
+                            "equation.expression",
+                            0,
                             &coordinates_env(env, &coordinates),
                             &[child],
                         )?;
-                        let EquationKind::Relation { lhs, sense, rhs } = equation.kind else {
-                            return Err(invalid(child, "a disjunct row is a relation"));
+                        let (lhs, sense, rhs) = match equation.inspection.kind {
+                            EquationKind::Relation { lhs, sense, rhs } => (
+                                Rewritten {
+                                    root: equation.lhs,
+                                    inspection: lhs,
+                                },
+                                sense,
+                                Rewritten {
+                                    root: equation.rhs,
+                                    inspection: rhs,
+                                },
+                            ),
+                            _ => return Err(invalid(child, "a disjunct row is a relation")),
                         };
                         rows.push(DisjunctRow {
                             id: member_id(instance, child, &coordinates),
@@ -1009,9 +1188,9 @@ impl Engine<'_, '_> {
                                 ] {
                                     rows.push(DisjunctRow {
                                         id: pse_ids::named_id(id, suffix),
-                                        lhs: sym(annotation.target),
+                                        lhs: form_sym!(self,annotation.target),
                                         sense,
-                                        rhs: bound,
+                                        rhs:Rewritten {root:match annotation.roots {crate::annotation::AnnotationRoots::Bounds {lower,upper}=>if suffix=="lower" {lower} else {upper},_=>return Err(invalid(child,"disjunct bound lacks its actual annotation roots"))},inspection:bound},
                                         lineage: annotation.lineage.clone(),
                                     });
                                 }
@@ -1062,12 +1241,12 @@ impl Engine<'_, '_> {
     ) -> Result<(Vec<SemanticId>, Vec<SemanticId>, bool)> {
         let mut variables = BTreeSet::new();
         for row in disjuncts.iter().flatten() {
-            self.collect_variables(&row.lhs, &mut variables);
-            self.collect_variables(&row.rhs, &mut variables);
+            self.collect_variables(&row.lhs, &mut variables)?;
+            self.collect_variables(&row.rhs, &mut variables)?;
         }
         let mut rows = Vec::new();
         let mut derived = Vec::new();
-        let mut copies = vec![BTreeMap::<SemanticId, Expr>::new(); indicators.len()];
+        let mut copies = vec![BTreeMap::<SemanticId, Rewritten>::new(); indicators.len()];
         let mut zeros = BTreeMap::new();
         for x in &variables {
             let symbol = self.model.symbols[x].clone();
@@ -1103,7 +1282,7 @@ impl Engine<'_, '_> {
                 self.derived_lineage(&symbol.lineage, "hull_zero"),
                 source,
             )?;
-            zeros.insert(*x, sym(zero));
+            zeros.insert(*x, form_sym!(self, zero));
             derived.extend([upper, lower, zero]);
             let mut parts = Vec::new();
             for (k, indicator) in indicators.iter().enumerate() {
@@ -1115,48 +1294,69 @@ impl Engine<'_, '_> {
                     source,
                 )?;
                 derived.push(copy);
-                copies[k].insert(*x, sym(copy));
-                parts.push(sym(copy));
-                rows.push(self.push_row(
+                copies[k].insert(*x, form_sym!(self, copy));
+                parts.push(form_sym!(self, copy));
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(copy, "hull-upper"),
-                    sym(copy),
+                    form_sym!(self, copy),
                     EquationSense::Le,
-                    bin(BinaryOp::Mul, sym(upper), sym(*indicator)),
+                    form_bin!(
+                        self,
+                        BinaryOp::Mul,
+                        form_sym!(self, upper),
+                        form_sym!(self, *indicator)
+                    ),
                     lineage.clone(),
                 )?);
-                rows.push(self.push_row(
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(copy, "hull-lower"),
-                    sym(copy),
+                    form_sym!(self, copy),
                     EquationSense::Ge,
-                    bin(BinaryOp::Mul, sym(lower), sym(*indicator)),
+                    form_bin!(
+                        self,
+                        BinaryOp::Mul,
+                        form_sym!(self, lower),
+                        form_sym!(self, *indicator)
+                    ),
                     lineage.clone(),
                 )?);
             }
-            let parts = sum(parts).ok_or_else(|| invalid(source, "hull without alternatives"))?;
+            let parts = form_sum!(self, parts)
+                .ok_or_else(|| invalid(source, "hull without alternatives"))?;
             let link = pse_ids::named_id(base, &format!("hull-link-{}", x.to_hex()));
             match parent {
-                None => rows.push(self.push_row(
+                None => rows.push(form_row!(
+                    self,
                     link,
-                    sym(*x),
+                    form_sym!(self, *x),
                     EquationSense::Eq,
                     parts,
                     lineage.clone(),
                 )?),
                 Some(owner) => {
                     // Inside an unselected owner the copies vanish and x keeps its own box.
-                    let gap = bin(BinaryOp::Sub, sym(*x), parts);
+                    let gap = form_bin!(self, BinaryOp::Sub, form_sym!(self, *x), parts);
                     for (suffix, sense, bound) in [
                         ("upper", EquationSense::Le, upper),
                         ("lower", EquationSense::Ge, lower),
                     ] {
-                        rows.push(self.push_row(
+                        rows.push(form_row!(
+                            self,
                             pse_ids::named_id(link, suffix),
                             gap.clone(),
                             sense,
-                            bin(
+                            form_bin!(
+                                self,
                                 BinaryOp::Sub,
-                                sym(bound),
-                                bin(BinaryOp::Mul, sym(bound), sym(owner)),
+                                form_sym!(self, bound),
+                                form_bin!(
+                                    self,
+                                    BinaryOp::Mul,
+                                    form_sym!(self, bound),
+                                    form_sym!(self, owner)
+                                ),
                             ),
                             lineage.clone(),
                         )?);
@@ -1167,19 +1367,20 @@ impl Engine<'_, '_> {
         let mut perspective = false;
         for ((rows_k, indicator), map) in disjuncts.into_iter().zip(indicators).zip(&copies) {
             for r in rows_k {
-                let g = bin(BinaryOp::Sub, r.lhs, r.rhs);
+                let g = form_bin!(self, BinaryOp::Sub, r.lhs, r.rhs);
                 let ty = self.type_of(&g, &self.model.function_contracts(self.p), source)?;
-                let zero = self.typed_zero(&ty, source)?;
+                let zero = form_zero!(self, &ty, source);
                 let mut memo = BTreeMap::new();
-                let lhs = match self.classify(&g, &variables, &mut memo) {
+                let lhs = match self.classify(&g, &variables, &mut memo)? {
                     Class::Constant | Class::Affine => {
                         // Homogenize the affine row: g(v) − g(0) + g(0)·y.
                         let at_copy = self.substitute(&g, map, &variables, source)?;
                         let at_zero = self.substitute(&g, &zeros, &variables, source)?;
-                        bin(
+                        form_bin!(
+                            self,
                             BinaryOp::Add,
-                            bin(BinaryOp::Sub, at_copy, at_zero.clone()),
-                            bin(BinaryOp::Mul, at_zero, sym(*indicator)),
+                            form_bin!(self, BinaryOp::Sub, at_copy, at_zero.clone()),
+                            form_bin!(self, BinaryOp::Mul, at_zero, form_sym!(self, *indicator)),
                         )
                     }
                     Class::Nonlinear => {
@@ -1202,83 +1403,112 @@ impl Engine<'_, '_> {
                             source,
                         )?;
                         derived.push(eps);
-                        let scale = bin(BinaryOp::Add, sym(*indicator), sym(eps));
+                        let scale = form_bin!(
+                            self,
+                            BinaryOp::Add,
+                            form_sym!(self, *indicator),
+                            form_sym!(self, eps)
+                        );
                         let scaled = map
                             .iter()
-                            .map(|(x, copy)| (*x, bin(BinaryOp::Div, copy.clone(), scale.clone())))
-                            .collect();
-                        bin(
+                            .map(|(x, copy)| {
+                                Ok((
+                                    *x,
+                                    form_bin!(self, BinaryOp::Div, copy.clone(), scale.clone()),
+                                ))
+                            })
+                            .collect::<Result<BTreeMap<_, _>>>()?;
+                        form_bin!(
+                            self,
                             BinaryOp::Mul,
                             scale,
                             self.substitute(&g, &scaled, &variables, source)?,
                         )
                     }
                 };
-                rows.push(self.push_row(r.id, lhs, r.sense, zero, r.lineage)?);
+                rows.push(form_row!(self, r.id, lhs, r.sense, zero, r.lineage)?);
             }
         }
         Ok((rows, derived, perspective))
     }
-    /// Independent variables an expression depends on, through expression members.
-    fn collect_variables(&self, expression: &Expr, out: &mut BTreeSet<SemanticId>) {
-        let mut pending = vec![expression.clone()];
-        let mut seen = BTreeSet::new();
-        while let Some(e) = pending.pop() {
-            for path in e.paths() {
-                let Some(id) = self.model.symbols.path(path)
-                else {
-                    continue;
-                };
-                let Some(symbol) = self.model.symbols.get(&id) else {
-                    continue;
-                };
-                match &symbol.expression {
-                    Some(body) if seen.insert(id) => pending.push(body.clone()),
-                    None if symbol.role == Kind::Variable => {
-                        out.insert(id);
-                    }
-                    _ => {}
-                }
+    /// Original numerical and guard variables reached through actual member definitions.
+    fn collect_variables(
+        &self,
+        expression: &Rewritten,
+        out: &mut BTreeSet<SemanticId>,
+    ) -> Result<()> {
+        let reads = self
+            .construction
+            .reads(&self.model.symbols, expression.root)?;
+        for id in reads.numeric.into_iter().chain(reads.guards) {
+            if self
+                .model
+                .symbols
+                .get(&id)
+                .is_some_and(|symbol| symbol.role == Kind::Variable)
+            {
+                out.insert(id);
             }
         }
+        Ok(())
     }
-    fn depends(&self, expression: &Expr, variables: &BTreeSet<SemanticId>) -> bool {
-        let mut found = BTreeSet::new();
-        self.collect_variables(expression, &mut found);
-        !found.is_disjoint(variables)
+    fn depends_root(&self, root: NodeIx, variables: &BTreeSet<SemanticId>) -> Result<bool> {
+        let reads = self.construction.reads(&self.model.symbols, root)?;
+        Ok(!reads.numeric.is_disjoint(variables) || !reads.guards.is_disjoint(variables))
     }
-    /// Conservative dependence class of an expression on `variables`.
     fn classify(
         &self,
-        expression: &Expr,
+        expression: &Rewritten,
         variables: &BTreeSet<SemanticId>,
-        memo: &mut BTreeMap<String, Class>,
-    ) -> Class {
-        match &expression.kind {
-            ExprKind::Number(_) => Class::Constant,
-            ExprKind::Path(path) => {
-                let name = dsl::render_path(path);
-                if let Some(class) = memo.get(&name) {
-                    return *class;
+        memo: &mut BTreeMap<NodeIx, Class>,
+    ) -> Result<Class> {
+        self.classify_root(expression.root, variables, memo)
+    }
+    fn classify_root(
+        &self,
+        root: NodeIx,
+        variables: &BTreeSet<SemanticId>,
+        memo: &mut BTreeMap<NodeIx, Class>,
+    ) -> Result<Class> {
+        if let Some(class) = memo.get(&root) {
+            return Ok(*class);
+        }
+        memo.insert(root, Class::Nonlinear);
+        let class = match self.construction.get(root).ok_or_else(|| {
+            invalid(
+                SemanticId::NIL,
+                "form dependence operation is outside its typed owner",
+            )
+        })? {
+            Node::Number(_) => Class::Constant,
+            Node::Reference(Reference::Symbol(slot)) => {
+                let symbol = self.model.symbols.at(*slot).ok_or_else(|| {
+                    invalid(
+                        SemanticId::NIL,
+                        "form dependence scalar is outside its actual owner",
+                    )
+                })?;
+                if variables.contains(&symbol.id) {
+                    Class::Affine
+                } else if let Some(body) = symbol.definition {
+                    self.classify_root(body, variables, memo)?
+                } else {
+                    Class::Constant
                 }
-                let class = match self.model.symbols.reference(expression)
-                    .and_then(|id| self.model.symbols.get(&id).map(|s| (id, s)))
-                {
-                    Some((id, _)) if variables.contains(&id) => Class::Affine,
-                    Some((_, symbol)) => match &symbol.expression {
-                        Some(body) => self.classify(body, variables, memo),
-                        None => Class::Constant,
-                    },
-                    None if self.depends(expression, variables) => Class::Nonlinear,
-                    None => Class::Constant,
-                };
-                memo.insert(name, class);
-                class
             }
-            ExprKind::Neg(e) => self.classify(e, variables, memo),
-            ExprKind::Binary { op, lhs, rhs } => {
-                let a = self.classify(lhs, variables, memo);
-                let b = self.classify(rhs, variables, memo);
+            Node::Reference(Reference::Lexical(binding)) => {
+                match self.construction.binding_at(*binding)? {
+                    Binding::Value(value) => self.classify_root(*value, variables, memo)?,
+                    _ => Class::Constant,
+                }
+            }
+            Node::Neg(value)
+            | Node::Evidence { value, .. }
+            | Node::Sequence { value, .. }
+            | Node::Let { body: value, .. } => self.classify_root(*value, variables, memo)?,
+            Node::Binary { op, lhs, rhs } => {
+                let a = self.classify_root(*lhs, variables, memo)?;
+                let b = self.classify_root(*rhs, variables, memo)?;
                 match op {
                     BinaryOp::Add | BinaryOp::Sub => a.max(b),
                     BinaryOp::Mul if a == Class::Constant => b,
@@ -1288,103 +1518,55 @@ impl Engine<'_, '_> {
                     _ => Class::Nonlinear,
                 }
             }
-            ExprKind::NamedCall { name, args }
+            Node::Apply { function, args }
                 if self
-                    .model
-                    .functions
-                    .get(&dsl::render_path(name))
-                    .is_some_and(|f| {
-                        f.reduction
-                            .as_ref()
-                            .is_some_and(|r| r.kind == pse_quantity::ReductionKind::Sum)
+                    .construction
+                    .function_at(*function)?
+                    .product
+                    .reduction
+                    .as_ref()
+                    .is_some_and(|reduction| {
+                        reduction.kind == pse_quantity::ReductionKind::Sum
                     }) =>
             {
-                args.iter()
-                    .map(|a| self.classify(a, variables, memo))
-                    .max()
-                    .unwrap_or(Class::Constant)
-            }
-            ExprKind::Let { bindings, body } => {
-                for (name, value) in bindings {
-                    let class = self.classify(value, variables, memo);
-                    memo.insert(name.clone(), class);
+                let mut class = Class::Constant;
+                for arg in args {
+                    class = class.max(self.classify_root(*arg, variables, memo)?);
                 }
-                self.classify(body, variables, memo)
+                class
             }
-            _ if self.depends(expression, variables) => Class::Nonlinear,
+            _ if self.depends_root(root, variables)? => Class::Nonlinear,
             _ => Class::Constant,
-        }
-    }
-    /// Replace `variables` by `map`, inlining expression members that depend on them.
-    fn substitute(
-        &self,
-        expression: &Expr,
-        map: &BTreeMap<SemanticId, Expr>,
-        variables: &BTreeSet<SemanticId>,
-        at: DeclarationId,
-    ) -> Result<Expr> {
-        let kind = match &expression.kind {
-            ExprKind::Number(_) => return Ok(expression.clone()),
-            ExprKind::Path(_) => {
-                return match self.model.symbols.reference(expression) {
-                    Some(id) if map.contains_key(&id) => Ok(map[&id].clone()),
-                    Some(id) => match self
-                        .model
-                        .symbols
-                        .get(&id)
-                        .and_then(|s| s.expression.as_ref())
-                    {
-                        Some(body) if self.depends(body, variables) => {
-                            self.substitute(body, map, variables, at)
-                        }
-                        _ => Ok(expression.clone()),
-                    },
-                    None => Ok(expression.clone()),
-                };
-            }
-            ExprKind::Neg(e) => ExprKind::Neg(Box::new(self.substitute(e, map, variables, at)?)),
-            ExprKind::Binary { op, lhs, rhs } => ExprKind::Binary {
-                op: *op,
-                lhs: Box::new(self.substitute(lhs, map, variables, at)?),
-                rhs: Box::new(self.substitute(rhs, map, variables, at)?),
-            },
-            ExprKind::Call { function, args } => ExprKind::Call {
-                function: *function,
-                args: args
-                    .iter()
-                    .map(|a| self.substitute(a, map, variables, at))
-                    .collect::<Result<_>>()?,
-            },
-            ExprKind::NamedCall { name, args } => ExprKind::NamedCall {
-                name: name.clone(),
-                args: args
-                    .iter()
-                    .map(|a| self.substitute(a, map, variables, at))
-                    .collect::<Result<_>>()?,
-            },
-            ExprKind::Let { bindings, body } => ExprKind::Let {
-                bindings: bindings
-                    .iter()
-                    .map(|(n, v)| Ok((n.clone(), self.substitute(v, map, variables, at)?)))
-                    .collect::<Result<_>>()?,
-                body: Box::new(self.substitute(body, map, variables, at)?),
-            },
-            _ if self.depends(expression, variables) => {
-                return Err(invalid(
-                    at,
-                    "a hull disjunct row uses an expression form the hull cannot disaggregate",
-                ));
-            }
-            _ => return Ok(expression.clone()),
         };
-        Ok(Expr {
-            kind,
-            span: Span::default(),
+        memo.insert(root, class);
+        Ok(class)
+    }
+    fn substitute(
+        &mut self,
+        expression: &Rewritten,
+        map: &BTreeMap<SemanticId, Rewritten>,
+        _variables: &BTreeSet<SemanticId>,
+        at: DeclarationId,
+    ) -> Result<Rewritten> {
+        let replacements = map.iter().map(|(id, value)| (*id, value.root)).collect();
+        Ok(Rewritten {
+            root: self.substitute_root(expression.root, &replacements, at)?,
+            inspection: expression.inspection.clone(),
         })
     }
 
     /// `sos1`/`sos2 name[i in s]: x[i] weight w[i];`
     pub(super) fn ordered_set(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        env: &Environment,
+    ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.ordered_set_inner(instance, row, env)
+        })
+    }
+    fn ordered_set_inner(
         &mut self,
         instance: InstanceId,
         row: &Declaration,
@@ -1462,13 +1644,15 @@ impl Engine<'_, '_> {
         at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = self.p.expression_at(at, role, 0)?.clone();
-        let expression = self.rewrite(instance, &expression, env, &[at])?;
-        self.model.symbols.reference(&expression)
+        let expression = self.with_original_expression(at, role, 0, &expression, |engine| {
+            engine.rewrite(instance, &expression, env, &[at])
+        })?;
+        self.symbol_of_root(expression.root)
             .filter(|id| {
                 self.model
                     .symbols
                     .get(id)
-                    .is_some_and(|s| s.role == Kind::Variable && s.expression.is_none())
+                    .is_some_and(|s| s.role == Kind::Variable && s.definition.is_none())
             })
             .ok_or_else(|| invalid(at, format!("{role} must name a variable")))
     }
@@ -1503,12 +1687,18 @@ impl Engine<'_, '_> {
             variables.push(id);
         }
         let mut rows = Vec::new();
-        if let Some(total) = sum(z.iter().map(|id| sym(*id)).collect()) {
-            rows.push(self.push_row(
+        if let Some(total) = form_sum!(
+            self,
+            z.iter()
+                .map(|id| Ok(form_sym!(self, *id)))
+                .collect::<Result<Vec<_>>>()?
+        ) {
+            rows.push(form_row!(
+                self,
                 pse_ids::named_id(base, "select-at-most-one"),
                 total,
                 EquationSense::Le,
-                sym(one),
+                form_sym!(self, one),
                 lineage.clone(),
             )?);
         }
@@ -1518,11 +1708,11 @@ impl Engine<'_, '_> {
                 NativeConstraintForm::Sos2 => [i.checked_sub(1), (i < selectors).then_some(i)]
                     .into_iter()
                     .flatten()
-                    .map(|k| sym(z[k]))
-                    .collect::<Vec<_>>(),
-                _ => vec![sym(z[i])],
+                    .map(|k| Ok(form_sym!(self, z[k])))
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![form_sym!(self, z[i])],
             };
-            let Some(allowed) = sum(allowed) else {
+            let Some(allowed) = form_sum!(self, allowed) else {
                 continue;
             };
             let (rows_i, bounds) =
@@ -1538,7 +1728,7 @@ impl Engine<'_, '_> {
         source: DeclarationId,
         base: SemanticId,
         member: SemanticId,
-        switch: Expr,
+        switch: Rewritten,
         realization: Policy,
         lineage: &Lineage,
     ) -> Result<(Vec<SemanticId>, Vec<SemanticId>)> {
@@ -1565,11 +1755,12 @@ impl Engine<'_, '_> {
                 ),
             )?;
             variables.push(bound);
-            rows.push(self.push_row(
+            rows.push(form_row!(
+                self,
                 pse_ids::named_id(base, &format!("switched-{}-{}", upper, member.to_hex())),
-                sym(member),
+                form_sym!(self, member),
                 sense,
-                bin(BinaryOp::Mul, sym(bound), switch.clone()),
+                form_bin!(self, BinaryOp::Mul, form_sym!(self, bound), switch.clone()),
                 lineage.clone(),
             )?);
         }
@@ -1578,6 +1769,16 @@ impl Engine<'_, '_> {
 
     /// `atmost`/`atleast`/`exactly name[i in s]: k of y[i];`
     pub(super) fn cardinality(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        env: &Environment,
+    ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.cardinality_inner(instance, row, env)
+        })
+    }
+    fn cardinality_inner(
         &mut self,
         instance: InstanceId,
         row: &Declaration,
@@ -1622,12 +1823,19 @@ impl Engine<'_, '_> {
         let binary = members
             .iter()
             .all(|id| self.model.symbols[id].domain == Domain::Binary);
-        let limit = sym(self.indicator_constant(instance, count, at)?);
+        let limit = form_sym!(self, self.indicator_constant(instance, count, at)?);
         if binary {
             // Over binaries the count is one exact linear row on every backend.
-            let total = sum(members.iter().map(|id| sym(*id)).collect())
-                .ok_or_else(|| invalid(at, "cardinality without members"))?;
-            let row = self.push_row(
+            let total = form_sum!(
+                self,
+                members
+                    .iter()
+                    .map(|id| Ok(form_sym!(self, *id)))
+                    .collect::<Result<Vec<_>>>()?
+            )
+            .ok_or_else(|| invalid(at, "cardinality without members"))?;
+            let row = form_row!(
+                self,
                 pse_ids::named_id(base, "count"),
                 total,
                 sense,
@@ -1680,14 +1888,17 @@ impl Engine<'_, '_> {
                 at,
             )?;
             variables.push(z);
-            selectors.push(sym(z));
+            selectors.push(form_sym!(self, z));
+            let switch = form_sym!(self, z);
             let (rows_k, bounds) =
-                self.switched_bounds(at, base, *member, sym(z), Policy::Linear, &lineage)?;
+                self.switched_bounds(at, base, *member, switch, Policy::Linear, &lineage)?;
             rows.extend(rows_k);
             variables.extend(bounds);
         }
-        let total = sum(selectors).ok_or_else(|| invalid(at, "cardinality without members"))?;
-        rows.push(self.push_row(
+        let total =
+            form_sum!(self, selectors).ok_or_else(|| invalid(at, "cardinality without members"))?;
+        rows.push(form_row!(
+            self,
             pse_ids::named_id(base, "count"),
             total,
             sense,
@@ -1706,11 +1917,17 @@ impl Engine<'_, '_> {
     }
 
     /// `piecewise name[k in s]: y == x at (X[k], Y[k]);` over breakpoints in set order.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "the SOS2 and incremental formulations share breakpoint admission"
-    )]
     pub(super) fn piecewise(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        env: &Environment,
+    ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.piecewise_inner(instance, row, env)
+        })
+    }
+    fn piecewise_inner(
         &mut self,
         instance: InstanceId,
         row: &Declaration,
@@ -1725,9 +1942,8 @@ impl Engine<'_, '_> {
         if v.indices.len() != 1 {
             return Err(invalid(at, "a piecewise function has one breakpoint index"));
         }
-        let rewrite = |engine: &mut Self, role: &str, local: &Environment| -> Result<Expr> {
-            let e = engine.p.expression_at(at, role, 0)?.clone();
-            engine.rewrite(instance, &e, local, &[at])
+        let rewrite = |engine: &mut Self, role: &str, local: &Environment| -> Result<Rewritten> {
+            engine.rewrite_field(instance, at, role, 0, local, &[at])
         };
         let output = rewrite(self, "piecewise.output", env)?;
         let input = rewrite(self, "piecewise.input", env)?;
@@ -1790,18 +2006,20 @@ impl Engine<'_, '_> {
                     at,
                 )?;
                 variables.push(w);
-                rows.push(self.push_row(
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(w, "after"),
-                    sym(deltas[j + 1]),
+                    form_sym!(self, deltas[j + 1]),
                     EquationSense::Le,
-                    sym(w),
+                    form_sym!(self, w),
                     lineage.clone(),
                 )?);
-                rows.push(self.push_row(
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(w, "before"),
-                    sym(w),
+                    form_sym!(self, w),
                     EquationSense::Le,
-                    sym(deltas[j]),
+                    form_sym!(self, deltas[j]),
                     lineage.clone(),
                 )?);
             }
@@ -1815,15 +2033,17 @@ impl Engine<'_, '_> {
                 };
                 let mut terms = vec![coordinate(0)];
                 for (j, delta) in deltas.iter().enumerate() {
-                    terms.push(bin(
+                    terms.push(form_bin!(
+                        self,
                         BinaryOp::Mul,
-                        sym(*delta),
-                        bin(BinaryOp::Sub, coordinate(j + 1), coordinate(j)),
+                        form_sym!(self, *delta),
+                        form_bin!(self, BinaryOp::Sub, coordinate(j + 1), coordinate(j)),
                     ));
                 }
-                let total =
-                    sum(terms).ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
-                rows.push(self.push_row(
+                let total = form_sum!(self, terms)
+                    .ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(base, name),
                     target,
                     EquationSense::Eq,
@@ -1838,13 +2058,20 @@ impl Engine<'_, '_> {
             for k in 0..n {
                 weights.push(unit(self, &format!("weight-{k}"), &mut variables)?);
             }
-            let total = sum(weights.iter().map(|id| sym(*id)).collect())
-                .ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
-            rows.push(self.push_row(
+            let total = form_sum!(
+                self,
+                weights
+                    .iter()
+                    .map(|id| Ok(form_sym!(self, *id)))
+                    .collect::<Result<Vec<_>>>()?
+            )
+            .ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
+            rows.push(form_row!(
+                self,
                 pse_ids::named_id(base, "convex"),
                 total,
                 EquationSense::Eq,
-                sym(one),
+                form_sym!(self, one),
                 lineage.clone(),
             )?);
             for (name, target, pick) in [("input", input, 0usize), ("output", output, 1)] {
@@ -1852,20 +2079,22 @@ impl Engine<'_, '_> {
                     .iter()
                     .enumerate()
                     .map(|(k, w)| {
-                        bin(
+                        Ok(form_bin!(
+                            self,
                             BinaryOp::Mul,
-                            sym(*w),
+                            form_sym!(self, *w),
                             if pick == 0 {
                                 points[k].0.clone()
                             } else {
                                 points[k].1.clone()
                             },
-                        )
+                        ))
                     })
-                    .collect();
-                let combination =
-                    sum(terms).ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
-                rows.push(self.push_row(
+                    .collect::<Result<Vec<_>>>()?;
+                let combination = form_sum!(self, terms)
+                    .ok_or_else(|| invalid(at, "piecewise without breakpoints"))?;
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(base, name),
                     target,
                     EquationSense::Eq,
@@ -1897,26 +2126,34 @@ impl Engine<'_, '_> {
                     variables.push(z);
                     segments.push(z);
                 }
-                let chosen = sum(segments.iter().map(|id| sym(*id)).collect())
-                    .ok_or_else(|| invalid(at, "piecewise without segments"))?;
-                rows.push(self.push_row(
+                let chosen = form_sum!(
+                    self,
+                    segments
+                        .iter()
+                        .map(|id| Ok(form_sym!(self, *id)))
+                        .collect::<Result<Vec<_>>>()?
+                )
+                .ok_or_else(|| invalid(at, "piecewise without segments"))?;
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(base, "one-segment"),
                     chosen,
                     EquationSense::Eq,
-                    sym(one),
+                    form_sym!(self, one),
                     lineage.clone(),
                 )?);
                 for (k, weight) in weights.iter().enumerate() {
                     let ends = [k.checked_sub(1), (k < n - 1).then_some(k)]
                         .into_iter()
                         .flatten()
-                        .map(|j| sym(segments[j]))
-                        .collect();
-                    let ends =
-                        sum(ends).ok_or_else(|| invalid(at, "piecewise without segments"))?;
-                    rows.push(self.push_row(
+                        .map(|j| Ok(form_sym!(self, segments[j])))
+                        .collect::<Result<Vec<_>>>()?;
+                    let ends = form_sum!(self, ends)
+                        .ok_or_else(|| invalid(at, "piecewise without segments"))?;
+                    rows.push(form_row!(
+                        self,
                         pse_ids::named_id(*weight, "adjacent"),
-                        sym(*weight),
+                        form_sym!(self, *weight),
                         EquationSense::Le,
                         ends,
                         lineage.clone(),
@@ -1955,6 +2192,17 @@ impl Engine<'_, '_> {
         coordinates: &[(String, Value)],
         env: &Environment,
     ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.complementarity_inner(instance, row, coordinates, env)
+        })
+    }
+    fn complementarity_inner(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        coordinates: &[(String, Value)],
+        env: &Environment,
+    ) -> Result<()> {
         let at = row.declaration_id;
         let _v = row
             .value
@@ -1965,9 +2213,8 @@ impl Engine<'_, '_> {
         let local = coordinates_env(env, coordinates);
         let base = member_id(instance, at, coordinates);
         let lineage = self.lineage(instance, row, &[at]);
-        let member = |engine: &mut Self, role: &str| -> Result<(Expr, Type)> {
-            let parsed = engine.p.expression_at(at, role, 0)?;
-            let expression = engine.rewrite(instance, parsed, &local, &[at])?;
+        let member = |engine: &mut Self, role: &str| -> Result<(Rewritten, Type)> {
+            let expression = engine.rewrite_field(instance, at, role, 0, &local, &[at])?;
             let contracts = engine.model.function_contracts(engine.p);
             let ty = engine.type_of(&expression, &contracts, at)?;
             Ok((expression, ty))
@@ -1979,11 +2226,12 @@ impl Engine<'_, '_> {
         let nonnegative = |engine: &mut Self,
                            rows: &mut Vec<SemanticId>,
                            name: &str,
-                           value: &Expr,
+                           value: &Rewritten,
                            ty: &Type|
          -> Result<()> {
-            let zero = engine.typed_zero(ty, at)?;
-            rows.push(engine.push_row(
+            let zero = form_zero!(engine, ty, at);
+            rows.push(form_row!(
+                engine,
                 pse_ids::named_id(base, name),
                 value.clone(),
                 EquationSense::Ge,
@@ -1994,26 +2242,46 @@ impl Engine<'_, '_> {
         };
         let equivalence = match &realized {
             Realized::Smooth { function, width } => {
-                // The smoothing function is the package's, called as authored.
-                let call = Expr {
-                    kind: ExprKind::NamedCall {
-                        name: function.clone(),
-                        args: vec![
-                            self.p
-                                .expression_at(at, "complementarity.first", 0)?
-                                .clone(),
-                            self.p
-                                .expression_at(at, "complementarity.second", 0)?
-                                .clone(),
-                            width.clone(),
-                        ],
+                let owner = self
+                    .form_realizations
+                    .get(&(instance, at))
+                    .map(|(_, owner)| *owner)
+                    .ok_or_else(|| {
+                        invalid(at, "smoothing function lacks its actual realization owner")
+                    })?;
+                let width_value = self.with_original_expression(
+                    owner,
+                    "realization.argument",
+                    0,
+                    width,
+                    |engine| engine.rewrite(instance, width, &local, &[owner]),
+                )?;
+                let width_type = self.constructed_type(width_value.root)?;
+                let function = self.resolve_function(instance, owner, function, &local)?;
+                let prepared = [
+                    functions::PreparedArgument::Scalar {
+                        value: first.clone(),
+                        ty: first_ty.clone(),
                     },
-                    span: Span::default(),
-                };
-                let smoothed = self.rewrite(instance, &call, &local, &[at])?;
+                    functions::PreparedArgument::Scalar {
+                        value: second.clone(),
+                        ty: second_ty.clone(),
+                    },
+                    functions::PreparedArgument::Scalar {
+                        value: width_value,
+                        ty: width_type,
+                    },
+                ];
+                let smoothed = self.function_call_prepared(
+                    instance,
+                    function,
+                    &prepared,
+                    self.form_source()?,
+                )?;
                 let ty = self.type_of(&smoothed, &self.model.function_contracts(self.p), at)?;
-                let zero = self.typed_zero(&ty, at)?;
-                rows.push(self.push_row(
+                let zero = form_zero!(self, &ty, at);
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(base, "complementarity-smooth"),
                     smoothed,
                     EquationSense::Eq,
@@ -2036,9 +2304,10 @@ impl Engine<'_, '_> {
                         at,
                     )?;
                     self.model.nonnegative.insert(slack);
-                    rows.push(self.push_row(
+                    rows.push(form_row!(
+                        self,
                         pse_ids::named_id(base, &format!("complementarity-{name}")),
-                        sym(slack),
+                        form_sym!(self, slack),
                         EquationSense::Eq,
                         value.clone(),
                         lineage.clone(),
@@ -2061,10 +2330,11 @@ impl Engine<'_, '_> {
                     &second,
                     &second_ty,
                 )?;
-                let product = bin(BinaryOp::Mul, first, second);
+                let product = form_bin!(self, BinaryOp::Mul, first, second);
                 let ty = self.type_of(&product, &self.model.function_contracts(self.p), at)?;
-                let zero = self.typed_zero(&ty, at)?;
-                rows.push(self.push_row(
+                let zero = form_zero!(self, &ty, at);
+                rows.push(form_row!(
+                    self,
                     pse_ids::named_id(base, "complementarity-product"),
                     product,
                     EquationSense::Le,
@@ -2097,6 +2367,17 @@ impl Engine<'_, '_> {
         coordinates: &[(String, Value)],
         env: &Environment,
     ) -> Result<()> {
+        self.with_form_source(row.declaration_id, |engine| {
+            engine.logic_inner(instance, row, coordinates, env)
+        })
+    }
+    fn logic_inner(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        coordinates: &[(String, Value)],
+        env: &Environment,
+    ) -> Result<()> {
         let at = row.declaration_id;
         let proposition = self.p.proposition_at(at)?.clone();
         let realized = self.realization(Form::Logic, instance, at)?;
@@ -2114,7 +2395,9 @@ impl Engine<'_, '_> {
             rows: Vec::new(),
             variables: Vec::new(),
         };
-        lowering.assert(self, &proposition)?;
+        self.with_original_logic(at, "logic.proposition", 0, &proposition, |engine| {
+            lowering.assert(engine, &proposition)
+        })?;
         let LogicLowering {
             rows, variables, ..
         } = lowering;
@@ -2152,14 +2435,20 @@ impl LogicLowering {
     fn row(
         &mut self,
         engine: &mut Engine<'_, '_>,
-        lhs: Expr,
+        lhs: Rewritten,
         sense: EquationSense,
-        rhs: Expr,
+        rhs: Rewritten,
     ) -> Result<()> {
         self.serial += 1;
         let id = pse_ids::named_id(self.base, &format!("logic-row-{}", self.serial));
-        self.rows
-            .push(engine.push_row(id, lhs, sense, rhs, self.lineage.clone())?);
+        self.rows.push(form_row!(
+            engine,
+            id,
+            lhs,
+            sense,
+            rhs,
+            self.lineage.clone()
+        )?);
         Ok(())
     }
     fn resultant(&mut self, engine: &mut Engine<'_, '_>) -> Result<SemanticId> {
@@ -2192,12 +2481,21 @@ impl LogicLowering {
             other => (self.define(engine, other)?, false),
         })
     }
-    fn value(&self, (variable, negated): (SemanticId, bool)) -> Expr {
-        if negated {
-            bin(BinaryOp::Sub, sym(self.one), sym(variable))
+    fn value(
+        &self,
+        engine: &mut Engine<'_, '_>,
+        (variable, negated): (SemanticId, bool),
+    ) -> Result<Rewritten> {
+        Ok(if negated {
+            form_bin!(
+                engine,
+                BinaryOp::Sub,
+                form_sym!(engine, self.one),
+                form_sym!(engine, variable)
+            )
         } else {
-            sym(variable)
-        }
+            form_sym!(engine, variable)
+        })
     }
     fn operands(
         &mut self,
@@ -2247,52 +2545,79 @@ impl LogicLowering {
             });
             return Ok(z);
         }
-        let values = operands.iter().map(|o| self.value(*o)).collect::<Vec<_>>();
-        let total = sum(values.clone()).ok_or_else(|| invalid(self.at, "empty proposition"))?;
+        let values = operands
+            .iter()
+            .map(|o| self.value(engine, *o))
+            .collect::<Result<Vec<_>>>()?;
+        let total = form_sum!(engine, values.clone())
+            .ok_or_else(|| invalid(self.at, "empty proposition"))?;
         match form {
             NativeConstraintForm::And => {
                 for value in &values {
-                    self.row(engine, sym(z), EquationSense::Le, value.clone())?;
+                    logic_row!(
+                        self,
+                        engine,
+                        form_sym!(engine, z),
+                        EquationSense::Le,
+                        value.clone()
+                    )?;
                 }
-                let slack = sym(engine.indicator_constant(
-                    self.instance,
-                    (values.len() - 1) as f64,
-                    self.at,
-                )?);
-                self.row(
+                let slack = form_sym!(
                     engine,
-                    sym(z),
+                    engine.indicator_constant(self.instance, (values.len() - 1) as f64, self.at,)?
+                );
+                logic_row!(
+                    self,
+                    engine,
+                    form_sym!(engine, z),
                     EquationSense::Ge,
-                    bin(BinaryOp::Sub, total, slack),
+                    form_bin!(engine, BinaryOp::Sub, total, slack),
                 )?;
             }
             NativeConstraintForm::Or => {
                 for value in &values {
-                    self.row(engine, sym(z), EquationSense::Ge, value.clone())?;
+                    logic_row!(
+                        self,
+                        engine,
+                        form_sym!(engine, z),
+                        EquationSense::Ge,
+                        value.clone()
+                    )?;
                 }
-                self.row(engine, sym(z), EquationSense::Le, total)?;
+                logic_row!(self, engine, form_sym!(engine, z), EquationSense::Le, total)?;
             }
             _ => {
                 let (a, b) = (values[0].clone(), values[1].clone());
-                self.row(
+                logic_row!(
+                    self,
                     engine,
-                    sym(z),
+                    form_sym!(engine, z),
                     EquationSense::Ge,
-                    bin(BinaryOp::Sub, a.clone(), b.clone()),
+                    form_bin!(engine, BinaryOp::Sub, a.clone(), b.clone()),
                 )?;
-                self.row(
+                logic_row!(
+                    self,
                     engine,
-                    sym(z),
+                    form_sym!(engine, z),
                     EquationSense::Ge,
-                    bin(BinaryOp::Sub, b.clone(), a.clone()),
+                    form_bin!(engine, BinaryOp::Sub, b.clone(), a.clone()),
                 )?;
-                self.row(engine, sym(z), EquationSense::Le, total)?;
-                let two = sym(engine.indicator_constant(self.instance, 2.0, self.at)?);
-                self.row(
+                logic_row!(self, engine, form_sym!(engine, z), EquationSense::Le, total)?;
+                let two = form_sym!(
                     engine,
-                    sym(z),
+                    engine.indicator_constant(self.instance, 2.0, self.at)?
+                );
+                logic_row!(
+                    self,
+                    engine,
+                    form_sym!(engine, z),
                     EquationSense::Le,
-                    bin(BinaryOp::Sub, bin(BinaryOp::Sub, two, a), b),
+                    form_bin!(
+                        engine,
+                        BinaryOp::Sub,
+                        form_bin!(engine, BinaryOp::Sub, two, a),
+                        b
+                    ),
                 )?;
             }
         }
@@ -2300,7 +2625,7 @@ impl LogicLowering {
     }
     /// Assert a proposition true with the fewest auxiliary variables.
     fn assert(&mut self, engine: &mut Engine<'_, '_>, p: &Proposition) -> Result<()> {
-        let one = sym(self.one);
+        let one = form_sym!(engine, self.one);
         match p {
             Proposition::And(ps) => {
                 for q in ps {
@@ -2321,78 +2646,53 @@ impl LogicLowering {
                 let values = self
                     .operands(engine, ps)?
                     .into_iter()
-                    .map(|o| self.value(o))
-                    .collect();
-                let total = sum(values).ok_or_else(|| invalid(self.at, "empty proposition"))?;
-                let count = sym(engine.indicator_constant(self.instance, k, self.at)?);
-                self.row(engine, total, EquationSense::Eq, count)
+                    .map(|o| self.value(engine, o))
+                    .collect::<Result<Vec<_>>>()?;
+                let total = form_sum!(engine, values)
+                    .ok_or_else(|| invalid(self.at, "empty proposition"))?;
+                let count = form_sym!(
+                    engine,
+                    engine.indicator_constant(self.instance, k, self.at)?
+                );
+                logic_row!(self, engine, total, EquationSense::Eq, count)
             }
             _ if self.native => {
                 let (variable, negated) = self.literal(engine, p)?;
-                let value = self.value((variable, negated));
-                self.row(engine, value, EquationSense::Eq, one)
+                let value = self.value(engine, (variable, negated))?;
+                logic_row!(self, engine, value, EquationSense::Eq, one)
             }
             Proposition::Or(ps) => {
                 let values = self
                     .operands(engine, ps)?
                     .into_iter()
-                    .map(|o| self.value(o))
-                    .collect();
-                let total = sum(values).ok_or_else(|| invalid(self.at, "empty proposition"))?;
-                self.row(engine, total, EquationSense::Ge, one)
+                    .map(|o| self.value(engine, o))
+                    .collect::<Result<Vec<_>>>()?;
+                let total = form_sum!(engine, values)
+                    .ok_or_else(|| invalid(self.at, "empty proposition"))?;
+                logic_row!(self, engine, total, EquationSense::Ge, one)
             }
             Proposition::Implies(a, b) => {
                 let a = self.literal(engine, a)?;
                 let b = self.literal(engine, b)?;
-                let (a, b) = (self.value(a), self.value(b));
-                self.row(engine, a, EquationSense::Le, b)
+                let (a, b) = (self.value(engine, a)?, self.value(engine, b)?);
+                logic_row!(self, engine, a, EquationSense::Le, b)
             }
             Proposition::Xor(a, b) => {
                 let a = self.literal(engine, a)?;
                 let b = self.literal(engine, b)?;
-                let total = bin(BinaryOp::Add, self.value(a), self.value(b));
-                self.row(engine, total, EquationSense::Eq, one)
+                let total = form_bin!(
+                    engine,
+                    BinaryOp::Add,
+                    self.value(engine, a)?,
+                    self.value(engine, b)?
+                );
+                logic_row!(self, engine, total, EquationSense::Eq, one)
             }
             Proposition::Atom(_) | Proposition::Not(_) => {
                 let literal = self.literal(engine, p)?;
-                let value = self.value(literal);
-                self.row(engine, value, EquationSense::Eq, one)
+                let value = self.value(engine, literal)?;
+                logic_row!(self, engine, value, EquationSense::Eq, one)
             }
         }
     }
-}
-
-fn sym(id: SemanticId) -> Expr {
-    symbol_expr(id)
-}
-fn bin(op: BinaryOp, lhs: Expr, rhs: Expr) -> Expr {
-    Expr {
-        kind: ExprKind::Binary {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        },
-        span: Span::default(),
-    }
-}
-fn neg(value: Expr) -> Expr {
-    Expr {
-        kind: ExprKind::Neg(Box::new(value)),
-        span: Span::default(),
-    }
-}
-/// A balanced sum keeps generated rows shallow.
-fn sum(mut terms: Vec<Expr>) -> Option<Expr> {
-    while terms.len() > 1 {
-        let mut next = Vec::with_capacity(terms.len().div_ceil(2));
-        let mut iter = terms.into_iter();
-        while let Some(a) = iter.next() {
-            next.push(match iter.next() {
-                Some(b) => bin(BinaryOp::Add, a, b),
-                None => a,
-            });
-        }
-        terms = next;
-    }
-    terms.pop()
 }

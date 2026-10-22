@@ -603,6 +603,8 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
             vec![InstanceBinding {
                 instance: id(9),
                 body: key,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 slots: ([1, 2]
                     .into_iter()
@@ -1694,6 +1696,8 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             }],
             vec![],
             vec![InstanceBinding {
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 instance: id(5),
                 body: body_key,
@@ -2284,6 +2288,8 @@ fn opaque_class_evidence_remains_pending_after_actual_bounded_request() {
         vec![InstanceBinding {
             instance: id(3),
             body: key,
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: Default::default(),
             slots: (vec![SlotBinding::new(&spec.inputs[0], &spec.inputs[0], &registry).unwrap()])
                 .into(),
@@ -2640,6 +2646,8 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             vec![InstanceBinding {
                 instance: id(40),
                 body: key,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: Default::default(),
                 slots: vec![
                     SlotBinding::new(&port(1), &port(1), &registry).unwrap(),

@@ -2,9 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Standard Perfetto protobuf packet streaming over immutable published owner facts.
 
-use super::{CaptureOutput, CaptureOutputKind, CaptureRequest, Shared, document, failure, layer::{Lifecycle, LifecycleKind, ReceiverState}, target};
-use crate::observation_detail::{CaptureError};
+use super::{
+    CaptureOutput, CaptureOutputKind, CaptureRequest, Shared, document, failure,
+    layer::{Lifecycle, LifecycleKind, ReceiverState},
+    target,
+};
 use crate::observation::{ClockMapping, ProcessCheckpoint, read_checkpoint};
+use crate::observation_detail::CaptureError;
 use prost::Message;
 use pse_diagnostics::observation::{
     CoherentRecord, OperationId, OperationSnapshot, ProducerId, Value,

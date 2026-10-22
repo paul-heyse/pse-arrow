@@ -470,9 +470,17 @@ pub(crate) fn collect(
     }
     Ok(values)
 }
-impl pse_model::generated::authored::modeling_declarations::SourceExpressionVisitor for Collector<'_> {
+impl pse_model::generated::authored::modeling_declarations::SourceExpressionVisitor
+    for Collector<'_>
+{
     type Error = crate::ModelingError;
-    fn expression(&mut self, grammar: pse_model::generated::authored::modeling_declarations::SourceGrammar, role: &str, position: usize, source: &str) -> Result<()> {
+    fn expression(
+        &mut self,
+        grammar: pse_model::generated::authored::modeling_declarations::SourceGrammar,
+        role: &str,
+        position: usize,
+        source: &str,
+    ) -> Result<()> {
         use pse_model::generated::authored::modeling_declarations::SourceGrammar;
         match grammar {
             SourceGrammar::Expression => self.expression(role, position, source),
@@ -480,14 +488,23 @@ impl pse_model::generated::authored::modeling_declarations::SourceExpressionVisi
             SourceGrammar::Predicate => self.predicate(role, position, source),
             SourceGrammar::Static => self.static_value(role, position, source),
             SourceGrammar::Proposition => {
-                let syntax = dsl::parse_proposition(source).map_err(|error| self.failure(role, position, error))?;
+                let syntax = dsl::parse_proposition(source)
+                    .map_err(|error| self.failure(role, position, error))?;
                 self.insert(role, position, source, Syntax::Logic(syntax))
             }
         }
     }
-    fn enter_scope(&mut self) { self.scopes.push(self.indices.len()); }
-    fn leave_scope(&mut self) { if let Some(length) = self.scopes.pop() { self.indices.truncate(length); } }
-    fn bind_index(&mut self, name: &str, domain: &str) { self.indices.push((name.to_owned(), domain.to_owned())); }
+    fn enter_scope(&mut self) {
+        self.scopes.push(self.indices.len());
+    }
+    fn leave_scope(&mut self) {
+        if let Some(length) = self.scopes.pop() {
+            self.indices.truncate(length);
+        }
+    }
+    fn bind_index(&mut self, name: &str, domain: &str) {
+        self.indices.push((name.to_owned(), domain.to_owned()));
+    }
 }
 fn collect_fresh(
     rows: &[Declaration],
@@ -495,7 +512,9 @@ fn collect_fresh(
 ) -> Result<Occurrences> {
     let mut values = BTreeMap::new();
     for row in rows {
-        if let Some(annotation) = &row.value.annotation { crate::annotation::shape(annotation, row.declaration_id)?; }
+        if let Some(annotation) = &row.value.annotation {
+            crate::annotation::shape(annotation, row.declaration_id)?;
+        }
         let mut collector = Collector {
             row,
             values: &mut values,
@@ -926,40 +945,118 @@ mod tests {
     #[test]
     fn source_mask_refuses_plain_formal_names_and_uses_declared_expression_fields() {
         let mut rows = crate::kernel_types::source("package p {fn law(x:Scalar)->Scalar=x;}");
-        let function = rows.iter_mut().find(|row| row.value.function.is_some()).unwrap();
-        assert_eq!(function.value.mask_source_expressions(|_, role, position, text| role == "function.arguments.name" && position == 0 && text == "x"), 0);
-        assert_eq!(function.value.function.as_ref().unwrap().arguments[0].name, "x");
-        assert_eq!(function.value.mask_source_expressions(|_, role, position, text| role == "function.body" && position == 0 && text == "x"), 1);
-        assert_eq!(function.value.function.as_ref().unwrap().body.as_deref(), Some(""));
+        let function = rows
+            .iter_mut()
+            .find(|row| row.value.function.is_some())
+            .unwrap();
+        assert_eq!(
+            function
+                .value
+                .mask_source_expressions(|_, role, position, text| role
+                    == "function.arguments.name"
+                    && position == 0
+                    && text == "x"),
+            0
+        );
+        assert_eq!(
+            function.value.function.as_ref().unwrap().arguments[0].name,
+            "x"
+        );
+        assert_eq!(
+            function
+                .value
+                .mask_source_expressions(|_, role, position, text| role == "function.body"
+                    && position == 0
+                    && text == "x"),
+            1
+        );
+        assert_eq!(
+            function.value.function.as_ref().unwrap().body.as_deref(),
+            Some("")
+        );
     }
 
     #[test]
     fn generated_source_inventory_visits_domains_before_binding_and_restores_nested_siblings() {
-        let rows = crate::kernel_types::source(r#"package p {def D {
+        let rows = crate::kernel_types::source(
+            r#"package p {def D {
             state s[i in Outer] supplied(true) {
                 coordinate first[j in Members[i],k in Members[j]]=x[i,j,k];
                 coordinate second[m in Members[i]]=y[i,m];
                 reconstruct r[n in Members[i]]:z[i,n]==y[i,n] tolerance 1e-8;
                 transport t[p in Members[i]]=z[i,p] tolerance 1e-8;
             }
-        }}"#);
-        let row = rows.iter().find(|row| row.value.state_specification.is_some()).unwrap();
+        }}"#,
+        );
+        let row = rows
+            .iter()
+            .find(|row| row.value.state_specification.is_some())
+            .unwrap();
         let parsed = ParsedFields::parse(row, None).unwrap();
-        let at = |role: &str, position| &parsed.expressions()[&OccurrenceKey { declaration: row.declaration_id, role: role.into(), position }];
-        assert!(at("state_specification.indices.domain", 0).index_obligations.is_empty());
-        assert_eq!(at("state_specification.coordinates.0.indices.domain", 0).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i"]);
-        assert_eq!(at("state_specification.coordinates.0.indices.domain", 1).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i", "j"]);
-        assert_eq!(at("state_specification.coordinates.target", 0).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i", "j", "k"]);
+        let at = |role: &str, position| {
+            &parsed.expressions()[&OccurrenceKey {
+                declaration: row.declaration_id,
+                role: role.into(),
+                position,
+            }]
+        };
+        assert!(
+            at("state_specification.indices.domain", 0)
+                .index_obligations
+                .is_empty()
+        );
+        assert_eq!(
+            at("state_specification.coordinates.0.indices.domain", 0)
+                .index_obligations
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            ["i"]
+        );
+        assert_eq!(
+            at("state_specification.coordinates.0.indices.domain", 1)
+                .index_obligations
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            ["i", "j"]
+        );
+        assert_eq!(
+            at("state_specification.coordinates.target", 0)
+                .index_obligations
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            ["i", "j", "k"]
+        );
         for (role, position, names) in [
             ("state_specification.coordinates.target", 1, vec!["i", "m"]),
-            ("state_specification.reconstructions.equation", 0, vec!["i", "n"]),
-            ("state_specification.transports.expression", 0, vec!["i", "p"]),
-        ] { assert_eq!(at(role, position).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), names); }
+            (
+                "state_specification.reconstructions.equation",
+                0,
+                vec!["i", "n"],
+            ),
+            (
+                "state_specification.transports.expression",
+                0,
+                vec!["i", "p"],
+            ),
+        ] {
+            assert_eq!(
+                at(role, position)
+                    .index_obligations
+                    .iter()
+                    .map(|(name, _)| name.as_str())
+                    .collect::<Vec<_>>(),
+                names
+            );
+        }
     }
 
     #[test]
     fn generated_source_inventory_preserves_flat_events_and_explicit_nested_schedule_roles() {
-        let rows = crate::kernel_types::source(r#"package p {test T fixture {
+        let rows = crate::kernel_types::source(
+            r#"package p {test T fixture {
             dof 0; route integrated; procedure integrate;
             mode first; event x-1 direction(rising) tolerance(1e-6) reset(x=2) terminal;
             event x-2 direction(falling) tolerance(2e-6) terminal;
@@ -967,16 +1064,47 @@ mod tests {
             integrate samples(0,1) relative(1e-6) normalized_absolute(1e-8) step(1e-4);
             schedule u at(1,2) values(3,4,5);
             schedule v at(6) values(7,8);
-        } {}}"#);
-        let mut row = rows.into_iter().find(|row| row.value.scope.as_ref().is_some_and(|scope| scope.fixture.is_some())).unwrap();
+        } {}}"#,
+        );
+        let mut row = rows
+            .into_iter()
+            .find(|row| {
+                row.value
+                    .scope
+                    .as_ref()
+                    .is_some_and(|scope| scope.fixture.is_some())
+            })
+            .unwrap();
         let parsed = ParsedFields::parse(&row, None).unwrap();
-        let at = |role: &str, position| &parsed.expressions()[&OccurrenceKey { declaration: row.declaration_id, role: role.into(), position }];
+        let at = |role: &str, position| {
+            &parsed.expressions()[&OccurrenceKey {
+                declaration: row.declaration_id,
+                role: role.into(),
+                position,
+            }]
+        };
         assert_eq!(at("scope.fixture.modes.events.guard", 2).text, "y-3");
         assert_eq!(at("scope.fixture.modes.events.tolerance", 2).text, "3e-6");
-        assert_eq!(at("scope.fixture.modes.1.events.0.reset.0.target", 0).text, "y");
-        assert_eq!(at("scope.fixture.integration.schedules.1.times", 0).text, "6");
-        assert_eq!(at("scope.fixture.integration.schedules.0.values", 2).text, "5");
-        assert_eq!(row.value.mask_source_expressions(|_, role, position, text| role == "scope.fixture.modes.events.guard" && position == 2 && text == "y-3"), 1);
+        assert_eq!(
+            at("scope.fixture.modes.1.events.0.reset.0.target", 0).text,
+            "y"
+        );
+        assert_eq!(
+            at("scope.fixture.integration.schedules.1.times", 0).text,
+            "6"
+        );
+        assert_eq!(
+            at("scope.fixture.integration.schedules.0.values", 2).text,
+            "5"
+        );
+        assert_eq!(
+            row.value
+                .mask_source_expressions(|_, role, position, text| role
+                    == "scope.fixture.modes.events.guard"
+                    && position == 2
+                    && text == "y-3"),
+            1
+        );
         let fixture = row.value.scope.as_ref().unwrap().fixture.as_ref().unwrap();
         assert_eq!(fixture.modes[1].events[0].guard, "");
         assert_eq!(fixture.modes[0].events[0].guard, "x-1");

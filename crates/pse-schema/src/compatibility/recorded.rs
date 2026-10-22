@@ -177,7 +177,11 @@ fn field_support(
             .as_object()
             .ok_or_else(|| malformed("extension descriptor is not an object"))?;
         let expression = spec.metadata == crate::model::ExtensionMetadataShape::Expression;
-        let expected_keys = if expression { 3 } else { 1 + usize::from(spec.metadata.id_key().is_some()) };
+        let expected_keys = if expression {
+            3
+        } else {
+            1 + usize::from(spec.metadata.id_key().is_some())
+        };
         if object.len() != expected_keys
             || value["v"].as_u64() != Some(u64::from(spec.metadata_version))
         {
@@ -185,8 +189,14 @@ fn field_support(
                 "extension descriptor generation or fields disagree",
             ));
         }
-        if expression && (value["grammar_version"].as_u64() != Some(u64::from(crate::model::expression::GRAMMAR_VERSION))
-            || value["grammar"].as_str().and_then(crate::model::ExpressionGrammar::from_name).is_none()) {
+        if expression
+            && (value["grammar_version"].as_u64()
+                != Some(u64::from(crate::model::expression::GRAMMAR_VERSION))
+                || value["grammar"]
+                    .as_str()
+                    .and_then(crate::model::ExpressionGrammar::from_name)
+                    .is_none())
+        {
             return Err(malformed("unsupported source grammar or generation"));
         }
         if let Some(key) = spec.metadata.id_key() {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Cooperating preconstruction selection. An environment variable alone records nothing.
-use crate::observation_detail::{CaptureError, DetailDocument, DetailRequest, DetailSession, start_detailed_collection};
+use crate::observation_detail::{
+    CaptureError, DetailDocument, DetailRequest, DetailSession, start_detailed_collection,
+};
 use pse_diagnostics::observation::{ObservationContext, OperationId};
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
@@ -347,7 +349,9 @@ pub fn source_recording_from_environment(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::observation_detail::{CaptureBudget, DetailFamilyActivation, DetailOutcome, DetailRequirement};
+    use crate::observation_detail::{
+        CaptureBudget, DetailFamilyActivation, DetailOutcome, DetailRequirement,
+    };
     use pse_diagnostics::observation::{ObservationHub, ProducerRole};
     use std::time::Duration;
     fn request(directory: &Path) -> SourceRecordingRequest {
@@ -548,7 +552,9 @@ mod tests {
         assert_eq!(document.outcome, DetailOutcome::Complete);
         assert_eq!(document.families[0].issued, 32);
         assert_eq!(document.families[0].acknowledged, 32);
-        let page = crate::observation_detail::read_detail_records(&document.records, 0, 64, 1 << 20).unwrap();
+        let page =
+            crate::observation_detail::read_detail_records(&document.records, 0, 64, 1 << 20)
+                .unwrap();
         assert_eq!(page.records.len(), 32);
         assert_eq!(page.activations.len(), 1);
         assert!(

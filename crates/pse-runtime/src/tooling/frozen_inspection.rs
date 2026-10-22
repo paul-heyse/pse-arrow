@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Recorded review. Supplied facts are the entire resolution authority.
-use crate::{invocation::InvocationEvidenceDocument, observation::{ObservationError, ProcessCheckpoint}};
-use crate::tooling::{inspection::{InspectionDocument, InspectionRequest, InspectionTransport}};
+use crate::tooling::inspection::{InspectionDocument, InspectionRequest, InspectionTransport};
+use crate::{
+    invocation::InvocationEvidenceDocument,
+    observation::{ObservationError, ProcessCheckpoint},
+};
 use pse_diagnostics::observation::{OperationId, OperationSnapshot};
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
@@ -426,7 +429,8 @@ pub fn inspect_frozen(
     };
     let mut shared = request.inspection.clone();
     shared.window = window;
-    let inspection = crate::tooling::inspection::document(shared, operation, related, omitted, transport);
+    let inspection =
+        crate::tooling::inspection::document(shared, operation, related, omitted, transport);
     Ok(FrozenInspectionDocument {
         version: Version,
         request,

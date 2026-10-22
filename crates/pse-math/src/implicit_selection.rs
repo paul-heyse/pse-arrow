@@ -128,18 +128,18 @@ fn independent_call_expression(
 #[derive(Clone, Debug, Default)]
 pub struct Selection {
     /// Semantic operational anchor program, evaluated from independent inputs.
-    pub anchor: Option<Arc<CompiledBody>>,
+    pub anchor: Option<SourceBody>,
     /// Checked algorithm/settings reference for operational selection.
     pub settings: Option<String>,
     /// Admitted branch/neighborhood predicate encoded as a scalar indicator.
-    pub restriction: Option<Arc<CompiledBody>>,
+    pub restriction: Option<SourceBody>,
     /// Supported scalar sign restriction; true is positive, false is negative.
     pub sign: Option<bool>,
 }
 #[derive(Debug)]
 pub(super) struct SelectionWorker {
-    anchor: Option<Worker>,
-    restriction: Option<Worker>,
+    anchor: Option<SourceWorker>,
+    restriction: Option<SourceWorker>,
     sign: Option<bool>,
     pure_anchor: bool,
     pure_restriction: bool,

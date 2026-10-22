@@ -13,6 +13,10 @@ pub enum MathError {
         instance: SemanticId,
         /// Body-local checked-member tokens bound to actual semantic members.
         checked_members: std::collections::BTreeMap<SemanticId, SemanticId>,
+        /// Distinct body-local closure-source tokens bound to actual annotation sources.
+        checked_sources: std::collections::BTreeMap<SemanticId, SemanticId>,
+        /// Exact current original-source locations for local operation tokens.
+        occurrences: std::collections::BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
         /// Original typed domain/provider/library cause and source occurrence.
         #[source]
         cause: Box<MathError>,
@@ -180,6 +184,14 @@ pub enum MathError {
     },
 }
 impl MathError {
+    /// Inspect only receiving-instance wrappers; numerical/scientific causes keep their class.
+    pub(crate) fn instance_cause(&self) -> &Self {
+        match self {
+            Self::Instance { cause, .. } => cause.instance_cause(),
+            other => other,
+        }
+    }
+
     /// Attach actual compiler identity to a local derivative refusal, preserving its demand.
     pub fn with_derivative_body(
         mut self,
@@ -201,12 +213,23 @@ impl MathError {
             Self::Instance {
                 cause,
                 checked_members,
+                checked_sources,
+                occurrences,
                 ..
-            } => cause.retained_bytes().saturating_add(
-                checked_members
-                    .len()
-                    .saturating_mul(size_of::<(SemanticId, SemanticId)>() + 96),
-            ),
+            } => cause
+                .retained_bytes()
+                .saturating_add(occurrences.values().fold(
+                    occurrences.len().saturating_mul(
+                        size_of::<(SemanticId, pse_model::diagnostic::SourceLocation)>() + 96,
+                    ),
+                    |bytes, location| bytes.saturating_add(location.heap_bytes()),
+                ))
+                .saturating_add(
+                    checked_members
+                        .len()
+                        .saturating_add(checked_sources.len())
+                        .saturating_mul(size_of::<(SemanticId, SemanticId)>() + 96),
+                ),
             Self::Contract(s) | Self::Library(s) | Self::Evaluation { detail: s, .. } => {
                 s.capacity()
             }
@@ -293,6 +316,28 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
         stage: pse_diagnostics::DiagnosticStage,
         bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
     ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        self.boundary_diagnostic_with_bindings(stage, bindings, &std::collections::BTreeMap::new())
+    }
+    fn boundary_diagnostic_with_bindings(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        self.boundary_diagnostic_with_occurrences(
+            stage,
+            bindings,
+            sources,
+            &std::collections::BTreeMap::new(),
+        )
+    }
+    fn boundary_diagnostic_with_occurrences(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        sources: &std::collections::BTreeMap<SemanticId, SemanticId>,
+        occurrences: &std::collections::BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
         use pse_diagnostics::{DiagnosticRule as R, TypedDiagnostic};
         use pse_model::diagnostic::{Observation as O, project_facts};
         // The closest instance supplies the actual member meaning. Each local token
@@ -308,13 +353,54 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             _ => None,
         };
         let bindings = effective.as_ref().unwrap_or(bindings);
+        let effective_sources = match self {
+            Self::Instance {
+                checked_sources, ..
+            } if !checked_sources.is_empty() => {
+                let mut effective = sources.clone();
+                effective.extend(checked_sources);
+                Some(effective)
+            }
+            _ => None,
+        };
+        let sources = effective_sources.as_ref().unwrap_or(sources);
+        let effective_occurrences = match self {
+            Self::Instance {
+                occurrences: local, ..
+            } if !local.is_empty() => {
+                let mut effective = occurrences.clone();
+                effective.extend(local.clone());
+                Some(effective)
+            }
+            _ => None,
+        };
+        let occurrences = effective_occurrences.as_ref().unwrap_or(occurrences);
+        fn occurrence(
+            d: &mut pse_model::diagnostic::BoundaryDiagnostic,
+            id: SemanticId,
+            locations: &std::collections::BTreeMap<
+                SemanticId,
+                pse_model::diagnostic::SourceLocation,
+            >,
+        ) {
+            if let Some(location) = locations.get(&id) {
+                d.sources.push(location.source);
+                if !d.locations.contains(location) {
+                    d.locations.push(location.clone());
+                }
+            } else {
+                d.sources.push(id);
+            }
+        }
         let mut d = match self {
-            Self::Instance { cause, .. } => cause.boundary_diagnostic_with_members(stage, bindings),
+            Self::Instance { cause, .. } => {
+                cause.boundary_diagnostic_with_occurrences(stage, bindings, sources, occurrences)
+            }
             Self::Provider { cause, .. } | Self::Scope(cause) => {
-                cause.boundary_diagnostic_with_members(stage, bindings)
+                cause.boundary_diagnostic_with_occurrences(stage, bindings, sources, occurrences)
             }
             Self::Native { cause, .. } | Self::Typed { cause, .. } => {
-                cause.boundary_diagnostic_with_members(stage, bindings)
+                cause.boundary_diagnostic_with_occurrences(stage, bindings, sources, occurrences)
             }
             Self::Quantity(cause) => {
                 project_facts(cause.diagnostic_code(), cause.diagnostic_facts(), stage)
@@ -348,6 +434,9 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             Self::Validity(lineage) => {
                 let mut lineage = lineage.as_ref().clone();
                 if lineage.layer == pse_model::generated::enums::ModelingValidityLayer::Closure {
+                    if let Some(actual) = sources.get(&lineage.source) {
+                        lineage.source = *actual;
+                    }
                     for member in &mut lineage.members {
                         if let Some(actual) = bindings.get(member) {
                             *member = *actual;
@@ -375,7 +464,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 requirement,
             } => {
                 d.rule = R::MathDomain;
-                d.sources.push(*source_id);
+                occurrence(&mut d, *source_id, occurrences);
                 d.observations
                     .insert("requirement".into(), O::Text((*requirement).into()));
             }
@@ -383,7 +472,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 source_id, order, ..
             } => {
                 d.rule = R::MathEvaluation;
-                d.sources.push(*source_id);
+                occurrence(&mut d, *source_id, occurrences);
                 d.observations.insert(
                     "derivative_order".into(),
                     O::Integer(match order {
@@ -402,7 +491,9 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 available,
             } => {
                 d.rule = R::MathContract;
-                d.sources.extend(source_id);
+                if let Some(source_id) = source_id {
+                    occurrence(&mut d, *source_id, occurrences);
+                }
                 if let Some(body) = body {
                     d.observations
                         .insert("body".into(), O::Text(body.to_string()));
@@ -431,7 +522,8 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 upper,
             } => {
                 d.rule = R::MathRange;
-                d.sources.extend([*source_id, *target]);
+                occurrence(&mut d, *source_id, occurrences);
+                d.sources.push(*target);
                 for (key, value) in [
                     ("value", Some(*value)),
                     ("lower", *lower),
@@ -447,13 +539,14 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 ..
             } => {
                 d.causes = vec![d.clone()];
-                d.sources.extend([*source_id, *provider]);
+                occurrence(&mut d, *source_id, occurrences);
+                d.sources.push(*provider);
                 d.observations
                     .insert("provider".into(), O::Text(provider.to_hex()));
             }
             Self::Native { source_id, .. } => {
                 d.causes = vec![d.clone()];
-                d.sources.push(*source_id);
+                occurrence(&mut d, *source_id, occurrences);
             }
             Self::WorkLimit {
                 source_id,
@@ -463,7 +556,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 components,
             } => {
                 d.rule = R::MathLimit;
-                d.sources.push(*source_id);
+                occurrence(&mut d, *source_id, occurrences);
                 d.observations
                     .insert("resource".into(), O::Text((*resource).into()));
                 for (key, value) in [
@@ -599,6 +692,8 @@ mod tests {
         message.push('x');
         let capacity = message.capacity();
         let error = MathError::Instance {
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: Default::default(),
             instance: SemanticId::NIL,
             cause: Box::new(MathError::Provider {
@@ -609,6 +704,160 @@ mod tests {
         };
         assert!(error.retained_bytes() >= capacity + 2 * size_of::<MathError>());
     }
+    #[test]
+    fn operation_occurrences_rebind_only_explicit_source_roles_through_typed_causes() {
+        use pse_diagnostics::DiagnosticStage;
+        use pse_model::diagnostic::{DiagnosticCause, DiagnosticProjection, SourceLocation};
+        use std::collections::BTreeMap;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let token = id(1);
+        let actual = id(2);
+        let location = SourceLocation {
+            source: actual,
+            revision: None,
+            document: Some(id(3)),
+            occurrence_role: Some("equation.expression".into()),
+            occurrence_position: Some(0),
+            path: "model.pse".into(),
+            name: None,
+            start: Some(10),
+            end: Some(30),
+        };
+        let errors = vec![
+            MathError::Domain {
+                source_id: token,
+                requirement: "positive",
+            },
+            MathError::Evaluation {
+                source_id: token,
+                order: pse_kernels::DerivativeOrder::Value,
+                detail: "failed".into(),
+            },
+            MathError::OutsideRange {
+                source_id: token,
+                target: token,
+                value: 3.0,
+                lower: None,
+                upper: Some(2.0),
+            },
+            MathError::Provider {
+                source_id: token,
+                provider: token,
+                cause: pse_kernels::ProviderError::Trial("trial".into()),
+            },
+            MathError::WorkLimit {
+                source_id: token,
+                resource: "operations",
+                required: 2,
+                available: 1,
+                components: 0,
+            },
+        ];
+        for (ordinal, cause) in errors.into_iter().enumerate() {
+            let cause = MathError::Typed {
+                retained: cause.retained_bytes(),
+                cause: DiagnosticCause::new(cause),
+            };
+            let inner = MathError::Instance {
+                instance: id(4),
+                checked_members: BTreeMap::new(),
+                checked_sources: BTreeMap::new(),
+                occurrences: BTreeMap::from([(token, location.clone())]),
+                cause: Box::new(cause),
+            };
+            let mut foreign = location.clone();
+            foreign.source = id(5);
+            let outer = MathError::Instance {
+                instance: id(6),
+                checked_members: BTreeMap::new(),
+                checked_sources: BTreeMap::new(),
+                occurrences: BTreeMap::from([(token, foreign), (actual, location.clone())]),
+                cause: Box::new(inner),
+            };
+            let diagnostic = outer.boundary_diagnostic(DiagnosticStage::Evaluation);
+            assert!(diagnostic.locations.contains(&location));
+            assert!(diagnostic.sources.contains(&actual));
+            assert_eq!(
+                diagnostic.sources.contains(&token),
+                matches!(ordinal, 2 | 3),
+                "only independent target/provider roles retain equal token IDs"
+            );
+            assert!(
+                !diagnostic.sources.contains(&id(5)),
+                "nearest actual instance owns source attribution"
+            );
+        }
+    }
+
+    #[test]
+    fn distinct_checked_sources_follow_nearest_instance_through_typed_causes() {
+        use pse_diagnostics::DiagnosticStage;
+        use pse_model::diagnostic::{DiagnosticCause, DiagnosticProjection, ValidityLineage};
+        use pse_model::generated::enums::ModelingValidityLayer as Layer;
+        use std::collections::BTreeMap;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        for layer in [Layer::Closure, Layer::Form, Layer::Data] {
+            for retained in [false, true] {
+                let validity = MathError::Validity(Box::new(ValidityLineage {
+                    layer,
+                    source: id(1),
+                    form: Some(id(1)),
+                    sets: vec![id(1)],
+                    variables: vec![0],
+                    members: vec![id(2)],
+                }));
+                let cause = if retained {
+                    MathError::Typed {
+                        retained: validity.retained_bytes(),
+                        cause: DiagnosticCause::new(validity),
+                    }
+                } else {
+                    validity
+                };
+                let inner = MathError::Instance {
+                    occurrences: BTreeMap::new(),
+                    instance: id(3),
+                    checked_sources: BTreeMap::from([(id(1), id(4))]),
+                    checked_members: BTreeMap::from([(id(2), id(5))]),
+                    cause: Box::new(cause),
+                };
+                let outer = MathError::Instance {
+                    occurrences: BTreeMap::new(),
+                    instance: id(6),
+                    checked_sources: BTreeMap::from([(id(1), id(7)), (id(4), id(8))]),
+                    checked_members: BTreeMap::from([(id(2), id(9))]),
+                    cause: Box::new(inner),
+                };
+                let projected = outer.boundary_diagnostic(DiagnosticStage::Evaluation);
+                let lineage = projected.validity.as_ref().unwrap();
+                assert_eq!(
+                    lineage.source,
+                    if layer == Layer::Closure {
+                        id(4)
+                    } else {
+                        id(1)
+                    }
+                );
+                assert_eq!(
+                    lineage.members,
+                    vec![if layer == Layer::Closure {
+                        id(5)
+                    } else {
+                        id(2)
+                    }]
+                );
+                assert_eq!(lineage.form, Some(id(1)));
+                assert_eq!(lineage.sets, vec![id(1)]);
+                assert!(
+                    projected.sources.contains(&id(1)),
+                    "independent form/set source survives"
+                );
+                assert!(!projected.sources.contains(&id(7)));
+                assert!(!projected.sources.contains(&id(8)));
+            }
+        }
+    }
+
     #[test]
     fn checked_member_rebinding_preserves_nested_typed_envelopes_and_disposition() {
         use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
@@ -678,6 +927,8 @@ mod tests {
             let expected = cause.boundary_diagnostic(stage);
             let error = MathError::Instance {
                 instance: id(6),
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: BTreeMap::from([
                     (token, actual),
                     (id(3), id(9)),
@@ -740,6 +991,8 @@ mod tests {
             let original = cause.boundary_diagnostic(DiagnosticStage::Property);
             let error = MathError::Instance {
                 instance: id(6),
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: BTreeMap::from([(token, actual)]),
                 cause: Box::new(MathError::Provider {
                     source_id: id(3),
@@ -783,6 +1036,8 @@ mod tests {
         let expected = cause.boundary_diagnostic(DiagnosticStage::ModelingAdmission);
         let error = MathError::Instance {
             instance: source,
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: std::collections::BTreeMap::from([(token, actual)]),
             cause: Box::new(cause),
         };
@@ -827,6 +1082,8 @@ mod tests {
             } else {
                 MathError::Instance {
                     instance: token,
+                    occurrences: Default::default(),
+                    checked_sources: Default::default(),
                     checked_members: BTreeMap::new(),
                     cause: Box::new(validity()),
                 }
@@ -834,6 +1091,8 @@ mod tests {
             let expected_class = cause.boundary_diagnostic(DiagnosticStage::Evaluation).class;
             let error = MathError::Instance {
                 instance: outer,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: BTreeMap::from([(token, actual)]),
                 cause: Box::new(cause),
             };
@@ -866,11 +1125,15 @@ mod tests {
         };
         let inner = MathError::Instance {
             instance: annotation,
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: BTreeMap::new(),
             cause: Box::new(native),
         };
         let error = MathError::Instance {
             instance: outer,
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: BTreeMap::from([(token, actual)]),
             cause: Box::new(inner),
         };
@@ -925,6 +1188,8 @@ mod tests {
             let expected_class = cause.boundary_diagnostic(DiagnosticStage::Evaluation).class;
             let error = MathError::Instance {
                 instance: outer,
+                occurrences: Default::default(),
+                checked_sources: Default::default(),
                 checked_members: BTreeMap::from([(token, actual)]),
                 cause: Box::new(cause),
             };
@@ -966,6 +1231,8 @@ mod tests {
         let unrelated_outer_actual = SemanticId::from_bytes([3; 16]);
         let inner = MathError::Instance {
             instance: SemanticId::from_bytes([4; 16]),
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: BTreeMap::from([(local, inner_actual)]),
             cause: Box::new(MathError::Validity(Box::new(ValidityLineage {
                 layer: ModelingValidityLayer::Closure,
@@ -978,6 +1245,8 @@ mod tests {
         };
         let outer = MathError::Instance {
             instance: SemanticId::from_bytes([6; 16]),
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
             checked_members: BTreeMap::from([
                 (local, unrelated_outer_actual),
                 (inner_actual, unrelated_outer_actual),

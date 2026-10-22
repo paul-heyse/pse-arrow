@@ -114,7 +114,9 @@ impl CancellationToken {
 
     /// Cancel this token on guard drop, using the cancellation tree's owned guard.
     pub fn drop_guard(self) -> CancellationGuard {
-        CancellationGuard { _inner: self.inner.drop_guard() }
+        CancellationGuard {
+            _inner: self.inner.drop_guard(),
+        }
     }
 
     /// Cancels this token and every clone of it. Cancellation is one-way.

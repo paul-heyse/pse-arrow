@@ -6,8 +6,8 @@ use datafusion::execution::{
     cache::{Cache, CacheValue},
     memory_pool::GreedyMemoryPool,
 };
-use std::{time::Duration, sync::atomic::Ordering};
 use object_store::path::Path;
+use std::{sync::atomic::Ordering, time::Duration};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Value(usize);
@@ -80,17 +80,13 @@ async fn snapshot_and_resident_loads_share_admission_and_release_on_drop() {
 #[test]
 fn bounded_inspection_does_not_touch_lru_counters_or_allocate_when_refused() {
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(8192));
-    let mut policy = CacheBudget::disabled(1);
+    let policy = CacheBudget::disabled(1);
     let service = NativeCacheService::new(policy, &pool).unwrap();
     let before = service.report();
     assert!(service.inspect_entries(0).unwrap().rows().is_empty());
     assert!(service.inspect_entries(1).is_err());
     assert_eq!(service.report(), before);
-    assert_eq!(
-        pool.reserved(),
-        0,
-        "inspection releases its staging owner"
-    );
+    assert_eq!(pool.reserved(), 0, "inspection releases its staging owner");
     let mut policy = CacheBudget::disabled(1);
     policy.inspection_bytes = 4096;
     let service = NativeCacheService::new(policy, &pool).unwrap();
@@ -98,4 +94,3 @@ fn bounded_inspection_does_not_touch_lru_counters_or_allocate_when_refused() {
     assert!(service.inspect_entries(1).unwrap().rows().is_empty());
     assert_eq!(service.report(), before);
 }
-

@@ -196,7 +196,9 @@ impl ContractBoundaryRecord {
     pub fn restore(&self) -> Result<AdmittedContractBoundary, QuantityError> {
         require_record(self)?;
         AdmittedContractBoundary::from_qualified_record(
-            self.source.restore()?, self.target.restore()?, self.scale_bits,
+            self.source.restore()?,
+            self.target.restore()?,
+            self.scale_bits,
         )
     }
     /// Inline record plus the complete owned heap extents of its contracts.
@@ -230,7 +232,10 @@ impl OutputBoundaryRecord {
     pub fn restore(&self) -> Result<AdmittedOutputBoundary, QuantityError> {
         require_record(self)?;
         AdmittedOutputBoundary::from_qualified_record(
-            self.operation, self.source.restore()?, self.target.restore()?, self.scale_bits,
+            self.operation,
+            self.source.restore()?,
+            self.target.restore()?,
+            self.scale_bits,
         )
     }
     /// Inline record plus the complete owned heap extents of both contracts.

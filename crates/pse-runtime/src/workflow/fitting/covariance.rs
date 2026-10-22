@@ -119,7 +119,9 @@ pub struct Covariance {
 impl Covariance {
     /// Retained cells.
     pub(super) fn cells(&self) -> usize {
-        self.values.as_ref().map_or(0, Vec::capacity)
+        self.values
+            .as_ref()
+            .map_or(0, Vec::capacity)
             .saturating_add(self.scales.capacity())
             .saturating_add(self.parameters.capacity().saturating_mul(2))
             .saturating_add(self.parameter_quantities.capacity().saturating_mul(2))
@@ -130,8 +132,12 @@ impl Covariance {
         let values = self.values.as_ref().ok()?;
         let n = self.parameters.len();
         if n.checked_mul(n) != Some(values.len())
-            || (0..n).any(|index| !values[index * n + index].is_finite() || values[index * n + index] < 0.0)
-        { return None; }
+            || (0..n).any(|index| {
+                !values[index * n + index].is_finite() || values[index * n + index] < 0.0
+            })
+        {
+            return None;
+        }
         Some((0..n).map(|k| values[k * n + k].sqrt()).collect())
     }
 }
@@ -227,9 +233,18 @@ impl FitProblem {
         Some(Covariance {
             approximation,
             parameters,
-            scales: self.free().map(|(k, _)| self.declaration.parameters[k].scale).collect(),
-            parameter_quantities: self.free().map(|(k, _)| self.parameter_ports[k].quantity.as_id()).collect(),
-            parameter_units: self.free().map(|(k, _)| self.parameter_ports[k].unit.as_id()).collect(),
+            scales: self
+                .free()
+                .map(|(k, _)| self.declaration.parameters[k].scale)
+                .collect(),
+            parameter_quantities: self
+                .free()
+                .map(|(k, _)| self.parameter_ports[k].quantity.as_id())
+                .collect(),
+            parameter_units: self
+                .free()
+                .map(|(k, _)| self.parameter_ports[k].unit.as_id())
+                .collect(),
             values,
         })
     }

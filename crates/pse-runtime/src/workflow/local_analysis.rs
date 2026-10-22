@@ -226,8 +226,8 @@ impl<'a> Rows<'a> {
         // The requested propagation holds while the sensitivities it reads do (S4).
         // A validity-only request must execute the same matrix admission/product:
         // available derivatives alone cannot certify a covariance.
-        let publish_propagation = self.request.wants(propagated::RELATION_ID)
-            && !self.propagated.skip_next();
+        let publish_propagation =
+            self.request.wants(propagated::RELATION_ID) && !self.propagated.skip_next();
         if (self.request.wants(validity::RELATION_ID) || publish_propagation)
             && let Some(propagation) = &step.request.propagation
         {
@@ -260,7 +260,8 @@ impl<'a> Rows<'a> {
                 &self.propagated.pool(),
                 &self.request.cancel,
             )?;
-            self.propagate(step, result, point, conditional, publish_propagation).await?;
+            self.propagate(step, result, point, conditional, publish_propagation)
+                .await?;
         }
         let (Some(report), Some(parametric)) = (step.report, evidence) else {
             return Ok(());
@@ -480,9 +481,13 @@ impl<'a> Rows<'a> {
                 .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
         );
         let external = matches!(&result, Ok(product) if matches!(product.origin, uncertainty::CovarianceOrigin::External { .. }));
-        let mut validity_record = record(result.as_ref()
-            .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
-            point, conditional || external);
+        let mut validity_record = record(
+            result
+                .as_ref()
+                .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
+            point,
+            conditional || external,
+        );
         if external {
             validity_record.detail = Some("mathematical propagation is conditional on the explicit external covariance assumptions; statistical fit provenance is uncertified".into());
         }

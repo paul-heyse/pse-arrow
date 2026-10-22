@@ -3,6 +3,7 @@
 //! Alternative equations share their implicit owner's variables, physical score and criterion.
 use super::*;
 use crate::annotation::Annotation;
+use crate::resolved::{Node, NodeIx, PredicateIx, Reference, ResolvedPredicate, Source};
 
 /// One alternative residual set over the implicit block's shared unknowns.
 #[derive(Clone, Debug, PartialEq)]
@@ -17,14 +18,20 @@ pub struct Regime {
     pub annotations: Vec<Annotation>,
     /// Condition under which the regime may be selected; `true` when unauthored.
     pub eligibility: dsl::Predicate,
+    /// Actual original selection guard.
+    pub eligibility_root: PredicateIx,
 }
 /// Alternative regimes of one implicit block and the physical score that selects among them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegimeSelection {
     /// Physical score minimized over eligible regimes.
     pub criterion: Expr,
+    /// Sole executable criterion.
+    pub criterion_root: NodeIx,
     /// Absolute score difference within which two regimes tie.
     pub tolerance: Expr,
+    /// Sole executable tolerance.
+    pub tolerance_root: NodeIx,
     /// Physical quantity type of the score.
     pub quantity: pse_quantity::QuantityTypeId,
     /// Regimes in authored order.
@@ -34,15 +41,24 @@ pub struct RegimeSelection {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RootSelection {
     /// Explicit branch restriction, with equivalence established later from library mathematics.
-    Branch(dsl::Predicate),
+    Branch {
+        /// Independent original-source inspection.
+        inspection: dsl::Predicate,
+        /// Actual executable original restriction.
+        predicate: PredicateIx,
+    },
     /// Deterministic operational choice. A neighborhood predicate is not itself stability proof.
     Operational {
         /// Unknown targets and semantic anchors in canonical physical coordinates.
         anchors: BTreeMap<SemanticId, Expr>,
+        /// Actual executable anchor roots in the same target order.
+        anchor_roots: BTreeMap<SemanticId, NodeIx>,
         /// Checked realization/settings capability reference.
         settings: String,
         /// Optional authored branch neighborhood restriction.
         neighborhood: Option<dsl::Predicate>,
+        /// Actual original neighborhood root.
+        neighborhood_root: Option<PredicateIx>,
     },
 }
 impl Engine<'_, '_> {
@@ -55,16 +71,21 @@ impl Engine<'_, '_> {
     ) -> Result<()> {
         if let Some(contract) = &scope.value.scope {
             if contract.branch.is_some() {
-                let predicate = self.rewrite_predicate(
+                let predicate = self.rewrite_predicate_field(
                     instance,
-                    self.p
-                        .predicate_at(scope.declaration_id, "scope.branch", 0)?,
+                    scope.declaration_id,
+                    "scope.branch",
+                    0,
                     env,
                     &[scope.declaration_id],
                 )?;
-                self.model
-                    .root_selections
-                    .insert(instance, RootSelection::Branch(predicate));
+                self.model.root_selections.insert(
+                    instance,
+                    RootSelection::Branch {
+                        inspection: predicate.inspection,
+                        predicate: predicate.root,
+                    },
+                );
             }
             if let Some(operation) = &contract.operational {
                 if operation.settings != "native.kinsol.v1" || operation.anchors.is_empty() {
@@ -74,18 +95,19 @@ impl Engine<'_, '_> {
                     ));
                 }
                 let mut anchors = BTreeMap::new();
+                let mut anchor_roots = BTreeMap::new();
                 for (position, _anchor) in operation.anchors.iter().enumerate() {
-                    let target = self.rewrite(
+                    let target = self.rewrite_field(
                         instance,
-                        self.p.expression_at(
-                            scope.declaration_id,
-                            "scope.operational.anchors.target",
-                            position,
-                        )?,
+                        scope.declaration_id,
+                        "scope.operational.anchors.target",
+                        position,
                         env,
                         &[scope.declaration_id],
                     )?;
-                    let ExprKind::Path(path) = target.kind else {
+                    let Some(Node::Reference(Reference::Symbol(slot))) =
+                        self.construction.get(target.root)
+                    else {
                         return Err(invalid(
                             scope.declaration_id,
                             "operational anchor requires an unknown target",
@@ -94,13 +116,11 @@ impl Engine<'_, '_> {
                     let symbol = self
                         .model
                         .symbols
-                        .values()
-                        .find(|s| {
-                            path.segments.len() == 1
-                                && path.segments[0].name == symbol_name(s.id)
-                                && s.lineage.instance == instance
-                                && s.role == Kind::Variable
-                                && s.expression.is_none()
+                        .at(*slot)
+                        .filter(|symbol| {
+                            symbol.lineage.instance == instance
+                                && symbol.role == Kind::Variable
+                                && symbol.definition.is_none()
                         })
                         .ok_or_else(|| {
                             invalid(
@@ -109,17 +129,16 @@ impl Engine<'_, '_> {
                             )
                         })?;
                     let id = symbol.id;
-                    let expression = self.rewrite(
+                    let expression = self.rewrite_field(
                         instance,
-                        self.p.expression_at(
-                            scope.declaration_id,
-                            "scope.operational.anchors.expression",
-                            position,
-                        )?,
+                        scope.declaration_id,
+                        "scope.operational.anchors.expression",
+                        position,
                         env,
                         &[scope.declaration_id],
                     )?;
-                    if anchors.insert(id, expression).is_some() {
+                    anchor_roots.insert(id, expression.root);
+                    if anchors.insert(id, expression.inspection).is_some() {
                         return Err(invalid(
                             scope.declaration_id,
                             "duplicate operational anchor target",
@@ -130,24 +149,25 @@ impl Engine<'_, '_> {
                     .neighborhood
                     .as_ref()
                     .map(|_| {
-                        self.rewrite_predicate(
+                        self.rewrite_predicate_field(
                             instance,
-                            self.p.predicate_at(
-                                scope.declaration_id,
-                                "scope.operational.neighborhood",
-                                0,
-                            )?,
+                            scope.declaration_id,
+                            "scope.operational.neighborhood",
+                            0,
                             env,
                             &[scope.declaration_id],
                         )
                     })
                     .transpose()?;
+                let neighborhood_root = neighborhood.as_ref().map(|value| value.root);
                 self.model.root_selections.insert(
                     instance,
                     RootSelection::Operational {
                         anchors,
+                        anchor_roots,
                         settings: operation.settings.clone(),
-                        neighborhood,
+                        neighborhood: neighborhood.map(|value| value.inspection),
+                        neighborhood_root,
                     },
                 );
             }
@@ -183,30 +203,23 @@ impl Engine<'_, '_> {
                 "selected implicit blocks require alternatives and no common residual equations",
             ));
         }
-        let criterion = self.rewrite(
+        let criterion = self.rewrite_field(
             instance,
-            self.p
-                .expression_at(scope.declaration_id, "scope.selection.criterion", 0)?,
-            env,
-            &[scope.declaration_id],
-        )?;
-        let tolerance = self.rewrite(
-            instance,
-            self.p
-                .expression_at(scope.declaration_id, "scope.selection.tolerance", 0)?,
-            env,
-            &[scope.declaration_id],
-        )?;
-        let types = crate::TypeScope::new(&self.model.symbols);
-        let Type::Quantity(quantity) = crate::expression::infer(
-            &criterion,
-            &types,
-            &self.model.function_contracts(self.p),
-            self.c,
             scope.declaration_id,
-            None,
-        )?
-        else {
+            "scope.selection.criterion",
+            0,
+            env,
+            &[scope.declaration_id],
+        )?;
+        let tolerance = self.rewrite_field(
+            instance,
+            scope.declaration_id,
+            "scope.selection.tolerance",
+            0,
+            env,
+            &[scope.declaration_id],
+        )?;
+        let Type::Quantity(quantity) = self.constructed_type(criterion.root)? else {
             return Err(invalid(
                 scope.declaration_id,
                 "physical regime score required",
@@ -254,14 +267,24 @@ impl Engine<'_, '_> {
                 .scope
                 .as_ref()
                 .and_then(|s| s.eligibility.as_deref());
-            let predicate = eligible
-                .map(|_| self.p.predicate_at(at, "scope.eligibility", 0).cloned())
-                .transpose()?
-                .unwrap_or(dsl::Predicate {
-                    kind: dsl::PredicateKind::Bool(true),
+            let eligibility = if eligible.is_some() {
+                self.rewrite_predicate_field(instance, at, "scope.eligibility", 0, env, &[at])?
+            } else {
+                let source = Source {
+                    field: crate::expression::occurrences::OccurrenceKey {
+                        declaration: at,
+                        role: "derived.default_eligibility".into(),
+                        position: 0,
+                    },
                     span: Span::default(),
-                });
-            let eligibility = self.rewrite_predicate(instance, &predicate, env, &[at])?;
+                    coordinate: None,
+                };
+                self.pair_predicate(
+                    ResolvedPredicate::Bool(true),
+                    dsl::PredicateKind::Bool(true),
+                    source,
+                )?
+            };
             let mut equations = Vec::new();
             let annotation_start = self.model.annotations.len();
             for child in children {
@@ -275,26 +298,33 @@ impl Engine<'_, '_> {
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let equation = self.p.equation_at(child, "equation.expression", 0)?.clone();
-                        let equation = self.rewrite_equation(
+                        let equation = self.rewrite_equation_field(
                             instance,
-                            &equation,
+                            child,
+                            "equation.expression",
+                            0,
                             &coordinates_env(env, &coordinates),
                             &[child],
                         )?;
-                        if !matches!(
-                            equation.kind,
-                            EquationKind::Relation {
-                                sense: EquationSense::Eq,
-                                ..
-                            }
-                        ) {
+                        if equation.sense != EquationSense::Eq {
                             return Err(invalid(child, "regime residuals must be equalities"));
                         }
                         self.reserve(1)?;
+                        let id = member_id(instance, child, &coordinates);
+                        if self
+                            .model
+                            .equation_roots
+                            .insert(id, equation.relation())
+                            .is_some()
+                        {
+                            return Err(invalid(
+                                child,
+                                "one alternative row has competing constructed relations",
+                            ));
+                        }
                         equations.push(Row {
-                            id: member_id(instance, child, &coordinates),
-                            equation,
+                            id,
+                            equation: equation.inspection,
                             lineage: self.lineage(instance, &row, &[child]),
                         });
                     }
@@ -326,7 +356,8 @@ impl Engine<'_, '_> {
                 declaration: at,
                 equations,
                 annotations,
-                eligibility,
+                eligibility_root: eligibility.root,
+                eligibility: eligibility.inspection,
             });
         }
         let unknowns = self
@@ -346,8 +377,10 @@ impl Engine<'_, '_> {
         self.model.regimes.insert(
             instance,
             RegimeSelection {
-                criterion,
-                tolerance,
+                criterion_root: criterion.root,
+                criterion: criterion.inspection,
+                tolerance_root: tolerance.root,
+                tolerance: tolerance.inspection,
                 quantity,
                 alternatives,
             },

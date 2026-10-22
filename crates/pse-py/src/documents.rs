@@ -46,26 +46,42 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(
 }
 /// Decode a registered standalone owner using its catalogue-selected actual envelope.
 pub(crate) fn decode_document<T: serde::de::DeserializeOwned + DocumentType>(
-    py: Python<'_>, operation: &str, bytes: &[u8], allowance: usize,
+    py: Python<'_>,
+    operation: &str,
+    bytes: &[u8],
+    allowance: usize,
 ) -> PyResult<T> {
-    if bytes.len() > allowance { return Err(crate::workflow::invalid(py, format!("{operation} document extent"))); }
+    if bytes.len() > allowance {
+        return Err(crate::workflow::invalid(
+            py,
+            format!("{operation} document extent"),
+        ));
+    }
     if let Some(version) = T::VERSION {
         let field = match T::WIRE {
             pse_runtime::boundary_documents::Wire::Native => "version",
-            pse_runtime::boundary_documents::Wire::FlatV1 | pse_runtime::boundary_documents::Wire::ValueV1 => "document_version",
+            pse_runtime::boundary_documents::Wire::FlatV1
+            | pse_runtime::boundary_documents::Wire::ValueV1 => "document_version",
         };
         pse_runtime::boundary_documents::check_required_header(bytes, field, version)
             .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))?;
     }
-    T::WIRE.from_slice(bytes).map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+    T::WIRE
+        .decode_slice(bytes)
+        .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
 }
 
 /// Shared native header admission for Python's original JSON slices.
 #[pyfunction]
 pub(crate) fn check_document_header(bytes: &[u8], field: &str, expected: u32) -> PyResult<()> {
     let field = match field {
-        "version" => "version", "document_version" => "document_version",
-        _ => return Err(pyo3::exceptions::PyValueError::new_err("unknown document version header")),
+        "version" => "version",
+        "document_version" => "document_version",
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "unknown document version header",
+            ));
+        }
     };
     pse_runtime::boundary_documents::check_required_header(bytes, field, expected)
         .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))
@@ -140,11 +156,15 @@ mod catalogue;
 macro_rules! projection {
     ($owner:ty => $document:ty) => {
         impl $crate::documents::DocumentType for $owner {
-            const INPUT_NAME: &'static str = <$document as $crate::documents::DocumentType>::INPUT_NAME;
-            const OUTPUT_NAME: &'static str = <$document as $crate::documents::DocumentType>::OUTPUT_NAME;
-            const DISTINCT_DIRECTIONS: bool = <$document as $crate::documents::DocumentType>::DISTINCT_DIRECTIONS;
+            const INPUT_NAME: &'static str =
+                <$document as $crate::documents::DocumentType>::INPUT_NAME;
+            const OUTPUT_NAME: &'static str =
+                <$document as $crate::documents::DocumentType>::OUTPUT_NAME;
+            const DISTINCT_DIRECTIONS: bool =
+                <$document as $crate::documents::DocumentType>::DISTINCT_DIRECTIONS;
             const VERSION: Option<u32> = <$document as $crate::documents::DocumentType>::VERSION;
-            const WIRE: pse_runtime::boundary_documents::Wire = <$document as $crate::documents::DocumentType>::WIRE;
+            const WIRE: pse_runtime::boundary_documents::Wire =
+                <$document as $crate::documents::DocumentType>::WIRE;
         }
     };
 }
@@ -181,7 +201,8 @@ fn require_document<T: DocumentType>(value: Borrowed<'_, '_, PyAny>) -> PyResult
         return Ok(());
     }
     Err(pyo3::exceptions::PyTypeError::new_err(format!(
-        "expected {} document", T::INPUT_NAME
+        "expected {} document",
+        T::INPUT_NAME
     )))
 }
 impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValue<T> {
@@ -191,9 +212,12 @@ impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValu
     const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr =
         pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME);
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
-        let bytes = T::WIRE.to_vec(&self.0)
+        let bytes = T::WIRE
+            .to_vec(&self.0)
             .map_err(|error| crate::workflow::invalid(py, error.to_string()))?;
-        let target = py.import("pse.contracts.documents")?.getattr(T::OUTPUT_NAME)?;
+        let target = py
+            .import("pse.contracts.documents")?
+            .getattr(T::OUTPUT_NAME)?;
         py.import("pse.codec")?
             .call_method1("decode_json", (PyBytes::new(py, &bytes), target))
     }
@@ -204,7 +228,10 @@ pub(crate) struct DocumentInput<T>(pub(crate) T);
 impl<T: serde::de::DeserializeOwned + DocumentType> FromPyObject<'_, '_> for DocumentInput<T> {
     type Error = PyErr;
     const INPUT_TYPE: pyo3::inspect::PyStaticExpr = if T::DISTINCT_DIRECTIONS {
-        pyo3::type_hint_union!(pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME), pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME))
+        pyo3::type_hint_union!(
+            pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME),
+            pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME)
+        )
     } else {
         pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME)
     };
@@ -230,7 +257,10 @@ pub(crate) struct RecordedInput<T>(pub(crate) T);
 impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
     type Error = PyErr;
     const INPUT_TYPE: pyo3::inspect::PyStaticExpr = if T::DISTINCT_DIRECTIONS {
-        pyo3::type_hint_union!(pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME), pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME))
+        pyo3::type_hint_union!(
+            pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME),
+            pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME)
+        )
     } else {
         pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME)
     };
@@ -246,7 +276,9 @@ impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
             return Err(crate::workflow::invalid(py, "recorded document extent"));
         }
         let document: T = decode_document(
-            py, T::INPUT_NAME, bytes,
+            py,
+            T::INPUT_NAME,
+            bytes,
             pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
         )?;
         document
@@ -260,24 +292,18 @@ impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenEvidenc
         self.validate()
     }
 }
-impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionRequest {
-}
-impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionDocument {
-}
-impl RecordedDocument for pse_runtime::workflow::ReviewContextDocument {
-}
-impl RecordedDocument for pse_runtime::workflow::ReviewInventorySelection {
-}
-impl RecordedDocument for pse_runtime::workflow::ReviewInventoryPage {
-}
+impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionRequest {}
+impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionDocument {}
+impl RecordedDocument for pse_runtime::workflow::ReviewContextDocument {}
+impl RecordedDocument for pse_runtime::workflow::ReviewInventorySelection {}
+impl RecordedDocument for pse_runtime::workflow::ReviewInventoryPage {}
 impl RecordedDocument for pse_runtime::invocation::InvocationEvidenceDocument {
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
         self.validate()
     }
 }
 
-impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisRequest {
-}
+impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisRequest {}
 
 impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisDocument {
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
@@ -285,35 +311,24 @@ impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisDocumen
     }
 }
 
-impl RecordedDocument for pse_runtime::tooling::review_pack::PackSelection {
-}
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackSelection {}
 
-impl RecordedDocument for pse_runtime::tooling::review_pack::PackIndex {
-}
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackIndex {}
 
-impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryRequest {
-}
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryRequest {}
 
-impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryDocument {
-}
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryDocument {}
 
-impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQuerySpecification {
-}
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQuerySpecification {}
 
-impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingRequest {
-}
+impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingRequest {}
 
-impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingAcknowledgement {
-}
+impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingAcknowledgement {}
 
-impl RecordedDocument for pse_runtime::tooling::review_pack::PackExportRequest {
-}
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackExportRequest {}
 
-impl RecordedDocument for pse_runtime::workflow::DiagnosticExecutionRequest {
-}
+impl RecordedDocument for pse_runtime::workflow::DiagnosticExecutionRequest {}
 
-impl RecordedDocument for pse_runtime::tooling::review_query::ReviewTableRequest {
-}
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewTableRequest {}
 
-impl RecordedDocument for pse_runtime::tooling::capture::ReviewHandoffReceipt {
-}
+impl RecordedDocument for pse_runtime::tooling::capture::ReviewHandoffReceipt {}

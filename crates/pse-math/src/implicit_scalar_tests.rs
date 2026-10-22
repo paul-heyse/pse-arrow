@@ -244,6 +244,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
     let x = crate::library::formal(0).unwrap();
+    let instance = pse_ids::named_id(SemanticId::NIL, "bracketed original residual fixture");
     let body = prepared(x.clone().pow(Atom::num(2)) - crate::library::formal(1).unwrap());
     let solver = BracketedRoot::new(&body, &cancel).unwrap();
     let compiled = body
@@ -258,7 +259,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
         .unwrap();
     let mut problem = Arc::new(
         Problem::new(
-            SemanticId::NIL,
+            instance,
             ContentHash::from_bytes([178; 32]),
             vec![Unknown {
                 id: SemanticId::NIL,
@@ -267,7 +268,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
             }],
             vec![SemanticId::NIL],
             1,
-            residual_bodies_for_test(Arc::new(compiled)),
+            residual_bodies_for_test(source_body_for_test(instance, &body, Arc::new(compiled))),
             1024,
         )
         .unwrap(),

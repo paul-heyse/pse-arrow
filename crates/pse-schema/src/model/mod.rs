@@ -20,8 +20,8 @@ pub mod algorithm;
 pub mod collection;
 pub mod document;
 pub mod enums;
-pub mod extension;
 pub mod expression;
+pub mod extension;
 pub mod field;
 pub mod field_facets;
 pub mod identity;
@@ -61,10 +61,10 @@ pub use crate::model::relation::{
 pub use pse_ids::source_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};
-pub use field::FieldContract;
 pub use expression::ExpressionGrammar;
+pub use field::FieldContract;
 pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySpec};
-pub use result_selection::ResultSelectionRole;
 pub use integer_range::IntegerRange;
 pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
+pub use result_selection::ResultSelectionRole;
 pub use tagged_alternative::TaggedAlternative;

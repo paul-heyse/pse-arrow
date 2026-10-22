@@ -316,11 +316,19 @@ impl ProtectedResultDecode {
         descriptor: &FileBatch,
         cancel: &CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.access_block(block, descriptor, cancel, true).await?
+        self.access_block(block, descriptor, cancel, true)
+            .await?
             .ok_or_else(|| contract("protected native batch decode absent"))
     }
-    pub(super) async fn validate_pruned_block(&self, block: &Block, descriptor: &FileBatch, cancel: &CancellationToken) -> Result<(), WorkflowError> {
-        self.access_block(block, descriptor, cancel, false).await.map(|_| ())
+    pub(super) async fn validate_pruned_block(
+        &self,
+        block: &Block,
+        descriptor: &FileBatch,
+        cancel: &CancellationToken,
+    ) -> Result<(), WorkflowError> {
+        self.access_block(block, descriptor, cancel, false)
+            .await
+            .map(|_| ())
     }
     async fn access_block(
         &self,
@@ -446,8 +454,13 @@ impl ProtectedResultDecode {
             cancel,
         )
         .map_err(pse_engine::EngineError::from)?;
-        pse_relations::result_batch::validate_scalar_keys(self.runtime.registry(), &checked, &self.runtime.shared.pool(), cancel)
-            .map_err(pse_engine::EngineError::from)?;
+        pse_relations::result_batch::validate_scalar_keys(
+            self.runtime.registry(),
+            &checked,
+            &self.runtime.shared.pool(),
+            cancel,
+        )
+        .map_err(pse_engine::EngineError::from)?;
         Ok(Some(checked))
     }
 }
@@ -639,15 +652,22 @@ impl FrozenSnapshot {
         self.decode().schema.clone()
     }
     fn len(&self) -> usize {
-        match self { Self::Full(snapshot) => snapshot.0.blocks.len(), Self::Selected(snapshot) => snapshot.0.entries.len() }
+        match self {
+            Self::Full(snapshot) => snapshot.0.blocks.len(),
+            Self::Selected(snapshot) => snapshot.0.entries.len(),
+        }
     }
     fn member(&self, index: usize) -> Option<(&Block, &FileBatch)> {
         match self {
             Self::Full(snapshot) => {
                 let block = snapshot.0.blocks.get(index)?;
                 Some((block, snapshot.0.batches.get(&block.batch)?))
-            },
-            Self::Selected(snapshot) => snapshot.0.entries.get(index).map(|entry| (&entry.block, &entry.descriptor)),
+            }
+            Self::Selected(snapshot) => snapshot
+                .0
+                .entries
+                .get(index)
+                .map(|entry| (&entry.block, &entry.descriptor)),
         }
     }
     async fn next(
@@ -668,8 +688,12 @@ impl FrozenSnapshot {
                         continue;
                     }
                     if pruning.is_some_and(|selection| !selection.keeps(position)) {
-                        let (_, descriptor) = self.member(position).ok_or_else(|| contract("pruned batch outside frozen inventory"))?;
-                        self.decode().validate_pruned_block(block, descriptor, cancel).await?;
+                        let (_, descriptor) = self
+                            .member(position)
+                            .ok_or_else(|| contract("pruned batch outside frozen inventory"))?;
+                        self.decode()
+                            .validate_pruned_block(block, descriptor, cancel)
+                            .await?;
                         continue;
                     }
                     let batch = snapshot.read_block(block, cancel).await?;
@@ -684,14 +708,15 @@ impl FrozenSnapshot {
                 }
                 Ok(None)
             }
-            Self::Selected(snapshot) => {
-                loop {
+            Self::Selected(snapshot) => loop {
                 let Some(entry) = snapshot.0.entries.get(*index) else {
                     *cache = None;
                     return Ok(None);
                 };
                 if pruning.is_some_and(|selection| !selection.keeps(*index)) {
-                    self.decode().validate_pruned_block(&entry.block, &entry.descriptor, cancel).await?;
+                    self.decode()
+                        .validate_pruned_block(&entry.block, &entry.descriptor, cancel)
+                        .await?;
                     *cache = None;
                     *index += 1;
                     continue;
@@ -722,8 +747,7 @@ impl FrozenSnapshot {
                     .rows
                     .apply(&checked, &snapshot.0.decode.runtime.shared.pool(), cancel)
                     .map(Some);
-                }
-            }
+            },
         }
     }
 }
@@ -734,32 +758,81 @@ struct PrunedSelection {
     _owner: MemoryReservation,
 }
 impl PrunedSelection {
-    fn keeps(&self, index: usize) -> bool { self.keep.get(index).copied().unwrap_or(true) }
+    fn keeps(&self, index: usize) -> bool {
+        self.keep.get(index).copied().unwrap_or(true)
+    }
 }
 
-fn prepare_pruning(snapshot: &FrozenSnapshot, state: &SessionState, filters: &[Expr]) -> NativeResult<Option<Arc<PrunedSelection>>> {
-    prepare_pruning_members(&snapshot.decode().runtime, snapshot.decode().relation, snapshot.schema(), state, filters, snapshot.len(), |index| snapshot.member(index))
+fn prepare_pruning(
+    snapshot: &FrozenSnapshot,
+    state: &SessionState,
+    filters: &[Expr],
+) -> NativeResult<Option<Arc<PrunedSelection>>> {
+    prepare_pruning_members(
+        &snapshot.decode().runtime,
+        snapshot.decode().relation,
+        snapshot.schema(),
+        state,
+        filters,
+        snapshot.len(),
+        |index| snapshot.member(index),
+    )
 }
 fn prepare_pruning_members<'a>(
-    runtime: &Runtime, relation: pse_ids::SemanticId, schema: SchemaRef,
-    state: &SessionState, filters: &[Expr], count: usize,
+    runtime: &Runtime,
+    relation: pse_ids::SemanticId,
+    schema: SchemaRef,
+    state: &SessionState,
+    filters: &[Expr],
+    count: usize,
     member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
 ) -> NativeResult<Option<Arc<PrunedSelection>>> {
     use datafusion::common::{DFSchema, Statistics, pruning::PrunableStatistics, stats::Precision};
     use datafusion_pruning::PruningPredicateBuilder;
-    if filters.is_empty() || count == 0 || !(0..count).any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some())) { return Ok(None); }
-    let per_member = schema.fields().len().checked_mul(512).and_then(|bytes| bytes.checked_add(2048));
-    let extent = per_member.and_then(|bytes| count.checked_mul(bytes))
-        .and_then(|base| (0..count).try_fold(base, |bytes, index| {
-            let encoded = member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len());
-            bytes.checked_add(encoded.checked_mul(16)?)
-        })).ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning metadata extent".into()))?;
-    let owner = MemoryConsumer::new("canonical:result-pruning-plan").register(&runtime.shared.pool());
+    if filters.is_empty()
+        || count == 0
+        || !(0..count)
+            .any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some()))
+    {
+        return Ok(None);
+    }
+    let per_member = schema
+        .fields()
+        .len()
+        .checked_mul(512)
+        .and_then(|bytes| bytes.checked_add(2048));
+    let extent = per_member
+        .and_then(|bytes| count.checked_mul(bytes))
+        .and_then(|base| {
+            (0..count).try_fold(base, |bytes, index| {
+                let encoded = member(index)
+                    .and_then(|(block, _)| block.statistics.as_ref())
+                    .map_or(0, |bytes| bytes.len());
+                bytes.checked_add(encoded.checked_mul(16)?)
+            })
+        })
+        .ok_or_else(|| {
+            DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
+        })?;
+    let owner =
+        MemoryConsumer::new("canonical:result-pruning-plan").register(&runtime.shared.pool());
     owner.try_grow(extent)?;
-    let Some(expression) = filters.iter().cloned().reduce(|left, right| left.and(right)) else { return Ok(None); };
+    let Some(expression) = filters
+        .iter()
+        .cloned()
+        .reduce(|left, right| left.and(right))
+    else {
+        return Ok(None);
+    };
     let native = DFSchema::try_from(schema.as_ref().clone())?;
-    let physical = match state.create_physical_expr(expression, &native) { Ok(expression) => expression, Err(_) => return Ok(None) };
-    let predicate = match PruningPredicateBuilder::new().with_file_schema(schema.clone()).try_build(physical) {
+    let physical = match state.create_physical_expr(expression, &native) {
+        Ok(expression) => expression,
+        Err(_) => return Ok(None),
+    };
+    let predicate = match PruningPredicateBuilder::new()
+        .with_file_schema(schema.clone())
+        .try_build(physical)
+    {
         Ok(predicate) if !predicate.always_true() => predicate,
         _ => return Ok(None),
     };
@@ -768,13 +841,23 @@ fn prepare_pruning_members<'a>(
         let exact = member(index).and_then(|(block, descriptor)| {
             let bytes = block.statistics.as_ref()?;
             let binding = pse_relations::result_batch::StatisticsBinding {
-                instance: descriptor.file_instance.clone(), digest: descriptor.file_digest.clone(),
-                index: descriptor.file_batch_index, interpretation: block.interpretation.clone(),
+                instance: descriptor.file_instance.clone(),
+                digest: descriptor.file_digest.clone(),
+                index: descriptor.file_batch_index,
+                interpretation: block.interpretation.clone(),
             };
-            let facts = pse_relations::result_batch::recorded_statistics(bytes.as_slice(), runtime.registry(), relation, schema.as_ref(), &binding)?;
+            let facts = pse_relations::result_batch::recorded_statistics(
+                bytes.as_slice(),
+                runtime.registry(),
+                relation,
+                schema.as_ref(),
+                &binding,
+            )?;
             (facts.num_rows == Precision::Exact(usize::try_from(block.rows).ok()?)).then_some(facts)
         });
-        statistics.push(Arc::new(exact.unwrap_or_else(|| Statistics::new_unknown(schema.as_ref()))));
+        statistics.push(Arc::new(
+            exact.unwrap_or_else(|| Statistics::new_unknown(schema.as_ref())),
+        ));
     }
     let statistics = PrunableStatistics::new(statistics, schema);
     let keep = match predicate.prune(&statistics) {
@@ -782,22 +865,44 @@ fn prepare_pruning_members<'a>(
         _ => return Ok(None),
     };
     drop(statistics);
-    let retained = keep.capacity().checked_add(size_of::<PrunedSelection>()).ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
-    if retained > owner.size() { owner.try_grow(retained - owner.size())?; }
+    let retained = keep
+        .capacity()
+        .checked_add(size_of::<PrunedSelection>())
+        .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
+    if retained > owner.size() {
+        owner.try_grow(retained - owner.size())?;
+    }
     owner.shrink(owner.size() - retained);
-    Ok(Some(Arc::new(PrunedSelection { keep, _owner: owner })))
+    Ok(Some(Arc::new(PrunedSelection {
+        keep,
+        _owner: owner,
+    })))
 }
 
 /// Share native metadata pruning with bounded typed scalar readers. Permission
 /// and physical integrity must still pass through the same protected decoder.
 pub(super) fn block_may_match(
-    runtime: &Runtime, relation: pse_ids::SemanticId, schema: SchemaRef,
-    block: &Block, descriptor: &FileBatch, expression: &Expr,
+    runtime: &Runtime,
+    relation: pse_ids::SemanticId,
+    schema: SchemaRef,
+    block: &Block,
+    descriptor: &FileBatch,
+    expression: &Expr,
 ) -> Result<bool, WorkflowError> {
-    if block.statistics.is_none() { return Ok(true); }
+    if block.statistics.is_none() {
+        return Ok(true);
+    }
     let state = runtime.bound_model().native_state();
-    let selection = prepare_pruning_members(runtime, relation, schema, &state, std::slice::from_ref(expression), 1, |_| Some((block, descriptor)))
-        .map_err(pse_engine::EngineError::from)?;
+    let selection = prepare_pruning_members(
+        runtime,
+        relation,
+        schema,
+        &state,
+        std::slice::from_ref(expression),
+        1,
+        |_| Some((block, descriptor)),
+    )
+    .map_err(pse_engine::EngineError::from)?;
     Ok(selection.is_none_or(|selection| selection.keeps(0)))
 }
 
@@ -815,10 +920,7 @@ impl TableProvider for SnapshotProvider {
         &self,
         filters: &[&Expr],
     ) -> NativeResult<Vec<TableProviderFilterPushDown>> {
-        Ok(vec![
-            TableProviderFilterPushDown::Inexact;
-            filters.len()
-        ])
+        Ok(vec![TableProviderFilterPushDown::Inexact; filters.len()])
     }
     async fn scan(
         &self,
@@ -894,7 +996,10 @@ impl PartitionStream for SnapshotPartition {
                 )))
             },
         );
-        Box::pin(RecordBatchStreamAdapter::new(self.snapshot.schema(), stream))
+        Box::pin(RecordBatchStreamAdapter::new(
+            self.snapshot.schema(),
+            stream,
+        ))
     }
 }
 

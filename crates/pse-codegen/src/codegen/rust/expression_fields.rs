@@ -3,10 +3,15 @@
 
 //! Typed syntax traversal and masking from declared source field contracts.
 //! A physical string is never sufficient to select a parser or permit masking.
+use crate::{
+    Registry, SchemaError,
+    model::{
+        ExpressionGrammar, ExtensionUse, FieldContract, expression::AnnotationSyntax, field_facets,
+    },
+};
 use arrow_schema::DataType;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::{Registry, SchemaError, model::{ExpressionGrammar, ExtensionUse, FieldContract, expression::AnnotationSyntax, field_facets}};
 
 fn grammar(grammar: ExpressionGrammar) -> TokenStream {
     let variant = format_ident!("{grammar:?}");
@@ -17,28 +22,58 @@ fn metadata<'a>(field: &'a FieldContract, key: &str) -> Option<&'a str> {
 }
 fn cases(field: &FieldContract) -> Result<Option<Vec<AnnotationSyntax>>, SchemaError> {
     let cases: Option<Vec<AnnotationSyntax>> = metadata(field, field_facets::EXPRESSION_CASES)
-        .map(|text| serde_json::from_str(text)
-            .map_err(|error| super::error(format!("invalid source syntax selection: {error}")))).transpose()?;
+        .map(|text| {
+            serde_json::from_str(text)
+                .map_err(|error| super::error(format!("invalid source syntax selection: {error}")))
+        })
+        .transpose()?;
     for case in cases.iter().flatten() {
-        let grammar = case.grammar.as_deref().map(|name| ExpressionGrammar::from_name(name)
-            .filter(|grammar| !matches!(grammar, ExpressionGrammar::AnnotationArguments | ExpressionGrammar::AnnotationTarget))
-            .ok_or_else(|| super::error(format!("unsupported selected source grammar {name}"))))
+        let grammar = case
+            .grammar
+            .as_deref()
+            .map(|name| {
+                ExpressionGrammar::from_name(name)
+                    .filter(|grammar| {
+                        !matches!(
+                            grammar,
+                            ExpressionGrammar::AnnotationArguments
+                                | ExpressionGrammar::AnnotationTarget
+                        )
+                    })
+                    .ok_or_else(|| {
+                        super::error(format!("unsupported selected source grammar {name}"))
+                    })
+            })
             .transpose()?;
         if (case.count > 0) != grammar.is_some() {
-            return Err(super::error(format!("annotation {} has inconsistent argument grammar/cardinality", case.kind)));
+            return Err(super::error(format!(
+                "annotation {} has inconsistent argument grammar/cardinality",
+                case.kind
+            )));
         }
     }
     Ok(cases)
 }
 fn contains(field: &FieldContract) -> bool {
-    matches!(field.extension(), Some(ExtensionUse::ExprDsl(_))) || field.children().iter().any(contains)
+    matches!(field.extension(), Some(ExtensionUse::ExprDsl(_)))
+        || field.children().iter().any(contains)
 }
 
-struct Traversal { mutable: bool }
+struct Traversal {
+    mutable: bool,
+}
 impl Traversal {
-    fn field(&self, field: &FieldContract, value: TokenStream, path: &str,
-        indices: &[proc_macro2::Ident], present: bool) -> Result<TokenStream, SchemaError> {
-        if !contains(field) { return Ok(TokenStream::new()); }
+    fn field(
+        &self,
+        field: &FieldContract,
+        value: TokenStream,
+        path: &str,
+        indices: &[proc_macro2::Ident],
+        present: bool,
+    ) -> Result<TokenStream, SchemaError> {
+        if !contains(field) {
+            return Ok(TokenStream::new());
+        }
         if field.nullable() && !present {
             let body = self.field(field, quote!(source_value), path, indices, true)?;
             return Ok(if self.mutable {
@@ -51,18 +86,44 @@ impl Traversal {
             let role = metadata(field, field_facets::EXPRESSION_ROLE).unwrap_or(path);
             let ordinal = metadata(field, field_facets::EXPRESSION_ORDINAL).unwrap_or("list");
             let role_value = if role.contains('{') {
-                let count = role.split('{').skip(1).map(|part| part.split('}').next().unwrap_or(""))
-                    .map(|part| part.parse::<usize>().map(|n| n + 1)
-                        .map_err(|error| super::error(format!("invalid source role template {role}: {error}"))))
-                    .collect::<Result<Vec<_>, _>>()?.into_iter().max().unwrap_or(0);
-                let arguments = indices.get(..count).ok_or_else(|| super::error(format!("source role {role} names an unavailable enclosing ordinal")))?;
+                let count = role
+                    .split('{')
+                    .skip(1)
+                    .map(|part| part.split('}').next().unwrap_or(""))
+                    .map(|part| {
+                        part.parse::<usize>().map(|n| n + 1).map_err(|error| {
+                            super::error(format!("invalid source role template {role}: {error}"))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(0);
+                let arguments = indices.get(..count).ok_or_else(|| {
+                    super::error(format!(
+                        "source role {role} names an unavailable enclosing ordinal"
+                    ))
+                })?;
                 quote!(let source_role_owned = format!(#role, #(#arguments),*); let source_role = source_role_owned.as_str();)
-            } else { quote!(let source_role = #role;) };
+            } else {
+                quote!(let source_role = #role;)
+            };
             let position = match ordinal {
                 "zero" => quote!(0usize),
-                "list" => indices.last().map_or_else(|| quote!(0usize), |index| quote!(#index)),
-                "flatten" => quote!({ let next = source_ordinals.entry(source_role.to_owned()).or_default(); let position = *next; *next += 1; position }),
-                _ => return Err(super::error(format!("unknown source ordinal policy {ordinal}"))),
+                "list" => indices
+                    .last()
+                    .map_or_else(|| quote!(0usize), |index| quote!(#index)),
+                "flatten" => quote!({
+                    let next = source_ordinals.entry(source_role.to_owned()).or_default();
+                    let position = *next;
+                    *next += 1;
+                    position
+                }),
+                _ => {
+                    return Err(super::error(format!(
+                        "unknown source ordinal policy {ordinal}"
+                    )));
+                }
             };
             let callback = if self.mutable {
                 quote! { let source = #value; if select(source_grammar, source_role, source_position, source) { source.clear(); masked += 1; } }
@@ -73,7 +134,11 @@ impl Traversal {
             return Ok(if declared == ExpressionGrammar::AnnotationArguments {
                 quote!({ if let Some(source_grammar) = source_annotation_grammar { let _ = source_grammar; #body } })
             } else {
-                let grammar = grammar(if declared == ExpressionGrammar::AnnotationTarget { ExpressionGrammar::Expression } else { declared });
+                let grammar = grammar(if declared == ExpressionGrammar::AnnotationTarget {
+                    ExpressionGrammar::Expression
+                } else {
+                    declared
+                });
                 quote!({ let source_grammar = #grammar; let _ = source_grammar; #body })
             });
         }
@@ -92,69 +157,147 @@ impl Traversal {
                     // The semantic relation lives two module levels below generated.
                     quote!(let (source_annotation_grammar, source_annotation_target) = match source_value.kind { #(#arms,)* };)
                 });
-                let scope = children.iter().any(|child| metadata(child, field_facets::EXPRESSION_BINDER).is_some());
+                let scope = children
+                    .iter()
+                    .any(|child| metadata(child, field_facets::EXPRESSION_BINDER).is_some());
                 let mut bodies = Vec::new();
                 // Binder domains must be visited before introducing each name and before
                 // any consuming field, regardless of native storage field order.
-                for child in children.iter().filter(|child| metadata(child, field_facets::EXPRESSION_BINDER).is_some())
-                    .chain(children.iter().filter(|child| metadata(child, field_facets::EXPRESSION_BINDER).is_none())) {
+                for child in
+                    children
+                        .iter()
+                        .filter(|child| metadata(child, field_facets::EXPRESSION_BINDER).is_some())
+                        .chain(children.iter().filter(|child| {
+                            metadata(child, field_facets::EXPRESSION_BINDER).is_none()
+                        }))
+                {
                     let name = super::types::ident(child.name());
-                    let child_path = if path.is_empty() { child.name().to_owned() } else { format!("{path}.{}", child.name()) };
-                    let next = if self.mutable { quote!(&mut source_value.#name) } else { quote!(&source_value.#name) };
+                    let child_path = if path.is_empty() {
+                        child.name().to_owned()
+                    } else {
+                        format!("{path}.{}", child.name())
+                    };
+                    let next = if self.mutable {
+                        quote!(&mut source_value.#name)
+                    } else {
+                        quote!(&source_value.#name)
+                    };
                     let body = self.field(child, next, &child_path, indices, false)?;
                     bodies.push(if selection.is_some() && child.name() == "target" {
                         quote!(if source_annotation_target { #body })
-                    } else { body });
+                    } else {
+                        body
+                    });
                 }
                 let enter = (scope && !self.mutable).then(|| quote!(visitor.enter_scope();));
                 let leave = (scope && !self.mutable).then(|| quote!(visitor.leave_scope();));
-                let mut tokens=value.clone().into_iter();
-                let already_bound=matches!(tokens.next(),Some(proc_macro2::TokenTree::Ident(name)) if name=="source_value") && tokens.next().is_none();
-                let bind=(!already_bound).then(||quote!(let source_value=#value;));
+                let mut tokens = value.clone().into_iter();
+                let already_bound = matches!(tokens.next(),Some(proc_macro2::TokenTree::Ident(name)) if name=="source_value")
+                    && tokens.next().is_none();
+                let bind = (!already_bound).then(|| quote!(let source_value=#value;));
                 Ok(quote!({ #bind #select #enter #(#bodies)* #leave }))
             }
             DataType::List(_) | DataType::FixedSizeList(_, _) => {
                 let children = field.children();
-                let child = children.first().ok_or_else(|| super::error(format!("missing source list element at {path}")))?;
+                let child = children.first().ok_or_else(|| {
+                    super::error(format!("missing source list element at {path}"))
+                })?;
                 let index = format_ident!("source_index_{}", indices.len());
-                let mut nested = indices.to_vec(); nested.push(index.clone());
+                let mut nested = indices.to_vec();
+                nested.push(index.clone());
                 let body = self.field(child, quote!(source_value), path, &nested, false)?;
-                let bind = if metadata(field, field_facets::EXPRESSION_BINDER).is_some() && !self.mutable {
+                let bind = if metadata(field, field_facets::EXPRESSION_BINDER).is_some()
+                    && !self.mutable
+                {
                     quote!(visitor.bind_index(&source_value.name, &source_value.domain);)
-                } else { TokenStream::new() };
+                } else {
+                    TokenStream::new()
+                };
                 Ok(if self.mutable {
                     quote!({ let source_values = #value; for (#index, source_value) in source_values.iter_mut().enumerate() { #body #bind } })
                 } else {
                     quote!({ let source_values = #value; for (#index, source_value) in source_values.iter().enumerate() { #body #bind } })
                 })
             }
-            _ => Err(super::error(format!("source syntax declared on unsupported field {path}"))),
+            _ => Err(super::error(format!(
+                "source syntax declared on unsupported field {path}"
+            ))),
         }
     }
 }
 
 fn annotation(field: &FieldContract, registry: &Registry) -> Result<TokenStream, SchemaError> {
-    let Some(cases) = cases(field)? else { return Ok(TokenStream::new()); };
-    let kind = registry.enum_spec("ModelingAnnotationKind").ok_or_else(|| super::error("missing annotation kinds".into()))?;
-    let declared = kind.members.iter().map(|member| member.name).collect::<std::collections::BTreeSet<_>>();
-    let selected = cases.iter().map(|case| case.kind.as_str()).collect::<std::collections::BTreeSet<_>>();
-    if declared != selected || selected.len() != cases.len() { return Err(super::error("annotation source syntax must select every declared kind exactly once".into())); }
-    let members = cases.iter().filter_map(|case| case.member.as_deref()).collect::<std::collections::BTreeSet<_>>();
-    let shapes = cases.iter().map(|case| case.shape.as_str()).collect::<std::collections::BTreeSet<_>>();
-    let variants = shapes.iter().map(|shape| { let name = super::types::ident(shape); if *shape == "Expressions" { quote!(#name(usize)) } else { quote!(#name) } });
+    let Some(cases) = cases(field)? else {
+        return Ok(TokenStream::new());
+    };
+    let kind = registry
+        .enum_spec("ModelingAnnotationKind")
+        .ok_or_else(|| super::error("missing annotation kinds".into()))?;
+    let declared = kind
+        .members
+        .iter()
+        .map(|member| member.name)
+        .collect::<std::collections::BTreeSet<_>>();
+    let selected = cases
+        .iter()
+        .map(|case| case.kind.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    if declared != selected || selected.len() != cases.len() {
+        return Err(super::error(
+            "annotation source syntax must select every declared kind exactly once".into(),
+        ));
+    }
+    let members = cases
+        .iter()
+        .filter_map(|case| case.member.as_deref())
+        .collect::<std::collections::BTreeSet<_>>();
+    let shapes = cases
+        .iter()
+        .map(|case| case.shape.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let variants = shapes.iter().map(|shape| {
+        let name = super::types::ident(shape);
+        if *shape == "Expressions" {
+            quote!(#name(usize))
+        } else {
+            quote!(#name)
+        }
+    });
     let shape_arms = cases.iter().map(|case| {
         let kind = super::types::ident(&super::types::pascal(&case.kind));
-        let shape = super::types::ident(&case.shape); let count = case.count;
-        let shape = if case.shape == "Expressions" { quote!(SourceAnnotationShape::#shape(#count)) } else { quote!(SourceAnnotationShape::#shape) };
+        let shape = super::types::ident(&case.shape);
+        let count = case.count;
+        let shape = if case.shape == "Expressions" {
+            quote!(SourceAnnotationShape::#shape(#count))
+        } else {
+            quote!(SourceAnnotationShape::#shape)
+        };
         quote!(super::super::enums::ModelingAnnotationKind::#kind => #shape)
     });
     let valid_arms = cases.iter().map(|case| {
-        let kind = super::types::ident(&super::types::pascal(&case.kind)); let count = case.count;
-        let checks = members.iter().map(|member| { let name = super::types::ident(member); let required = case.member.as_deref() == Some(*member); if required {quote!(self.#name.is_some())} else {quote!(self.#name.is_none())} });
-        let cardinality=if count==0 {quote!(self.arguments.is_empty())} else {quote!(self.arguments.len()==#count)};
+        let kind = super::types::ident(&super::types::pascal(&case.kind));
+        let count = case.count;
+        let checks = members.iter().map(|member| {
+            let name = super::types::ident(member);
+            let required = case.member.as_deref() == Some(*member);
+            if required {
+                quote!(self.#name.is_some())
+            } else {
+                quote!(self.#name.is_none())
+            }
+        });
+        let cardinality = if count == 0 {
+            quote!(self.arguments.is_empty())
+        } else {
+            quote!(self.arguments.len()==#count)
+        };
         quote!(super::super::enums::ModelingAnnotationKind::#kind => #cardinality #(&& #checks)*)
     });
-    let count_arms = cases.iter().map(|case| { let kind = super::types::ident(&super::types::pascal(&case.kind)); let count = case.count; quote!(super::super::enums::ModelingAnnotationKind::#kind => #count) });
+    let count_arms = cases.iter().map(|case| {
+        let kind = super::types::ident(&super::types::pascal(&case.kind));
+        let count = case.count;
+        quote!(super::super::enums::ModelingAnnotationKind::#kind => #count)
+    });
     Ok(quote! {
         /// Typed annotation shape selected by the authoritative kind declaration.
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,14 +314,30 @@ fn annotation(field: &FieldContract, registry: &Registry) -> Result<TokenStream,
 }
 
 pub(super) fn render(registry: &Registry) -> Result<TokenStream, SchemaError> {
-    let Some(relation) = registry.relation("authored.modeling_declarations") else { return Ok(TokenStream::new()); };
-    let value = relation.column("value").ok_or_else(|| super::error("modeling declaration has no value".into()))?;
-    let annotations = value.children().iter().find(|field| field.name() == "annotation")
-        .map(|field| annotation(field, registry)).transpose()?;
+    let Some(relation) = registry.relation("authored.modeling_declarations") else {
+        return Ok(TokenStream::new());
+    };
+    let value = relation
+        .column("value")
+        .ok_or_else(|| super::error("modeling declaration has no value".into()))?;
+    let annotations = value
+        .children()
+        .iter()
+        .find(|field| field.name() == "annotation")
+        .map(|field| annotation(field, registry))
+        .transpose()?;
     let immutable = Traversal { mutable: false }.field(value, quote!(self), "", &[], true)?;
     let mutable = Traversal { mutable: true }.field(value, quote!(self), "", &[], true)?;
-    let grammar_variants = ExpressionGrammar::ALL.into_iter().filter(|grammar| !matches!(grammar, ExpressionGrammar::AnnotationArguments | ExpressionGrammar::AnnotationTarget))
-        .map(|grammar| format_ident!("{grammar:?}")).collect::<Vec<_>>();
+    let grammar_variants = ExpressionGrammar::ALL
+        .into_iter()
+        .filter(|grammar| {
+            !matches!(
+                grammar,
+                ExpressionGrammar::AnnotationArguments | ExpressionGrammar::AnnotationTarget
+            )
+        })
+        .map(|grammar| format_ident!("{grammar:?}"))
+        .collect::<Vec<_>>();
     Ok(quote! {
         /// Existing source parser selected by a declared field, independent of storage strings.
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]

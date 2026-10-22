@@ -309,33 +309,36 @@ impl PreparedExperiments {
 }
 
 /// Complete fitting policy identity, including actual residual algorithm criteria.
-pub(super) fn profile_key(profile: &FitProfile, criteria: ResidualLmCriteria) -> Result<pse_ids::roles::ProfileHash, WorkflowError> {
+pub(super) fn profile_key(
+    profile: &FitProfile,
+    criteria: ResidualLmCriteria,
+) -> Result<pse_ids::roles::ProfileHash, WorkflowError> {
     let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV6);
-        h.hash(
-            &crate::math::solves::profile_key(&profile.solver)
+    h.hash(
+        &crate::math::solves::profile_key(&profile.solver)
+            .map_err(crate::math::MathRuntimeError::from)?
+            .as_id(),
+    );
+    h.str(profile.optimizer.as_str())
+        .f64(profile.rank_tolerance)
+        .u64(profile.max_cells as u64)
+        .str(profile.derivatives.as_str())
+        .u64(profile.experiment_workers.into_inner() as u64);
+    for (id, p) in &profile.simulations {
+        h.id(&id.as_id()).hash(
+            &crate::workflow::dynamics::profile_identity(p)
                 .map_err(crate::math::MathRuntimeError::from)?
                 .as_id(),
         );
-        h.str(profile.optimizer.as_str())
-            .f64(profile.rank_tolerance)
-            .u64(profile.max_cells as u64)
-            .str(profile.derivatives.as_str())
-            .u64(profile.experiment_workers.into_inner() as u64);
-        for (id, p) in &profile.simulations {
-            h.id(&id.as_id()).hash(
-                &crate::workflow::dynamics::profile_identity(p)
-                    .map_err(crate::math::MathRuntimeError::from)?
-                    .as_id(),
-            );
-        }
-        // The requested intervals change what the fit derives and publishes, not how it
-        // solves; a profile without them keeps its identity.
-        if let Some(uncertainty) = &profile.uncertainty {
-            h.str("uncertainty");
-            pse_ids::document::frame(&mut h, uncertainty)
-                .map_err(|e| contract(format!("fit uncertainty encoding: {e}")))?;
-        }
-    pse_ids::document::frame(&mut h, &criteria).map_err(|error| contract(format!("fit LM criteria: {error}")))?;
+    }
+    // The requested intervals change what the fit derives and publishes, not how it
+    // solves; a profile without them keeps its identity.
+    if let Some(uncertainty) = &profile.uncertainty {
+        h.str("uncertainty");
+        pse_ids::document::frame(&mut h, uncertainty)
+            .map_err(|e| contract(format!("fit uncertainty encoding: {e}")))?;
+    }
+    pse_ids::document::frame(&mut h, &criteria)
+        .map_err(|error| contract(format!("fit LM criteria: {error}")))?;
     Ok(pse_ids::roles::ProfileHash::from_id(h.finish_hash()))
-
 }

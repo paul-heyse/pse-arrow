@@ -41,7 +41,9 @@ fn flat_expressions(
     cancel: &Arc<AtomicBool>,
 ) -> Result<Vec<Atom>, MathError> {
     if !body.is_flat_arithmetic() {
-        return Err(MathError::Contract("direct product preflight/source mismatch".into()));
+        return Err(MathError::Contract(
+            "direct product preflight/source mismatch".into(),
+        ));
     }
     let parameters = body.parameters()?;
     let symbols = symbol_map(&parameters);
@@ -86,17 +88,16 @@ fn flat_expressions(
             expressions.insert(output, value);
         }
     }
-    Ok(
-        body.outputs
-            .iter()
-            .map(|slot| {
-                expressions
-                    .get(slot)
-                    .cloned()
-                    .unwrap_or_else(|| parameters[*slot].clone())
-            })
-            .collect(),
-    )
+    Ok(body
+        .outputs
+        .iter()
+        .map(|slot| {
+            expressions
+                .get(slot)
+                .cloned()
+                .unwrap_or_else(|| parameters[*slot].clone())
+        })
+        .collect())
 }
 
 impl PreparedSupport {
@@ -148,9 +149,18 @@ impl PreparedSupport {
         match preflight.route() {
             ProductRoute::Direct => {
                 let expressions = flat_expressions(support.body(), limits, cancel)?;
-                return support.compile_direct_product(kind, expressions, options, limits, scope, retained);
+                return support.compile_direct_product(
+                    kind,
+                    expressions,
+                    options,
+                    limits,
+                    scope,
+                    retained,
+                );
             }
-            ProductRoute::Reverse => return support.compile_reverse_product(kind, options, limits, scope, retained),
+            ProductRoute::Reverse => {
+                return support.compile_reverse_product(kind, options, limits, scope, retained);
+            }
             ProductRoute::Regional => {}
         }
         support.body().compile_scope(

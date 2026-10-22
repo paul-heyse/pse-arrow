@@ -1812,16 +1812,40 @@ pub type Profile = IntegrationControls<Vec<f64>>;
 impl<Coordinates> IntegrationControls<Coordinates> {
     /// Project the three coordinate-bearing slots after contextual physical admission.
     /// All other controls retain their exact values and native owners.
-    pub fn with_coordinates<Admitted>(self, atol: Admitted, out_atol: Admitted, parameter_scales: Admitted) -> IntegrationControls<Admitted> {
+    pub fn with_coordinates<Admitted>(
+        self,
+        atol: Admitted,
+        out_atol: Admitted,
+        parameter_scales: Admitted,
+    ) -> IntegrationControls<Admitted> {
         IntegrationControls {
-            version: self.version, method: self.method, trial_failures: self.trial_failures,
-            numerics: self.numerics, endpoint: self.endpoint, start: self.start, end: self.end,
-            samples: self.samples, rtol: self.rtol, out_rtol: self.out_rtol, out_atol, atol,
-            initial_step: self.initial_step, max_steps: self.max_steps, max_events: self.max_events,
-            time_limit: self.time_limit, max_cells: self.max_cells, sensitivity: self.sensitivity,
-            forward_axes: self.forward_axes, adjoint_parameters: self.adjoint_parameters,
-            adjoint: self.adjoint, parameter_scales, schedule: self.schedule, diffsol: self.diffsol,
-            idas: self.idas, initialization: self.initialization, native: self.native,
+            version: self.version,
+            method: self.method,
+            trial_failures: self.trial_failures,
+            numerics: self.numerics,
+            endpoint: self.endpoint,
+            start: self.start,
+            end: self.end,
+            samples: self.samples,
+            rtol: self.rtol,
+            out_rtol: self.out_rtol,
+            out_atol,
+            atol,
+            initial_step: self.initial_step,
+            max_steps: self.max_steps,
+            max_events: self.max_events,
+            time_limit: self.time_limit,
+            max_cells: self.max_cells,
+            sensitivity: self.sensitivity,
+            forward_axes: self.forward_axes,
+            adjoint_parameters: self.adjoint_parameters,
+            adjoint: self.adjoint,
+            parameter_scales,
+            schedule: self.schedule,
+            diffsol: self.diffsol,
+            idas: self.idas,
+            initialization: self.initialization,
+            native: self.native,
         }
     }
 }

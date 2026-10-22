@@ -148,7 +148,9 @@ impl Method {
         use crate::ProblemError;
         let m = self;
         if m.setup_interval == 0 || m.damping.into_inner() <= 0. {
-            return Err(ProblemError::Contract("KINSOL setup interval or damping is not positive".into()));
+            return Err(ProblemError::Contract(
+                "KINSOL setup interval or damping is not positive".into(),
+            ));
         }
         match m.linear {
             linear if linear.krylov().is_some_and(|d| i32::try_from(d).is_err()) => {

@@ -61,7 +61,8 @@ impl FieldContract {
     }
     /// Scientific result access role, when declared.
     pub fn result_selection_role(&self) -> Option<super::ResultSelectionRole> {
-        self.get(super::field_facets::RESULT_SELECTION).and_then(super::ResultSelectionRole::from_name)
+        self.get(super::field_facets::RESULT_SELECTION)
+            .and_then(super::ResultSelectionRole::from_name)
     }
     /// Declare an ordinal in the new scalar batch's lexicographic order.
     #[must_use]
@@ -70,7 +71,8 @@ impl FieldContract {
     }
     /// New-batch sort ordinal; dense trajectory fields omit this facet.
     pub fn result_sort_ordinal(&self) -> Option<usize> {
-        self.get(super::field_facets::RESULT_SORT).and_then(|value| value.parse().ok())
+        self.get(super::field_facets::RESULT_SORT)
+            .and_then(|value| value.parse().ok())
     }
     /// Declare the native graph endpoint mechanically derived from this reference.
     #[must_use]
@@ -434,7 +436,9 @@ impl FieldContract {
             },
             "pse.source_span" => ExtensionUse::SourceSpan,
             "pse.enum" => ExtensionUse::Enum(self.get(PARAMETER)?),
-            "pse.expr_dsl" => ExtensionUse::ExprDsl(super::ExpressionGrammar::from_name(self.get(PARAMETER)?)?),
+            "pse.expr_dsl" => {
+                ExtensionUse::ExprDsl(super::ExpressionGrammar::from_name(self.get(PARAMETER)?)?)
+            }
             "pse.target_path" => ExtensionUse::TargetPath,
             _ => return None,
         })
@@ -582,7 +586,11 @@ impl FieldContract {
         if self.get(PARAMETER).is_some()
             && !matches!(
                 self.extension(),
-                Some(ExtensionUse::Enum(_) | ExtensionUse::OrdinalRef { .. } | ExtensionUse::ExprDsl(_))
+                Some(
+                    ExtensionUse::Enum(_)
+                        | ExtensionUse::OrdinalRef { .. }
+                        | ExtensionUse::ExprDsl(_)
+                )
             )
         {
             return Err(invalid("extension parameter has no parameterized domain"));

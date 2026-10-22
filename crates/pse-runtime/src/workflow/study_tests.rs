@@ -5065,7 +5065,15 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     );
     assert_eq!(pool.reserved(), reserved);
 
-    let previous = RunResult::joined(run_id, runtime.clone(), RunOutcome::Modeling { request: vec![*prepared.clone()], result: Ok(vec![completed.clone()]) }, None)
+    let previous = RunResult::joined(
+        run_id,
+        runtime.clone(),
+        RunOutcome::Modeling {
+            request: vec![*prepared.clone()],
+            result: Ok(vec![completed.clone()]),
+        },
+        None,
+    )
     .finished(None, false)
     .await;
     let mut target = prepared;

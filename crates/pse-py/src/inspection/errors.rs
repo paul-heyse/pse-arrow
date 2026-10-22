@@ -412,7 +412,9 @@ impl DiagnosticReport {
 impl DiagnosticReport {
     /// Exact original settlement document; inactive content remains inaccessible.
     #[getter]
-    fn artifact_intent(&self) -> Option<DocumentValue<&pse_operations::canonical_artifacts::Artifact>> {
+    fn artifact_intent(
+        &self,
+    ) -> Option<DocumentValue<&pse_operations::canonical_artifacts::Artifact>> {
         self.artifact_intent.as_ref().map(DocumentValue)
     }
     #[getter]

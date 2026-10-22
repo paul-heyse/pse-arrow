@@ -7,7 +7,10 @@ use super::declarations::{
 };
 use crate::{
     RegistryBuilder,
-    model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S, ResultSelectionRole as R},
+    model::{
+        EnumDecl, EnumMember, FieldContract as T, Namespace as N, ResultSelectionRole as R,
+        SnapshotClass as S,
+    },
 };
 use arrow_schema::DataType as D;
 fn text() -> T {
@@ -1184,23 +1187,47 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         &["run_id", "step", "symbol_id"],
         vec![
             run_id().with_result_selection(R::Run).with_result_sort(0),
-            column("step", ordinal()).with_result_selection(R::Step).with_result_sort(1),
-            column("symbol_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
+            column("step", ordinal())
+                .with_result_selection(R::Step)
+                .with_result_sort(1),
+            column("symbol_id", T::id())
+                .with_result_selection(R::Owner)
+                .with_result_sort(2),
             column("quantity_id", T::id()).optional(),
             column("unit_id", T::id()).optional(),
             column("fixed", flag()),
             column("parameter", flag()),
             column("domain", T::enumeration("ModelingVariableDomain")).optional(),
-            column("value", real()).optional().with_result_selection(R::Value),
-            column("lower", real()).optional().with_result_selection(R::Value),
-            column("upper", real()).optional().with_result_selection(R::Value),
-            column("lower_violation", real()).optional().with_result_selection(R::Value),
-            column("upper_violation", real()).optional().with_result_selection(R::Value),
-            column("tolerance", real()).optional().with_result_selection(R::Value),
-            column("lower_dual", real()).optional().with_result_selection(R::Value),
-            column("upper_dual", real()).optional().with_result_selection(R::Value),
-            column("reduced_cost", real()).optional().with_result_selection(R::Value),
-            column("stationarity", real()).optional().with_result_selection(R::Value),
+            column("value", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("lower", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("upper", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("lower_violation", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("upper_violation", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("tolerance", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("lower_dual", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("upper_dual", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("reduced_cost", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("stationarity", real())
+                .optional()
+                .with_result_selection(R::Value),
             column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.",
@@ -1214,18 +1241,38 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         &["run_id", "step", "row_id"],
         vec![
             run_id().with_result_selection(R::Run).with_result_sort(0),
-            column("step", ordinal()).with_result_selection(R::Step).with_result_sort(1),
-            column("row_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
+            column("step", ordinal())
+                .with_result_selection(R::Step)
+                .with_result_sort(1),
+            column("row_id", T::id())
+                .with_result_selection(R::Owner)
+                .with_result_sort(2),
             column("quantity_id", T::id()).optional(),
             column("unit_id", T::id()).optional(),
-            column("value", real()).optional().with_result_selection(R::Value),
-            column("lower", real()).optional().with_result_selection(R::Value),
-            column("upper", real()).optional().with_result_selection(R::Value),
-            column("equality_residual", real()).optional().with_result_selection(R::Value),
-            column("lower_violation", real()).optional().with_result_selection(R::Value),
-            column("upper_violation", real()).optional().with_result_selection(R::Value),
-            column("tolerance", real()).optional().with_result_selection(R::Value),
-            column("dual", real()).optional().with_result_selection(R::Value),
+            column("value", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("lower", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("upper", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("equality_residual", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("lower_violation", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("upper_violation", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("tolerance", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("dual", real())
+                .optional()
+                .with_result_selection(R::Value),
             column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.",
@@ -1310,23 +1357,55 @@ fn declare_physical_boundary(b: &mut RegistryBuilder) {
     let coordinate = record(vec![("coordinate_id", T::id()), ("value", quantity())])
         .named("ScientificCoordinateValue");
     relation(
-        b, N::Runtime, "primal_values", S::Derived, &["coordinate_id"],
-        vec![column("coordinate_id", T::id()), column("coordinate_role", T::enumeration("NativePrimalCoordinateRole")), column("value", quantity())],
+        b,
+        N::Runtime,
+        "primal_values",
+        S::Derived,
+        &["coordinate_id"],
+        vec![
+            column("coordinate_id", T::id()),
+            column(
+                "coordinate_role",
+                T::enumeration("NativePrimalCoordinateRole"),
+            ),
+            column("value", quantity()),
+        ],
         "Physical Point values keyed by the actual original coordinate identity. Complete native starts and native attempt primals use the receiving prepared owner's actual quantity and representation-unit inventory; row order is not numerical placement. External inputs become an owned immutable numeric snapshot before asynchronous or native execution.",
     );
     relation(
-        b, N::Runtime, "initialization_stages", S::Derived, &["stage"],
-        vec![column("stage", ordinal()), column("values", T::list(coordinate.clone()))],
+        b,
+        N::Runtime,
+        "initialization_stages",
+        S::Derived,
+        &["stage"],
+        vec![
+            column("stage", ordinal()),
+            column("values", T::list(coordinate.clone())),
+        ],
         "Ordered initialization stages containing sparse physical Point values keyed by original coordinate identity. Stage ordinals are contiguous from zero; an empty values list retains an empty stage. Coordinate keys must be unique within a stage and belong to the actual prepared owner. External inputs become an owned immutable numeric snapshot before execution.",
     );
     relation(
-        b, N::Runtime, "diagnostic_samples", S::Derived, &["sample_id"],
-        vec![column("sample_id", T::id()), column("values", T::list(coordinate))],
+        b,
+        N::Runtime,
+        "diagnostic_samples",
+        S::Derived,
+        &["sample_id"],
+        vec![
+            column("sample_id", T::id()),
+            column("values", T::list(coordinate)),
+        ],
         "Diagnostic samples with distinct sample identities and sparse physical Point values keyed by original coordinate identity. Coordinate keys must be unique within a sample and belong to the actual diagnostic owner. External inputs become an owned immutable numeric snapshot before execution.",
     );
     relation(
-        b, N::Runtime, "state_tolerances", S::Derived, &["coordinate_id"],
-        vec![column("coordinate_id", T::id()), column("value", quantity())],
+        b,
+        N::Runtime,
+        "state_tolerances",
+        S::Derived,
+        &["coordinate_id"],
+        vec![
+            column("coordinate_id", T::id()),
+            column("value", quantity()),
+        ],
         "Strictly positive finite physical Delta absolute tolerances keyed by actual state coordinate identity. Admission requires exact state coverage and compatible complete quantities, applies representation scaling without Point offsets, then resolves the prepared numerical scales once. Row order is not state order; the admitted immutable snapshot survives native drain.",
     );
 }
@@ -1679,9 +1758,13 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         &["run_id", "parameter_id"],
         vec![
             run_id().with_result_selection(R::Run).with_result_sort(0),
-            column("parameter_id", T::id()).with_result_selection(R::Owner).with_result_sort(1),
+            column("parameter_id", T::id())
+                .with_result_selection(R::Owner)
+                .with_result_sort(1),
             column("fixed", flag()),
-            column("value", real()).optional().with_result_selection(R::Value),
+            column("value", real())
+                .optional()
+                .with_result_selection(R::Value),
             column("unit_id", T::id()),
             column("scale", real()).with_result_selection(R::Value),
             column("at_bound", flag()).optional(),
@@ -1697,13 +1780,26 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         &["run_id", "observation_id"],
         vec![
             run_id().with_result_selection(R::Run).with_result_sort(0),
-            column("observation_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
-            column("experiment_id", T::id()).with_identity("instance").with_result_selection(R::Experiment).with_result_sort(1),
+            column("observation_id", T::id())
+                .with_result_selection(R::Owner)
+                .with_result_sort(2),
+            column("experiment_id", T::id())
+                .with_identity("instance")
+                .with_result_selection(R::Experiment)
+                .with_result_sort(1),
             column("included", flag()),
-            column("prediction", real()).optional().with_result_selection(R::Value),
-            column("residual", real()).optional().with_result_selection(R::Value),
-            column("standardized_residual", real()).optional().with_result_selection(R::Value),
-            column("objective_contribution", real()).optional().with_result_selection(R::Value),
+            column("prediction", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("residual", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("standardized_residual", real())
+                .optional()
+                .with_result_selection(R::Value),
+            column("objective_contribution", real())
+                .optional()
+                .with_result_selection(R::Value),
             column("unit_id", T::id()),
         ],
         "Observation-aligned original physical predictions and half weighted squared standardized residual contributions.",
@@ -2019,7 +2115,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             ),
             column("parameter_units", T::list(T::id())),
             column("parameter_quantities", T::list(T::id())),
-            documented("parameter_scales", T::list(real()), "Recorded positive free-parameter coordinate scales in the covariance's units."),
+            documented(
+                "parameter_scales",
+                T::list(real()),
+                "Recorded positive free-parameter coordinate scales in the covariance's units.",
+            ),
             documented(
                 "values",
                 T::list(real()),

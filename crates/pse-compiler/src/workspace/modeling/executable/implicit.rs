@@ -3,6 +3,10 @@
 use super::*;
 use pse_kernels::{AdmittedProvider, Port, ProviderSpec};
 pub use pse_math::implicit::SelectionEquivalence;
+use pse_modeling::resolved::{
+    Node, NodeIx, PredicateIx, Reference, RegionOutput, RegionRequest, ResolvedPredicate,
+    SelectedRegion,
+};
 /// Authored/admitted mathematical meaning, independent of a numerical initial guess.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImplicitMeaning {
@@ -27,6 +31,24 @@ pub enum SelectionNeighborhood {
     /// A validated winning chart must exclude competitive roots across all alternatives.
     RuntimeIsolation,
 }
+/// One admitted implicit body and its exact current receiving source correspondence.
+/// The reusable numerical body itself contains only local source-role tokens.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImplicitBody {
+    body: Arc<AdmittedBody>,
+    bindings: pse_math::SourceBindings,
+}
+impl std::ops::Deref for ImplicitBody {
+    type Target = AdmittedBody;
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+impl ImplicitBody {
+    fn compiled(&self, body: Arc<CompiledBody>) -> Result<pse_math::SourceBody> {
+        Ok(pse_math::SourceBody::new(body, self.bindings.clone())?)
+    }
+}
 /// One compiler-issued selector, consumed by evaluation, native realization and export.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImplicitSelection {
@@ -35,9 +57,9 @@ pub struct ImplicitSelection {
     /// Relation or selected function contract.
     pub meaning: ImplicitMeaning,
     /// Semantic anchors in unknown output order, independent of numerical starts.
-    pub anchors: Option<Arc<AdmittedBody>>,
+    pub anchors: Option<Arc<ImplicitBody>>,
     /// Physical branch/neighborhood predicate encoded as a scalar indicator.
-    pub restriction: Option<Arc<AdmittedBody>>,
+    pub restriction: Option<Arc<ImplicitBody>>,
     /// Supported scalar half-line restriction; true is positive.
     pub sign: Option<bool>,
     /// Whether the recognized half-line excludes its zero endpoint.
@@ -53,27 +75,31 @@ pub struct ImplicitSelection {
 struct SelectionProjection {
     identity: ContentHash,
     meaning: ImplicitMeaning,
-    anchors: Vec<Expr>,
-    restriction: Option<Expr>,
+    anchors: Vec<SelectedRegion>,
+    restriction: Option<SelectedRegion>,
     sign: Option<bool>,
     strict: bool,
 }
-fn sign_restriction(predicate: &dsl::Predicate, unknowns: &[SemanticId]) -> Option<bool> {
-    use dsl::{CompareOp, PredicateKind};
-    let PredicateKind::Compare { op, lhs, rhs } = &predicate.kind else {
+fn sign_restriction(
+    model: &SpecializedModel,
+    predicate: PredicateIx,
+    unknowns: &[SemanticId],
+) -> Option<bool> {
+    use dsl::CompareOp;
+    let ResolvedPredicate::Compare { op, lhs, rhs } = model.resolved.predicates.get(predicate)?
+    else {
         return None;
     };
     if unknowns.len() != 1 {
         return None;
     }
-    let is_unknown = |e: &Expr| matches!(&e.kind, ExprKind::Path(p) if p.segments.len()==1 && p.segments[0].name==symbol_name(unknowns[0]));
-    let is_zero =
-        |e: &Expr| matches!(&e.kind, ExprKind::Number(n) if n.value==0. && n.unit.is_none());
+    let is_unknown = |root: NodeIx| matches!(model.resolved.nodes.get(root),Some(Node::Reference(Reference::Symbol(slot))) if model.symbols.at(*slot).is_some_and(|symbol|symbol.id==unknowns[0]));
+    let is_zero = |root: NodeIx| matches!(model.resolved.nodes.get(root),Some(Node::Number(number)) if number.value==0. && number.unit.is_none());
     match (
-        is_unknown(lhs),
-        is_zero(rhs),
-        is_zero(lhs),
-        is_unknown(rhs),
+        is_unknown(*lhs),
+        is_zero(*rhs),
+        is_zero(*lhs),
+        is_unknown(*rhs),
         op,
     ) {
         (true, true, _, _, CompareOp::Gt | CompareOp::Ge)
@@ -81,16 +107,6 @@ fn sign_restriction(predicate: &dsl::Predicate, unknowns: &[SemanticId]) -> Opti
         (true, true, _, _, CompareOp::Lt | CompareOp::Le)
         | (_, _, true, true, CompareOp::Gt | CompareOp::Ge) => Some(false),
         _ => None,
-    }
-}
-fn indicator(predicate: dsl::Predicate) -> Expr {
-    Expr {
-        kind: ExprKind::Conditional {
-            guard: Box::new(predicate),
-            then: Box::new(number_expression(1.0)),
-            otherwise: Box::new(number_expression(0.0)),
-        },
-        span: Span::default(),
     }
 }
 
@@ -123,8 +139,8 @@ impl ImplicitAlgorithm {
 
 #[derive(Clone, Debug, PartialEq)]
 struct AssessmentProjection {
-    eligibility: Expr,
-    criterion: Vec<Expr>,
+    eligibility: SelectedRegion,
+    criterion: Vec<SelectedRegion>,
     quantities: Vec<QuantityTypeId>,
 }
 /// Selected scaling declaration and its original term range in the nominal program.
@@ -143,17 +159,17 @@ pub struct ImplicitScale {
 struct ResidualProjection {
     id: SemanticId,
     rows: Vec<SemanticId>,
-    expressions: Vec<Expr>,
+    regions: Vec<SelectedRegion>,
     quantities: Vec<QuantityTypeId>,
     assessment: Option<AssessmentProjection>,
     hints: Vec<(
         SemanticId,
         DeclarationId,
         ModelingHint,
-        Expr,
+        SelectedRegion,
         QuantityTypeId,
     )>,
-    terms: Vec<(Expr, QuantityTypeId)>,
+    terms: Vec<(SelectedRegion, QuantityTypeId)>,
     scales: Vec<ImplicitScale>,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -162,104 +178,94 @@ pub(super) struct Projection {
     algorithm: ImplicitAlgorithm,
     pub(super) id: SemanticId,
     unknowns: Vec<SemanticId>,
-    formals: Vec<Formal>,
+    inputs: Vec<SemanticId>,
     residuals: Vec<ResidualProjection>,
-    local_quantities: BTreeMap<String, QuantityTypeId>,
     spec: ProviderSpec,
-    validity: BTreeMap<String, crate::typed_math::Validity>,
 }
 impl Projection {
-    pub(super) fn annotation_variables(&self) -> impl Iterator<Item = SemanticId> + '_ { self.unknowns.iter().copied() }
+    pub(super) fn annotation_variables(&self) -> impl Iterator<Item = SemanticId> + '_ {
+        self.unknowns.iter().copied()
+    }
     pub(super) fn annotation_inventory(&self) -> impl Iterator<Item = SemanticId> + '_ {
-        self.unknowns.iter().copied().chain(self.residuals.iter().flat_map(|residual| residual.rows.iter().copied()))
+        self.unknowns.iter().copied().chain(
+            self.residuals
+                .iter()
+                .flat_map(|residual| residual.rows.iter().copied()),
+        )
     }
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
-            + self.algorithm.retained_bytes()
-            + self
-                .selection
-                .anchors
-                .iter()
-                .chain(self.selection.restriction.iter())
-                .map(pse_modeling::expression::retained_bytes)
-                .sum::<usize>()
-            + match &self.selection.meaning {
-                ImplicitMeaning::Operational(settings) => settings.capacity(),
+            .saturating_add(self.algorithm.retained_bytes())
+            .saturating_add(
+                self.inputs
+                    .capacity()
+                    .saturating_add(self.unknowns.capacity())
+                    .saturating_mul(size_of::<SemanticId>()),
+            )
+            .saturating_add(
+                self.selection
+                    .anchors
+                    .iter()
+                    .chain(self.selection.restriction.iter())
+                    .map(SelectedRegion::retained_bytes)
+                    .sum::<usize>(),
+            )
+            .saturating_add(match &self.selection.meaning {
+                ImplicitMeaning::Operational(value) => value.capacity(),
                 _ => 0,
-            }
-            + self
-                .validity
-                .iter()
-                .map(|(n, v)| {
-                    n.capacity()
-                        + 128
-                        + pse_modeling::expression::retained_bytes(&v.lower)
-                        + pse_modeling::expression::retained_bytes(&v.upper)
-                })
-                .sum::<usize>()
-            + self
-                .residuals
-                .iter()
-                .map(|r| {
-                    size_of::<ResidualProjection>()
-                        + size_of_val(r.rows.as_slice())
-                        + size_of_val(r.quantities.as_slice())
-                        + r.expressions
-                            .iter()
-                            .map(pse_modeling::expression::retained_bytes)
-                            .sum::<usize>()
-                        + r.assessment.as_ref().map_or(0, |a| {
-                            pse_modeling::expression::retained_bytes(&a.eligibility)
-                                + a.criterion
-                                    .iter()
-                                    .map(pse_modeling::expression::retained_bytes)
-                                    .sum::<usize>()
-                        })
-                        + size_of_val(r.scales.as_slice())
-                        + r.terms
-                            .iter()
-                            .map(|(e, _)| {
-                                size_of::<(Expr, QuantityTypeId)>()
-                                    + pse_modeling::expression::retained_bytes(e)
+            })
+            .saturating_add(
+                self.residuals
+                    .iter()
+                    .map(|residual| {
+                        size_of::<ResidualProjection>()
+                            + residual.rows.capacity() * size_of::<SemanticId>()
+                            + residual.quantities.capacity() * size_of::<QuantityTypeId>()
+                            + residual
+                                .regions
+                                .iter()
+                                .map(SelectedRegion::retained_bytes)
+                                .sum::<usize>()
+                            + residual
+                                .hints
+                                .iter()
+                                .map(|hint| hint.3.retained_bytes())
+                                .sum::<usize>()
+                            + residual
+                                .terms
+                                .iter()
+                                .map(|term| term.0.retained_bytes())
+                                .sum::<usize>()
+                            + residual.assessment.as_ref().map_or(0, |assessment| {
+                                assessment.eligibility.retained_bytes()
+                                    + assessment
+                                        .criterion
+                                        .iter()
+                                        .map(SelectedRegion::retained_bytes)
+                                        .sum::<usize>()
                             })
-                            .sum::<usize>()
-                        + r.hints
-                            .iter()
-                            .map(|h| {
-                                size_of_val(h) + pse_modeling::expression::retained_bytes(&h.3)
-                            })
-                            .sum::<usize>()
-                })
-                .sum::<usize>()
-            + self
-                .formals
-                .iter()
-                .map(|f| size_of::<Formal>() + f.path.capacity())
-                .sum::<usize>()
-            + size_of_val(self.unknowns.as_slice())
-            + self
-                .local_quantities
-                .keys()
-                .map(|n| n.capacity() + 128)
-                .sum::<usize>()
+                            + residual.scales.capacity() * size_of::<ImplicitScale>()
+                    })
+                    .sum::<usize>(),
+            )
     }
 }
 /// The criterion and eligibility are separately demanded: an ineligible branch has no score.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegimeAssessment {
-    pub eligibility: Arc<AdmittedBody>,
-    pub criterion: Arc<AdmittedBody>,
+    pub eligibility: Arc<ImplicitBody>,
+    pub criterion: Arc<ImplicitBody>,
 }
 /// A root problem, with independent equation identities and optional regime assessment.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedResidual {
     pub id: SemanticId,
-    pub body: Arc<AdmittedBody>,
+    pub body: Arc<ImplicitBody>,
     pub rows: Vec<SemanticId>,
     pub assessment: Option<RegimeAssessment>,
     /// Selected common/local hints in the residual's lexical scope and formal order.
-    pub hints: Option<Arc<AdmittedBody>>,
-    pub terms: Option<Arc<AdmittedBody>>,
+    pub hints: Option<Arc<ImplicitBody>>,
+    pub terms: Option<Arc<ImplicitBody>>,
     pub scales: Vec<ImplicitScale>,
     pub hint_targets: Vec<(SemanticId, DeclarationId, ModelingHint)>,
     /// Compiler-owned implicit mode interpretation of these exact ordered hints.
@@ -433,8 +439,11 @@ impl AdmittedImplicit {
                 .sum::<usize>()
     }
     pub(super) fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        let attach = |body: &mut Arc<AdmittedBody>| {
-            *body = Arc::new(body.as_ref().clone().with_owner(owner.clone()));
+        let attach = |body: &mut Arc<ImplicitBody>| {
+            *body = Arc::new(ImplicitBody {
+                body: Arc::new(body.body.as_ref().clone().with_owner(owner.clone())),
+                bindings: body.bindings.clone(),
+            });
         };
         for body in self
             .selection
@@ -504,7 +513,7 @@ impl AdmittedImplicit {
                 && self
                     .residuals
                     .iter()
-                    .any(|residual| Arc::ptr_eq(&residual.body, body))
+                    .any(|residual| Arc::ptr_eq(&residual.body.body, body))
             {
                 Some(self.unknowns.len())
             } else {
@@ -572,7 +581,7 @@ impl AdmittedImplicit {
         requirements: pse_kernels::DerivativeRequirements,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
         let mut demands = BTreeMap::new();
-        let mut add = |body: &Arc<AdmittedBody>, coordinates: &[usize], order| -> Result<()> {
+        let mut add = |body: &AdmittedBody, coordinates: &[usize], order| -> Result<()> {
             for (key, required) in body.math.provider_demands_for_selection(
                 &(0..body.math.output_count()).collect::<Vec<_>>(),
                 coordinates,
@@ -629,8 +638,7 @@ impl AdmittedImplicit {
         }
         Ok(demands)
     }
-    /// Every admitted body: residuals, hints, nominal terms and regime assessments.
-    pub fn bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
+    fn source_bodies(&self) -> impl Iterator<Item = &Arc<ImplicitBody>> {
         self.residuals
             .iter()
             .flat_map(|r| {
@@ -646,9 +654,16 @@ impl AdmittedImplicit {
             .chain(self.selection.anchors.iter())
             .chain(self.selection.restriction.iter())
     }
+    /// Every reusable admitted body; its receiving bindings remain on the actual slot.
+    pub fn bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
+        self.source_bodies().map(|body| &body.body)
+    }
     /// Approximate heap bytes retained by the system, for cache accounting.
     pub fn retained_bytes(&self) -> usize {
-        size_of_val(self.unknowns.as_slice())
+        self.source_bodies()
+            .map(|body| size_of::<ImplicitBody>().saturating_add(body.bindings.retained_bytes()))
+            .sum::<usize>()
+            + size_of_val(self.unknowns.as_slice())
             + self.algorithm.retained_bytes()
             + match &self.selection.meaning {
                 ImplicitMeaning::Operational(settings) => settings.capacity(),
@@ -1096,13 +1111,13 @@ impl AdmittedImplicit {
                     t.min(configuration.time_limit())
                 }),
             );
-            let compile = |body: &AdmittedBody, order| -> Result<Arc<CompiledBody>> {
+            let compile = |body: &ImplicitBody, order| -> Result<pse_math::SourceBody> {
                 let coordinates = if order == DerivativeOrder::Value {
                     Vec::new()
                 } else {
                     (0..body.math.input_count()).collect::<Vec<_>>()
                 };
-                programs.get(body, &coordinates, order, false)
+                body.compiled(programs.get(body, &coordinates, order, false)?)
             };
             let branch_solver = programs.solvers.get(&residual.id).cloned().ok_or_else(|| {
                 CompileError::Missing("implicit admitted branch solver missing".into())
@@ -1124,7 +1139,7 @@ impl AdmittedImplicit {
                 .restriction
                 .as_ref()
                 .map(|body| {
-                    programs.get(
+                    body.compiled(programs.get(
                         body,
                         &(0..body.math.input_count()).collect::<Vec<_>>(),
                         if requested_output > DerivativeOrder::Value {
@@ -1133,7 +1148,7 @@ impl AdmittedImplicit {
                             DerivativeOrder::Value
                         },
                         true,
-                    )
+                    )?)
                 })
                 .transpose()?;
             let unknown_order = branch_solver.minimum_order();
@@ -1142,8 +1157,12 @@ impl AdmittedImplicit {
             } else {
                 (0..self.unknowns.len()).collect::<Vec<_>>()
             };
-            let unknown_body =
-                programs.get(&residual.body, &unknown_coordinates, unknown_order, false)?;
+            let unknown_body = residual.body.compiled(programs.get(
+                &residual.body,
+                &unknown_coordinates,
+                unknown_order,
+                false,
+            )?)?;
             let factory = Factory {
                 selection: pse_math::implicit::Selection {
                     anchor: self
@@ -1191,8 +1210,8 @@ impl AdmittedImplicit {
                 max_entries: limits.derivative_components,
                 providers: BTreeMap::new(),
             };
-            let local = |body: &Arc<AdmittedBody>| -> Result<Arc<CompiledBody>> {
-                programs.get(
+            let local = |body: &ImplicitBody| -> Result<pse_math::SourceBody> {
+                body.compiled(programs.get(
                     body,
                     &(0..body.math.input_count()).collect::<Vec<_>>(),
                     if requested_output > DerivativeOrder::Value {
@@ -1201,7 +1220,7 @@ impl AdmittedImplicit {
                         DerivativeOrder::Value
                     },
                     true,
-                )
+                )?)
             };
             match &residual.assessment {
                 Some(a) => branches.push(RegimeFactoryBranch {
@@ -1241,59 +1260,48 @@ impl AdmittedImplicit {
         }))
     }
 }
-fn descendant_instances(
-    hierarchy: &DiGraph<InstanceId, ()>,
-    owner: petgraph::graph::NodeIndex,
-    mut check: impl FnMut(),
-) -> BTreeSet<InstanceId> {
-    use petgraph::visit::{Dfs, Reversed};
-    let reverse = Reversed(hierarchy);
-    let mut traversal = Dfs::new(reverse, owner);
-    let mut reachable = BTreeSet::new();
-    while let Some(node) = traversal.next(reverse) {
-        check();
-        reachable.insert(hierarchy[node]);
-    }
-    reachable
-}
-
+/// Project exact typed residual/selector products. Actual executable provider descriptors
+/// are inserted only after residual admission establishes their final capabilities.
 pub(super) fn project(
     db: &dyn CompilerDb,
     model: &SpecializedModel,
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     p: &mut super::Projection,
-    bindings: &mut Vec<(String, Expr)>,
 ) -> Result<()> {
     use pse_model::generated::enums::ModelingDeclarationKind as Kind;
     use pse_modeling::specialize::Realization as Policy;
     checkpoint(db);
-    // All temporary graph storage, ordered indexes and one traversal coexist within
-    // the workspace reservation. Refuse their conservative extent before allocation;
-    // immutable output bodies retain their separate existing allocation accounting.
     let ordinary = model
         .implicit
         .values()
         .any(|policy| matches!(policy, Policy::Nested | Policy::Accelerated(_)));
-    let indexed_symbols = if ordinary { model.symbols.len() } else { 0 };
+    let indexed = if ordinary { model.symbols.len() } else { 0 };
     let scratch = model
         .instances
         .len()
         .checked_mul(size_of::<InstanceId>() * 4 + size_of::<usize>() * 24 + 256)
         .and_then(|bytes| {
             bytes.checked_add(
-                indexed_symbols
-                    .checked_mul(size_of::<SemanticId>() * 2 + size_of::<InstanceId>() + 160)?,
+                indexed.checked_mul(size_of::<SemanticId>() * 2 + size_of::<InstanceId>() + 160)?,
             )
         })
         .ok_or(CompileError::Limit("implicit projection scratch extent"))?;
     if scratch > db.projection_scratch_limit() {
         return Err(CompileError::Limit("implicit projection scratch allowance"));
     }
-    let mut variables: BTreeMap<InstanceId, Vec<SemanticId>> = BTreeMap::new();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: registry,
+        preconditions,
+        scope: &p.physical_scope,
+    };
+    let mut variables = BTreeMap::<InstanceId, Vec<SemanticId>>::new();
     if ordinary {
         for symbol in model.symbols.values() {
             checkpoint(db);
-            if symbol.role == Kind::Variable && symbol.expression.is_none() {
+            if symbol.role == Kind::Variable && symbol.definition.is_none() {
                 variables
                     .entry(symbol.lineage.instance)
                     .or_default()
@@ -1301,29 +1309,24 @@ pub(super) fn project(
             }
         }
     }
-    let mut hidden = BTreeSet::new();
-    let mut unknown_ids = BTreeSet::new();
-    let mut additions = vec![];
     let ports = p
         .inputs
         .iter()
         .zip(&p.formals)
-        .map(|(id, f)| {
+        .map(|(id, formal)| {
             Ok((
                 *id,
                 Port {
                     id: *id,
-                    quantity: f.quantity,
+                    quantity: formal.quantity,
                     unit: registry
-                        .quantity_type(f.quantity)
+                        .quantity_type(formal.quantity)
                         .map_err(MathError::from)?
                         .canonical_unit,
                 },
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
-    // Descendants are projected before their owners so a parent residual can call
-    // a child stage with its current unknowns as inputs on the same worker.
     let mut hierarchy = DiGraph::<InstanceId, ()>::new();
     let nodes = model
         .instances
@@ -1333,19 +1336,19 @@ pub(super) fn project(
     for (id, item) in &model.instances {
         checkpoint(db);
         if let Some(parent) = item.parent {
-            let owner = nodes
-                .get(&parent)
-                .ok_or_else(|| CompileError::Missing("implicit parent instance".into()))?;
-            hierarchy.add_edge(nodes[id], *owner, ());
+            hierarchy.add_edge(
+                nodes[id],
+                *nodes
+                    .get(&parent)
+                    .ok_or_else(|| CompileError::Missing("implicit parent instance".into()))?,
+                (),
+            );
         }
     }
-    let order = toposort(&hierarchy, None)
-        .map_err(|_| CompileError::Missing("cyclic instance hierarchy".into()))?;
-    let mut stages = order
+    let mut stages = toposort(&hierarchy, None)
+        .map_err(|_| CompileError::Missing("cyclic instance hierarchy".into()))?
         .into_iter()
         .filter_map(|node| {
-            // A stage is identified by its implicit block's instance, or by the generated
-            // rate system's own identity below.
             let id = hierarchy[node];
             match model.implicit.get(&id) {
                 Some(Policy::Nested) => Some((id.as_id(), ImplicitAlgorithm::Native)),
@@ -1368,20 +1371,35 @@ pub(super) fn project(
             ImplicitAlgorithm::AffineRates,
         ));
     }
+    let mut hidden = BTreeSet::new();
+    let mut unknown_ids = BTreeSet::new();
+    let mut suppliers = BTreeMap::<SemanticId, BTreeSet<SemanticId>>::new();
+    let branch_declarations = model
+        .regimes
+        .values()
+        .flat_map(|selection| {
+            selection.alternatives.iter().flat_map(|regime| {
+                regime
+                    .annotations
+                    .iter()
+                    .map(|annotation| annotation.lineage.declaration)
+            })
+        })
+        .collect::<BTreeSet<_>>();
     for (stage, algorithm) in &stages {
         checkpoint(db);
         let generated = *algorithm == ImplicitAlgorithm::AffineRates;
-        let instance = &InstanceId::from_id(*stage);
+        let instance = InstanceId::from_id(*stage);
         let unknowns = if generated {
             model
                 .derivatives
                 .values()
-                .map(|d| d.rate)
+                .map(|derivative| derivative.rate)
                 .collect::<Vec<_>>()
         } else {
-            variables.get(instance).cloned().unwrap_or_default()
+            variables.get(&instance).cloned().unwrap_or_default()
         };
-        let selection = model.regimes.get(instance);
+        let selection = model.regimes.get(&instance);
         let mut operation = SelectionProjection {
             identity: ContentHash::from_bytes([0; 32]),
             meaning: if selection.is_some() {
@@ -1396,52 +1414,75 @@ pub(super) fn project(
             sign: None,
             strict: false,
         };
-        if let Some(authored) = model.root_selections.get(instance) {
+        if let Some(authored) = model.root_selections.get(&instance) {
             use pse_modeling::specialize::RootSelection;
             let predicate = match authored {
-                RootSelection::Branch(p) => {
+                RootSelection::Branch { predicate, .. } => {
                     operation.meaning = ImplicitMeaning::Branch;
-                    Some(p)
+                    Some(*predicate)
                 }
                 RootSelection::Operational {
-                    anchors,
+                    anchor_roots,
                     settings,
-                    neighborhood,
+                    neighborhood_root,
+                    ..
                 } => {
                     operation.meaning = ImplicitMeaning::Operational(settings.clone());
-                    if anchors.len() != unknowns.len()
-                        || unknowns.iter().any(|u| !anchors.contains_key(u))
+                    if anchor_roots.len() != unknowns.len()
+                        || unknowns.iter().any(|id| !anchor_roots.contains_key(id))
                     {
                         return Err(CompileError::Missing(
                             "operational selector requires one anchor per unknown".into(),
                         ));
                     }
-                    operation.anchors = unknowns.iter().map(|u| anchors[u].clone()).collect();
-                    neighborhood.as_ref()
+                    operation.anchors = unknowns
+                        .iter()
+                        .map(|id| {
+                            model
+                                .prepare_region(
+                                    RegionRequest {
+                                        outputs: &[RegionOutput::Value(anchor_roots[id])],
+                                        validity: &[],
+                                    },
+                                    &context,
+                                )
+                                .map_err(CompileError::from)
+                        })
+                        .collect::<Result<_>>()?;
+                    *neighborhood_root
                 }
             };
             if let Some(predicate) = predicate {
-                operation.sign = sign_restriction(predicate, &unknowns);
+                operation.sign = sign_restriction(model, predicate, &unknowns);
                 operation.strict = matches!(
-                    predicate.kind,
-                    dsl::PredicateKind::Compare {
+                    model.resolved.predicates.get(predicate),
+                    Some(ResolvedPredicate::Compare {
                         op: dsl::CompareOp::Gt | dsl::CompareOp::Lt,
                         ..
-                    }
+                    })
                 );
-                operation.restriction = Some(indicator(predicate.clone()));
+                operation.restriction = Some(model.prepare_region(
+                    RegionRequest {
+                        outputs: &[RegionOutput::PredicateIndicator(predicate)],
+                        validity: &[],
+                    },
+                    &context,
+                )?);
             }
         }
         let branches = if generated {
             let rows = p
                 .outputs
                 .iter()
-                .find_map(|o| match o {
-                    ModelingOutput::DynamicRate { equations, .. } => Some(equations.clone()),
-                    _ => None,
+                .find_map(|output| {
+                    if let ModelingOutput::DynamicRate { equations, .. } = output {
+                        Some(equations.clone())
+                    } else {
+                        None
+                    }
                 })
                 .ok_or_else(|| CompileError::Missing("rate system equations".into()))?;
-            if rows.iter().any(|r| hidden.contains(r)) {
+            if rows.iter().any(|row| hidden.contains(row)) {
                 return Err(CompileError::Missing(
                     "time derivatives cannot be owned by a nested algebraic block".into(),
                 ));
@@ -1451,77 +1492,89 @@ pub(super) fn project(
             selection
                 .alternatives
                 .iter()
-                .map(|r| {
+                .map(|regime| {
                     (
-                        r.id,
-                        r.equations.iter().map(|r| r.id).collect::<Vec<_>>(),
-                        Some(r),
+                        regime.id,
+                        regime.equations.iter().map(|row| row.id).collect(),
+                        Some(regime),
                     )
                 })
-                .collect::<Vec<_>>()
+                .collect()
         } else {
             vec![(
                 *stage,
                 model
                     .equations
                     .iter()
-                    .filter(|r| r.lineage.instance == *instance)
-                    .map(|r| r.id)
+                    .filter(|row| row.lineage.instance == instance)
+                    .map(|row| row.id)
                     .collect(),
                 None,
             )]
         };
         let mut residuals = Vec::new();
-        let branch_declarations = model
-            .regimes
-            .values()
-            .flat_map(|r| {
-                r.alternatives
-                    .iter()
-                    .flat_map(|a| a.annotations.iter().map(|v| v.lineage.declaration))
-            })
-            .collect::<BTreeSet<_>>();
         for (id, rows, alternative) in branches {
             if unknowns.is_empty() || rows.len() != unknowns.len() {
                 return Err(CompileError::Missing(
                     "nested implicit block must be a nonempty square residual system".into(),
                 ));
             }
-            let indices=p.outputs.iter().enumerate().filter_map(|(i,o)|matches!(o,ModelingOutput::Equation{id,sense:EquationSense::Eq} if rows.contains(id)).then_some(i)).collect::<Vec<_>>();
+            let indices=p.outputs.iter().enumerate().filter_map(|(index,output)|matches!(output,ModelingOutput::Equation {id,sense:EquationSense::Eq} if rows.contains(id)).then_some(index)).collect::<Vec<_>>();
             if indices.len() != rows.len() {
                 return Err(CompileError::Missing(
                     "implicit block requires equality residuals".into(),
                 ));
             }
-            let assessment = if let Some((alternative, selection)) = alternative.zip(selection) {
-                let delta = pse_quantity::scheme::Scheme::Delta(Box::new(
-                    pse_quantity::scheme::Scheme::Concrete(selection.quantity),
-                ))
-                .resolve(registry, &BTreeMap::new())
-                .map_err(|e| CompileError::Missing(e.to_string()))?;
-                Some(AssessmentProjection {
-                    eligibility: Expr {
-                        kind: ExprKind::Conditional {
-                            guard: Box::new(alternative.eligibility.clone()),
-                            then: Box::new(number_expression(1.0)),
-                            otherwise: Box::new(number_expression(0.0)),
+            let assessment = alternative
+                .zip(selection)
+                .map(|(alternative, selection)| -> Result<AssessmentProjection> {
+                    let eligibility = model.prepare_region(
+                        RegionRequest {
+                            outputs: &[RegionOutput::PredicateIndicator(
+                                alternative.eligibility_root,
+                            )],
+                            validity: &[],
                         },
-                        span: Span::default(),
-                    },
-                    criterion: vec![selection.criterion.clone(), selection.tolerance.clone()],
-                    quantities: vec![selection.quantity, delta],
+                        &context,
+                    )?;
+                    let criterion = [selection.criterion_root, selection.tolerance_root]
+                        .into_iter()
+                        .map(|root| {
+                            model
+                                .prepare_region(
+                                    RegionRequest {
+                                        outputs: &[RegionOutput::Value(root)],
+                                        validity: &[],
+                                    },
+                                    &context,
+                                )
+                                .map_err(CompileError::from)
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    let quantities = criterion
+                        .iter()
+                        .map(region_quantity)
+                        .collect::<Result<Vec<_>>>()?;
+                    Ok(AssessmentProjection {
+                        eligibility,
+                        criterion,
+                        quantities,
+                    })
                 })
-            } else {
-                None
-            };
+                .transpose()?;
             let local_declarations = alternative
                 .into_iter()
-                .flat_map(|a| a.annotations.iter().map(|v| v.lineage.declaration))
+                .flat_map(|alternative| {
+                    alternative
+                        .annotations
+                        .iter()
+                        .map(|annotation| annotation.lineage.declaration)
+                })
                 .collect::<BTreeSet<_>>();
             let mut hints = BTreeMap::new();
             for local in [false, true] {
                 let mut seen = BTreeSet::new();
-                for (i, output) in p.outputs.iter().enumerate() {
+                for (index, output) in p.outputs.iter().enumerate() {
                     if let ModelingOutput::Hint {
                         target,
                         declaration,
@@ -1552,8 +1605,8 @@ pub(super) fn project(
                                 *target,
                                 *declaration,
                                 *kind,
-                                p.expressions[i].clone(),
-                                p.quantities[i],
+                                p.regions[index].clone(),
+                                p.quantities[index],
                             ),
                         );
                     }
@@ -1562,7 +1615,7 @@ pub(super) fn project(
             let mut selected_scales = BTreeMap::new();
             for annotations in [
                 model.annotations.as_slice(),
-                alternative.map_or(&[][..], |a| a.annotations.as_slice()),
+                alternative.map_or(&[][..], |alternative| alternative.annotations.as_slice()),
             ] {
                 let mut seen = BTreeSet::new();
                 for annotation in annotations {
@@ -1584,9 +1637,9 @@ pub(super) fn project(
             let mut scales = Vec::new();
             for (row, (scheme, source)) in selected_scales {
                 let begin = terms.len();
-                for (i, output) in p.outputs.iter().enumerate() {
-                    if matches!(output,ModelingOutput::Term{equation,..} if *equation==row) {
-                        terms.push((p.expressions[i].clone(), p.quantities[i]));
+                for (index, output) in p.outputs.iter().enumerate() {
+                    if matches!(output,ModelingOutput::Term {equation,..} if *equation==row) {
+                        terms.push((p.regions[index].clone(), p.quantities[index]));
                     }
                 }
                 if begin == terms.len() {
@@ -1603,9 +1656,15 @@ pub(super) fn project(
             }
             residuals.push(ResidualProjection {
                 id,
-                rows: indices.iter().map(|i| p.outputs[*i].row_id()).collect(),
-                expressions: indices.iter().map(|i| p.expressions[*i].clone()).collect(),
-                quantities: indices.iter().map(|i| p.quantities[*i]).collect(),
+                rows: indices
+                    .iter()
+                    .map(|index| p.outputs[*index].row_id())
+                    .collect(),
+                regions: indices
+                    .iter()
+                    .map(|index| p.regions[*index].clone())
+                    .collect(),
+                quantities: indices.iter().map(|index| p.quantities[*index]).collect(),
                 assessment,
                 hints: hints.into_values().collect(),
                 terms,
@@ -1613,328 +1672,137 @@ pub(super) fn project(
             });
             hidden.extend(rows);
         }
-        let reachable = if generated {
-            BTreeSet::new()
-        } else {
-            descendant_instances(&hierarchy, nodes[instance], || checkpoint(db))
-        };
-        let descendants = p
-            .implicit
+        for region in residuals
             .iter()
-            .filter(|child| generated || reachable.contains(&InstanceId::from_id(child.id)))
-            .flat_map(|child| child.unknowns.iter().map(|id| symbol_name(*id)))
-            .collect::<BTreeSet<_>>();
-        let mut scope_bindings = bindings.clone();
-        scope_bindings.extend(
-            additions
-                .iter()
-                .filter(|(name, _)| descendants.contains(name))
-                .cloned(),
-        );
-        let scope_bindings = ordered_bindings(scope_bindings)?;
-        // Configuration cannot depend on the unknown it initializes, including through
-        // derived locals, nested providers, or validity guards. Enclosing unknowns are inputs.
-        for expression in residuals
-            .iter()
-            .flat_map(|r| r.hints.iter().map(|h| &h.3))
+            .flat_map(|residual| residual.hints.iter().map(|hint| &hint.3))
             .chain(&operation.anchors)
         {
-            let mut dependencies = expression
-                .free_paths()
-                .into_iter()
-                .filter(|&p| p.segments.len() == 1)
-                .map(|p| p.segments[0].name.clone())
-                .collect::<BTreeSet<_>>();
-            loop {
-                let before = dependencies.len();
-                for (name, expression) in &scope_bindings {
-                    if dependencies.contains(name) {
-                        dependencies.extend(
-                            expression
-                                .free_paths()
-                                .into_iter()
-                                .filter(|&p| p.segments.len() == 1)
-                                .map(|p| p.segments[0].name.clone()),
-                        );
-                    }
-                }
-                for (name, guard) in &p.validity {
-                    if dependencies.contains(name) {
-                        dependencies.extend(
-                            guard
-                                .lower
-                                .free_paths()
-                                .into_iter()
-                                .chain(guard.upper.free_paths())
-                                .filter(|&p| p.segments.len() == 1)
-                                .map(|p| p.segments[0].name.clone()),
-                        );
-                    }
-                }
-                if before == dependencies.len() {
-                    break;
-                }
-            }
-            if unknowns
+            if expanded_region_reads(region, &suppliers)
                 .iter()
-                .any(|id| dependencies.contains(&symbol_name(*id)))
+                .any(|id| unknowns.contains(id))
             {
                 return Err(CompileError::Missing(
                     "implicit numerical hint depends on its own unknowns".into(),
                 ));
             }
         }
-        let local_names = scope_bindings
-            .iter()
-            .map(|(n, _)| n.clone())
-            .collect::<BTreeSet<_>>();
         let mut needed = BTreeSet::new();
-        for expression in residuals
+        for region in residuals
             .iter()
-            .flat_map(|r| {
-                r.expressions
+            .flat_map(|residual| {
+                residual
+                    .regions
                     .iter()
-                    .chain(r.hints.iter().map(|h| &h.3))
-                    .chain(r.terms.iter().map(|(e, _)| e))
-                    .chain(
-                        r.assessment
-                            .iter()
-                            .flat_map(|a| std::iter::once(&a.eligibility).chain(&a.criterion)),
-                    )
+                    .chain(residual.hints.iter().map(|hint| &hint.3))
+                    .chain(residual.terms.iter().map(|term| &term.0))
+                    .chain(residual.assessment.iter().flat_map(|assessment| {
+                        std::iter::once(&assessment.eligibility).chain(&assessment.criterion)
+                    }))
             })
             .chain(&operation.anchors)
             .chain(operation.restriction.iter())
         {
-            for path in expression.paths() {
-                if path.segments.len() == 1 {
-                    needed.insert(path.segments[0].name.clone());
-                }
-            }
-        }
-        loop {
-            let old = needed.len();
-            for (name, guard) in &p.validity {
-                if needed.contains(name) {
-                    for path in guard.lower.paths().into_iter().chain(guard.upper.paths()) {
-                        if path.segments.len() == 1 {
-                            needed.insert(path.segments[0].name.clone());
-                        }
-                    }
-                }
-            }
-            for (name, e) in &scope_bindings {
-                if needed.contains(name) {
-                    for path in e.paths() {
-                        if path.segments.len() == 1 {
-                            needed.insert(path.segments[0].name.clone());
-                        }
-                    }
-                }
-            }
-            if old == needed.len() {
-                break;
-            }
+            needed.extend(expanded_region_reads(region, &suppliers));
         }
         let inputs = p
             .inputs
             .iter()
-            .copied()
             .filter(|id| {
-                !unknowns.contains(id)
-                    && !local_names.contains(&symbol_name(*id))
-                    && needed.contains(&symbol_name(*id))
+                !unknowns.contains(id) && !unknown_ids.contains(*id) && needed.contains(*id)
             })
+            .copied()
             .collect::<Vec<_>>();
-        let local_bindings = scope_bindings
-            .iter()
-            .filter(|(n, _)| needed.contains(n))
-            .cloned()
-            .collect::<Vec<_>>();
-        let wrap = |expression: &mut Expr| {
-            if !local_bindings.is_empty() {
-                *expression = Expr {
-                    kind: ExprKind::Let {
-                        bindings: local_bindings.clone(),
-                        body: Box::new(expression.clone()),
-                    },
-                    span: Span::default(),
-                };
-            }
-            expression.strip_spans();
-        };
-        for residual in &mut residuals {
-            for hint in &mut residual.hints {
-                wrap(&mut hint.3);
-            }
-            for (e, _) in &mut residual.terms {
-                wrap(e);
-            }
-            for e in &mut residual.expressions {
-                wrap(e);
-            }
-            if let Some(a) = &mut residual.assessment {
-                wrap(&mut a.eligibility);
-                for e in &mut a.criterion {
-                    wrap(e);
-                }
-            }
-        }
-        for anchor in &mut operation.anchors {
-            wrap(anchor);
-        }
-        if let Some(restriction) = &mut operation.restriction {
-            wrap(restriction);
-        }
-        let formals = unknowns
-            .iter()
-            .chain(&inputs)
-            .map(|id| Formal {
-                path: symbol_name(*id),
-                quantity: ports[id].quantity,
-            })
-            .collect::<Vec<_>>();
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV5);
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV5);
         let mut semantic = FramedHasher::new(pse_ids::Frame::ModelingImplicitOperationV1);
-        h.id(stage).str(&algorithm.key());
-        semantic.id(stage);
-        for hasher in [&mut h, &mut semantic] {
+        hash.str("direct-implicit-products")
+            .id(stage)
+            .str(&algorithm.key());
+        semantic.str("direct-implicit-products").id(stage);
+        for hasher in [&mut hash, &mut semantic] {
             hasher.str(match &operation.meaning {
                 ImplicitMeaning::Relation => "relation",
                 ImplicitMeaning::Unique => "unique",
                 ImplicitMeaning::Branch => "branch",
                 ImplicitMeaning::MinimumScore => "minimum-score",
-                ImplicitMeaning::Operational(s) => s,
+                ImplicitMeaning::Operational(settings) => settings,
             });
             hasher.u64(operation.anchors.len() as u64);
-            for anchor in &operation.anchors {
-                hasher.str(&dsl::render_expr(anchor));
+            for region in &operation.anchors {
+                frame_region(region, hasher)?;
             }
             hasher.bool(operation.restriction.is_some());
-            if let Some(restriction) = &operation.restriction {
-                hasher.str(&dsl::render_expr(restriction));
+            if let Some(region) = &operation.restriction {
+                frame_region(region, hasher)?;
+            }
+            hasher.u64(unknowns.len() as u64);
+            for id in unknowns.iter().chain(&inputs) {
+                hasher.id(id).id(&ports
+                    .get(id)
+                    .ok_or_else(|| CompileError::Missing("implicit exact formal port".into()))?
+                    .quantity
+                    .as_id());
             }
         }
         for residual in &residuals {
-            h.id(&residual.id);
-            semantic
-                .id(&residual.id)
-                .u64(residual.expressions.len() as u64);
+            for hasher in [&mut hash, &mut semantic] {
+                hasher.id(&residual.id).u64(residual.regions.len() as u64);
+                for region in &residual.regions {
+                    frame_region(region, hasher)?;
+                }
+                if let Some(assessment) = &residual.assessment {
+                    frame_region(&assessment.eligibility, hasher)?;
+                    for region in &assessment.criterion {
+                        frame_region(region, hasher)?;
+                    }
+                }
+            }
             for scale in &residual.scales {
-                h.id(&scale.row)
+                hash.id(&scale.row)
                     .id(&scale.source.as_id())
                     .str(scale.scheme.as_str())
                     .u64(scale.terms.start as u64)
                     .u64(scale.terms.end as u64);
             }
-            for (expression, quantity) in &residual.terms {
-                h.id(&quantity.as_id()).str(&dsl::render_expr(expression));
+            for (region, quantity) in &residual.terms {
+                hash.id(&quantity.as_id());
+                frame_region(region, &mut hash)?;
             }
-            for (target, source, kind, expression, quantity) in &residual.hints {
-                h.id(target)
+            for (target, source, kind, region, quantity) in &residual.hints {
+                hash.id(target)
                     .id(&source.as_id())
                     .u64(kind.code())
-                    .id(&quantity.as_id())
-                    .str(&dsl::render_expr(expression));
-            }
-            for e in &residual.expressions {
-                h.str(&dsl::render_expr(e));
-                semantic.str(&dsl::render_expr(e));
-            }
-            for quantity in &residual.quantities {
-                semantic.id(&quantity.as_id());
-            }
-            if let Some(a) = &residual.assessment {
-                h.str(&dsl::render_expr(&a.eligibility));
-                semantic.str(&dsl::render_expr(&a.eligibility));
-                for e in &a.criterion {
-                    h.str(&dsl::render_expr(e));
-                    semantic.str(&dsl::render_expr(e));
-                }
-            }
-        }
-        // Function bodies and guards affect the executable meaning, including assessor-only calls.
-        for h in [&mut h, &mut semantic] {
-            for function in p.functions.values() {
-                h.id(&function.id.as_id());
-                // Plan 23 H5: each validity predicate with the sets and arguments it reads.
-                let reads = |h: &mut FramedHasher, reads: &pse_modeling::envelope::Reads| {
-                    h.u64(reads.sets.len() as u64);
-                    for set in &reads.sets {
-                        h.id(set);
-                    }
-                    h.u64(reads.variables.len() as u64);
-                    for variable in &reads.variables {
-                        h.u64(u64::from(*variable));
-                    }
-                };
-                if let Some(validity) = &function.validity {
-                    h.str(&dsl::render_predicate(validity));
-                    reads(h, &function.validity_reads);
-                }
-                // ADR-0123 Outcome 4: the data-layer guards, their envelopes and policies.
-                h.u64(function.envelopes.len() as u64);
-                for guard in &function.envelopes {
-                    h.id(&guard.envelope.owner.as_id())
-                        .str(&dsl::render_predicate(&guard.predicate));
-                    reads(h, &guard.reads);
-                }
-                if let Some(external) = &function.external {
-                    h.hash(&external.revision)
-                        .hash(&external.data)
-                        .str(&external.implementation);
-                }
-                if let Some(body) = &function.body {
-                    h.str(&dsl::render_expr(body));
-                }
-            }
-            for (name, guard) in &p.validity {
-                h.str(name)
-                    .str(&dsl::render_expr(&guard.lower))
-                    .str(&dsl::render_expr(&guard.upper));
-            }
-            for f in &formals {
-                h.id(&f.quantity.as_id());
+                    .id(&quantity.as_id());
+                frame_region(region, &mut hash)?;
             }
         }
         operation.identity = semantic.finish_hash();
-        let revision = h.finish_hash();
+        let revision = hash.finish_hash();
         let spec = ProviderSpec {
             shapes: pse_kernels::ProviderShapes::default(),
             derivative_source: pse_kernels::DerivativeSource::Implicit,
             id: *stage,
             revision,
             data: revision,
-
             inputs: inputs.iter().map(|id| ports[id].clone()).collect(),
             outputs: unknowns.iter().map(|id| ports[id].clone()).collect(),
-            // Body admission issues actual capabilities before this descriptor is consumed.
             derivatives: DerivativeOrder::Value,
             smoothness: DerivativeOrder::Value,
         };
-        let input_expressions = inputs
-            .iter()
-            .map(|id| symbol_expression(*id))
-            .collect::<Vec<_>>();
-        for (i, id) in unknowns.iter().enumerate() {
-            additions.push((
-                symbol_name(*id),
-                Expr {
-                    kind: ExprKind::Kernel {
-                        name: call_name(*stage, i),
-                        args: input_expressions.clone(),
-                    },
-                    span: Span::default(),
-                },
-            ));
-            p.local_quantities
-                .insert(symbol_name(*id), ports[id].quantity);
+        for id in &unknowns {
+            suppliers.insert(*id, inputs.iter().copied().collect());
             if !p
                 .outputs
                 .iter()
-                .any(|o| matches!(o,ModelingOutput::Member(existing) if existing==id))
+                .any(|output| matches!(output,ModelingOutput::Member(existing) if existing==id))
             {
                 p.outputs.push(ModelingOutput::Member(*id));
-                p.expressions.push(symbol_expression(*id));
+                p.regions.push(model.prepare_region(
+                    RegionRequest {
+                        outputs: &[RegionOutput::Value(model.symbol_root(*id)?)],
+                        validity: &[],
+                    },
+                    &context,
+                )?);
                 p.quantities.push(ports[id].quantity);
                 p.declarations.push(model.symbols[id].lineage.declaration);
             }
@@ -1944,69 +1812,66 @@ pub(super) fn project(
             algorithm: algorithm.clone(),
             id: *stage,
             unknowns: unknowns.clone(),
-            formals,
+            inputs,
             residuals,
-            local_quantities: p.local_quantities.clone(),
             spec,
-            validity: p.validity.clone(),
         });
         unknown_ids.extend(unknowns);
     }
-    let mut keep = Vec::new();
-    for (i, output) in p.outputs.iter().enumerate() {
-        if !matches!(output,ModelingOutput::Equation{id,..}|ModelingOutput::Term{equation:id,..} if hidden.contains(id))
-        {
-            keep.push(i);
-        }
-    }
-    p.outputs = keep.iter().map(|i| p.outputs[*i].clone()).collect();
-    p.expressions = keep.iter().map(|i| p.expressions[*i].clone()).collect();
-    p.quantities = keep.iter().map(|i| p.quantities[*i]).collect();
-    p.declarations = keep.iter().map(|i| p.declarations[*i]).collect();
+    let keep=p.outputs.iter().enumerate().filter_map(|(index,output)|(!matches!(output,ModelingOutput::Equation {id,..}|ModelingOutput::Term {equation:id,..} if hidden.contains(id))).then_some(index)).collect::<Vec<_>>();
+    p.outputs = keep.iter().map(|index| p.outputs[*index].clone()).collect();
+    p.regions = keep.iter().map(|index| p.regions[*index].clone()).collect();
+    p.quantities = keep.iter().map(|index| p.quantities[*index]).collect();
+    p.declarations = keep.iter().map(|index| p.declarations[*index]).collect();
     let keep = p
         .inputs
         .iter()
         .enumerate()
-        .filter_map(|(i, id)| (!unknown_ids.contains(id)).then_some(i))
+        .filter_map(|(index, id)| (!unknown_ids.contains(id)).then_some(index))
         .collect::<Vec<_>>();
-    p.inputs = keep.iter().map(|i| p.inputs[*i]).collect();
-    p.formals = keep.iter().map(|i| p.formals[*i].clone()).collect();
-    // A nested root cannot decide a discrete unknown (ADR-0103 item 6).
+    p.inputs = keep.iter().map(|index| p.inputs[*index]).collect();
+    p.formals = keep.iter().map(|index| p.formals[*index].clone()).collect();
     model.require_fixed_discrete(
         unknown_ids.iter().copied(),
         pse_modeling::DomainAnalysis::Root,
     )?;
     p.free.retain(|id, _| !unknown_ids.contains(id));
-    additions.append(bindings);
-    *bindings = ordered_bindings(additions)?;
     Ok(())
 }
-/// Ordinary members and nested outputs use the same dependency ordering.
-fn ordered_bindings(bindings: Vec<(String, Expr)>) -> Result<Vec<(String, Expr)>> {
-    let mut graph = DiGraph::<usize, ()>::new();
-    let nodes = (0..bindings.len())
-        .map(|i| graph.add_node(i))
+fn expanded_region_reads(
+    region: &SelectedRegion,
+    suppliers: &BTreeMap<SemanticId, BTreeSet<SemanticId>>,
+) -> BTreeSet<SemanticId> {
+    let mut pending = region
+        .reads
+        .numeric
+        .union(&region.reads.guards)
+        .copied()
         .collect::<Vec<_>>();
-    let names = bindings
-        .iter()
-        .enumerate()
-        .map(|(i, (name, _))| (name.as_str(), i))
-        .collect::<BTreeMap<_, _>>();
-    for (i, (_, expression)) in bindings.iter().enumerate() {
-        for path in expression.free_paths() {
-            if path.segments.len() == 1
-                && let Some(j) = names.get(path.segments[0].name.as_str())
-            {
-                graph.add_edge(nodes[*j], nodes[i], ());
-            }
+    let mut reads = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if !reads.insert(id) {
+            continue;
+        }
+        if let Some(inputs) = suppliers.get(&id) {
+            pending.extend(inputs);
         }
     }
-    let order = toposort(&graph, None)
-        .map_err(|_| CompileError::Missing("cyclic implicit/output dependency".into()))?;
-    Ok(order
-        .into_iter()
-        .map(|node| bindings[graph[node]].clone())
-        .collect())
+    reads
+}
+fn frame_region(region: &SelectedRegion, hash: &mut FramedHasher) -> Result<()> {
+    hash.hash(&region.syntax.identity()?);
+    region.syntax.frame_input_layout(&region.inputs, hash)?;
+    region.support.frame(hash);
+    Ok(())
+}
+fn region_quantity(region: &SelectedRegion) -> Result<QuantityTypeId> {
+    Ok(region
+        .support
+        .output(0)?
+        .target()
+        .require_named()
+        .map_err(MathError::from)?)
 }
 /// Immutable supplier identities and edges; request selection never mutates this graph.
 #[derive(Debug)]
@@ -2288,11 +2153,50 @@ impl AdmittedModeling {
     }
 }
 
-/// Admitted implicit systems by identity, and the provider calls that expose them.
+/// Exact final implicit descriptors and the actual supplier definitions that own them.
 type Admitted = (
     BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
-    BTreeMap<String, ProviderCall>,
+    BTreeMap<ContentHash, AdmittedProvider>,
 );
+/// Apply only final admitted supplier outputs. The model owns typed substitution,
+/// original member/range preservation, actual port joins and source correspondence.
+pub(super) fn resolve_region(
+    model: &SpecializedModel,
+    region: &SelectedRegion,
+    definitions: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    context: &TypeContext<'_>,
+) -> Result<SelectedRegion> {
+    let mut replacements = Vec::new();
+    for supplier in definitions.values() {
+        let spec = supplier.descriptor.spec();
+        if spec.outputs.len() != supplier.unknowns.len() {
+            return Err(CompileError::Missing(
+                "implicit descriptor original output correspondence".into(),
+            ));
+        }
+        for (ordinal, (member, port)) in supplier.unknowns.iter().zip(&spec.outputs).enumerate() {
+            if port.id != *member {
+                return Err(CompileError::Missing(
+                    "implicit descriptor original output identity".into(),
+                ));
+            }
+            replacements.push(pse_modeling::resolved::ProviderSubstitution {
+                member: *member,
+                selection: pse_modeling::resolved::ProviderSelection {
+                    identity: spec.identity(),
+                    output: ordinal,
+                },
+                inputs: spec
+                    .inputs
+                    .iter()
+                    .map(|port| (port.id, port.quantity))
+                    .collect(),
+                quantity: port.quantity,
+            });
+        }
+    }
+    Ok(region.substitute_providers(model, &replacements, context)?)
+}
 pub(super) fn admit(
     db: &dyn CompilerDb,
     inventory: Inventory,
@@ -2302,11 +2206,15 @@ pub(super) fn admit(
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
     let physical = physical_identity(registry, checker);
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: registry,
+        preconditions: checker.as_ref(),
+        scope: &p.physical_scope,
+    };
     let mut definitions = supplied;
     let mut calls = BTreeMap::new();
-    // Promoted original suppliers are already admitted. Make their exact provider
-    // descriptors available before admitting any remaining nested consumer, without
-    // rebuilding their residuals or deriving a new semantic identity.
     for (id, supplier) in &definitions {
         let spec = supplier.descriptor.spec();
         if spec.id != *id
@@ -2317,93 +2225,94 @@ pub(super) fn admit(
                 .ne(supplier.unknowns.iter().copied())
             || supplier.bodies().any(|body| body.spec.physical != physical)
         {
-            return Err(CompileError::from(MathError::Contract(
+            return Err(MathError::Contract(
                 "supplied implicit system has a different admitted compiler inventory".into(),
-            )));
+            )
+            .into());
         }
-        for output in 0..supplier.unknowns.len() {
-            calls.insert(
-                call_name(*id, output),
-                ProviderCall {
-                    descriptor: supplier.descriptor.clone(),
-                    output,
-                },
-            );
-        }
-    }
-    let mut external_calls = BTreeMap::new();
-    for function in p.functions.values() {
-        if let Some(external) = &function.external {
-            external_calls.insert(
-                external.implementation.clone(),
-                provider(db, inventory, external.implementation.clone()).ok_or_else(|| {
-                    CompileError::Missing(format!(
-                        "external implementation {}",
-                        external.implementation
-                    ))
-                })?,
-            );
-        }
+        calls.insert(spec.identity(), supplier.descriptor.clone());
     }
     for implicit in &p.implicit {
         checkpoint(db);
         if definitions.contains_key(&implicit.id) {
-            return Err(CompileError::from(MathError::Contract(
+            return Err(MathError::Contract(
                 "supplied implicit system cannot be admitted again".into(),
-            )));
+            )
+            .into());
         }
-        let mut available = external_calls.clone();
-        available.extend(calls.clone());
-        let admit_body = |definition,
-                          expressions: &[Expr],
-                          quantities: &[QuantityTypeId]|
-         -> Result<Arc<AdmittedBody>> {
-            Ok(Arc::new(
-                crate::typed_math::Request {
-                    definition,
-                    expressions,
-                    formals: &implicit.formals,
-                    domains: &BTreeMap::new(),
-                    groups: &BTreeMap::new(),
-                    providers: &available,
-                    literals: &BTreeMap::new(),
-                    physical,
-                    structure: implicit.spec.revision,
-                    limits: p.body_limits,
-                }
-                .admit_modeling_outputs(
-                    registry,
-                    checker.as_ref(),
-                    db.cancel(),
-                    &p.functions,
-                    quantities,
-                    &implicit.local_quantities,
-                    &implicit.validity,
-                )?,
-            ))
+        let ordered_inputs = implicit
+            .unknowns
+            .iter()
+            .chain(&implicit.inputs)
+            .map(|id| {
+                p.model.symbols.get(id).ok_or_else(|| {
+                    CompileError::Missing("actual implicit source input declaration".into())
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let admit_body = |definition, regions: &[SelectedRegion]| -> Result<Arc<ImplicitBody>> {
+            let region = SelectedRegion::combine(regions, &ordered_inputs, &context)?;
+            let region = resolve_region(&p.model, &region, &definitions, &context)?;
+            let mut lookup = |name: &str| {
+                provider(db, inventory, name.to_owned()).ok_or_else(|| {
+                    MathError::Contract(format!("unregistered external implementation {name}"))
+                })
+            };
+            let providers = crate::typed_math::prepare_selected_providers(
+                &region.syntax,
+                &region.support,
+                &mut lookup,
+                &calls,
+                &context,
+            )?;
+            let result = crate::typed_math::Request {
+                definition,
+                syntax: &region.syntax,
+                inputs: &region.inputs,
+                support: &region.support,
+                providers: &providers,
+                physical,
+                structure: implicit.spec.revision,
+                limits: p.body_limits,
+            }
+            .admit(registry, checker.as_ref(), db.cancel());
+            let body = result.map_err(|cause| MathError::Instance {
+                instance: implicit.id,
+                checked_members: region.checked_members.clone(),
+                checked_sources: region.checked_sources.clone(),
+                occurrences: region.occurrences.clone(),
+                cause: Box::new(cause),
+            })?;
+            let bindings = pse_math::SourceBindings::new(
+                implicit.id,
+                &body.math,
+                region.checked_members,
+                region.checked_sources,
+                region.occurrences,
+            )?;
+            Ok(Arc::new(ImplicitBody {
+                body: Arc::new(body),
+                bindings,
+            }))
         };
         let mut residuals = Vec::new();
         for r in &implicit.residuals {
-            let body = admit_body(r.id, &r.expressions, &r.quantities)?;
+            let body = admit_body(r.id, &r.regions)?;
             if implicit.algorithm == ImplicitAlgorithm::AffineRates {
                 pse_math::implicit::Affine::new(&body.math, implicit.unknowns.len())?;
             }
             let assessment = r
                 .assessment
                 .as_ref()
-                .map(|a| -> Result<RegimeAssessment> {
+                .map(|assessment| -> Result<RegimeAssessment> {
                     Ok(RegimeAssessment {
                         eligibility: admit_body(
                             pse_ids::named_id(r.id, "eligibility"),
-                            std::slice::from_ref(&a.eligibility),
-                            &[registry.neutral_dimensionless().ok_or_else(|| {
-                                CompileError::Missing("dimensionless eligibility".into())
-                            })?],
+                            std::slice::from_ref(&assessment.eligibility),
                         )?,
                         criterion: admit_body(
                             pse_ids::named_id(r.id, "criterion"),
-                            &a.criterion,
-                            &a.quantities,
+                            &assessment.criterion,
                         )?,
                     })
                 })
@@ -2418,8 +2327,10 @@ pub(super) fn admit(
                 } else {
                     Some(admit_body(
                         pse_ids::named_id(r.id, "numerical-hints"),
-                        &r.hints.iter().map(|h| h.3.clone()).collect::<Vec<_>>(),
-                        &r.hints.iter().map(|h| h.4).collect::<Vec<_>>(),
+                        &r.hints
+                            .iter()
+                            .map(|hint| hint.3.clone())
+                            .collect::<Vec<_>>(),
                     )?)
                 },
                 terms: if r.terms.is_empty() {
@@ -2427,23 +2338,61 @@ pub(super) fn admit(
                 } else {
                     Some(admit_body(
                         pse_ids::named_id(r.id, "nominal-terms"),
-                        &r.terms.iter().map(|(e, _)| e.clone()).collect::<Vec<_>>(),
-                        &r.terms.iter().map(|(_, q)| *q).collect::<Vec<_>>(),
+                        &r.terms
+                            .iter()
+                            .map(|term| term.0.clone())
+                            .collect::<Vec<_>>(),
                     )?)
                 },
                 scales: r.scales.clone(),
-                hint_targets: r.hints.iter().map(|h| (h.0, h.1, h.2)).collect(),
-                numerical_annotations: policy::lower(db, policy::AnnotationFacts {
-                    mode: NumericalAnnotationMode::Implicit,
-                    hints: r.hints.iter().enumerate().map(|(position, hint)| NumericalAnnotation {
-                        target: hint.0, declaration: hint.1, kind: hint.2, quantity: hint.4,
-                        observation: AnnotationObservation::Position(position),
-                        target_kind: if implicit.unknowns.contains(&hint.0) { pse_model::generated::enums::NumericalTarget::Variable } else { pse_model::generated::enums::NumericalTarget::Row },
-                        nested: false, constant_bound: false,
-                        reads: hint.3.free_paths().into_iter().filter_map(dependencies::symbol).collect(),
-                    }).collect(),
-                    scales: r.scales.iter().map(|scale| NumericalScale { target: scale.row, declaration: scale.source, scheme: scale.scheme, observations: ScalingObservations::Range(scale.terms.clone()), nested: false }).collect(),
-                }),
+                hint_targets: r
+                    .hints
+                    .iter()
+                    .map(|hint| (hint.0, hint.1, hint.2))
+                    .collect(),
+                numerical_annotations: policy::lower(
+                    db,
+                    policy::AnnotationFacts {
+                        mode: NumericalAnnotationMode::Implicit,
+                        hints: r
+                            .hints
+                            .iter()
+                            .enumerate()
+                            .map(|(position, hint)| NumericalAnnotation {
+                                target: hint.0,
+                                declaration: hint.1,
+                                kind: hint.2,
+                                quantity: hint.4,
+                                observation: AnnotationObservation::Position(position),
+                                target_kind: if implicit.unknowns.contains(&hint.0) {
+                                    pse_model::generated::enums::NumericalTarget::Variable
+                                } else {
+                                    pse_model::generated::enums::NumericalTarget::Row
+                                },
+                                nested: false,
+                                constant_bound: false,
+                                reads: hint
+                                    .3
+                                    .reads
+                                    .numeric
+                                    .union(&hint.3.reads.guards)
+                                    .copied()
+                                    .collect(),
+                            })
+                            .collect(),
+                        scales: r
+                            .scales
+                            .iter()
+                            .map(|scale| NumericalScale {
+                                target: scale.row,
+                                declaration: scale.source,
+                                scheme: scale.scheme,
+                                observations: ScalingObservations::Range(scale.terms.clone()),
+                                nested: false,
+                            })
+                            .collect(),
+                    },
+                ),
                 isolation: None,
             });
         }
@@ -2596,32 +2545,16 @@ pub(super) fn admit(
                 Some(admit_body(
                     pse_ids::named_id(implicit.id, "selection-anchors"),
                     &implicit.selection.anchors,
-                    &implicit
-                        .unknowns
-                        .iter()
-                        .map(|u| {
-                            implicit
-                                .spec
-                                .outputs
-                                .iter()
-                                .find(|p| p.id == *u)
-                                .map(|p| p.quantity)
-                                .ok_or_else(|| CompileError::Missing("anchor quantity".into()))
-                        })
-                        .collect::<Result<Vec<_>>>()?,
                 )?)
             },
             restriction: implicit
                 .selection
                 .restriction
                 .as_ref()
-                .map(|e| {
+                .map(|region| {
                     admit_body(
                         pse_ids::named_id(implicit.id, "selection-neighborhood"),
-                        std::slice::from_ref(e),
-                        &[registry.neutral_dimensionless().ok_or_else(|| {
-                            CompileError::Missing("selection indicator quantity".into())
-                        })?],
+                        std::slice::from_ref(region),
                     )
                 })
                 .transpose()?,
@@ -2643,15 +2576,7 @@ pub(super) fn admit(
         spec.smoothness = spec.derivatives;
         let descriptor = AdmittedProvider::new(spec, registry)
             .map_err(|e| CompileError::Missing(e.to_string()))?;
-        for output in 0..implicit.unknowns.len() {
-            calls.insert(
-                call_name(implicit.id, output),
-                ProviderCall {
-                    descriptor: descriptor.clone(),
-                    output,
-                },
-            );
-        }
+        calls.insert(descriptor.spec().identity(), descriptor.clone());
         definitions.insert(
             implicit.id,
             Arc::new(AdmittedImplicit {
@@ -2665,10 +2590,6 @@ pub(super) fn admit(
     }
     Ok((definitions, calls))
 }
-fn call_name(id: SemanticId, output: usize) -> String {
-    format!("implicit_{}_{}", id.to_hex(), output)
-}
-
 #[cfg(test)]
 mod topology_tests {
     use super::*;
@@ -2732,47 +2653,5 @@ mod topology_tests {
         assert!(topology.order(None).is_err());
         assert_eq!(topology.graph.node_count(), 5);
         assert_eq!(topology.graph.edge_count(), 3);
-    }
-}
-
-#[cfg(test)]
-mod hierarchy_tests {
-    use super::*;
-
-    #[test]
-    fn reverse_reachability_matches_pairwise_oracle_for_shared_descendants_and_cycles() {
-        // All directed four-node graphs cover diamonds, isolates, shared descendants,
-        // cycles and self inclusion without assuming the hierarchy is a tree.
-        let pairs = (0..4)
-            .flat_map(|from| {
-                (0..4)
-                    .filter(move |to| *to != from)
-                    .map(move |to| (from, to))
-            })
-            .collect::<Vec<_>>();
-        for mask in 0..(1usize << pairs.len()) {
-            let mut graph = DiGraph::new();
-            let nodes = (0..4)
-                .map(|i| graph.add_node(InstanceId::from_id(SemanticId::from_bytes([i; 16]))))
-                .collect::<Vec<_>>();
-            for (bit, &(from, to)) in pairs.iter().enumerate() {
-                if mask & (1 << bit) != 0 {
-                    graph.add_edge(nodes[from], nodes[to], ());
-                }
-            }
-            for owner in &nodes {
-                let mut visits = 0;
-                let actual = descendant_instances(&graph, *owner, || visits += 1);
-                let expected = nodes
-                    .iter()
-                    .filter(|candidate| {
-                        petgraph::algo::has_path_connecting(&graph, **candidate, *owner, None)
-                    })
-                    .map(|node| graph[*node])
-                    .collect::<BTreeSet<_>>();
-                assert_eq!(actual, expected, "graph {mask}, owner {owner:?}");
-                assert_eq!(visits, actual.len());
-            }
-        }
     }
 }

@@ -384,9 +384,12 @@ fn workflow_composition_binds_same_owner_factory_without_a_store() {
 fn workflow_durability_selection_uses_this_deployment() {
     let runtime = durable_runtime();
     let policy = LeasePolicy::new(
-        std::time::Duration::from_secs(17), std::time::Duration::from_secs(3),
-        11, std::time::Duration::from_millis(71),
-    ).unwrap();
+        std::time::Duration::from_secs(17),
+        std::time::Duration::from_secs(3),
+        11,
+        std::time::Duration::from_millis(71),
+    )
+    .unwrap();
     let durable = runtime
         .clone()
         .with_durability(DurabilitySelection::Durable {
@@ -428,17 +431,38 @@ fn workflow_durability_selection_uses_this_deployment() {
 fn lease_policy_constructor_and_decoder_share_admission() {
     use std::time::Duration;
     for (lease, heartbeat) in [(1, 1), (1, 2), (2, 1), (0, 1), (1, 0), (0, 0)] {
-        let result = LeasePolicy::new(Duration::from_nanos(lease), Duration::from_nanos(heartbeat), 1, Duration::from_nanos(1));
+        let result = LeasePolicy::new(
+            Duration::from_nanos(lease),
+            Duration::from_nanos(heartbeat),
+            1,
+            Duration::from_nanos(1),
+        );
         assert_eq!(result.is_ok(), lease > heartbeat && heartbeat > 0);
     }
     for batch in [0, 1, 512, 513] {
-        let policy = LeasePolicy::new(Duration::from_secs(2), Duration::from_secs(1), batch, Duration::from_nanos(1));
+        let policy = LeasePolicy::new(
+            Duration::from_secs(2),
+            Duration::from_secs(1),
+            batch,
+            Duration::from_nanos(1),
+        );
         assert_eq!(policy.is_ok(), (1..=512).contains(&batch));
     }
-    assert!(LeasePolicy::new(Duration::from_secs(2), Duration::from_secs(1), 1, Duration::ZERO).is_err());
+    assert!(
+        LeasePolicy::new(
+            Duration::from_secs(2),
+            Duration::from_secs(1),
+            1,
+            Duration::ZERO
+        )
+        .is_err()
+    );
     let policy = LeasePolicy::default();
     let document = serde_json::to_value(policy).unwrap();
-    assert_eq!(serde_json::from_value::<LeasePolicy>(document.clone()).unwrap(), policy);
+    assert_eq!(
+        serde_json::from_value::<LeasePolicy>(document.clone()).unwrap(),
+        policy
+    );
     let mut invalid = document.clone();
     invalid["heartbeat"] = invalid["lease"].clone();
     assert!(serde_json::from_value::<LeasePolicy>(invalid).is_err());

@@ -22,20 +22,32 @@ pub enum ExpressionGrammar {
 }
 impl ExpressionGrammar {
     /// Every supported spelling; grammar generation is independent of extension metadata generation.
-    pub const ALL: [Self; 7] = [Self::Expression, Self::Equation, Self::Predicate,
-        Self::Proposition, Self::Static, Self::AnnotationArguments, Self::AnnotationTarget];
+    pub const ALL: [Self; 7] = [
+        Self::Expression,
+        Self::Equation,
+        Self::Predicate,
+        Self::Proposition,
+        Self::Static,
+        Self::AnnotationArguments,
+        Self::AnnotationTarget,
+    ];
     /// Exact wire spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Expression => "expression", Self::Equation => "equation",
-            Self::Predicate => "predicate", Self::Proposition => "proposition",
-            Self::Static => "static", Self::AnnotationArguments => "annotation_arguments",
+            Self::Expression => "expression",
+            Self::Equation => "equation",
+            Self::Predicate => "predicate",
+            Self::Proposition => "proposition",
+            Self::Static => "static",
+            Self::AnnotationArguments => "annotation_arguments",
             Self::AnnotationTarget => "annotation_target",
         }
     }
     /// Closed spelling lookup; unknown grammars are never interpreted as arithmetic.
     pub fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|grammar| grammar.as_str() == name)
+        Self::ALL
+            .into_iter()
+            .find(|grammar| grammar.as_str() == name)
     }
 }
 /// The grammar generation understood by the parser dispatch.

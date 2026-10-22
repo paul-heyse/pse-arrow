@@ -114,6 +114,7 @@ fn factory(control: &pse_diagnostics::Cancellation) -> (Factory, Arc<Work>) {
             )
             .unwrap(),
     );
+    let compiled = source_body_for_test(id, &prepared, compiled);
     let unknowns = vec![Unknown {
         id,
         lower: 0.6,
@@ -573,6 +574,7 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
                     )
                     .unwrap(),
             );
+            let program = source_body_for_test(factory.spec.id, &source, program);
             if restriction {
                 factory.selection.restriction = Some(program);
             } else {

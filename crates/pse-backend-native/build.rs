@@ -21,9 +21,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-mod build_receipt;
 #[path = "build-link.rs"]
 mod build_link;
+mod build_receipt;
 
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 

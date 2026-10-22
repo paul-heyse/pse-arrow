@@ -748,7 +748,9 @@ pub fn derivative_demand(
         | DerivativeCapability::JacobianOrProduct
         | DerivativeCapability::ForwardAndAdjointSensitivities
         | DerivativeCapability::SecondOrderAdjointSensitivities => Some(DerivativeOrder::First),
-        DerivativeCapability::ValueOnly | DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
+        DerivativeCapability::ValueOnly
+        | DerivativeCapability::Coefficients
+        | DerivativeCapability::Factorable => None,
     }
 }
 
@@ -987,7 +989,9 @@ pub fn policy_candidates(
             let adapter = table.get(entry.backend);
             let capability = adapter.and_then(|adapter| adapter.capability_for(settings).ok());
             let class = capability.as_ref().and_then(|capability| {
-                classes.iter().position(|class| capability.automatic_classes.contains(class))
+                classes
+                    .iter()
+                    .position(|class| capability.automatic_classes.contains(class))
             });
             let rank = adapter.and_then(|adapter| adapter.automatic());
             let supported = class.is_some() && rank.is_some();
@@ -995,7 +999,9 @@ pub fn policy_candidates(
                 .map(|index| {
                     index
                         + if sensitivity
-                            && capability.as_ref().is_some_and(|capability| !capability.sensitivities)
+                            && capability
+                                .as_ref()
+                                .is_some_and(|capability| !capability.sensitivities)
                         {
                             classes.len()
                         } else {
@@ -1073,7 +1079,13 @@ impl Requirements<'_> {
                 classes.push(class);
             }
         }
-        let candidates = policy_candidates(self.table, &classes, self.sensitivity, &eligibility, self.settings);
+        let candidates = policy_candidates(
+            self.table,
+            &classes,
+            self.sensitivity,
+            &eligibility,
+            self.settings,
+        );
         let preferred = if self.facts.variables == 0 {
             None
         } else {

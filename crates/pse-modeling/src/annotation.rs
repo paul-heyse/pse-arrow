@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Typed model hints are collected for their declared downstream consumer.
-use crate::specialize::{Engine, Environment, Lineage};
+use crate::resolved::{NodeIx, PredicateIx, construction::Rewritten};
+use crate::specialize::{Engine, Environment, Lineage, RewriteContext};
 use crate::{DeclarationId, InstanceId, Result, Type, invalid};
 use pse_authoring::{
     dsl::{self, Expr, ExprKind, Predicate},
@@ -37,7 +38,14 @@ pub(crate) use pse_model::generated::authored::modeling_declarations::SourceAnno
 /// Validate source cardinality and member presence at the original declaration.
 pub(crate) fn shape(a: &Declared, at: DeclarationId) -> Result<Shape> {
     if !a.matches_source_shape() {
-        return Err(invalid(at, format!("annotation {} takes {} argument(s) and exactly its typed members", a.kind.as_str(), a.source_argument_count())));
+        return Err(invalid(
+            at,
+            format!(
+                "annotation {} takes {} argument(s) and exactly its typed members",
+                a.kind.as_str(),
+                a.source_argument_count()
+            ),
+        ));
     }
     Ok(a.source_shape())
 }
@@ -265,6 +273,81 @@ pub(crate) fn connectivity_limits(
     };
     Ok((limit(limits.incoming)?, limit(limits.outgoing)?))
 }
+/// Typed executable roots owned by each actual instantiated annotation.
+/// The matching AnnotationValue retains original-source inspection only.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum AnnotationRoots {
+    /// This payload has no numerical expression.
+    #[default]
+    None,
+    /// Start or characteristic nominal.
+    Scalar {
+        /// Actual physical value.
+        value: NodeIx,
+    },
+    /// Original physical bounds.
+    Bounds {
+        /// Lower endpoint.
+        lower: NodeIx,
+        /// Upper endpoint.
+        upper: NodeIx,
+    },
+    /// Original physical validity endpoints.
+    Valid {
+        /// Lower endpoint.
+        lower: NodeIx,
+        /// Upper endpoint.
+        upper: NodeIx,
+    },
+    /// Original knowledge-specific predicate.
+    Check {
+        /// Actual predicate.
+        predicate: PredicateIx,
+    },
+    /// Exactly the authored numerical accuracy demand.
+    Accuracy {
+        /// Physical observation time.
+        time: Option<NodeIx>,
+        /// Physical error resolution.
+        resolution: Option<NodeIx>,
+        /// Lower inclusive criterion.
+        criterion_lower: Option<NodeIx>,
+        /// Upper inclusive criterion.
+        criterion_upper: Option<NodeIx>,
+    },
+    /// Tagged physical engineering scale.
+    Engineering {
+        /// Actual physical magnitude.
+        value: NodeIx,
+    },
+}
+impl AnnotationRoots {
+    /// Ordered demanded numerical roots; no source syntax traversal occurs.
+    pub fn values(&self) -> Vec<NodeIx> {
+        match self {
+            Self::None | Self::Check { .. } => vec![],
+            Self::Scalar { value } | Self::Engineering { value } => vec![*value],
+            Self::Bounds { lower, upper } | Self::Valid { lower, upper } => vec![*lower, *upper],
+            Self::Accuracy {
+                time,
+                resolution,
+                criterion_lower,
+                criterion_upper,
+            } => [time, resolution, criterion_lower, criterion_upper]
+                .into_iter()
+                .filter_map(|value| *value)
+                .collect(),
+        }
+    }
+    /// Original post-solve guard, if present.
+    pub fn predicate(&self) -> Option<PredicateIx> {
+        if let Self::Check { predicate } = self {
+            Some(*predicate)
+        } else {
+            None
+        }
+    }
+}
 /// Instantiated target and original source for a typed downstream hint.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Annotation {
@@ -272,6 +355,8 @@ pub struct Annotation {
     pub target: SemanticId,
     /// Typed payload.
     pub value: AnnotationValue,
+    /// Sole executable expressions, issued during actual specialization.
+    pub roots: AnnotationRoots,
     /// Demand and declaration provenance.
     pub lineage: Lineage,
 }
@@ -445,6 +530,7 @@ impl Engine<'_, '_> {
                 self.model.annotations.push(Annotation {
                     target,
                     value,
+                    roots: AnnotationRoots::None,
                     lineage: self.lineage(instance, row, &[at]),
                 });
                 continue;
@@ -453,34 +539,20 @@ impl Engine<'_, '_> {
                                  role: &str,
                                  index: usize,
                                  expected: Option<&Type>|
-             -> Result<Expr> {
-                let parsed = engine.p.expression_at(at, role, index)?.clone();
-                let value = engine.rewrite(instance, &parsed, env, &[at])?;
-                let types: std::collections::BTreeMap<_, _> = engine
-                    .model
-                    .symbols
-                    .iter()
-                    .map(|(id, s)| (crate::specialize::symbol_name(*id), s.ty.clone()))
-                    .collect();
-                let actual = crate::expression::infer(
-                    &value,
-                    &types,
-                    &engine.model.function_contracts(engine.p),
-                    engine.c,
+             -> Result<Rewritten> {
+                engine.rewrite_physical_field(
+                    RewriteContext {
+                        instance,
+                        env,
+                        chain: &[at],
+                    },
                     at,
+                    role,
+                    index,
                     expected,
-                )?;
-                if expected.is_some_and(|expected| actual != *expected)
-                    || actual.quantity_scheme().is_none()
-                {
-                    return Err(invalid(
-                        at,
-                        "annotation expression has an incompatible physical type",
-                    ));
-                }
-                Ok(value)
+                )
             };
-            let expression = |engine: &mut Self, index: usize| -> Result<Expr> {
+            let expression = |engine: &mut Self, index: usize| -> Result<Rewritten> {
                 if a.arguments.get(index).is_none() {
                     return Err(invalid(at, "annotation argument missing"));
                 }
@@ -569,15 +641,21 @@ impl Engine<'_, '_> {
                     })
                     .transpose()?;
                 let id = pse_ids::named_id(at.as_id(), &target.to_string());
+                let roots = AnnotationRoots::Accuracy {
+                    time: time.as_ref().map(|value| value.root),
+                    resolution: resolution.as_ref().map(|value| value.root),
+                    criterion_lower: criterion_lower.as_ref().map(|value| value.root),
+                    criterion_upper: criterion_upper.as_ref().map(|value| value.root),
+                };
                 let value = AnnotationValue::AccuracyGoal(Box::new(AccuracyGoal {
                     id,
                     quantity: ty.clone(),
                     subject: members.subject,
                     observation: members.observation,
-                    time,
-                    resolution,
-                    criterion_lower,
-                    criterion_upper,
+                    time: time.map(|value| value.inspection),
+                    resolution: resolution.map(|value| value.inspection),
+                    criterion_lower: criterion_lower.map(|value| value.inspection),
+                    criterion_upper: criterion_upper.map(|value| value.inspection),
                     required_class: members.required_class,
                     use_policy: members.use_policy,
                     refine: members.refine,
@@ -587,6 +665,7 @@ impl Engine<'_, '_> {
                 self.model.annotations.push(Annotation {
                     target,
                     value,
+                    roots,
                     lineage: self.lineage(instance, row, &[at]),
                 });
                 continue;
@@ -613,11 +692,12 @@ impl Engine<'_, '_> {
                 self.reserve(1)?;
                 self.model.annotations.push(Annotation {
                     target,
+                    roots: AnnotationRoots::Engineering { value: value.root },
                     value: AnnotationValue::EngineeringScale(EngineeringScale {
                         id,
                         quantity: expected,
                         kind: members.kind,
-                        value,
+                        value: value.inspection,
                         source: annotation_source(self.p, at),
                     }),
                     lineage: self.lineage(instance, row, &[at]),
@@ -660,6 +740,7 @@ impl Engine<'_, '_> {
                 self.reserve(1)?;
                 self.model.annotations.push(Annotation {
                     target,
+                    roots: AnnotationRoots::None,
                     value: AnnotationValue::EngineeringDefault {
                         rule_id,
                         source: annotation_source(self.p, at),
@@ -668,36 +749,73 @@ impl Engine<'_, '_> {
                 });
                 continue;
             }
-            let value = match a.kind {
-                AnnotationKind::Start => AnnotationValue::Start(expression(self, 0)?),
-                AnnotationKind::Nominal => AnnotationValue::Nominal(expression(self, 0)?),
+            let (value, roots) = match a.kind {
+                AnnotationKind::Start => {
+                    let value = expression(self, 0)?;
+                    (
+                        AnnotationValue::Start(value.inspection),
+                        AnnotationRoots::Scalar { value: value.root },
+                    )
+                }
+                AnnotationKind::Nominal => {
+                    let value = expression(self, 0)?;
+                    (
+                        AnnotationValue::Nominal(value.inspection),
+                        AnnotationRoots::Scalar { value: value.root },
+                    )
+                }
                 AnnotationKind::Bounds => {
-                    AnnotationValue::Bounds(expression(self, 0)?, expression(self, 1)?)
+                    let lower = expression(self, 0)?;
+                    let upper = expression(self, 1)?;
+                    (
+                        AnnotationValue::Bounds(lower.inspection, upper.inspection),
+                        AnnotationRoots::Bounds {
+                            lower: lower.root,
+                            upper: upper.root,
+                        },
+                    )
                 }
-                AnnotationKind::Scale => {
-                    AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?)
-                }
-                AnnotationKind::Report => AnnotationValue::Report(label(
-                    self.p.static_at(at, "annotation.arguments", 0)?,
-                    at,
-                )?),
-                AnnotationKind::Valid => AnnotationValue::Valid {
-                    lower: expression(self, 0)?,
-                    upper: expression(self, 1)?,
-                    layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
-                },
-                AnnotationKind::Check => {
-                    let predicate = self.p.predicate_at(at, "annotation.arguments", 0)?.clone();
-                    let predicate = self.rewrite_predicate(instance, &predicate, env, &[at])?;
-                    let types = crate::TypeScope::new(&self.model.symbols);
-                    crate::expression::predicate(
-                        &predicate,
-                        &types,
-                        &self.model.function_contracts(self.p),
-                        self.c,
+                AnnotationKind::Scale => (
+                    AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?),
+                    AnnotationRoots::None,
+                ),
+                AnnotationKind::Report => (
+                    AnnotationValue::Report(label(
+                        self.p.static_at(at, "annotation.arguments", 0)?,
                         at,
+                    )?),
+                    AnnotationRoots::None,
+                ),
+                AnnotationKind::Valid => {
+                    let lower = expression(self, 0)?;
+                    let upper = expression(self, 1)?;
+                    (
+                        AnnotationValue::Valid {
+                            lower: lower.inspection,
+                            upper: upper.inspection,
+                            layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
+                        },
+                        AnnotationRoots::Valid {
+                            lower: lower.root,
+                            upper: upper.root,
+                        },
+                    )
+                }
+                AnnotationKind::Check => {
+                    let predicate = self.rewrite_predicate_field(
+                        instance,
+                        at,
+                        "annotation.arguments",
+                        0,
+                        env,
+                        &[at],
                     )?;
-                    AnnotationValue::Check(predicate)
+                    (
+                        AnnotationValue::Check(predicate.inspection),
+                        AnnotationRoots::Check {
+                            predicate: predicate.root,
+                        },
+                    )
                 }
                 AnnotationKind::Objective
                 | AnnotationKind::Connectivity
@@ -718,6 +836,7 @@ impl Engine<'_, '_> {
             self.model.annotations.push(Annotation {
                 target,
                 value,
+                roots,
                 lineage: self.lineage(instance, row, &[at]),
             });
         }

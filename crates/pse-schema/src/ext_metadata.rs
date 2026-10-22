@@ -40,7 +40,10 @@ pub fn canonical(shape: ExtensionMetadataShape, version: u32, id: Option<Semanti
     if shape == ExtensionMetadataShape::Expression {
         // No grammar was supplied. This deliberately invalid descriptor is refused by
         // both strict decoders; field producers must use canonical_expression().
-        return format!("{{\"v\":{version},\"grammar\":null,\"grammar_version\":{}}}", crate::model::expression::GRAMMAR_VERSION);
+        return format!(
+            "{{\"v\":{version},\"grammar\":null,\"grammar_version\":{}}}",
+            crate::model::expression::GRAMMAR_VERSION
+        );
     }
     match shape.id_key() {
         None => format!("{{\"v\":{version}}}"),
@@ -53,8 +56,14 @@ pub fn canonical(shape: ExtensionMetadataShape, version: u32, id: Option<Semanti
 
 /// Canonical expression metadata requires an explicit closed grammar.
 pub fn canonical_expression(grammar: crate::model::ExpressionGrammar) -> String {
-    let version = crate::model::ExtensionUse::ExprDsl(grammar).spec().metadata_version;
-    format!("{{\"v\":{version},\"grammar\":\"{}\",\"grammar_version\":{}}}", grammar.as_str(), crate::model::expression::GRAMMAR_VERSION)
+    let version = crate::model::ExtensionUse::ExprDsl(grammar)
+        .spec()
+        .metadata_version;
+    format!(
+        "{{\"v\":{version},\"grammar\":\"{}\",\"grammar_version\":{}}}",
+        grammar.as_str(),
+        crate::model::expression::GRAMMAR_VERSION
+    )
 }
 
 /// The JSON Schema that describes `shape` at `version`.
@@ -65,8 +74,13 @@ pub fn canonical_expression(grammar: crate::model::ExpressionGrammar) -> String 
 /// `v` generation counter exists to prevent (DM-44, DM-51).
 pub fn json_schema(shape: ExtensionMetadataShape, version: u32) -> String {
     if shape == ExtensionMetadataShape::Expression {
-        let grammars = crate::model::ExpressionGrammar::ALL.map(|g| format!("\"{}\"", g.as_str())).join(",");
-        return format!("{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\",\"grammar\",\"grammar_version\"],\"properties\":{{\"v\":{{\"const\":{version}}},\"grammar\":{{\"enum\":[{grammars}]}},\"grammar_version\":{{\"const\":{}}}}}}}", crate::model::expression::GRAMMAR_VERSION);
+        let grammars = crate::model::ExpressionGrammar::ALL
+            .map(|g| format!("\"{}\"", g.as_str()))
+            .join(",");
+        return format!(
+            "{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\",\"grammar\",\"grammar_version\"],\"properties\":{{\"v\":{{\"const\":{version}}},\"grammar\":{{\"enum\":[{grammars}]}},\"grammar_version\":{{\"const\":{}}}}}}}",
+            crate::model::expression::GRAMMAR_VERSION
+        );
     }
     match shape.id_key() {
         None => format!(

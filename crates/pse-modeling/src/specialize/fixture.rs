@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Case/test data binds existing symbols; it never adds equations or changes model fixedness.
+use super::rewrite::RewriteContext;
 use super::*;
 use pse_model::generated::{
     authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture as Contract,
@@ -442,10 +443,18 @@ impl Engine<'_, '_> {
                 // Authored lets retain their identity for diagnostics. Follow only
                 // exact symbol aliases to the integrated coordinate; a sum or scaled
                 // expression cannot define the integrator's absolute tolerance.
-                let target = self
-                    .model
-                    .integral_of(*target)
-                    .ok_or_else(|| invalid(at, "quadrature tolerance target is not an integral"))?;
+                let target = integral_alias(
+                    *target,
+                    &self.model.symbols,
+                    |id| self.model.integrals.contains_key(&id),
+                    |root| match self.construction.get(root) {
+                        Some(crate::resolved::Node::Reference(
+                            crate::resolved::Reference::Symbol(slot),
+                        )) => Some(*slot),
+                        _ => None,
+                    },
+                )
+                .ok_or_else(|| invalid(at, "quadrature tolerance target is not an integral"))?;
                 let value = self
                     .eval_field(
                         at,
@@ -490,7 +499,7 @@ impl Engine<'_, '_> {
                     return Err(invalid(at, "a scheduled input names one indexed scalar"));
                 };
                 if !self.model.symbols.get(target).is_some_and(|symbol| {
-                    symbol.expression.is_none()
+                    symbol.definition.is_none()
                         && matches!(symbol.role, Kind::Variable | Kind::Parameter)
                         && matches!(target_ty, Type::Quantity(_))
                 }) {
@@ -701,7 +710,7 @@ impl Engine<'_, '_> {
             let symbol = self.model.symbols.get(&target).ok_or_else(|| {
                 invalid(at, "fixture target must be an independent physical symbol")
             })?;
-            if symbol.expression.is_some()
+            if symbol.definition.is_some()
                 || !matches!(symbol.role, Kind::Variable | Kind::Parameter)
             {
                 return Err(invalid(
@@ -733,21 +742,18 @@ impl Engine<'_, '_> {
                 .as_ref()
                 .map(|_| {
                     if ty.physical_refinement().is_some() {
-                        let expression = self
-                            .p
-                            .expression_at(at, "scope.fixture.specifications.expression", position)?
-                            .clone();
-                        let expression = self.rewrite(instance, &expression, &local, &[at])?;
-                        let types = crate::TypeScope::new(&self.model.symbols);
-                        if crate::expression::infer(
-                            &expression,
-                            &types,
-                            &self.model.function_contracts(self.p),
-                            self.c,
+                        let expression = self.rewrite_physical_field(
+                            RewriteContext {
+                                instance,
+                                env: &local,
+                                chain: &[at],
+                            },
                             at,
+                            "scope.fixture.specifications.expression",
+                            position,
                             Some(&ty),
-                        )? != ty
-                        {
+                        )?;
+                        if self.constructed_type(expression.root)? != ty {
                             return Err(invalid(at, "fixture physical type differs from target"));
                         }
                     }

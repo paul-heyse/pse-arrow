@@ -13,21 +13,20 @@ use pse_model::generated::runtime::{
 use pse_operations::{
     canonical::CanonicalStore,
     canonical_execution::{
-        AdmittedSealedResultFile, AttemptFence, ResultBlockAppend, ResultPayload, result_batch_key, result_set_key,
+        AdmittedSealedResultFile, AttemptFence, ResultBlockAppend, ResultPayload, result_batch_key,
+        result_set_key,
     },
 };
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::runtime::{
-        simulation_samples,
-    },
-};
+use pse_relations::{columnar::FieldCheckedBatch, generated::runtime::simulation_samples};
 use std::sync::Arc;
 
 pub(super) fn check_output_field(id: SemanticId, field: &str) -> Result<(), WorkflowError> {
     if !pse_relations::generated::result_selection::for_relation(id)
-        .is_some_and(|selection| selection.values.contains(&field)) {
-        return Err(contract("scientific output field has no declared native selection"));
+        .is_some_and(|selection| selection.values.contains(&field))
+    {
+        return Err(contract(
+            "scientific output field has no declared native selection",
+        ));
     }
     Ok(())
 }
@@ -44,25 +43,43 @@ pub(super) fn scalar_expression(
     check_output_field(relation, field)?;
     if minimum.is_some_and(|value| !value.is_finite())
         || maximum.is_some_and(|value| !value.is_finite())
-        || minimum.zip(maximum).is_some_and(|(lower, upper)| lower > upper)
-        || missing == Some(true) && (minimum.is_some() || maximum.is_some()) {
+        || minimum
+            .zip(maximum)
+            .is_some_and(|(lower, upper)| lower > upper)
+        || missing == Some(true) && (minimum.is_some() || maximum.is_some())
+    {
         return Err(contract("invalid scalar access predicate"));
     }
     let value = col(field);
-    if missing == Some(true) { return Ok(value.is_null()); }
-    if missing.is_none() && minimum.is_none() && maximum.is_none() { return Ok(lit(true)); }
-    let mut predicate = value.clone().gt(lit(f64::NEG_INFINITY))
+    if missing == Some(true) {
+        return Ok(value.is_null());
+    }
+    if missing.is_none() && minimum.is_none() && maximum.is_none() {
+        return Ok(lit(true));
+    }
+    let mut predicate = value
+        .clone()
+        .gt(lit(f64::NEG_INFINITY))
         .and(value.clone().lt(lit(f64::INFINITY)));
     if minimum.is_some() || maximum.is_some() {
         // Arrow's total ordering distinguishes zero signs. Normalize only the
         // temporary comparison expression; returned scientific arrays retain bits.
-        let comparison = when(value.clone().eq(lit(0.0)).or(value.clone().eq(lit(-0.0))), lit(0.0))
-            .otherwise(value).map_err(pse_engine::EngineError::from)?;
+        let comparison = when(
+            value.clone().eq(lit(0.0)).or(value.clone().eq(lit(-0.0))),
+            lit(0.0),
+        )
+        .otherwise(value)
+        .map_err(pse_engine::EngineError::from)?;
         if let Some(lower) = minimum {
-            predicate = predicate.and(comparison.clone().gt_eq(lit(if lower == 0.0 {0.0} else {lower})));
+            predicate = predicate.and(comparison.clone().gt_eq(lit(if lower == 0.0 {
+                0.0
+            } else {
+                lower
+            })));
         }
         if let Some(upper) = maximum {
-            predicate = predicate.and(comparison.lt_eq(lit(if upper == 0.0 {0.0} else {upper})));
+            predicate =
+                predicate.and(comparison.lt_eq(lit(if upper == 0.0 { 0.0 } else { upper })));
         }
     }
     Ok(predicate)
@@ -75,31 +92,67 @@ fn evaluate_scalar_expression(
 ) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
     let schema = datafusion::common::DFSchema::try_from(batch.schema().as_ref().clone())
         .map_err(pse_engine::EngineError::from)?;
-    let physical = state.create_physical_expr(expression, &schema).map_err(pse_engine::EngineError::from)?;
-    let mask = physical.evaluate(batch).map_err(pse_engine::EngineError::from)?
-        .into_array(batch.num_rows()).map_err(pse_engine::EngineError::from)?;
-    mask.as_any().downcast_ref::<datafusion::arrow::array::BooleanArray>().cloned()
+    let physical = state
+        .create_physical_expr(expression, &schema)
+        .map_err(pse_engine::EngineError::from)?;
+    let mask = physical
+        .evaluate(batch)
+        .map_err(pse_engine::EngineError::from)?
+        .into_array(batch.num_rows())
+        .map_err(pse_engine::EngineError::from)?;
+    mask.as_any()
+        .downcast_ref::<datafusion::arrow::array::BooleanArray>()
+        .cloned()
         .ok_or_else(|| contract("native scientific predicate did not return Boolean values"))
 }
 
 /// Select original scientific owners and relation-specific partitions through
 /// the same native expression as the value predicate. Block positions are not keys.
 pub(super) fn scalar_selection_expression(
-    relation: SemanticId, owner: SemanticId, partition: &str, field: &str,
-    minimum: Option<f64>, maximum: Option<f64>, missing: Option<bool>,
+    relation: SemanticId,
+    owner: SemanticId,
+    partition: &str,
+    field: &str,
+    minimum: Option<f64>,
+    maximum: Option<f64>,
+    missing: Option<bool>,
 ) -> Result<datafusion::logical_expr::Expr, WorkflowError> {
-    use datafusion::{common::ScalarValue, logical_expr::{col, lit}};
+    use datafusion::{
+        common::ScalarValue,
+        logical_expr::{col, lit},
+    };
     let values = scalar_expression(relation, field, minimum, maximum, missing)?;
     let selection = pse_relations::generated::result_selection::for_relation(relation)
-        .filter(|selection| !selection.sort.is_empty()).ok_or_else(|| contract("declared scalar result selection"))?;
-    let mut keys = col(selection.owner).eq(lit(ScalarValue::FixedSizeBinary(16, Some(owner.as_bytes().to_vec()))));
+        .filter(|selection| !selection.sort.is_empty())
+        .ok_or_else(|| contract("declared scalar result selection"))?;
+    let mut keys = col(selection.owner).eq(lit(ScalarValue::FixedSizeBinary(
+        16,
+        Some(owner.as_bytes().to_vec()),
+    )));
     if let Some(step) = selection.step {
-        let Some(value) = partition.strip_prefix("step:").and_then(|value| value.parse::<i64>().ok()).filter(|value| *value >= 0 && format!("step:{value}") == partition) else { return Ok(lit(false)); };
+        let Some(value) = partition
+            .strip_prefix("step:")
+            .and_then(|value| value.parse::<i64>().ok())
+            .filter(|value| *value >= 0 && format!("step:{value}") == partition)
+        else {
+            return Ok(lit(false));
+        };
         keys = keys.and(col(step).eq(lit(value)));
     } else if let Some(experiment) = selection.experiment {
-        let Some(value) = partition.strip_prefix("experiment:").and_then(|value| SemanticId::parse_hex(value).ok()).filter(|value| format!("experiment:{value}") == partition) else { return Ok(lit(false)); };
-        keys = keys.and(col(experiment).eq(lit(ScalarValue::FixedSizeBinary(16, Some(value.as_bytes().to_vec())))));
-    } else if partition != "0" { return Ok(lit(false)); }
+        let Some(value) = partition
+            .strip_prefix("experiment:")
+            .and_then(|value| SemanticId::parse_hex(value).ok())
+            .filter(|value| format!("experiment:{value}") == partition)
+        else {
+            return Ok(lit(false));
+        };
+        keys = keys.and(col(experiment).eq(lit(ScalarValue::FixedSizeBinary(
+            16,
+            Some(value.as_bytes().to_vec()),
+        ))));
+    } else if partition != "0" {
+        return Ok(lit(false));
+    }
     Ok(keys.and(values))
 }
 
@@ -315,17 +368,41 @@ impl<'a> ResultAppendQueue<'a> {
             .iter()
             .map(|item| item.source.clone())
             .collect::<Vec<_>>();
-        result_files::check_file_batches(&batches.iter().map(|batch| batch.batch().clone()).collect::<Vec<_>>())?;
-        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from).map_err(relation)?;
+        result_files::check_file_batches(
+            &batches
+                .iter()
+                .map(|batch| batch.batch().clone())
+                .collect::<Vec<_>>(),
+        )?;
+        let registry = pse_schema::registry()
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
         let cancel = pse_columnar::CancellationToken::new();
-        let encode = || pse_relations::result_batch::AdmittedResultFile::encode(registry, &batches, result_files::MAX_FILE_BYTES, self.pool, &cancel);
+        let encode = || {
+            pse_relations::result_batch::AdmittedResultFile::encode(
+                registry,
+                &batches,
+                result_files::MAX_FILE_BYTES,
+                self.pool,
+                &cancel,
+            )
+        };
         let admitted = match encode() {
             Ok(file) => file,
             Err(error) => {
                 let error = relation(error);
-                if !projection_memory_refusal(&error) { return Err(error); }
+                if !projection_memory_refusal(&error) {
+                    return Err(error);
+                }
                 self.flush_metadata().await?;
-                pse_relations::result_batch::AdmittedResultFile::encode(registry, &batches, result_files::MAX_FILE_BYTES, self.pool, &cancel).map_err(relation)?
+                pse_relations::result_batch::AdmittedResultFile::encode(
+                    registry,
+                    &batches,
+                    result_files::MAX_FILE_BYTES,
+                    self.pool,
+                    &cancel,
+                )
+                .map_err(relation)?
             }
         };
         let digest = pse_operations::canonical_execution::result_payload_digest(admitted.bytes());
@@ -377,13 +454,15 @@ impl<'a> ResultAppendQueue<'a> {
                 (name, ordinal, block, outputs, owner)
             })
             .collect::<Vec<_>>();
-        for (index, (name, ordinal, mut block, outputs, owner)) in
-            metadata.into_iter().enumerate()
+        for (index, (name, ordinal, mut block, outputs, owner)) in metadata.into_iter().enumerate()
         {
             // The sealed payload has no resident bytes. Its existing per-item
             // metadata lease covers the descriptor, intent and request copies.
-            let payload =
-                ResultPayload::from_admitted_sealed_owned(&admitted_file, index as u64, owner.clone())?;
+            let payload = ResultPayload::from_admitted_sealed_owned(
+                &admitted_file,
+                index as u64,
+                owner.clone(),
+            )?;
             block.payload_bytes = payload.byte_len();
             block.payload_digest = payload.digest().to_owned();
             let append = ResultBlockAppend::new(
@@ -898,7 +977,12 @@ async fn store_result_chunk(
     if id == simulation_samples::RELATION_ID {
         return store_trajectory(queue, table, origin, ordinal).await;
     }
-    let sorted = pse_relations::result_batch::sort_new_scalar(table, pool, &pse_columnar::CancellationToken::new()).map_err(relation)?;
+    let sorted = pse_relations::result_batch::sort_new_scalar(
+        table,
+        pool,
+        &pse_columnar::CancellationToken::new(),
+    )
+    .map_err(relation)?;
     let table = &sorted;
     let reservation = MemoryConsumer::new("canonical:result-batch-encoding").register(pool);
     // Native encoding and descriptor copies retain their own prepaid allowance.
@@ -919,7 +1003,8 @@ async fn store_result_chunk(
         while offset < count {
             let current = *ordinal;
             let key = result_batch_key(fence.attempt(), &set, current);
-            let rows = result_files::result_prefix_rows(table.batch(), base + offset, count - offset)?;
+            let rows =
+                result_files::result_prefix_rows(table.batch(), base + offset, count - offset)?;
             let payload = table.slice(base + offset, rows).map_err(relation)?;
             let start = origin
                 .checked_add((base + offset) as u64)
@@ -942,9 +1027,7 @@ async fn store_result_chunk(
                 statistics: None,
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
-            queue
-                .push(&name, current, &payload, &block, &[])
-                .await?;
+            queue.push(&name, current, &payload, &block, &[]).await?;
             *ordinal += 1;
             offset += rows;
         }
@@ -1090,11 +1173,13 @@ async fn store_trajectory(
 #[cfg(test)]
 mod result_projection_unit {
     use super::*;
-    use pse_relations::generated::runtime::{fit_parameters, solve_constraints};
     use datafusion::arrow::{
         array::{Array, BooleanArray, Float64Array},
         compute::filter_record_batch,
     };
+    use pse_relations::generated::runtime::fit_parameters;
+    #[cfg(feature = "canonical-tests")]
+    use pse_relations::generated::runtime::solve_constraints;
 
     fn validation() -> pse_relations::validate::ValidationContext {
         pse_relations::validate::ValidationContext::new(
@@ -1112,27 +1197,63 @@ mod result_projection_unit {
 
     #[test]
     fn native_scalar_predicates_keep_ieee_payloads_and_conditional_finite_modes() {
-        use datafusion::arrow::{datatypes::{DataType, Field, Schema}, record_batch::RecordBatch};
+        use datafusion::arrow::{
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
         // This is an expression-control batch, not an admitted scientific relation.
         let nan = f64::from_bits(0x7ff8_0000_0000_0042);
         let tiny = f64::from_bits(1);
-        let values = Arc::new(Float64Array::from(vec![None, Some(f64::NEG_INFINITY),
-            Some(f64::INFINITY), Some(nan), Some(-0.0), Some(0.0), Some(tiny),
-            Some(f64::MAX), Some(-3.0)]));
-        let batch = RecordBatch::try_new(Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, true)])), vec![values.clone()]).unwrap();
+        let values = Arc::new(Float64Array::from(vec![
+            None,
+            Some(f64::NEG_INFINITY),
+            Some(f64::INFINITY),
+            Some(nan),
+            Some(-0.0),
+            Some(0.0),
+            Some(tiny),
+            Some(f64::MAX),
+            Some(-3.0),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::Float64,
+                true,
+            )])),
+            vec![values.clone()],
+        )
+        .unwrap();
         let state = datafusion::prelude::SessionContext::new().state();
         let evaluate = |minimum, maximum, missing| {
-            let expression = scalar_expression(fit_parameters::RELATION_ID, "value", minimum, maximum, missing).unwrap();
+            let expression = scalar_expression(
+                fit_parameters::RELATION_ID,
+                "value",
+                minimum,
+                maximum,
+                missing,
+            )
+            .unwrap();
             evaluate_scalar_expression(&state, expression, &batch).unwrap()
         };
-        assert_eq!(selected(&evaluate(None, None, None)), (0..9).collect::<Vec<_>>());
+        assert_eq!(
+            selected(&evaluate(None, None, None)),
+            (0..9).collect::<Vec<_>>()
+        );
         assert_eq!(selected(&evaluate(None, None, Some(true))), [0]);
-        assert_eq!(selected(&evaluate(None, None, Some(false))), [4, 5, 6, 7, 8]);
+        assert_eq!(
+            selected(&evaluate(None, None, Some(false))),
+            [4, 5, 6, 7, 8]
+        );
         let zeros = evaluate(Some(-0.0), Some(0.0), None);
         assert_eq!(selected(&zeros), [4, 5]);
         assert_eq!(selected(&evaluate(Some(tiny), Some(tiny), None)), [6]);
         let selected = filter_record_batch(&batch, &zeros).unwrap();
-        let selected = selected.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+        let selected = selected
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
         assert_eq!(selected.value(0).to_bits(), (-0.0f64).to_bits());
         assert_eq!(selected.value(1).to_bits(), 0.0f64.to_bits());
         assert_eq!(values.value(3).to_bits(), nan.to_bits());
@@ -1644,7 +1765,9 @@ mod result_projection_unit {
             source_reservation.try_grow(64 * 1024).unwrap();
             let source_owner = pse_columnar::AllocationLease::new(source_reservation);
             let observed_source = Arc::downgrade(&source_owner);
-            let table = table.retained(&operations.pool, &pse_columnar::CancellationToken::new()).unwrap();
+            let table = table
+                .retained(&operations.pool, &pse_columnar::CancellationToken::new())
+                .unwrap();
             let original = [table.with_export_owner(source_owner)];
             let original_buffer = original[0].batch().column(0).to_data().buffers()[0].as_ptr();
             let cursor = super::super::ResultCursor::from_retained(
@@ -1659,18 +1782,45 @@ mod result_projection_unit {
                 .await
                 .unwrap();
             drop(original);
-            assert!(observed_source.upgrade().is_none(),
-                "packing replaces obsolete source-container metadata");
+            assert!(
+                observed_source.upgrade().is_none(),
+                "packing replaces obsolete source-container metadata"
+            );
             let packed = &queue.items.last().unwrap().source;
-            let bytes = packed.owned().expect("packing retains admitted buffer ownership")
-                .retained_bytes().unwrap();
-            assert!(bytes > 0, "actual scientific buffers retain their allocation grants");
+            let bytes = packed
+                .owned()
+                .expect("packing retains admitted buffer ownership")
+                .retained_bytes()
+                .unwrap();
+            assert!(
+                bytes > 0,
+                "actual scientific buffers retain their allocation grants"
+            );
             if id == fit_parameters::RELATION_ID {
-                assert_eq!(fit_parameters::View::from_checked(packed).unwrap().row(0).unwrap().value, Some(2.0));
+                assert_eq!(
+                    fit_parameters::View::from_checked(packed)
+                        .unwrap()
+                        .row(0)
+                        .unwrap()
+                        .value,
+                    Some(2.0)
+                );
             } else {
-                assert_eq!(packed.batch().column(0).to_data().buffers()[0].as_ptr(), original_buffer,
-                    "unsorted packing shares the original scientific backing");
-                assert_eq!(solve_metrics::View::from_checked(packed).unwrap().row(0).unwrap().real.unwrap().to_bits(), (-0.0f64).to_bits());
+                assert_eq!(
+                    packed.batch().column(0).to_data().buffers()[0].as_ptr(),
+                    original_buffer,
+                    "unsorted packing shares the original scientific backing"
+                );
+                assert_eq!(
+                    solve_metrics::View::from_checked(packed)
+                        .unwrap()
+                        .row(0)
+                        .unwrap()
+                        .real
+                        .unwrap()
+                        .to_bits(),
+                    (-0.0f64).to_bits()
+                );
             }
             queue.finish_deferred(id, position).await.unwrap();
             assert!(
@@ -1896,10 +2046,7 @@ mod result_projection_unit {
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         acks.expect(&fence, &name).unwrap();
-        queue
-            .push(&name, 0, &table, &block, &[])
-            .await
-            .unwrap();
+        queue.push(&name, 0, &table, &block, &[]).await.unwrap();
         queue
             .finish(
                 id,
@@ -2158,7 +2305,6 @@ mod result_projection_unit {
         );
         assert!(trajectory_outputs(&table, "block", "set", u64::MAX, 0, 6).is_err());
     }
-
 }
 
 #[cfg(test)]

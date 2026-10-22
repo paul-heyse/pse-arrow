@@ -709,15 +709,20 @@ impl PreparedSolve {
         let count = if let Some(profile) = self.pounce_recovery_baseline()? {
             count
                 .checked_add(
-                    execution::adapter(Backend::Pounce).recovery_capacity(
-                        &profile.controls,
-                        &profile.backend,
-                        execution::RecoveryPermission {
-                            replacement_start: self.profile.composition.recovery.contains(&pse_model::strategy::StartOrigin::Auxiliary),
-                        },
-                    )?
-                    .checked_mul(2)
-                    .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?,
+                    execution::adapter(Backend::Pounce)
+                        .recovery_capacity(
+                            &profile.controls,
+                            &profile.backend,
+                            execution::RecoveryPermission {
+                                replacement_start: self
+                                    .profile
+                                    .composition
+                                    .recovery
+                                    .contains(&pse_model::strategy::StartOrigin::Auxiliary),
+                            },
+                        )?
+                        .checked_mul(2)
+                        .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?,
                 )
                 .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?
         } else {
@@ -1137,7 +1142,9 @@ impl PreparedSolve {
                 last.ok_or_else(|| {
                     ProblemError::Internal("missing actual native observation".into())
                 })?,
-                execution::RecoveryPermission { replacement_start: allow_replacement },
+                execution::RecoveryPermission {
+                    replacement_start: allow_replacement,
+                },
             )?;
             operations.extend(
                 descriptions
@@ -1227,7 +1234,9 @@ impl PreparedSolve {
             return Vec::new();
         };
         let Some(class) = decision.classes.iter().find(|class| {
-            current_adapter.capability_for(&self.profile.backend).is_ok_and(|capability| capability.automatic_classes.contains(class))
+            current_adapter
+                .capability_for(&self.profile.backend)
+                .is_ok_and(|capability| capability.automatic_classes.contains(class))
         }) else {
             return Vec::new();
         };
@@ -1235,13 +1244,21 @@ impl PreparedSolve {
             .eligibility
             .iter()
             .filter(|entry| {
-                execution::LINKED
-                    .get(entry.backend)
-                    .is_some_and(|adapter| adapter.capability_for(&self.profile.backend).is_ok_and(|capability| capability.automatic_classes.contains(class)))
+                execution::LINKED.get(entry.backend).is_some_and(|adapter| {
+                    adapter
+                        .capability_for(&self.profile.backend)
+                        .is_ok_and(|capability| capability.automatic_classes.contains(class))
+                })
             })
             .cloned()
             .collect::<Vec<_>>();
-        let inventory = routing::policy_candidates(&execution::LINKED, &[*class], false, &choices, &self.profile.backend);
+        let inventory = routing::policy_candidates(
+            &execution::LINKED,
+            &[*class],
+            false,
+            &choices,
+            &self.profile.backend,
+        );
         let Some(current_index) = choices.iter().position(|entry| entry.backend == current) else {
             return Vec::new();
         };
@@ -1268,9 +1285,7 @@ impl PreparedSolve {
     }
 
     #[cfg(feature = "solver-pounce")]
-    fn pounce_recovery_baseline(
-        &self,
-    ) -> Result<Option<SolverProfile>, ProblemError> {
+    fn pounce_recovery_baseline(&self) -> Result<Option<SolverProfile>, ProblemError> {
         let profile = if self.backend() == Some(Backend::Pounce) {
             self.profile.clone()
         } else if self

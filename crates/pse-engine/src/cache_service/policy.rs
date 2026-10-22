@@ -88,9 +88,7 @@ impl CacheBudget {
     /// # Errors
     /// Policy arithmetic overflows or mandatory capacities exceed the pool.
     pub fn validate(&self, memory_bytes: usize) -> Result<(), EngineError> {
-        if self.commitment().is_none_or(|total| total > memory_bytes)
-            || self.working_bytes == 0
-        {
+        if self.commitment().is_none_or(|total| total > memory_bytes) || self.working_bytes == 0 {
             return Err(EngineError::ConfigInvalid {
                 key: "pse.runtime.cache".into(),
                 reason:

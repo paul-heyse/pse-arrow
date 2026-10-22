@@ -70,7 +70,12 @@ impl ExtMetadata {
             }
             ExtensionMetadataShape::OrdinalRef => {
                 let value: OrdinalWire = serde_json::from_str(text).map_err(parse_error)?;
-                (value.v, None, Some(parse_id(&value.target_relation_id)?), None)
+                (
+                    value.v,
+                    None,
+                    Some(parse_id(&value.target_relation_id)?),
+                    None,
+                )
             }
             ExtensionMetadataShape::Expression => {
                 let value: ExpressionWire = serde_json::from_str(text).map_err(parse_error)?;
@@ -115,9 +120,12 @@ impl ExtMetadata {
             ExtensionMetadataShape::OrdinalRef => {
                 self.enum_id.is_none() && self.target_relation_id.is_some()
             }
-            ExtensionMetadataShape::Expression => self.enum_id.is_none() && self.target_relation_id.is_none(),
+            ExtensionMetadataShape::Expression => {
+                self.enum_id.is_none() && self.target_relation_id.is_none()
+            }
         };
-        let valid_shape = valid_shape && (self.grammar.is_some() == (spec.metadata == ExtensionMetadataShape::Expression));
+        let valid_shape = valid_shape
+            && (self.grammar.is_some() == (spec.metadata == ExtensionMetadataShape::Expression));
         if self.v != spec.metadata_version || !valid_shape {
             return Err(invalid(
                 "extension metadata has an unsupported version or shape",
