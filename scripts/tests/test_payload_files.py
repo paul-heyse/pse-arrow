@@ -75,9 +75,39 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.events: list[str] = []
         self.instances = [self.instance]
         self.owners = [self.owner]
+        self.domain: dict[str, object] | None = None
 
     def query(self, _state: Path, _config: dict[str, object], body: str) -> object:
         self.events.append(body)
+        if "fn::pse_maintenance_v1::" in body:
+            function = body.split("fn::pse_maintenance_v1::", 1)[1].split("(", 1)[0]
+            arguments = json.loads("[" + body.split("(", 1)[1].split(");", 1)[0] + "]")
+            self.assertGreater(arguments.pop(0), server.time.time_ns() // 1000)
+            def acknowledged(value: object) -> object:
+                return {"value": value} if "RETURN {value:" in body else value
+
+            if function == "current":
+                self.assertEqual(arguments, [])
+                return acknowledged(self.domain)
+            generation = server.read_json(self.state / "lifecycle-owner.json")["nonce"]
+            if function == "claim":
+                operation, actual_generation, phase, source, target, previous = arguments
+                self.assertEqual(
+                    operation.split(":")[1:],
+                    ["validation", source, target, self.config["namespace"], self.config["database"]],
+                )
+                self.assertEqual(actual_generation, generation)
+                self.assertEqual(phase, "validation")
+                self.assertEqual(source, self.config["payload_incarnation"])
+                self.assertEqual(target, source)
+                self.assertEqual(previous, self.domain)
+                self.domain = dict(zip(("operation", "generation", "phase"), arguments[:3], strict=True))
+                return acknowledged(self.domain)
+            self.assertEqual(function, "validation_reads")
+            self.assertIsNotNone(self.domain)
+            self.assertEqual(arguments[:3], list(self.domain.values()))
+            self.assertEqual(arguments[3], server.SUBSTRATE_INTERPRETATION)
+            return acknowledged(True)
         if "LET $rows=SELECT" in body:
             rows = self.owners if "canonical_file_owners" in body else self.instances
             after = json.loads(body.split("key>", 1)[1].split(" ORDER BY", 1)[0])
@@ -86,8 +116,6 @@ class PayloadLifecycleTests(unittest.TestCase):
                 for row in sorted(rows, key=lambda row: row["key"])
                 if row["key"] > after
             ][:64]
-        if "SET frozen=false,gc_frozen=true" in body:
-            return True
         if "$marker=SELECT" in body:
             return {
                 "payload_incarnation": self.config["payload_incarnation"],
@@ -150,6 +178,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(selected["payload_frozen"])
 
     def validation_controls(self) -> None:
+        self.enterContext(server.lifecycle_reservation(self.state))
         for replacement in (
             patch.object(server, "payload_query", side_effect=self.query),
             patch.object(
@@ -193,7 +222,7 @@ class PayloadLifecycleTests(unittest.TestCase):
         opened = next(
             i
             for i, event in enumerate(self.events)
-            if "SET frozen=false,gc_frozen=true" in event
+            if "fn::pse_maintenance_v1::validation_reads(" in event
         )
         frozen = next(
             i
@@ -207,72 +236,57 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertLess(self.events.index("validator"), frozen)
         self.assertLess(frozen, drained)
         self.assertLess(drained, self.events.index("stop"))
-        self.assertIn("!$gate.frozen OR !$gate.gc_frozen", self.events[opened])
-        self.assertIn("$marker.payload_incarnation", self.events[opened])
-        self.assertIn("$gate.storage_incarnation", self.events[opened])
-        self.assertIn("$marker.interpretation", self.events[opened])
+        self.assertIn(server.SUBSTRATE_INTERPRETATION, self.events[opened])
+        self.assertIn(str(self.config["payload_incarnation"]), self.events[opened])
+        self.assertIn(str(server.read_json(self.state / "lifecycle-owner.json")["nonce"]), self.events[opened])
         self.assertTrue(self.owners[0]["drained"])
         selected = server.config_for(self.state)
         self.assertFalse(selected["accepting_writes"])
         self.assertTrue(selected["payload_frozen"])
         self.assertEqual(selected["admission"], "quiesced")
 
-    def test_validation_read_mutation_returns_only_exact_administrative_ack(
-        self,
-    ) -> None:
+    def test_validation_read_mutation_requires_one_exact_generated_ack(self) -> None:
         self.validation_profile()
-        deadline_calls: list[str] = []
 
         def administrative(
-            _state: Path, query: str, _deadline: float, **_kwargs: object
+            state: Path, query: str, _deadline: float, **_kwargs: object
         ) -> list[dict[str, object]]:
-            self.assertTrue(query.startswith("BEGIN; "))
+            self.assertTrue(query.startswith("BEGIN; LET $domain="))
             self.assertTrue(query.endswith(" COMMIT;"))
-            self.assertIn("SET frozen=false,gc_frozen=true", query)
-            mutation = next(
-                statement
-                for statement in query.split(";")
-                if "UPDATE ONLY" in statement
-            )
-            deadline_calls.extend(
-                statement.strip()
-                for statement in query.split(";")
-                if "fn::pse_execution_v1::deadline(" in statement
-            )
-            # UPDATE defaults RETURN AFTER and the deadline function returns bool.
-            # Only RETURN NONE and LET suppress these intermediate results.
-            return [
-                *(
-                    {
-                        "status": "OK",
-                        "result": None if statement.startswith("LET ") else True,
-                    }
-                    for statement in deadline_calls
-                ),
-                {
-                    "status": "OK",
-                    "result": None
-                    if "RETURN NONE" in mutation
-                    else {"id": "canonical_file_admission:current"},
-                },
-                {"status": "OK", "result": True},
-            ]
+            self.assertEqual(_kwargs["namespace"], self.config["namespace"])
+            self.assertEqual(_kwargs["database"], self.config["database"])
+            body = query.removeprefix("BEGIN; ").removesuffix(" COMMIT;")
+            value = self.query(state, self.config, body)
+            return [{"status": "OK", "result": value}]
 
-        with patch.object(server, "administrative_query", side_effect=administrative):
+        with (
+            server.lifecycle_reservation(self.state),
+            patch.object(server, "administrative_query", side_effect=administrative),
+        ):
             server.validation_payload_reads(
                 self.state, self.config, server.SUBSTRATE_INTERPRETATION
             )
-        self.assertEqual(len(deadline_calls), 2)
-        self.assertTrue(deadline_calls[0].startswith("LET $validation_start_deadline="))
-        self.assertTrue(deadline_calls[1].startswith("LET $validation_end_deadline="))
-        self.assertEqual(
-            deadline_calls[0].split("deadline(", 1)[1],
-            deadline_calls[1].split("deadline(", 1)[1],
-        )
         selected = server.config_for(self.state)
         self.assertFalse(selected["accepting_writes"])
         self.assertTrue(selected["payload_frozen"])
         self.assertEqual(selected["admission"], "validation_required")
+
+    def test_domain_missing_or_multiple_administrative_results_cannot_admit_reads(self) -> None:
+        self.validation_profile()
+        before = (self.state / "config.json").read_bytes()
+        for results in (
+            [{"status": "OK", "result": None}],
+            [{"status": "OK", "result": {"value": None}}, {"status": "OK", "result": True}],
+        ):
+            with (
+                self.subTest(results=results),
+                server.lifecycle_reservation(self.state),
+                patch.object(server, "administrative_query", return_value=results) as query,
+                self.assertRaisesRegex(server.SupervisorError, "exactly one acknowledgment"),
+            ):
+                server.validation_payload_reads(self.state, self.config, server.SUBSTRATE_INTERPRETATION)
+            query.assert_called_once()
+            self.assertEqual((self.state / "config.json").read_bytes(), before)
 
     def test_failed_or_timed_out_validation_recloses_and_authenticates_drain(
         self,
@@ -387,7 +401,7 @@ class PayloadLifecycleTests(unittest.TestCase):
 
         def query(state: Path, config: dict[str, object], body: str) -> object:
             value = self.query(state, config, body)
-            return False if "SET frozen=false,gc_frozen=true" in body else value
+            return {"value": False} if "fn::pse_maintenance_v1::validation_reads(" in body else value
 
         with (
             patch.object(server, "payload_query", side_effect=query),

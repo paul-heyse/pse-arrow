@@ -2690,6 +2690,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 operation.run_child_scope(["observer-workload"], {})
             handoff.assert_not_called()
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_workload_wrapper_exit_does_not_prove_child_scope_drain(
         self,
     ) -> None:
@@ -2750,6 +2751,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         allocation.release.assert_not_called()
         self.assertEqual(drain.call_args.kwargs["deadline"], 110.0)
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_normal_cleanup_joins_empty_active_unit_until_terminal(
         self,
     ) -> None:
@@ -2820,6 +2822,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         mask.assert_not_called()
         allocation.release.assert_not_called()
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_normal_cleanup_clock_is_not_renewed_or_extended_by_cancellation(
         self,
     ) -> None:
@@ -2906,6 +2909,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     )
                     allocation.release.assert_not_called()
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_scope_cleanup_joins_physical_reaping_with_late_signals(
         self,
     ) -> None:
@@ -3098,6 +3102,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             if child.stdin is not None:
                                 child.stdin.close()
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_scope_join_preserves_original_expiry_and_refuses_unknown_owner(
         self,
     ) -> None:
@@ -3270,6 +3275,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         reaped.assert_called_once()
         not_started.assert_not_called()
 
+    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
         for phase in (operation.DrainPhase.MISMATCH, operation.DrainPhase.UNAVAILABLE):
@@ -4337,7 +4343,8 @@ from pathlib import Path
 from unittest.mock import patch
 from scripts import surreal_server as s
 base=Path(sys.argv[1]); state=base/'state'; original=s.observer_scope_command
-def fixture_command(state,allocation,unit,command):
+def fixture_command(state,allocation,unit,command,*,unbounded=False):
+ assert unbounded is False
  selected={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
  result=original(state,selected,unit,command)
  result[result.index('--capabilities')+1]=''

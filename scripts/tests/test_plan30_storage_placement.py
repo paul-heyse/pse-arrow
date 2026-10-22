@@ -37,7 +37,13 @@ class StoragePlacementTests(unittest.TestCase):
             receiver = {"worker_executable": sys.executable}
             with (
                 patch.object(
-                    server, "install", return_value={"binary": sys.executable}
+                    server,
+                    "install",
+                    return_value={
+                        "binary": sys.executable,
+                        "inputs": server.surreal_source.inputs(),
+                        "surrealmx_version": server.surreal_source.ENGINE,
+                    },
                 ),
                 patch.object(server, "primary_receiver", return_value=receiver),
                 patch.object(

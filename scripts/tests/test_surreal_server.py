@@ -4628,11 +4628,12 @@ class SurrealSupervisorTests(unittest.TestCase):
                 if body == "LET $value=SELECT * FROM " + table + ";":  # noqa: S608
                     # Fixture-owned table names match the validated transport query.
                     return {"value": [dict(row) for row in selected_science[table]]}
-            prefix = "LET $value=fn::pse_maintenance_v1::"
+            prefix = "LET $domain=fn::pse_maintenance_v1::"
             if body.startswith(prefix):
                 function, encoded = body[len(prefix) :].split("(", 1)
-                self.assertTrue(encoded.endswith(");"))
-                arguments = json.loads("[" + encoded[:-2] + "]")
+                suffix = "); LET $value=IF $domain=NONE {NULL} ELSE {$domain};"
+                self.assertTrue(encoded.endswith(suffix))
+                arguments = json.loads("[" + encoded.removesuffix(suffix) + "]")
                 self.assertIs(type(arguments[0]), int)
                 key = (state, str(config["namespace"]), str(config["database"]))
                 previous = domain_owners.get(key)
@@ -6963,9 +6964,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertEqual(value, {"count": 0, "after": "", "complete": True})
         self.assertEqual(
             query.call_args.args[3],
-            "LET $value=fn::pse_maintenance_v1::page(123456,"
+            "LET $domain=fn::pse_maintenance_v1::page(123456,"
             + ",".join(json.dumps(argument) for argument in arguments)
-            + ");",
+            + "); LET $value=IF $domain=NONE {NULL} ELSE {$domain};",
         )
         with (
             patch.object(server, "maintenance_query") as query,
@@ -6979,6 +6980,25 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             )
         query.assert_not_called()
         payload.assert_not_called()
+
+    def test_generated_domain_absence_is_explicit_and_missing_ack_refuses(self) -> None:
+        config = self.initialized()
+        with patch.object(server, "payload_query", return_value={"value": None}) as query:
+            self.assertIsNone(server.maintenance_domain_call(self.state, config, None, "current", []))
+        self.assertIn("LET $domain=fn::pse_maintenance_v1::current(", query.call_args.args[2])
+        self.assertTrue(query.call_args.args[2].endswith(" RETURN {value:IF $domain=NONE {NULL} ELSE {$domain}};"))
+        for malformed in (None, {}, {"value": None, "extra": True}, [None]):
+            with (
+                self.subTest(malformed=malformed),
+                patch.object(server, "payload_query", return_value=malformed),
+                self.assertRaisesRegex(server.SupervisorError, "acknowledgment"),
+            ):
+                server.maintenance_domain_call(self.state, config, None, "current", [])
+        with (
+            patch.object(server, "maintenance_query", return_value={}),
+            self.assertRaisesRegex(server.SupervisorError, "acknowledgment"),
+        ):
+            server.maintenance_domain_call(self.state, config, {}, "current", [])
 
     def test_validation_payload_reads_uses_exact_closed_profile_and_generated_ack(
         self,

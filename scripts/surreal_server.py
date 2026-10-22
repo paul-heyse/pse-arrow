@@ -6640,11 +6640,23 @@ def maintenance_domain_call(
         + ("," + encoded if encoded else "")
         + ")"
     )
+    # `current` legitimately returns NONE before the first claim. Preserve it
+    # as an explicit value, distinct from a missing transaction acknowledgment.
+    evaluation = "LET $domain=" + call + ";"
+    value = "IF $domain=NONE {NULL} ELSE {$domain}"
     if credentials is None:
-        return payload_query(state, config, "RETURN " + call + ";")
-    return maintenance_query(
-        state, config, credentials, "LET $value=" + call + ";"
-    ).get("value")
+        acknowledgment = payload_query(
+            state, config, evaluation + " RETURN {value:" + value + "};"
+        )
+        if not isinstance(acknowledgment, dict) or set(acknowledgment) != {"value"}:
+            raise SupervisorError("Malformed generated maintenance acknowledgment")
+    else:
+        acknowledgment = maintenance_query(
+            state, config, credentials, evaluation + " LET $value=" + value + ";"
+        )
+        if "value" not in acknowledgment:
+            raise SupervisorError("Missing generated maintenance acknowledgment")
+    return acknowledgment["value"]
 
 
 def maintenance_domain_context(

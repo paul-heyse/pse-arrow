@@ -8,7 +8,6 @@ import contextlib
 import io
 import json
 import os
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -234,53 +233,32 @@ class SurrealFixtureCheckTests(unittest.TestCase):
                 fixture.initialize_canonical(self.state)
             run.assert_not_called()
 
-    def test_initializer_selects_owned_state_and_retains_private_output(self) -> None:
+    def test_initializer_delegates_exact_state_and_command_to_lifecycle_owner(self) -> None:
         binary = self.initializer()
-        with (
-            patch.dict(
-                os.environ,
-                {
-                    "PSE_SURREAL_STATE": "/other/state",
-                    "PSE_CANONICAL_INITIALIZER": "stale",
-                },
-            ),
-            patch.object(
-                fixture.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 0, "initialized", ""),
-            ) as run,
-        ):
+        with patch.object(fixture.server, "initialize") as initialize:
             fixture.initialize_canonical(self.state)
-        assert run.call_args.args[0] == [str(binary), "canonical-init", str(self.state)]
-        assert run.call_args.kwargs["cwd"] == self.root
-        environment = run.call_args.kwargs["env"]
-        assert environment["PSE_SURREAL_STATE"] == str(self.state)
-        assert "PSE_CANONICAL_INITIALIZER" not in environment
-        diagnostic = self.state / "canonical-initializer.log"
-        assert diagnostic.read_text() == "initialized\n"
-        assert diagnostic.stat().st_mode & 0o777 == 0o600
+        initialize.assert_called_once_with(
+            self.state, [str(binary), "canonical-init", str(self.state)]
+        )
 
-    def test_failed_initializer_retains_diagnostic_without_exposing_output(
+    def test_initializer_preserves_production_refusal_without_running_another_child(
         self,
     ) -> None:
-        self.initializer()
+        binary = self.initializer()
+        failure = fixture.server.SupervisorError(
+            "Current initializer failed; exact target retained; private diagnostic /owned/log"
+        )
         with (
-            patch.object(
-                fixture.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess(
-                    [], 2, "partial", "private detail"
-                ),
-            ),
-            pytest.raises(
-                fixture.server.SupervisorError, match="initializer failed"
-            ) as error,
+            patch.object(fixture.server, "initialize", side_effect=failure) as initialize,
+            patch.object(fixture.subprocess, "run") as run,
+            pytest.raises(fixture.server.SupervisorError) as caught,
         ):
             fixture.initialize_canonical(self.state)
-        assert "private detail" not in str(error.value)
-        assert (
-            self.state / "canonical-initializer.log"
-        ).read_text() == "partial\nprivate detail"
+        assert caught.value is failure
+        initialize.assert_called_once_with(
+            self.state, [str(binary), "canonical-init", str(self.state)]
+        )
+        run.assert_not_called()
 
     @contextlib.contextmanager
     def journey_controls(self) -> Generator[MagicMock, None, None]:
@@ -365,7 +343,7 @@ class SurrealFixtureCheckTests(unittest.TestCase):
         check.assert_not_called()
         stop.assert_called_once_with(self.state, {})
 
-    def test_mcp_modes_do_not_require_canonical_initializer(self) -> None:
+    def test_fresh_mcp_initializes_its_own_catalog_but_attached_mcp_does_not(self) -> None:
         with (
             self.journey_controls(),
             patch.object(fixture, "initialize_canonical") as initialize,
@@ -377,6 +355,8 @@ class SurrealFixtureCheckTests(unittest.TestCase):
             ),
         ):
             fixture.journey(mcp_only=True)
+            initialize.assert_called_once_with(self.state)
+            initialize.reset_mock()
             fixture.journey(mcp_only=True, mcp_state=self.root / "existing-service")
         initialize.assert_not_called()
         query.assert_not_called()
