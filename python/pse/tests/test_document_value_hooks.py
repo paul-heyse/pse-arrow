@@ -40,7 +40,9 @@ def test_document_defaults_and_codec_share_typed_identity_values() -> None:
     defaulted = _DefaultDocument()
     assert defaulted.value == expected
     assert codec.convert_document({"value": _VALUE}, _DefaultDocument) == defaulted
-    assert codec.decode_json(codec.encode_json(defaulted), _DefaultDocument) == defaulted
+    assert (
+        codec.decode_json(codec.encode_json(defaulted), _DefaultDocument) == defaulted
+    )
     assert codec.document_builtins(expected) == _VALUE
 
 

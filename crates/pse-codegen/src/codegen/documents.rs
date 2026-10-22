@@ -1295,8 +1295,13 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
     source.push_str(
         "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n",
     );
-    if emitter.classes.values().any(|class|class.contains("_document_default(")) {
-        source.push_str("from pse.contracts.values import _convert_document as _document_default\n");
+    if emitter
+        .classes
+        .values()
+        .any(|class| class.contains("_document_default("))
+    {
+        source
+            .push_str("from pse.contracts.values import _convert_document as _document_default\n");
     }
     source.push('\n');
     for (name, annotation) in &emitter.aliases {
@@ -1343,10 +1348,7 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
                 "from typing import Annotated, Literal",
                 "from typing import Annotated",
             )
-            .replace(
-                "from typing import Literal\n\n",
-                "",
-            );
+            .replace("from typing import Literal\n\n", "");
     }
     if source.contains("ClassVar[") {
         // Keep imports derived from emitted use, as for Annotated and Literal.
@@ -1425,8 +1427,8 @@ mod tests {
 
     #[test]
     fn document_defaults_use_leaf_value_conversion_without_importing_consumers() {
-        let registry=crate::registry().unwrap();
-        let schema=serde_json::json!({
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
             "title":"DefaultProbe", "type":"object", "additionalProperties":false,
             "properties":{"record":{"$ref":"#/$defs/DefaultRecord","default":{"count":2,"identity":"11111111111111111111111111111111"}}},
             "$defs":{"DefaultRecord":{"type":"object","additionalProperties":false,"required":["count","identity"],"properties":{
@@ -1434,13 +1436,25 @@ mod tests {
                 "identity":{"type":"string","x-pse-identity":"SemanticId"}
             }}}
         });
-        let source=python(registry,&[document(schema)]).unwrap();
-        assert!(source.contains("from pse.contracts.values import _convert_document as _document_default"));
+        let source = python(registry, &[document(schema)]).unwrap();
+        assert!(
+            source.contains(
+                "from pse.contracts.values import _convert_document as _document_default"
+            )
+        );
         assert!(source.contains("default_factory=lambda: _document_default("));
         assert!(source.contains("identity: v.SemanticId"));
         assert!(source.contains("count: Annotated[int, msgspec.Meta(ge=1)]"));
-        for consumer in ["pse.codec","from pse import codec","pse.governance","pse._build"] {
-            assert!(!source.contains(consumer),"generated documents import consumer {consumer}");
+        for consumer in [
+            "pse.codec",
+            "from pse import codec",
+            "pse.governance",
+            "pse._build",
+        ] {
+            assert!(
+                !source.contains(consumer),
+                "generated documents import consumer {consumer}"
+            );
         }
         assert!(!source.contains("TypeVar"));
     }
