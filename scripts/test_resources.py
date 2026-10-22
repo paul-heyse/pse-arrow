@@ -189,10 +189,10 @@ def resource_identity(record: Mapping[str, object]) -> list[str]:
 
 @contextlib.contextmanager
 def resource_update(
-    resource: str, *, deadline: float | None = None
+    resource: str, *, deadline: float | None = None, store: resource_store.FileStore | None = None
 ) -> Generator[ResourceRecord, None, None]:
     try:
-        with storage().edit(resource, deadline=deadline) as entry:
+        with (storage() if store is None else store).edit(resource, deadline=deadline) as entry:
             if entry.phase == "disposed":
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
@@ -693,10 +693,10 @@ def pin(resource: str, retain: bool, *, deadline: float | None = None) -> None:
 
 @contextlib.contextmanager
 def borrow(
-    resource: str, *, deadline: float | None = None
+    resource: str, *, deadline: float | None = None, store: resource_store.FileStore | None = None
 ) -> Generator[str, None, None]:
     token = uuid.uuid4().hex
-    with resource_update(resource, deadline=deadline) as record:
+    with resource_update(resource, deadline=deadline, store=store) as record:
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError(
                 "Origin is unknown or unavailable for reference acquisition"
@@ -710,7 +710,7 @@ def borrow(
     finally:
         # With no caller-wide deadline, releasing a long borrow is a new bounded
         # metadata operation, not reuse of admission's expired metadata clock.
-        with resource_update(resource, deadline=deadline) as record:
+        with resource_update(resource, deadline=deadline, store=store) as record:
             record["borrows"].pop(token, None)
 
 

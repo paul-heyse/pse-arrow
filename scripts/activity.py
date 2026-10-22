@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import (  # noqa: E402 -- direct-script path routing
+    host_admission,
     native_operation,
     pse_env,
 )
@@ -146,6 +147,11 @@ def build_processes(root: Path) -> list[tuple[int, str, str, str]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="structured output")
+    parser.add_argument("--admission", action="store_true", help="detached host owner and wait explanation")
+    parser.add_argument("--owner", help="exact host allocation identity")
+    parser.add_argument("--attempt", help="exact admission attempt identity")
+    parser.add_argument("--run", help="exact invocation declaration or identity; metadata only")
+    parser.add_argument("--registry", type=Path, help="selected invocation resource registry")
     parser.add_argument(
         "--unit",
         action="append",
@@ -153,8 +159,48 @@ def main(argv: list[str] | None = None) -> int:
         help="observe only this exact pse-* service or scope (repeatable)",
     )
     args = parser.parse_args(argv)
+    for field in (args.owner, args.attempt):
+        if field is not None and not re.fullmatch(r"[a-f0-9]{32}", field):
+            parser.error("--owner and --attempt require exact identities")
+    if args.registry is not None and args.run is None:
+        parser.error("--registry requires --run")
     selection = list(dict.fromkeys(args.unit)) if args.unit is not None else None
     observed, errors = units(selection)
+    explanation: dict[str, object] | None = None
+    if args.admission or args.owner is not None or args.attempt is not None or args.run is not None:
+        explanation = {"mode": "detached-no-write", "observed_at": time.time()}
+        directory = host_admission.root_path()
+        explanation["admission_directory"] = str(directory)
+        try:
+            snapshot = host_admission.readonly_snapshot(directory, deadline=time.monotonic() + 2)
+            owners = snapshot["owners"]
+            explanation["owners"] = {key: value for key, value in owners.items() if args.owner is None or key == args.owner}
+            explanation["owner_selection_status"] = "missing" if args.owner is not None and args.owner not in owners else "available"
+            explanation["parked_services"] = snapshot.get("parked_services", [])
+            explanation["resume_intent"] = "retained; current admission and service owners decide when resumption is possible"
+        except (OSError, ValueError) as error:
+            explanation["owners"] = None
+            errors.append(f"admission snapshot unavailable: {error}")
+        try:
+            explanation["attempts"] = host_admission.admission_observations(directory, attempt=args.attempt)
+        except (OSError, ValueError) as error:
+            explanation["attempts"] = None
+            errors.append(f"admission attempts unavailable: {error}")
+        if args.run is not None:
+            from scripts import run_inspection
+
+            try:
+                explanation["run"] = run_inspection.product_result(args.run, registry=args.registry)
+            except (OSError, ValueError, TypeError, KeyError) as error:
+                explanation["run"] = None
+                errors.append(f"invocation unavailable: {error}")
+        # Limits are configured ceilings, never an estimate of remaining watches.
+        explanation["inotify"] = {}
+        for setting in ("max_user_instances", "max_user_watches", "max_queued_events"):
+            try:
+                explanation["inotify"][setting] = {"configured_limit": int((Path("/proc/sys/fs/inotify") / setting).read_text()), "remaining_capacity": "unknown"}
+            except (OSError, ValueError) as error:
+                explanation["inotify"][setting] = {"status": "unavailable", "error": str(error)}
     units_available = observed is not None and not errors
     try:
         builds = build_processes(ROOT)
@@ -184,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
                     else None,
                     "slice": selected,
                     "aggregate_limits": bounds,
+                    "explanation": explanation,
                 },
                 indent=2,
             )
@@ -191,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         return int(bool(errors))
     for error in errors:
         print(error, file=sys.stderr)
+    if explanation is not None:
+        print(json.dumps(explanation, indent=2))
     print(
         f"slice: {selected or 'caller slice'}; aggregate limits: "
         + (

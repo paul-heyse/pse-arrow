@@ -10,13 +10,54 @@ import io
 import json
 import os
 import subprocess
+import tempfile
+import time
 import unittest
 from unittest.mock import patch
+from pathlib import Path
 
 from scripts import activity
 
 
 class ActivityTests(unittest.TestCase):
+    def test_admission_explanation_is_detached_and_preserves_parked_intent(self) -> None:
+        output = io.StringIO()
+        snapshot = {"version": 1, "owners": {"a" * 32: {"class": "reference"}}, "parked_services": ["/fixture/service"]}
+        with (
+            patch.object(activity, "units", return_value=([], [])),
+            patch.object(activity, "build_processes", return_value=[]),
+            patch.object(activity.pse_env, "limits", return_value=[]),
+            patch.object(activity.host_admission, "readonly_snapshot", return_value=snapshot),
+            patch.object(activity.host_admission, "admission_observations", return_value=[{"status": "waiting", "reason": "exclusive lane occupied", "age_seconds": 3}]),
+            patch.object(activity.host_admission, "reconcile", side_effect=AssertionError("reconcile")),
+            patch.object(activity.host_admission, "status", side_effect=AssertionError("status")),
+            patch.object(activity.host_admission, "acquire", side_effect=AssertionError("acquire")),
+            patch.object(activity.pse_env.build_environment, "configure", side_effect=AssertionError("compiler")),
+            contextlib.redirect_stdout(output),
+        ):
+            self.assertEqual(activity.main(["--json", "--admission", "--owner", "a" * 32]), 0)
+        result = json.loads(output.getvalue())["explanation"]
+        self.assertEqual(result["mode"], "detached-no-write")
+        self.assertEqual(result["parked_services"], ["/fixture/service"])
+        self.assertEqual(result["attempts"][0]["age_seconds"], 3)
+        self.assertEqual(result["inotify"]["max_user_watches"]["remaining_capacity"], "unknown")
+
+    def test_checkpoint_is_atomic_throttled_and_keeps_original_deadline(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "host"
+            deadline = time.monotonic() + 10
+            checkpoint = activity.host_admission.AdmissionCheckpoint(directory, activity.host_admission.select("reference"), deadline)
+            checkpoint.publish("waiting", "exclusive occupied", {"a" * 32: {"class": "reference"}})
+            before = checkpoint.path.read_bytes(), checkpoint.path.stat().st_mtime_ns
+            checkpoint.publish("waiting", "exclusive occupied", {"a" * 32: {"class": "reference"}})
+            self.assertEqual(before, (checkpoint.path.read_bytes(), checkpoint.path.stat().st_mtime_ns))
+            checkpoint.publish("admitted", None, allocation="b" * 32)
+            image = activity.host_admission.admission_observations(directory, attempt=checkpoint.path.stem)[0]
+            self.assertEqual(image["deadline"], deadline)
+            self.assertEqual(image["status"], "admitted")
+            self.assertEqual(image["allocation"], "b" * 32)
+            self.assertTrue(image["caller_alive"])
+
     def observe(
         self,
         responses: list[object],

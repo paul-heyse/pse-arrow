@@ -124,6 +124,7 @@ def finish(
             "report_errors": list(report_errors),
             "results": list(results),
             "artifacts": dict(artifacts),
+            "artifact_base": check.get("artifact_base"),
             "owned_drain": check.get(
                 "owned_drain", process.get("owned_drain", "unobserved")
             ),
@@ -167,6 +168,7 @@ def execute_selected(
     child never enters this composer. Persist reconciliation errors separately from
     the workload exit; a missing or partial report cannot manufacture a Pass.
     """
+    print(f"Product result: just result {path} --kind product-test --registry {resources.registry()}", flush=True)
     started = time.time()
     check: dict[str, object] = {
         "exit_code": None,
@@ -300,6 +302,7 @@ def execute_selected(
                     except (OSError, ValueError) as error:
                         report_errors.append(f"missing current collection: {error}")
                 validation.compose_terminal(check, report, report.parent, report.stem)
+                check["artifact_base"] = str(report.parent.absolute())
                 finish(
                     path,
                     check,

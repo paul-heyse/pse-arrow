@@ -1590,6 +1590,56 @@ def require_admission_time(deadline: float, message: str) -> None:
         raise AdmissionError(message)
 
 
+class AdmissionCheckpoint:
+    """Derived diagnostic image, never consulted by admission decisions."""
+
+    def __init__(self, directory: Path, profile: Profile, deadline: float) -> None:
+        self.path = directory / "observations" / "admission" / (uuid.uuid4().hex + ".json")
+        self.identity = {"version": 1, "attempt": self.path.stem, "pid": os.getpid(),
+                         "start": operation.start_identity(os.getpid()), "boot": boot(),
+                         "profile": profile.name, "deadline": deadline,
+                         "invocation_declaration": os.environ.get("PSE_TEST_INVOCATION")}
+        self.previous: object = None
+        self.last = 0.0
+
+    def publish(self, status: str, reason: str | None, owners: Mapping[str, object] | None = None,
+                allocation: str | None = None) -> None:
+        facts = {"status": status, "reason": reason, "conflicting_owners": dict(owners or {}),
+                 "allocation": allocation}
+        now = time.monotonic()
+        if facts == self.previous and now - self.last < 5:
+            return
+        # Observation failure must not change the admitted command's semantics.
+        try:
+            protected(self.path.parents[2])
+            protected(self.path.parents[1])
+            protected(self.path.parent)
+            operation.write_json(self.path, {**self.identity, **facts, "observed_monotonic": now,
+                                            "observed_at": time.time()})
+        except (OSError, AdmissionError):
+            return
+        self.previous, self.last = facts, now
+
+
+def admission_observations(directory: Path, *, attempt: str | None = None) -> list[dict]:
+    """Detached atomic producer checkpoints; no startup, locks or reconciliation."""
+    from scripts import resource_store
+
+    if attempt is not None and not re.fullmatch(r"[a-f0-9]{32}", attempt):
+        raise AdmissionError("Invalid exact admission attempt")
+    area = directory / "observations" / "admission"
+    paths = [area / (attempt + ".json")] if attempt is not None else sorted(area.glob("*.json"))[-100:]
+    result = []
+    for path in paths:
+        value = resource_store.read(path)
+        if value.get("version") != 1 or value.get("attempt") != path.stem:
+            raise AdmissionError("Invalid admission observation")
+        value["age_seconds"] = max(0, time.time() - value["observed_at"])
+        value["caller_alive"] = caller_alive(value)
+        result.append(value)
+    return result
+
+
 def acquire(
     profile: Profile, *, directory: Path | None = None, deadline: float | None = None
 ) -> Allocation:
@@ -1600,6 +1650,8 @@ def acquire(
         else deadline
     )
     reason = "capacity"
+    checkpoint = AdmissionCheckpoint(directory, profile, deadline)
+    checkpoint.publish("waiting", reason)
     while time.monotonic() < deadline:
         # Reclaim ended owners without spending this request's original clock on
         # unrelated service startup. Selected store demand owns its own resume.
@@ -1612,6 +1664,7 @@ def acquire(
             and memory_info()["MemAvailable"] < policy()["pressure_guard_gib"] * GIB
         ):
             reason = "host MemAvailable below startup pressure guard"
+            checkpoint.publish("waiting", reason)
         else:
             selected: Allocation | None = None
             with allocation_metadata(directory) as state:
@@ -1662,6 +1715,7 @@ def acquire(
                     }
                     selected = Allocation(directory, nonce, profile, deadline)
             if selected is not None:
+                checkpoint.publish("parking" if profile.exclusive and parkable else "admitted", None, allocation=selected.nonce)
                 if profile.exclusive and parkable:
                     from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
                         surreal_server,
@@ -1699,9 +1753,13 @@ def acquire(
                         )
                     except Exception:
                         selected.release()
+                        checkpoint.publish("failed", "service parking failed", allocation=selected.nonce)
                         raise
+                checkpoint.publish("admitted", None, allocation=selected.nonce)
                 return selected
+            checkpoint.publish("waiting", reason, {nonce: {"class": owner["class"], "units": owner["units"]} for nonce, owner in competing.items()})
         time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    checkpoint.publish("expired", reason)
     raise AdmissionError(f"Admission deadline exhausted: {reason}")
 
 

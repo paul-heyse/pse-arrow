@@ -548,6 +548,30 @@ class FileStore:
                 raise StoreError("Invocation has no frozen terminal composition")
             return state["terminal_identity"], state["terminal"]
 
+    def invocation_snapshot(self, nonce: str) -> dict:
+        """Read an atomic metadata image without initializing or repairing its owner.
+
+        Publication replaces a whole file. This detached view grants no payload
+        protection and deliberately does not call ensure, edit, freeze or migrate.
+        """
+        state = read(self.path("invocation-state", nonce))
+        if (
+            state.get("version") != 2
+            or state.get("phase") not in {"open", "frozen", "unresolved"}
+            or not isinstance(state.get("members"), dict)
+            or not isinstance(state.get("declaration"), dict)
+            or state["declaration"].get("nonce") != nonce
+        ):
+            raise StoreError("Invalid invocation authority image")
+        if state["phase"] == "frozen" and (
+            not isinstance(state.get("terminal"), dict)
+            or state.get("terminal_identity") != digest(state["terminal"])
+            or state["terminal"].get("selection")
+            != digest(state["declaration"].get("selected"))
+        ):
+            raise StoreError("Invalid frozen invocation terminal")
+        return state
+
     def migrate(self, *, deadline: float | None = None) -> None:
         """Explicit cutover/recovery. Callers must separately authorize existing content."""
         deadline = clock(deadline)
