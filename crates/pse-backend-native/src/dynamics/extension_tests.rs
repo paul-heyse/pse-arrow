@@ -427,6 +427,8 @@ fn idas_constraints_keep_positivity() {
         initial_step: 1e-4,
         ..Default::default()
     };
+    // Preserve the configured initial proposal of this loose-tolerance sign control.
+    p.idas.native_initial_step = IdasInitialStep::Configured;
     let free = integrate(&mut decay, &p, &[], Cancellation::default()).unwrap();
     assert_eq!(free.termination, Termination::Completed, "{:?}", free.error);
     let dips = free
@@ -453,6 +455,11 @@ fn idas_constraints_keep_positivity() {
     // Diffsol has no sign control; the bounds' guard stays the validity authority there.
     decay.c.signs = vec![StateSign::Positive];
     p.method = Method::Diffsol;
+    assert!(
+        p.validate(&decay.c, &[]).is_err(),
+        "an IDAS-only initial-step policy cannot leak into Diffsol"
+    );
+    p.idas.native_initial_step = IdasInitialStep::Automatic;
     assert!(p.validate(&decay.c, &[]).is_ok());
 }
 /// L-D5: the staggered corrector reproduces the simultaneous one and the analytic

@@ -232,7 +232,8 @@ mod simulation_results;
 mod study_tests;
 #[cfg(test)]
 pub(crate) mod tests;
-#[cfg(all(test, any(feature = "canonical-tests", feature = "solver-ipopt")))]
+#[cfg(test)]
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{

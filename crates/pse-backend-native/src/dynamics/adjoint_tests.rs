@@ -1426,6 +1426,8 @@ fn short_forward_adjoint_checkpoint_inquiry_preserves_the_same_sampled_functiona
     profile.rtol = 0.001;
     profile.atol = vec![0.001; 2];
     profile.initial_step = 1e-4;
+    // Compare both sensitivity routes using this fixture's same configured first step.
+    profile.idas.native_initial_step = IdasInitialStep::Configured;
     profile.sensitivity = DynamicSensitivity::Forward;
     let started = Instant::now();
     let mut forward_oracle = Reactor::new(true);

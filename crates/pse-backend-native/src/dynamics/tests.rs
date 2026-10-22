@@ -1477,6 +1477,8 @@ fn short_idas_corrector_route_inquiry_at_engineering_accuracy() {
                 p.sensitivity = DynamicSensitivity::Forward;
                 p.rtol = engineering;
                 p.atol.fill(engineering);
+                // Retain the explicit first-step control of the analytic engineering fixture.
+                p.idas.native_initial_step = IdasInitialStep::Configured;
                 p.idas.sensitivity = corrector;
                 p.idas.linear = linear;
                 let started = std::time::Instant::now();

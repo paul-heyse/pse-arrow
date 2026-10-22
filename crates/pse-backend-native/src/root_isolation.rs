@@ -3095,7 +3095,11 @@ mod tests {
             let execution = crate::solve::Execution::new(
                 pse_diagnostics::Cancellation::default(),
                 &crate::solve::Controls {
-                    time_limit: Duration::from_millis(10),
+                    time_limit: if mode == 0 {
+                        Duration::from_secs(1)
+                    } else {
+                        Duration::from_secs(30)
+                    },
                     ..Default::default()
                 },
             );
@@ -3109,17 +3113,54 @@ mod tests {
                 }),
                 || {
                     let held = (mode != 2).then(|| lock.lock().unwrap());
-                    if mode == 1 {
-                        execution.cancellation_control().cancel();
-                    }
+                    let mut queued_checkpoint = false;
                     let result = acquire_library(
                         &lock,
-                        || Ok(true),
+                        || {
+                            // This is the registered queue checkpoint, after the
+                            // actual compute owner has relinquished its allowance.
+                            assert_eq!(available.load(Ordering::Acquire), 1);
+                            queued_checkpoint = true;
+                            if mode == 1 {
+                                execution.cancellation_control().cancel();
+                            }
+                            Ok(true)
+                        },
                         Some(&execution),
                         execution.cancellation_control(),
                         None,
                     );
+                    assert!(queued_checkpoint);
                     assert!(result.is_err());
+                    match (&result, mode) {
+                        (Err(MathError::Typed { cause, .. }), 0) => {
+                            assert!(matches!(
+                                cause.as_error().downcast_ref::<crate::ProblemError>(),
+                                Some(crate::ProblemError::Limit {
+                                    kind: crate::LimitKind::Time,
+                                    ..
+                                })
+                            ));
+                            assert_eq!(
+                                execution.stopped(),
+                                Some(crate::solve::Termination::TimeLimit)
+                            );
+                        }
+                        (Err(MathError::Cancelled), 1) => {
+                            assert_eq!(
+                                execution.stopped(),
+                                Some(crate::solve::Termination::Cancelled)
+                            );
+                        }
+                        (Err(MathError::Typed { cause, .. }), 2) => {
+                            assert!(
+                                matches!(cause.as_error().downcast_ref::<crate::ProblemError>(),
+                                Some(crate::ProblemError::Contract(detail)) if detail == "closed compute control")
+                            );
+                            assert_eq!(execution.stopped(), None);
+                        }
+                        _ => panic!("queue refusal lost its original typed cause"),
+                    }
                     drop(result);
                     drop(held);
                     assert!(lock.try_lock().is_ok());
@@ -3128,6 +3169,37 @@ mod tests {
             );
             assert_eq!(available.load(Ordering::Acquire), 1);
         }
+    }
+    #[test]
+    fn ibex_precancelled_admission_retains_compute_until_owner_exit() {
+        let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let execution = crate::solve::Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
+        execution.cancellation_control().cancel();
+        let lock = Mutex::new(());
+        crate::execution::compute_scoped(
+            Box::new(TestCompute {
+                available: available.clone(),
+                held: true,
+                paused: None,
+                closed: false,
+            }),
+            || {
+                let result = acquire_library(
+                    &lock,
+                    || panic!("pre-admission cancellation cannot enter the native queue"),
+                    Some(&execution),
+                    execution.cancellation_control(),
+                    None,
+                );
+                assert!(matches!(result, Err(MathError::Cancelled)));
+                assert!(lock.try_lock().is_ok());
+                assert_eq!(available.load(Ordering::Acquire), 0);
+            },
+        );
+        assert_eq!(available.load(Ordering::Acquire), 1);
     }
     #[test]
     fn rational_transport_encloses_exact_constants() {

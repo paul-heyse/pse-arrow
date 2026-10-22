@@ -161,6 +161,17 @@ fn pounce_convex_batch_matches_single_solves() {
             .unwrap()
         })
         .collect();
+    assert_eq!(
+        operation
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60))
+            .children
+            .iter()
+            .filter(|child| child.kind == "pounce_convex.member")
+            .count(),
+        4,
+        "each serial solve publishes its actual native member"
+    );
     let mut retained = Retained::default();
     let batch = |retained: &mut Retained| {
         let mut originals: Vec<Affine<'_>> = programs.iter().map(|(p, _)| Affine(p)).collect();
@@ -210,7 +221,17 @@ fn pounce_convex_batch_matches_single_solves() {
         .iter()
         .filter(|child| child.kind == "pounce_convex.member")
         .collect();
-    assert_eq!(members.len(), 12);
+    // The parallel members retain the hub's nonblocking diagnostic contract:
+    // contention may refuse a child admission or its relationship update. Every
+    // scientific result below is still required, independently of that coverage.
+    assert!((4..=12).contains(&members.len()));
+    if members.len() < 12 {
+        let catalogue = hub.list(0, 128);
+        assert!(
+            catalogue.coverage.refused_items > 0 || snapshot.coverage.dropped_updates > 0,
+            "missing parallel member observations must retain their actual loss evidence"
+        );
+    }
     assert!(
         members
             .iter()

@@ -164,6 +164,11 @@ fn nonstiff_stiff_sparse_profiles_and_output_density_preserve_two_mode_solution(
             p.rtol = 0.001;
             p.atol = vec![0.001; n];
             p.initial_step = 1e-5;
+            // Match the actual initial-step control across output densities. Native
+            // automatic estimation may legitimately depend on the first sample time.
+            if p.method == Method::Idas {
+                p.idas.native_initial_step = IdasInitialStep::Configured;
+            }
             p.parameter_scales = vec![1., 1.];
             p.max_steps = 10000;
             let mut density_results = Vec::new();
