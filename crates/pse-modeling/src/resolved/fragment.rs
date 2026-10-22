@@ -324,4 +324,31 @@ mod tests {
         assert!(target.import_fragment(&fragment, &symbols, &[SymbolIx::from(99)]).is_err());
         assert!(target.arena.nodes.is_empty());
     }
+    #[test]
+    fn fragment_import_preserves_finite_fold_membership_and_carrier_order() {
+        use crate::specialize::Value;
+        let symbols = crate::specialize::Symbols::default();
+        let mut local = Construction::new(32);
+        let carrier = local.carrier(Carrier {
+            kind: CarrierKind::OrderedSet, element: Type::Integer,
+            members: vec![Value::Integer(4), Value::Integer(9)].into(),
+        }).unwrap();
+        let value = literal(&mut local, "2", 0);
+        let binder = local.binding(Binding::Value(value)).unwrap();
+        let root = local.node(Node::Let { bindings: vec![binder], body: value }, source(1)).unwrap();
+        local.finite_fold(root, carrier, vec![Value::Integer(9)], Type::Integer).unwrap();
+        let fragment = local.into_fragment(vec![root], vec![], &symbols, &[]).unwrap();
+        let mut target = Construction::new(64);
+        target.carrier(Carrier {
+            kind: CarrierKind::OrderedSet, element: Type::Boolean,
+            members: vec![Value::Boolean(false)].into(),
+        }).unwrap();
+        let imported = target.import_fragment(&fragment, &symbols, &[]).unwrap();
+        let fold = target.fold_at(imported.outputs[0]).unwrap();
+        assert_eq!(fold.carrier, CarrierIx::from(1));
+        assert_eq!(fold.selected.as_ref(), &[Value::Integer(9)]);
+        assert_eq!(target.carrier_at(fold.carrier).unwrap().members.as_ref(),
+            &[Value::Integer(4), Value::Integer(9)]);
+        assert_eq!(target.node_source(imported.outputs[0]).unwrap(), &source(1));
+    }
 }
