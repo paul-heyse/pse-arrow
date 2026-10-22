@@ -4762,22 +4762,27 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         drop(historical_batch);
         drop(current);
         drop(historical);
-        let mut retired = false;
+        let mut retirement = None;
         for _ in 0..32 {
-            if store.forget_run_results(&transport_run).await.is_ok() {
-                retired = true;
+            if let Ok(page) = store.forget_run_results(&transport_run).await {
+                retirement = Some(page);
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(retired, "reader release did not permit bounded retirement");
-        let mut reclaimed = 0;
-        let mut complete = false;
+        let retirement = retirement.expect("reader release did not permit bounded retirement");
+        // Retirement returns its first bounded cleanup page. Include it when
+        // accounting for the exact two batches across both attempt generations.
+        let mut reclaimed = retirement.batches;
+        let mut complete = retirement.complete;
         // Each transport attempt needs separate bounded pages for its batch,
         // result set, append receipt and generation advance. Completion is a
         // final page after both immutable attempt generations are traversed.
         let maximum_pages = attempts.len() * 4 + 1;
         for _ in 0..maximum_pages {
+            if complete {
+                break;
+            }
             let page = store.reclaim_result_page(&transport_run).await.unwrap();
             reclaimed += page.batches;
             if page.complete {
