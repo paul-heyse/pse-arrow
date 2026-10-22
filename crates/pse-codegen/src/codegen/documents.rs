@@ -1293,9 +1293,12 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Every enumeration is a registry vocabulary.\n\"\"\"\n\n",
     );
     source.push_str(
-        "from __future__ import annotations\n\nfrom typing import Annotated, Literal, TypeVar\n\nimport msgspec\n\nfrom pse import codec\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n\n",
+        "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n",
     );
-    source.push_str("_DocumentT = TypeVar(\"_DocumentT\")\n\ndef _document_default(value: object, target: type[_DocumentT]) -> _DocumentT:\n    return codec.convert_document(value, target)\n\n");
+    if emitter.classes.values().any(|class|class.contains("_document_default(")) {
+        source.push_str("from pse.contracts.values import _convert_document as _document_default\n");
+    }
+    source.push('\n');
     for (name, annotation) in &emitter.aliases {
         let _ = writeln!(source, "{} = {annotation}\n", python_type_name(name));
     }
@@ -1341,8 +1344,8 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
                 "from typing import Annotated",
             )
             .replace(
-                "from typing import Literal, TypeVar\n\n",
-                "from typing import TypeVar\n\n",
+                "from typing import Literal\n\n",
+                "",
             );
     }
     if source.contains("ClassVar[") {
@@ -1416,6 +1419,30 @@ mod tests {
         ] {
             assert!(source.contains(expected), "{expected}\n{source}");
         }
+        assert!(!source.contains("from pse import codec"));
+        assert!(!source.contains("_convert_document"));
+    }
+
+    #[test]
+    fn document_defaults_use_leaf_value_conversion_without_importing_consumers() {
+        let registry=crate::registry().unwrap();
+        let schema=serde_json::json!({
+            "title":"DefaultProbe", "type":"object", "additionalProperties":false,
+            "properties":{"record":{"$ref":"#/$defs/DefaultRecord","default":{"count":2,"identity":"11111111111111111111111111111111"}}},
+            "$defs":{"DefaultRecord":{"type":"object","additionalProperties":false,"required":["count","identity"],"properties":{
+                "count":{"type":"integer","minimum":1},
+                "identity":{"type":"string","x-pse-identity":"SemanticId"}
+            }}}
+        });
+        let source=python(registry,&[document(schema)]).unwrap();
+        assert!(source.contains("from pse.contracts.values import _convert_document as _document_default"));
+        assert!(source.contains("default_factory=lambda: _document_default("));
+        assert!(source.contains("identity: v.SemanticId"));
+        assert!(source.contains("count: Annotated[int, msgspec.Meta(ge=1)]"));
+        for consumer in ["pse.codec","from pse import codec","pse.governance","pse._build"] {
+            assert!(!source.contains(consumer),"generated documents import consumer {consumer}");
+        }
+        assert!(!source.contains("TypeVar"));
     }
 
     #[test]
