@@ -487,6 +487,25 @@ pub(super) fn plan(
     supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<PlannedModeling> {
     let (implicit, direct_providers) = implicit::admit(db, inventory, p, supplied)?;
+    // Supplied descriptors also retain promoted systems for later reconstruction.
+    // Only this projection's selected systems and demanded nested providers
+    // replace exterior scalar references.
+    let selected = p
+        .implicit
+        .iter()
+        .map(|selected| selected.id)
+        .collect();
+    let selected = implicit::SupplierTopology::selected_dependencies(&implicit, &selected)?;
+    let selected_implicit = selected
+        .iter()
+        .map(|id| {
+            implicit
+                .get(id)
+                .map(|supplier| (*id, supplier.clone()))
+                .ok_or_else(|| CompileError::Missing("selected implicit descriptor".into()))
+        })
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    let independent = p.inputs.iter().copied().collect();
     let mut provider_lookups = BTreeMap::new();
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
@@ -650,7 +669,13 @@ pub(super) fn plan(
             });
             continue;
         }
-        let region = implicit::resolve_region(&p.model, region, &implicit, &context)?;
+        let region = implicit::resolve_region(
+            &p.model,
+            region,
+            &selected_implicit,
+            &independent,
+            &context,
+        )?;
         let mut lookup = |name: &str| {
             let selected = provider(db, inventory, name.to_owned()).ok_or_else(|| {
                 MathError::Contract(format!("unregistered external implementation {name}"))
@@ -939,6 +964,204 @@ mod dependency_tests {
     use super::*;
     use crate::workspace::{CompilerWorkspace, WorkspaceLimits};
     use pse_modeling::{Bindings, Limits, specialize::root_instance};
+
+    #[test]
+    fn original_supplier_rows_retain_unknown_incidence_and_reconstruction_descriptors() {
+        let source = "package p {def Root {param p:Scalar=1;var x:Scalar;implicit a {var y:Scalar;eq ey:y==2*x+p;}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);}}";
+        let rows = crate::authored_transfer_tests::rows(source);
+        let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        workspace
+            .publish_modeling(rows, PhysicalScope::default())
+            .unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let prepared = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                cancel.clone(),
+            )
+            .unwrap();
+        let original = prepared.original_equations().unwrap();
+        let symbol = |suffix: &str| {
+            original
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(suffix))
+                .unwrap()
+                .id
+        };
+        let (x, y, z) = (symbol(".x"), symbol(".a.y"), symbol(".b.z"));
+        let free = original.admitted.case.free_variables().collect::<BTreeSet<_>>();
+        assert_eq!(free, BTreeSet::from([x, y, z]));
+        assert_eq!(
+            prepared.admitted.case.free_variables().collect::<BTreeSet<_>>(),
+            BTreeSet::from([x]),
+        );
+        assert_eq!(original.admitted.implicit.len(), 2);
+        for (id, supplier) in &prepared.admitted.implicit {
+            assert!(Arc::ptr_eq(supplier, &original.admitted.implicit[id]));
+        }
+        for (suffix, expected) in [
+            (".a.ey", BTreeSet::from([x, y])),
+            (".b.ez", BTreeSet::from([x, z])),
+            (".floor", BTreeSet::from([y, z])),
+        ] {
+            let row = original
+                .model
+                .equations
+                .iter()
+                .find(|row| row.lineage.path.ends_with(suffix))
+                .unwrap()
+                .id;
+            let mut incidence = BTreeSet::new();
+            for binding in original.admitted.case.instances() {
+                for contribution in &binding.contributions {
+                    if contribution.target != Target::Row(row) {
+                        continue;
+                    }
+                    let body = &original.admitted.bodies[&binding.body];
+                    assert!(body.math.providers().is_empty());
+                    let coordinates = binding
+                        .slots
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(slot, binding)| free.contains(&binding.source()).then_some(slot))
+                        .collect::<Vec<_>>();
+                    let support = body
+                        .math
+                        .incidence(&[contribution.output], &coordinates, &cancel)
+                        .unwrap();
+                    incidence.extend(
+                        support.support().first[0]
+                            .iter()
+                            .map(|slot| binding.slots[*slot].source()),
+                    );
+                }
+            }
+            assert_eq!(incidence, expected, "original row {suffix}");
+        }
+    }
+
+    #[test]
+    fn mixed_original_supplier_child_stays_an_independent_nested_input() {
+        let source = "package p {def Root {param p:Scalar=4;implicit outer select branch(y>=0) {var y:Scalar;implicit child {var z:Scalar;eq e:z==p;}realize c on child using nested;eq e:y*y==child.z;}realize o on outer using nested;eq result:outer.y==2;}}";
+        let rows = crate::authored_transfer_tests::rows(source);
+        let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        workspace
+            .publish_modeling(rows, PhysicalScope::default())
+            .unwrap();
+        let cancel = pse_diagnostics::Cancellation::default();
+        let prepared = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                cancel.flag(),
+            )
+            .unwrap();
+        let original = prepared.original_equations().unwrap();
+        let z = original
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".outer.child.z"))
+            .unwrap()
+            .id;
+        assert_eq!(
+            original.admitted.case.free_variables().collect::<BTreeSet<_>>(),
+            BTreeSet::from([z]),
+        );
+        let (child, descriptor) = prepared
+            .admitted
+            .implicit
+            .iter()
+            .find(|(_, supplier)| supplier.unknowns == [z])
+            .unwrap();
+        assert!(Arc::ptr_eq(descriptor, &original.admitted.implicit[child]));
+        let outer = original
+            .admitted
+            .implicit
+            .values()
+            .find(|supplier| supplier.selection.restriction.is_some())
+            .unwrap();
+        assert_eq!(
+            outer.descriptor.spec().inputs.iter().map(|port| port.id).collect::<Vec<_>>(),
+            vec![z],
+        );
+        let body = &outer.residuals[0].body.math;
+        assert!(body.providers().is_empty());
+        let support = body.incidence(&[0], &[0, 1], &cancel.flag()).unwrap();
+        assert_eq!(support.support().first[0], BTreeSet::from([0, 1]));
+        let compiled = body
+            .compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::First,
+                Default::default(),
+                Default::default(),
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap();
+        let jet = compiled
+            .worker()
+            .evaluate(
+                &[2.0, 9.0],
+                DerivativeOrder::First,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel.flag(),
+            )
+            .unwrap();
+        assert_eq!(jet.values, vec![-5.0]);
+        assert_eq!(jet.jacobian, vec![4.0, -1.0]);
+
+        let equation = original
+            .model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(".outer.child.e"))
+            .unwrap()
+            .id;
+        let mut incidence = BTreeSet::new();
+        for binding in original.admitted.case.instances() {
+            for contribution in &binding.contributions {
+                if contribution.target != Target::Row(equation) {
+                    continue;
+                }
+                let body = &original.admitted.bodies[&binding.body];
+                assert!(body.math.providers().is_empty());
+                let coordinates = binding
+                    .slots
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(slot, binding)| (binding.source() == z).then_some(slot))
+                    .collect::<Vec<_>>();
+                let support = body
+                    .math
+                    .incidence(&[contribution.output], &coordinates, &cancel.flag())
+                    .unwrap();
+                incidence.extend(
+                    support.support().first[0]
+                        .iter()
+                        .map(|slot| binding.slots[*slot].source()),
+                );
+            }
+        }
+        assert_eq!(incidence, BTreeSet::from([z]));
+    }
 
     #[test]
     fn supplied_promoted_implicit_descriptors_precede_nested_consumer_planning() {

@@ -1896,6 +1896,31 @@ pub(super) struct SupplierTopology {
     nodes: BTreeMap<SemanticId, petgraph::graph::NodeIndex>,
 }
 impl SupplierTopology {
+    /// Substitution follows the selected systems and their demanded nested providers.
+    /// Other retained descriptors remain reconstruction metadata only.
+    pub(super) fn selected_dependencies(
+        implicit: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+        selected: &BTreeSet<SemanticId>,
+    ) -> Result<BTreeSet<SemanticId>> {
+        if selected.is_empty() {
+            return Ok(BTreeSet::new());
+        }
+        let topology = Self::build(implicit)?;
+        let roots = selected
+            .iter()
+            .map(|id| {
+                topology.nodes.get(id).copied().ok_or_else(|| {
+                    CompileError::Missing("selected implicit descriptor".into())
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(topology
+            .order(Some(roots))?
+            .into_iter()
+            .map(|node| topology.graph[node])
+            .collect())
+    }
+
     fn edge_capacity(implicit: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>) -> Result<usize> {
         implicit
             .values()
@@ -2180,6 +2205,7 @@ pub(super) fn resolve_region(
     model: &SpecializedModel,
     region: &SelectedRegion,
     definitions: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    independent: &BTreeSet<SemanticId>,
     context: &TypeContext<'_>,
 ) -> Result<SelectedRegion> {
     let mut replacements = Vec::new();
@@ -2195,6 +2221,9 @@ pub(super) fn resolve_region(
                 return Err(CompileError::Missing(
                     "implicit descriptor original output identity".into(),
                 ));
+            }
+            if independent.contains(member) {
+                continue;
             }
             replacements.push(pse_modeling::resolved::ProviderSubstitution {
                 member: *member,
@@ -2267,12 +2296,20 @@ pub(super) fn admit(
             })
             .collect::<Result<Vec<_>>>()?;
         let provider_lookups = std::cell::RefCell::new(BTreeMap::new());
+        let independent = implicit
+            .unknowns
+            .iter()
+            .chain(&implicit.inputs)
+            .copied()
+            .collect();
         let admit_body = |definition, regions: &[SelectedRegion]| -> Result<Arc<ImplicitBody>> {
             // Replace reached child unknowns with their admitted supplier inputs before
             // enforcing the enclosing residual's complete independent input layout.
             let regions = regions
                 .iter()
-                .map(|region| resolve_region(&p.model, region, &definitions, &context))
+                .map(|region| {
+                    resolve_region(&p.model, region, &definitions, &independent, &context)
+                })
                 .collect::<Result<Vec<_>>>()?;
             let region = SelectedRegion::combine(&regions, &ordered_inputs, &context)?;
             let mut lookup = |name: &str| {
