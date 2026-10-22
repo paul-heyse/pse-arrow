@@ -8,8 +8,8 @@
 )]
 use futures_util::FutureExt;
 use pse_diagnostics::observation::{ObservationContext, OperationGuard, Outcome, PhaseGuard};
+use pse_runtime::tooling::inspection::InspectionRequest;
 use pse_runtime::{CancelSource, observation::process_diagnostics};
-use pse_runtime::tooling::{inspection::InspectionRequest};
 use serde_json::{Value, json};
 use std::{
     future::Future,
@@ -140,7 +140,9 @@ fn install_recording(
         owner
     })
 }
-fn take_recording(owner: RecordingOwner) -> Option<pse_runtime::tooling::capture::SourceRecordingSession> {
+fn take_recording(
+    owner: RecordingOwner,
+) -> Option<pse_runtime::tooling::capture::SourceRecordingSession> {
     owner
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -302,7 +304,7 @@ pub(crate) async fn export_result(
                 relation, row_start: 0, row_end: u64::MAX, output: None,
             }
         }).collect();
-        runtime.export_review_pack(&destination, &evidence, &analysis, request, cancel)
+        pse_runtime::tooling::review_export::export_review_pack(runtime, &destination, &evidence, &analysis, request, cancel)
             .await.map_err(|error| error.to_string())?;
         Ok(())
     }.await;
@@ -360,8 +362,9 @@ impl Audit {
     pub(crate) fn start(case: &str, workload: &Value) -> Self {
         let Some(directory) = std::env::var_os("PSE_CASE_AUDIT_DIR").map(PathBuf::from) else {
             // A direct CLI launch can cooperate without enabling the audit publisher.
-            let operation = std::env::var_os(pse_runtime::tooling::capture::SOURCE_RECORDING_REQUEST_ENV)
-                .map(|_| process_diagnostics().hub().start("audit.simulation_case"));
+            let operation =
+                std::env::var_os(pse_runtime::tooling::capture::SOURCE_RECORDING_REQUEST_ENV)
+                    .map(|_| process_diagnostics().hub().start("audit.simulation_case"));
             let detail = operation.as_ref().and_then(|operation| {
                 match pse_runtime::tooling::capture::source_recording_from_environment(
                     operation.context(),

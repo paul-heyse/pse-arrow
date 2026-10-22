@@ -391,7 +391,7 @@ async fn export_study_results(runtime: &Runtime, points: &[(u32, String, Option<
         request.selection.missing_context.push("Original study source/definition bytes retained separately; original managed RunResult review-context bridge unavailable".into());
         request.scientific_results = selections;
         std::fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
-        let index = runtime.export_review_pack(&destination,&evidence,&analysis,request,cancel)
+        let index = pse_runtime::tooling::review_export::export_review_pack(runtime,&destination,&evidence,&analysis,request,cancel)
             .await.map_err(|error| error.to_string())?;
         Ok(json!(index))
     }.await;

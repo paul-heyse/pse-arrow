@@ -1083,7 +1083,8 @@ async fn retire(runtime: &Runtime, expected: &Expected) {
         }
         loop {
             match store.forget_run_results(&expected.run).await {
-                Ok(()) => break,
+                // Retirement is established; the bounded page loop below drains remaining payloads.
+                Ok(_) => break,
                 Err(error)
                     if error
                         .to_string()

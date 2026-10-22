@@ -675,6 +675,19 @@ fn implicit_derivatives(spec: &Value) {
         )
         .unwrap(),
     );
+    assert!(body.checked_members().is_empty());
+    assert!(body.checked_sources().is_empty());
+    assert!(body.occurrence_tokens().is_empty());
+    let bindings = pse_math::SourceBindings::new(
+        id("implicit"),
+        &body,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    )
+    .unwrap();
+    let source = pse_math::SourceBody::new(source, bindings.clone()).unwrap();
+    let unknown = pse_math::SourceBody::new(unknown, bindings).unwrap();
     let problem = implicit::Problem::new(
         id("implicit"),
         pse_ids::ContentHash::from_bytes([0; 32]),

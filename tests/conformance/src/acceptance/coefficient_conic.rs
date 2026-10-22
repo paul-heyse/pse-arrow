@@ -359,9 +359,32 @@ fn weighted_native_tears_match_exhaustive_acyclic_decisions() {
             })
             .fold(f64::INFINITY, f64::min);
         let controls = Controls::default();
-        let (tear, report) = tears::solve(&graph, &controls, execution(&controls)).unwrap();
+        let declared = tears::compile(&graph).unwrap();
+        let (tear, report, coordinates) =
+            tears::solve(&graph, &controls, execution(&controls)).unwrap();
+        assert_eq!(
+            coordinates,
+            declared
+                .problem
+                .contract
+                .variables
+                .iter()
+                .map(|variable| variable.id)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(coordinates, report.variables);
         assert_eq!(report.termination.category, Termination::Success);
         let tear = tear.unwrap();
+        let candidate = report.candidate.as_ref().unwrap();
+        let selected = declared
+            .decisions
+            .iter()
+            .filter_map(|(id, column)| (candidate.primal[*column] > 0.5).then_some(*id))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            tear.decisions, selected,
+            "the selected tear witness comes from the declared decision columns"
+        );
         near(tear.cost, best, 1e-8);
         assert!(graph.witness(&tear.decisions).is_ok());
         assert_eq!(tear.order.len(), 3);

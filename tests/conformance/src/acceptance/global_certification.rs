@@ -684,15 +684,34 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
             .contains(&trial_ids[2])
     );
     // The final optimizer keeps its original complete body and free composition.
-    let seed = prepared
-        .model
-        .case
-        .compiled()
-        .plan
-        .columns()
-        .iter()
-        .map(|id| (*id, initial.values.scalars[id]))
-        .collect();
+    let plan = &prepared.model.case.compiled().plan;
+    let validation = owner.model.validation_context();
+    let mut rows = pse_relations::columnar::RowBuilder::<
+        pse_model::generated::runtime::primal_values::Row,
+    >::new(&validation)
+    .unwrap();
+    for id in plan.columns() {
+        let port = &plan
+            .structure()
+            .variables()
+            .iter()
+            .find(|variable| variable.port.id == *id)
+            .unwrap()
+            .port;
+        rows.push(pse_model::generated::runtime::primal_values::Row {
+            coordinate_id: *id,
+            coordinate_role: pse_model::generated::enums::NativePrimalCoordinateRole::Original,
+            value: pse_model::generated::extension_values::QuantityValue {
+                value: initial.values.scalars[id],
+                quantity_type_id: port.quantity.as_id(),
+                unit_id: port.unit.as_id(),
+            },
+        })
+        .unwrap();
+    }
+    let seed = rows.finish().unwrap().batch().clone();
+    let schema = seed.schema();
+    let seed = datafusion::arrow::record_batch::RecordBatchIterator::new(vec![Ok(seed)], schema);
     let handle = prepared.with_primal_start(seed).unwrap().start().unwrap();
     let result = handle.wait().await.unwrap();
     if !result.usable() {
