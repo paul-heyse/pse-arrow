@@ -500,13 +500,22 @@ describes pooled WASI components and marshalled values. Moving policy into the d
 therefore removes a client round trip and externally stale scope window; it does not remove
 policy decoding or all allocation/copying.
 
-**Recommendation:** retain STO09's batched Rust-policy composition for this execution.
-The policy is already one effect-free owner; batching removes its per-point coordination
-without a new binary activation contract. The WASI alternative remains technically attractive
-for eliminating the remaining scope/apply boundary, but no measured residual burden currently
-justifies changing that selected deployment target. Experimental status alone is not the
-reason to reject it. No Surrealism module or server capability is enabled by this inquiry.
-RC22 remains unselected, as requested by the maintainer's investigate-then-decide choice.
+**Recommendation:** pursue the same-source Surrealism policy pivot if RC22 is selected.
+Static review identifies a concrete benefit: acquiring bounded current premises, computing the
+pure decision and applying it in one database transaction removes the external scope/apply
+interval and its stale-decision coordination. STO09's uncertainty review also exposed the
+need for recoverable pending requests when the current composition crosses that interval.
+A module would simplify that particular request shape, while retaining immutable commit
+receipts, original deadlines and physical drain. This is a technical recommendation, not a
+measured speed claim or permission to skip module qualification. The pure policy's current
+Rust dependency closure provides a plausible shared-source extraction boundary; experimental
+status alone is not a rejection reason.
+
+STO09's batched native-policy composition remains the authorized production realization for
+this execution. The maintainer selected investigation followed by a subsequent explicit
+feature decision. RC22 therefore remains unselected: no module, capability or alternate
+production route is installed by this inquiry. The concrete activation and acceptance
+contract below makes a later selection reviewable without requiring a benchmark failure.
 
 A concrete adoption proposal would have the following contract:
 
@@ -529,7 +538,8 @@ A concrete adoption proposal would have the following contract:
 Independent acceptance would compare native/module decisions over the existing dependency,
 retry, seed, cancellation and Unknown-effect cases, then exercise rollback of sibling writes,
 trap/timeout, controller saturation, restart, activation mismatch and lost acknowledgements
-on the actual selected server. None was run for this inquiry. Revisit when a representative
-STO09 workload demonstrates that its remaining scope/apply coordination is a material burden,
-or a new named atomic policy consumer needs this seam. That observation would justify a
-bounded module prototype and an explicit RC22/GOV02 decision before production adoption.
+on the actual selected server. None was run for this inquiry. The named adoption consumer is
+STO09 readiness itself; no benchmark failure is required to consider it. A subsequent explicit
+RC22/GOV02 selection would authorize shared-source extraction, a bounded module prototype,
+qualification and production cutover under this contract. Latency or memory advantages would
+still need measurement before being reported.

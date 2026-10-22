@@ -155,9 +155,12 @@ existing owners; necessary consumer edits do not close those whole companions.
 
 The maintainer selected investigation followed by recommendations for I26/RC22 and PRE09/RC23,
 with no optional feature implementation before a subsequent explicit selection. Their bounded
-investigations are complete at the linked inquiry owners: retain batched native policy for
-STO09 and existing concrete-request routing; no Surrealism module, configuration feature or
-Z3 binding is adopted. These conclusions do not block the selected production work.
+investigations are complete at the linked inquiry owners. I26 recommends a subsequent
+same-source Surrealism policy pivot for the concrete STO09 readiness consumer; its activation
+and acceptance contract is specified. The current execution retains batched native policy
+until RC22 is explicitly selected. PRE09 recommends retaining existing concrete-request
+routing without a configuration feature or Z3 binding for its bounded supplied-profile
+question. These conclusions do not block the selected production work.
 
 Current implementation lanes are isolated for concurrent edits: exclusive Salsa accounting
 and incremental preparation; study scope/repair composition; protected joined result metadata
@@ -549,7 +552,7 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
 | I24 | decided — implementation open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Operator selected retain native-child for bounded provider-free process-isolation experiments and retire unused relation canonicalizer/API/tests; preserve independent shared allocation and identity contracts. Execution remains TOOL07. |
 | I25 | resolved — no hot-start adoption | MAT06 | Can hot_start reuse an identity-bearing previous scheme on a non-direct path with a concrete preparation benefit? | Adopt only with scheme in identity and correct derivative semantics; direct-translation alias target remains and cancelled truncated optimization is never retained. |
-| I26 | resolved — recommend batched native policy | STO09 / GOV02 | [49a I26](49a-surrealmx-canonical-store.md#i26--surrealism-decision-investigation-2026-10-22) identifies the tagged WASI invocation/timeout seam and exact deployment/rollback controls. | No module adoption in this execution; RC22 remains unselected. Revisit a named atomic policy consumer or representative residual scope/apply burden; no independent SQL policy copy. |
+| I26 | resolved — module pivot recommended, unselected | STO09 / GOV02 | [49a I26](49a-surrealmx-canonical-store.md#i26--surrealism-decision-investigation-2026-10-22) identifies the tagged WASI invocation/timeout seam and exact deployment/rollback controls. | Recommend the same-source module for STO09 readiness to remove its scope/apply interval; no benchmark prerequisite. RC22 remains unselected and current execution keeps batched native policy; activation/rollback qualification is specified. No independent SQL policy copy. |
 | I27 | resolved — no new feature/binding adopted | PRE09 / GOV02 | [49c PRE09](49c-resolved-model-and-incremental-preparation.md#pre09i27-decision-investigation--2026-10-22) compares finite supplied-profile enumeration with Z3 assumptions/cores and defines independent acceptance. | Retain concrete requests/routing; RC23 remains unselected. Revisit a named jointly constrained multi-stage consumer or demonstrated finite-enumeration limit. |
 | I28 | resolved — retain bounded canonical pages | STO09 / RES07 | Current canonical bounded_query materializes responses; local stream_items refuses payload-drain-owned requests. | Joined bounded pages are proposed. Reopen streaming for a named consumer only with original deadlines, aggregate bytes, late failure and physical drop/drain. |
 | I29 | resolved — no notification authority added | STO09 / TOOL08 | LIVE/changefeeds/async events provide observations with retention/delivery/import limits; current durable cursors/recovery remain necessary. | Reopen an actual wakeup/operator consumer with bounded catch-up; notifications never replace exact receipts, canonical claim or native drain. |
