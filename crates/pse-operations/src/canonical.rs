@@ -552,6 +552,10 @@ impl std::fmt::Debug for CanonicalOptions {
             .finish_non_exhaustive()
     }
 }
+// Two immutable module source receipts accompany the selected deployment profile.
+const CONFIGURATION_FILE_BYTES: u64 = 256 * 1024;
+const CREDENTIALS_FILE_BYTES: u64 = 64 * 1024;
+
 impl CanonicalOptions {
     /// Selected deployment state for fixture registration before connection.
     #[cfg(any(test, feature = "test-support"))]
@@ -610,12 +614,12 @@ impl CanonicalOptions {
                 ));
             }
         }
-        let read = |path: &Path| -> Result<Vec<u8>, CanonicalError> {
+        let read = |path: &Path, max_bytes: u64| -> Result<Vec<u8>, CanonicalError> {
             let metadata = std::fs::symlink_metadata(path)
                 .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
             if !metadata.is_file()
                 || metadata.file_type().is_symlink()
-                || metadata.len() > 64 * 1024
+                || metadata.len() > max_bytes
             {
                 return Err(CanonicalError::Configuration(
                     "canonical configuration must be a bounded real file".into(),
@@ -635,7 +639,7 @@ impl CanonicalOptions {
             }
             std::fs::read(path).map_err(|error| CanonicalError::Configuration(error.to_string()))
         };
-        let deployment: Deployment = serde_json::from_slice(&read(&state.join("config.json"))?)
+        let deployment: Deployment = serde_json::from_slice(&read(&state.join("config.json"), CONFIGURATION_FILE_BYTES)?)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         if deployment.profile_version != 3 {
             return Err(CanonicalError::Configuration("canonical service profile revision 3 required; retire an older profile with fresh-engine and initialize fresh data".into()));
@@ -679,7 +683,7 @@ impl CanonicalOptions {
         }
         study_module::StudyModuleReceipt::read(state)?;
         let credentials: Credentials =
-            serde_json::from_slice(&read(Path::new(&deployment.credentials_file))?)
+            serde_json::from_slice(&read(Path::new(&deployment.credentials_file), CREDENTIALS_FILE_BYTES)?)
                 .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         Ok(Self {
             endpoint: deployment.endpoint,
