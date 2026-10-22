@@ -1000,7 +1000,19 @@ mod local_caller_tests {
     #[tokio::test]
     async fn observation_drop_distinguishes_returned_work_from_cancelled_future() {
         let runtime = tests::runtime();
-        let completed = runtime.admit_activity().unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        // This scope control requires admitted diagnostics. The process publisher
+        // may legitimately contend with best-effort admission on the global hub.
+        let caller = Arc::new(RuntimeCaller {
+            state: std::sync::Mutex::new(RuntimeCallerState::default()),
+            validation: runtime.validation_context(),
+            observations: crate::observation::Diagnostics::new(
+                Default::default(),
+                directory.path().to_owned(),
+            ),
+            resources: Arc::downgrade(&runtime.shared),
+        });
+        let completed = caller.admit().unwrap();
         let completed_reader = completed.0.observation.as_ref().unwrap().reader();
         completed.scope(async {}).await;
         drop(completed);
@@ -1008,7 +1020,7 @@ mod local_caller_tests {
             completed_reader.snapshot(Duration::from_secs(60)).outcome,
             Some(pse_diagnostics::observation::Outcome::Completed)
         );
-        let interrupted = runtime.admit_activity().unwrap();
+        let interrupted = caller.admit().unwrap();
         let reader = interrupted.0.observation.as_ref().unwrap().reader();
         // A preceding returned continuation must not disguise a later dropped one.
         interrupted.scope(async {}).await;
@@ -1016,6 +1028,7 @@ mod local_caller_tests {
         assert!(futures_util::poll!(pending.as_mut()).is_pending());
         drop(pending);
         drop(interrupted);
+        caller.close();
         runtime.close();
         let snapshot = reader.snapshot(Duration::from_secs(60));
         assert_eq!(
