@@ -170,7 +170,9 @@ avoid charging those registries once per fragment. The provisional retention def
 premises and accounting the complete reference live/backdating population. ThreeUnits retains
 generation zero and all 126 mathematical bodies. Broader library verification exposed nine
 exchange/temporal premise regressions; their structural repairs and two added cached controls
-passed all 591 compiler/modeling library tests. Scope-end combined qualification remains open.
+passed all 591 compiler/modeling library tests. The final combined compiler/modeling/model/
+quantity/module run then passed all 738 tests with zero failures or skips. Scope-end combined
+qualification remains open.
 
 `pse-study-module` compiles and links for WASI against the existing pure policy source.
 Native readiness now invokes it inside the generated transaction, with complete output
@@ -195,7 +197,11 @@ refused unresolved fixture creations. Actual server process/cgroup drain and sto
 release completed. Its data and all eleven incomplete creation records remain preserved,
 pinned and unresolved; no absence or successful outcome was inferred. The replacement will
 use normal setup in a distinct private state, `surreal-plan49-surrealism-20261022`, on the
-released functional-store slot. No third concurrent server or borrower-record rewrite is
+released functional-store slot. That deployment is now active, authenticated and open for
+qualification. A failed pre-bind launch after supervisor readmission is settled through
+authenticated archived-source/configuration evidence and actual kernel drain; changed or
+unknown histories still refuse. Its lifecycle controls passed 63 targeted tests. No third
+concurrent server or borrower-record rewrite is
 selected. The older poisoned deployment remains separately retained.
 
 Current implementation lanes remain isolated for preparation, native study consumer/fault
