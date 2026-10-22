@@ -109,20 +109,39 @@ The [documentation guide](documentation.md) owns metadata, scope-query and retir
 
 ## Placement and memory
 
-Commands acquire a finite host allocation before their systemd user scope starts.
-`.config/agent-capacity.toml` owns the machine's memory partitions and physical-core
+Commands acquire a registered host allocation before their systemd user scope starts.
+`.config/agent-capacity.toml` owns bounded memory partitions, shared build slots and physical-core
 lanes; `scripts/host_admission.py` coordinates independent sessions under private XDG
 state. The aggregate parent initially caps cooperating work at 160 GiB. Functional
 work uses cores 8–15 (and their SMT siblings), timing uses cores 0–7. Kernel quotas
 bound CPU time; inherited scheduler affinity enforces placement when the user manager
 has no delegated cpuset controller.
 
+A machine-local `export PSE_BUILD_MODE=unbounded` in `.envrc.local` selects ordinary
+build/test defaults without an OS memory budget or startup memory-pressure guard.
+Four build owners may overlap, each sharing all sixteen physical cores with a 1600%
+CPU quota. Cargo's declared default is sixteen jobs; an explicit `CARGO_BUILD_JOBS`
+remains a caller choice. Build allocations live under `psebuild.slice`, outside the
+bounded `pse.slice` hierarchy. Their scopes omit `MemoryMax` and `MemorySwapMax` and
+verify actual `memory.max=max` through every ancestor, including the cgroup root.
+A finite ancestor refuses this mode instead of substituting a RAM-sized cap.
+
+Explicit `--resource-class`, `PSE_RESOURCE_CLASS` and finite `PSE_MEMORY_MAX` choices
+keep their existing precedence; local mode changes recipe defaults only. Managed-primary,
+reference and timing routes keep their selected bounded allocations and isolation.
+Build owners conflict with live timing/reference owners. Registration, authentic
+cgroup/handoff binding, cancellation and descendant drain apply equally to both modes;
+an unobserved child still retains its owner. The ordinary canonical test observer uses
+the uncapped build owner while retaining its finite scientific pool declaration. Managed
+receiver/worker roles retain their finite role limits; an actual narrower scientific
+child cap is never widened by the ordinary build policy.
+
 Light commands use a 2 GiB slot, compilation a 24 GiB slot, ordinary functional work
 one 40 GiB slot, and wide work both functional slots. Native scientific selections
 with a 64 GiB observer pool use the named exclusive-observer partition. Pure Python
 unit selections bypass that observer. Reference preserves its original 160 GiB
 partition, 128 GiB pool and sixteen lanes. The runner builds and enumerates native
-artifacts before entering a capped observer; the observer executes admitted binaries.
+artifacts before entering its selected observer; the observer executes admitted binaries.
 Rust test runners default `RUST_MIN_STACK` to the `[test-runner]` stack declaration
 in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite byte
 count, and record it in native provenance. This libtest thread setting is separate
@@ -156,8 +175,9 @@ also raises its aggregate ancestor after checking physical capacity and nominal
 non-agent headroom. Nested commands reuse the actual owner, and cannot silently
 request more than an enclosing role or ancestor provides. Start that work in a
 widened allocation instead. Nested light and compile jobs keep the enclosing CPU
-lane rather than selecting a new functional lane. `off`, `infinity`, missing supervision and unverifiable
-ownership are refused. Memory ceilings and pressure observations do not reserve RAM
+lane rather than selecting a new functional lane. `off` and `infinity` are not finite
+`PSE_MEMORY_MAX` values; use the explicit ordinary build mode for uncapped work.
+Missing supervision and unverifiable ownership are refused in either mode. Memory ceilings and pressure observations do not reserve RAM
 or exclude unrelated projects.
 
 Capacity remains charged until every registered kernel group drains, including a
@@ -165,7 +185,7 @@ child whose launcher died. Resource/evidence pins survive capacity release. Only
 explicitly owned, drained resident services may be parked for exclusive admission;
 unknown services remain preserved and count as external pressure. The user-manager
 unit installed by `just slice-install` supplies CPU weight and pressure monitoring;
-the host owner materializes its finite aggregate cap before execution.
+the host owner materializes the selected bounded aggregate before finite-class execution.
 
 Persistent storage is separately charged: a functional or timing caller acquires its
 store allocation independently of the caller's execution slot. Exclusive modes charge

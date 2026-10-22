@@ -1913,8 +1913,16 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
             remaining(deadline)
         raise
     group = group_for_slice(host_admission.allocation_slice(owner))
-    total = int((group / "memory.max").read_text().strip())
-    if (
+    if owner.profile.unbounded:
+        if allocation == reference_resources():
+            raise SupervisorError("Reference execution requires its finite isolated allocation")
+        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice(host_admission.allocation_slice(owner))
+        total = None
+    else:
+        total = int((group / "memory.max").read_text().strip())
+    if total is not None and (
         integer(allocation["native_worker_memory_bytes"])
         + integer(execution["observer_memory_bytes"])
         > total
@@ -2557,13 +2565,22 @@ def primary_unit(state: Path) -> str:
 
 
 def observer_scope_command(
-    state: Path, allocation: dict[str, object], unit: str, command: list[str]
+    state: Path, allocation: dict[str, object], unit: str, command: list[str], *, unbounded: bool = False
 ) -> list[str]:
     execution = allocation.get("execution")
     if not isinstance(execution, dict) or not command:
         raise SupervisorError(
             "Observer requires a selected execution profile and command"
         )
+    if unbounded:
+        owner = inherit_host_owner()
+        if owner is None or not owner.profile.unbounded or allocation != execution_resources("exclusive-observer"):
+            raise SupervisorError("Unbounded observer requires its admitted ordinary build owner")
+        from scripts.pse_env import current_memory_ceiling, require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice(host_admission.allocation_slice(owner))
+        if current_memory_ceiling() is not None:
+            raise SupervisorError("Ordinary build observer has a finite originating role cap")
     return [
         "systemd-run",
         "--user",
@@ -2574,8 +2591,7 @@ def observer_scope_command(
         "--expand-environment=no",
         f"--unit={unit}",
         *selected_slice(state, allocation),
-        f"--property=MemoryMax={integer(execution['observer_memory_bytes'])}",
-        "--property=MemorySwapMax=0",
+        *([] if unbounded else [f"--property=MemoryMax={integer(execution['observer_memory_bytes'])}", "--property=MemorySwapMax=0"]),
         "--property=TasksMax=2048",
         "--",
         *role_command(
@@ -2813,6 +2829,16 @@ def observer_control_limit(
     cancellation_deadline: Callable[[], float | None] | None = None,
 ) -> Generator[None, None, None]:
     """Borrow the caller's control cap only for the observer's verified lifetime."""
+    if owner.profile.unbounded:
+        if profile != "exclusive-observer":
+            raise SupervisorError("Unbounded observer control requires the ordinary test profile")
+        from scripts.pse_env import current_memory_ceiling, require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice(host_admission.allocation_slice(owner))
+        if current_memory_ceiling() is not None:
+            raise SupervisorError("Unbounded build observer control has a finite role cap")
+        yield
+        return
     deadline = cancellation_deadline() if cancellation_deadline is not None else None
     scope = None
     if profile is not None and profile != "reference":
@@ -3027,7 +3053,7 @@ def observer(
             environment["PSE_SURREAL_STATE"] = str(state)
             if profile is not None:
                 environment["PSE_TEST_EXECUTION_PROFILE"] = profile
-            selected_command = observer_scope_command(state, allocation, unit, command)
+            selected_command = observer_scope_command(state, allocation, unit, command, unbounded=owner.profile.unbounded and profile == "exclusive-observer")
             attempted = True
             # The operation creator owns cancellation of this handoff. Keep its
             # native supervisor outside a validation gate's process-group kill,

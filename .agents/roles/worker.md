@@ -39,7 +39,7 @@ Local commands and protections remain in AGENTS.md and its shared rules. Never e
 paths; regenerate through `just codegen` when the declaration or generator changes. Keep the
 explicit force-validation feature on correctness tests. Run ad hoc commands through `scripts/pse-env -- <command>` (with `--native` for solver,
 conformance, parity and linked-Python work): it supplies the checkout environment and a
-memory-capped scope.
+supervised scope with the resource policy selected by the environment owner.
 
 **Skills and library documentation.** Load the relevant local process skill before its
 workflow. Native solver work additionally uses the active native-solver-libraries skill.

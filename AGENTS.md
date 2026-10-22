@@ -100,7 +100,7 @@ Recipes are shortcuts, not gates: they carry feature flags, profiles, report pat
 tool paths, so use one when it fits. A composed recipe supports a mode across every stage
 or rejects it before effects; use `just codegen-check` for comparison and zero-argument
 `just codegen` for publication. Bare tools are first-class too: `scripts/pse-env --
-<command>` supplies the checkout environment (licence, venv, compiler cache, a capped scope)
+<command>` supplies the checkout environment (licence, venv, compiler cache, a supervised scope)
 under any shell, `--native` adds the linked solver environment, and `cargo c` / `cargo t`
 carry force-validation. Workload recipes run through `scripts/pse-env`; the fixed read-only
 `just activity` observer runs directly so unavailable workload admission or compiler setup
@@ -231,8 +231,11 @@ Each of these is a real incident, not a hypothetical.
   are banned in `clippy.toml`; use the typed config path and `try_extension_type`.
 - **A heavy native run can exhaust the machine and take the editor down with it** (two
   editor-wide OOM kills on 2026-09-29). Workload recipe commands run in their own
-  memory-capped scope in `pse.slice`, coordinated by `.config/agent-capacity.toml`.
-  `PSE_MEMORY_MAX` requests a finite allocation and widens its ancestors coherently;
+  supervised scope, coordinated by `.config/agent-capacity.toml`. The maintainer-selected
+  local `PSE_BUILD_MODE=unbounded` gives ordinary builds/tests shared use of all physical
+  cores without an OS memory cap; scientific pools and timing/reference allocations retain
+  their contracts. The environment guide owns this selection and its precedence.
+  `PSE_MEMORY_MAX` explicitly selects a finite allocation and widens its ancestors coherently;
   run an ad hoc heavy command with `scripts/pse-env -- <command>`.
 - **uv workspaces enforce a single `requires-python`**, which is why the IDAES parity set is
   a *dependency group* with an environment marker rather than a workspace member.

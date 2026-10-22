@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Finite local lanes bound to actual supervised lifetimes.
+"""Local admission lanes bound to actual supervised lifetimes.
 
 The short ledger lock never spans a systemctl call, workload or drain. A missing
 caller is insufficient to release capacity: every registered unit must be observed
@@ -48,6 +48,7 @@ HostPolicy = TypedDict(
         "light": dict[str, int],
         "compiler-cache": dict[str, int],
         "compile": dict[str, int],
+        "build": dict[str, int],
         "functional": dict[str, int],
         "wide": dict[str, int],
         "timing": dict[str, int],
@@ -107,7 +108,7 @@ class AllocationLedger(TypedDict):
 
 
 class AdmissionError(ValueError):
-    """No safe finite placement could be established."""
+    """The requested supervised placement could not be established."""
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,11 @@ class Profile:
     slots: int
     cores: tuple[int, ...]
     exclusive: bool = False
+
+    @property
+    def unbounded(self) -> bool:
+        """Only the explicit ordinary-build class has no OS memory budget."""
+        return self.name == "build" and self.lane == "build" and self.memory == 0
 
 
 def policy() -> HostPolicy:
@@ -196,6 +202,10 @@ def select(name: str, requested: str | None = None) -> Profile:
     config = policy()
     functional = tuple(config["functional_cores"])
     timing = tuple(config["timing_cores"])
+    if name == "build":
+        if requested is not None:
+            raise AdmissionError("The unbounded build class cannot take PSE_MEMORY_MAX; select a finite resource class")
+        return Profile(name, 0, "build", 1, timing + functional)
     amount = finite_bytes(requested) if requested is not None else None
     if name == "compiler-cache":
         declared = settings(name)["memory_gib"] * GIB
@@ -330,6 +340,13 @@ def classify(command: Sequence[str], native: bool = False) -> str:
         for part in command
     ):
         return "exclusive"
+    if len(command) > 1 and Path(command[0]).name == "just" and command[1] in {
+        "check", "check-package", "check-native-package", "check-native-test",
+        "codegen", "codegen-check", "py-sync", "py-sync-native", "py-sync-correctness",
+    }:
+        return "compile"
+    if "scripts.arrow_validation" in command[:4]:
+        return "compile"
     names = {Path(part).name for part in command[:4]}
     if names & {"cargo", "rustc", "maturin", "py_sync.py", "codegen.py"}:
         return "compile"
@@ -597,7 +614,10 @@ def validate_allocation_record(record: Mapping[str, object]) -> None:
     )
     valid = (
         valid
-        and integer(record.get("memory", 0)) > 0
+        and (integer(record.get("memory", 0)) > 0 or (
+            record.get("class") == "build" and record.get("lane") == "build"
+            and record.get("memory") == 0 and record.get("exclusive") is False
+        ))
         and integer(record.get("slots", 0)) > 0
     )
     valid = valid and type(record.get("exclusive")) is bool
@@ -1172,6 +1192,10 @@ def reconcile(
 def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
     entries = [item for item in owners.values() if isinstance(item, dict)]
     heavy = [item for item in entries if item["lane"] != "light"]
+    if (profile.unbounded and any(item["lane"] in {"timing", "store-timing"} for item in entries)) or (
+        profile.lane in {"timing", "store-timing"} and any(item["lane"] == "build" for item in entries)
+    ):
+        return "isolated timing owner"
     if (profile.exclusive and heavy) or (
         profile.lane != "light" and any(item["exclusive"] for item in entries)
     ):
@@ -1182,6 +1206,8 @@ def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
     capacity = (
         settings("light")["slots"]
         if profile.lane == "light"
+        else settings("build")["slots"]
+        if profile.lane == "build"
         else 1
         if profile.lane in {"timing", "store-functional", "store-timing"}
         else 2
@@ -1544,6 +1570,7 @@ def acquire(
             break
         if (
             profile.lane != "light"
+            and not profile.unbounded
             and memory_info()["MemAvailable"] < policy()["pressure_guard_gib"] * GIB
         ):
             reason = "host MemAvailable below startup pressure guard"
@@ -1657,7 +1684,9 @@ def cpu_set(cores: Sequence[int]) -> tuple[int, ...]:
 
 
 def allocation_slice(allocation: Allocation) -> str:
-    return f"pse-allocation-{allocation.nonce}.slice"
+    # Dashed slice names create real parents: psebuild is deliberately outside pse.slice.
+    prefix = "psebuild" if allocation.profile.unbounded else "pse"
+    return f"{prefix}-allocation-{allocation.nonce}.slice"
 
 
 def retire_empty_allocation(
@@ -1679,7 +1708,7 @@ def retire_empty_allocation(
 def enforce_allocation(
     allocation: Allocation, env: Mapping[str, str], *, deadline: float | None = None
 ) -> None:
-    """One finite ancestor charges sibling role units to their originating owner."""
+    """Enforce the selected CPU/OS-memory policy on the authentic originating owner."""
     resident = settings("exclusive")
     overhead = (
         (resident["store_gib"] + resident["light_gib"]) * GIB
@@ -1693,18 +1722,14 @@ def enforce_allocation(
     )
     name = allocation_slice(allocation)
     command = ["systemctl", "--user"]
-    for arguments in (
-        ["start", name],
-        [
-            "set-property",
-            "--runtime",
-            name,
-            f"MemoryMax={ceiling}",
-            "MemorySwapMax=0",
-            f"CPUQuota={len(allocation.profile.cores) * 100}%",
-            "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
-        ],
-    ):
+    properties = [
+        "set-property", "--runtime", name,
+        f"CPUQuota={len(allocation.profile.cores) * 100}%",
+        "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
+    ]
+    if not allocation.profile.unbounded:
+        properties += [f"MemoryMax={ceiling}", "MemorySwapMax=0"]
+    for arguments in (["start", name], properties):
         if deadline is None:
             result = subprocess.run(
                 [*command, *arguments],
@@ -1724,9 +1749,14 @@ def enforce_allocation(
         slice_group,
     )
 
-    observed = int((slice_group(name) / "memory.max").read_text().strip())
-    if observed != ceiling:
-        raise AdmissionError("Allocation memory ancestor readback differs")
+    if allocation.profile.unbounded:
+        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice(name)
+    else:
+        observed = int((slice_group(name) / "memory.max").read_text().strip())
+        if observed != ceiling:
+            raise AdmissionError("Allocation memory ancestor readback differs")
 
 
 @contextlib.contextmanager
@@ -1767,6 +1797,15 @@ def enforce_parent(
 def _enforce_parent(
     profile: Profile, env: Mapping[str, str], *, deadline: float | None = None
 ) -> None:
+    if profile.unbounded:
+        command = ["systemctl", "--user", "start", "psebuild.slice"]
+        result = subprocess.run(command, env=dict(env), capture_output=True, text=True, timeout=5, check=False) if deadline is None else control_run(command, env=env, deadline=deadline, maximum=5)
+        if result.returncode:
+            raise AdmissionError("Cannot start unbounded build parent")
+        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice("psebuild.slice")
+        return
     cap = aggregate(profile)
     # A concurrent light admission may never lower a widened live heavy envelope.
     with allocation_metadata(root_path(env), deadline=deadline) as state:

@@ -1858,7 +1858,7 @@ def run_child_scope(
     stdout: int | None = None,
     stderr: int | None = None,
 ) -> int:
-    """Borrow the existing finite allocation for a separately drained workload.
+    """Borrow the existing supervised allocation for a separately drained workload.
 
     The selected terminal supervisor stays in its enclosing scope. The existing
     native child entry authenticates its allocation and handoff before payload.
@@ -1880,13 +1880,19 @@ def run_child_scope(
     if allocation is None or scope_owner(**deadline_options(deadline)) is None:
         raise ValueError("selected native workload requires its admitted parent")
     role_memory = current_memory_ceiling()
-    if role_memory is None or role_memory <= 0:
-        raise ValueError(
-            "selected native workload requires a finite originating role cap"
-        )
-    # A sibling scope must preserve the narrower observer/control role; the
-    # allocation's primary ceiling does not grant that role additional memory.
-    role_memory = min(role_memory, allocation.profile.memory)
+    if allocation.profile.unbounded:
+        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
+
+        require_unbounded_slice(host_admission.allocation_slice(allocation))
+        # A genuinely bounded scientific child of this build owner retains its
+        # actual role cap; only the ordinary uncapped launcher omits one.
+        if role_memory is not None and role_memory <= 0:
+            raise ValueError("Invalid originating role cap")
+    else:
+        if role_memory is None or role_memory <= 0:
+            raise ValueError("selected native workload requires a finite originating role cap")
+        # A sibling scope preserves its narrower observer/control role.
+        role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
     allocation.register(unit, **deadline_options(deadline))
     handoff = prepare_handoff(unit, foreground=True, **deadline_options(deadline))
@@ -1905,8 +1911,7 @@ def run_child_scope(
         "--expand-environment=no",
         f"--unit={unit}",
         f"--slice={host_admission.allocation_slice(allocation)}",
-        f"--property=MemoryMax={role_memory}",
-        "--property=MemorySwapMax=0",
+        *([] if role_memory is None else [f"--property=MemoryMax={role_memory}", "--property=MemorySwapMax=0"]),
         "--",
         sys.executable,
         str(Path(__file__).resolve()),

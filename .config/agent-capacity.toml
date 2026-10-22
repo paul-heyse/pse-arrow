@@ -17,6 +17,9 @@ memory_gib = 2
 # than inheriting the first compilation's heavy allocation.
 [compiler-cache]
 memory_gib = 2
+# Opt-in ordinary builds/tests share every physical core. No OS memory budget.
+[build]
+slots = 4
 [compile]
 memory_gib = 24
 [functional]

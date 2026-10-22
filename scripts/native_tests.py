@@ -1104,11 +1104,15 @@ def observer_execution(environment: Mapping[str, str]) -> dict:
     cpus = [
         physical_cpu for physical_cpu in physical_cpus if isinstance(physical_cpu, int)
     ]
+    owner = pse_env.host.inherit(environment)
+    unbounded = profile == "exclusive-observer" and owner is not None and owner.profile.unbounded
+    if unbounded:
+        pse_env.require_unbounded_slice(pse_env.host.allocation_slice(owner))
     if (
         not group.is_relative_to(
             surreal_server.group_for_slice(surreal_server.execution_slice(state))
         )
-        or memory != execution["observer_memory_bytes"]
+        or memory != (None if unbounded else execution["observer_memory_bytes"])
         or cpu is None
         or cpu < execution["cpu_threads"]
         or not surreal_server.role_affinity_ready(os.getpid(), execution, cpus)
