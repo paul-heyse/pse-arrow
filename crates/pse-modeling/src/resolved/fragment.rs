@@ -199,11 +199,15 @@ impl Construction {
 
     /// Capture selected existing scalar premises without realizing any lazy member.
     pub(crate) fn capture_scalar_premises(&self, symbols: &crate::specialize::Symbols, selected: &[SymbolIx]) -> Result<CapturedFragment> {
+        let mut selected=selected.to_vec();
+        for slot in &selected {if symbols.at(*slot).is_none(){return Err(invalid(SemanticId::NIL,"foreign scalar premise has no owner"));}}
+        selected.sort_by_key(|slot|symbols[*slot].id);
+        selected.dedup();
         let roots = selected.iter().filter_map(|slot| symbols.at(*slot).and_then(|symbol| symbol.definition)).collect::<Vec<_>>();
         let mut captured = self.capture_fragment(&roots, &[], symbols)?;
         let capture=&mut captured.premises;
         let mut contracts = capture.fragment.scalars.to_vec();
-        for slot in selected {
+        for slot in &selected {
             let symbol = symbols.at(*slot).ok_or_else(|| invalid(SemanticId::NIL, "foreign scalar premise has no owner"))?;
             if !capture.symbols.contains_key(&symbol.id) {
                 let mut symbol=symbol.clone();
@@ -524,6 +528,23 @@ mod tests {
         assert_eq!(local.node_source(imported.outputs[0]).unwrap(), &source(3));
         assert_eq!(local.predicate_source(imported.guards[0]).unwrap(), &source(5));
         assert_eq!(local.layout(&capture.symbols, &imported.outputs, &imported.guards).unwrap().symbols.len(), 1);
+    }
+    #[test]
+    fn fragment_scalar_premises_ignore_receiving_scalar_allocation_order() {
+        fn capture(reverse:bool)->CapturePremises {
+            let original=scalar_symbols(10,Type::Integer);
+            let mut symbols=crate::specialize::Symbols::default();
+            if reverse {for symbol in original.slots().iter().rev(){symbols.push(symbol.clone());}}
+            else {for symbol in original.slots(){symbols.push(symbol.clone());}}
+            let mut root=Construction::new(32);
+            for (ordinal,id) in [SemanticId::from_bytes([10;16]),SemanticId::from_bytes([11;16])].into_iter().enumerate(){
+                let value=literal(&mut root,"1",ordinal as u32);
+                symbols.define(symbols.slot(id).unwrap(),value).unwrap();
+            }
+            let selected=(0..symbols.len()).map(SymbolIx::from).collect::<Vec<_>>();
+            root.capture_scalar_premises(&symbols,&selected).unwrap().premises
+        }
+        assert_eq!(capture(false),capture(true));
     }
     #[test]
     fn fragment_delta_binds_foreign_nodes_without_republishing_their_owner() {
