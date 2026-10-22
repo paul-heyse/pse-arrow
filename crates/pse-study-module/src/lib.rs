@@ -193,7 +193,14 @@ mod qualification {
     #[surrealism]
     fn hold() -> Result<Vec<surrealdb_types::Decimal>, String> {
         let started = utc_micros()?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        // The separately admitted qualification artifact can hold through a cold
+        // runtime compilation. Production exports contain neither variant.
+        let milliseconds = if cfg!(feature = "module-qualification-long-hold") {
+            5_000
+        } else {
+            500
+        };
+        std::thread::sleep(std::time::Duration::from_millis(milliseconds));
         Ok(vec![started, utc_micros()?])
     }
 

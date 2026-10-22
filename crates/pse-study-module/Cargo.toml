@@ -15,6 +15,8 @@ publish.workspace = true
 [features]
 # Separate artifact for isolated rollback/resource qualification, never production activation.
 module-qualification = []
+# Separate finite window for observing global saturation across cold runtime compilation.
+module-qualification-long-hold = ["module-qualification"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
