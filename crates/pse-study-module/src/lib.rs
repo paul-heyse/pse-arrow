@@ -175,6 +175,27 @@ mod study {
     fn readiness(page: Page) -> Reply { evaluate(page) }
 }
 
+// These exports occur only in a separately hashed qualification artifact. The
+// production packager verifies the exact single-export manifest before activation.
+#[cfg(all(target_family = "wasm", feature = "module-qualification"))]
+#[surrealism::surrealism]
+mod qualification {
+    /// Trap after a sibling native write so rollback can be observed independently.
+    #[surrealism::surrealism]
+    fn trap() -> bool { core::arch::wasm32::unreachable() }
+
+    /// Deliberately consume an invocation until strict runtime interruption.
+    #[surrealism::surrealism]
+    fn busy() -> bool { loop { std::hint::spin_loop(); } }
+
+    /// An allocation larger than the declared linear-memory ceiling must refuse.
+    #[surrealism::surrealism]
+    fn memory_refused() -> bool {
+        let mut bytes = Vec::<u8>::new();
+        bytes.try_reserve_exact(96 * 1024 * 1024).is_err()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

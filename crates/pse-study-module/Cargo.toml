@@ -12,6 +12,10 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[features]
+# Separate artifact for isolated rollback/resource qualification, never production activation.
+module-qualification = []
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
