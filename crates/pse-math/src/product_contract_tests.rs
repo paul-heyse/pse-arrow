@@ -2,6 +2,61 @@
 // Copyright (c) 2026 Paul Heyse
 //! Independent analytic controls distinguish complete requested products from unused jets.
 use super::*;
+use pse_ids::ContentHash;
+use pse_kernels::{ProviderError, ProviderRuntime};
+use std::sync::atomic::AtomicUsize;
+
+#[derive(Debug)]
+struct ContractSquare {
+    spec: ProviderSpec,
+    calls: Arc<AtomicUsize>,
+}
+impl Provider for ContractSquare {
+    fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool {
+        true
+    }
+    fn supports_linearization(&self) -> bool {
+        true
+    }
+    fn completed_linearization(&self) -> Option<ContentHash> {
+        Some(self.spec.revision)
+    }
+    fn fill(
+        &mut self,
+        inputs: &[f64],
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: pse_kernels::ProviderOutput<'_>,
+        context: &EvaluationContext<'_>,
+    ) -> Result<(), ProviderError> {
+        request.check_context(context)?;
+        self.calls.fetch_add(1, Ordering::Relaxed);
+        if inputs[0] < 0. {
+            return Err(ProviderError::Trial(
+                "original provider's selected domain".into(),
+            ));
+        }
+        assert_eq!(request.outputs, [0]);
+        output.values[0] = inputs[0] * inputs[0];
+        output.jacobian.fill(2. * inputs[0]);
+        output.hessians.fill(2.);
+        use pse_kernels::ProviderDemand;
+        match request.demand {
+            ProviderDemand::JacobianAction { .. } => {
+                output.jacobian[0] *= runtime.directions[0]
+            }
+            ProviderDemand::TransposeAction { .. } => {
+                output.jacobian[0] *= runtime.cotangents[0]
+            }
+            ProviderDemand::WeightedSecondAction { .. } => {
+                output.jacobian[0] *= runtime.weights[0];
+                output.hessians[0] *= runtime.weights[0] * runtime.directions[0];
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
 
 #[test]
 fn requested_weighted_product_preserves_value_domain_without_materializing_unused_intermediate_second_jets()
@@ -123,60 +178,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
 
 #[test]
 fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusal() {
-    use pse_ids::ContentHash;
-    use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes};
-    use std::sync::atomic::AtomicUsize;
-    #[derive(Debug)]
-    struct Square {
-        spec: ProviderSpec,
-        calls: Arc<AtomicUsize>,
-    }
-    impl Provider for Square {
-        fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool {
-            true
-        }
-        fn supports_linearization(&self) -> bool {
-            true
-        }
-        fn completed_linearization(&self) -> Option<ContentHash> {
-            Some(self.spec.revision)
-        }
-        fn fill(
-            &mut self,
-            inputs: &[f64],
-            request: &PreparedProviderRequest,
-            runtime: ProviderRuntime<'_>,
-            output: pse_kernels::ProviderOutput<'_>,
-            context: &EvaluationContext<'_>,
-        ) -> Result<(), ProviderError> {
-            request.check_context(context)?;
-            self.calls.fetch_add(1, Ordering::Relaxed);
-            if inputs[0] < 0. {
-                return Err(ProviderError::Trial(
-                    "original provider's selected domain".into(),
-                ));
-            }
-            assert_eq!(request.outputs, [0]);
-            output.values[0] = inputs[0] * inputs[0];
-            output.jacobian.fill(2. * inputs[0]);
-            output.hessians.fill(2.);
-            use pse_kernels::ProviderDemand;
-            match request.demand {
-                ProviderDemand::JacobianAction { .. } => {
-                    output.jacobian[0] *= runtime.directions[0]
-                }
-                ProviderDemand::TransposeAction { .. } => {
-                    output.jacobian[0] *= runtime.cotangents[0]
-                }
-                ProviderDemand::WeightedSecondAction { .. } => {
-                    output.jacobian[0] *= runtime.weights[0];
-                    output.hessians[0] *= runtime.weights[0] * runtime.directions[0];
-                }
-                _ => {}
-            }
-            Ok(())
-        }
-    }
+    use pse_kernels::{DerivativeSource, Port, ProviderShapes};
     crate::initialize().unwrap();
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let quantity = pse_quantity::standard::ids::quantity("neutral");
@@ -258,7 +260,7 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
         let calls = Arc::new(AtomicUsize::new(0));
         let provider = pse_kernels::ProviderBinding::new(
             spec.clone(),
-            Box::new(Square {
+            Box::new(ContractSquare {
                 spec: spec.clone(),
                 calls: calls.clone(),
             }),
@@ -309,7 +311,7 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
                 spec.key(),
                 pse_kernels::ProviderBinding::new(
                     spec.clone(),
-                    Box::new(Square {
+                    Box::new(ContractSquare {
                         spec: spec.clone(),
                         calls: calls.clone(),
                     }),
@@ -385,6 +387,155 @@ fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusa
             matches!(worker.evaluate_product_into(&[-2.], product, &mut bindings, &cancel, &mut actual), Err(MathError::Provider { source_id, .. }) if source_id == source)
         );
         assert_eq!(actual, complete);
+    }
+}
+
+#[test]
+fn composed_provider_branch_definition_products_match_independent_multivariate_oracles() {
+    composed_provider_branch_definition_products(Optimization::default());
+}
+
+#[cfg(feature = "compiled-evaluator")]
+#[test]
+fn compiled_composed_provider_branch_definition_products_keep_private_workers() {
+    composed_provider_branch_definition_products(Optimization {
+        evaluator: library::Evaluator::CompiledScalar {
+            module_bytes: 32 << 20,
+        },
+        ..Default::default()
+    });
+}
+
+fn composed_provider_branch_definition_products(optimization: Optimization) {
+    use pse_kernels::{DerivativeSource, Port, ProviderShapes};
+    crate::initialize().unwrap();
+    const DEPTH: usize = 8;
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let source = pse_ids::named_id(SemanticId::NIL, "composed square provider");
+    let spec = ProviderSpec {
+        id: source,
+        revision: ContentHash::from_bytes([211; 32]),
+        data: ContentHash::from_bytes([212; 32]),
+        shapes: ProviderShapes::default(),
+        derivative_source: DerivativeSource::Analytic,
+        inputs: vec![Port { id: SemanticId::from_bytes([213; 16]), quantity, unit }],
+        outputs: vec![Port { id: SemanticId::from_bytes([214; 16]), quantity, unit }],
+        derivatives: DerivativeOrder::Second,
+        smoothness: DerivativeOrder::Second,
+    };
+    let formals = (0..DEPTH + 9)
+        .map(|slot| library::formal(slot).unwrap())
+        .collect::<Vec<_>>();
+    let xy = &formals[0] * &formals[1];
+    let mut stages = vec![
+        Stage::Provider { spec: spec.clone(), partial: Vec::new(), inputs: vec![0], outputs: vec![4], source },
+        Stage::Block { expressions: vec![Atom::num(0)], outputs: vec![5], source: SemanticId::NIL },
+        Stage::Branch {
+            continuity: DerivativeOrder::Value,
+            comparison: Comparison::Lt,
+            left: 5,
+            right: 2,
+            then: vec![Stage::Block { expressions: vec![&formals[4] + &xy], outputs: vec![6], source: SemanticId::NIL }],
+            otherwise: vec![Stage::Block { expressions: vec![&formals[4] - &xy], outputs: vec![6], source: SemanticId::NIL }],
+        },
+    ];
+    for step in 0..DEPTH {
+        stages.push(Stage::Block {
+            expressions: vec![&formals[6 + step] + &xy],
+            outputs: vec![7 + step],
+            source: pse_ids::named_id(source, &format!("dependent definition {step}")),
+        });
+    }
+    let final_slot = DEPTH + 6;
+    stages.push(Stage::Block {
+        expressions: vec![formals[final_slot].pow(2), &formals[final_slot] * &formals[1] + formals[0].pow(2)],
+        outputs: vec![final_slot + 1, final_slot + 2],
+        source: SemanticId::NIL,
+    });
+    let body = PreparedBody::new(4, DEPTH + 9, vec![final_slot + 1, final_slot + 2], stages, DerivativeOrder::Second).unwrap();
+    let cancel = pse_diagnostics::Cancellation::default();
+    let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+    // Deliberately reorder both outputs and axes. The unused fourth input must
+    // remain a zero action component without acquiring sparse Hessian entries.
+    let support = body.prepare_support(&[1, 0], &[1, 0, 3], DerivativeOrder::Second, &cancel).unwrap();
+    let final_region = support.program.values.as_deref().unwrap().stages.last().unwrap().region.as_ref().unwrap();
+    assert_eq!(final_region.definitions.len(), DEPTH + 2);
+    assert!(final_region.definitions.iter().all(|(_, rhs)| rhs.as_view().get_byte_size() < 128));
+    let providers = || {
+        let calls = Arc::new(AtomicUsize::new(0));
+        (ProviderBindings::from([(
+            spec.key(),
+            pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ContractSquare { spec: spec.clone(), calls: calls.clone() })),
+        )]), calls)
+    };
+    let first_support = body.prepare_support(&[1, 0], &[1, 0, 3], DerivativeOrder::First, &cancel).unwrap();
+    let weights = [2., -3.];
+    let direction = [2., -1., 7.];
+    for kind in [ProductKind::SelectedPartials, ProductKind::JacobianAction, ProductKind::TransposeJacobianAction, ProductKind::WeightedHessian, ProductKind::WeightedHessianAction] {
+        let demanded = if matches!(kind, ProductKind::JacobianAction | ProductKind::TransposeJacobianAction) { &first_support } else { &support };
+        let compiled = demanded.compile_product(kind, optimization, EvaluationLimits::default(), &scope).unwrap();
+        let census = compiled.census().last().unwrap();
+        assert!(census.provider_stages > 0 && census.control_stages > 0);
+        assert!(census.library_instructions > 0);
+        if matches!(optimization.evaluator, library::Evaluator::CompiledScalar { .. }) {
+            assert!(census.native_arithmetic_blocks > 0, "the selected C++ profile must actually execute native arithmetic");
+        }
+        eprintln!("guarded-demand profile={} product={kind:?} depth={DEPTH}: stages={} arithmetic={} providers={} controls={} native={} instructions={} instruction_bytes={} retained_bytes={} worker_bytes={}",
+            optimization.evaluator.identity(), census.stages, census.arithmetic_blocks, census.provider_stages,
+            census.control_stages, census.native_arithmetic_blocks, census.library_instructions,
+            census.instruction_storage_bytes, compiled.retained_bytes(), compiled.worker_bytes());
+        if kind == ProductKind::WeightedHessian {
+            assert_eq!(compiled.product_pairs(), [(0, 0), (0, 1), (1, 1)]);
+        }
+        if kind == ProductKind::WeightedHessianAction {
+            assert!(compiled.product_pairs().is_empty());
+        }
+        let mut first = compiled.worker();
+        let mut second = compiled.worker();
+        // Alternate arms and points on two workers, then return to the first point.
+        // No result, branch-local alias or native scratch may leak between them.
+        for (turn, point) in [[2., 3., 1., 11.], [2., 3., -1., 11.], [1., -2., 1., 5.], [2., 3., 1., 11.]].into_iter().enumerate() {
+            let worker = if turn % 2 == 0 { &mut first } else { &mut second };
+            let [x, y, control, _] = point;
+            // Independently expanded scalar functions: s=x²+kxy, f=s²,
+            // g=x²y+kxy²+x². The provider supplies only x² and its derivatives.
+            let k = DEPTH as f64 + if control > 0. { 1. } else { -1. };
+            let s = x * x + k * x * y;
+            let sx = 2. * x + k * y;
+            let sy = k * x;
+            let values = [s * y + x * x, s * s];
+            let jacobian = [[x * x + 2. * k * x * y, 2. * x * y + k * y * y + 2. * x, 0.], [2. * s * sy, 2. * s * sx, 0.]];
+            let hessians = [
+                [[2. * k * x, 2. * x + 2. * k * y, 0.], [2. * x + 2. * k * y, 2. * y + 2., 0.], [0.; 3]],
+                [[2. * sy * sy, 2. * sx * sy + 2. * s * k, 0.], [2. * sx * sy + 2. * s * k, 2. * sx * sx + 4. * s, 0.], [0.; 3]],
+            ];
+            let (mut bindings, calls) = providers();
+            if kind == ProductKind::SelectedPartials {
+                let actual = worker.evaluate(&point, DerivativeOrder::Second, &mut bindings, &cancel).unwrap();
+                assert_eq!(actual.values, values);
+                assert_eq!(actual.jacobian, jacobian.into_iter().flatten().collect::<Vec<_>>());
+                assert_eq!(actual.hessians, hessians.into_iter().flatten().flatten().collect::<Vec<_>>());
+                assert!(calls.load(Ordering::Relaxed) > 0);
+                assert!(matches!(worker.evaluate(&[-1., y, control, 11.], DerivativeOrder::Second, &mut bindings, &cancel), Err(MathError::Provider { source_id, .. }) if source_id == source));
+                continue;
+            }
+            let weighted = |row: usize, col: usize| weights[0] * hessians[0][row][col] + weights[1] * hessians[1][row][col];
+            let (binding, expected) = match kind {
+                ProductKind::JacobianAction => (ProductValues::JacobianAction { direction: &direction }, jacobian.iter().map(|row| row.iter().zip(direction).map(|(j, v)| j * v).sum()).collect::<Vec<f64>>()),
+                ProductKind::TransposeJacobianAction => (ProductValues::TransposeJacobianAction { weights: &weights }, (0..3).map(|i| weights[0] * jacobian[0][i] + weights[1] * jacobian[1][i]).collect()),
+                ProductKind::WeightedHessian => (ProductValues::WeightedHessian { weights: &weights }, compiled.product_pairs().iter().map(|&(i, j)| weighted(i, j)).collect()),
+                ProductKind::WeightedHessianAction => (ProductValues::WeightedHessianAction { weights: &weights, direction: &direction }, (0..3).map(|i| (0..3).map(|j| weighted(i, j) * direction[j]).sum()).collect()),
+                ProductKind::SelectedPartials => unreachable!(),
+            };
+            let mut actual = vec![97.; compiled.product_len()];
+            worker.evaluate_product_into(&point, binding, &mut bindings, &cancel, &mut actual).unwrap();
+            assert_eq!(actual, expected, "{kind:?} at {point:?}");
+            assert!(calls.load(Ordering::Relaxed) > 0);
+            assert!(matches!(worker.evaluate_product_into(&[-1., y, control, 11.], binding, &mut bindings, &cancel, &mut actual), Err(MathError::Provider { source_id, .. }) if source_id == source));
+            assert_eq!(actual, expected, "a refused provider cannot publish a partial product");
+        }
     }
 }
 
