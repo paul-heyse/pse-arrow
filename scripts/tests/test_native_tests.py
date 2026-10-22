@@ -416,7 +416,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         run.assert_not_called()
 
     def prepared_environment(self) -> dict[str, str]:
-        return native_tests.rust_test_environment(
+        return native_tests.arrow_validation.rust_test_environment(
             {
                 "PSE_WORKER_BINARY": str(self.worker),
                 "PSE_NATIVE_PROVENANCE": str(self.provenance),

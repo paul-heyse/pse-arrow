@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import (
+    arrow_validation,
     native_operation,
     native_tests,
     python_tests,
@@ -609,15 +610,15 @@ class Plan30RoutingTests(unittest.TestCase):
     def test_rust_stack_default_override_and_nested_execution_are_recorded(
         self,
     ) -> None:
-        default = native_tests.rust_test_environment({})
+        default = arrow_validation.rust_test_environment({})
         self.assertEqual(default["RUST_MIN_STACK"], str(16 << 20))
         self.assertEqual(
             native_tests.validation.relevant_environment(default)["RUST_MIN_STACK"],
             str(16 << 20),
         )
-        explicit = native_tests.rust_test_environment({"RUST_MIN_STACK": str(24 << 20)})
+        explicit = arrow_validation.rust_test_environment({"RUST_MIN_STACK": str(24 << 20)})
         self.assertEqual(explicit["RUST_MIN_STACK"], str(24 << 20))
-        self.assertEqual(native_tests.rust_test_environment(explicit), explicit)
+        self.assertEqual(arrow_validation.rust_test_environment(explicit), explicit)
         self.declaration()
         with patch.object(test_run.subprocess, "call", return_value=0) as execution:
             self.assertEqual(
@@ -636,7 +637,7 @@ class Plan30RoutingTests(unittest.TestCase):
                 self.subTest(value=value),
                 self.assertRaisesRegex(ValueError, "positive finite"),
             ):
-                native_tests.rust_test_environment({"RUST_MIN_STACK": value})
+                arrow_validation.rust_test_environment({"RUST_MIN_STACK": value})
 
     def test_ordinary_native_launchers_supply_completion_once(self) -> None:
         for has_native_operation in (False, True):

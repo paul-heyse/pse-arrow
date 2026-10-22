@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import arrow_validation, validation, validation_receipts
 from scripts import test_resources as resources
-from scripts import validation, validation_receipts
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -491,10 +491,7 @@ def run_rust(
     effects: str = "canonical",
     package_scope: bool = False,
 ) -> int:
-    # Preparation and terminal execution call each other; defer symbol binding.
-    from scripts.native_tests import rust_test_environment  # noqa: PLC0415
-
-    environment = rust_test_environment(os.environ if env is None else env)
+    environment = arrow_validation.rust_test_environment(os.environ if env is None else env)
     if effects not in {"canonical", "native-local"}:
         raise ValueError("Unknown Rust execution effects")
     environment[EXECUTION_EFFECTS] = effects

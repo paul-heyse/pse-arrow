@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING
 
 from scripts import (
     arrow_validation,
-    host_admission,
     pse_env,
     python_extension,
     surreal_server,
@@ -51,29 +50,6 @@ def worker_binding(worker: Path) -> Generator[None, None, None]:
             os.environ.pop("PSE_WORKER_BINARY", None)
         else:
             os.environ["PSE_WORKER_BINARY"] = prior
-
-
-def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
-    """Supply a finite libtest thread stack without changing native job policy."""
-    selected = dict(environment)
-    if "RUST_MIN_STACK" not in selected:
-        policy = host_admission.policy()["test-runner"]
-        if not isinstance(policy, dict):
-            raise ValueError("Missing Rust test thread stack policy")
-        mib = policy["rust_thread_stack_mib"]
-        if type(mib) is not int or mib <= 0:
-            raise ValueError(
-                "Rust test thread stack policy must be a positive integer MiB"
-            )
-        selected["RUST_MIN_STACK"] = str(mib * (1 << 20))
-    value = selected["RUST_MIN_STACK"]
-    if (
-        not value
-        or any(character not in "0123456789" for character in value)
-        or not 0 < int(value) <= sys.maxsize * 2 + 1
-    ):
-        raise ValueError("RUST_MIN_STACK must be a positive finite byte count")
-    return selected
 
 
 def native_provenance(
@@ -921,7 +897,7 @@ def _rust_capture(
     ).resolve()
     for destination in (provenance, selected, binary_metadata, cargo_metadata):
         destination.parent.mkdir(parents=True, exist_ok=True)
-    environment = rust_test_environment(
+    environment = arrow_validation.rust_test_environment(
         os.environ if environment is None else environment
     )
     source = rust_source_identity()
@@ -1155,7 +1131,7 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     files = native.get("files")
     if not isinstance(files, dict) or not files:
         raise ValueError("managed Rust child requires parent artifact provenance")
-    environment = rust_test_environment(os.environ)
+    environment = arrow_validation.rust_test_environment(os.environ)
     worker = Path(worker_arguments[0]).resolve()
     if (
         str(worker) not in files
@@ -1389,7 +1365,7 @@ def main() -> int:
             "PSE_NATIVE_SELECTION", str(Path(path).with_name("native-selected.json"))
         )
     )
-    environment = rust_test_environment(os.environ)
+    environment = arrow_validation.rust_test_environment(os.environ)
     execution, worker = ordinary_rust_capture(
         rust_command("run", rust_completion_arguments(extra)),
         Path(path),

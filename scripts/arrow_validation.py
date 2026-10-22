@@ -9,6 +9,7 @@ actual validation-capable Arrow leaf features, rather than trusting a feature's 
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 import sys
@@ -18,10 +19,36 @@ from typing import TYPE_CHECKING
 import msgspec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts import host_admission
+
+
+def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Supply a finite libtest thread stack without changing native job policy."""
+    selected = dict(environment)
+    if "RUST_MIN_STACK" not in selected:
+        policy = host_admission.policy()["test-runner"]
+        if not isinstance(policy, dict):
+            raise ValueError("Missing Rust test thread stack policy")
+        mib = policy["rust_thread_stack_mib"]
+        if type(mib) is not int or mib <= 0:
+            raise ValueError(
+                "Rust test thread stack policy must be a positive integer MiB"
+            )
+        selected["RUST_MIN_STACK"] = str(mib * (1 << 20))
+    value = selected["RUST_MIN_STACK"]
+    if (
+        not value
+        or any(character not in "0123456789" for character in value)
+        or not 0 < int(value) <= sys.maxsize * 2 + 1
+    ):
+        raise ValueError("RUST_MIN_STACK must be a positive finite byte count")
+    return selected
+
 
 
 class ValidationError(ValueError):
@@ -404,7 +431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"arrow-validation: {error}", file=sys.stderr)
         return 2
     print("arrow-validation: " + shlex.join(command), file=sys.stderr, flush=True)
-    return subprocess.call(command)
+    return subprocess.call(command, env=rust_test_environment(os.environ))
 
 
 if __name__ == "__main__":
