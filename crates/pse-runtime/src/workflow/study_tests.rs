@@ -4141,6 +4141,157 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
+async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel() {
+    let fixture = ManagedStudyFixture::start(true).await;
+    let runtime = &fixture.runtime;
+    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+    let definition = runtime
+        .record_study(&definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    // Use an independent physical client as well as an independent caller token;
+    // cloning a deployment would keep the same driver's transport-close authority.
+    let store = runtime.canonical_store().unwrap();
+    let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+        &store.deployment_state(),
+        Some(store.database()),
+    )
+    .unwrap();
+    let independent_store = pse_operations::canonical::CanonicalStore::connect(&options)
+        .await
+        .unwrap();
+    independent_store.open().await.unwrap();
+    let independent = Runtime::from_shared(
+        runtime.shared.clone(),
+        runtime.model.clone(),
+        CanonicalDeployment::new(
+            independent_store,
+            runtime.canonical().unwrap().attestation(),
+            runtime.canonical().unwrap().producer().cloned(),
+        ),
+    )
+    .unwrap();
+    let handle = runtime
+        .start_recorded_study(definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let study = handle.study_id();
+    fixture.observation(|value| value["active"] == 16).await;
+    drop(handle);
+    runtime.close();
+    runtime
+        .canonical_store()
+        .unwrap()
+        .disconnect()
+        .await
+        .unwrap();
+
+    let handle = independent.study(study);
+    let status = handle.status().await.unwrap();
+    assert!(!status.cancelled);
+    assert_eq!(status.state, StudyState::Open);
+    assert_eq!(status.points.len(), 16);
+    assert!(status.points.iter().all(|point| !point.settled));
+    let held = fixture.observation(|value| value["active"] == 16).await;
+    assert!(
+        held["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| { entry["released"] == false && entry["stop_observed"] == false })
+    );
+
+    let cancelled = handle.cancel().await.unwrap();
+    assert_eq!(cancelled.study_id, study);
+    assert!(!cancelled.already_concluded);
+    let drained = fixture.observation(|value| value["active"] == 0).await;
+    assert_eq!(drained["maximum"], 16);
+    let entries = drained["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 16);
+    assert!(
+        entries
+            .iter()
+            .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
+    );
+    tokio::time::timeout(Duration::from_secs(45), async {
+        loop {
+            let status = handle.status().await.unwrap();
+            if status.state == StudyState::Concluded {
+                assert!(status.cancelled);
+                assert_eq!(status.points.len(), 16);
+                assert!(
+                    status.points.iter().all(|point| {
+                        point.settled && point.state == StudyPointState::Cancelled
+                    })
+                );
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    independent.close();
+    independent
+        .canonical_store()
+        .unwrap()
+        .disconnect()
+        .await
+        .unwrap();
+    fixture.finish().await;
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn managed_primary_worker_stop_joins_sixteen_native_owners_without_cancelling_study() {
+    let fixture = ManagedStudyFixture::start(true).await;
+    let runtime = &fixture.runtime;
+    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+    let definition = runtime
+        .record_study(&definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let handle = runtime
+        .start_recorded_study(definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    fixture.observation(|value| value["active"] == 16).await;
+    // Stop the actual primary's worker lifetime without authorizing the release
+    // barrier or changing the independent durable study cancellation authority.
+    fixture.signal("stop.json");
+    let stopped = fixture.observation(|value| value["active"] == 0).await;
+    assert_eq!(stopped["maximum"], 16);
+    let entries = stopped["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 16);
+    assert!(
+        entries
+            .iter()
+            .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
+    );
+    tokio::time::timeout_at(
+        tokio::time::Instant::from_std(fixture.drain_deadline()),
+        async {
+            while std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        },
+    )
+    .await
+    .unwrap();
+    let status = handle.status().await.unwrap();
+    assert!(!status.cancelled);
+    assert_eq!(status.points.len(), 16);
+    assert!(status.points.iter().all(|point| {
+        point
+            .outcome
+            .as_ref()
+            .is_none_or(|outcome| !outcome.scientific.usable)
+    }));
+    fixture.finish().await;
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
 async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail() {
     let fixture = ManagedStudyFixture::start(true).await;
     let runtime = &fixture.runtime;
