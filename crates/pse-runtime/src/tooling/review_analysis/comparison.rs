@@ -19,8 +19,15 @@ struct EngineCapture<'a> {
     observation: std::borrow::Cow<'a, pse_engine::session::CopiedPlanObservation>,
     reference: AnalysisSourceReference,
 }
-fn engine_captures<'a>(b: &mut Builder, set: &'a FrozenEvidenceSet, operation: OperationId) -> Result<Vec<EngineCapture<'a>>,ObservationError> {
+struct EngineCaptures<'a> {
+    captures: Vec<EngineCapture<'a>>,
+    incomplete: bool,
+    loss: Vec<AnalysisSourceReference>,
+}
+fn engine_captures<'a>(b: &mut Builder, set: &'a FrozenEvidenceSet, operation: OperationId) -> Result<EngineCaptures<'a>,ObservationError> {
     let mut captures = Vec::new();
+    let mut incomplete = false;
+    let mut loss = Vec::new();
     let mut mirrored = BTreeSet::new();
     let mut payloads = BTreeSet::new();
     for (context_index,context) in set.contexts.iter().enumerate().filter(|(_,context)| questions::engine_context_selected(set,context,&[operation])) {
@@ -29,25 +36,37 @@ fn engine_captures<'a>(b: &mut Builder, set: &'a FrozenEvidenceSet, operation: O
             if !payloads.insert(fact.payload.as_slice()) { continue; }
             let member = format!("contexts/{context_index}");
             let pointer = format!("/facts/{fact_index}/payload");
-            if !b.admit(&member,&pointer) { continue; }
+            if !b.admit(&member,&pointer) { incomplete = true; continue; }
             let trace: pse_engine::session::CopiedExecutionObservations = serde_json::from_slice(&fact.payload).map_err(|error| invalid(error.to_string()))?;
             for (index,flat) in set.engine_observations.iter().enumerate() { if questions::same_engine_trace(&trace,flat) { mirrored.insert(index); } }
+            if trace.dropped > 0 {
+                incomplete = true;
+                loss.push(source(&member,&pointer,Value::Count(trace.dropped),true));
+            }
             for observation in trace.observations {
+                if captures.len() == 2 { break; }
                 captures.push(EngineCapture { observation: std::borrow::Cow::Owned(observation), reference: source(&member,&pointer,Value::Text("exact contextual physical-session receipt; decoded topology coordinates".into()),false) });
-                if captures.len() == 2 { return Ok(captures); }
             }
         }
     }
     for (trace_index,trace) in set.engine_observations.iter().enumerate() {
+        b.checkpoint()?;
         if mirrored.contains(&trace_index) { continue; }
+        let member = format!("engine_observations/{trace_index}");
+        if trace.dropped > 0 && (trace.operation == Some(operation) || trace.observations.iter().any(|observation| observation.operation == Some(operation))) {
+            incomplete = true;
+            if b.admit(&member,"/dropped") {
+                loss.push(source(&member,"/dropped",Value::Count(trace.dropped),true));
+            }
+        }
         for (observation_index,observation) in trace.observations.iter().enumerate().filter(|(_,observation)| observation.operation == Some(operation)) {
-            let member = format!("engine_observations/{trace_index}"); let pointer = format!("/observations/{observation_index}");
-            if !b.admit(&member,&pointer) { continue; }
-            captures.push(EngineCapture { observation: std::borrow::Cow::Borrowed(observation), reference: source(member,format!("{pointer}/physical_graph"),Value::Text("actual physical topology".into()),observation.physical_graph.as_ref().is_some_and(|graph| graph.truncated)) });
-            if captures.len() == 2 { return Ok(captures); }
+            if captures.len() == 2 { break; }
+            let pointer = format!("/observations/{observation_index}");
+            if !b.admit(&member,&pointer) { incomplete = true; continue; }
+            captures.push(EngineCapture { observation: std::borrow::Cow::Borrowed(observation), reference: source(&member,format!("{pointer}/physical_graph"),Value::Text("actual physical topology".into()),observation.physical_graph.as_ref().is_some_and(|graph| graph.truncated)) });
         }
     }
-    Ok(captures)
+    Ok(EngineCaptures { captures, incomplete, loss })
 }
 pub(super) fn analyze(b: &mut Builder, set: &FrozenEvidenceSet, events: &[Event<'_>]) -> Result<(), ObservationError> {
     let Some(baseline) = b.document.request.baseline else { return Ok(()); };
@@ -90,9 +109,11 @@ pub(super) fn analyze(b: &mut Builder, set: &FrozenEvidenceSet, events: &[Event<
         }
     }
     if b.selected(AnalysisQuestion::Preparation) {
-        let before = engine_captures(b,set,baseline)?;
-        let after = engine_captures(b,set,current)?;
-        if before.len() == 1 && after.len() == 1 {
+        let before_population = engine_captures(b,set,baseline)?;
+        let after_population = engine_captures(b,set,current)?;
+        let before = &before_population.captures;
+        let after = &after_population.captures;
+        if before.len() == 1 && after.len() == 1 && !before_population.incomplete && !after_population.incomplete {
             let left_observation = &before[0].observation;
             let right_observation = &after[0].observation;
             if let (Some(left),Some(right)) = (&left_observation.physical_graph,&right_observation.physical_graph) {
@@ -114,8 +135,10 @@ pub(super) fn analyze(b: &mut Builder, set: &FrozenEvidenceSet, events: &[Event<
             } else {
                 b.add(AnalysisQuestion::Preparation,Limitation,"engine.topology_unavailable","One selected original capture has no structured physical topology (Off, Contract, refused capture or not physically planned). No topology or operator work is invented.",vec![before[0].reference.clone(),after[0].reference.clone()],vec![]);
             }
-        } else if !before.is_empty() || !after.is_empty() {
-            b.add(AnalysisQuestion::Preparation,Limitation,"engine.capture_correspondence_ambiguous",format!("Baseline at least {} and selected at least {} physical observations: query-level correspondence is not uniquely established. No capture is paired by its ordinal.",before.len(),after.len()),vec![],vec![]);
+        } else if !before.is_empty() || !after.is_empty() || before_population.incomplete || after_population.incomplete {
+            let references = before.iter().chain(after).map(|capture| capture.reference.clone())
+                .chain(before_population.loss).chain(after_population.loss).collect();
+            b.add(AnalysisQuestion::Preparation,Limitation,"engine.capture_correspondence_ambiguous",format!("Baseline at least {} and selected at least {} physical observations; incomplete baseline={}, selected={}: dropped or uninspected captures and ambiguous populations cannot establish unique query-level correspondence. No capture is paired by its ordinal.",before.len(),after.len(),before_population.incomplete,after_population.incomplete),references,vec![]);
         }
     }
     Ok(())

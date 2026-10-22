@@ -277,6 +277,7 @@ impl Runtime {
         let mut document = ReproductionDocument { version: Version, operation: context.id(), effective_allowance: operation.driver().deadline().map_or(Duration::ZERO, |deadline| deadline.saturating_duration_since(std::time::Instant::now())), original: request,
             run_id: None, findings: vec![], failure: None, status: ReproductionStatus::ReproductionUnavailable, comparison_reason: String::new() };
         let mut premises_established = matches!(document.original.input, ReproducerInput::OriginalText { .. });
+        let mut execution_complete = false;
         let outcome = pse_diagnostics::observation::scope(Some(context),operation.within(self.scope_activity(async {
             operation.check()?;
             extent(&document.original)?;
@@ -286,7 +287,7 @@ impl Runtime {
                     // preparation futures otherwise multiply the caller-thread poll frame
                     // at the synchronous Python boundary.
                     let result = self.diagnose_documents(request.clone(),operation.driver()).boxed().await?;
-                    Ok((result.run_id,result.findings,result.failure))
+                    Ok((result.run_id,result.findings,result.failure,result.complete))
                 }
                 ReproducerInput::FrozenAlgebraic { source,constructor } => {
                     recorded_source_complete(source)?;
@@ -302,12 +303,14 @@ impl Runtime {
                     document.run_id = Some(run_id);
                     let result = handle.wait().boxed().await?;
                     operation.check()?;
-                    Ok((Some(run_id),result.capture_diagnostics(),result.report().err().map(|error| error.boundary_diagnostic())))
+                    let failure = result.report().err().map(|error| error.boundary_diagnostic());
+                    let complete = failure.is_none();
+                    Ok((Some(run_id),result.capture_diagnostics(),failure,complete))
                 }
             }
         }))).await;
         match outcome {
-            Ok((run_id,findings,failure)) => { document.run_id = run_id; document.findings = findings; document.failure = failure; }
+            Ok((run_id,findings,failure,complete)) => { document.run_id = run_id; document.findings = findings; document.failure = failure; execution_complete = complete; }
             Err(error) => { document.failure = Some(error.boundary_diagnostic()); }
         }
         // Original text-only errors and unsupported schedules cannot acquire typed meaning.
@@ -324,6 +327,8 @@ impl Runtime {
                 });
                 document.status = if original_matches { ReproductionStatus::OriginalFailureReproduced } else { ReproductionStatus::RelatedDiagnosticReproduced };
                 document.comparison_reason = "Exact typed code/stage/rule/source/validity and necessary observed conditions matched; original outcome remains independent of this new run".into();
+            } else if !execution_complete {
+                document.comparison_reason = "The new execution did not complete all requested work (refused, capped or budget-limited); retained diagnostics do not match the selected typed predicate, but the incomplete population cannot establish non-reproduction".into();
             } else {
                 document.status = ReproductionStatus::NotReproduced;
                 document.comparison_reason = "The new execution returned no diagnostic matching the complete selected typed predicate; another failure family is insufficient".into();
@@ -401,7 +406,8 @@ mod tests {
         let mut different = extracted.reproducer.clone();
         different.predicate.as_mut().unwrap().code = DiagnosticCode::CompilerMissing;
         let result = runtime.run_reproducer(different,&CancelSource::new()).await.unwrap();
-        assert_eq!(result.status,ReproductionStatus::NotReproduced);
+        assert_eq!(result.status,ReproductionStatus::ReproductionUnavailable);
+        assert!(result.comparison_reason.contains("incomplete population"));
         let mut text_only = extracted.reproducer.clone();
         text_only.original_diagnostic = None; text_only.predicate = None;
         text_only.original_failure_text = Some(original.to_string());
@@ -428,9 +434,7 @@ mod tests {
         context.failure = None;
         assert!(DiagnosticReproducer::extract_review_case(&context,0,Duration::ZERO,None,None).is_err());
     }
-    #[tokio::test]
-    async fn actual_text_numerical_domain_failure_reproduces_selected_typed_source_diagnostic() {
-        let runtime = crate::workflow::tests::runtime();
+    fn numerical_command(body: &str) -> DiagnosticCommandRequest {
         let mut command = text_command();
         command.operation.physical_documents = BTreeMap::from([
             ("package.toml".into(),include_str!("../../../../tests/fixtures/packages/physical-primitives/package.toml").into()),
@@ -440,13 +444,52 @@ mod tests {
         let manifest = include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").replace("id_policy = \"explicit\"","id_policy = \"named\"").replace("dependencies = []","dependencies = [{ package_id = \"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\", version_req = { operator = \"exact\", major = 1, minor = 0, patch = 0 } }]");
         let case = pse_ids::SemanticId::from_bytes([77;16]);
         command.operation.case_id = case;
-        command.operation.model_documents = vec![BTreeMap::from([("package.toml".into(),manifest),("models/original.pse".into(),format!("package reproduction_text {{def Root {{var x:Scalar;eq e:log(x)==0;annotation start x(-1);}} @id(\"{case}\") case run {{child root:Root=Root();}}}}"))])];
+        command.operation.model_documents = vec![BTreeMap::from([("package.toml".into(),manifest),("models/original.pse".into(),format!("package reproduction_text {{def Root {{{body}}} @id(\"{case}\") case run {{child root:Root=Root();}}}}"))])];
+        command
+    }
+    #[tokio::test]
+    async fn actual_text_numerical_domain_failure_reproduces_selected_typed_source_diagnostic() {
+        let runtime = crate::workflow::tests::runtime();
+        let mut command = numerical_command("var x:Scalar;eq e:log(x)==0;annotation start x(-1);");
+        command.operation.settings.intent = pse_backend_native::solve::SolveIntent::Root;
         let first = runtime.diagnose_documents(command.operation.clone(),&CancelSource::new()).await.unwrap();
-        let original = first.failure.as_ref().or_else(|| first.findings.first()).expect("actual negative log point must retain its typed numerical diagnostic").clone();
-        assert!(!matches!(original.failure_class(),pse_diagnostics::FailureClass::AuthoringParse | pse_diagnostics::FailureClass::AuthoringReference),"fixture must reach numerical preparation/evaluation: {original:?}");
+        let original = first.failure.iter().chain(&first.findings)
+            .find(|diagnostic| diagnostic.failure_class() == pse_diagnostics::FailureClass::SolveEvaluationError)
+            .unwrap_or_else(|| panic!("actual negative log point must retain an evaluation failure, not a preparation refusal: {first:?}")).clone();
+        assert!(matches!(original.code, DiagnosticCode::CandidateEvaluationFailed | DiagnosticCode::MathDomain | DiagnosticCode::MathEvaluation), "negative log must fail through its numerical evaluation owner: {original:?}");
         let extracted = DiagnosticReproducer::extract_text(command,Some(original),None).unwrap();
         let replayed = runtime.run_reproducer(extracted.reproducer,&CancelSource::new()).await.unwrap();
         assert_eq!(replayed.status,ReproductionStatus::OriginalFailureReproduced,"actual original numerical failure and source attribution must match");
+    }
+    #[tokio::test]
+    async fn unmatched_capped_diagnostics_are_unavailable_but_complete_absence_and_positive_matches_stand() {
+        let runtime = crate::workflow::tests::runtime();
+        let mut command = numerical_command("var x:Scalar;eq e:x*x==1;annotation start x(2);");
+        command.operation.settings.intent = pse_backend_native::solve::SolveIntent::Root;
+        command.operation.diagnostics.variable_large = 1.;
+        let complete = runtime.diagnose_documents(command.operation.clone(), &CancelSource::new()).await.unwrap();
+        assert!(complete.failure.is_none(), "must reach actual diagnostics: {:?}", complete.failure);
+        assert!(complete.complete, "uncapped control must evaluate the full requested population");
+        assert!(complete.findings.len() > 1, "the actual finding limit must omit findings");
+        let mut missing = ReproductionPredicate::from_diagnostic(&complete.findings[0]);
+        missing.code = DiagnosticCode::CompilerMissing;
+        let extracted = DiagnosticReproducer::extract_text(command, None, Some(missing)).unwrap();
+        let absent = runtime.run_reproducer(extracted.reproducer.clone(), &CancelSource::new()).await.unwrap();
+        assert_eq!(absent.status, ReproductionStatus::NotReproduced);
+        let mut capped = extracted.reproducer;
+        let ReproducerInput::OriginalText { request } = &mut capped.input else { unreachable!() };
+        request.diagnostics.maximum_findings = 1;
+        let incomplete = runtime.run_reproducer(capped.clone(), &CancelSource::new()).await.unwrap();
+        assert!(incomplete.failure.is_none());
+        assert!(incomplete.run_id.is_some());
+        assert_eq!(incomplete.findings.len(), 1);
+        assert_eq!(incomplete.status, ReproductionStatus::ReproductionUnavailable);
+        assert!(incomplete.comparison_reason.contains("incomplete population"));
+        let retained = incomplete.findings[0].clone();
+        capped.predicate = Some(ReproductionPredicate::from_diagnostic(&retained));
+        capped.original_diagnostic = Some(retained);
+        let matched = runtime.run_reproducer(capped, &CancelSource::new()).await.unwrap();
+        assert_eq!(matched.status, ReproductionStatus::OriginalFailureReproduced);
     }
     async fn frozen_fixture(runtime: &Runtime) -> ReviewContextDocument {
         let documents = BTreeMap::from([

@@ -2188,8 +2188,7 @@ fn before_after_census_compares_derivative_and_storage_facts_and_refuses_repeate
     let mut repeated = current; repeated.sequence = 3; repeated.family_sequence = Some(3); repeated.observed_at = Duration::from_secs(3); set.records.push(repeated);
     assert!(has(&result(&set,&request),AnalysisQuestion::EvaluatorWork,"evaluator.correspondence_ambiguous"));
 }
-#[test]
-fn engine_comparison_reports_unique_context_partition_change_and_incomplete_topology() {
+fn engine_comparison_fixture() -> (FrozenEvidenceSet, AnalysisRequest) {
     use pse_engine::session::*;
     let (mut set,mut request) = fixture();
     let mut baseline = set.operations[0].clone(); baseline.id.sequence += 100;
@@ -2198,6 +2197,11 @@ fn engine_comparison_reports_unique_context_partition_change_and_incomplete_topo
     let observation = |operation,partitions| CopiedPlanObservation {operation:Some(operation),policy:CopiedObservationPolicy::Diagnostic,logical_plan:String::new(),physical_plan:Some("retained native text".into()),physical_graph:Some(graph(partitions)),rules:vec![],diagnostic:None,execution:None};
     set.engine_observations = vec![CopiedExecutionObservations {policy:Some(CopiedObservationPolicy::Diagnostic),operation:Some(baseline.id),observations:vec![observation(baseline.id,1)],dropped:0},CopiedExecutionObservations {policy:Some(CopiedObservationPolicy::Diagnostic),operation:Some(request.operation),observations:vec![observation(request.operation,3)],dropped:0}];
     set.operations.push(baseline);
+    (set, request)
+}
+#[test]
+fn engine_comparison_reports_unique_context_partition_change_and_incomplete_topology() {
+    let (mut set, request) = engine_comparison_fixture();
     let document = result(&set,&request);
     let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| format!("{}: {}",statement.code,statement.message)).collect::<Vec<_>>().join("\n");
     assert!(rendered.contains("engine.operator_correspondence")); assert!(rendered.contains("partitions_before: 1")); assert!(rendered.contains("partitions_after: 3"));
@@ -2205,4 +2209,61 @@ fn engine_comparison_reports_unique_context_partition_change_and_incomplete_topo
     let document = result(&set,&request);
     let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| format!("{}: {}",statement.code,statement.message)).collect::<Vec<_>>().join("\n");
     assert!(rendered.contains("incomplete=true"));
+}
+
+#[test]
+fn engine_comparison_withholds_unique_pairing_for_dropped_retained_and_empty_traces() {
+    use pse_engine::session::CopiedExecutionObservations;
+    for contextual in [false, true] {
+        for empty_loss in [false, true] {
+            let (mut set, request) = engine_comparison_fixture();
+            if empty_loss {
+                let mut lost = set.engine_observations[1].clone();
+                lost.observations.clear(); lost.dropped = 2;
+                set.engine_observations.push(lost);
+            } else {
+                set.engine_observations[1].dropped = 1;
+            }
+            if contextual {
+                for (index, trace) in set.engine_observations.iter_mut().enumerate() {
+                    let selected = if index == 0 { request.baseline.unwrap() } else { request.operation };
+                    // Context association carries the original session without relabeling it.
+                    trace.operation = None;
+                    for observation in &mut trace.observations { observation.operation = None; }
+                    let fact = crate::workflow::ReviewContextFact {
+                        path: format!("/physical_admission/{index}/engine"), codec: "engine-execution-observations.v2".into(),
+                        payload: serde_json::to_vec(trace).unwrap(),
+                    };
+                    let mut repeated = fact.clone();
+                    repeated.path = format!("/physical_admission/{}/engine", index + 100);
+                    if let Some(context) = set.contexts.iter_mut().find(|context| context.operation == Some(selected)) {
+                        context.facts.extend([fact, repeated]);
+                    } else {
+                        let mut context = crate::workflow::ReviewContextDocument::pre_handle_failure(
+                            Default::default(), Some(selected), "retained physical session".into(), vec![]).unwrap();
+                        context.facts.extend([fact, repeated]);
+                        set.contexts.push(context);
+                    }
+                }
+            }
+            let document = result(&set, &request);
+            assert!(!has(&document, AnalysisQuestion::Preparation, "engine.operator_correspondence"));
+            assert!(!has(&document, AnalysisQuestion::Preparation, "engine.logical_operator_populations"));
+            let limitation = document.questions[0].statements.iter()
+                .find(|statement| statement.code == "engine.capture_correspondence_ambiguous").unwrap();
+            assert_eq!(limitation.kind, StatementKind::Limitation);
+            assert!(limitation.message.contains("Baseline at least 1 and selected at least 1"), "exact contextual mirrors must count once: {}", limitation.message);
+            assert!(limitation.message.contains("incomplete baseline=false, selected=true"));
+            let raw = serde_json::to_value(&set).unwrap();
+            assert!(limitation.evidence.iter().all(|reference| raw.pointer(&reference.pointer).is_some()));
+            assert!(limitation.evidence.iter().any(|reference| reference.partial && matches!(reference.value, Value::Count(1 | 2))));
+            if contextual {
+                assert!(limitation.evidence.iter().all(|reference| reference.pointer.starts_with("/contexts/")));
+            }
+            // A dropped-only trace with no selected operation or context is unrelated.
+            let (mut unrelated, request) = engine_comparison_fixture();
+            unrelated.engine_observations.push(CopiedExecutionObservations { policy: None, operation: None, observations: vec![], dropped: 3 });
+            assert!(has(&result(&unrelated, &request), AnalysisQuestion::Preparation, "engine.operator_correspondence"));
+        }
+    }
 }
