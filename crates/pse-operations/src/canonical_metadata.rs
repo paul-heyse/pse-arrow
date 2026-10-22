@@ -22,6 +22,13 @@ pub enum MetadataResponse {
     /// A 64-row block page, including two optional exact IEEE coordinate values
     /// per row. Each native Float64 wrapper carries eight bytes of original bits.
     BlockPage,
+    /// One protected page of at most 64 blocks and 64 exact batch descriptors.
+    /// The two arrays share one aggregate wire/allocation allowance.
+    JoinedBlockPage,
+    /// A study page shares at most 128 immediate-premise rows between 64
+    /// candidates, with at most 65 point identities in each membership list.
+    /// Encoded scope admission also bounds this graph before it leaves the server.
+    StudyScopePage,
     /// A 64-row scalar/dense output page, including encoded registry keys.
     OutputPage,
 }
@@ -32,18 +39,26 @@ impl MetadataResponse {
         let rows = match self {
             Self::Protection | Self::Header | Self::Selection => 2,
             Self::Page | Self::BlockPage => crate::canonical_results::PAGE,
+            Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
+            Self::StudyScopePage => 128,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
         };
-        let nodes = 512 + rows * 32 * 2;
+        let nodes = if matches!(self, Self::StudyScopePage) {
+            // Shared row maps, candidate maps, membership lists and cursor/fence
+            // maps; each map's keys consume nodes as well as its values.
+            18_000
+        } else {
+            512 + rows * 32 * 2
+        };
         let strings =
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
             Self::Protection | Self::Page => 0,
-            Self::BlockPage => {
-                rows * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
+            Self::BlockPage | Self::JoinedBlockPage => {
+                crate::canonical_results::PAGE * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
                     + 2 * size_of::<f64>())
             }
-            Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
+            Self::Header | Self::Selection | Self::OutputPage | Self::StudyScopePage => wire::RESULT_MESSAGE_BYTES,
         };
         surrealdb::opt::ResponseLimits {
             // Native protobuf messages and repeated slots need at most 128 bytes
@@ -58,16 +73,17 @@ impl MetadataResponse {
             container_items: match self {
                 Self::Protection => 32,
                 Self::Selection => crate::canonical_execution::RESULT_SETS,
+                Self::StudyScopePage => 128,
                 // source-selection readers admit up to 65 sources plus a sentinel.
                 _ => 66,
             },
             string_bytes: strings,
             string_length: wire::METADATA_ID_BYTES,
             blob_bytes: blobs,
-            blob_length: if matches!(self, Self::BlockPage) {
-                pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
-            } else {
-                crate::canonical::PAYLOAD_BYTES
+            blob_length: match self {
+                Self::BlockPage | Self::JoinedBlockPage => wire::RESULT_STATISTICS_BYTES,
+                Self::StudyScopePage => 128 * 1024,
+                _ => crate::canonical::PAYLOAD_BYTES,
             },
         }
     }
@@ -118,6 +134,8 @@ mod tests {
             MetadataResponse::Selection,
             MetadataResponse::Page,
             MetadataResponse::BlockPage,
+            MetadataResponse::JoinedBlockPage,
+            MetadataResponse::StudyScopePage,
             MetadataResponse::OutputPage,
         ] {
             assert!(profile.allocation_bytes() < 2 * wire::RESULT_BLOCK_BYTES);
@@ -134,6 +152,9 @@ mod tests {
             pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
         );
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
+        assert_eq!(MetadataResponse::JoinedBlockPage.limits().wire_bytes, wire::RESULT_MESSAGE_BYTES);
+        assert_eq!(MetadataResponse::StudyScopePage.limits().container_items, 128);
+        assert!(MetadataResponse::JoinedBlockPage.limits().nodes > MetadataResponse::BlockPage.limits().nodes);
         assert!(
             MetadataResponse::Protection.allocation_bytes()
                 < MetadataResponse::Header.allocation_bytes()
