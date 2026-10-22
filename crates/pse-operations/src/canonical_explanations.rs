@@ -160,12 +160,16 @@ fn node(table: &str, key: &str) -> String { format!("{table}:{key}") }
 impl CanonicalGraphRequest {
     fn validate(&self) -> Result<&str, CanonicalError> {
         if !(1..=64).contains(&self.limit) { return Err(CanonicalError::PayloadLimit); }
-        let compatible = match (&self.anchor,self.scope) {
-            (GraphAnchor::StudyPoint{..},_) => true,
-            (GraphAnchor::Run{..},GraphScope::RecordedSources) | (GraphAnchor::Artifact{..},GraphScope::RetainedConsumers) => true,
-            (GraphAnchor::AnalysisNode{..}, GraphScope::RecordedSources | GraphScope::RetainedConsumers) => true,
-            _ => false,
-        };
+        let compatible = matches!(
+            (&self.anchor, self.scope),
+            (GraphAnchor::StudyPoint { .. }, _)
+                | (GraphAnchor::Run { .. }, GraphScope::RecordedSources)
+                | (GraphAnchor::Artifact { .. }, GraphScope::RetainedConsumers)
+                | (
+                    GraphAnchor::AnalysisNode { .. },
+                    GraphScope::RecordedSources | GraphScope::RetainedConsumers
+                )
+        );
         if !compatible { return Err(invalid("graph scope is incompatible with its selected owner")); }
         if let Some(cursor) = &self.continuation {
             if cursor.anchor != self.anchor || cursor.scope != self.scope { return Err(invalid("graph continuation belongs to another selected revision or scope")); }

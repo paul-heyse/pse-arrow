@@ -2985,7 +2985,7 @@ impl Runtime {
         let admitted = AdmittedModelRevision::apply_inputs(self, None, &edits, &typed, None)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
         let package = self.package_from_revision(revision, physical, providers)?;
-        rebind::admit_rows(&package, self, &validation, &cancel)?;
+        rebind::admit_rows(&package, self, &validation, cancel)?;
         checkpoint(cancel)?;
         Ok(package)
     }

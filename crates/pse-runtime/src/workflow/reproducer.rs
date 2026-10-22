@@ -57,14 +57,14 @@ pub enum ReproducerInput {
     /// Actual original authored documents with the existing diagnostic constructor.
     OriginalText {
         /// Exact existing original-source diagnostic request.
-        request: DiagnosticExecutionRequest
+        request: Box<DiagnosticExecutionRequest>
     },
     /// Complete frozen algebraic constructor and source; runtime factory checks remain live.
     FrozenAlgebraic {
         /// Complete original source codec.
-        source: ReplaySourceDocument,
+        source: Box<ReplaySourceDocument>,
         /// Exact original requested constructor.
-        constructor: ReplayCaseConstructor
+        constructor: Box<ReplayCaseConstructor>
     },
 }
 /// Portable new request, independent of original outcome and scientific permission.
@@ -98,12 +98,12 @@ pub enum ReproducerExtractionInput {
     /// Actual original text and its existing scientific diagnostic constructor.
     OriginalText {
         /// Complete existing original-source request.
-        request: DiagnosticExecutionRequest,
+        request: Box<DiagnosticExecutionRequest>,
     },
     /// Complete selected retained source and algebraic constructor.
     FrozenReviewCase {
         /// Descriptive frozen facts; no executable capability is supplied by this type.
-        context: ReviewContextDocument,
+        context: Box<ReviewContextDocument>,
         /// Exact original selected step.
         step: usize,
         /// Explicit new-run allowance, not an original measured duration.
@@ -133,7 +133,7 @@ impl ReproducerExtractionRequest {
     pub fn extract(self) -> Result<ReproducerCommandRequest, WorkflowError> {
         let original_operation = self.original_operation;
         let mut result = match self.input {
-            ReproducerExtractionInput::OriginalText { request } => DiagnosticReproducer::extract_text(DiagnosticCommandRequest { version: Version, runtime: self.runtime, operation: request },self.original_diagnostic,self.predicate)?,
+            ReproducerExtractionInput::OriginalText { request } => DiagnosticReproducer::extract_text(DiagnosticCommandRequest { version: Version, runtime: self.runtime, operation: *request },self.original_diagnostic,self.predicate)?,
             ReproducerExtractionInput::FrozenReviewCase { context,step,allowance } => ReproducerCommandRequest { version: Version, runtime: self.runtime, reproducer: DiagnosticReproducer::extract_review_case(&context,step,allowance,self.original_diagnostic,self.predicate)? },
         };
         if let Some(operation) = original_operation {
@@ -222,7 +222,7 @@ impl DiagnosticReproducer {
         extent(&request)?;
         let reproducer = Self { version: Version, allowance: request.allowance, original_operation: request.origin.as_ref().and_then(|origin| origin.operation), origin: request.origin.clone(),
             predicate: predicate(&original,explicit), original_diagnostic: original, original_failure_text: None,
-            input: ReproducerInput::OriginalText { request }, required_environment: vec!["Existing selected runtime and native diagnostic capabilities; no automatic store hydration or original-path lookup".into()] };
+            input: ReproducerInput::OriginalText { request: Box::new(request) }, required_environment: vec!["Existing selected runtime and native diagnostic capabilities; no automatic store hydration or original-path lookup".into()] };
         Ok(ReproducerCommandRequest { version: Version, runtime: command.runtime, reproducer })
     }
     /// Pure selected frozen extraction. Recorded completeness is checked independently of
@@ -244,7 +244,7 @@ impl DiagnosticReproducer {
             return Err(contract("selected frozen source/constructor has recorded completeness gaps"));
         }
         let origin = context.run_id.map(|run_id| DiagnosticOrigin { run_id, attempt_id: context.attempt_id, step: Some(step), native_attempt: None, operation: context.operation, failure: original.clone() });
-        Ok(Self { version: Version, input: ReproducerInput::FrozenAlgebraic { source, constructor }, allowance: allowance_value,
+        Ok(Self { version: Version, input: ReproducerInput::FrozenAlgebraic { source: Box::new(source), constructor: Box::new(constructor) }, allowance: allowance_value,
             origin, original_operation: context.operation, predicate: predicate(&original,explicit), original_diagnostic: original, original_failure_text: context.failure.clone(),
             required_environment: vec![format!("Linked native build {}; registry interpretation {}; executable providers: none (opaque descriptors require explicit rebinding)",recorded.build,recorded.interpretation),"Complete embedded physical IPC/source objects; no original paths or store lookup".into()] })
     }
@@ -286,7 +286,7 @@ impl Runtime {
                     // Keep the independent execution family's state on the heap. Nested
                     // preparation futures otherwise multiply the caller-thread poll frame
                     // at the synchronous Python boundary.
-                    let result = self.diagnose_documents(request.clone(),operation.driver()).boxed().await?;
+                    let result = self.diagnose_documents(request.as_ref().clone(),operation.driver()).boxed().await?;
                     Ok((result.run_id,result.findings,result.failure,result.complete))
                 }
                 ReproducerInput::FrozenAlgebraic { source,constructor } => {
@@ -477,8 +477,10 @@ mod tests {
         let absent = runtime.run_reproducer(extracted.reproducer.clone(), &CancelSource::new()).await.unwrap();
         assert_eq!(absent.status, ReproductionStatus::NotReproduced);
         let mut capped = extracted.reproducer;
-        let ReproducerInput::OriginalText { request } = &mut capped.input else { unreachable!() };
-        request.diagnostics.maximum_findings = 1;
+        assert!(matches!(capped.input, ReproducerInput::OriginalText { .. }));
+        if let ReproducerInput::OriginalText { request } = &mut capped.input {
+            request.diagnostics.maximum_findings = 1;
+        }
         let incomplete = runtime.run_reproducer(capped.clone(), &CancelSource::new()).await.unwrap();
         assert!(incomplete.failure.is_none());
         assert!(incomplete.run_id.is_some());
