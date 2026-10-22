@@ -446,27 +446,28 @@ What a session loads costs context and processes, so optional capabilities are o
   the pyright LSP (the repository's checker is pyrefly). Re-enable one for a session with
   `--settings` or `/plugin`.
 - **Codex** — `.codex/config.toml` raises `project_doc_max_bytes` so AGENTS.md is never
-  truncated, sets static non-secret command defaults, and makes the
-  `rust-analyzer` MCP server opt-in: `codex -c mcp_servers.rust-analyzer.enabled=true`.
-  Codex 0.160 role files cannot change MCP servers, so there is no subagent-only setting.
+  truncated, sets static non-secret command defaults, and disables inherited machine
+  database/navigation registrations until `just codex-session` selects this checkout.
   Codex runs `bash -lc` without direnv; prefix commands with `scripts/pse-env --`.
 
-**Native SurrealDB inspection.** This machine's `pse-surreal` registration is disabled
-by default. Start a fresh session with `codex -c mcp_servers.pse-surreal.enabled=true`.
-It attaches to the existing server's `http://127.0.0.1:18240/mcp`; application SDK traffic
-continues to use WebSocket. The supervisor's fixed `mcp-headers` action verifies the
-explicit owned state and endpoint and supplies the private selection VIEWER credential
-through Codex's header helper. It uses ordinary light admission, no compiler setup and
-one eight-second deadline. Failure does not start/reconcile the service or initialize a
-database. Never print or save the helper's Authorization output yourself.
+**Native SurrealDB inspection.** Start a selected session with `just codex-session
+[--state STATE] -- CODEX_ARGS`. It attaches to the existing owned server's verified
+HTTP MCP endpoint; application SDK traffic continues to use gRPC. The supervisor's fixed
+`mcp-headers` action verifies the explicit owned state, endpoint and frozen selection
+fence, then supplies the private selection VIEWER credential through Codex's header helper.
+It uses ordinary light admission, no compiler setup and one eight-second deadline.
+Failure does not start/reconcile the service or initialize a database. Never print or save
+the helper's Authorization output yourself.
 
 The exposed native tools are `info`, `list` and `query`; the database VIEWER authority
 enforces read access. Select namespace and database explicitly in every inspection call
 and establish existence with `list` before reading schema/indexes. Missing `pse/canonical`
 is an error to report, not permission to initialize it. Retained/quiesced contexts can be
 read independently of scientific write admission. Codex caches headers; reconnect or
-restart after state, port or credential changes and keep registration/helper endpoints
-matched. Do not launch `surreal mcp` on the persistent files: that opens another datastore.
+restart after state, port, service identity or credential changes. The frozen selection
+refuses replacement even at the same endpoint. Do not launch `surreal mcp` on the persistent
+files: that opens another datastore. The disabled repository registration deliberately has
+no usable service selection; merely enabling it is not a supported attachment route.
 
 For an explicitly selected session, `just codex-session [--state STATE] -- CODEX_ARGS`
 observes the existing service and supplies the validated endpoint and pinned checkout header
@@ -495,7 +496,7 @@ Neither server crosses the PyO3 boundary semantically. `just context --symbol TY
 returns bounded catalogue, generator, Rust, stub, facade and test text leads with explicit
 coverage and truncation; inspect each language's native references to refine those leads.
 
- rust-analyzer (Claude's LSP plugin,
+rust-analyzer (Claude's LSP plugin,
 or the Codex MCP server when enabled) answers callers, implementations and type resolution
 across the workspace; `rust-analyzer.toml` gives it the force-validate feature and its own
 target directory, so it never waits on an agent's build lock. Context7 serves current library
