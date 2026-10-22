@@ -275,7 +275,7 @@ def install(directory: Path) -> dict[str, object]:
     actual = command([str(binary), "version"]).strip()
     if VERSION not in actual or str(selected["build_metadata"]) not in actual:
         raise BuildError("Built executable version differs from its pinned source")
-    command([str(binary), "db", "module", "build", "--help"])
+    command([str(binary), "module", "build", "--help"])
     receipt: dict[str, object] = {
         "version": VERSION,
         "surrealmx_version": ENGINE,
