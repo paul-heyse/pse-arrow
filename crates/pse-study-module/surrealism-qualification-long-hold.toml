@@ -1,0 +1,19 @@
+target = "rust"
+abi = 2
+
+[package]
+organisation = "pse"
+name = "study-policy"
+version = "1.0.0"
+
+[capabilities]
+allow_scripting = false
+allow_arbitrary_queries = false
+allow_functions = []
+allow_net = []
+max_memory_bytes = 67108864
+max_execution_time = 6000
+max_pool_size = 4
+max_kv_entries = 0
+max_kv_value_bytes = 0
+strict_timeout = true
