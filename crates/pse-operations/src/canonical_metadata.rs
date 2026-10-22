@@ -19,9 +19,6 @@ pub enum MetadataResponse {
     Selection,
     /// A 64-row descriptor or analysis page, each below 32 declared fields.
     Page,
-    /// A 64-row block page, including two optional exact IEEE coordinate values
-    /// per row. Each native Float64 wrapper carries eight bytes of original bits.
-    BlockPage,
     /// One protected page of at most 64 blocks and 64 exact batch descriptors.
     /// The two arrays share one aggregate wire/allocation allowance.
     JoinedBlockPage,
@@ -38,7 +35,7 @@ impl MetadataResponse {
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
         let rows = match self {
             Self::Protection | Self::Header | Self::Selection => 2,
-            Self::Page | Self::BlockPage => crate::canonical_results::PAGE,
+            Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::StudyScopePage => 128,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
@@ -54,7 +51,7 @@ impl MetadataResponse {
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
             Self::Protection | Self::Page => 0,
-            Self::BlockPage | Self::JoinedBlockPage => {
+            Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
                     + 2 * size_of::<f64>())
             }
@@ -81,7 +78,7 @@ impl MetadataResponse {
             string_length: wire::METADATA_ID_BYTES,
             blob_bytes: blobs,
             blob_length: match self {
-                Self::BlockPage | Self::JoinedBlockPage => wire::RESULT_STATISTICS_BYTES,
+                Self::JoinedBlockPage => wire::RESULT_STATISTICS_BYTES,
                 Self::StudyScopePage => 128 * 1024,
                 _ => crate::canonical::PAYLOAD_BYTES,
             },
@@ -133,7 +130,6 @@ mod tests {
             MetadataResponse::Header,
             MetadataResponse::Selection,
             MetadataResponse::Page,
-            MetadataResponse::BlockPage,
             MetadataResponse::JoinedBlockPage,
             MetadataResponse::StudyScopePage,
             MetadataResponse::OutputPage,
@@ -143,18 +139,18 @@ mod tests {
         }
         assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
         assert_eq!(
-            MetadataResponse::BlockPage.limits().blob_bytes,
+            MetadataResponse::JoinedBlockPage.limits().blob_bytes,
             crate::canonical_results::PAGE
                 * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES + 2 * size_of::<f64>())
         );
         assert_eq!(
-            MetadataResponse::BlockPage.limits().blob_length,
+            MetadataResponse::JoinedBlockPage.limits().blob_length,
             pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
         );
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
         assert_eq!(MetadataResponse::JoinedBlockPage.limits().wire_bytes, wire::RESULT_MESSAGE_BYTES);
         assert_eq!(MetadataResponse::StudyScopePage.limits().container_items, 128);
-        assert!(MetadataResponse::JoinedBlockPage.limits().nodes > MetadataResponse::BlockPage.limits().nodes);
+        assert!(MetadataResponse::JoinedBlockPage.limits().nodes > MetadataResponse::Page.limits().nodes);
         assert!(
             MetadataResponse::Protection.allocation_bytes()
                 < MetadataResponse::Header.allocation_bytes()

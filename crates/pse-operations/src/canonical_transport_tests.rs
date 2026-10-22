@@ -196,7 +196,7 @@ async fn grpc_generated_64_row_block_page_fits_original_owned_node_budget() {
     for accepted in [true, false] {
         let peer = peer::start().await;
         let db = connect(&peer).await;
-        let mut limits = crate::canonical::MetadataResponse::BlockPage.limits();
+        let mut limits = crate::canonical::MetadataResponse::JoinedBlockPage.limits();
         assert_eq!(
             limits.nodes, 4608,
             "the original endpoint grant is unchanged"
