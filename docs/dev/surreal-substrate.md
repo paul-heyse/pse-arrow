@@ -16,7 +16,7 @@ The underlying tool commands are:
 
 ```bash
 scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_server.py build-server
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v7
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v8
 .venv/bin/python scripts/surreal_server.py initialize --initializer-command target/debug/xtask canonical-init "$PSE_SURREAL_STATE"
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
@@ -29,7 +29,38 @@ through symlinks. Repeated setup of an owned compatible state preserves its chos
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
-The current generated interpretation is `pse.substrate.v7`, including native physical
+### Shared study policy module
+
+Setup admits the immutable production artifact built by
+`scripts/surrealism_module.py` from `crates/pse-study-module`. Initialization installs
+its read-only bucket and sole `study::readiness` export with the schema; ordinary open
+attests the module, exact bucket backend and activation hash and refuses any mismatch.
+The enclosing readiness transaction owns current premises, mutations and immutable
+settlement. The WASI module consumes bounded facts and invokes the same Rust policy as
+native callers, with no SQL, network or persistent module state. The declaration in
+`crates/pse-study-module/surrealism.toml` owns its capability and execution limits.
+
+Actual resource and rollback qualification uses separately admitted artifacts, never
+production exports. Build a normal probe with
+`.venv/bin/python -m scripts.surrealism_module --qualification`; add `--long-hold`
+for the separate finite saturation window. After quiescing, stopping and proving every
+owned context drained, select the immutable receipt with
+`surreal_server.py module-qualification --module-receipt /absolute/path/module.json`
+(and `--long-hold` only for that variant). Readmit a changed supervisor before restart.
+The longer probe raises the server execution ceiling while each production invocation
+keeps its own shorter manifest limit. The global controller and memory ceilings remain
+in force across runtime-cache eviction. Local cancellation alone never proves rollback;
+reconcile the original readiness operation and its immutable receipt.
+
+With the service stopped and drained, `module-qualification` without a receipt removes
+probe access. A source refresh uses a newly built immutable artifact; changing its
+policy hash requires a fresh namespace. The existing `fresh-engine --drained` route
+regenerates design-phase data, refreshes module provenance and removes qualification
+selection. Initialize the new identity before normal start; no mixed policy versions
+are accepted. Blueprint §19.3/§20.6 own the enduring contract, and Plan49 owns selected
+qualification and its limits.
+
+The current generated interpretation is `pse.substrate.v8`, including native physical
 attempt phases, typed refusals, immutable record identities, independent
 scientific artifacts, copied study inputs and releasable detail history with permanent
 identity fences, sealed payload descriptors and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
@@ -192,7 +223,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v7 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v8 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -347,9 +378,9 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v7
+  --source /path/to/new-backup --interpretation pse.substrate.v8
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v7 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v8 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -374,7 +405,7 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v7`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v8`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 Under the exact restored incarnation, validation atomically admits protected file readers
 while keeping GC frozen and application writes closed. Every exit refreezes file admission
