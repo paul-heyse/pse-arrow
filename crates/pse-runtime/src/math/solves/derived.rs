@@ -1526,7 +1526,7 @@ impl MathService {
             )
             .into()),
         };
-        let source = match &original.representation {
+        let mut source = match &original.representation {
             Representation::Algebraic(a) => a.clone(),
             _ => {
                 return Err(ProblemError::Unsupported(
@@ -1603,6 +1603,23 @@ impl MathService {
         let deadline = scope.deadline().map_or(local, |outer| outer.min(local));
         let operation_scope =
             ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
+        // Derived Jacobians are composed from original first actions, including
+        // when the selected native adapter asks for an assembled matrix. Prepare
+        // those exact actions before freezing the family; an unevaluated First
+        // matrix program is not a completed matrix that can supply a cold JVP.
+        if !complete_reconstruction && !source.prepared.prepared.plan.has_directional_actions() {
+            let prepared = Self::within_task(
+                &operation_scope,
+                driver,
+                self.prepare_directional_actions(source.prepared.clone()),
+            )
+            .await?;
+            let executable =
+                Self::within_task(&operation_scope, driver, self.assemble(prepared.clone()))
+                    .await?;
+            source.prepared = prepared;
+            source.case = Some(executable);
+        }
         let worker_scope = operation_scope.clone();
         let task_scope = scope.clone();
         let control = Cancellation::default();

@@ -48,7 +48,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         "package p { def Root { var p:Scalar; implicit chain select minimum(0,0) { var x:Scalar; var z:Scalar; annotation bounds x(0.0000999,0.0001001); annotation bounds z(0.00999,0.01001); regime positive eligible(x>0 and z>0) { eq first:x*x==p; eq second:z*z==x; } } realize r on chain using nested; annotation report chain.z(\"nested-root\"); } }",
-        SemanticId::NIL,
+        SemanticId::from_bytes([171; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     ).unwrap();
@@ -516,7 +516,7 @@ async fn original_order_on(
     use crate::workflow::tests as fixture;
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([171; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -554,6 +554,12 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
         "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==3; } }",
     )
     .await;
+    let Representation::Algebraic(weaker) = &original.representation else {
+        panic!("authored algebraic source");
+    };
+    let weaker_plan = weaker.prepared.prepared.plan.clone();
+    assert_eq!(weaker_plan.order(), DerivativeOrder::First);
+    assert!(!weaker_plan.has_directional_actions());
     let service = runtime.native();
     let flag = Cancellation::default();
     let scope = ExecutionScope::new(
@@ -592,6 +598,26 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
         )
         .await
         .unwrap();
+    assert!(
+        prepared
+            .source
+            .prepared
+            .prepared
+            .plan
+            .has_directional_actions()
+    );
+    assert_eq!(
+        prepared.source.prepared.prepared.plan.order(),
+        DerivativeOrder::First
+    );
+    assert!(!weaker_plan.has_directional_actions());
+    let Representation::Algebraic(retained_original) = &prepared.original().representation else {
+        panic!("original source remains algebraic");
+    };
+    assert!(Arc::ptr_eq(
+        &weaker_plan,
+        &retained_original.prepared.prepared.plan
+    ));
     assert_eq!(
         prepared.original_identity(),
         original.original_identity().unwrap()
@@ -1456,7 +1482,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         },
     );
     let physical = fixture::physical();
-    let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; var p:Scalar; eq root:x*x==p; eq cap:p<=8; let cost:Scalar=(p-4)*(p-4); annotation objective cost(minimize); annotation bounds x(0.01,3.5); annotation bounds p(0.1,9); annotation start x(2); annotation start p(4); } }",SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+    let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; var p:Scalar; eq root:x*x==p; eq cap:p<=8; let cost:Scalar=(p-4)*(p-4); annotation objective cost(minimize); annotation bounds x(0.01,3.5); annotation bounds p(0.1,9); annotation start x(2); annotation start p(4); } }",SemanticId::from_bytes([171; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
     let root = rows
         .iter()
         .find(|r| r.name == "Root")
@@ -2276,7 +2302,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     };
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([171; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
