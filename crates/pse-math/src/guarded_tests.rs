@@ -270,14 +270,21 @@ fn symbolic_initialization_preserves_fresh_and_embedding_global_pool_contracts()
     // start in its own process, rather than inherit another test's initialized state.
     // Configured cases exercise this installation's actual capability; installations
     // without a key still exercise every child, rather than skip the whole control.
-    for case in ["configured/fresh", "configured/embedding", "unlicensed/fresh", "unlicensed/embedding"] {
+    for case in [
+        "configured/fresh",
+        "configured/embedding",
+        "unlicensed/fresh",
+        "unlicensed/embedding",
+    ] {
         let mut child = std::process::Command::new(std::env::current_exe().unwrap());
-        child.args([
-            "--exact",
-            "guarded_tests::symbolic_initialization_global_pool_child",
-            "--nocapture",
-            "--test-threads=1",
-        ]).env("PSE_SYMBOLIC_INITIALIZATION_CONTROL", case)
+        child
+            .args([
+                "--exact",
+                "guarded_tests::symbolic_initialization_global_pool_child",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("PSE_SYMBOLIC_INITIALIZATION_CONTROL", case)
             .env("SYMBOLICA_HIDE_BANNER", "1");
         if case.starts_with("unlicensed/") {
             child.env_remove("SYMBOLICA_LICENSE");
@@ -290,7 +297,9 @@ fn symbolic_initialization_preserves_fresh_and_embedding_global_pool_contracts()
             String::from_utf8_lossy(&output.stderr)
         );
         let marker = format!("SYMBOLIC_INITIALIZATION_CONTROL:{case}:");
-        let outcome = stdout.lines().find_map(|line| line.find(&marker).map(|start| &line[start..]))
+        let outcome = stdout
+            .lines()
+            .find_map(|line| line.find(&marker).map(|start| &line[start..]))
             .unwrap_or_else(|| panic!("{case}: child did not execute its exact control"));
         eprintln!("{outcome}");
     }
@@ -302,9 +311,13 @@ fn symbolic_initialization_global_pool_child() {
         return;
     };
     let embedding = case.ends_with("/embedding");
-    let licensed = case.starts_with("configured/") && std::env::var_os("SYMBOLICA_LICENSE").is_some();
+    let licensed =
+        case.starts_with("configured/") && std::env::var_os("SYMBOLICA_LICENSE").is_some();
     if embedding {
-        rayon::ThreadPoolBuilder::new().num_threads(2).build_global().unwrap();
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build_global()
+            .unwrap();
     }
     crate::initialize().unwrap();
     let capabilities = symbolica::license::LicenseManager::execution_capabilities();
@@ -317,19 +330,30 @@ fn symbolic_initialization_global_pool_child() {
         2,
         vec![1],
         &[block((x + Atom::num(1)).pow(3), 1)],
-        Optimization { cores, ..Default::default() },
+        Optimization {
+            cores,
+            ..Default::default()
+        },
         &pse_diagnostics::Cancellation::default(),
-    ).unwrap();
-    assert_eq!(run(&mut artifact, &[2.], DerivativeOrder::Second).unwrap(), [27.]);
+    )
+    .unwrap();
+    assert_eq!(
+        run(&mut artifact, &[2.], DerivativeOrder::Second).unwrap(),
+        [27.]
+    );
     // A late successful installation proves configured initialization/construction
     // did not eagerly create a project-owned global pool. The unlicensed library
     // fallback creates one thread only when no embedding host already owns it.
-    let late = rayon::ThreadPoolBuilder::new().num_threads(2).build_global();
+    let late = rayon::ThreadPoolBuilder::new()
+        .num_threads(2)
+        .build_global();
     assert_eq!(late.is_ok(), licensed && !embedding);
     let global_threads = rayon::current_num_threads();
     assert_eq!(global_threads, if licensed || embedding { 2 } else { 1 });
     // The parent detects exact-filter mistakes from stdout, independently of status.
-    println!("SYMBOLIC_INITIALIZATION_CONTROL:{case}:licensed={licensed};optimizer_cores={cores};global_threads={global_threads}");
+    println!(
+        "SYMBOLIC_INITIALIZATION_CONTROL:{case}:licensed={licensed};optimizer_cores={cores};global_threads={global_threads}"
+    );
 }
 
 #[test]

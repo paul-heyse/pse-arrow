@@ -5451,6 +5451,33 @@ struct PreparedValueScope {
     offsets: BTreeMap<usize, usize>,
 }
 impl PreparedStages {
+    /// Source bytes bound formal occurrences without allocating another symbol
+    /// inventory. Each retained region/scope captures only referenced formals,
+    /// rather than cloning the whole enclosing formal universe at every stage.
+    fn reference_bound(stages: &[Stage]) -> Result<usize, MathError> {
+        let overflow = || MathError::Limit("prepared arithmetic references");
+        stages.iter().try_fold(0usize, |total, stage| {
+            let references = match stage {
+                Stage::Block { expressions, .. } => expressions.iter().try_fold(0usize, |n, atom| {
+                    n.checked_add(atom.as_view().get_byte_size()).ok_or_else(overflow)
+                })?,
+                Stage::Branch { then, otherwise, .. } => Self::reference_bound(then)?
+                    .checked_add(Self::reference_bound(otherwise)?)
+                    .and_then(|n| n.checked_add(2))
+                    .ok_or_else(overflow)?,
+                Stage::Domain { stages, .. } => Self::reference_bound(stages)?
+                    .checked_add(1).ok_or_else(overflow)?,
+                Stage::Applicability { stages, predicates, inputs, .. } => Self::reference_bound(stages)?
+                    .checked_add(predicates.len())
+                    .and_then(|n| n.checked_add(inputs.len()))
+                    .ok_or_else(overflow)?,
+                Stage::Provider { inputs, outputs, .. } => inputs.len().checked_add(outputs.len()).ok_or_else(overflow)?,
+                Stage::Require { .. } => 1,
+            };
+            total.checked_add(references).ok_or_else(overflow)
+        })
+    }
+
     fn new(
         stages: &[Stage],
         parameters: &[Atom],
@@ -5498,14 +5525,25 @@ impl PreparedStages {
                 bytes.checked_add(size_of::<Atom>() + atom.as_view().get_byte_size())
             })
             .ok_or(MathError::Limit("prepared arithmetic parameters"))?;
+        let references = Self::reference_bound(stages)?;
+        let reference_bytes = parameters.iter()
+            .map(|atom| atom.as_view().get_byte_size())
+            .max().unwrap_or(0)
+            .checked_add(size_of::<Atom>() + 128)
+            .and_then(|bytes| bytes.checked_mul(references))
+            .ok_or(MathError::Limit("prepared arithmetic references"))?;
         // Prepay clones, region maps and compact nested-scope maps before forming
         // descriptions; each recursive child has its own source-qualified allowance.
+        // The source-occurrence bound covers all retained captures, while the full
+        // formal extent covers one temporary scope inventory. Multiplying the full
+        // universe by authored stage count would invent quadratic retained storage
+        // for a sparse chain which fuses to one linear definition region.
         let allowance = source
             .checked_mul(4)
             .and_then(|bytes| {
                 parameter_bytes
                     .checked_add(parameters.len().checked_mul(128)?)?
-                    .checked_mul(stages.len())?
+                    .checked_add(reference_bytes)?
                     .checked_add(bytes)
             })
             .and_then(|bytes| {
@@ -10725,6 +10763,54 @@ mod compact_tests {
                 .hessians,
             [0.]
         );
+    }
+
+    #[test]
+    fn sparse_definition_preparation_prepays_linear_descriptions_and_retained_captures() {
+        use std::sync::atomic::AtomicUsize;
+        #[derive(Debug)]
+        struct Envelope {
+            reported: AtomicUsize,
+            capacity: usize,
+        }
+        impl crate::construction::ConstructionAdmission for Envelope {
+            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+                let required = self.reported.load(Ordering::Relaxed) + bytes;
+                if required > self.capacity {
+                    return Err(MathError::ByteLimit {
+                        resource: "linear prepared descriptions",
+                        required,
+                        available: self.capacity,
+                    });
+                }
+                self.reported.store(required, Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        crate::initialize().unwrap();
+        let demand = |depth: usize| {
+            let stages = (0..depth).map(|slot| Stage::Block {
+                expressions: vec![library::formal(slot).unwrap() + 1],
+                outputs: vec![slot + 1],
+                source: pse_ids::named_id(SemanticId::NIL, &format!("linear definition {slot}")),
+            }).collect();
+            let body = PreparedBody::new(1, depth + 1, vec![depth], stages, DerivativeOrder::Second).unwrap();
+            let envelope = Arc::new(Envelope { reported: AtomicUsize::new(0), capacity: 65536 + depth * 16384 });
+            let cancel = pse_diagnostics::Cancellation::default();
+            let support = crate::construction::scoped(envelope.clone(), || body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)).unwrap();
+            let reported = envelope.reported.load(Ordering::Relaxed);
+            assert!(reported >= support.program.retained_bytes(), "retained descriptions remain prepaid");
+            let values = support.program.values.as_deref().unwrap();
+            assert_eq!(values.stages.len(), 1);
+            let region = values.stages[0].region.as_ref().unwrap();
+            assert_eq!(region.inputs.len(), 1);
+            assert_eq!(region.definitions.len(), depth);
+            reported
+        };
+        let small = demand(128);
+        let large = demand(256);
+        assert!(large > small);
+        assert!(large * 2 < small * 5, "doubling a sparse definition DAG must not quadruple constructor demand: {small} -> {large}");
     }
 
     #[test]
