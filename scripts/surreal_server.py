@@ -8956,6 +8956,10 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
         or proof.get("binary_sha256")
         != object_mapping(config["server"]).get("binary_sha256")
         or proof.get("credentials_sha256") != credential_digest
+        or proof.get("study_module_sha256") != study_module(config)["sha256"]
+        or proof.get("study_module_qualification_sha256") != (
+            None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"]
+        )
         or credentials.get("selection_username") != "pse-selection"
         or not isinstance(credentials.get("selection_password"), str)
         or not credentials["selection_password"]

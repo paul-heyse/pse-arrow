@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from scripts import host_admission as host
 from scripts import pse_env
 from scripts import surreal_server as server
+from scripts.tests.test_surrealism_module import fixture_module
 
 
 def fixture_mcp_controls(
@@ -303,8 +304,9 @@ class SurrealMcpTests(unittest.TestCase):
             "endpoint": "grpc://127.0.0.1:18240",
             "instance_id": "server-instance",
             "credentials_file": str(self.state / "credentials.json"),
-            "server": {"binary_sha256": "binary-sha256"},
+            "server": {"binary_sha256": "1" * 64},
         }
+        self.config["study_module"] = fixture_module(self.root / "modules")
         self.credentials = {
             "username": "root",
             "password": "private-root-password",
@@ -316,8 +318,10 @@ class SurrealMcpTests(unittest.TestCase):
             "schema": "native-grpc-readiness-v1",
             "instance_id": "server-instance",
             "invocation": "b" * 32,
-            "binary_sha256": "binary-sha256",
+            "binary_sha256": "1" * 64,
             "credentials_sha256": server.file_digest(self.state / "credentials.json"),
+            "study_module_sha256": self.config["study_module"]["sha256"],
+            "study_module_qualification_sha256": None,
         }
         self.write("protocol-readiness.json", self.proof)
         self.endpoint = "http://127.0.0.1:18240/mcp"
@@ -473,6 +477,8 @@ class SurrealMcpTests(unittest.TestCase):
             "invocation",
             "binary_sha256",
             "credentials_sha256",
+            "study_module_sha256",
+            "study_module_qualification_sha256",
         ):
             with self.subTest(field=field), self.proof_controls():
                 self.write("protocol-readiness.json", {**self.proof, field: "changed"})
