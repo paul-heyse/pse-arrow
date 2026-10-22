@@ -108,7 +108,10 @@ impl Traversal {
                 }
                 let enter = (scope && !self.mutable).then(|| quote!(visitor.enter_scope();));
                 let leave = (scope && !self.mutable).then(|| quote!(visitor.leave_scope();));
-                Ok(quote!({ let source_value = #value; #select #enter #(#bodies)* #leave }))
+                let mut tokens=value.clone().into_iter();
+                let already_bound=matches!(tokens.next(),Some(proc_macro2::TokenTree::Ident(name)) if name=="source_value") && tokens.next().is_none();
+                let bind=(!already_bound).then(||quote!(let source_value=#value;));
+                Ok(quote!({ #bind #select #enter #(#bodies)* #leave }))
             }
             DataType::List(_) | DataType::FixedSizeList(_, _) => {
                 let children = field.children();
@@ -147,8 +150,9 @@ fn annotation(field: &FieldContract, registry: &Registry) -> Result<TokenStream,
     });
     let valid_arms = cases.iter().map(|case| {
         let kind = super::types::ident(&super::types::pascal(&case.kind)); let count = case.count;
-        let checks = members.iter().map(|member| { let name = super::types::ident(member); let required = case.member.as_deref() == Some(*member); quote!(self.#name.is_some() == #required) });
-        quote!(super::super::enums::ModelingAnnotationKind::#kind => self.arguments.len() == #count #(&& #checks)*)
+        let checks = members.iter().map(|member| { let name = super::types::ident(member); let required = case.member.as_deref() == Some(*member); if required {quote!(self.#name.is_some())} else {quote!(self.#name.is_none())} });
+        let cardinality=if count==0 {quote!(self.arguments.is_empty())} else {quote!(self.arguments.len()==#count)};
+        quote!(super::super::enums::ModelingAnnotationKind::#kind => #cardinality #(&& #checks)*)
     });
     let count_arms = cases.iter().map(|case| { let kind = super::types::ident(&super::types::pascal(&case.kind)); let count = case.count; quote!(super::super::enums::ModelingAnnotationKind::#kind => #count) });
     Ok(quote! {

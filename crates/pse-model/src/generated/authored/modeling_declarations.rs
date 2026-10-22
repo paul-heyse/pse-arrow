@@ -13020,108 +13020,95 @@ impl AuthoredModelingDeclarationsFieldValueAnnotation {
     pub fn matches_source_shape(&self) -> bool {
         match self.kind {
             super::super::enums::ModelingAnnotationKind::r#Start => {
-                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Nominal => {
-                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Bounds => {
-                self.arguments.len() == 2usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 2usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Scale => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == true
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_some()
             }
             super::super::enums::ModelingAnnotationKind::r#Report => {
-                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Valid => {
-                self.arguments.len() == 2usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 2usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Check => {
-                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Objective => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == true
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_some()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#Connectivity => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == true
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_some()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == true
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_some()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == true
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_some() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == true
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_some()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
             super::super::enums::ModelingAnnotationKind::r#EngineeringRule => {
-                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
-                    && self.r#connectivity.is_some() == false
-                    && self.r#engineering_default.is_some() == false
-                    && self.r#engineering_scale.is_some() == false
-                    && self.r#objective.is_some() == false
-                    && self.r#scheme.is_some() == false
+                self.arguments.is_empty() && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
             }
         }
     }
@@ -13157,7 +13144,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#relaxation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -13191,7 +13177,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#continuation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -13238,7 +13223,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#scope;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &source_value.r#parameters;
                             for (source_index_0, source_value) in source_values
@@ -13246,7 +13230,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &source_value.r#default_value;
                                         if let Some(source_value) = source_optional.as_ref() {
@@ -13272,7 +13255,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#selection;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -13324,7 +13306,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#operational;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_values = &source_value.r#anchors;
                                         for (source_index_0, source_value) in source_values
@@ -13332,7 +13313,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Expression;
                                                     let _ = source_grammar;
@@ -13405,12 +13385,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#fixture;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &source_value.r#integration;
                                         if let Some(source_value) = source_optional.as_ref() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &source_value.r#samples;
                                                     for (source_index_0, source_value) in source_values
@@ -13452,7 +13430,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -13489,7 +13466,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -13614,7 +13590,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &source_value.r#events;
                                                     for (source_index_1, source_value) in source_values
@@ -13622,7 +13597,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -13670,7 +13644,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                                     .enumerate()
                                                                 {
                                                                     {
-                                                                        let source_value = source_value;
                                                                         {
                                                                             let source_grammar = SourceGrammar::Expression;
                                                                             let _ = source_grammar;
@@ -13722,7 +13695,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                         let source_optional = &source_value.r#shooting;
                                         if let Some(source_value) = source_optional.as_ref() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &source_value.r#nodes;
                                                     for (source_index_0, source_value) in source_values
@@ -13751,12 +13723,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                                         let source_optional = &source_value.r#expected_failure;
                                         if let Some(source_value) = source_optional.as_ref() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_optional = &source_value.r#validity;
                                                     if let Some(source_value) = source_optional.as_ref() {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_values = &source_value.r#sets;
                                                                 for (source_index_0, source_value) in source_values
@@ -13806,7 +13776,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                     let source_optional = &source_value.r#applicability;
                                                     if let Some(source_value) = source_optional.as_ref() {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_values = &source_value.r#sets;
                                                                 for (source_index_0, source_value) in source_values
@@ -13883,7 +13852,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &source_value.r#members;
                                                     for (source_index_1, source_value) in source_values
@@ -13919,7 +13887,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Expression;
                                                     let _ = source_grammar;
@@ -13964,7 +13931,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#binding;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -13973,7 +13939,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14036,7 +14001,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#function;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &source_value.r#body;
                             if let Some(source_value) = source_optional.as_ref() {
@@ -14098,7 +14062,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#external;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -14122,7 +14085,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#coordinate_map;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &source_value.r#validity;
                             if let Some(source_value) = source_optional.as_ref() {
@@ -14148,7 +14110,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#coordinate_slot;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14157,7 +14118,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14197,7 +14157,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#reconstruction;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -14218,7 +14177,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#response;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -14239,7 +14197,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#reference_translation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -14273,7 +14230,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#boundary;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14282,7 +14238,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14309,7 +14264,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#exchange;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14318,7 +14272,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14371,7 +14324,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#equation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14380,7 +14332,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14416,7 +14367,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#condition;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -14441,7 +14391,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#ordered_set;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14450,7 +14399,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14503,7 +14451,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#cardinality;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14512,7 +14459,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14565,7 +14511,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#piecewise;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14574,7 +14519,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14653,7 +14597,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#logic;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14662,7 +14605,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14702,7 +14644,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#complementarity;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -14711,7 +14652,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -14764,7 +14704,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#table;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &source_value.r#columns;
                             for (source_index_0, source_value) in source_values
@@ -14772,7 +14711,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &source_value.r#derived;
                                         if let Some(source_value) = source_optional.as_ref() {
@@ -14822,7 +14760,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#applicability;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -14957,7 +14894,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#permission;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &source_value.r#targets;
                             for (source_index_0, source_value) in source_values
@@ -14986,7 +14922,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#attribute;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &source_value.r#derived;
                             if let Some(source_value) = source_optional.as_ref() {
@@ -15012,7 +14947,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#guard;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Predicate;
                             let _ = source_grammar;
@@ -15033,7 +14967,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#accumulator;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15042,7 +14975,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15100,7 +15032,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#contribution;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15109,7 +15040,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15162,7 +15092,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#state_specification;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15171,7 +15100,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15228,7 +15156,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     visitor.enter_scope();
                                     {
                                         let source_values = &source_value.r#indices;
@@ -15237,7 +15164,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -15284,7 +15210,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     visitor.enter_scope();
                                     {
                                         let source_values = &source_value.r#indices;
@@ -15293,7 +15218,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -15353,7 +15277,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     visitor.enter_scope();
                                     {
                                         let source_values = &source_value.r#indices;
@@ -15362,7 +15285,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -15423,7 +15345,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#state_port;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15432,7 +15353,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15472,7 +15392,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#inventory_balance;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15481,7 +15400,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15559,7 +15477,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -15597,7 +15514,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#connection;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         visitor.enter_scope();
                         {
                             let source_values = &source_value.r#indices;
@@ -15606,7 +15522,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -15659,7 +15574,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#annotation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         let (source_annotation_grammar, source_annotation_target) = match source_value
                             .kind
                         {
@@ -15744,7 +15658,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#objective;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &source_value.r#weight;
                                         if let Some(source_value) = source_optional.as_ref() {
@@ -15824,7 +15737,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#accuracy_goal;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &source_value.r#time;
                                         if let Some(source_value) = source_optional.as_ref() {
@@ -15904,7 +15816,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &source_value.r#engineering_scale;
                             if let Some(source_value) = source_optional.as_ref() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -15928,7 +15839,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#requirement;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Predicate;
                             let _ = source_grammar;
@@ -15949,7 +15859,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#expectation;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -16014,7 +15923,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#continuous;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -16048,7 +15956,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#discretization;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -16082,7 +15989,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &source_value.r#realization;
                 if let Some(source_value) = source_optional.as_ref() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &source_value.r#argument;
                             if let Some(source_value) = source_optional.as_ref() {
@@ -16139,7 +16045,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#relaxation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -16179,7 +16084,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#continuation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -16235,7 +16139,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#scope;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#parameters;
                             for (source_index_0, source_value) in source_values
@@ -16243,7 +16146,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &mut source_value.r#default_value;
                                         if let Some(source_value) = source_optional.as_mut() {
@@ -16272,7 +16174,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#selection;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -16333,7 +16234,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#operational;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_values = &mut source_value.r#anchors;
                                         for (source_index_0, source_value) in source_values
@@ -16341,7 +16241,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Expression;
                                                     let _ = source_grammar;
@@ -16426,12 +16325,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#fixture;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &mut source_value.r#integration;
                                         if let Some(source_value) = source_optional.as_mut() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &mut source_value.r#samples;
                                                     for (source_index_0, source_value) in source_values
@@ -16479,7 +16376,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -16522,7 +16418,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -16662,7 +16557,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &mut source_value.r#events;
                                                     for (source_index_1, source_value) in source_values
@@ -16670,7 +16564,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                         .enumerate()
                                                     {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_grammar = SourceGrammar::Expression;
                                                                 let _ = source_grammar;
@@ -16724,7 +16617,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                                     .enumerate()
                                                                 {
                                                                     {
-                                                                        let source_value = source_value;
                                                                         {
                                                                             let source_grammar = SourceGrammar::Expression;
                                                                             let _ = source_grammar;
@@ -16782,7 +16674,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                         let source_optional = &mut source_value.r#shooting;
                                         if let Some(source_value) = source_optional.as_mut() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &mut source_value.r#nodes;
                                                     for (source_index_0, source_value) in source_values
@@ -16814,12 +16705,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                                         let source_optional = &mut source_value.r#expected_failure;
                                         if let Some(source_value) = source_optional.as_mut() {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_optional = &mut source_value.r#validity;
                                                     if let Some(source_value) = source_optional.as_mut() {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_values = &mut source_value.r#sets;
                                                                 for (source_index_0, source_value) in source_values
@@ -16875,7 +16764,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                                     let source_optional = &mut source_value.r#applicability;
                                                     if let Some(source_value) = source_optional.as_mut() {
                                                         {
-                                                            let source_value = source_value;
                                                             {
                                                                 let source_values = &mut source_value.r#sets;
                                                                 for (source_index_0, source_value) in source_values
@@ -16961,7 +16849,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_values = &mut source_value.r#members;
                                                     for (source_index_1, source_value) in source_values
@@ -17000,7 +16887,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Expression;
                                                     let _ = source_grammar;
@@ -17051,7 +16937,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#binding;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17059,7 +16944,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17128,7 +17012,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#function;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &mut source_value.r#body;
                             if let Some(source_value) = source_optional.as_mut() {
@@ -17199,7 +17082,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#external;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -17226,7 +17108,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#coordinate_map;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &mut source_value.r#validity;
                             if let Some(source_value) = source_optional.as_mut() {
@@ -17255,7 +17136,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#coordinate_slot;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17263,7 +17143,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17306,7 +17185,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#reconstruction;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -17330,7 +17208,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#response;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -17354,7 +17231,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#reference_translation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -17394,7 +17270,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#boundary;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17402,7 +17277,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17429,7 +17303,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#exchange;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17437,7 +17310,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17496,7 +17368,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#equation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17504,7 +17375,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17544,7 +17414,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#condition;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -17571,7 +17440,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#ordered_set;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17579,7 +17447,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17638,7 +17505,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#cardinality;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17646,7 +17512,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17705,7 +17570,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#piecewise;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17713,7 +17577,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17804,7 +17667,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#logic;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17812,7 +17674,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17855,7 +17716,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#complementarity;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -17863,7 +17723,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -17922,7 +17781,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#table;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#columns;
                             for (source_index_0, source_value) in source_values
@@ -17930,7 +17788,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &mut source_value.r#derived;
                                         if let Some(source_value) = source_optional.as_mut() {
@@ -17986,7 +17843,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#applicability;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -18142,7 +17998,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#permission;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#targets;
                             for (source_index_0, source_value) in source_values
@@ -18174,7 +18029,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#attribute;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &mut source_value.r#derived;
                             if let Some(source_value) = source_optional.as_mut() {
@@ -18203,7 +18057,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#guard;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Predicate;
                             let _ = source_grammar;
@@ -18227,7 +18080,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#accumulator;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18235,7 +18087,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18299,7 +18150,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#contribution;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18307,7 +18157,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18366,7 +18215,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#state_specification;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18374,7 +18222,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18438,7 +18285,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_values = &mut source_value.r#indices;
                                         for (source_index_1, source_value) in source_values
@@ -18446,7 +18292,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -18496,7 +18341,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_values = &mut source_value.r#indices;
                                         for (source_index_1, source_value) in source_values
@@ -18504,7 +18348,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -18570,7 +18413,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_values = &mut source_value.r#indices;
                                         for (source_index_1, source_value) in source_values
@@ -18578,7 +18420,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                             .enumerate()
                                         {
                                             {
-                                                let source_value = source_value;
                                                 {
                                                     let source_grammar = SourceGrammar::Static;
                                                     let _ = source_grammar;
@@ -18644,7 +18485,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#state_port;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18652,7 +18492,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18695,7 +18534,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#inventory_balance;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18703,7 +18541,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18794,7 +18631,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -18837,7 +18673,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#connection;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_values = &mut source_value.r#indices;
                             for (source_index_0, source_value) in source_values
@@ -18845,7 +18680,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                                 .enumerate()
                             {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Static;
                                         let _ = source_grammar;
@@ -18904,7 +18738,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#annotation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         let (source_annotation_grammar, source_annotation_target) = match source_value
                             .kind
                         {
@@ -18995,7 +18828,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#objective;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &mut source_value.r#weight;
                                         if let Some(source_value) = source_optional.as_mut() {
@@ -19089,7 +18921,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#accuracy_goal;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_optional = &mut source_value.r#time;
                                         if let Some(source_value) = source_optional.as_mut() {
@@ -19181,7 +19012,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                             let source_optional = &mut source_value.r#engineering_scale;
                             if let Some(source_value) = source_optional.as_mut() {
                                 {
-                                    let source_value = source_value;
                                     {
                                         let source_grammar = SourceGrammar::Expression;
                                         let _ = source_grammar;
@@ -19208,7 +19038,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#requirement;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Predicate;
                             let _ = source_grammar;
@@ -19232,7 +19061,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#expectation;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -19309,7 +19137,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#continuous;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -19349,7 +19176,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#discretization;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_grammar = SourceGrammar::Expression;
                             let _ = source_grammar;
@@ -19389,7 +19215,6 @@ impl AuthoredModelingDeclarationsFieldValue {
                 let source_optional = &mut source_value.r#realization;
                 if let Some(source_value) = source_optional.as_mut() {
                     {
-                        let source_value = source_value;
                         {
                             let source_optional = &mut source_value.r#argument;
                             if let Some(source_value) = source_optional.as_mut() {

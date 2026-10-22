@@ -21,10 +21,9 @@ pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
                 || column.field().metadata().contains_key(RESULT_SORT) && column.result_sort_ordinal().is_none() {
                 return Err(super::error(format!("{}.{} has an invalid result selection facet", relation.key.qualified_name(), column.name())));
             }
-            if let Some(ordinal) = column.result_sort_ordinal() {
-                if order.insert(ordinal, column.name()).is_some() {
-                    return Err(super::error(format!("{} repeats result sort ordinal {ordinal}", relation.key.qualified_name())));
-                }
+            if let Some(ordinal) = column.result_sort_ordinal()
+                && order.insert(ordinal, column.name()).is_some() {
+                return Err(super::error(format!("{} repeats result sort ordinal {ordinal}", relation.key.qualified_name())));
             }
             use crate::model::ResultSelectionRole as Role;
             let target = match column.result_selection_role() {

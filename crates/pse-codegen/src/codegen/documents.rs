@@ -88,9 +88,9 @@ pub fn generate_catalogue(reg: &Registry, catalogue: &[CatalogueDocument], finge
         input_names.get(name).filter(|other| *other != schema).map(|_| name.clone())
     }).collect::<BTreeSet<_>>();
     loop {
-        let additions = output_names.iter().filter_map(|(name, schema)| {
-            (input_names.contains_key(name) && !changed.contains(name) && refers_to(schema, &changed)).then(|| name.clone())
-        }).collect::<Vec<_>>();
+        let additions = output_names.iter().filter(|(name, schema)| {
+            input_names.contains_key(*name) && !changed.contains(*name) && refers_to(schema, &changed)
+        }).map(|(name,_)|name.clone()).collect::<Vec<_>>();
         if additions.is_empty() { break; }
         changed.extend(additions);
     }
@@ -159,10 +159,9 @@ fn refers_to(schema: &Value, names: &BTreeSet<String>) -> bool {
 }
 fn rename_output(schema: &mut Value, names: &BTreeSet<String>) {
     if let Value::Object(values) = schema {
-        if let Some(Value::String(reference)) = values.get_mut("$ref") {
-            if let Some(name) = reference.strip_prefix("#/$defs/") && names.contains(name) {
-                *reference = format!("#/$defs/{name}Output");
-            }
+        if let Some(Value::String(reference)) = values.get_mut("$ref")
+            && let Some(name) = reference.strip_prefix("#/$defs/") && names.contains(name) {
+            *reference = format!("#/$defs/{name}Output");
         }
         if let Some(Value::String(title)) = values.get_mut("title") && names.contains(title) { *title = format!("{title}Output"); }
         if let Some(Value::Object(definitions)) = values.get_mut("$defs") {
@@ -1264,7 +1263,7 @@ mod tests {
             rust_type: "example::DirectionalProbe".into(), output, version: None, wire: "Native".into(),
             schema: schema(output),
         };
-        let tree = generate_catalogue(&registry, &[entry(false), entry(true)], pse_ids::ContentHash::from_bytes([7; 32])).unwrap();
+        let tree = generate_catalogue(registry, &[entry(false), entry(true)], pse_ids::ContentHash::from_bytes([7; 32])).unwrap();
         let python = String::from_utf8(tree.files[&PathBuf::from("python/pse/contracts/documents/__init__.py")].clone()).unwrap();
         assert!(python.contains("class DirectionalProbe("));
         assert!(python.contains("class DirectionalProbeOutput("));
