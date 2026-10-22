@@ -13,3 +13,11 @@ url = "https://github.com/bug-ops/mcpls/releases/download/v0.8.0/mcpls-x86_64-un
 sha256 = "6a20da55cb07276c1cba1a93b739cc5b47c4297979fd2de4271fa4d6f793e450"
 member = "mcpls"
 archive = "tar.gz"
+
+[rr]
+version = "5.10.0"
+url = "https://github.com/rr-debugger/rr/releases/download/5.10.0/rr-5.10.0-Linux-x86_64.tar.gz"
+sha256 = "55d9175d88139f775aca36981c55c2f3bca227434217750fc3ee2619501e269b"
+member = "bin/rr"
+archive = "portable-tar"
+prefix = "rr-5.10.0-Linux-x86_64"

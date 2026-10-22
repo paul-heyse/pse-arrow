@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import tempfile
@@ -35,14 +36,83 @@ def binary_path(name: str = "trace-processor") -> Path:
     return base / "pse/tools" / ("perfetto" if name == "trace-processor" else name) / spec["version"] / spec["member"]
 
 
+def verify_bundle(root: Path, spec: dict[str, str]) -> None:
+    """Verify the selected immutable layout; presence of bin/rr alone is insufficient."""
+    receipt = root / "bundle.json"
+    if any(path.is_symlink() for path in (receipt, root, *root.parents)):
+        raise ValueError("portable tool installation must not traverse symlinks")
+    record = json.loads(receipt.read_text())
+    if record.get("archive_sha256") != spec["sha256"] or record.get("version") != spec["version"]:
+        raise ValueError("portable tool receipt differs from the pinned declaration")
+    members = record.get("members", {})
+    if not isinstance(members, dict) or not 1 <= len(members) <= 200:
+        raise ValueError("invalid portable tool member receipt")
+    for name, expected in members.items():
+        selected = Path(name)
+        if selected.is_absolute() or ".." in selected.parts:
+            raise ValueError("invalid portable tool member path")
+        path = root / selected
+        if any(item.is_symlink() for item in (path, *path.parents)) or not path.is_file():
+            raise ValueError("portable tool member disappeared or became a symlink")
+        with path.open("rb") as stream:
+            observed = hashlib.file_digest(stream, "sha256").hexdigest()
+        if observed != expected:
+            raise ValueError("portable tool member changed")
+    for required in (spec["member"], "lib/rr/librrpreload.so", "lib/rr/librrpage.so", "bin/rr_exec_stub"):
+        if required not in members:
+            raise ValueError("portable rr runtime member missing")
+
+
+def stage_bundle(archive: Path, directory: Path, spec: dict[str, str]) -> Path:
+    """Extract only bounded regular files/directories below the declared release prefix."""
+    root = directory / "bundle"
+    root.mkdir()
+    hashes = {}
+    with tarfile.open(archive, "r:gz") as bundle:
+        names = set()
+        expanded = 0
+        for count, item in enumerate(bundle, start=1):
+            expanded += item.size
+            if count > 200 or expanded > 64 << 20:
+                raise ValueError("portable tool archive exceeds expanded allowance")
+            path = Path(item.name)
+            if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != spec["prefix"]:
+                raise ValueError("portable archive member escapes selected release prefix")
+            if item.name in names or not (item.isdir() or item.isfile()):
+                raise ValueError("duplicate or nonregular portable archive member")
+            names.add(item.name)
+            relative = Path(*path.parts[1:])
+            selected = root / relative
+            if item.isdir():
+                selected.mkdir(parents=True, exist_ok=True)
+                continue
+            selected.parent.mkdir(parents=True, exist_ok=True)
+            source = bundle.extractfile(item)
+            if source is None:
+                raise ValueError("portable tool archive member unavailable")
+            with source, selected.open("xb") as destination:
+                shutil.copyfileobj(source, destination, 1 << 20)
+            selected.chmod(0o755 if item.mode & 0o111 else 0o644)
+            with selected.open("rb") as stream:
+                hashes[str(relative)] = hashlib.file_digest(stream, "sha256").hexdigest()
+    (root / "bundle.json").write_text(json.dumps({"version": spec["version"], "archive_sha256": spec["sha256"], "source": spec["url"], "members": hashes}, sort_keys=True) + "\n")
+    verify_bundle(root, spec)
+    return root
+
+
 def install(name: str = "trace-processor") -> Path:
     """Install only the declared binary from a bounded authenticated release archive."""
     target = binary_path(name)
-    if target.is_file():
-        return target
     spec = tool_spec(name)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".install-", dir=target.parent) as scratch:
+    portable = spec.get("archive") == "portable-tar"
+    selected_root = target.parents[1] if portable else target.parent
+    if target.is_file():
+        if portable:
+            verify_bundle(selected_root, spec)
+        return target
+    staging_parent = selected_root.parent if portable else target.parent
+    staging_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".install-", dir=staging_parent) as scratch:
         archive = Path(scratch) / "release.archive"
         digest = hashlib.sha256()
         size = 0
@@ -66,6 +136,13 @@ def install(name: str = "trace-processor") -> Path:
                 output.write(chunk)
         if digest.hexdigest() != spec["sha256"]:
             raise ValueError("Trace Processor release archive checksum differs")
+        if portable:
+            staged_root = stage_bundle(archive, Path(scratch), spec)
+            try:
+                staged_root.rename(selected_root)
+            except FileExistsError:
+                verify_bundle(selected_root, spec)
+            return target
         staged = Path(scratch) / "tool"
         if spec.get("archive") == "tar.gz":
             with tarfile.open(archive, "r:gz") as bundle:
@@ -149,7 +226,7 @@ def query(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("install").add_argument("tool", nargs="?", choices=("trace-processor", "mcpls"), default="trace-processor")
+    commands.add_parser("install").add_argument("tool", nargs="?", choices=("trace-processor", "mcpls", "rr"), default="trace-processor")
     inspect = commands.add_parser("query")
     inspect.add_argument("trace", type=Path)
     inspect.add_argument("question", choices=("timeline", "numerical", "coverage"))
