@@ -179,7 +179,7 @@ def test_nested_fits_preserve_identities_enums_and_signed_zero() -> None:
 @pytest.mark.unit
 def test_public_hooks_cannot_change_private_edits_across_threads() -> None:
     row = _row()
-    expected = _old((row,), "declarations", documents.DeclarationEdit)
+    expected = _reference((row,), "declarations", documents.DeclarationEdit)
     barrier = Barrier(2)
 
     def run() -> bytes:

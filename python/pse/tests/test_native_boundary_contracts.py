@@ -117,10 +117,12 @@ def test_vocabulary_cells_are_independent_in_cold_interpreter_orders(first: str)
     # CPython underneath a live PyO3 extension is not a supported extra lifecycle.
     script = """
 import sys
+from tempfile import TemporaryDirectory
 import pse
 from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
 from pse.tests.physical_input_fixture import coordinate_batch
-runtime = pse.Runtime(pse.EngineSettings(memory_limit_bytes=64 << 30), ephemeral=True)
+spill = TemporaryDirectory()
+runtime = pse.Runtime(pse.EngineSettings(memory_limit_bytes=64 << 30, threads=2, spill_dir=spill.name, max_spill_bytes=1 << 30, batch_size=7), ephemeral=True)
 base = dict(runtime=runtime,start=0.0,end=1.0,samples=[0.0],atol=coordinate_batch(runtime),parameter_scales=coordinate_batch(runtime))
 values = {'method': DynamicsMethod.IDAS, 'sensitivity': DynamicSensitivity.NONE}
 first = sys.argv[1]
@@ -173,7 +175,7 @@ def test_generated_settings_admit_native_defaults_and_expose_named_diagnostics(
     assert isinstance(report.code, DiagnosticCode)
     assert isinstance(report.failure_class, FailureClass)
     assert isinstance(report.boundary_class, NativeBoundaryClass)
-    assert isinstance(report.envelope, documents.BoundaryDiagnostic)
+    assert isinstance(report.envelope, documents.BoundaryDiagnosticOutput)
     assert isinstance(report.observations, dict)
     assert isinstance(report.causes, tuple)
     assert isinstance(report.related, tuple)
@@ -323,7 +325,9 @@ def test_rust_owned_outcome_bytes_preserve_partial_cancelled_and_native_branches
     assert stopped.point is not None
     assert failed.point.lifecycle is AttemptState.FAILED
     assert stopped.point.lifecycle is AttemptState.CANCELLED
-    assert failed.point.diagnostic == refusal
+    assert failed.point.diagnostic is not None
+    for field in documents.BoundaryDiagnosticBody.__struct_fields__:
+        assert getattr(failed.point.diagnostic, field) == getattr(refusal, field)
     assert failed.point.start is stopped.point.start is None
     assert not failed.point.scientific.usable
     assert not stopped.point.scientific.usable
@@ -367,19 +371,19 @@ def test_generated_duration_retains_standard_fields_and_refuses_unknown_fields()
     None
 ):
     overrides = codec.decode_json(
-        b'{"time_limit":{"secs":7,"nanos":123}}', documents.InitializationOverrides
+        b'{"document_version":1,"time_limit":{"secs":7,"nanos":123}}', documents.InitializationOverrides
     )
     assert overrides.time_limit is not None
     assert overrides.time_limit.secs == 7
     assert overrides.time_limit.nanos == 123
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"time_limit":{"secs":7,"nanos":123,"seconds":8}}',
+            b'{"document_version":1,"time_limit":{"secs":7,"nanos":123,"seconds":8}}',
             documents.InitializationOverrides,
         )
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"time_limit":{"secs":-1,"nanos":0}}', documents.InitializationOverrides
+            b'{"document_version":1,"time_limit":{"secs":-1,"nanos":0}}', documents.InitializationOverrides
         )
 
 

@@ -50,7 +50,7 @@ from pse.contracts.documents import (
     InitializationOverrides,
     JacobianDiagnosticControls,
     KnowledgeControls,
-    LazyStudyDefinitionOutput as LazyStudyDefinition,
+    LazyStudyDefinition,
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocument,
     ModelingInspectionOutput as ModelingInspection,
@@ -65,7 +65,7 @@ from pse.contracts.documents import (
     RecycleRequest,
     SolveSettings,
     SourceDelta,
-    StudyPointDefinitionOutput as StudyPointDefinition,
+    StudyPointDefinition,
     StudyRequest,
     StudyRunControls,
 )

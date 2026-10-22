@@ -1621,8 +1621,8 @@ impl NativeRuntime {
     fn physical_input_schema(
         &self, py: Python<'_>,
         kind: crate::enums::EnumValue<pse_model::generated::enums::PhysicalInputKind>,
-    ) -> PyResult<pyo3_arrow::PySchema> {
-        self.inner.physical_input_schema(kind.0).map(pyo3_arrow::PySchema::new)
+    ) -> PyResult<physical_input::PhysicalSchemaOutput> {
+        self.inner.physical_input_schema(kind.0).map(|schema| physical_input::PhysicalSchemaOutput(pyo3_arrow::PySchema::new(schema)))
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn capabilities(&self) -> Vec<documents::DocumentValue<pse_model::generated::runtime::solver_capabilities::Row>> {

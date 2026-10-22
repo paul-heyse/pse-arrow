@@ -17,7 +17,7 @@ from pse.contracts.authored import (
 from pse.contracts.documents import DeclarationEdit, FitDeclarations
 from pse.contracts.values import ContentHash, SemanticId
 
-from . import _check_version_headers, converter, encode_json
+from . import _check_version_headers, convert_document, converter, encode_json
 
 if TYPE_CHECKING:
     import cattrs
@@ -75,7 +75,7 @@ def _encode(
                 plain[header] = member.default
     _check_finite(plain, "$")
     _check_version_headers(plain, info, "$")
-    return encode_json(msgspec.convert(plain, type=document_type, strict=True))
+    return encode_json(convert_document(plain, document_type))
 
 
 def encode_declarations(rows: Iterable[AuthoredModelingDeclarationsRow]) -> bytes:

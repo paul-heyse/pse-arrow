@@ -126,7 +126,7 @@ pub(super) fn complete(
         function_types(function)?;
     }
     for class in &module.classes {
-        class_types(class)?;
+        class_types(class).with_context(|| format!("native class {}", class.name))?;
     }
     for attribute in &module.attributes {
         if let Some(annotation) = &attribute.annotation {
@@ -306,7 +306,8 @@ fn function_types(function: &Function) -> Result<()> {
                     "{}.{} has no native annotation",
                     function.name, argument.name
                 )
-            })?)?;
+            })?)
+            .with_context(|| format!("native argument {}.{}", function.name, argument.name))?;
         }
     }
     for variable in arguments.vararg.iter().chain(&arguments.kwarg) {
@@ -323,6 +324,7 @@ fn function_types(function: &Function) -> Result<()> {
             .as_ref()
             .with_context(|| format!("{} has no return annotation", function.name))?,
     )
+    .with_context(|| format!("native return {}", function.name))
 }
 fn complete_type(annotation: &Expr) -> Result<()> {
     match annotation {

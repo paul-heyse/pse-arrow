@@ -245,7 +245,7 @@ def test_idas_current_version_default_omission_and_explicit_step(inspection_sett
     document = simulation.document
     assert document.version == 1
     admitted = pse.SimulationSettings.from_document(runtime, document)
-    assert admitted.idas == settings
+    assert codec.encode_json(admitted.idas) == codec.encode_json(settings)
     for version in (0, 2):
         with pytest.raises(pse.InspectionError, match="version"):
             pse.SimulationSettings.from_document(

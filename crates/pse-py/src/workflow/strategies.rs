@@ -437,9 +437,9 @@ impl NativeAttempt {
     fn objective(&self) -> Option<f64> {
         self.inner.candidate.as_ref().and_then(|c| c.objective)
     }
-    fn primal(&self, py: Python<'_>) -> PyResult<pyo3_arrow::PyRecordBatch> {
+    fn primal(&self, py: Python<'_>) -> PyResult<physical_input::PhysicalOutput> {
         let coordinates = self.primal_coordinates.as_ref().ok_or_else(|| invalid(py, "native primal physical coordinate meaning is unavailable"))?;
-        coordinates.table(&self.inner).map(|table| pyo3_arrow::PyRecordBatch::new(table.batch().clone()))
+        coordinates.table(&self.inner).map(|table| physical_input::PhysicalOutput(pyo3_arrow::PyRecordBatch::new(table.batch().clone())))
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
