@@ -243,7 +243,7 @@ impl OutputBoundaryRecord {
 
 // Reconstruction remains in the representation owner, where the actual witness
 // fields are private. This is the common record namespace consumed by lowering.
-pub use crate::unit::CanonicalConversionRecord;
+pub use crate::unit::{CanonicalConversionRecord, RepresentationConversionRecord};
 
 /// Opaque persisted complete operation result, including selection and conversion scales.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
