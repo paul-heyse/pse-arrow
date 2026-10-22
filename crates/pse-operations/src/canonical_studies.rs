@@ -3206,6 +3206,29 @@ mod canonical_studies_server_unit {
         }
     }
     #[tokio::test]
+    async fn canonical_studies_surrealism_open_refuses_missing_module_and_tampered_bucket() {
+        use crate::canonical::study_module::StudyModuleReceipt;
+        let (store, _, _) = fixture().await;
+        let receipt = StudyModuleReceipt::read(store.deployment_state()).unwrap();
+        let qualification = StudyModuleReceipt::read_qualification(store.deployment_state()).unwrap();
+        let backend = receipt.backend().unwrap();
+        let other_backend = qualification.backend().unwrap();
+        assert_ne!(backend, other_backend, "the separately admitted artifact has its own private source directory");
+        store.open().await.unwrap();
+        bounded_query(store.db.query("REMOVE MODULE mod::pse;")).await.unwrap();
+        assert!(matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or pure export differs")));
+        bounded_query(store.db.query(receipt.declarations(true)).bind(("study_module_backend", backend.clone()))).await.unwrap();
+        store.open().await.unwrap();
+        // Both directories are explicitly admitted read-only sources in this
+        // qualification profile. The production module must still bind its own
+        // exact backend, even if another source is valid for a different module.
+        bounded_query(store.db.query(format!("DEFINE BUCKET OVERWRITE {} READONLY BACKEND $backend PERMISSIONS NONE;", receipt.bucket())).bind(("backend", other_backend))).await.unwrap();
+        assert!(matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or pure export differs")));
+        bounded_query(store.db.query(receipt.declarations(true)).bind(("study_module_backend", backend))).await.unwrap();
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn canonical_studies_surrealism_native_policy_preserves_full_unsigned_revisions() {
         let (store, _, revision) = fixture().await;
         let points = [
