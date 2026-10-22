@@ -1857,11 +1857,20 @@ impl CheckedPackage {
     /// # Errors
     /// Root identity is absent.
     pub fn select(&self, root: DeclarationId) -> Result<Self> {
+        self.select_mode(root, false, &[])
+    }
+    /// Static construction reads retain lexical/finite lookup support but do not
+    /// pull numerical child bodies into an instance's local prelude premises.
+    pub(crate) fn select_static(&self, root: DeclarationId, additional: &[DeclarationId]) -> Result<Self> {
+        self.select_mode(root, true, additional)
+    }
+    fn select_mode(&self, root: DeclarationId, static_only: bool, additional: &[DeclarationId]) -> Result<Self> {
         if !self.declarations.contains_key(&root) {
             return Err(invalid(root, "selected root absent"));
         }
         let mut selected = BTreeSet::new();
         let mut pending = vec![root];
+        pending.extend(additional.iter().filter(|id| self.declarations.contains_key(id)).copied());
         while let Some(id) = pending.pop() {
             if !selected.insert(id) {
                 continue;
@@ -1886,7 +1895,21 @@ impl CheckedPackage {
                     })
                     .copied(),
             );
-            if row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::Package {
+            use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+            let local_constructor = matches!(row.value.kind,
+                Kind::Definition | Kind::Case | Kind::Test | Kind::Implicit | Kind::Preset
+                    | Kind::When | Kind::Stage);
+            if static_only && local_constructor {
+                pending.extend(self.children.get(&id).into_iter().flatten().filter(|child| {
+                    matches!(self.declarations[child].value.kind, Kind::When | Kind::Stage)
+                }).copied());
+                pending.extend(self.members.get(&id).into_iter().flat_map(|members| members.values())
+                    .filter(|member| matches!(self.declarations[member].value.kind, Kind::When | Kind::Stage)
+                        || (self.declarations[member].value.kind == Kind::Parameter
+                            && !matches!(self.types.get(member), Some(Type::Quantity(_)))))
+                    .copied());
+            }
+            if row.value.kind != Kind::Package && !(static_only && local_constructor) {
                 pending.extend(self.children.get(&id).into_iter().flatten().copied());
                 pending.extend(
                     self.members

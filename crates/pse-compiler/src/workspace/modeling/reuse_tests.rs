@@ -1480,3 +1480,39 @@ fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
     assert_eq!(lazy.symbols.len(), base.symbols.len() + 1);
     assert!(lazy.paths.contains_key("lazy"));
 }
+
+#[test]
+fn instance_prelude_is_local_to_membership_and_static_meaning() {
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("instance_prelude(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    ).unwrap();
+    let original = "package p {def Root {var x:Scalar; eq a:x==1;}}";
+    let mut root = None;
+    for (source, expected) in [
+        (original, 1),
+        ("package p {def Root {var x:Scalar; eq a:x==2;}}", 1),
+        ("package p {def Root {var x:Scalar; eq a:x==2; eq b:x==3;}}", 2),
+        (original, 2),
+    ] {
+        let declarations = rows(source);
+        let selected_root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        assert_eq!(*root.get_or_insert(selected_root), selected_root);
+        let revision = workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let bindings = Bindings::default();
+        let instance = pse_modeling::specialize::root_instance(selected_root);
+        let incremental = workspace.specialize_modeling(selected_root, instance, bindings.clone(), Limits::default()).unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(), selected_root, instance, &bindings, Limits::default(), &|| false, &LibraryDiscretizer,
+        ).unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert_eq!(executions.load(Ordering::Relaxed), expected);
+    }
+}

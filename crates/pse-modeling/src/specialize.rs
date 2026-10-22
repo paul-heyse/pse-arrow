@@ -7,6 +7,7 @@ mod contextual;
 mod continuous;
 mod envelopes;
 pub mod finite;
+pub mod prelude;
 mod symbols;
 pub use symbols::Symbols;
 mod fold;
@@ -486,6 +487,8 @@ struct ReplicatedEquation {
     env: Environment,
 }
 pub(crate) struct Engine<'a, 'b> {
+    fragments: Option<&'a dyn prelude::Fragments>,
+    root: DeclarationId,
     selection_collector: crate::scientific_selection::Collector,
     finite_collector: finite::Collector,
     construction: crate::resolved::construction::Construction,
@@ -610,6 +613,22 @@ pub fn specialize_with_discretizer(
     cancel: &dyn Fn() -> bool,
     discretizer: &dyn crate::continuous::Discretizer,
 ) -> Result<SpecializedModel> {
+    specialize_with_fragments(package, root, instance, bindings, limits, cancel, discretizer, None)
+}
+/// Specialize through query-owned local derivation supplied by the compiler.
+/// # Errors
+/// The same admission, construction and cancellation refusals as direct specialization.
+#[expect(clippy::too_many_arguments, reason = "the selected derivation owner augments the existing complete specialization request")]
+pub fn specialize_with_fragments(
+    package: &CheckedPackage,
+    root: DeclarationId,
+    instance: InstanceId,
+    bindings: &Bindings,
+    limits: Limits,
+    cancel: &dyn Fn() -> bool,
+    discretizer: &dyn crate::continuous::Discretizer,
+    fragments: Option<&dyn prelude::Fragments>,
+) -> Result<SpecializedModel> {
     let _phase = pse_diagnostics::observation::phase("modeling.specialization");
     if bindings
         .arguments
@@ -626,6 +645,8 @@ pub fn specialize_with_discretizer(
     let ambient = crate::analysis::facts(&bindings.facts)?;
     let context = package.context();
     let mut engine = Engine {
+        fragments,
+        root,
         selection_collector: crate::scientific_selection::Collector::default(),
         finite_collector: finite::Collector::default(),
         construction: crate::resolved::construction::Construction::new(limits.items),
@@ -1524,41 +1545,23 @@ impl Engine<'_, '_> {
         };
         self.reserve(1)?;
         self.stack.push(definition);
-        let mut env = if row.value.kind == Kind::Implicit {
-            parent
-                .and_then(|owner| self.states.get(&owner))
-                .map(|state| state.env.clone())
-                .unwrap_or_default()
-        } else {
-            Environment::new()
+        let inherited = if row.value.kind == Kind::Implicit {
+            parent.and_then(|owner| self.states.get(&owner)).map(|state| state.env.clone()).unwrap_or_default()
+        } else { Environment::new() };
+        let bindings = prelude::PreludeBindings {
+            definition, root: self.root,
+            fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
+            arguments: arguments.clone(), scope: scope.clone(), inherited,
+            facts: self.facts.clone(), members: self.limits.members,
         };
-        // Implicit scopes share their enclosing structural context. Their own
-        // declarations still shadow ancestor values, including numerical members.
-        for name in self
-            .p
-            .members
-            .get(&definition)
-            .into_iter()
-            .flat_map(|m| m.keys())
-        {
-            env.remove(name);
+        let premises = std::sync::Arc::new(prelude::PreludePremises::select(self.p, &bindings)?);
+        let prelude = if let Some(fragments) = self.fragments {
+            fragments.instance_prelude(premises, bindings)?
+        } else { std::sync::Arc::new(prelude::derive(&premises, &bindings)?) };
+        for (occurrence, closure) in &prelude.selections {
+            self.selection_collector.record(occurrence.clone(), closure.clone());
         }
-        env.extend(self.facts.clone());
-        for (n, v) in &scope {
-            env.insert(format!("scope.{n}"), v.clone());
-        }
-        let (_, mut env) = Evaluator {
-            lexical_bases: Some(&self.lexical_bases),
-            package: self.p,
-            physical: self.c,
-            at: definition,
-            env: &env,
-            limit: self.limits.members,
-            stack: Vec::new(),
-            reader: self.reader,
-            selections: Some(&self.selection_collector),
-        }
-        .definition_environment(definition, &arguments, env.clone())?;
+        let mut env = prelude.environment.clone();
         let mut source_env = None;
         for (position, parameter) in contract.parameters.iter().enumerate() {
             if !arguments.contains_key(&parameter.name)
@@ -1599,40 +1602,8 @@ impl Engine<'_, '_> {
                     });
             }
         }
-        let mut members = self.p.members.get(&definition).cloned().unwrap_or_default();
-        let available_stages = members
-            .values()
-            .filter(|id| self.p.declarations[id].value.kind == Kind::Stage)
-            .map(|id| self.p.declarations[id].name.clone())
-            .collect::<BTreeSet<_>>();
-        let stages = members
-            .values()
-            .filter(|id| {
-                self.p.declarations[id].value.kind == Kind::Stage
-                    && env.get(
-                        &crate::analysis::Fact::Stage(self.p.declarations[id].name.clone()).path(),
-                    ) == Some(&Value::Boolean(true))
-            })
-            .count();
-        if stages > 1 {
-            return Err(invalid(
-                definition,
-                "multiple initialization stages selected in one definition",
-            ));
-        }
-        let mut conditional = Vec::new();
-        for member in members.values().copied().collect::<Vec<_>>() {
-            self.active_members(member, &env, &mut conditional)?;
-        }
-        members.retain(|_, id| {
-            !matches!(self.p.declarations[id].value.kind, Kind::When | Kind::Stage)
-        });
-        for child in conditional {
-            let r = &self.p.declarations[&child];
-            if members.insert(r.name.clone(), child).is_some() && !r.is_override {
-                return Err(invalid(child, "active guarded member collision"));
-            }
-        }
+        let members = prelude.members.clone();
+        let available_stages = prelude.stages.clone();
         self.realize_domains(id, &path, &members, &mut env)?;
         let mut published = scope;
         for member in members.values() {
@@ -2334,32 +2305,6 @@ impl Engine<'_, '_> {
                 &occurrence.coordinates,
                 &occurrence.env,
             )?;
-        }
-        Ok(())
-    }
-    fn active_members(
-        &self,
-        id: DeclarationId,
-        env: &Environment,
-        out: &mut Vec<DeclarationId>,
-    ) -> Result<()> {
-        let row = &self.p.declarations[&id];
-        if row.value.guard.is_some() || row.value.kind == Kind::Stage {
-            let active = if row.value.guard.is_some() {
-                self.predicate(id, env, "guard.predicate")?
-            } else {
-                env.get(&crate::analysis::Fact::Stage(row.name.clone()).path())
-                    == Some(&Value::Boolean(true))
-            };
-            if active {
-                for child in self.p.children.get(&id).into_iter().flatten() {
-                    if self.p.declarations[child].value.kind == Kind::When {
-                        self.active_members(*child, env, out)?;
-                    } else {
-                        out.push(*child);
-                    }
-                }
-            }
         }
         Ok(())
     }
