@@ -180,6 +180,8 @@ include = [
   { path = "REUSE.toml", format = "sdist" },
 ]
 exclude = [
+  # Only Maturin's selected Cargo artifact may supply the extension to a wheel.
+  { path = "python/pse/_native*.so", format = "wheel" },
   { path = "python/pse/tests/**", format = "wheel" },
   { path = "python/pse/parity/tests/**", format = "wheel" },
   # Agent configuration is not part of a source distribution. Directory symlinks

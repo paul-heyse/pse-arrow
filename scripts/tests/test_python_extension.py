@@ -16,6 +16,49 @@ from scripts import python_extension
 
 
 class PythonExtensionTests(unittest.TestCase):
+    def test_diagnostic_wheel_preserves_large_full_debug_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            wheels = root / "build/diagnostic-taskdump/wheels"
+            wheels.mkdir(parents=True)
+            (wheels / "pse_arrow-fixture.whl").write_bytes(b"selected wheel")
+            with (
+                patch.object(python_extension, "ROOT", root),
+                patch("scripts.build_environment.configure", return_value={}),
+                patch.object(python_extension.subprocess, "call", return_value=0) as run,
+                patch.object(python_extension, "diagnostic_identity", return_value={}),
+            ):
+                self.assertEqual(python_extension.diagnostic_sync(), 0)
+            build = run.call_args_list[1].args[0]
+            self.assertIn("--compression-enable-large-file-support", build)
+            self.assertEqual(build[build.index("--compression-method") + 1], "stored")
+            self.assertNotIn("--strip", build)
+            self.assertNotIn("develop", build)
+
+    def test_diagnostic_identity_refuses_a_wheel_with_ordinary_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            selected = Path(directory)
+            package = selected / "lib/pse"
+            package.mkdir(parents=True)
+            binary = package / "_native.so"
+            binary.write_bytes(b"diagnostic actual bytes")
+            report = {
+                "package": str(package / "__init__.py"), "binary": str(binary),
+                "prefix": str(selected), "features": ["force-validate"],
+            }
+            with patch.object(
+                python_extension.subprocess, "check_output",
+                side_effect=lambda *_args, **_kwargs: json.dumps(report),
+            ):
+                with self.assertRaisesRegex(ValueError, "lacks actual"):
+                    python_extension.diagnostic_identity(selected, {})
+                report["features"] = ["force-validate", "diagnostic-taskdump"]
+                actual = python_extension.diagnostic_identity(selected, {})
+                self.assertEqual(actual["features"], report["features"])
+                report["binary"] = str(selected.parent / "foreign.so")
+                with self.assertRaisesRegex(ValueError, "foreign"):
+                    python_extension.diagnostic_identity(selected, {})
+
     def test_import_path_flags_and_bytes_belong_to_one_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
