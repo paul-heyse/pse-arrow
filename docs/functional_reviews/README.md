@@ -1,5 +1,9 @@
 # Functional opportunity reviews
 
+The [SurrealKV and SurrealMX review](surrealkv-surrealmx-functional-extensions-2026-10-22.md)
+explores project, scientific-data, evidence-analysis, storage-topology and delivery capabilities.
+Its opportunities are proposals; selected implementation scope belongs to the normal plan route.
+
 Reviews here explore valuable additions or improvements to product, developer, operator and
 research capabilities. The operator selects an outcome, workflow, subsystem or tooling/library
 ecosystem; reviewers discover useful possibilities and assess their realization within that
