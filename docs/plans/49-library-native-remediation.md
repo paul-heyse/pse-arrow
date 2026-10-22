@@ -101,11 +101,11 @@ The new package rows remain **proposed**. Existing package states and STO01–ST
 are preserved. Reopening 49a is limited to STO09 operation composition, not a rerun of the
 completed engine/transport integration. Regeneration remains the selected data transition.
 
-### Conditional rule decisions from the reassessment
+### Rule decisions from the reassessment
 
 RC01–RC21 remain accepted as recorded. No reversal is required for bounded batching, native
-selection-plan reuse, the Salsa patch or pure typed fragments. Two conditional directions
-need explicit operator confirmation if their bounded inquiry selects them:
+selection-plan reuse, the Salsa patch or pure typed fragments. RC22 was explicitly selected
+on 2026-10-22; RC23 remains unselected following its no-adoption recommendation:
 
 | Rule | Proposed consequence | Decision / route | If not selected |
 | --- | --- | --- | --- |
@@ -161,6 +161,16 @@ contract is now execution scope under proposed ADR-0214; batched external policy
 intermediate implementation to retire after the in-transaction replacement qualifies. PRE09 recommends retaining existing concrete-request
 routing without a configuration feature or Z3 binding for its bounded supplied-profile
 question. These conclusions do not block the selected production work.
+
+**Implementation checkpoint after RC22 selection:** joined result metadata and selection-local
+native plans are integrated, with the legacy public block-page route retired. Exclusive Salsa
+accounting, structural/observation demand separation, entity preludes and typed function-body
+fragments are integrated; ordinary member/equation derivation and complete PRE08 acceptance
+remain open. `pse-study-module` now compiles and links for WASI against the existing pure policy
+source, with separate qualification-only fault exports. Native transaction/caller cutover,
+server-wide controller bounds, immutable deployment and assembled RC22 controls are in progress.
+Existing test evidence does not qualify the unactivated module/server combination. Scope-end
+qualification and enduring publication follow the remaining functional cutovers.
 
 Current implementation lanes are isolated for concurrent edits: exclusive Salsa accounting
 and incremental preparation; study scope/repair composition; protected joined result metadata
@@ -415,7 +425,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | STO06 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: commit-order paging and sixteen-lane progress. I01 retains necessary source/sequence pacing with explicit rationale; store Outcome. |
 | STO07 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: fresh functional/reference profiles, frozen schema activation, interrupted initialization, new-data recovery/backup/restore; store Outcome. |
 | STO08 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: selected assembled durability/native/Python/interruption journeys, repaired hygiene, full Clippy/manual/feature checks and installed handoff; store Outcome and limits. |
-| STO09 | in-progress | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | O01: complete bounded scope retrieval and revision-fenced repair with per-item recovery; existing engine/transport evidence retained. |
+| STO09 | in-progress | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | O01 / selected RC22: same-source policy inside bounded native readiness transactions, immutable module activation and exact intent settlement; retire external scope/apply. Existing engine/transport evidence retains its scope. |
 | RES01 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES02 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES03 | in-progress | [49b](49b-protected-results-and-selection.md) | Scalar locators and consumers retired on v8; selected canonical controls passed; assembled result acceptance remains with RES06/QUAL. |

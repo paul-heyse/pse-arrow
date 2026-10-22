@@ -19,7 +19,8 @@ owns their routing, conditional rule decisions and dependency-ordered next work.
 review/documentation engagement did not resume production execution or the canceled campaign.
 The maintainer subsequently authorized execution of all remaining 49a–49c scope; its
 [current execution checkpoint](49-library-native-remediation.md#execution-resumption--49a49c-2026-10-22)
-owns the active lanes and optional-feature investigation decisions. The canceled native sweep remains closed.
+owns the active lanes, selected RC22 Surrealism target and PRE09 no-adoption recommendation.
+The canceled native sweep remains closed.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the
