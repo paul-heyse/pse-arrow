@@ -2164,6 +2164,7 @@ mod outcome_projection_tests {
     reason = "isolated study fixtures and exhaustive test oracles fail on unexpected results"
 )]
 mod canonical_studies_server_unit {
+    include!("canonical_study_module_tests.rs");
     use super::*;
     use crate::canonical::CanonicalOptions;
     use crate::canonical_execution::TerminalClass;

@@ -63,9 +63,25 @@ impl StudyModuleReceipt {
         receipt.study_module.validate(state)?;
         Ok(receipt.study_module)
     }
+    #[cfg(all(test,feature="canonical-tests"))]
+    pub(crate) fn read_qualification(state:&Path)->Result<Self,CanonicalError> {
+        #[derive(Deserialize)]
+        struct Selection {study_module_qualification:StudyModuleReceipt}
+        let bytes=std::fs::read(state.join("config.json")).map_err(invalid)?;
+        let receipt:Selection=serde_json::from_slice(&bytes).map_err(invalid)?;
+        let receipt=receipt.study_module_qualification;
+        if receipt.inputs.get("features")!=Some(&serde_json::json!(["module-qualification"])) {
+            return Err(invalid("separate qualification feature receipt required"));
+        }
+        receipt.validate_kind(state,"pse-study-module-qualification-v1")?;
+        Ok(receipt)
+    }
     fn validate(&self,state:&Path)->Result<(),CanonicalError> {
+        self.validate_kind(state,"pse-study-module-v1")
+    }
+    fn validate_kind(&self,state:&Path,kind:&str)->Result<(),CanonicalError> {
         let declared=ModuleDeclaration::read()?;
-        if self.kind!="pse-study-module-v1" || self.sdk_version!=declared.sdk || self.abi!=declared.abi
+        if self.kind!=kind || self.sdk_version!=declared.sdk || self.abi!=declared.abi
             || self.inputs.is_empty() || self.sha256.len()!=64
             || !self.sha256.bytes().all(|byte|byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
             || self.bytes==0 || self.bytes>64*1024*1024 {
