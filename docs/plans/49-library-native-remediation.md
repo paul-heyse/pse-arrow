@@ -134,8 +134,8 @@ its existing ADR/design route before dependent implementation.
 5. Reconcile QUAL01 to actual changes, select the remaining representative assembled journeys,
    then scope-end checks/publication. Reuse applicable evidence only at its original scope.
 
-This review/documentation engagement leaves production execution paused. The current handoff
-is this section together with the exact earlier [pause evidence](#pause-handoff--requested-closeout-2026-10-21).
+The review/documentation engagement left production execution paused. Its handoff was
+this section together with the exact earlier [pause evidence](#pause-handoff--requested-closeout-2026-10-21).
 No service, dependency, product code or accepted architectural record changed in the review.
 
 **Authoring checkpoint:** the integrated review and coordinated companion revisions are complete
@@ -144,7 +144,28 @@ fragment/root acceptance and historical wording are incorporated. **Tested, docu
 `just turn-end`, documentation publication with `just docs`, and lifecycle validation completed
 against the zero-error baseline; these establish document integration, not product behavior.
 The earlier unsupported-profile cleanup notices remain at their existing retained-state owner.
-Conditional RC22/RC23 decisions and all new implementation/qualification remain open as above.
+At that authoring checkpoint, conditional RC22/RC23 decisions and all new implementation/qualification remained open.
+
+## Execution resumption — 49a–49c, 2026-10-22
+
+The maintainer authorized implementation of the detailed remaining 49a–49c execution
+approach. STO09, RES07 and PRE08 are now execution scope alongside the remaining acceptance,
+consumer migration and retirement in those companions. Other 49d–49h obligations retain their
+existing owners; necessary consumer edits do not close those whole companions.
+
+The maintainer selected investigation followed by recommendations for I26/RC22 and PRE09/RC23,
+with no optional feature implementation before a subsequent explicit selection. Their bounded
+investigations are complete at the linked inquiry owners: retain batched native policy for
+STO09 and existing concrete-request routing; no Surrealism module, configuration feature or
+Z3 binding is adopted. These conclusions do not block the selected production work.
+
+Current implementation lanes are isolated for concurrent edits: exclusive Salsa accounting
+and incremental preparation; study scope/repair composition; protected joined result metadata
+and retained native selections. The coordinator owns shared response bounds, integration,
+acceptance and publication. Existing retained unknown effects and canceled-campaign resources
+remain at their authenticated owners. No third server or speculative cleanup is selected.
+Targeted compile/unit controls run during implementation, with scope-end qualification after
+integration. No new product qualification is claimed by this checkpoint.
 
 ## Reading route and ownership
 
@@ -391,14 +412,14 @@ GOV02 is the remaining coordinator decision/publication route.
 | STO06 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: commit-order paging and sixteen-lane progress. I01 retains necessary source/sequence pacing with explicit rationale; store Outcome. |
 | STO07 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: fresh functional/reference profiles, frozen schema activation, interrupted initialization, new-data recovery/backup/restore; store Outcome. |
 | STO08 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: selected assembled durability/native/Python/interruption journeys, repaired hygiene, full Clippy/manual/feature checks and installed handoff; store Outcome and limits. |
-| STO09 | proposed | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | O01: complete bounded scope retrieval and revision-fenced repair with per-item recovery; existing engine/transport evidence retained. |
+| STO09 | in-progress | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | O01: complete bounded scope retrieval and revision-fenced repair with per-item recovery; existing engine/transport evidence retained. |
 | RES01 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES02 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES03 | in-progress | [49b](49b-protected-results-and-selection.md) | Scalar locators and consumers retired on v8; selected canonical controls passed; assembled result acceptance remains with RES06/QUAL. |
 | RES04 | superseded | [49b](49b-protected-results-and-selection.md) | Maintainer waived existing-data preservation; no historical backfill is required |
 | RES05 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES06 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES07 | proposed | [49b](49b-protected-results-and-selection.md#res07--joined-metadata-and-retained-native-selection) | O02/O03: joined protected metadata and selection-local physical predicate/pruning reuse, preserving exact descriptor coverage and custody. |
+| RES07 | in-progress | [49b](49b-protected-results-and-selection.md#res07--joined-metadata-and-retained-native-selection) | O02/O03: joined protected metadata and selection-local physical predicate/pruning reuse, preserving exact descriptor coverage and custody. |
 | PRE01 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Existing retention/firewalls have bounded evidence; O04 adds proposed Salsa 0.28.5/exclusive accounting before new incremental work. |
 | PRE02 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
 | PRE03 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
@@ -406,8 +427,8 @@ GOV02 is the remaining coordinator decision/publication route.
 | PRE05 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
 | PRE06 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
 | PRE07 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE08 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md#pre08--typed-incremental-fragments) | O05/I07: entity-local tracked premises and immutable fragments with complete root assembly; no claim of affected-only global validation. |
-| PRE09 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md#pre09--finite-configuration-exploration-decision) | O06/I27: bounded operation and Z3-versus-enumeration decision; RC23 pending before new functional target/binding adoption. |
+| PRE08 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md#pre08--typed-incremental-fragments) | O05/I07: entity-local tracked premises and immutable fragments with complete root assembly; no claim of affected-only global validation. |
+| PRE09 | done — investigation only | [49c](49c-resolved-model-and-incremental-preparation.md#pre09--finite-configuration-exploration-decision) | Bounded operation, alternatives, unknown/limit semantics and no-adoption recommendation recorded at the linked owner; RC23 remains unselected. |
 | MAT01 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
 | MAT02 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
 | MAT03 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
@@ -528,8 +549,8 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
 | I24 | decided — implementation open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Operator selected retain native-child for bounded provider-free process-isolation experiments and retire unused relation canonicalizer/API/tests; preserve independent shared allocation and identity contracts. Execution remains TOOL07. |
 | I25 | resolved — no hot-start adoption | MAT06 | Can hot_start reuse an identity-bearing previous scheme on a non-direct path with a concrete preparation benefit? | Adopt only with scheme in identity and correct derivative semantics; direct-translation alias target remains and cancelled truncated optimization is never retained. |
-| I26 | open | STO09 / GOV02 | O01: would same-source Rust policy in Surrealism remove enough coordination to justify pinned WASI/module/deployment/resource semantics? | Batched Rust-policy operations are selected proposed baseline; RC22 remains pending for a later module pivot. No independent SQL policy copy. |
-| I27 | open | PRE09 / GOV02 | O06: compare a concrete finite configuration/explanation operation using Z3 with bounded enumeration over owned capability facts. | Adopt only after explicit RC23 functional/binding selection; otherwise retain concrete request routing and record a reasoned no-adoption. |
+| I26 | resolved — recommend batched native policy | STO09 / GOV02 | [49a I26](49a-surrealmx-canonical-store.md#i26--surrealism-decision-investigation-2026-10-22) identifies the tagged WASI invocation/timeout seam and exact deployment/rollback controls. | No module adoption in this execution; RC22 remains unselected. Revisit a named atomic policy consumer or representative residual scope/apply burden; no independent SQL policy copy. |
+| I27 | resolved — no new feature/binding adopted | PRE09 / GOV02 | [49c PRE09](49c-resolved-model-and-incremental-preparation.md#pre09i27-decision-investigation--2026-10-22) compares finite supplied-profile enumeration with Z3 assumptions/cores and defines independent acceptance. | Retain concrete requests/routing; RC23 remains unselected. Revisit a named jointly constrained multi-stage consumer or demonstrated finite-enumeration limit. |
 | I28 | resolved — retain bounded canonical pages | STO09 / RES07 | Current canonical bounded_query materializes responses; local stream_items refuses payload-drain-owned requests. | Joined bounded pages are proposed. Reopen streaming for a named consumer only with original deadlines, aggregate bytes, late failure and physical drop/drain. |
 | I29 | resolved — no notification authority added | STO09 / TOOL08 | LIVE/changefeeds/async events provide observations with retention/delivery/import limits; current durable cursors/recovery remain necessary. | Reopen an actual wakeup/operator consumer with bounded catch-up; notifications never replace exact receipts, canonical claim or native drain. |
 

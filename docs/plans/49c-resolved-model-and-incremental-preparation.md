@@ -13,7 +13,8 @@ doc_topics: [design, preparation, libraries, validation]
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
+progress. Original authoring baselines and receipts retain their dates.
 
 This companion develops the preparation target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns rule decisions,
@@ -335,6 +336,60 @@ results through the existing catalogue. No Z3 session/AST or timeout-dependent s
 tracked queries. Ordinary preparation and RUN/BND/MAT work do not wait for this inquiry.
 
 ## Proposed verification and completion
+
+### PRE09/I27 decision investigation — 2026-10-22
+
+**Interface-checked:** the concrete candidate is a read-only preparation/inspection question:
+"Which of these explicitly supplied effective method profiles can execute this immutable
+case while satisfying these joint restrictions, and which restrictions exclude the rest?"
+Its finite vocabulary is `ProfileRef` (method plus complete effective settings identity),
+requested intent, derivative/representation demands, native forms, certification, sensitivity,
+structural requirements and the actual linked runtime snapshot. Only supplied profiles are
+candidates; arbitrary numeric settings are not silently searched or discretized. Existing
+`routing::Requirements::bound_decision`/`decision`, contextual `Eligibility` and typed
+`Ineligible` facts own compatibility. Missing evidence remains `PendingEvidence`;
+supported-but-unprepared artifacts remain distinct from an ineligible profile.
+
+**Recommendation:** do not add Z3 or a public configuration-exploration feature in this
+execution. For this bounded question, evaluate each supplied profile through the existing
+contextual owner and filter its complete decisions. This is a recommendation for a future
+selected feature, not an implementation of it: existing concrete-request inspection/routing
+remains unchanged. The owning capability and settings facts are procedural, context-sensitive
+and already attributable. Encoding their rules again in SMT would create a second scientific
+authority; treating their results as Boolean facts leaves a finite selection problem that
+enumeration can answer directly. This conclusion does not assert that Z3 lacks explanatory
+or combinatorial value. RC23 remains unselected under the maintainer's investigate-then-decide
+choice; no native binding or new result/replay contract is introduced.
+
+The Z3 alternative becomes valuable when the user question includes jointly constrained
+multi-step configurations, such as choosing one profile for each of several stages with
+shared method-count/resource limits and required transitions. A finite QF Boolean encoding
+can consume the same owned compatibility facts as assumptions, use tracked restriction IDs,
+and enumerate projected stage/profile assignments with blocking clauses. The
+[0.21.1 Solver API](https://docs.rs/z3/0.21.1/z3/struct.Solver.html) supplies assumption checks,
+unsatisfiable cores, model enumeration and Unknown reasons. An unsat core is a sufficient
+conflicting subset; it is not automatically minimal or a complete explanation. Only `Sat`
+permits model decoding, and each decoded assignment must pass an independent finite checker.
+Pending scientific facts cannot be asserted false to obtain an apparent definitive result.
+
+For either realization, a selected feature must bind the case, supplied profile identities,
+restriction IDs, capability snapshot and result ordering in an immutable owned result.
+Use explicit candidate/assignment and byte bounds plus one original deadline. Exhausting a
+search, cancellation or missing facts returns incomplete/inconclusive with remaining scope;
+it never returns "no configurations". Enumeration can retain all per-profile reasons directly;
+joint-rule explanations would need either bounded deletion checks or a solver core contract.
+Neither a candidate nor satisfiability grants seed permission, claim authority or numerical
+success. Ordinary preparation does not wait for an exploratory solve.
+
+Before selecting Z3, compare the complete candidate sets against exhaustive enumeration on
+small independently specified cases, plus contradictory joint restrictions, unknown facts,
+multiple solutions, projected duplicates, cancellation and finite-limit cases. Pin the Rust
+binding and native acquisition separately, record linked runtime identity, and supervise
+the context-bound solver under runtime ownership. No AST/session or timeout-dependent solve
+belongs in Salsa. No solver experiment or performance comparison was run for this inquiry.
+Revisit when a named multi-stage consumer and joint constraints are selected, or finite
+enumeration demonstrably exceeds the selected representative workload's allowance. That
+would trigger a bounded comparative prototype and an explicit RC23/GOV02 selection.
 
 PRE07 includes the PRE08 fragment cutover and its incremental-versus-clean acceptance,
 while PRE09 stays optional. It requires independent expectations for alpha-renaming and renderer invariance; local-slot

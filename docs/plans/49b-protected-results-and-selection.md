@@ -13,7 +13,8 @@ doc_topics: [storage, libraries, design, validation]
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
+progress. Original authoring baselines and receipts retain their dates.
 
 This companion develops R4 and F06 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)

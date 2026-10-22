@@ -11,7 +11,8 @@ doc_topics: [storage, libraries, design, validation]
 # SurrealMX canonical store and generated lifecycle
 
 Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
+progress. Original authoring baselines and receipts retain their dates.
 
 This companion develops the canonical-store target of
 [Plan49](49-library-native-remediation.md). The coordinator owns all mutable package
@@ -483,3 +484,52 @@ replays; cancellation preserves unknown-effect precedence; a stale revision cann
 claim. Qualify the changed operation across independent clients, while retaining existing
 STO qualification at its recorded scope. The current payload-drain-owned SDK rejects
 `stream_items`; bounded pages require no new streaming seam. I28 owns any later integration.
+
+### I26 — Surrealism decision investigation, 2026-10-22
+
+**Interface-checked:** the selected 3.3.4 source supports a meaningful candidate: call a
+read-only WASI export containing the same `study_policy::candidate_action` from inside a
+generated readiness transaction, then apply its decisions with the existing guarded SQL.
+The tagged [module executor](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/legacy/expr/module.rs)
+passes the query context timeout into `invoke_with_timeout`; its
+[host adapter](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/surrealism/host.rs)
+retains the query context/options and narrows module capabilities. This establishes a
+source-level integration seam, not tested rollback, cancellation or deployment behavior.
+The [module architecture guide](https://surrealdb.com/docs/learn/extensions/guides/module-architecture)
+describes pooled WASI components and marshalled values. Moving policy into the database
+therefore removes a client round trip and externally stale scope window; it does not remove
+policy decoding or all allocation/copying.
+
+**Recommendation:** retain STO09's batched Rust-policy composition for this execution.
+The policy is already one effect-free owner; batching removes its per-point coordination
+without a new binary activation contract. The WASI alternative remains technically attractive
+for eliminating the remaining scope/apply boundary, but no measured residual burden currently
+justifies changing that selected deployment target. Experimental status alone is not the
+reason to reject it. No Surrealism module or server capability is enabled by this inquiry.
+RC22 remains unselected, as requested by the maintainer's investigate-then-decide choice.
+
+A concrete adoption proposal would have the following contract:
+
+- Extract the existing policy and its typed DTO dependency closure into one shared pure
+  source owner, consumed by native callers and a pinned `wasm32-wasip2` export. Do not fork
+  the policy into SQL or copy it into a module. The current `pse-model` dependency closure
+  must be WASI-compiled rather than assumed compatible.
+- Pass one complete, byte-bounded scope to a read-only export and receive only decisions.
+  Deny arbitrary SQL, network, scripting and module KV. Keep scope selection, complete
+  revision validation, hint/cursor changes and immutable receipts in the enclosing generated
+  transaction. Module KV and persistent pooled statics own no scientific or lifecycle state.
+- Pin SDK/ABI, module bytes and policy interpretation with the server/schema activation
+  identity. Build/upload/definition must complete before activation; clients refuse a
+  missing or mismatched module. Regeneration is acceptable; mixed policy versions are not.
+- Bound controller count, linear memory and execution time explicitly; query deadline and
+  transaction age continue to apply. Map trap, timeout, saturation and malformed return to
+  rollback/refusal with truthful dispatched-effect settlement. Retain the original receipt
+  after an uncertain response; a module exception never establishes absence.
+
+Independent acceptance would compare native/module decisions over the existing dependency,
+retry, seed, cancellation and Unknown-effect cases, then exercise rollback of sibling writes,
+trap/timeout, controller saturation, restart, activation mismatch and lost acknowledgements
+on the actual selected server. None was run for this inquiry. Revisit when a representative
+STO09 workload demonstrates that its remaining scope/apply coordination is a material burden,
+or a new named atomic policy consumer needs this seam. That observation would justify a
+bounded module prototype and an explicit RC22/GOV02 decision before production adoption.
