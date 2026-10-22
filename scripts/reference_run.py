@@ -46,15 +46,24 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
             observed = surreal_server.service_readiness(state, config)
             if observed.phase is not surreal_server.Readiness.ACTIONABLE_ABSENT:
                 raise ValueError("reference-run requires an observed stopped owned service")
+            if config.get("admission") == "validation_required" or config.get("derived_rebuild_pending"):
+                value["initialize"] = phase("initialize", state, "--initializer-command", str(initializer), "canonical-init", str(state))
+                if value["initialize"] != 0:
+                    return value
+                config = surreal_server.config_for(state)
+            else:
+                value["initialize"] = "already admitted"
             surreal_server.start(state, config)
             selected = surreal_server.storage_unit_observation(state)
             value["start"] = "complete"
-        value["initialize"] = phase("initialize", state, "--initializer-command", str(initializer), "canonical-init", str(state))
         checkpoint(invocation, value)
-        if value["initialize"] != 0:
-            return value
         observation: dict[str, object] = {}
-        value["workload"] = native_operation.run_child_scope(command, dict(os.environ), cwd=ROOT, observation=observation)
+        environment = dict(os.environ)
+        receiver = surreal_server.config_for(state).get("primary_receiver")
+        if isinstance(receiver, dict) and isinstance(receiver.get("worker_executable"), str):
+            environment["PSE_WORKER_BINARY"] = receiver["worker_executable"]
+            value["worker_executable"] = receiver["worker_executable"]
+        value["workload"] = native_operation.run_child_scope(command, environment, cwd=ROOT, observation=observation)
         value["process"] = observation
         value["signal"] = observation.get("forwarded_signal")
         value["drain"] = observation.get("owned_drain", "unobserved")

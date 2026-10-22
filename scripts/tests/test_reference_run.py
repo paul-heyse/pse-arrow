@@ -30,7 +30,7 @@ class ReferenceRunTests(unittest.TestCase):
         owner = SimpleNamespace(nonce="a" * 32, profile=SimpleNamespace(name="reference"))
         with (
             patch.object(reference_run.host_admission, "inherit", return_value=owner),
-            patch.object(reference_run.surreal_server, "config_for", side_effect=[{"instance_id": "initial"}, {"instance_id": "changed" if changed else "initial"}]),
+            patch.object(reference_run.surreal_server, "config_for", side_effect=[{"instance_id": "initial", "admission": "validation_required"}, {"instance_id": "initial"}, {"instance_id": "initial", "primary_receiver": {"worker_executable": "/admitted/worker"}}, {"instance_id": "changed" if changed else "initial"}]),
             patch.object(reference_run.surreal_server, "lifecycle_reservation", side_effect=lambda *args, **kwargs: contextlib.nullcontext()),
             patch.object(reference_run.surreal_server, "service_readiness", return_value=SimpleNamespace(phase=surreal_server.Readiness.ACTIONABLE_ABSENT)),
             patch.object(reference_run.surreal_server, "start", side_effect=lambda *args: calls.append(("start",))),
@@ -44,7 +44,7 @@ class ReferenceRunTests(unittest.TestCase):
 
     def test_same_owner_phases_and_literal_workload(self) -> None:
         result, calls = self.run_lifetime()
-        self.assertEqual([item[0] for item in calls], ["start", "initialize", "work", "quiesce", "stop"])
+        self.assertEqual([item[0] for item in calls], ["initialize", "start", "work", "quiesce", "stop"])
         self.assertEqual(result["allocation"], "a" * 32)
         self.assertEqual(result["workload"], 0)
         self.assertEqual(result["cleanup"], 0)

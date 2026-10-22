@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import os
+import stat
 from pathlib import Path
 
 from scripts import resource_store, test_resources
@@ -13,10 +16,10 @@ from scripts import resource_store, test_resources
 def resolve(handle: str, registry: Path | None = None) -> tuple[Path, dict, dict]:
     """An exact ID uses the selected registry; a declaration must belong to it."""
     root = registry if registry is not None else test_resources.registry()
-    if not root.is_absolute() or any(path.is_symlink() for path in (root, *root.parents)):
+    if not root.is_absolute() or ".." in root.parts or any(path.is_symlink() for path in (root, *root.parents)):
         raise ValueError("registry must be an absolute directory without symlinks")
     path = root / "invocations" / f"{handle}.json" if test_resources.IDENTIFIER.fullmatch(handle) else Path(handle).absolute()
-    if path.parent != root / "invocations" or path.is_symlink():
+    if path.parent != root / "invocations" or any(item.is_symlink() for item in (path, *path.parents)):
         raise ValueError("invocation declaration does not belong to the selected registry")
     declaration = test_resources.read_invocation(path)
     if path.stem != declaration["nonce"]:
@@ -29,6 +32,39 @@ def resolve(handle: str, registry: Path | None = None) -> tuple[Path, dict, dict
 
 def subject_identity(kind: str, selected: dict) -> str:
     return selected["binary_id"] + "::" + selected["name"] if kind == "rust" else selected["name"]
+
+
+def artifact_observation(path: Path, digest: str, tail: int, record: dict | None) -> dict:
+    """Read the exact referenced descriptor through the resource owner's file reader."""
+    result = {"path": str(path), "status": "available", "recorded_digest": digest, "tail": []}
+    try:
+        with contextlib.ExitStack() as contexts:
+            if record is not None:
+                directory = contexts.enter_context(test_resources.report_directory(record))
+            else:
+                flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+                directory = os.open(path.anchor, flags)
+                contexts.callback(os.close, directory)
+                for part in path.parent.parts[1:]:
+                    directory = os.open(part, flags, dir_fd=directory)
+                    contexts.callback(os.close, directory)
+            _parent, _name, stream = contexts.enter_context(test_resources.artifact_file(directory, path.name))
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise ValueError("artifact is not an ordinary file")
+            observed = hashlib.file_digest(stream, "sha256").hexdigest()
+            result["observed_digest"] = observed
+            if observed != digest:
+                result["status"] = "changed"
+                return result
+            stream.seek(max(0, before.st_size - 65536))
+            result["tail"] = stream.read().decode(errors="replace").splitlines()[-tail:]
+            after = os.fstat(stream.fileno())
+            if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
+                result.update(status="changed", tail=[])
+    except (OSError, ValueError, RuntimeError) as error:
+        result.update(status="missing" if isinstance(error, FileNotFoundError) else "unavailable", error=str(error))
+    return result
 
 
 def product_result(handle: str, *, registry: Path | None = None, subject: str | None = None,
@@ -72,10 +108,8 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
     if tail:
         # Only explicit artifact references from the authentic terminal may be read.
         # Protect report directories through their current owner for the full read.
-        from scripts.validation_result import file_observation
-
         with contextlib.ExitStack() as borrows:
-            borrowed = set()
+            borrowed = {}
             for name, reference in artifacts.items():
                 if not isinstance(name, str) or not isinstance(reference, str):
                     continue  # binary/extension association is metadata, not a log
@@ -87,14 +121,18 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
                     path = Path(base) / path
                     if not path.is_relative_to(Path(base)) or ".." in path.parts:
                         raise ValueError("artifact reference escapes its recorded base")
-                directory = path.parent.resolve()
+                if ".." in path.parts or any(item.is_symlink() for item in (path.parent, *path.parent.parents)):
+                    payloads.append({"path": str(path), "status": "unavailable", "recorded_digest": reference,
+                                     "tail": [], "error": "artifact reference traverses a changed path"})
+                    continue
+                directory = path.parent
                 if directory not in borrowed:
                     # Explicit registry selection applies to protections as well.
                     resource = store.identity_lookup([str(directory), "", "evidence"])
                     if resource is not None:
                         borrows.enter_context(test_resources.borrow(resource, store=store))
-                    borrowed.add(directory)
-                payloads.append({**file_observation(directory / path.name, tail), "recorded_digest": reference})
+                    borrowed[directory] = test_resources.entry_facts(store._entry(resource)) if resource is not None else None
+                payloads.append(artifact_observation(directory / path.name, reference, tail, borrowed[directory]))
     unreported = [name for name in catalog if name not in outcomes]
     return {"kind": "product-test", "registry": str(root), "invocation": declaration["nonce"],
             "run_kind": declaration["kind"], "run_path": str(root / "invocations" / (declaration["nonce"] + ".json")),

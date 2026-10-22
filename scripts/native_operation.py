@@ -1019,12 +1019,18 @@ def register_composer(
     )
 
     deadline = resources.resource_store.clock(deadline)
+    declaration = resources.read_invocation(invocation)
+    nonce = declaration["nonce"]
+    composer = {"pid": os.getpid(), "start": start_identity(os.getpid()),
+                "boot": resources.host.boot(), "scope": resources.execution_owner(deadline=deadline)}
+    with resources.storage().invocation_edit(nonce, deadline=deadline) as selected:
+        if selected["phase"] != "open" or selected.get("composer") is not None:
+            raise ValueError("Invocation membership is closed or already has its selected composer")
+        selected["composer"] = composer
     parent = owner_record(deadline=deadline)
     if parent is None or scope_owner(deadline=deadline) is None:
         return None
 
-    declaration = resources.read_invocation(invocation)
-    nonce = declaration["nonce"]
     registry = resources.registry().resolve()
     if (
         invocation != registry / "invocations" / f"{nonce}.json"
@@ -1097,7 +1103,11 @@ def register_terminal_guard(
 def terminal_guard_complete(
     nonce: str, guard: object, *, deadline: float | None = None
 ) -> bool:
-    """An exact acknowledgment is an independent premise of host drain."""
+    """Authentic terminal ACK or explicit abandoned membership, plus exact ownership.
+
+    Abandonment is a separate disposition and never creates an acknowledgment or
+    changes the selected composer's outcome record. Physical drain remains required.
+    """
     try:
         from scripts import (  # noqa: PLC0415 -- reciprocal admission/resource ownership
             resource_store,
@@ -1141,7 +1151,6 @@ def terminal_guard_complete(
         if (
             composer is None
             or composer.get("token") != guard["token"]
-            or composer.get("phase") != "complete"
         ):
             return False
         registry = Path(str(composer["registry"]))
@@ -1150,6 +1159,27 @@ def terminal_guard_complete(
             composer.get("invocation") != str(invocation)
             or invocation != invocation.resolve()
         ):
+            return False
+        if composer.get("phase") != "complete":
+            if composer.get("phase") != "registered":
+                return False
+            state = resource_store.FileStore(registry).invocation_snapshot(nonce)
+            abandonment = state.get("abandonment")
+            selected_composer = state.get("composer")
+            if isinstance(abandonment, dict):
+                from scripts import host_admission as host
+
+                return (
+                    state["phase"] in {"abandoned", "frozen"}
+                    and re.fullmatch(r"[a-f0-9]{32}", str(abandonment.get("identity", ""))) is not None
+                    and abandonment.get("selection") == resource_store.digest(state["declaration"]["selected"])
+                    and abandonment.get("members") == list(state["members"])
+                    and isinstance(selected_composer, dict)
+                    and all(selected_composer.get(key) == composer.get(key) for key in ("pid", "start", "scope"))
+                    and selected_composer.get("scope") == guard["scope"]
+                    and not host.caller_alive(selected_composer)
+                    and drained({"scope": guard["scope"]}, **deadline_options(deadline)).complete
+                )
             return False
         identity, _terminal = resource_store.FileStore(registry).terminal(
             nonce, deadline=deadline

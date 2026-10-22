@@ -95,16 +95,22 @@ class RunInspectionTests(unittest.TestCase):
         log.write_text("old\nnew\n")
         resource = test_resources.register_report(directory, root=self.root)
         self.freeze(code=1, artifacts={"failure.log": test_resources.file_digest(log)}, artifact_base=str(directory))
-        original = validation_result.file_observation
-        def guarded(path: Path, lines: int) -> dict:
+        original = run_inspection.artifact_observation
+        def guarded(path: Path, digest: str, lines: int, record: dict | None) -> dict:
             self.assertTrue(test_resources.resource_status(resource)["borrows"])
-            return original(path, lines)
-        with patch.object(validation_result, "file_observation", side_effect=guarded):
+            return original(path, digest, lines, record)
+        with patch.object(run_inspection, "artifact_observation", side_effect=guarded):
             self.assertEqual(self.read(tail=1)["payloads"][0]["tail"], ["new"])
         self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
-        with patch.object(validation_result, "file_observation", side_effect=OSError("read error")), self.assertRaises(OSError):
+        with patch.object(run_inspection, "artifact_observation", side_effect=OSError("read error")), self.assertRaises(OSError):
             self.read(tail=1)
         self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
+        log.write_text("changed payload")
+        self.assertEqual(self.read(tail=1)["payloads"][0]["status"], "changed")
+        log.unlink()
+        log.symlink_to(self.root / "outside")
+        (self.root / "outside").write_text("not owned")
+        self.assertEqual(self.read(tail=1)["payloads"][0]["status"], "unavailable")
 
 
 if __name__ == "__main__":

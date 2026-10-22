@@ -42,6 +42,14 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(result["attempts"][0]["age_seconds"], 3)
         self.assertEqual(result["inotify"]["max_user_watches"]["remaining_capacity"], "unknown")
 
+    def test_empty_scope_retains_manager_lifetime_explanation(self) -> None:
+        fields = {"InvocationID": "a" * 32, "ControlGroup": "/empty", "LoadState": "loaded", "ActiveState": "active"}
+        with patch.object(activity.native_operation, "unit_observation", return_value=fields), patch.object(activity.native_operation, "populated", return_value=False):
+            observed, errors = activity.units(["pse-empty.scope"])
+        self.assertEqual(errors, [])
+        self.assertEqual(observed[0]["population"], "empty")
+        self.assertIn("user manager", observed[0]["wait_explanation"])
+
     def test_checkpoint_is_atomic_throttled_and_keeps_original_deadline(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary) / "host"

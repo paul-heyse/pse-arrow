@@ -372,7 +372,7 @@ class FileStore:
             state = read(path)
             if (
                 state.get("version") != 2
-                or state.get("phase") not in {"open", "frozen", "unresolved"}
+                or state.get("phase") not in {"open", "frozen", "unresolved", "abandoned"}
                 or not isinstance(state.get("members"), dict)
             ):
                 raise StoreError("Unknown invocation coordination authority")
@@ -456,6 +456,52 @@ class FileStore:
                         # durable authority from the pending/uncertain member.
         return resource
 
+    def _settle_members(self, state: dict, nonce: str, deadline: float) -> None:
+        """Resolve exact Pending metadata under the invocation exclusion."""
+        for resource, member in list(state["members"].items()):
+            if member.get("phase") == "registered":
+                continue
+            if member.get("phase") != "pending" or not isinstance(
+                member.get("identity"), list
+            ):
+                raise StoreError("Unknown pending invocation member")
+            logical = member["identity"]
+            with (
+                self.lock("identities", digest(logical), deadline),
+                self.lock("resources", resource, deadline),
+            ):
+                path = self.path("resources", resource)
+                if not path.exists():
+                    if member.get("publication") == "not-started":
+                        del state["members"][resource]
+                        continue
+                    raise StoreError(
+                        "Uncertain resource publication remains pinned"
+                    )
+                entry = self._entry(resource)
+                if (
+                    entry.identity != logical
+                    or entry.facts.get("invocation") != nonce
+                ):
+                    raise StoreError(
+                        "Pending member contradicts resource authority"
+                    )
+                index = self.path("identities", digest(logical))
+                expected = {"identity": logical, "resource": resource}
+                if index.exists() and read(index) != expected:
+                    raise StoreError(
+                        "Pending member has contradictory logical index"
+                    )
+                publish(index, expected)
+                pending = self.path("identity-pending", digest(logical))
+                if pending.exists():
+                    if read(pending) != expected:
+                        raise StoreError("Pending logical identity conflicts")
+                    pending.unlink()
+                    sync_directory(pending.parent)
+                self._save(entry)
+                member.update(phase="registered", publication="durable")
+
     def freeze(
         self,
         nonce: str,
@@ -468,6 +514,8 @@ class FileStore:
         deadline = clock(deadline)
         identity = digest(terminal)
         with self.invocation_edit(nonce, deadline=deadline) as state:
+            if state["phase"] == "abandoned":
+                raise StoreError("Invocation membership was explicitly abandoned; terminal freeze refused")
             if declaration is not None and state["declaration"] != declaration:
                 raise StoreError(
                     "Invocation declaration differs from terminal selection authority"
@@ -483,49 +531,7 @@ class FileStore:
                 if on_frozen is not None:
                     on_frozen()
                 return list(state["members"])
-            for resource, member in list(state["members"].items()):
-                if member.get("phase") == "registered":
-                    continue
-                if member.get("phase") != "pending" or not isinstance(
-                    member.get("identity"), list
-                ):
-                    raise StoreError("Unknown pending invocation member")
-                logical = member["identity"]
-                with (
-                    self.lock("identities", digest(logical), deadline),
-                    self.lock("resources", resource, deadline),
-                ):
-                    path = self.path("resources", resource)
-                    if not path.exists():
-                        if member.get("publication") == "not-started":
-                            del state["members"][resource]
-                            continue
-                        raise StoreError(
-                            "Uncertain resource publication remains pinned"
-                        )
-                    entry = self._entry(resource)
-                    if (
-                        entry.identity != logical
-                        or entry.facts.get("invocation") != nonce
-                    ):
-                        raise StoreError(
-                            "Pending member contradicts resource authority"
-                        )
-                    index = self.path("identities", digest(logical))
-                    expected = {"identity": logical, "resource": resource}
-                    if index.exists() and read(index) != expected:
-                        raise StoreError(
-                            "Pending member has contradictory logical index"
-                        )
-                    publish(index, expected)
-                    pending = self.path("identity-pending", digest(logical))
-                    if pending.exists():
-                        if read(pending) != expected:
-                            raise StoreError("Pending logical identity conflicts")
-                        pending.unlink()
-                        sync_directory(pending.parent)
-                    self._save(entry)
-                    member.update(phase="registered", publication="durable")
+            self._settle_members(state, nonce, deadline)
             state.update(phase="frozen", terminal=terminal, terminal_identity=identity)
             publish(self.path("invocation-state", nonce), state)
             if on_frozen is not None:
@@ -557,7 +563,7 @@ class FileStore:
         state = read(self.path("invocation-state", nonce))
         if (
             state.get("version") != 2
-            or state.get("phase") not in {"open", "frozen", "unresolved"}
+            or state.get("phase") not in {"open", "frozen", "unresolved", "abandoned"}
             or not isinstance(state.get("members"), dict)
             or not isinstance(state.get("declaration"), dict)
             or state["declaration"].get("nonce") != nonce
@@ -571,6 +577,27 @@ class FileStore:
         ):
             raise StoreError("Invalid frozen invocation terminal")
         return state
+
+    def abandon(self, nonce: str, expected: dict, *, deadline: float | None = None) -> dict:
+        """Close exact membership without manufacturing a terminal or an ACK.
+
+        Physical observation precedes this short compare-and-fence transition.
+        Any changed member/composer requires a new observation, never a blind retry.
+        """
+        deadline = clock(deadline)
+        with self.invocation_edit(nonce, deadline=deadline) as state:
+            if state != expected:
+                raise StoreError("Invocation changed since abandonment inspection; inspect again")
+            if state.get("abandonment") is not None:
+                return state["abandonment"]
+            self._settle_members(state, nonce, deadline)
+            disposition = {"version": 1, "identity": uuid.uuid4().hex, "selection": digest(state["declaration"]["selected"]),
+                           "members": list(state["members"]), "phase": "fenced", "resources": {}}
+            state["abandonment"] = disposition
+            if state["phase"] != "frozen":
+                state["phase"] = "abandoned"
+            # invocation_edit durably publishes the fence before caller effects.
+            return disposition
 
     def migrate(self, *, deadline: float | None = None) -> None:
         """Explicit cutover/recovery. Callers must separately authorize existing content."""

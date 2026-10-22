@@ -1075,6 +1075,7 @@ def run_gates(
         finally:
             if resource_invocation is not None:
                 try:
+                    record["artifact_base"] = str(output.absolute())
                     test_run.finish(resource_invocation, record, "assessment")
                 except Exception as error:
                     record["report_errors"].append(

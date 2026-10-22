@@ -92,7 +92,20 @@ def units(
                     f"{name} unavailable: ValueError: unit disappeared during observation"
                 )
             else:
-                found.append({"unit": name, "active": fields["ActiveState"], **fields})
+                item = {"unit": name, "active": fields["ActiveState"], **fields}
+                try:
+                    if not fields.get("ControlGroup") and fields["ActiveState"] in {"inactive", "failed"}:
+                        present = False
+                        item["population"] = "no-current-group"
+                    else:
+                        present = native_operation.populated(fields.get("ControlGroup", ""))
+                        item["population"] = "populated" if present else "empty"
+                    if not present and fields["ActiveState"] in {"active", "activating", "deactivating"}:
+                        item["wait_explanation"] = "owned group observed empty; user manager still reports a live unit lifetime"
+                except (OSError, ValueError) as error:
+                    item["population"] = "unavailable"
+                    errors.append(f"{name} population unavailable: {error}")
+                found.append(item)
     return found, errors
 
 
@@ -266,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
                 f" {elapsed(unit.get('ActiveEnterTimestampMonotonic', '')):>7}"
                 f"  {first_command(unit.get('ControlGroup', ''))}"
             )
+            if unit.get("wait_explanation"):
+                print(f"  {unit['wait_explanation']}")
     elif units_available:
         print("\nno pse-* units")
     if builds:

@@ -251,6 +251,28 @@ def registry() -> Path:
     return host.root_path().parent / "test-resources"
 
 
+def execution_owner(*, deadline: float | None = None) -> dict | None:
+    """Observe native or ordinary command membership through the existing host binding."""
+    selected = operation.scope_owner(**operation.deadline_options(deadline))
+    if selected is not None:
+        return dict(selected)
+    allocation = host.inherit(os.environ, **operation.deadline_options(deadline))
+    if allocation is None:
+        return None
+    snapshot = host.readonly_snapshot(allocation.directory, deadline=resource_store.clock(deadline))
+    record = snapshot["owners"].get(allocation.nonce)
+    group = operation.process_group(os.getpid())
+    if not isinstance(record, dict):
+        return None
+    for unit, binding in record["units"].items():
+        control = binding.get("group")
+        if isinstance(control, str) and (group == control or group.startswith(control + "/")):
+            observed = operation.unit_observation(unit, **operation.deadline_options(deadline))
+            if observed.get("InvocationID") == binding.get("invocation") and observed.get("ControlGroup") == control:
+                return {"unit": unit, "group": control, "invocation": binding["invocation"]}
+    return None
+
+
 def invocation(
     kind: str,
     selected: Sequence[Mapping[str, object]],
@@ -270,6 +292,19 @@ def invocation(
         "terminal_owner": terminal_owner,
     }
     storage().create_invocation(declaration)
+    producer = {"pid": os.getpid(), "start": operation.start_identity(os.getpid()),
+                "boot": host.boot(), "scope": execution_owner(),
+                "allocation": os.environ.get(host.MARKER),
+                "operation": str(operation.current()) if operation.current() else None}
+    if producer["allocation"] and producer["scope"] is not None:
+        allocation_path = Path(producer["allocation"])
+        owner = host.readonly_snapshot(allocation_path.parent, deadline=resource_store.clock())["owners"].get(allocation_path.name)
+        if owner is not None:
+            binding = owner["units"].get(producer["scope"]["unit"], {})
+            if binding.get("group") == producer["scope"]["group"] and binding.get("invocation") == producer["scope"]["invocation"]:
+                producer["allocation_owner"] = {key: owner[key] for key in ("pid", "start", "boot")}
+    with storage().invocation_edit(nonce) as state:
+        state["producer"] = producer
     resource_store.publish(path, declaration)
     return path
 
@@ -398,6 +433,10 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         raise ResourceError("Canonical fixture requires --execution-effects canonical")
     marker = os.environ.get(MARKER)
     declaration = read_invocation(Path(marker)) if marker else None
+    if declaration is not None:
+        image = storage().invocation_snapshot(declaration["nonce"])
+        if image["phase"] != "open" or image.get("declaration") != declaration:
+            raise ResourceError("Invocation membership is closed; fixture registration refused before effects")
     nonce, test = selected_test(payload, declaration=declaration)
     state = Path(str(payload["state"])).resolve(strict=True)
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
@@ -1647,15 +1686,26 @@ def main() -> int:
             "reclaim",
             "migrate",
             "resume",
+            "abandon",
         ),
     )
     parser.add_argument("resource", nargs="?")
     parser.add_argument("--receipt")
     parser.add_argument("--digest")
+    parser.add_argument("--apply", action="store_true", help="apply exact invocation abandonment instead of inspection")
+    parser.add_argument("--seconds", type=float, default=30)
     parser.add_argument(
         "--terminal-owner", choices=("runner", "standalone", "assessment")
     )
     args = parser.parse_args()
+    if args.apply and args.action != "abandon":
+        parser.error("--apply belongs to invocation abandonment")
+    if args.action == "abandon":
+        if not args.resource:
+            parser.error("abandon requires an exact invocation declaration or identity")
+        from scripts import invocation_disposition
+
+        return invocation_disposition.main([args.resource, "--seconds", str(args.seconds), *(["--apply"] if args.apply else [])])
     if args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(
