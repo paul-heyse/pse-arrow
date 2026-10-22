@@ -1607,3 +1607,49 @@ fn typed_ordinary_fields_preserve_inactive_aliases_and_membership_changes() {
         assert_eq!(incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".chosen")),source.contains("=true"));
     }
 }
+
+#[test]
+fn inherited_numerical_body_edits_preserve_structural_preludes() {
+    let executions=Arc::new(AtomicUsize::new(0));
+    let observed=executions.clone();
+    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
+        let event=format!("{:?}",event.kind);
+        if event.contains("WillExecute") && event.contains("instance_prelude(") {observed.fetch_add(1,Ordering::Relaxed);}
+    }))).unwrap();
+    let original="package p {interface Base {var x:Scalar;eq inherited:x==2;} def Root:Base {eq local:x==1;}}";
+    for source in [original.to_owned(),original.replace("x==2","x==3"),original.to_owned()] {
+        let declarations=rows(&source);
+        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+        let instance=pse_modeling::specialize::root_instance(root);
+        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
+        assert_eq!(incremental.as_ref(),&clean);
+        assert_eq!(executions.load(Ordering::Relaxed),1,"an interface's numerical child body is not a static construction premise");
+    }
+}
+
+#[test]
+fn ordinary_field_premises_follow_actual_instances_and_forwarded_sources() {
+    let executions=Arc::new(AtomicUsize::new(0));
+    let observed=executions.clone();
+    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
+        let event=format!("{:?}",event.kind);
+        if event.contains("WillExecute") && event.contains("field_fragment(") {observed.fetch_add(1,Ordering::Relaxed);}
+    }))).unwrap();
+    let original="package p {def Unit(k:Scalar) {var x:Scalar;eq e:x==k;} def Root {child a:Unit=Unit(k=1);child b:Unit=Unit(k=2);}}";
+    let mut counts=Vec::new();
+    for source in [original.to_owned(),original.replace("k=2", "k=3"),original.to_owned()] {
+        let declarations=rows(&source);
+        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+        let instance=pse_modeling::specialize::root_instance(root);
+        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
+        assert_eq!(incremental.as_ref(),&clean);
+        counts.push(executions.load(Ordering::Relaxed));
+    }
+    assert_eq!(counts[0],4);
+    assert_eq!(counts[1]-counts[0],2,"another instance of the same definition is not this field's premise");
+    assert_eq!(counts[2],counts[1],"A/B/A retains each actual instance's original source product");
+}

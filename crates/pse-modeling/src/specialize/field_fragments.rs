@@ -152,6 +152,7 @@ pub fn derive(input: &FieldFragmentInput, fragments: Option<&dyn prelude::Fragme
         let symbols=state.symbols.into_iter().filter(|(key,value)|prior.symbols.get(key)!=Some(value)).collect::<BTreeMap<_,_>>();
         if symbols.is_empty()&&state.selections.is_empty() {None} else {Some((id,StateEffects{symbols,selections:state.selections}))}
     }).collect();
+    engine.continuity_done.retain(|family|!recipe.continuity_done.contains(family));
     Ok(FieldFragment { typed, inspection: rewritten.inspection, model: engine.model, states,bindings,
         selections: engine.selection_collector.into_inner(), finite: engine.finite_collector.finish(),
         original_guards: engine.original_guards, construction_items: engine.count, continuity_done: engine.continuity_done })
@@ -162,29 +163,39 @@ impl Engine<'_, '_> {
         let at = chain.last().copied().unwrap_or(self.states[&instance].definition);
         let source = self.original_expression_source(expression,at)?;
         let mut additional = chain.to_vec();
+        let mut instances = BTreeSet::new();
         let mut owner=Some(instance);
-        while let Some(id)=owner {additional.push(self.states[&id].definition);owner=self.states[&id].parent;}
+        while let Some(id)=owner {instances.insert(id);additional.push(self.states[&id].definition);owner=self.states[&id].parent;}
         // Resolve only structural namespace routes. Do not evaluate indices, realize
         // members, simplify guards or issue source-selection receipts during capture.
-        fn path_dependencies(states:&BTreeMap<InstanceId,State>, instance:InstanceId, segments:&[PathSegment], ancestor:bool, out:&mut Vec<DeclarationId>) {
+        fn path_dependencies(states:&BTreeMap<InstanceId,State>, instance:InstanceId, segments:&[PathSegment], ancestor:bool, out:&mut Vec<DeclarationId>, instances:&mut BTreeSet<InstanceId>) {
+            instances.insert(instance);
             let Some((first,rest))=segments.split_first() else{return};
             let state=&states[&instance];
-            if first.name=="parent" {if let Some(parent)=state.parent {path_dependencies(states,parent,rest,true,out);}return;}
+            if first.name=="parent" {if let Some(parent)=state.parent {path_dependencies(states,parent,rest,true,out,instances);}return;}
             if let Some(member)=state.members.get(&first.name) {
                 out.push(*member);
-                if !rest.is_empty() {for ((name,_),child) in &state.children {if name==&first.name {path_dependencies(states,*child,rest,false,out);}}}
-            } else if ancestor {if let Some(parent)=state.parent {path_dependencies(states,parent,segments,true,out);}}
+                if !rest.is_empty() {for ((name,_),child) in &state.children {if name==&first.name {path_dependencies(states,*child,rest,false,out,instances);}}}
+            } else if ancestor {if let Some(parent)=state.parent {path_dependencies(states,parent,segments,true,out,instances);}}
         }
-        fn expression_dependencies(states:&BTreeMap<InstanceId,State>,instance:InstanceId,expression:&Expr,out:&mut Vec<DeclarationId>) {
+        fn expression_dependencies(states:&BTreeMap<InstanceId,State>,instance:InstanceId,expression:&Expr,out:&mut Vec<DeclarationId>,instances:&mut BTreeSet<InstanceId>) {
+            let mut coupled=false;
             expression.walk(|value| {
+                coupled |= matches!(value.kind, ExprKind::Derivative{..}|ExprKind::Reduce{kind:dsl::ReduceKind::Integral,..});
                 let path=match &value.kind {
                     ExprKind::Path(path)|ExprKind::NamedCall{name:path,..}|ExprKind::Partial{function:path,..}|ExprKind::Derivative{wrt:path,..}=>Some(path),
                     ExprKind::Reduce{binder,..}|ExprKind::Fold{binder,..}=>Some(&binder.domain), _=>None,
                 };
-                if let Some(path)=path {path_dependencies(states,instance,&path.segments,true,out);}
+                if let Some(path)=path {path_dependencies(states,instance,&path.segments,true,out,instances);}
             });
+            // Stencils and quadratures deliberately substitute replica coordinates.
+            // Ordinary fields retain only the actual lexical/path contexts above.
+            if coupled {
+                let definition=states[&instance].definition;
+                instances.extend(states.iter().filter(|(_,state)|state.definition==definition).map(|(id,_)|*id));
+            }
         }
-        expression_dependencies(&self.states,instance,expression,&mut additional);
+        expression_dependencies(&self.states,instance,expression,&mut additional,&mut instances);
         fn dependencies(value: &Value, out: &mut Vec<DeclarationId>) {
             match value {
                 Value::Function(id) => out.push(*id), Value::Definition {id,bindings} => {out.push(*id); for value in bindings.values(){dependencies(value,out);}},
@@ -194,32 +205,56 @@ impl Engine<'_, '_> {
             }
         }
         for value in env.values().chain(self.states[&instance].env.values()) { dependencies(value,&mut additional); }
-        for source in self.numerical_sources.values().chain(self.set_alias_sources.values()) {
-            if additional.contains(&self.states[&source.instance].definition) {
-                additional.push(source.declaration);
-                expression_dependencies(&self.states,source.instance,&source.expression,&mut additional);
-            }
-        }
         let mut dependencies=additional.into_iter().collect::<BTreeSet<_>>();
         let package=loop {
             self.checkpoint()?;
+            let previous=(dependencies.len(),instances.len());
+            // Parameter aliases can live at a shared temporal owner. Keep its actual
+            // context and ancestry rather than every instance of its declaration.
+            let mut owners=instances.iter().copied().collect::<Vec<_>>();
+            while let Some(id)=owners.pop() {
+                dependencies.insert(self.states[&id].definition);
+                for owner in self.states[&id].parent.into_iter().chain(self.temporal_owners.get(&id).copied()) {
+                    if instances.insert(owner) {owners.push(owner);}
+                }
+            }
+            // Forwarded parameters retain the constructor's original read source.
+            // Select by the receiving instance, which can differ from its lexical
+            // source owner; otherwise a numerical argument would lose its guards.
+            for ((target,_),source) in &self.numerical_sources {
+                if instances.contains(target) {
+                    dependencies.insert(source.declaration);
+                    instances.insert(source.instance);
+                }
+            }
+            for source in self.set_alias_sources.values() {
+                dependencies.insert(source.declaration);
+                instances.insert(source.instance);
+            }
             let package=self.p.select_field(source.field.declaration,&dependencies.iter().copied().collect::<Vec<_>>())?;
             let mut reached=Vec::new();
             for (field,checked) in &package.expressions {
                 for (instance,state) in &self.states {
-                    if state.definition==field.declaration || state.members.values().any(|id|*id==field.declaration) {
+                    if instances.contains(instance) && (state.definition==field.declaration || state.members.values().any(|id|*id==field.declaration)) {
                         for expression in crate::expression::inventory::field(&checked.syntax) {
-                            expression_dependencies(&self.states,*instance,expression,&mut reached);
+                            expression_dependencies(&self.states,*instance,expression,&mut reached,&mut instances);
                         }
                     }
                 }
             }
-            let previous=dependencies.len();
+            for ((target,_),source) in &self.numerical_sources {
+                if instances.contains(target) && package.declarations.contains_key(&source.declaration) {
+                    reached.push(source.declaration);
+                    expression_dependencies(&self.states,source.instance,&source.expression,&mut reached,&mut instances);
+                }
+            }
+            for source in self.set_alias_sources.values() {
+                expression_dependencies(&self.states,source.instance,&source.expression,&mut reached,&mut instances);
+            }
             dependencies.extend(reached);
-            if dependencies.len()==previous {break Arc::new(package);}
+            if (dependencies.len(),instances.len())==previous {break Arc::new(package);}
         };
-        let mut states = self.states.iter().filter(|(id,state)| **id==instance || package.declarations.contains_key(&state.definition)
-            || state.members.values().any(|id|package.declarations.contains_key(id))).map(|(id,state)|(*id,state.clone())).collect::<BTreeMap<_,_>>();
+        let mut states = self.states.iter().filter(|(id,_)| instances.contains(id)).map(|(id,state)|(*id,state.clone())).collect::<BTreeMap<_,_>>();
         // Preserve lexical ancestry and complete namespaces, including failed lookups.
         let mut owner = Some(instance);
         while let Some(id)=owner { let state=&self.states[&id]; states.entry(id).or_insert_with(||state.clone()); owner=state.parent; }
@@ -253,11 +288,16 @@ impl Engine<'_, '_> {
         context.integrals = self.model.integrals.iter().filter(|(_,value)|foreign.symbols.contains_key(&value.result)).map(|(id,value)|(*id,value.clone())).collect();
         context.meshes = self.model.meshes.clone();
         context.closures = self.model.closures.iter().filter(|(_,value)|states.contains_key(&value.lineage.instance)&&package.declarations.contains_key(&value.lineage.declaration)).map(|(id,value)|{let mut value=value.clone();value.terms.clear();(*id,value)}).collect();
+        let temporal_owners=self.temporal_owners.iter().filter(|(id,_)|states.contains_key(id)).map(|(id,owner)|(*id,*owner)).collect();
+        let existing_rows=self.model.equations.iter().filter(|row|states.contains_key(&row.lineage.instance)&&package.declarations.contains_key(&row.lineage.declaration)).map(|row|row.id).collect::<BTreeSet<_>>();
+        let continuity_done=self.model.derivations.iter().filter_map(|(relationship,row)|match relationship {
+            crate::derived::Relationship::ContinuityRow{family,..} if existing_rows.contains(row)=>Some(*family), _=>None,
+        }).collect();
         let recipe = Arc::new(FieldFragmentRecipe { instance,at,root:self.root,fixture:matches!(self.reader,crate::provenance::Reader::Fixture),
             expression:expression.clone(),sources:self.expression_sources(expression,at)?,env:env.clone(),chain:chain.to_vec(),limits:self.limits,
             states,foreign,context,numerical_sources,numerical_source_stack:self.numerical_source_stack.clone(),
-            set_alias_sources,source_locals:self.source_locals.clone(),temporal_owners:self.temporal_owners.clone(),temporal_axis:self.temporal_axis,
-            stack:self.stack.clone(),preset_stack:self.preset_stack.clone(),facts:self.facts.clone(),permissions:self.evidence_permissions(instance)?,continuity_done:self.continuity_done.clone() });
+            set_alias_sources,source_locals:self.source_locals.clone(),temporal_owners,temporal_axis:self.temporal_axis,
+            stack:self.stack.clone(),preset_stack:self.preset_stack.clone(),facts:self.facts.clone(),permissions:self.evidence_permissions(instance)?,continuity_done });
         let input = Arc::new(FieldFragmentInput {package,recipe});
         let fragment = if let Some(fragments)=self.fragments { fragments.field_fragment(input)? } else {Arc::new(derive(&input,None,self.cancel,self.discretizer)?)};
         self.reserve(fragment.construction_items)?;

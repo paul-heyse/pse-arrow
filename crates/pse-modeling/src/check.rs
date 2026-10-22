@@ -1934,7 +1934,7 @@ impl CheckedPackage {
             );
             use pse_model::generated::enums::ModelingDeclarationKind as Kind;
             let local_constructor = matches!(row.value.kind,
-                Kind::Definition | Kind::Case | Kind::Test | Kind::Implicit | Kind::Preset
+                Kind::Definition | Kind::Interface | Kind::Case | Kind::Test | Kind::Implicit | Kind::Preset
                     | Kind::When | Kind::Stage);
             if static_only && local_constructor {
                 pending.extend(self.children.get(&id).into_iter().flatten().filter(|child| {
