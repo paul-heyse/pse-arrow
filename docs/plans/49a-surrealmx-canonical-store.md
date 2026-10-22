@@ -1,6 +1,6 @@
 ---
 title: SurrealMX canonical store and generated lifecycle
-status: complete
+status: in-progress
 date: 2026-10-21
 adrs: [ADR-0214]
 doc_role: plan
@@ -9,6 +9,9 @@ doc_topics: [storage, libraries, design, validation]
 ---
 
 # SurrealMX canonical store and generated lifecycle
+
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
 
 This companion develops the canonical-store target of
 [Plan49](49-library-native-remediation.md). The coordinator owns all mutable package
@@ -443,3 +446,40 @@ Enduring contracts live at blueprint §3.3/§20/§23.2 and selected qualificatio
 through blueprint239/240; ADR-0214 remains proposed. The active coordinator and downstream
 boundary/maintenance companions still consume this design, so it remains retained under
 ADR-0096. It neither closes combined findings independently nor closes the Plan49 series.
+
+
+## STO09 — bounded study operations
+
+**Proposed, 2026-10-22:** the [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
+adds operation composition to this companion. STO01–STO08 retain their completed scope and
+receipts; this addition does not reopen engine/transport compatibility or imply that generated
+functions and native graphs are absent. The coordinator alone records package progress.
+
+`canonical_studies::readiness_scan_page` and dependent notification processing currently
+acquire a scope and repair readiness separately for each point. Generate a bounded scope-page
+operation returning candidates and deduplicated immediate predecessor facts, followed by a
+bounded guarded repair operation consuming pure `pse-model::study_policy` decisions. Include
+complete candidate/predecessor read sets, generation, cancellation and notification source/
+before-cursor fences. Unknown effects require exact receipt reconciliation before retry.
+
+Bound candidate count, distinct premises and encoded response/application bytes together.
+Resume before a candidate whose complete premises do not fit; explicitly refuse a single
+oversized scope. Do not truncate dependency facts. A page-wide all-or-nothing revision CAS
+must not let one churning predecessor stall independent work. Return per-item accepted/stale/
+refused outcomes and either advance a certified prefix or retain durable unfinished items.
+Claims still validate authoritative current facts; readiness is not execution permission.
+
+Consume existing registry declarations, native graph/record access and generated refusal/
+receipt machinery. Migrate runtime worker discovery, rotating recovery and outgoing readiness
+notification consumers in the same coherent change. Remove the replaced per-point acquisition/
+repair loop only after the new controls preserve both cursor orders and stale-false recovery.
+Native work stays outside short database transactions. Source policy in a Surrealism module
+is a separate I26/RC22 decision, not a prerequisite or a second production implementation.
+
+Targeted acceptance: a shared predecessor deduplicates without losing each candidate's exact
+premises; an oversized candidate refuses; a changing candidate leaves independent progress;
+notification before/after-cursor orders preserve recovery; unknown reply reconciles rather than
+replays; cancellation preserves unknown-effect precedence; a stale revision cannot authorize
+claim. Qualify the changed operation across independent clients, while retaining existing
+STO qualification at its recorded scope. The current payload-drain-owned SDK rejects
+`stream_items`; bounded pages require no new streaming seam. I28 owns any later integration.

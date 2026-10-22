@@ -12,6 +12,9 @@ doc_topics: [storage, libraries, design, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 This companion develops R4 and F06 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
 §4.2 and its [recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
@@ -32,6 +35,19 @@ store target is developed in [49a](49a-surrealmx-canonical-store.md); this compa
 its guarded append, lifecycle, protected-read and fenced migration products. It does not
 redefine those authorities or make scientific qualification follow from database success.
 
+## Current foundation and remaining target
+
+**Implemented/source-inspected, 2026-10-22:** result producers retain admitted statistics,
+`SnapshotProvider` supports inexact physical pruning, and substrate v8 removes scalar locators.
+Selected protected read/export controls exist at the coordinator; complete RES/QUAL acceptance
+remains open. RES04 stays superseded and no old-data backfill is required. Historical baseline
+statements below explain the change, not a request to implement already-replaced mechanisms.
+
+The [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O02)
+adds RES07: return one protected metadata product and retain native selection preparation
+through pages. Existing RES01–RES03 meaning, scientific bits, full decoder and exact positions
+remain the target; this is a refinement of their physical realization.
+
 ## Baseline and focused foundation assessment
 
 Blueprint §19.2 owns result meaning; §20.1/§20.2 own exact publication; §20.4 owns protection
@@ -40,7 +56,7 @@ Simulator 1.5 govern the assessment. Read complete scientific rows and original 
 meaning as constraints on physical optimization, rather than treating per-row locators as
 a required representation.
 
-Current source has a reusable protected boundary:
+The original 2026-10-21 authoring baseline had a reusable protected boundary:
 
 - `workflow/result_projection.rs` maps the four scalar relations to owner/partition keys,
   builds locators and implements `scalar_predicate` with Arrow kernels.
@@ -55,10 +71,11 @@ Current source has a reusable protected boundary:
   `pse-codegen/src/codegen/surreal_execution.rs` and `surreal_retention.rs` emit writers,
   replay checks and bounded collection. Supervision/maintenance also consumes those tables.
 
-The old path writes one `canonical_result_rows` record and three index entries per scalar
-row. Existing block rows already describe batch coverage, but scalar coordinate statistics
-are absent. The provider reports filters unsupported. Selection verifies each stored
-locator against the original row and applies handwritten kernels. Replacing those writes
+At that baseline, the old path wrote one `canonical_result_rows` record and three index entries per scalar
+row. Block rows described batch coverage without scalar coordinate statistics, and filters were
+reported unsupported. These are historical observations: current v8 has admitted statistics,
+native pruning and locator retirement, as recorded at the coordinator. At that baseline, selection verified each stored
+locator against the original row and applied handwritten kernels. Replacing those writes
 is a structural reduction; the effect on total latency and 16-lane contention is unmeasured.
 
 The foundation assessment keeps full protected decode/admission. The existing decoder
@@ -206,6 +223,7 @@ service. This is a bounded evidence-driven choice within F06, not blanket cache 
 | RES04 | Superseded by maintainer fresh-data decision | No historical batches/coordinates require backfill; new result behavior remains RES01–RES03/RES06. |
 | RES05 | Reached native-file-source inspection and source-generation owner | Bind generation-correct native file caches or remove only unused adapters; preserve active preparation/analysis service. |
 | RES06 | Functional result/store integration and inquiry outcomes | Selected native/Python/SQL/export/retirement acceptance; feed QUAL01–QUAL05 without a separate full campaign. |
+| RES07 | Existing v8 block/batch facts, protected page/descriptor contracts and native session/schema | Joined protected metadata plus retained selection-local physical expression/pruning; migrate typed/snapshot consumers and remove repeated per-block planning. |
 
 ### RES01 — Produce exact statistics with the batch
 
@@ -313,6 +331,40 @@ imported lease custody; adding them over current charges would duplicate account
 Existing generated HeapUsage and shared result-fact owners remain selected. The inquiry
 does not establish a universal Arrow overhead cost or reject future native ownership
 integration; a concrete compatible lifecycle and an actual comparison must justify it.
+
+### RES07 — joined metadata and retained native selection
+
+**Proposed:** replace the sequential `result_block_page` → `result_file_batch_descriptors`
+composition in full snapshots and typed readers with a generated protected operation returning
+blocks and exact descriptors together. Derive descriptor membership from the returned blocks,
+require exactly one matching descriptor per identity/ordinal and refuse missing/duplicate
+members. Preserve both existing operations' checks: selection/source sequence, current file
+state, exact batch/schema/digest/interpretation validation, final protection freshness and
+manifest scope. Never let an inner join silently hide corruption. Prepay the composite transport
+response and retain its complete page ownership through use or cancellation.
+
+Keep `open_result_file` authentication, current physical incarnation/placement checks and
+protected-file admission. Folding physical descriptors into the page can remove another read
+only after an admitted descriptor's lifetime carries those same premises through opening;
+TOOL04 owns the corresponding maintenance protection. A database join alone supplies no such
+permission. Bounded pages are the selected route; I28 records why streaming is not drop-in.
+
+Prepare the typed selection predicate once under the actual session and schema. Retain its
+`Arc<dyn PhysicalExpr>` and optional `PruningPredicate` in the selection owner, use bounded
+page statistics for pruning, and evaluate the same residual on admitted batches. Current
+`ResultReader` reconstructs the logical expression per block; `block_may_match` physically
+plans again, and `scalar_selection_mask` replans surviving batches. Remove that repeated
+construction and the superseded helper shape after consumer migration. Reuse the SQL snapshot
+provider's semantics without adding a global predicate cache or another scientific interpretation.
+Bind retention to relation/schema, complete predicate, session functions/configuration and pool.
+
+Targeted controls count one physical-plan construction across multiple pages, including an
+unknown-statistics page and a surviving residual. Missing/duplicate/stale descriptors refuse;
+changed session/schema cannot reuse an incompatible plan. Preserve absent/all-None predicates,
+null/NaN/infinity/signed-zero bits, original offsets, residual-before-limit and full protected
+corruption/ticket checks. Page-plus-one and two-batch fixtures suffice for these contracts;
+complete production-scale characterization stays separately selected. No latency claim follows
+from plan counts. RES06/QUAL own remaining assembled acceptance.
 
 ## Verification and handoff
 

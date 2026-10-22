@@ -12,6 +12,9 @@ doc_topics: [design, numerical-execution, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 This companion develops R10–R16, retained-pool drain F04 and the fitting termination candidate F05 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
 and its [recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
@@ -27,6 +30,40 @@ fences, explicit starts and independent original-space qualification. It introdu
 daemon. Store replacement, mathematical representation, preparation retention and schema/tooling
 implementation belong to the adjacent companions; this document identifies their consumed contracts.
 
+## Current runtime foundation and proposed operation composition
+
+**Implemented/source-inspected, 2026-10-22:** shared supervision, typed requests/paired outcomes,
+physical preparation, parameter-valued Simulation/Fit points, native capability/lifetime/status
+work and fixed independent LM criteria are integrated with bounded evidence at the coordinator.
+Current persisted operation/request is Version8 with four study operations and stored definition12;
+Version7 descriptions below are the historical authoring baseline. Remaining consumer migration,
+scientific/native/Python acceptance and publication stay open; the reassessment does not rebuild
+these mechanisms from scratch or turn earlier focused evidence into package completion.
+
+[Review O01](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
+adds STO09 scope-page/guarded-repair consumers to RUN03/RUN05: worker discovery, rotating readiness
+recovery and dependent notification advancement use complete bounded database operations. Keep
+`study_policy` as the pure semantic owner and preserve `Unknown => Reconcile` before cancellation,
+pending scientific admission, exact seed permission and candidate/immediate predecessor read sets.
+A repaired readiness hint cannot grant claim or native dispatch permission.
+
+Bound aggregate premise bytes and distinct dependencies. Keep item-level complete revision fences,
+notification source/before-cursor expectations and explicit accepted/stale/refused outcomes. A
+changing candidate must not stall independent progress; advance only certified cursor work or
+persist unfinished items. Unknown page effects reconcile immutable receipts before retry. Native
+work and its flat stop flag remain under the existing supervisor outside database transactions.
+
+Migrate all three worker routes and remove their per-point scope/repair loop when new targeted
+controls preserve recovery and both notification/cursor orders. Existing request, map, start,
+numerical outcome and drain contracts remain. This change depends on working STO09 contracts,
+not a complete storage-engine rerun or an optional Surrealism module (I26/RC22).
+
+Review O06/PRE09 may propose a separate finite configuration/explanation operation. Until RC23
+is explicitly selected, do not expand `StudyOperation`, host request enums or public settings.
+Any selected Z3 execution receives the original clock and finite native owner, returns owned
+attributed results with Unknown distinct from Unsat, and joins physical work before releasing
+resources. It remains separate from pure Salsa encoding and ordinary point dispatch.
+
 ## Basis and focused foundation assessment
 
 Static inspection used checkout HEAD `e08b1f1dd` on 2026-10-21, including the current review
@@ -36,7 +73,7 @@ the repository standard. Current contracts remain blueprint §13.5, §16.2, §17
 in the [numerical](../authoritative_design/sections/numerical-execution.md) and
 [workflow](../authoritative_design/sections/workflows-and-results.md) owners.
 
-The inspected [cancellation wrapper](../../crates/pse-runtime/src/cancel.rs) already supplies
+At the original authoring baseline, the inspected [cancellation wrapper](../../crates/pse-runtime/src/cancel.rs) already supplies
 `child_with_deadline`, with downward-only cancellation and minimum inherited deadline tests.
 The [horizon driver](../../crates/pse-runtime/src/workflow/horizon/driver.rs) still creates a
 fresh source after admission. The [run owner](../../crates/pse-runtime/src/workflow/run.rs)
@@ -44,7 +81,7 @@ contains separate operation skeletons and independent `RunRequest`/`RunReport` e
 jobs already join their worker before releasing compute; that is the foundation to preserve,
 rather than replacing it with abort-on-drop task machinery.
 
-[StudyOperation](../../crates/pse-runtime/src/workflow/study_operations.rs) is a strict
+At that baseline, [StudyOperation](../../crates/pse-runtime/src/workflow/study_operations.rs) was a strict
 `Version<7>` persisted occurrence containing `PreparationSettings` and serialized
 `OperationRequest`. It is not a generic host command. Its current four operations are
 DeclaredCase, Simulation, Fit and Horizon; feature-gated host Shooting is a distinct capability.
@@ -252,9 +289,9 @@ when work starts even where logical dependencies permit parallel work.
 |---|---|---|
 | RUN01 — horizon stop correction | Existing child-token/clock contract; no supervisor prerequisite | Replace the fresh horizon source with a child; caller cancellation and inherited deadline reach native drain; remove the shadow authority. |
 | RUN02 — one run supervisor | RUN01 controls; selected RC13 lifecycle boundary | Simulation, fitting, modeling, shooting and horizon share lifecycle and one native bridge; worker drain is a stop child; delete per-kind skeleton/forwarding copies. |
-| RUN03 — requests and runtime admission | RUN02 paired finish interface; coordinator RC12 decision; catalogue input contract | Shared request/preparation structs, typed host-to-study projection, paired outcomes, one declared dispatch/admission/deployment owner; delete binding chains and independent defaults. |
+| RUN03 — requests and runtime admission | RUN02 paired finish interface; coordinator RC12 decision; catalogue input contract; working STO09 scope/apply contract for worker cutover | Shared request/preparation structs and paired outcomes; finish actual host migration and bounded worker operation adoption; delete replaced chains/defaults/per-point coordination. |
 | RUN04 — parameter-valued points | RUN03 working preparation/binding entry; stable parameter and physical-context identities | Simulation binding builder and Fit/Simulation overlays with explicit starts/fresh ICs; replace unsupported-only branches for exactly these admitted inputs. |
-| RUN05 — scientific policy consumers | PRE05's working pure start-policy/compiler lowering/view products | Migrate both predicted-start/fallback copies and all steady/implicit/dynamic annotation/view consumers onto PRE05; delete executor policy copies. |
+| RUN05 — scientific policy consumers | PRE05's working pure start-policy/compiler lowering/view products; STO09 scoped study facts | Migrate both predicted-start/fallback copies and all steady/implicit/dynamic annotation/view consumers onto PRE05; delete executor policy copies. |
 | RUN06 — truthful execution seam | Selected RC07; original residual/scale/start contracts | Settings-dependent capability, fixed-point/Picard route and recovery profiles; migrate runtime initialization/conditional paths; only then remove Python's KINSOL choice in RUN03. |
 | RUN07 — Uno outcome and binding | F02 mapping controls; selected RC08 for declaration | Named constants and truthful small-step outcome independently first; declare four numerical hunks and dense limit, preserving integration hooks and SQP-LBFGS. |
 | RUN08 — native memory refinement | Selected RC15; existing complete admission/drain envelope | Direct FERAL estimate plus post-factor enforcement; adopt PETSc/KLU domain tracking only with original-owner/lifetime coverage, otherwise retain full envelope and explicit candidate disposition. |

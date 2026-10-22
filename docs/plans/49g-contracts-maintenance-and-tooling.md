@@ -13,6 +13,9 @@ doc_topics: [design, documentation, libraries, storage, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 ## Purpose, basis and responsibility
 
 Make the published boundary catalogue, conformance command, launch command and operator
@@ -29,9 +32,29 @@ No product implementation or qualification is established by this document.
 Current contracts remain at blueprint §§4–6, §20, §21 and §23; proposed changes follow
 the coordinator's decision route before dependent implementation.
 
+## Current tooling foundation and proposed graph explanations
+
+**Implemented/source-inspected, 2026-10-22:** the compiled direction-aware catalogue, Rust-owned
+conformance/launch commands, product selection/detail contracts, internal tooling split and
+generated maintenance exist. TOOL06 retains the current observation hub and selects no new crate.
+The coordinator owns evidence and still-open consumer/qualification obligations; earlier source
+baseline prose below records original defects rather than current absence.
+
+The [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O07)
+adds TOOL08 bounded graph explanations and concrete STO09/RES07 maintenance/query consumers.
+Extend existing generated operations and native graph identities. Do not create a second graph,
+query service, catalogue or observation substrate. New explanation meaning is a product contract
+consumed by tooling; place it below tooling in the existing ownership direction.
+
+For STO09 preserve per-item source/cursor/revision checks and original-operation receipts. For
+RES07 keep placement/protection premises across joined metadata and file opening; authenticated
+physical descriptor checks stay until an admitted descriptor contract replaces them. Query-shape
+acceptance examines actual indexes/expansion, not LIMIT alone. `EXPLAIN ANALYZE FORMAT JSON`
+is a version-scoped diagnostic, not a mandatory stable parser or a new monitoring system.
+
 ## Foundation assessment and selected target
 
-The current `xtask/src/codegen/schemas.rs` lists document roots; the Python boundary
+At the original authoring baseline, `xtask/src/codegen/schemas.rs` listed document roots; the Python boundary
 separately implements `DocumentType` in `crates/pse-py/src/documents.rs`. The pure renderer
 in `pse-codegen` already consumes schemars-derived documents. Reuse that renderer rather
 than infer a second schema from Python or introduce an ORM. Rust serde owners retain
@@ -54,7 +77,7 @@ records whether supported configurations produce the same or different catalogue
 the corresponding expected identity with that build's Python products. Do not create a
 universal feature fingerprint unrelated to exported contracts.
 
-`python/pse/conformance.py` currently declares `RunSettings`, `ConformanceRun` and
+At that baseline, `python/pse/conformance.py` declared `RunSettings`, `ConformanceRun` and
 `ConformanceManifest` directly in msgspec, including defaults that affect execution.
 Move their meaning to versioned Rust document owners near the runtime conformance API;
 generate Python types through the catalogue. Rust uses the existing `toml` dependency,
@@ -136,6 +159,7 @@ Package progress is recorded only in the [coordinator's package table](49-librar
 | TOOL05 | RES result-selection contract and existing diagnostics/detail contracts | Product contracts separated before capture/review tooling modules move; no runtime-to-tooling dependency; existing product and command consumers migrated |
 | TOOL06 | TOOL05 semantic boundaries and comparable steady/fit paths | Bounded tracing-Layer and optional crate inquiry, with adopt/no-adopt outcomes; no unqualified substrate replacement |
 | TOOL07 | Selected package outcomes and coordinator rule decisions | Correct stale text/pin explanations, purpose decisions for unused machinery and enduring documentation handoff without importing unrelated plans |
+| TOOL08 | Existing canonical graph/protection operations and product explanation contract; TOOL01 for public projection | Immediate blocker and bounded source/consumer explanations with typed edge roles, evidence and continuation; one operator consumer, no all-path service |
 
 ### TOOL01: Catalogue, identity and generated registration
 
@@ -215,6 +239,31 @@ After implementing selected work, reconcile blueprint §§0.5, 7, 13–14, 18–
 the actual owners. Do so through confirmed rule changes and revision rows, leaving accepted
 ADRs immutable. Current Plan 28/32/40 statuses remain at their existing owners. The final
 qualification companion owns cross-area completion and publication checks.
+
+### TOOL08 — bounded graph explanations
+
+Provide typed immediate-blocker, recorded-source and retained-consumer queries over
+`canonical_study_dependencies`, `canonical_run_sources`, `canonical_analysis_edges` and
+`canonical_analysis_inputs`. Return node/edge identity and role, selected revision/evidence,
+requested neighborhood scope and explicit complete/partial continuation. An observed blocker
+is not proof of a complete explanation. Bound examined edges, returned extent and retained
+metadata; do not silently call a truncated traversal complete. Source/protected artifact access
+continues through the current receiving authority.
+
+Begin with immediate blockers and bounded source/consumer neighborhoods; do not enumerate all
+paths or persist an all-pairs closure. Preserve isolates and parallel edge distinctions where
+they belong to the question. Graph connectivity is neither numerical dependence nor scientific
+usability. Existing petgraph/rustworkx preparation algorithms remain separate from canonical
+retrieval; GQL is an optional expression over existing relations, not a second graph/API service.
+
+Publish the product response through TOOL01/BND05 and migrate one actual operator inspection
+consumer. Targeted tests cover a known blocker, independent point, distinct edge kinds,
+page-plus-one continuation, changed selected revision, protected reference and incomplete scope.
+Independent expected graphs/facts specify results. Keep frontend formatting outside the semantic
+query, and remove any replaced flat-page client stitching once its consumers move.
+
+PRE09's optional configuration documents use the same catalogue only after explicit selection.
+No new Python policy engine, raw SMT endpoint or hidden default becomes a tooling convenience.
 
 ## Verification and limits
 

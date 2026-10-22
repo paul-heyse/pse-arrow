@@ -13,6 +13,11 @@ the coordinator owns remaining package progress and acceptance. Execution is pau
 maintainer's request; its [pause handoff](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21)
 owns the integrated checkpoint, completed checks, canceled native sweep, representative
 functional assessment and remaining obligations.
+The authorized [2026-10-22 remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md)
+adds coordinated proposed operation/preparation/explanation changes. The coordinator's
+[current reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22)
+owns their routing, conditional rule decisions and dependency-ordered next work. This
+review/documentation engagement does not resume production execution or the canceled campaign.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the

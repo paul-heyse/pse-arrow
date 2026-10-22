@@ -12,11 +12,15 @@ doc_topics: [design, preparation, libraries, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 This companion develops the preparation target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns rule decisions,
 source-finding dispositions, **all package status**, combined dependencies and qualification.
 The packages below explain changes and acceptance; they are not another progress ledger.
-The coordinator's recorded rule decisions govern this target; implementation remains Proposed.
+The coordinator's recorded rule decisions govern this target. New revisions remain Proposed;
+existing implementation and evidence are distinguished below and at the coordinator.
 
 The basis is HEAD `e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05`, the integrated
 [in-use-library review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
@@ -27,6 +31,23 @@ confirms the preparation mechanisms described below. No product checks or probes
 to author this plan. The selected criteria are Core 3.4, Efficient Architecture 1.0 and
 Process Simulator 1.5. Existing authority remains blueprint §5.3, §7.1–§7.4, §14.3–§14.4
 and §16.2 until the decision route changes it.
+
+## Current foundation and revised preparation target
+
+**Implemented/source-inspected, 2026-10-22:** direct typed resolved producers and compiler/
+portable consumers, source correspondence, complete dependency indexes, selected-package
+firewalls, finite live-root policy and tracked annotations/view products are integrated.
+Unchanged complete `BodyInput.identity` values already reuse mathematical bodies. The old
+`bound_bodies` expansion and its final consumer are removed; remaining retirement and broad
+preparation/scientific acceptance stay open at PRE04/PRE07. Original baseline paragraphs
+below retain their historical purpose.
+
+The [new review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O04)
+selects a Salsa 0.28.5 safety/accounting update in PRE01, then PRE08 typed incremental fragments.
+`specialized` still consumes a selected-root package and runs the whole specializer; projection
+rebuilds root graph/index facts when that product changes. Finer derivation is now a concrete
+proposed improvement, not proof that all mathematical bodies currently rebuild. PRE09 develops
+an optional finite configuration/explanation capability and Z3-versus-enumeration decision.
 
 ## Target and foundation assessment
 
@@ -39,7 +60,7 @@ Symbolica owns the arithmetic representation after admission, as developed in
 while the project owns finite retention policy, canonical revision meaning and actual leases.
 Neither library takes over physical types, authored obligations or durable permission.
 
-Today `SpecializedModel::bound_bodies` expands shared dispatch bodies back into named syntax.
+At the original authoring baseline, `SpecializedModel::bound_bodies` expanded shared dispatch bodies back into named syntax.
 `workspace/modeling/executable.rs::projection` parses `s_<hex>` references, constructs
 expression-member graphs, and repeatedly searches model collections. `executable/grouped.rs`
 then creates per-output `BodyInput` values and re-normalizes names for rendered body framing.
@@ -48,7 +69,7 @@ environments. The existing physical witness and occurrence inventories are valua
 foundations: their receiving authority and exact attribution survive the representation change.
 They must be translated deliberately rather than replaced by a weaker expected-result type.
 
-Retention is independently defective at ordinary defaults. `workspace.rs::trim_queries`
+At that baseline, retention was independently defective at ordinary defaults. `workspace.rs::trim_queries`
 evicts query values and rebuilds the entire database when `retention_usage` exceeds the
 generation bounds. Heavy granular queries already have LRU; `granular.rs::configure` is
 not missing an eviction mechanism. The original ThreeUnits probe B2 reported about 54.5k
@@ -125,7 +146,7 @@ work plus reached dependency traversal, not a new whole-model transitive-closure
 
 Split retention policy into finite inventory/input/interned metadata bounds, query-family count
 capacities, and a finite allowance for the current admitted live root and the memos needed for
-backdating. Use Salsa 0.28.4 `set_lru_capacity` per expensive query family, with capacities for
+backdating. Use the selected Salsa patch's `set_lru_capacity` per expensive query family, with capacities for
 granular checking separately from projection, `specialized` and `semantic_body`. Retain the
 live root's body values and catalog-firewall results while its lease is active; admit its
 extent before retaining it. Disposable query results can evict under their family capacities.
@@ -148,7 +169,7 @@ publish must not rotate the supported reference workload. Actual non-evictable m
 input growth can still require generation rotation; boundedness must cover repeated edits,
 deletion and root switching rather than only one successful solve.
 
-`Database::memory_usage` exposes aggregate ingredient metadata/fields/heap estimates, including
+The original 0.28.4 `Database::memory_usage` exposes aggregate ingredient metadata/fields/heap estimates, including
 evicted memos. It exposes no public resident-value count; zero heap bytes do not prove an
 evicted value. Keep `RetainedInputs`' shared-Arc/generation census with the aggregate report
 until a replacement has explicit allocation ownership. `#[salsa::input(heap_size = ...)]`
@@ -188,7 +209,9 @@ annotation/view authority change. Runtime progress does not redefine compiler se
 | PRE04 | Coordinator RC01/frame decision; PRE02 expression contract; PRE03 access contract | One resolved specialization product, canonical framed bodies/derived relationships and complete lowering cutover |
 | PRE05 | Existing per-mode semantics and RC16 decision | Compiler-owned annotations/view choice and pure start-policy contract; working runtime consumer migrations are a separate join |
 | PRE06 | PRE01 observations and PRE04 semantic keys | Bounded cache/lane/incremental inquiries with explicit adoption decisions; no requirement to build every candidate |
-| PRE07 | PRE01–PRE05 functional cutovers and selected PRE06 outcomes | Preparation migration coverage and common conformance handed to combined qualification |
+| PRE07 | PRE01–PRE05 and proposed PRE08 functional cutovers, plus selected PRE06 outcomes | Preparation migration coverage and common conformance handed to combined qualification |
+| PRE08 | PRE01 patch/accounting, existing PRE04 typed/root meaning and entity-local premise contract | Query-owned typed fragments and selective graph facts; original complete root assembly and body identities preserved |
+| PRE09 | Concrete finite configuration/explanation consumer and existing capability/compatibility facts | Bounded Z3-versus-enumeration decision; explicit RC23 outcome before a new functional contract/binding is adopted |
 
 **PRE01 — make normal reuse viable first.** Change `WorkspaceLimits`, `configure`, granular
 query capacities and `trim_queries` together. Add selected-package tracked accessors and retain
@@ -240,16 +263,81 @@ with complete semantic keys where current source permits, preserving receiver-lo
 For pure preparation flights, select `quick_cache` coalescing only if caller-owned cancellation
 is acceptable and weighted retention replaces existing machinery; retain detached completion
 for native drain. Shared cloned Salsa handles are eligible only for one immutable revision;
-retain detached historical lanes because any setter cancels readers. Consider per-instance
-tracked specialization only if PRE01/PRE03 leave reached structural edits doing material
-unnecessary whole-root work; root accumulation/closure stays over original terms. Consider
+retain detached historical lanes because any setter cancels readers. I07 is reopened by the typed producer and develops through PRE08; it no longer requires a
+historical benchmark failure to be eligible. Root accumulation/closure stays over original
+terms, and existing body reuse must remain. Consider
 input `heap_size` census replacement only after shared-root accounting equivalence. No new
 persistence layer is selected: a discardable canonical-premise cache is permissible in principle,
 but needs a concrete restart-reuse benefit and version/retention owner before adoption.
 
+### PRE01 addition — Salsa 0.28.5 and exclusive accounting
+
+**Proposed:** update the exact pin from 0.28.4 to 0.28.5 without wholesale resolution. The
+[patch changelog](https://github.com/salsa-rs/salsa/blob/salsa-v0.28.5/CHANGELOG.md) fixes
+interned/memo validation and changes memory inspection to exclusive mutable access. The
+current interned/implicit query keys do not satisfy the advisory's complete exemption.
+Advanced tracked fields, LRU and reclamation already exist in 0.28.4; do not attribute them
+to the patch. The detailed source/evidence is at review O04.
+
+Migrate `retention_usage`/`metadata_bytes` observation at a lane-exclusive maintenance/admission
+boundary, then expose an owned accounting snapshot where read-only diagnostics need it.
+`memory_usage(&mut self)` cancels and waits for all cloned handles, so retaining a sibling
+handle while observing can deadlock. Never call it inside a tracked query or hide its effect
+behind an unrelated lock. Scope observation freshness explicitly. Preserve current shared-Arc/
+generation census, known-byte limits, count LRU and backdating values; no native resident-value
+counter or byte-weighted eviction is supplied. Targeted controls exercise exclusive observation,
+reader drain, reuse/churn and oversized roots under the selected patch.
+
+### PRE08 — typed incremental fragments
+
+Select entity-local tracked derivation over project declaration/instance/occurrence identities.
+Provide separately tracked physical contracts, resolved bodies, membership and diagnostic/source
+fields. Inputs include selected forms/presets, bindings, functions, physical/provider premises,
+documents and failed lookups. Decorating a function that still reads the whole checked package
+would retain whole-root invalidation and does not satisfy this package.
+
+Define immutable fragment-local nodes and explicit root import/reindexing. Preserve original
+connection and contribution obligations, accumulation across descendants and signed roots at
+complete root finish. Global conservation, coupled structural checks and deterministic ordering
+remain real root work. Existing graph algorithms consume these immutable facts; graph roles are
+not collapsed and no all-pairs closure is introduced. Use per-instance immutable Arc query results
+where finer tracked fields add no benefit. Salsa IDs stay process-local and never enter durable
+semantic frames. Keep complete canonical body identities and separate per-instance validity.
+
+Start with one coherent producer family and all its consumers, then extend the same product
+contract across the supported resolved producer. Retire replaced root derivation/maps in each
+cutover; no selectable second specialization pipeline survives. Keep final root assembly rather
+than claiming entirely affected-only preparation. Derived tracked entities have producer-owned
+lifetime; adding immortal Salsa inputs per derived node would defeat the retention goal.
+Inspect direct `BodyKey::new` production outside tracked queries before changing reclamation:
+those interned keys receive maximal durability, and revision retention alone does not free them.
+
+Compare incremental with clean preparation for local semantic edits, source-only changes,
+added/deleted membership, absent-name becoming present, selected form changes, provider/physical
+contract edits and root switching. Preserve original guards, conservation and diagnostic source
+attribution. Instrument query executions only as targeted test evidence; quantitative speed or
+memory gains remain unmeasured. PRE07/MAT05 own scientific join acceptance.
+
+### PRE09 — finite configuration exploration decision
+
+**Proposed bounded inquiry:** define a user question over finite supported methods/backends and
+joint hard restrictions, returning candidate configurations or attributed conflicts/inconclusive
+outcomes. Compare Z3 with bounded enumeration using current settings-dependent capability and
+typed ineligibility facts. Do not duplicate scientific routing rules in SMT or add a generic policy
+language. A satisfying assignment never grants scientific success, seed/start permission or claim.
+
+The decision output must specify the finite vocabulary, actual consumer, independent acceptance,
+unknown/limit semantics and either a selected realization or a no-adoption reason/revisit trigger.
+Before adopting a new functional/binding target, obtain the explicit RC23 decision through GOV02.
+If Z3 is selected, pin binding and native acquisition separately and verify linked runtime identity;
+prepare pure obligation descriptions here, supervise solving at RUN ownership and publish owned
+results through the existing catalogue. No Z3 session/AST or timeout-dependent solve runs inside
+tracked queries. Ordinary preparation and RUN/BND/MAT work do not wait for this inquiry.
+
 ## Proposed verification and completion
 
-PRE07 requires independent expectations for alpha-renaming and renderer invariance; local-slot
+PRE07 includes the PRE08 fragment cutover and its incremental-versus-clean acceptance,
+while PRE09 stays optional. It requires independent expectations for alpha-renaming and renderer invariance; local-slot
 sharing across two instances; changed physical/binder/validity premises causing different
 identities; and explicit old-frame incompatibility. Exercise value-only rebind and existing/new
 observation demand separately. Re-run shared derivative consistency, conservation closure,

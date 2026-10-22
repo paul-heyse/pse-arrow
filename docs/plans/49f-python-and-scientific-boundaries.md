@@ -12,6 +12,9 @@ doc_topics: [design, libraries, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 This companion develops R17, R18 and R20/F10 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
 and [recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
@@ -28,6 +31,28 @@ validity and bulk Arrow transport. Python authors inputs and consumes results; R
 admission and science. This work applies to every affected side-route consumer, not only the
 main solve method. Strict decoding, version-first refusal, original-space qualification, missing
 result partiality and caller-independent durable execution remain in force.
+
+## Current boundary foundation and new consumers
+
+**Implemented/source-inspected, 2026-10-22:** strict generated vocabularies/identities, directional
+standalone documents, keyed physical Arrow custody and covariance origin/PSD work are integrated.
+The coordinator owns actual selected Python/native evidence and remaining BND acceptance.
+Historical baseline defects below are not a claim that these replacements remain unwritten.
+Complete fit-content/availability, singular covariance, independent PSD and asynchronous custody
+checks remain necessary where affected; database or logical success cannot substitute for them.
+
+The [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md)
+adds consumer joins: RES07 must preserve public output bits/offsets/limits while retaining its
+native selection plan; TOOL08 explanations expose typed identities, edge meaning, evidence and
+explicit partial continuation through the same direction-aware catalogue. Generate documents,
+codecs and stubs from Rust owners, rather than pairing new Python classes by hand.
+
+PRE09 configuration exploration is conditional on RC23. A selected public operation must keep
+candidate choices, conflicting requirements and inconclusive/limit results distinct. Conflict
+cores are not guaranteed minimal or unique; recorded order is not semantic identity. Admission,
+physical units, current native capability and source/start permission stay with their existing
+owners. Never expose Z3 AST/context objects or treat a logical candidate as a qualified solution.
+This new feature cannot be smuggled into BND05 as an already accepted boundary correction.
 
 ## Inspected foundations and evidence limits
 

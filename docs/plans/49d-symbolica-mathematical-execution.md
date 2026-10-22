@@ -12,6 +12,9 @@ doc_topics: [design, libraries, numerical-execution, preparation, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 This companion develops the mathematical execution target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns source dispositions,
 rule decisions, **all package status** and combined qualification. The target below is
@@ -28,6 +31,27 @@ and probe A/B evidence informed the design. Feature followups used its linked of
 documentation and exact installed Symbolica/Numerica 3.0.1 APIs. No probe, product build,
 test or formatter was run to author this proposal. Core 3.4, Efficient Architecture 1.0 and
 Process Simulator 1.5 guide the choices; blueprint §7 and §14 retain current authority.
+
+## Current mathematical foundation and revised input boundary
+
+**Implemented/source-inspected, 2026-10-22:** regional construction, demand-specific products,
+provider/branch composition and interpreted/C++ consumers have focused evidence recorded by
+the coordinator. MAT01–MAT04 still retain full consumer/retirement obligations and MAT05 owns
+scientific acceptance. I11–I13/I25 preserve their recorded scoped no-additional-adoption choices;
+this reassessment does not restart JIT, SIMD/CUDA, exact-algebra or hot-start campaigns.
+
+Review [O05](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O05)
+changes the preparation producer feeding these products, not mathematical authority. Consume
+PRE08 immutable resolved entity/region descriptions and complete body premises. Preserve
+per-instance validity/source maps even when mathematical fields compare equal. Native
+construction, optimizer abort outcomes, mutable evaluators and compilation/drain remain outside
+Salsa tracked queries. Existing canonical body reuse stays; the new opportunity concerns
+root specialization/projection work. Targeted joins exercise changed membership, physical/
+provider premises and source-only attribution without weakening original derivative/guard checks.
+
+PRE09's optional configuration exploration uses capability facts; its logical feasibility
+cannot certify a mathematical branch, physical domain, derivatives or numerical solution.
+No new Symbolica/Numerica integration was selected by the adjacent capability screening.
 
 ## Selected mathematical boundary
 
@@ -54,9 +78,10 @@ Build residual/Jacobian demand separately from observation-only terms and contri
 An NLP needs the consumed weighted Hessian, not an automatic full Hessian for every output.
 Building all-coordinate dual components because one output needs them is outside this target.
 
-## Current foundations and corrected evidence
+## Original authoring foundations and corrected evidence
 
-`pse-math::guarded::Stage` already separates arithmetic from host barriers. `execution.rs`
+At the original 2026-10-21 authoring baseline, `pse-math::guarded::Stage` already separated
+arithmetic from host barriers. `execution.rs`
 contains `SelectedFirstRegion`, but it currently requires region inputs to be original scalar
 inputs. `products.rs` supplies direct symbolic products only for eligible flat arithmetic.
 `arithmetic_region` stops when the next block reads an output already produced. Those existing

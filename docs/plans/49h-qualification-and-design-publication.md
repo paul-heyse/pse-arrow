@@ -14,6 +14,9 @@ doc_topics: [design, validation, performance, documentation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
+Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Production execution remains paused; original authoring baselines and receipts retain their dates.
+
 ## Purpose and evidence boundary
 
 Establish that the selected Plan 49 target works as an assembled system and that its
@@ -53,6 +56,28 @@ An existing shared-resource-registry migration is an environment prerequisite at
 owner, not a product repair adopted by this plan. A deliberately isolated test registry
 may establish local evidence, but is named as such and does not qualify the canonical
 resource registry or actual canonical store.
+
+### Remaining-scope review acceptance additions
+
+The [2026-10-22 review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md)
+adds the following **Proposed** acceptance to existing QUAL owners. These are contract-focused
+controls, not an authorization to resume a campaign or repeat the canceled native sweep.
+
+| Change | Revealing representative control | Owning join |
+| --- | --- | --- |
+| STO09 scope/apply pages | Shared predecessor deduplication, encoded-byte boundary, explicit oversized scope refusal, stale candidate alongside independent progress, both notification/cursor orders, ack loss and unknown-effect reconciliation | QUAL02/QUAL03 with RUN03/RUN05; preserve exact per-item premise sets and durable unfinished work |
+| RES07 joined protected metadata | Missing/duplicate descriptor refuses instead of disappearing; current file/selection freshness survives join; canceled/escaped page keeps composite ownership | QUAL02/QUAL03 with TOOL04; preserve full protected file admission |
+| RES07 native plan retention | More than one statistics page/batch uses one physical plan; unknown statistics keeps batch; same residual preserves original bits/offsets and limit semantics | QUAL02/QUAL04; actual session/schema/function premises and pool match |
+| PRE01 Salsa patch | Exclusive accounting drains readers without self-deadlock; owned observation has stated freshness; live memo reuse/churn/oversize still hold | QUAL04; patch safety/API change independent of finer specialization |
+| PRE08 typed fragments | Incremental versus clean root after local/source/membership/provider edits and root switches; original signed contributions, guards and diagnostics remain correct | QUAL04 with PRE07/MAT05; legitimate complete root checks remain |
+| TOOL08 explanations | Immediate blocker/source/consumer edges, distinct roles, selected revision and explicit partial continuation | QUAL02/BND05; retrieval is not a scientific certificate |
+| PRE09 if selected | Known compatible assignment, attributed contradiction, complete assumption binding, Unknown/limit/cancel and native drain; bounded enumeration as independent small-case oracle | QUAL04 only after RC23 and actual operation/binding selection; no numerical feasibility claim |
+
+QUAL01 must reconcile already implemented consumers and these additions before final selection.
+A selected Surrealism pivot would require RC22 and its own module identity/install/failure
+controls; it is not presumed implemented or required. Existing S01–S11, native eligibility,
+covariance and physical custody coverage remains. No additional full sweep or benefit campaign
+is required merely because a new review was authored.
 
 ### Representative functional checks
 
@@ -138,7 +163,7 @@ not covariance zeroing or silent positive-definite regularization.
 
 | Package | Required input | Delivered qualification |
 | --- | --- | --- |
-| QUAL01 | Final proposed contracts, confirmed rule outcomes and stable package interfaces | Acceptance inventory reconciled to actual consumer migrations, source findings and explicit support limits; identifies which evidence closes which obligation |
+| QUAL01 | Final proposed contracts, confirmed rule outcomes and stable package interfaces, including selected O01–O08 changes | Acceptance inventory reconciled to actual consumer migrations, source findings and explicit support limits; identifies which evidence closes which obligation |
 | QUAL02 | All selected functional packages and their targeted controls | Short composed Rust/Python journeys over S01–S11 and the revealing failures above; diagnose assembled mismatches before expensive campaigns |
 | QUAL03 | STO server/adapter/transport target, maintenance and result migration | Actual MX1.0/gRPC restart, durability, fault and 16-lane campaign at supported settings; storage conversion and receipt identity preserved |
 | QUAL04 | MAT/PRE/RUN/BND integration plus affected generated catalogue | Selected scientific/native/Python/conformance journeys, mathematical identity and original-space qualification; unchanged solver eligibility accounted for |
@@ -147,7 +172,7 @@ not covariance zeroing or silent positive-definite regularization.
 ### QUAL01: Agree completion evidence before expensive execution
 
 Read actual changed consumers and package outcomes, not merely completion labels. Confirm
-that schema/code generation, old-row conversion, payload protection, retained compiled
+that schema/code generation, fresh-data regeneration, payload protection, retained compiled
 artifacts, Python imports and maintenance activation use the same interpretations. Separate
 new design questions from integration defects. A rejected rule must have a conforming target
 and revised downstream acceptance before execution continues through that route.
@@ -231,7 +256,8 @@ that this work did not examine.
 
 ### QUAL05: Benefits, static checks and enduring owners
 
-Required structural claims have direct checks: per-row locator declarations/callers gone,
+Required structural claims have direct checks, including retired per-point scope/repair and
+per-block predicate construction where their replacements are selected: per-row locator declarations/callers gone,
 no runtime→tooling edge, no script domain mutations, one schema catalogue, no parallel WS
 production path after gRPC cutover, no old storage activation after MX cutover, and no old
 rendered-text identity path after resolved consumers migrate.

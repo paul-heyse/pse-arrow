@@ -40,7 +40,7 @@ or historical challenge is promoted to a new accepted design requirement.
 | R8 | 49c independent finite live/backdating retention and defaults; actual metadata/input/interned bytes, granular count LRU; heap callback replacement conditional. |
 | R9 | 49c dependency-to-consumer indexes include rates and complete positive/negative membership dependencies; local lookup correction can precede resolved migration. |
 | R10 | 49e one supervisor, inherited cancellation/deadline, native bridge/drain; explicit strategy exception selected, no new durable strategy capability. |
-| R11 | 49e runtime request/preparation/admission owners and paired outcomes; host superset projects into unchanged Version 7 study domain. |
+| R11 | 49e runtime request/preparation/admission owners and paired outcomes; host superset preserves the four-operation membership; physical requests use Version8. |
 | R12 | 49e parameter Fit/Simulation binding builder, recorded starts and fresh IC/history; other overlays and Shooting study admission remain separate decisions. |
 | R13 | 49c pure start-policy/compiler annotation/view products; 49e migrates steady/implicit/dynamic consumers; no duplicated current policy. |
 | R14 | 49e settings-dependent map/recovery/corrector capability; original residual, start permission and fresh sessions; map seam before PythonKINSOL choice removal. |
@@ -54,8 +54,8 @@ or historical challenge is promoted to a new accepted design requirement.
 | R22 | 49g product detail/selection contracts before tooling module split; optional crate/tracing inquiries without product-to-tooling cycle or hub relocation by fiat. |
 
 All DA-001–DA-032 and F01–F10 have individual native disposition rows in the coordinator.
-All RC01–RC18 have individual decision rows, plus RC19 selected MX 1.0, RC20 proposed
-gRPC lifecycle replacement and RC21 deliberate SSI adoption after the minimal version
+All RC01–RC18 have individual decision rows, plus RC19 selected MX 1.0, RC20 accepted
+gRPC lifecycle replacement and RC21 accepted deliberate SSI adoption after the minimal version
 upgrade. S01–S11 are consumed in 49h; S11 preserves package-only domain
 extension and is not omitted merely because early preparation named only ten scenarios.
 
@@ -148,6 +148,32 @@ recorded so an implementer does not accidentally resurrect the same defect.
 | Numerica exact/precision/ball/matrix/integration | Scoped exact/reference work; only documented basic ball operations certify; established native sparse solves and faer covariance admission retained |
 | Coefficients/TermStreamer/serialization | I13 large-expression workload trigger, explicit global normalization and cleanup; portable expression state is not automatic cross-process callback restoration |
 | Graphica/Spenso/integrate/ODE/Typst/Community/physics extensions | MAT06 tests relevance to reached existing structural math, not automatic adoption; graph isomorphism not physical equivalence, early ODE demo not established full solver replacement, specialized HEP/Typst not current simulator remediation |
+
+## Remaining-scope opportunity routes — 2026-10-22
+
+The [new functional opportunity review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md)
+uses O01–O08 without renaming original DA/F/R/RC identities. The coordinator alone owns
+new package/inquiry state. This table carries concrete mechanisms and scope correspondence,
+not another progress ledger or acceptance claim.
+
+| Opportunity | Proposed realization and plan owner |
+| --- | --- |
+| O01 | STO09/RUN03/RUN05 generated bounded scope pages and guarded repair sets; pure Rust policy, exact per-item premises, source/cursor fences and independent progress. I26/RC22 separately consider same-source Surrealism placement. |
+| O02 | RES07 joined protected block/batch metadata, exact descriptor coverage and composite ownership; TOOL04 retains physical protection/placement premises. |
+| O03 | RES07 selection-local DataFusion PhysicalExpr/PruningPredicate across bounded pages and residuals; no global cache, weakened decoder or scalar locator resurrection. |
+| O04 | PRE01 exact Salsa 0.28.5 safety/API update, exclusive lane accounting and owned observations; existing live/backdating/shared census remains. |
+| O05 | PRE08/I07 entity-local tracked typed fragments and selective immutable graph facts; original complete root assembly and existing body memo reuse preserved. |
+| O06 | PRE09/I27 optional finite configuration/explanation decision, Z3 versus bounded enumeration over owned capability facts; RC23 precedes new functional/binding target. |
+| O07 | TOOL08/BND05 typed bounded blocker/source/consumer explanations over native canonical graphs; current petgraph/rustworkx algorithms remain distinct. |
+| O08 | QUAL01–QUAL05 reconcile actual remaining migration and representative acceptance; retain the earlier pause/cancellation evidence and separate full-scale qualification. |
+
+Current source supersedes original baseline absence statements: substrate v8 has batch facts/
+pruning and no scalar locators; direct typed resolved consumers and tracked policy products
+exist; shared runtime/boundary/catalogue/maintenance implementations have bounded evidence.
+The original source routes explain why they were built, not an instruction to build them twice.
+Current physical operation opportunities do not turn prior no-additional-adoption decisions
+into unavailable-library claims. I28/I29 explicitly retain bounded pages and durable recovery
+rather than assuming streaming or notifications already meet those contracts.
 
 ## Retained artifact families and precedence
 
