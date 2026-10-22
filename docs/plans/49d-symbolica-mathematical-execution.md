@@ -10,10 +10,11 @@ doc_topics: [design, libraries, numerical-execution, preparation, validation]
 
 # Symbolica mathematical execution
 
-Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
+Current execution: [the authorized 49d–49e continuation](49-library-native-remediation.md#execution-resumption--remaining-49d49e-2026-10-22).
+The coordinator retains the earlier pause handoff as historical evidence.
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Selected continuation basis: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Execution is authorized; original authoring baselines and receipts retain their dates.
 
 This companion develops the mathematical execution target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns source dispositions,
@@ -169,8 +170,10 @@ Add a deterministic preflight over the admitted stage/definition DAG before diff
 It selects the eligible regional route from product kind, demanded support, derivative order,
 primitive/provider contracts and conservative construction/operation/scratch bounds. The
 selection and relevant profile/limit premises enter product identity. Do not estimate safety
-from `count_operations` alone: the current code notes omitted `Fun` nodes, and construction
-can swell before a final optimized census exists. Retain explicit function/alias dependency
+from `count_operations` alone: arithmetic operation counts are not source-node, operand,
+coefficient-payload or transient-storage populations, and construction can swell before a final
+optimized census exists. The pinned 3.0.1 visitor includes `Fun`; the inherited contrary comment
+was incorrect. Retain explicit function/alias dependency
 and derivative-call bounds and validate actual exported instructions afterward.
 
 Current `selected_partial_calls` is decremented inside differentiation and

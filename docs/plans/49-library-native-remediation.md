@@ -379,6 +379,32 @@ envelopes and ownership remain explicit. The canceled broad native sweep stays c
 Current package rows below remain open until their required acceptance is established. This
 continuation does not close independent 49f–49h work or establish comparative performance gains.
 
+### Current continuation checkpoint
+
+The focused math/runtime/native acceptance identified and corrected recycle tear-coordinate
+custody and sparse description overpayment. Remaining scientific construction exposed a second
+source-byte versus numeric-population estimate; its library-owned AST census and coefficient
+coverage are being qualified without changing the 8GiB constructor allowance. Compiler fragment
+consumers also move repeated whole-package equality onto tracked parent/selection products,
+preserving exact read sets, physical owners and source attribution. These are MAT consumer and
+construction repairs within the selected target, not a new library-feasibility engagement.
+
+The maintainer restored the documented inotify limits after genuine user-manager watch exhaustion.
+Normal native scope creation/drain now succeeds. The maintainer also explicitly selected disposal
+of the obsolete generated invocation. After authenticating the disappearance of its original
+process/scopes, the exact unfinished terminal guard and build allocation were released; no test
+outcome or terminal acknowledgment was invented. The obsolete poisoned functional store was then
+stopped under the same disposition after all 103 registered worker inventories were observed
+absent/drained. Ordinary reconciliation released its storage allocation. Historical unknown
+creation effects remain incomplete; they no longer require keeping an obsolete process running.
+The current selected Surrealism deployment is unchanged. This supersedes the earlier preservation
+instruction for invocation `d63c4731f12e4cc7b2a0d7eef19f7fac` and its obsolete storage lifetime.
+
+Next: freeze the constructor/fragment repairs, qualify the separated flash and remaining physical
+journeys, rebuild the linked Python/worker consumers, run the selected public/component and exact
+sixteen-owner reference checks, then reconcile package/findings and durable publication. The
+reference deployment is fresh and closed pending initialization; it is not yet qualified.
+
 ## Reading route and ownership
 
 | Document | Local design and packages |

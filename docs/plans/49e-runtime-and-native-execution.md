@@ -10,10 +10,11 @@ doc_topics: [design, numerical-execution, validation]
 
 # Runtime and native execution remediation
 
-Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
+Current execution: [the authorized 49d–49e continuation](49-library-native-remediation.md#execution-resumption--remaining-49d49e-2026-10-22).
+The coordinator retains the earlier pause handoff as historical evidence.
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Selected continuation basis: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+Execution is authorized; original authoring baselines and receipts retain their dates.
 
 This companion develops R10–R16, retained-pool drain F04 and the fitting termination candidate F05 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
@@ -41,22 +42,16 @@ scientific/native/Python acceptance and publication stay open; the reassessment 
 these mechanisms from scratch or turn earlier focused evidence into package completion.
 
 [Review O01](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
-adds STO09 scope-page/guarded-repair consumers to RUN03/RUN05: worker discovery, rotating readiness
-recovery and dependent notification advancement use complete bounded database operations. Keep
-`study_policy` as the pure semantic owner and preserve `Unknown => Reconcile` before cancellation,
-pending scientific admission, exact seed permission and candidate/immediate predecessor read sets.
-A repaired readiness hint cannot grant claim or native dispatch permission.
-
-Bound aggregate premise bytes and distinct dependencies. Keep item-level complete revision fences,
-notification source/before-cursor expectations and explicit accepted/stale/refused outcomes. A
-changing candidate must not stall independent progress; advance only certified cursor work or
-persist unfinished items. Unknown page effects reconcile immutable receipts before retry. Native
-work and its flat stop flag remain under the existing supervisor outside database transactions.
-
-Migrate all three worker routes and remove their per-point scope/repair loop when new targeted
-controls preserve recovery and both notification/cursor orders. Existing request, map, start,
-numerical outcome and drain contracts remain. This change depends on working STO09 contracts,
-not a complete storage-engine rerun or an optional Surrealism module (I26/RC22).
+is now supplied by completed STO09: the selected same-source Surrealism `study::readiness`
+export runs pure `study_policy` inside bounded native database transactions. All three worker
+routes consume immutable exact intent/epoch receipts; external scope/apply and per-point
+scientific-snapshot transport have been removed. `Unknown => Reconcile`, cancellation before
+scientific admission, exact seed permission and candidate/predecessor read sets remain.
+Readiness repair cannot grant claim or native dispatch permission. Fresh authoritative claims,
+complete revision fences, bounded output admission and original-clock settlement remain the
+runtime consumer contract. Native work and its flat stop flag stay under the supervisor outside
+database transactions. The [49a–49c Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns this prerequisite's tested scope and limits; it does not substitute for RUN acceptance.
 
 Review O06/PRE09 may propose a separate finite configuration/explanation operation. Until RC23
 is explicitly selected, do not expand `StudyOperation`, host request enums or public settings.

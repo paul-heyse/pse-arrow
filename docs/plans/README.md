@@ -21,7 +21,9 @@ The maintainer subsequently authorized all remaining 49a–49c scope. Its
 [execution Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
 owns completed Surrealism readiness, protected result selection and incremental resolved
 preparation acceptance, corrected failures and limits. PRE09 recommends no new configuration
-feature/Z3 binding; RC23 remains unselected. The coordinator owns remaining 49d–49h progress.
+feature/Z3 binding; RC23 remains unselected. The [authorized 49d–49e continuation](49-library-native-remediation.md#execution-resumption--remaining-49d49e-2026-10-22)
+owns current constructor/fragment, runtime/native and assembled acceptance work; the coordinator
+retains independent 49f–49h scope.
 Completed companions stay retained for active readers. The canceled native sweep remains closed.
 
 Plans own the execution status of work that is actually active; packets may own their own
