@@ -1097,6 +1097,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `rebuild_after` | `UInt64` | true | `payload` | — | — |
 | `notify_after` | `UInt64` | true | `payload` | — | — |
 | `verify_after` | `UInt64` | true | `payload` | — | — |
+| `pending_operation` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_study_retirements`
 

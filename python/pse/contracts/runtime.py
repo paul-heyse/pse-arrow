@@ -1102,9 +1102,10 @@ class RuntimeCanonicalStudyReadinessCursorsRow:
     rebuild_after: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     notify_after: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     verify_after: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    pending_operation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.revision), v.scalar_key(self.rebuild_pending), v.optional_key(v.scalar_key)(self.rebuild_after), v.optional_key(v.scalar_key)(self.notify_after), v.optional_key(v.scalar_key)(self.verify_after),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.revision), v.scalar_key(self.rebuild_pending), v.optional_key(v.scalar_key)(self.rebuild_after), v.optional_key(v.scalar_key)(self.notify_after), v.optional_key(v.scalar_key)(self.verify_after), v.optional_key(v.scalar_key)(self.pending_operation),))
 
 
 @attrs.frozen(kw_only=True)
