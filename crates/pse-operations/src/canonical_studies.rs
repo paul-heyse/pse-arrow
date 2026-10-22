@@ -3227,6 +3227,126 @@ mod canonical_studies_server_unit {
     }
 
     #[tokio::test]
+    async fn canonical_studies_readiness_epoch_race_settles_one_original_page() {
+        let (store,database,revision)=fixture().await;
+        let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
+        store.create_study("epoch-race",&request(&revision,"race-parent"),&[],&points,&||false).await.unwrap();
+        let cursor=store.readiness_cursor("epoch-race").await.unwrap();
+        let page=store.readiness_scope_page("epoch-race",&cursor,"verify",None,64).await.unwrap();
+        let (request,keys,_)=readiness_decisions(page).unwrap();
+        let pending=prepare_readiness_test(&store,&request,"race-original").await;
+        let state=std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database=database;
+        let peer=crate::testing::canonical_fixture_peer(&store,&options).unwrap();
+        let start=tokio::sync::Barrier::new(2);
+        let apply=async {
+            start.wait().await;
+            bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,'race-original','epoch-race','race-parent',$epoch,65);")
+                .bind(("epoch",pending.epoch.clone()))).await
+        };
+        let fence=async {
+            start.wait().await;
+            bounded_query(peer.db.query("RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,'race-original','epoch-race','race-parent',$before,'fenced:race');")
+                .bind(("before",pending.epoch.clone()))).await
+        };
+        let (apply,fence)=tokio::join!(apply,fence);
+        assert!(apply.is_ok() || fence.is_ok());
+        for result in [&apply,&fence] {
+            if let Err(error)=result {
+                assert!(matches!(error,CanonicalError::Driver(error) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))),"{error}");
+            }
+        }
+        if let Some(pending)=peer.pending_readiness_page("epoch-race").await.unwrap() {
+            peer.resume_readiness_page(pending,true).await.unwrap();
+        }
+        let mut response=bounded_query(peer.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'race-original','epoch-race','race-parent');")).await.unwrap();
+        validate_repair_outcomes(&response.take::<Option<Object>>(0).unwrap().unwrap(),&keys).unwrap();
+        assert!(peer.pending_readiness_page("epoch-race").await.unwrap().is_none());
+        let mut response=bounded_query(peer.db.query("RETURN array::len(SELECT key FROM canonical_execution_operations WHERE kind='study-readiness-repair-page');")).await.unwrap();
+        assert_eq!(response.take::<Option<i64>>(0).unwrap(),Some(1));
+        peer.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_studies_readiness_no_effect_consumes_reservation_without_full_receipt() {
+        let (store,_,revision)=fixture().await;
+        let points=[occurrence(&revision,0,vec![])];
+        store.create_study("no-effect-page",&request(&revision,"no-effect-parent"),&[],&points,&||false).await.unwrap();
+        let cursor=store.readiness_cursor("no-effect-page").await.unwrap();
+        let page=store.readiness_scope_page("no-effect-page",&cursor,"verify",None,64).await.unwrap();
+        let (mut request,_,_)=readiness_decisions(page).unwrap();
+        let Value::Array(items)=request.get_mut("items").unwrap() else {unreachable!()};
+        let Value::Object(item)=items.get_mut(0).unwrap() else {unreachable!()};
+        item.insert("expected",Vec::<Object>::new());
+        let pending=prepare_readiness_test(&store,&request,"no-effect-original").await;
+        let applied=apply_readiness_test(&store,&pending,65).await;
+        assert_eq!(applied.get("settled"),Some(&Value::Bool(true)));
+        assert!(store.pending_readiness_page("no-effect-page").await.unwrap().is_none());
+        let current=store.readiness_cursor("no-effect-page").await.unwrap();
+        assert!(current.revision>cursor.revision,"even refused/no-effect completion consumes the original reservation fence");
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,'delayed-other-uuid',$request);").bind(("request",request))).await.unwrap();
+        assert!(response.take::<Option<Object>>(0).unwrap().is_none(),"a delayed competing prepare cannot reuse a completed cursor reservation under a fresh UUID");
+        let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations','no-effect-original');")).await.unwrap();
+        let row=wire::decode_canonical_execution_operations(response.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();
+        assert!(row.minimal && row.request.is_empty() && row.result.is_empty());
+        assert_eq!(row.disposition,"no-effect");
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'no-effect-original','no-effect-page','no-effect-parent');")).await.unwrap();
+        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("no_effect"),Some(&Value::Bool(true)));
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_studies_readiness_receipts_outlive_payloads_but_not_history_release() {
+        use crate::canonical_history::HistoryOwner;
+        let (store,_,revision)=fixture().await;
+        let points=[occurrence(&revision,0,vec![])];
+        store.create_study("receipt-lifetime",&request(&revision,"receipt-parent"),&[],&points,&||false).await.unwrap();
+        let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
+        let page=store.readiness_scope_page("receipt-lifetime",&cursor,"verify",None,64).await.unwrap();
+        let (request,keys,_)=readiness_decisions(page).unwrap();
+        let pending=prepare_readiness_test(&store,&request,"retained-repair").await;
+        let mut applied=apply_readiness_test(&store,&pending,65).await;
+        let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
+        validate_repair_outcomes(&original,&keys).unwrap();
+        let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
+        let page=store.readiness_scope_page("receipt-lifetime",&cursor,"verify",None,64).await.unwrap();
+        let (mut late_request,_,_)=readiness_decisions(page).unwrap();
+        late_request.insert("mutating",true);
+        let _late=prepare_readiness_test(&store,&late_request,"late-repair").await;
+        store.cancel_study("receipt-lifetime").await.unwrap();
+        let scope=store.study_scope(&point_key("receipt-lifetime",OccurrenceKey(0))).await.unwrap();
+        let action=scope.action(None).unwrap();
+        store.refuse_study_point(&scope,&action,None).await.unwrap();
+        let summary=store.canonical_study_summary("receipt-lifetime").await.unwrap().unwrap();
+        let fence=store.begin_study_finalization(&summary,"summary-worker",Duration::from_secs(60)).await.unwrap().unwrap();
+        let closed=store.close_result_ingestion(&fence,"receipt-summary-close").await.unwrap();
+        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: the summary records only the effect-free cancelled observation.
+        unsafe {store.seal_study_summary("receipt-lifetime",&manifest,"receipt-summary-seal",TerminalClass::Cancelled,b"cancelled fixture").await}.unwrap();
+        assert!(store.study_page(None).await.unwrap().iter().any(|study|study.key=="receipt-lifetime"),
+            "a terminal study with a pending original operation remains discoverable");
+        store.repair_study_readiness("receipt-lifetime").await.unwrap();
+        assert!(store.pending_readiness_page("receipt-lifetime").await.unwrap().is_none(),
+            "recovery precedes cancelled/terminal early exits");
+        assert!(!store.study_page(None).await.unwrap().iter().any(|study|study.key=="receipt-lifetime"));
+        store.forget_study_results("receipt-lifetime").await.unwrap();
+        store.forget_run_results("receipt-parent").await.unwrap();
+        let mut complete=false;
+        for _ in 0..8 {if store.reclaim_result_page("receipt-parent").await.unwrap().complete {complete=true;break;}}
+        assert!(complete,"the single empty summary's payload retirement is bounded");
+        let readback=||store.db.query("RETURN fn::pse_study_v1::readiness_receipt($pse_rpc_expires_at,'retained-repair','receipt-lifetime','receipt-parent',$request);").bind(("request",request.clone()));
+        let mut response=bounded_query(readback()).await.unwrap();
+        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap(),original,"payload retirement does not erase exact maintenance settlement evidence");
+        let owner=HistoryOwner::Run("receipt-parent".into());
+        store.release_history(&owner).await.unwrap();
+        assert!(bounded_query(readback()).await.is_err(),"detailed history release is unavailable, never absence authorizing replay");
+        for _ in 0..8 {if store.reclaim_history_page(&owner).await.unwrap().complete {break;}}
+        assert!(bounded_query(readback()).await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn canonical_studies_readiness_byte_limited_pages_keep_explicit_continuation() {
         let (store,_,revision)=fixture().await;
         let mut points=(0..9).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();

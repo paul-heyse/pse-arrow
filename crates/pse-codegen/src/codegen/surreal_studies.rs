@@ -246,7 +246,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operatio
     LET $safe=array::len($previous.outcomes.filter(|$item|$item.status='refused'))=0;
     LET $next=fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$request,$items,$finish AND $safe);
     IF $finish {
-        UPDATE ONLY type::record('canonical_study_readiness_cursors',$study) SET pending_operation=NONE;
+        UPDATE ONLY type::record('canonical_study_readiness_cursors',$study) SET pending_operation=NONE,revision=math::max([$next.cursor.revision,$request.fence.cursor+1dec]);
         fn::pse_history_v1::drop_obligation($rpc_expiry,$operation,'run',$run,'unsettled','study-readiness-repair-page');
     };
     LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
