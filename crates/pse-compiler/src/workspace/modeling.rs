@@ -410,7 +410,7 @@ fn field_fragment_key_heap((_package, recipe): &(StaticFunctionPackageKey<'_>, A
 fn field_fragment(db: &dyn CompilerDb, key: FieldFragmentKey<'_>) -> Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>> {
     checkpoint(db);
     let _phase = pse_diagnostics::observation::phase("compiler.query.field_fragment");
-    let input = pse_modeling::specialize::field_fragments::FieldFragmentInput::from_parts(key.package(db).package(db).0.clone(), key.recipe(db).clone());
+    let input = pse_modeling::specialize::field_fragments::FieldFragmentInput::from_parts(read_static_package(db, key.package(db))?, key.recipe(db).clone());
     let result = pse_modeling::specialize::field_fragments::derive(&input,Some(&QueryFragments{db}), &|| db.cancel().load(Ordering::Acquire),&LibraryDiscretizer)?;
     checkpoint(db);
     Ok(Arc::new(result))
@@ -420,7 +420,7 @@ struct QueryFragments<'db> { db: &'db dyn CompilerDb }
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
     fn field_fragment(&self, input: Arc<pse_modeling::specialize::field_fragments::FieldFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>, pse_modeling::ModelingError> {
         let (package,recipe)=input.parts();
-        let package=StaticFunctionPackageKey::new(self.db,StaticFunctionPackage(package));
+        let package=intern_static_package(self.db, package)?;
         let key=FieldFragmentKey::new(self.db,package,recipe);
         field_fragment(self.db,key).map_err(|error|match error {
             CompileError::Modeling(error)=>error, CompileError::Cancelled=>pse_modeling::ModelingError::Cancelled,
