@@ -527,11 +527,12 @@ class RuntimeCanonicalInterpretationsRow:
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     schema_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study_module_sha256: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     payload_incarnation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store), v.scalar_key(self.payload_incarnation),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.study_module_sha256), v.scalar_key(self.issuing_store), v.scalar_key(self.payload_incarnation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -543,10 +544,11 @@ class RuntimeCanonicalMaintenanceActivationsRow:
     predecessor: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     schema_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study_module_sha256: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.input_sha256), v.scalar_key(self.predecessor), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.input_sha256), v.scalar_key(self.predecessor), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.study_module_sha256), v.scalar_key(self.issuing_store),))
 
 
 @attrs.frozen(kw_only=True)

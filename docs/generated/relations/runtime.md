@@ -522,6 +522,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
+| `study_module_sha256` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
 | `payload_incarnation` | `Utf8` | false | `payload` | — | — |
 
@@ -538,6 +539,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `predecessor` | `Binary` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
+| `study_module_sha256` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_maintenance_operations`
