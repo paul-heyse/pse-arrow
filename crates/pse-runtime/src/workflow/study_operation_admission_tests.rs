@@ -55,7 +55,7 @@ async fn plant_on(runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     }";
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         Default::default(),
     )

@@ -3799,7 +3799,7 @@ mod tests {
             );
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -3950,7 +3950,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let rows = pse_authoring::language::parse(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; let clock[i in t]: Scalar = abs(i/1{s}-0.5); let state_view[i in t]: Time = 2*x[i]; let area:Time=integral(i in t | x[i]/1{s}); annotation report clock(\"point output\"); annotation report state_view(\"state-derived output\"); annotation report area(\"integral\"); } }",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
@@ -4158,7 +4158,7 @@ mod tests {
             let cancel = crate::CancelSource::new();
             let rows = pse_authoring::language::parse(
                 "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }",
-                SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+                SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             ).unwrap();
             let root = rows
@@ -4329,7 +4329,7 @@ mod tests {
         }"#;
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -4420,7 +4420,7 @@ mod tests {
             );
             let rows = pse_authoring::language::parse(
                 &source,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -4496,7 +4496,7 @@ mod tests {
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
-                    SemanticId::NIL,
+                    SemanticId::from_bytes([175; 16]),
                     pse_authoring::language::IdentityPolicy::Named,
                     pse_authoring::ParseBudget::default(),
                 )
@@ -4518,7 +4518,7 @@ mod tests {
                     );
                     let rows = pse_authoring::language::parse(
                         &resetting,
-                        SemanticId::NIL,
+                        SemanticId::from_bytes([175; 16]),
                         pse_authoring::language::IdentityPolicy::Named,
                         pse_authoring::ParseBudget::default(),
                     )
@@ -4634,7 +4634,7 @@ mod tests {
             let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }";
             let rows = pse_authoring::language::parse(
                 source,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -4744,7 +4744,7 @@ mod tests {
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
-                    SemanticId::NIL,
+                    SemanticId::from_bytes([175; 16]),
                     pse_authoring::language::IdentityPolicy::Named,
                     pse_authoring::ParseBudget::default(),
                 )
@@ -4848,7 +4848,7 @@ mod tests {
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
-                    SemanticId::NIL,
+                    SemanticId::from_bytes([175; 16]),
                     pse_authoring::language::IdentityPolicy::Named,
                     pse_authoring::ParseBudget::default(),
                 )
@@ -4973,7 +4973,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; var y[i in t]:Time; eq initial_x:x[0{s}]==1{s}; eq initial_y:y[0{s}]==2{s}; conserve sum[i in t]:Time on t inventory x[i]+y[i] flux 3 tolerance 1e-6{s}; conserve difference[i in t]:Time on t inventory x[i]-y[i] flux -1 tolerance 1e-6{s}; } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5098,7 +5098,7 @@ mod tests {
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
-                    SemanticId::NIL,
+                    SemanticId::from_bytes([175; 16]),
                     pse_authoring::language::IdentityPolicy::Named,
                     pse_authoring::ParseBudget::default(),
                 )
@@ -5381,7 +5381,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param base:Temperature=300{K}; param step:DeltaTemperature=1{K}; var x[i in t]:Temperature; let rate[i in t]:TemperatureRate=0.5*step/1{s}; conserve stock[i in t]:Temperature on t inventory x[i] flux rate[i] tolerance 1e-6{K} transfers(hit[0{s}]=x[i]-base); eq initial:x[0{s}]==base; let hit[i in t]:DeltaTemperature=x[i]-base-0.5*step; let jump[i in t]:Temperature=x[i]+(x[i]-base); } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1.5{s},2{s}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{K}) reset(root.x[0{s}]=root.jump[0{s}]) next(after); mode after; } { child root:Root=Root(); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5439,7 +5439,7 @@ mod tests {
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; var y[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; eq definition[i in t]: y[i] == 2*x[i]; annotation start y(2{s}); let hit[i in t]: Time = x[i]-1.5{s}; let jump[i in t]: Time = 2*y[i]; } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.y[0{s}] = root.jump[0{s}]) next(after); mode after; } { child root: Root = Root(); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5486,7 +5486,7 @@ mod tests {
         let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s}); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
         let rows = pse_authoring::language::parse(
             text,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5494,7 +5494,7 @@ mod tests {
         let rendered = pse_authoring::language::render(&rows).unwrap();
         let reparsed = pse_authoring::language::parse(
             &rendered,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5575,7 +5575,7 @@ mod tests {
         let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
         let rows = pse_authoring::language::parse(
             text,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5587,7 +5587,7 @@ mod tests {
         );
         let reparsed = pse_authoring::language::parse(
             &rendered,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5754,7 +5754,7 @@ mod tests {
         );
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5768,7 +5768,7 @@ mod tests {
         );
         let reparsed = pse_authoring::language::parse(
             &rendered,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5914,7 +5914,7 @@ mod tests {
         );
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -6000,7 +6000,7 @@ mod tests {
         );
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -6079,7 +6079,7 @@ mod tests {
         let parse = |text: &str| {
             pse_authoring::language::parse(
                 text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -6171,7 +6171,7 @@ mod tests {
         ] {
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -6323,7 +6323,7 @@ mod tests {
         ] {
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -6368,7 +6368,7 @@ mod tests {
         ] {
             let declarations = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -6461,7 +6461,7 @@ mod tests {
         ] {
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -6572,7 +6572,7 @@ mod tests {
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]: Time; var units: Count in integer; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation start x(0{s}); annotation start units(1{1}); annotation bounds units(0{1}, 3{1}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -6633,7 +6633,7 @@ mod tests {
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; eq ode[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == offset; annotation start x(0{s}); annotation nominal x(10{s}); annotation check x(abs(x[i] - offset - p*i) < 1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -7063,7 +7063,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )
@@ -7192,7 +7192,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )
@@ -7334,7 +7334,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; var y[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==offset; eq algebraic[i in t]:y[i]*y[i]==x[i]/1{s}; annotation start x(1{s}); annotation start y(1); let area:Time=integral(i in t | p); annotation check area(abs(area-2{s})<1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )
@@ -7437,7 +7437,7 @@ mod tests {
         let parse = |source: &str| {
             pse_authoring::language::parse(
                 source,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -7663,7 +7663,7 @@ mod tests {
         let source = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root { domain t: Time from 0{s} to 1{s}; when analysis.route == analysis.integrated { discretize native on t using integrated(elements=1,order=1); } when analysis.route != analysis.integrated { discretize grid on t using backward(elements=4,order=1); } param target: Time = 2{s}; param tau: Time = 1{s}; var x[i in t]: Time; when analysis.dynamic { eq transient[i in t]: d(x[i])/di == (target-x[i])/tau; eq initial: x[0{s}] == 0{s}; } when not analysis.dynamic { eq stationary[i in t]: 0 == (target-x[i])/tau; } annotation start x(0{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -7805,7 +7805,7 @@ mod diagnostic_admission_tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]:Scalar; var y[i in t]:Scalar; eq rx[i in t]:d(x[i])/di == -x[i]/1{s}; eq ry[i in t]:d(y[i])/di == (x[i]-2*y[i])/1{s}; eq ix:x[0{s}]==1; eq iy:y[0{s}]==0; annotation start x(1); annotation start y(0); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )
@@ -8017,7 +8017,7 @@ mod diagnostic_admission_tests {
         let source = "package p { def D { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=2; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==u; eq initial:x[0{s}]==u*1{s}; } test constant fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {child root:D=D();} test scheduled fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2,7);} {child root:D=D();} }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )

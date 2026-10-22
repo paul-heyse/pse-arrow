@@ -2741,7 +2741,7 @@ mod tests {
     async fn parallel_package(source: &str, width: usize) -> ModelingPackage {
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -2896,7 +2896,7 @@ mod tests {
         source.push('}');
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -3391,7 +3391,7 @@ mod tests {
         let runtime = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
         let rows = pse_authoring::language::parse(
             "package p { def Root {param p:Scalar=4; var x:Scalar; annotation start x(2); implicit root select operational(y=1) settings(\"native.kinsol.v1\") {var y:Scalar; eq e:y*y==p; annotation start y(1); annotation bounds y(0.1,10);} realize policy on root using nested; eq e:x==root.y;} }",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = rows
@@ -3776,7 +3776,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
             text,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -3956,7 +3956,7 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows = |metadata: &str| {
-            pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; route steady; procedure check;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
+            pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; route steady; procedure check;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
         };
         for metadata in [
             "route steady; procedure solve; stages(warm);",
@@ -4767,7 +4767,7 @@ mod tests {
         );
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -4781,7 +4781,7 @@ mod tests {
         );
         let roundtrip = pse_authoring::language::parse(
             &rendered,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5055,7 +5055,7 @@ mod tests {
             .modeling_package(
                 pse_authoring::language::parse(
                     "package q { entity kind version release { attribute name: Text; } }",
-                    SemanticId::NIL,
+                    SemanticId::from_bytes([175; 16]),
                     pse_authoring::language::IdentityPolicy::Named,
                     pse_authoring::ParseBudget::default(),
                 )

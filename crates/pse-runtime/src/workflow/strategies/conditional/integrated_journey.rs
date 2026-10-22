@@ -11,7 +11,7 @@ const SOURCE: &str = include_str!("../../../../../../tests/fixtures/indexed-recy
 async fn package(source: &str) -> ModelingPackage {
     let declarations = pse_authoring::language::parse(
         source,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         Default::default(),
     )

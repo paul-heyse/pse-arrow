@@ -84,7 +84,7 @@ async fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let rows = pse_authoring::language::parse(
         LOOP,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )

@@ -785,7 +785,7 @@ mod tests {
             );
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -1034,7 +1034,7 @@ mod tests {
         let source = "package p { def Root { var x:Scalar; implicit missing {var y:Scalar; eq root:y==2;} realize r on missing using nested; eq independent:x==1; eq dependent:missing.y==x; } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -1118,7 +1118,7 @@ mod tests {
         ] {
             let rows = pse_authoring::language::parse(
                 &text,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -1187,7 +1187,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; implicit numerical select operational(w=1) settings(\"native.kinsol.v1\") {var w:Scalar;eq e:w*w==1;annotation bounds w(0.5,1.5);}realize n on numerical using nested;implicit outer {var y:Scalar;implicit child select branch(z>=0) {var z:Scalar;eq e:z*z==x;annotation start z(sqrt(x));annotation bounds z(0.1,10);}realize c on child using nested;eq e:y+child.z==x;annotation start y(numerical.w);annotation bounds y(0.1,10);}realize o on outer using nested;eq pin:outer.y==2;} }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default(),
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = rows
             .iter()
@@ -1391,7 +1391,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { param target:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; annotation report roots.y(\"selected\"); } }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
@@ -1523,7 +1523,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var target:Scalar; var s:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; eq link:s == roots.y; eq pin:target == 2; annotation start target(-2); annotation start s(-1); } }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
@@ -1610,7 +1610,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child select branch(z>=0) { var z: Scalar; eq residual: z*z == x; annotation start z(sqrt(x)); annotation bounds z(sqrt(x)-0.01,sqrt(x)+0.01); annotation nominal z(sqrt(x)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 2; annotation start x(3); annotation report outer.y(\"outer\"); annotation report outer.child.z(\"child\"); } }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
@@ -1737,7 +1737,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit root select branch(y>=0) { var y: Scalar; eq residual: y*y == x; annotation scale residual(inverseSum); annotation start y(1); annotation bounds y(0.5,3); annotation valid y(0.5,3); annotation nominal y(2); } realize policy on root using nested; eq pin: root.y == 2; annotation start x(2); annotation report root.y(\"root\"); } }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")

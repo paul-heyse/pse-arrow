@@ -23,7 +23,7 @@ async fn package_with_runtime(
 ) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([172; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -193,15 +193,16 @@ async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_op
 async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
     // Original Value and demanded derivative programs coexist. Their distinct
     // coordinate sets can retain six scalar constructors at 256 MiB of foreign
-    // allowance each, before workspace/stack/attempt storage. This is the
-    // admission envelope, not a measured allocation or resident-memory estimate.
+    // allowance each, before workspace/stack/attempt storage. The 1 GiB workspace
+    // also admits the source candidate before either derivative projection. This
+    // is an admission envelope, not a measured resident-memory estimate.
     let (package, root, runtime) = package_with_runtime(
         "package p { def Root { param size:Power=1{W}; var x:Scalar; var y:Scalar; var on:Indicator in binary; annotation bounds x(0,2); annotation bounds y(0,1); annotation start x(1); annotation start y(1); annotation start on(1{1}); eq link:size*y==size*on; eq floor:x>=y; let cost:Scalar=x*x-3*y; annotation objective cost(minimize); } }",
         fixture::runtime_on(
             4usize << 30,
             crate::math::MathPolicy {
                 worker_bytes: 16usize << 30,
-                workspace_bytes: 16 << 20,
+                workspace_bytes: 1 << 30,
                 foreign_bytes: 256 << 20,
                 ..Default::default()
             },
@@ -522,8 +523,8 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
             );
             assert!(report.quality.as_ref().unwrap().feasible());
             for name in [
-                "callback.jvp.calls",
-                "callback.preconditioner.calls",
+                "callback.native_callback.jvp.calls",
+                "callback.native_callback.preconditioner.calls",
                 "KINGetNumJtimesEvals",
                 "KINGetNumPrecEvals",
             ] {
@@ -575,12 +576,28 @@ async fn auto_boxed_square_upgrades_first_to_ready_nlp_second() {
     assert_eq!(bounds(upgraded), bounds(original));
     assert_eq!(bounds(upgraded)[0].1, Some(0.25));
     assert_eq!(bounds(upgraded)[0].2, Some(2.0));
-    assert!(
-        upgraded
-            .supports()
-            .iter()
-            .all(|support| support.order() == DerivativeOrder::Second)
-    );
+    // Second-order All demands coexist with separate first-order value/Jacobian
+    // callbacks; upgrading the NLP must not fabricate Hessians for those callbacks.
+    assert_eq!(upgraded.supports().len(), upgraded.demands().len());
+    let mut second = 0;
+    let mut first = 0;
+    for (support, demand) in upgraded.supports().iter().zip(upgraded.demands()) {
+        let expected = match demand.product {
+            pse_math::jets::ProductKind::WeightedHessian
+            | pse_math::jets::ProductKind::WeightedHessianAction => {
+                second += 1;
+                DerivativeOrder::Second
+            }
+            _ => {
+                first += 1;
+                DerivativeOrder::First
+            }
+        };
+        assert_eq!(demand.order, expected);
+        assert_eq!(support.order(), expected);
+    }
+    assert!(second > 0, "actual second-order NLP support is prepared");
+    assert!(first > 0, "distinct first-order callbacks remain prepared");
     assert_eq!(
         original.order(),
         DerivativeOrder::First,

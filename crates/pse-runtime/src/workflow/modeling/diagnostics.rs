@@ -1330,7 +1330,7 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let declarations = pse_authoring::language::parse(
             "package p { def D {var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5);} }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -1480,7 +1480,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let declarations = pse_authoring::language::parse(
             "package p { def Root {var x:Scalar; eq e:x==2; annotation bounds x(0,1);} }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -1982,7 +1982,7 @@ mod tests {
         #[cfg(feature = "solver-kinsol")]
         {
             let physical = super::super::super::tests::physical();
-            let rows = pse_authoring::language::parse("package p { def Root { var x:Scalar; var unused:Scalar; implicit i {var y:Scalar; eq e:y==2; annotation start y(1);} realize r on i using nested; eq e:x==i.y; } }", SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+            let rows = pse_authoring::language::parse("package p { def Root { var x:Scalar; var unused:Scalar; implicit i {var y:Scalar; eq e:y==2; annotation start y(1);} realize r on i using nested; eq e:x==i.y; } }", SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
             let root = rows
                 .iter()
                 .find(|r| r.name == "Root")

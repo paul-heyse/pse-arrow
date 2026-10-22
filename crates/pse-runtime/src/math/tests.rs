@@ -520,7 +520,7 @@ async fn nested_provider_analysis_admits_known_source_below_default_workspace_ca
     assert_eq!(service.policy.worker_bytes, 8usize << 30);
     let rows = pse_authoring::language::parse(
         "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;}realize ra on a using nested;}}",
-        pse_ids::SemanticId::NIL,
+        pse_ids::SemanticId::from_bytes([173; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     ).unwrap();
@@ -726,7 +726,7 @@ async fn nested_preparation_admits_small_sources_with_generous_worker_capacity()
     );
     let rows = pse_authoring::language::parse(
         "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;}}",
-        pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+        pse_ids::SemanticId::from_bytes([173; 16]), pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     ).unwrap();
     let root = rows
@@ -782,7 +782,7 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
     );
     let rows = pse_authoring::language::parse(
         "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x*p==1;annotation start x(1);}}",
-        pse_ids::SemanticId::NIL,
+        pse_ids::SemanticId::from_bytes([173; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -1011,7 +1011,7 @@ pub(super) fn component_fixture_source(
     pse_math::initialize().unwrap();
     let rows = pse_authoring::language::parse(
         source,
-        pse_ids::SemanticId::NIL,
+        pse_ids::SemanticId::from_bytes([173; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )

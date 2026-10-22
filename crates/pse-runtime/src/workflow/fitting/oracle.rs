@@ -3360,7 +3360,7 @@ mod tests {
         let physical = physical();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([176; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

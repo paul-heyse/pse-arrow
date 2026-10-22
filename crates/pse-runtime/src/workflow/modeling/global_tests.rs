@@ -18,7 +18,7 @@ async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -101,7 +101,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
     for worker_bytes in [512, 1 << 30] {
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

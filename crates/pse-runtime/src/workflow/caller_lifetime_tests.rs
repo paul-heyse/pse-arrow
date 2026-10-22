@@ -313,7 +313,7 @@ async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_
     let runtime = tests::runtime();
     let rows = pse_authoring::language::parse(
         "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; } test plant fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } { child root:Root=Root(); } }",
-        pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
+        pse_ids::SemanticId::from_bytes([174; 16]), pse_authoring::language::IdentityPolicy::Named, Default::default(),
     ).unwrap();
     let case = rows
         .iter()

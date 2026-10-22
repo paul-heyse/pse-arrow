@@ -1763,7 +1763,7 @@ mod modeling_failure_tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==2*p;annotation start z(3.5);annotation bounds z(1,9);}realize rb on b using nested;}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
         let root = declarations
             .iter()
             .find(|row| row.name == "Root")

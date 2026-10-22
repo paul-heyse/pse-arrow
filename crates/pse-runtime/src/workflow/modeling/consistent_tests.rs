@@ -93,7 +93,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; var y: Scalar; eq ode[i in t]: d(x[i])/di == y; eq initial: x[0{s}] == offset; eq algebraic: y == 2*p; annotation start x(0{s}); annotation start y(999); } }";
     let rows = pse_authoring::language::parse(
         source,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )

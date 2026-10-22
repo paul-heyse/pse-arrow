@@ -1838,7 +1838,7 @@ mod tests {
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; eq ode[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == offset; annotation start x(0{s}); annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -2020,7 +2020,7 @@ mod tests {
         let source = selected_jacobi_source(false);
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -2322,7 +2322,7 @@ mod tests {
         let runtime = super::super::tests::runtime();
         let rows = pse_authoring::language::parse(
             &selected_jacobi_source(true),
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )
@@ -2483,7 +2483,7 @@ mod tests {
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; var y[i in t]: Time; eq first[i in t]: p*d(x[i])/di+d(y[i])/di == -p*x[i]/1{s}; eq second[i in t]: d(x[i])/di+2*d(y[i])/di == 0; eq ix: x[0{s}] == 1{s}; eq iy: y[0{s}] == 3{s}; annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

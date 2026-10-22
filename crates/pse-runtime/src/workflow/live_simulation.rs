@@ -579,7 +579,7 @@ mod tests {
         source.push_str("} }");
         let rows = pse_authoring::language::parse(
             &source,
-            pse_ids::SemanticId::NIL,
+            pse_ids::SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

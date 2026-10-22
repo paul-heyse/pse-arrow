@@ -96,7 +96,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     use pse_model::strategy::BranchPolicy;
     let rows=pse_authoring::language::parse(
         "package p { def Root { param p:Scalar=4; var x:Scalar; eq root:x*x==p; annotation start x(2); } }",
-        SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default(),
+        SemanticId::from_bytes([177; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default(),
     ).unwrap();
     let root = rows
         .iter()
@@ -482,7 +482,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
     };
     let rows = pse_authoring::language::parse(
         "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==3; } }",
-        SemanticId::NIL,
+        SemanticId::from_bytes([177; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -677,7 +677,7 @@ async fn solve_with_backend(
     let text = "package p { def Root { param p: Scalar=4; var x: Scalar; eq root: x*x==p; annotation start x(2); } }";
     let rows = pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([177; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )?;
@@ -787,7 +787,7 @@ async fn root_response_withheld_at_active_bound_keeps_base_solution() {
 async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base() {
     let rows = pse_authoring::language::parse(
         "package p { def Root { param p:Scalar=0; var x:Scalar; eq root:x*x*x==p; annotation start x(0); } }",
-        SemanticId::NIL,
+        SemanticId::from_bytes([177; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )
@@ -998,7 +998,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
     use pse_backend_native::solve::{Controls, Execution};
     use pse_model::strategy::BranchPolicy;
     let rows = pse_authoring::language::parse("package p { def Qp { param p:Scalar=1; var x:Scalar; eq floor:x>=0; let cost:Scalar=0.5*x*x-p*x; annotation objective cost(minimize); annotation start x(1); } }",
-        SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+        SemanticId::from_bytes([177; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
     let root = rows.iter().find(|r| r.name == "Qp").unwrap().declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
     let package = runtime
@@ -1278,7 +1278,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .contains("actual original candidate")
     );
     let unrelated_rows = pse_authoring::language::parse("package other { def Qp { param p:Scalar=2; var x:Scalar; eq floor:x>=0; let cost:Scalar=0.5*x*x-p*x; annotation objective cost(minimize); annotation start x(1); } }",
-        SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+        SemanticId::from_bytes([177; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
     let unrelated_root = unrelated_rows
         .iter()
         .find(|r| r.name == "Qp")

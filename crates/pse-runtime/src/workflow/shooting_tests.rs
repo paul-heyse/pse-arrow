@@ -1374,7 +1374,7 @@ fn parse(
 ) -> Result<Vec<pse_authoring::language::Declaration>, pse_authoring::AuthoringError> {
     pse_authoring::language::parse(
         text,
-        SemanticId::NIL,
+        SemanticId::from_bytes([175; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     )

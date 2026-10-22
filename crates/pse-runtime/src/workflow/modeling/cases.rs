@@ -2986,7 +2986,7 @@ mod tests {
         use super::super::super::tests as fixture;
         let declarations = pse_authoring::language::parse(
             "package p { def Root { var x:Length; eq root:x==1{m}; annotation start x(1{m}); let cost:Scalar=x/1{m}; annotation objective cost(minimize); annotation accuracy_goal x(optimal_objective, steady, resolution=0.1{m}); } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -3059,7 +3059,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report cost(\"cost\");annotation report a.y(\"y\");annotation report b.z(\"z\");}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3276,7 +3276,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==2*p;annotation start z(3.5);annotation bounds z(1,9);}realize rb on b using nested;}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3401,7 +3401,7 @@ mod tests {
         use super::super::super::tests as fixture;
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(1);annotation bounds y(0,2);}realize ra on a using nested;}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3472,7 +3472,7 @@ mod tests {
             );
             let declarations = pse_authoring::language::parse(
                 &source,
-                SemanticId::NIL,
+                SemanticId::from_bytes([175; 16]),
                 pse_authoring::language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),
             )
@@ -3602,7 +3602,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;var z:Scalar;annotation start z(1);implicit a {var y:Scalar;eq ey:y==2*p;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit restricted select branch(y>0) {var y:Scalar;eq ey:y*y==p;annotation start y(1);annotation bounds y(-3,3);}realize rb on restricted using nested;eq pin:z==restricted.y;}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3708,7 +3708,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param target:Scalar=2;var z:Scalar;annotation start z(0.5);implicit a {var y:Scalar;eq ey:y==2*target;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit roots select minimum((y-target)*(y-target),1e-8) {var y:Scalar;regime negative eligible(y<0) {eq ey:y==-1;annotation start y(-0.5);annotation bounds y(-2,-0.1);}regime positive eligible(y>0) {eq ey:y==1;annotation start y(0.5);annotation bounds y(0.1,2);}}realize rb on roots using nested;eq pin:z==roots.y;annotation report roots.y(\"selected\");}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3786,7 +3786,7 @@ mod tests {
         use super::super::super::tests as fixture;
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;var x:Scalar;annotation start x(1);implicit a {var y:Scalar;eq ey:y==p;annotation start y(1);annotation bounds y(0,4);}realize ra on a using nested;}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
             .iter()
@@ -3841,7 +3841,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p {def Root {var x:Scalar;var length:Length;annotation start x(1);annotation start length(1{m});accumulate total:Scalar conservation tolerance 1e-7;contribute total role inflow=x;contribute total role outflow=1;accumulate distance:Length conservation tolerance 0.00002{cm};contribute distance role inflow=length;contribute distance role outflow=1{m};state consistency supplied(true) {coordinate amount=x;reconstruct agreement:x==1 tolerance 1e-11;transport amount=x tolerance 1e-8;}}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = declarations
@@ -4129,7 +4129,7 @@ mod tests {
         use pse_backend_native::solve::{Backend, SolverSelection};
         let rows = pse_authoring::language::parse(
             "package p {def Root {var p:Scalar;var x:Scalar;implicit root select operational(y=1) settings(\"native.kinsol.v1\") {var y:Scalar;eq e:y*y==p;annotation start y(1);annotation bounds y(0.1,10);}realize policy on root using nested;eq e:x==root.y;annotation start x(2);}}",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = rows
@@ -4286,7 +4286,7 @@ mod tests {
         );
         let declarations = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var length:Length; annotation start x(1); annotation start length(1{m}); state s supplied(false) { coordinate amount=x; reconstruct normalization:x==1 tolerance 1e-9; reconstruct extent:length==1{m} tolerance 0.0000002{cm}; transport amount=x tolerance 1e-8; } } }",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = declarations
@@ -4546,7 +4546,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let declarations = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; annotation start x(1); eq other:x==1; state s supplied(true) { coordinate amount=x; reconstruct normalization:x==1 tolerance 1e-9; transport amount=x tolerance 1e-8; } } }",
-            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = declarations
@@ -4625,7 +4625,7 @@ mod tests {
         let rt = fixture::runtime();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(2); annotation start y(3); annotation bounds x(2,2); annotation nominal x(100); annotation nominal y(3); eq pinned:x==2; eq balance:x*y==6; annotation scale balance(inverseSum); } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
@@ -4694,7 +4694,7 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { param p: Scalar = 2; var x: Scalar; var y: Scalar; let bad: Scalar = log(-1); eq balance: x+y == 6; annotation start x(p); annotation start y(2*x); annotation bounds x(0,10); annotation nominal x(2); annotation nominal y(4); annotation scale balance(inverseSum); annotation check x(x > 2.5); annotation report y(\"computed y\"); } }",
-            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+            SemanticId::from_bytes([175; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
@@ -4837,7 +4837,7 @@ mod tests {
         use super::super::super::tests as fixture;
         let rows = pse_authoring::language::parse(
             "package p { def Root { var n: Count in integer; eq e: n == 2{1}; annotation start n(0{1}); annotation bounds n(0{1}, 5{1}); } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -4912,7 +4912,7 @@ mod tests {
         );
         let rows = pse_authoring::language::parse(
             "package p { def Root { param cp: MolarCp = 75.3{J/(K*mol)}; var y: MolarCp; eq e: y == cp; annotation start y(cp); annotation report y(\"cp\"); } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5023,7 +5023,7 @@ mod native_tests {
         );
         let rows = pse_authoring::language::parse(
             &source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )
@@ -5163,7 +5163,7 @@ mod root_unavailable_tests {
         let text = "package p { def Root { param p: Scalar=0; var x: Scalar; eq root: x==(if p>0 then 1 else -1); annotation start x(-1); } }";
         let rows = pse_authoring::language::parse(
             text,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )?;
@@ -5331,7 +5331,7 @@ mod root_unavailable_tests {
         let quantities = physical.quantities.clone();
         let declarations = pse_authoring::language::parse(
             source,
-            SemanticId::NIL,
+            SemanticId::from_bytes([175; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

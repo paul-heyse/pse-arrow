@@ -43,14 +43,16 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     // Full original source admission, including the imported reference closure,
     // needs larger declared workspace and evaluator storage than the tiny scalar controls.
     let runtime = runtime_on(
-        4 << 30,
+        8usize << 30,
         crate::math::MathPolicy {
-            workspace_bytes: 1 << 30,
+            // The service divides source/retained workspace admission in half:
+            // 2 GiB preserves the compiler's actual 1 GiB retention default.
+            workspace_bytes: 2usize << 30,
             // Complete preparation includes concurrently retained artifact
             // descriptors/layouts before publication. This original-source
             // fixture exercises semantic inventory, not a tiny-worker refusal.
-            // Its imported closure uses the same 1GiB constructor envelope
-            // as the explicitly admitted full workspace.
+            // Its imported closure retains the original 1 GiB worker envelope;
+            // the pool also prepays the concurrently retained workspaces.
             worker_bytes: 1 << 30,
             foreign_bytes: 8 << 20,
             ..Default::default()
