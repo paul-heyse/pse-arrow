@@ -34,27 +34,48 @@ pub(in crate::workflow::fitting) fn request_eligible(profile: &FitProfile) -> bo
         )
         && !matches!(&profile.solver.presolve, native::presolve::Policy::Explicit { required, .. } if !required.is_empty())
 }
-pub(in crate::workflow::fitting) fn eligible(p: &FitProblem) -> bool {
-    let n = p.contract.variables.len();
-    let m = p.measurements.iter().filter(|m| m.included).count();
-    n > 0
-        && m >= n
-        && p.bounds.is_empty()
-        && p.contract
-            .variables
-            .iter()
-            .all(|v| !v.lower.is_finite() && !v.upper.is_finite())
-        && request_eligible(&p.profile)
+/// Actual shape and resource facts supplied by the composition owner.
+#[derive(Clone, Copy)]
+struct Eligibility {
+    observations: usize,
+    variables: usize,
+    general_bounds: usize,
+    finite_variable_bounds: bool,
+    foreign_allowance: usize,
+}
+fn eligible_inputs(profile: &FitProfile, facts: Eligibility) -> bool {
+    facts.variables > 0
+        && facts.observations >= facts.variables
+        && facts.general_bounds == 0
+        && !facts.finite_variable_bounds
+        && request_eligible(profile)
         && workspace_eligible(
-            m,
-            n,
-            p.profile.max_cells,
-            p.runtime
+            facts.observations,
+            facts.variables,
+            profile.max_cells,
+            facts.foreign_allowance,
+        )
+}
+pub(in crate::workflow::fitting) fn eligible(p: &FitProblem) -> bool {
+    eligible_inputs(
+        &p.profile,
+        Eligibility {
+            observations: p.measurements.iter().filter(|m| m.included).count(),
+            variables: p.contract.variables.len(),
+            general_bounds: p.bounds.len(),
+            finite_variable_bounds: p
+                .contract
+                .variables
+                .iter()
+                .any(|v| v.lower.is_finite() || v.upper.is_finite()),
+            foreign_allowance: p
+                .runtime
                 .shared
                 .budget()
                 .math
                 .foreign_allowance(&p.profile.solver.controls),
-        )
+        },
+    )
 }
 pub(in crate::workflow::fitting) fn workspace_eligible(
     m: usize,
@@ -456,4 +477,145 @@ pub(in crate::workflow::fitting) fn assess_pin(
         stationarity(p, point, Some(pin)),
         quality.feasible(),
     ))
+}
+
+#[cfg(test)]
+mod eligibility_policy_tests {
+    use super::*;
+    fn profile() -> FitProfile {
+        FitProfile {
+            optimizer: FitOptimizer::Automatic,
+            solver: SolverProfile::default(),
+            simulations: BTreeMap::new(),
+            rank_tolerance: 1e-8,
+            max_cells: 8,
+            derivatives: FitDerivatives::Responses,
+            experiment_workers: pse_model::scalar!(PositiveCount(1)),
+            uncertainty: None,
+        }
+    }
+    #[test]
+    fn eligibility_uses_actual_shape_bounds_and_foreign_allowance_without_runtime() {
+        let mut profile = profile();
+        let bytes = matrix_bytes(4, 2).unwrap();
+        let facts = Eligibility {
+            observations: 4,
+            variables: 2,
+            general_bounds: 0,
+            finite_variable_bounds: false,
+            foreign_allowance: bytes,
+        };
+        assert!(eligible_inputs(&profile, facts));
+        for refused in [
+            Eligibility {
+                variables: 0,
+                ..facts
+            },
+            Eligibility {
+                observations: 1,
+                ..facts
+            },
+            Eligibility {
+                general_bounds: 1,
+                ..facts
+            },
+            Eligibility {
+                finite_variable_bounds: true,
+                ..facts
+            },
+            Eligibility {
+                foreign_allowance: bytes - 1,
+                ..facts
+            },
+            Eligibility {
+                observations: usize::MAX,
+                ..facts
+            },
+        ] {
+            assert!(!eligible_inputs(&profile, refused));
+        }
+        profile.max_cells = 7;
+        assert!(!eligible_inputs(&profile, facts));
+        profile.max_cells = 8;
+        for intent in [
+            SolveIntent::Root,
+            SolveIntent::FeasiblePoint,
+            SolveIntent::Initialize,
+            SolveIntent::Certify,
+        ] {
+            profile.solver.intent = intent;
+            assert!(!eligible_inputs(&profile, facts));
+        }
+        profile.solver.intent = SolveIntent::Optimize;
+        profile.solver.controls.hessian = HessianMode::Exact;
+        assert!(!eligible_inputs(&profile, facts));
+        profile.solver.controls.hessian = HessianMode::GaussNewton;
+        assert!(eligible_inputs(&profile, facts));
+    }
+    #[test]
+    fn eligibility_preserves_explicit_native_requests_without_runtime() {
+        let facts = Eligibility {
+            observations: 4,
+            variables: 2,
+            general_bounds: 0,
+            finite_variable_bounds: false,
+            foreign_allowance: matrix_bytes(4, 2).unwrap(),
+        };
+        let cases: [fn(&mut FitProfile); 7] = [
+            |p| {
+                p.solver.selection =
+                    native::solve::SolverSelection::Explicit(Backend::Ipopt)
+            },
+            |p| {
+                p.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
+                    parameters: vec![crate::workflow::tests::id(1)],
+                    reduced_hessian: false,
+                    propagation: None,
+                })
+            },
+            |p| p.solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared,
+            |p| p.solver.block_workers = 2,
+            |p| {
+                p.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+                    attempts: 1,
+                    evaluations: None,
+                    iterations: Some(1),
+                    factorizations: None,
+                    proof_steps: None,
+                })
+            },
+            |p| {
+                p.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+                    attempts: 1,
+                    evaluations: None,
+                    iterations: None,
+                    factorizations: Some(1),
+                    proof_steps: None,
+                })
+            },
+            |p| {
+                p.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+                    attempts: 1,
+                    evaluations: None,
+                    iterations: None,
+                    factorizations: None,
+                    proof_steps: Some(1),
+                })
+            },
+        ];
+        for change in cases {
+            let mut profile = profile();
+            change(&mut profile);
+            assert!(!eligible_inputs(&profile, facts));
+        }
+        let mut profile = profile();
+        profile.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+            attempts: 1,
+            evaluations: Some(256),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        });
+        assert!(eligible_inputs(&profile, facts));
+    }
 }

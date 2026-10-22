@@ -908,3 +908,202 @@ async fn review_qualification_durable_fit_preserves_original_response_and_rows()
     )
     .await;
 }
+
+// Pure policy controls intentionally construct neither Runtime nor prepared fit/native session.
+#[test]
+fn covariance_policy_estimate_qualification_and_statistical_refusal_order() {
+    let diagnostic = None;
+    let evidence =
+        |candidate, residual_qualification, native_qualification, objective| EstimateEvidence {
+            candidate,
+            residual_qualification,
+            native_qualification,
+            objective,
+            diagnostic: &diagnostic,
+        };
+    for qualification in [
+        Qualification::Stationary,
+        Qualification::OptimalWithinTolerance,
+        Qualification::GapQualified,
+    ] {
+        assert!(
+            estimate_policy(
+                evidence(true, None, Some(qualification), true),
+                std::iter::empty()
+            )
+            .is_ok()
+        );
+    }
+    assert!(
+        estimate_policy(
+            evidence(true, Some(Qualification::Stationary), None, true),
+            std::iter::empty()
+        )
+        .is_ok()
+    );
+    assert!(matches!(
+        estimate_policy(
+            evidence(false, Some(Qualification::Unqualified), None, false),
+            [id(1)].into_iter()
+        ),
+        Err(FitWithheld::Local(Withheld::NoCandidate))
+    ));
+    // LM requires its independently established physical stationarity; native success
+    // cannot substitute for that qualification, even when other premises also fail.
+    for qualification in [
+        Qualification::Unqualified,
+        Qualification::OptimalWithinTolerance,
+        Qualification::GapQualified,
+    ] {
+        assert!(matches!(estimate_policy(evidence(true, Some(qualification),
+            Some(Qualification::Stationary), false), [id(1)].into_iter()),
+            Err(FitWithheld::Local(Withheld::Unqualified(q))) if q == qualification));
+    }
+    assert!(matches!(
+        estimate_policy(evidence(true, None, None, true), std::iter::empty()),
+        Err(FitWithheld::Local(Withheld::NoCandidate))
+    ));
+    assert!(matches!(
+        estimate_policy(
+            evidence(true, None, Some(Qualification::Unqualified), true),
+            std::iter::empty()
+        ),
+        Err(FitWithheld::Local(Withheld::Unqualified(
+            Qualification::Unqualified
+        )))
+    ));
+    assert!(
+        matches!(estimate_policy(evidence(true, Some(Qualification::Stationary), None, false),
+        [id(2), id(1)].into_iter()), Err(FitWithheld::NonunitImportance(ids)) if ids == [id(2), id(1)])
+    );
+    assert!(matches!(
+        estimate_policy(
+            evidence(true, Some(Qualification::Stationary), None, false),
+            std::iter::empty()
+        ),
+        Err(FitWithheld::Responses(None))
+    ));
+}
+#[test]
+fn covariance_policy_requires_response_evidence_before_rank() {
+    for (rank, directions) in [(None, true), (Some(0), false)] {
+        assert!(matches!(
+            response_policy(rank, directions, 2, &None),
+            Err(FitWithheld::Responses(None))
+        ));
+    }
+    assert!(matches!(
+        response_policy(Some(1), true, 2, &None),
+        Err(FitWithheld::RankDeficient {
+            rank: 1,
+            parameters: 2
+        })
+    ));
+    assert!(response_policy(Some(2), true, 2, &None).is_ok());
+}
+#[test]
+fn covariance_policy_uses_actual_bound_and_multiplier_evidence() {
+    for (finite_variable_bounds, general_bounds) in [(true, false), (false, true)] {
+        assert!(matches!(
+            bound_policy(
+                BoundEvidence::Residual {
+                    finite_variable_bounds,
+                    general_bounds
+                },
+                std::iter::empty()
+            ),
+            Err(FitWithheld::Local(Withheld::Multipliers))
+        ));
+    }
+    assert!(
+        bound_policy(
+            BoundEvidence::Residual {
+                finite_variable_bounds: false,
+                general_bounds: false
+            },
+            std::iter::empty()
+        )
+        .is_ok()
+    );
+    let candidate = [0., 5.];
+    let lower = [1., 0.];
+    let upper = [0., 0.];
+    for duals in [None, Some((&lower[..1], &upper[..]))] {
+        assert!(matches!(
+            bound_policy(
+                BoundEvidence::Native {
+                    candidate: &candidate,
+                    duals,
+                    objective_scale: 1.,
+                    stationarity: 1e-8
+                },
+                std::iter::empty()
+            ),
+            Err(FitWithheld::Local(Withheld::Multipliers))
+        ));
+    }
+    let parameter = |column| ParameterBoundEvidence {
+        id: id(column as u8 + 1),
+        column,
+        bounds: (0., 10.),
+        tolerance: 1e-8,
+        scale: 1.,
+    };
+    assert!(
+        matches!(bound_policy(BoundEvidence::Native { candidate: &candidate,
+        duals: Some((&lower, &upper)), objective_scale: 1., stationarity: 1e-8 },
+        [parameter(1), parameter(0)].into_iter()),
+        Err(FitWithheld::AtBound(ids)) if ids == [id(1)])
+    );
+    assert!(
+        bound_policy(
+            BoundEvidence::Native {
+                candidate: &candidate,
+                duals: Some((&lower, &upper)),
+                objective_scale: 1.,
+                stationarity: 1e-8
+            },
+            [parameter(1)].into_iter()
+        )
+        .is_ok()
+    );
+}
+#[test]
+fn covariance_policy_preserves_exact_evidence_and_backsolve_refusals() {
+    let mut block = native::kkt::InverseReducedHessian {
+        columns: vec![OriginalCol::from(0)],
+        values: vec![2.],
+        normalized: vec![2.],
+        coordinate_scales: vec![1.],
+        objective_scale: 1.,
+    };
+    assert_eq!(
+        exact_covariance_policy(Some(&Ok(block.clone())), 1).unwrap(),
+        [2.]
+    );
+    assert!(matches!(
+        exact_covariance_policy(None, 1),
+        Err(FitWithheld::Local(Withheld::Analysis(_)))
+    ));
+    assert!(matches!(
+        exact_covariance_policy(Some(&Ok(block.clone())), 2),
+        Err(FitWithheld::Local(Withheld::Analysis(_)))
+    ));
+    assert!(matches!(
+        exact_covariance_policy(Some(&Err(Withheld::Multipliers)), 1),
+        Err(FitWithheld::Local(Withheld::Multipliers))
+    ));
+    // Nonfinite values take precedence over the wrong selected-column extent.
+    block.values[0] = f64::NAN;
+    assert!(matches!(
+        exact_covariance_policy(Some(&Ok(block)), 2),
+        Err(FitWithheld::Local(Withheld::Backsolve))
+    ));
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(matches!(
+            finite_covariance_policy(&[1., value]),
+            Err(FitWithheld::Local(Withheld::Backsolve))
+        ));
+    }
+    assert!(finite_covariance_policy(&[1., 0., 0., 2.]).is_ok());
+}

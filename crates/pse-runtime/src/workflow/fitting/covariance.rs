@@ -25,11 +25,7 @@
 //! lies at a declared bound; the exact covariance also needs the fit's KKT point to have
 //! independent active gradients, strict complementarity and second-order sufficiency.
 use super::*;
-use native::{
-    ProblemError,
-    kkt::Withheld,
-    solve::{Qualification, SolveReport},
-};
+use native::{ProblemError, kkt::Withheld, solve::Qualification};
 use pse_relations::generated::enums::{
     CovarianceApproximation, DerivedQuantity, IntervalOutcome, WithheldReason,
 };
@@ -164,13 +160,148 @@ pub struct Interval {
     pub upper: IntervalBound,
 }
 
-/// Whether a native report's candidate is qualified stationary or better.
-fn stationary(solve: &SolveReport) -> Result<(), Withheld> {
-    match solve.qualification {
-        Qualification::Stationary
-        | Qualification::OptimalWithinTolerance
-        | Qualification::GapQualified => Ok(()),
-        other => Err(Withheld::Unqualified(other)),
+/// Statistical and qualification facts; no runtime or prepared model is needed to
+/// decide whether an estimate can support a derived quantity.
+struct EstimateEvidence<'a> {
+    candidate: bool,
+    residual_qualification: Option<Qualification>,
+    native_qualification: Option<Qualification>,
+    objective: bool,
+    diagnostic: &'a Option<FitDiagnostic>,
+}
+fn estimate_policy(
+    evidence: EstimateEvidence<'_>,
+    nonunit_importance: impl Iterator<Item = SemanticId>,
+) -> Result<(), FitWithheld> {
+    if !evidence.candidate {
+        return Err(FitWithheld::Local(Withheld::NoCandidate));
+    }
+    if let Some(qualification) = evidence.residual_qualification {
+        if qualification != Qualification::Stationary {
+            return Err(FitWithheld::Local(Withheld::Unqualified(qualification)));
+        }
+    } else {
+        match evidence.native_qualification {
+            Some(
+                Qualification::Stationary
+                | Qualification::OptimalWithinTolerance
+                | Qualification::GapQualified,
+            ) => {}
+            Some(other) => return Err(FitWithheld::Local(Withheld::Unqualified(other))),
+            None => return Err(FitWithheld::Local(Withheld::NoCandidate)),
+        }
+    }
+    // Admission already requires a deviation for every included observation.
+    let weighted: Vec<_> = nonunit_importance.collect();
+    if !weighted.is_empty() {
+        return Err(FitWithheld::NonunitImportance(weighted));
+    }
+    if !evidence.objective {
+        return Err(FitWithheld::Responses(evidence.diagnostic.clone()));
+    }
+    Ok(())
+}
+fn response_policy(
+    rank: Option<usize>,
+    directions: bool,
+    parameters: usize,
+    diagnostic: &Option<FitDiagnostic>,
+) -> Result<(), FitWithheld> {
+    let Some(rank) = rank.filter(|_| directions) else {
+        return Err(FitWithheld::Responses(diagnostic.clone()));
+    };
+    if rank < parameters {
+        return Err(FitWithheld::RankDeficient { rank, parameters });
+    }
+    Ok(())
+}
+struct ParameterBoundEvidence {
+    id: SemanticId,
+    column: usize,
+    bounds: (f64, f64),
+    tolerance: f64,
+    scale: f64,
+}
+enum BoundEvidence<'a> {
+    Residual {
+        finite_variable_bounds: bool,
+        general_bounds: bool,
+    },
+    Native {
+        candidate: &'a [f64],
+        duals: Option<(&'a [f64], &'a [f64])>,
+        objective_scale: f64,
+        stationarity: f64,
+    },
+}
+fn bound_policy(
+    evidence: BoundEvidence<'_>,
+    parameters: impl Iterator<Item = ParameterBoundEvidence>,
+) -> Result<(), FitWithheld> {
+    let held = match evidence {
+        BoundEvidence::Residual {
+            finite_variable_bounds,
+            general_bounds,
+        } => {
+            if finite_variable_bounds || general_bounds {
+                return Err(FitWithheld::Local(Withheld::Multipliers));
+            }
+            Vec::new()
+        }
+        BoundEvidence::Native {
+            candidate,
+            duals,
+            objective_scale,
+            stationarity,
+        } => {
+            let (lower, upper) = duals.ok_or(FitWithheld::Local(Withheld::Multipliers))?;
+            if lower.len() != candidate.len() || upper.len() != candidate.len() {
+                return Err(FitWithheld::Local(Withheld::Multipliers));
+            }
+            parameters
+                .filter(|p| {
+                    native::kkt::bound_activity(
+                        candidate[p.column],
+                        p.bounds,
+                        p.tolerance,
+                        (lower[p.column], upper[p.column]),
+                        (p.scale, objective_scale),
+                        stationarity,
+                    )
+                    .is_active()
+                })
+                .map(|p| p.id)
+                .collect()
+        }
+    };
+    if held.is_empty() {
+        Ok(())
+    } else {
+        Err(FitWithheld::AtBound(held))
+    }
+}
+fn exact_covariance_policy(
+    inverse: Option<&Result<native::kkt::InverseReducedHessian, Withheld>>,
+    parameters: usize,
+) -> Result<&[f64], FitWithheld> {
+    match inverse {
+        Some(Ok(block)) if block.values.iter().any(|v| !v.is_finite()) => {
+            Err(FitWithheld::Local(Withheld::Backsolve))
+        }
+        Some(Ok(block)) if block.columns.len() == parameters => Ok(&block.values),
+        Some(Ok(_)) | None => Err(FitWithheld::Local(Withheld::Analysis(
+            native::kkt::Unavailable::from(ProblemError::internal(
+                "the fit's analysis read no inverse reduced Hessian over its parameters",
+            )),
+        ))),
+        Some(Err(withheld)) => Err(FitWithheld::Local(withheld.clone())),
+    }
+}
+fn finite_covariance_policy(values: &[f64]) -> Result<(), FitWithheld> {
+    if values.iter().any(|v| !v.is_finite()) {
+        Err(FitWithheld::Local(Withheld::Backsolve))
+    } else {
+        Ok(())
     }
 }
 
@@ -184,37 +315,19 @@ impl FitProblem {
     /// The conditions every derived quantity of the estimate shares: a candidate qualified
     /// stationary or better, and the declared statistical model (F02).
     pub(super) fn estimate_valid(&self, report: &FitReport) -> Result<(), FitWithheld> {
-        if report.candidate.is_none() {
-            return Err(FitWithheld::Local(Withheld::NoCandidate));
-        }
-        if let Some(residual) = &report.residual {
-            if residual.qualification != Qualification::Stationary {
-                return Err(FitWithheld::Local(Withheld::Unqualified(
-                    residual.qualification,
-                )));
-            }
-        } else {
-            let solve = report
-                .solve
-                .as_ref()
-                .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-            stationary(solve).map_err(FitWithheld::Local)?;
-        }
-        // Admission refuses an included observation without a declared deviation, so the
-        // model's remaining condition is unit importance.
-        let weighted: Vec<_> = self
-            .measurements
-            .iter()
-            .filter(|o| o.included && o.importance != 1.0)
-            .map(|o| o.id)
-            .collect();
-        if !weighted.is_empty() {
-            return Err(FitWithheld::NonunitImportance(weighted));
-        }
-        if report.objective.is_none() {
-            return Err(FitWithheld::Responses(report.diagnostic.clone()));
-        }
-        Ok(())
+        estimate_policy(
+            EstimateEvidence {
+                candidate: report.candidate.is_some(),
+                residual_qualification: report.residual.as_ref().map(|r| r.qualification),
+                native_qualification: report.solve.as_ref().map(|s| s.qualification),
+                objective: report.objective.is_some(),
+                diagnostic: &report.diagnostic,
+            },
+            self.measurements
+                .iter()
+                .filter(|o| o.included && o.importance != 1.0)
+                .map(|o| o.id),
+        )
     }
     /// The fit's one covariance, certified or withheld; `None` without free parameters.
     pub(super) fn covariance(&self, report: &FitReport) -> Option<Covariance> {
@@ -256,89 +369,67 @@ impl FitProblem {
         crate::workflow::dynamics::analysis("fit.covariance_analysis", || {
             self.estimate_valid(report)?;
             let np = self.free().count();
-            let (Some(rank), Some(directions)) = (report.rank, report.directions.as_ref()) else {
-                return Err(FitWithheld::Responses(report.diagnostic.clone()));
-            };
-            if rank < np {
-                return Err(FitWithheld::RankDeficient {
-                    rank,
-                    parameters: np,
-                });
-            }
+            response_policy(
+                report.rank,
+                report.directions.is_some(),
+                np,
+                &report.diagnostic,
+            )?;
+            let directions = report
+                .directions
+                .as_ref()
+                .ok_or_else(|| FitWithheld::Responses(report.diagnostic.clone()))?;
             let candidate = report
                 .candidate
                 .as_ref()
                 .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-            let held = if report.residual.is_some() {
-                // LM eligibility establishes no finite original parameter bound and
-                // no general constraint. No native bound multiplier exists or is
-                // needed to establish this empty active-bound set.
-                if self
-                    .contract
-                    .variables
-                    .iter()
-                    .any(|variable| variable.lower.is_finite() || variable.upper.is_finite())
-                    || !self.bounds.is_empty()
-                {
-                    return Err(FitWithheld::Local(Withheld::Multipliers));
+            let bounds = if report.residual.is_some() {
+                BoundEvidence::Residual {
+                    finite_variable_bounds: self
+                        .contract
+                        .variables
+                        .iter()
+                        .any(|v| v.lower.is_finite() || v.upper.is_finite()),
+                    general_bounds: !self.bounds.is_empty(),
                 }
-                Vec::new()
             } else {
-                let (lower_dual, upper_dual) = report
-                    .solve
-                    .as_ref()
-                    .and_then(|solve| solve.candidate.as_ref())
-                    .and_then(|candidate| candidate.bound_dual.as_ref())
-                    .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
-                if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
-                    return Err(FitWithheld::Local(Withheld::Multipliers));
+                BoundEvidence::Native {
+                    candidate,
+                    duals: report
+                        .solve
+                        .as_ref()
+                        .and_then(|s| s.candidate.as_ref())
+                        .and_then(|c| c.bound_dual.as_ref())
+                        .map(|(l, u)| (l.as_slice(), u.as_slice())),
+                    objective_scale: self.normalization.objective,
+                    stationarity: self.accuracy.stationarity,
                 }
-                self.free()
-                    .filter(|(k, col)| {
-                        let parameter = &self.declaration.parameters[*k];
-                        let column = col.get();
-                        // The same original-coordinate activity used by native KKT
-                        // analysis includes interior-point active bounds with finite slack.
-                        native::kkt::bound_activity(
-                            candidate[column],
-                            (
-                                parameter.lower.unwrap_or(f64::NEG_INFINITY),
-                                parameter.upper.unwrap_or(f64::INFINITY),
-                            ),
-                            self.tolerances.variables[column],
-                            (lower_dual[column], upper_dual[column]),
-                            (
-                                self.normalization.variables[column],
-                                self.normalization.objective,
-                            ),
-                            self.accuracy.stationarity,
-                        )
-                        .is_active()
-                    })
-                    .map(|(k, _)| self.declaration.parameters[k].symbol_id)
-                    .collect::<Vec<_>>()
             };
-            if !held.is_empty() {
-                return Err(FitWithheld::AtBound(held));
-            }
+            bound_policy(
+                bounds,
+                self.free().map(|(k, col)| {
+                    let parameter = &self.declaration.parameters[k];
+                    let column = col.get();
+                    ParameterBoundEvidence {
+                        id: parameter.symbol_id,
+                        column,
+                        bounds: (
+                            parameter.lower.unwrap_or(f64::NEG_INFINITY),
+                            parameter.upper.unwrap_or(f64::INFINITY),
+                        ),
+                        tolerance: self.tolerances.variables[column],
+                        scale: self.normalization.variables[column],
+                    }
+                }),
+            )?;
             match approximation {
                 CovarianceApproximation::Exact => {
                     let solve = report
                         .solve
                         .as_ref()
                         .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-                    match &solve.evidence.inverse_reduced_hessian {
-                        Some(Ok(block)) if block.values.iter().any(|v| !v.is_finite()) => {
-                            Err(FitWithheld::Local(Withheld::Backsolve))
-                        }
-                        Some(Ok(block)) if block.columns.len() == np => Ok(block.values.clone()),
-                        Some(Ok(_)) | None => Err(FitWithheld::Local(Withheld::Analysis(
-                            native::kkt::Unavailable::from(ProblemError::internal(
-                                "the fit's analysis read no inverse reduced Hessian over its parameters",
-                            )),
-                        ))),
-                        Some(Err(withheld)) => Err(FitWithheld::Local(withheld.clone())),
-                    }
+                    exact_covariance_policy(solve.evidence.inverse_reduced_hessian.as_ref(), np)
+                        .map(<[f64]>::to_vec)
                 }
                 CovarianceApproximation::GaussNewton => {
                     // Σ = S·V·diag(s⁻²)·Vᵀ·S over the full-rank spectrum.
@@ -356,9 +447,7 @@ impl FitProblem {
                             values[i * np + j] = scales[i] * scaled * scales[j];
                         }
                     }
-                    if values.iter().any(|v| !v.is_finite()) {
-                        return Err(FitWithheld::Local(Withheld::Backsolve));
-                    }
+                    finite_covariance_policy(&values)?;
                     Ok(values)
                 }
             }
