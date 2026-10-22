@@ -185,7 +185,8 @@ def provision(state: Path, *, test: str = "") -> str:
         }
     )
     directory.mkdir(parents=True, mode=0o700)
-    credentials = {"username": "pse_tool", "password": secrets.token_urlsafe(32)}
+    credentials = {"username": "pse_tool", "password": secrets.token_urlsafe(32),
+                   "inspection_username": "pse_inspection", "inspection_password": secrets.token_urlsafe(32)}
     secret = directory / "credentials.json"
     secret.write_text(json.dumps(credentials))
     secret.chmod(0o600)
@@ -194,10 +195,11 @@ def provision(state: Path, *, test: str = "") -> str:
         record["namespace_creation"] = "submitted"
         record["credentials_sha256"] = digest(secret)
     quoted = surreal_server.sql_identifier(namespace)
-    sql = f"DEFINE USER pse_tool ON NAMESPACE PASSWORD {json.dumps(credentials['password'])} ROLES OWNER;"
+    sql = (f"DEFINE USER pse_tool ON NAMESPACE PASSWORD {json.dumps(credentials['password'])} ROLES OWNER;"
+           f"DEFINE USER pse_inspection ON NAMESPACE PASSWORD {json.dumps(credentials['inspection_password'])} ROLES VIEWER;")
     if test_resources.namespace_sql(config, f"DEFINE NAMESPACE {quoted};") != [
         None
-    ] or test_resources.namespace_sql(config, sql, namespace=namespace) != [None]:
+    ] or test_resources.namespace_sql(config, sql, namespace=namespace) != [None, None]:
         raise ToolError(
             "Namespace provisioning unproved; registered scope remains pinned"
         )
@@ -295,7 +297,14 @@ def environment(
         SURREALDB_CONNECT_TIMEOUT_SECS="15",
         SURREALDB_QUERY_TIMEOUT_SECS="30",
     )
+    if "inspection_username" in credentials and "inspection_password" in credentials:
+        result.update(PSE_SURREALKIT_INSPECTION_USER=str(credentials["inspection_username"]),
+                      PSE_SURREALKIT_INSPECTION_PASSWORD=str(credentials["inspection_password"]))
     return result
+
+
+INSPECTION_ACTOR = {"inspection": {"kind": "namespace", "username_env": "PSE_SURREALKIT_INSPECTION_USER",
+                                   "password_env": "PSE_SURREALKIT_INSPECTION_PASSWORD"}}
 
 
 def validate_input(
@@ -363,9 +372,8 @@ def validate_input(
         raise ToolError("Frozen rollout inputs differ from their generated owner")
     for path in folder.rglob("*.toml"):
         data = tomllib.loads(path.read_text())
-        # Initial supported subset is the default namespace bootstrap actor.
-        # Explicit actors/config overrides need separate qualification.
-        if "actors" in data or any(
+        # Only the exact fixture-bound namespace VIEWER actor is qualified.
+        if data.get("actors", INSPECTION_ACTOR) != INSPECTION_ACTOR or any(
             k in data
             for k in (
                 "host",
@@ -394,7 +402,7 @@ def validate_input(
             not isinstance(cases, list)
             or has_http_target(data)
             or any(
-                not isinstance(case, dict) or case.get("kind") != "sql_expect"
+                not isinstance(case, dict) or case.get("kind") not in {"sql_expect", "permissions_matrix"}
                 for case in cases
             )
         ):
@@ -409,6 +417,14 @@ def validate_input(
                 "Suite schema selection and parity suppression are not admitted"
             )
         for case in cases:
+            if case.get("actor") not in {None, "root", "inspection"}:
+                raise ToolError("Only the fixture bootstrap or inspection actor is admitted")
+            if case.get("kind") == "permissions_matrix" and (
+                case.get("actor") != "inspection" or case.get("table") != "canonical_guards"
+                or case.get("record_id") != "exact"
+                or case.get("rules") != [{"action": "select", "allow": True}, {"action": "create", "allow": False}]
+            ):
+                raise ToolError("Only the exact qualified inspection permission matrix is admitted")
             if (
                 case.get("allow") is False
                 and case.get("error_contains") not in REJECTION_SIGNATURES
@@ -450,6 +466,7 @@ def execute(binary: Path, resource: str, folder: Path, mode: str) -> int:
     validate_input(folder, record, mode, release)
     commands = {
         "sync": ["sync", "--no-prune"],
+        "lint": ["rollout", "lint"],
         "plan": ["rollout", "plan", "--name", "initial_target"],
         "replay": ["rollout", "up", "--complete"],
         "test-sync": [
@@ -509,6 +526,7 @@ def main() -> int:
             "provision",
             "stage",
             "sync",
+            "lint",
             "plan",
             "replay",
             "test-sync",

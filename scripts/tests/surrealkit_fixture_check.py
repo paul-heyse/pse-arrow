@@ -49,6 +49,8 @@ def oracle(
     for fixture in suite["fixtures"]:
         checked_sql(config, namespace, database, fixture["sql"])
     for case in suite["cases"]:
+        if case["kind"] != "sql_expect" or case.get("actor") == "inspection":
+            continue  # Actual actor sessions are exercised by beta.6; root oracle is independent.
         values = resources.namespace_sql(
             config, case["sql"], namespace=namespace, database=database
         )
@@ -176,7 +178,7 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         assert tool.execute(binary, resource, folder, "plan") == 0
         assert tool.execute(binary, resource, folder, "test-both") == 0
         report = json.loads((folder / "test-both.json").read_text())
-        assert report["cases_total"] == 15
+        assert report["cases_total"] == 21
         assert report["cases_failed"] == 0
         record, config, _ = tool.fixture(resource)
         with tool.activity(resource):

@@ -4,6 +4,11 @@
 name = "production_generated_contract"
 tags = ["canonical"]
 
+[actors.inspection]
+kind = "namespace"
+username_env = "PSE_SURREALKIT_INSPECTION_USER"
+password_env = "PSE_SURREALKIT_INSPECTION_PASSWORD"
+
 [[fixtures]]
 sql = "CREATE canonical_guards:exact SET key='exact', generation=18446744073709551615dec, incarnation='fixture'; CREATE canonical_payload_blocks:exact SET key='exact', version='fixture', ordinal=18446744073709551615dec, payload=encoding::base64::decode('AAEA/w=='), digest='fixture';"
 
@@ -59,6 +64,38 @@ error_contains = "The record 'canonical_analysis_nodes:absent' does not exist"
 name = "definitions_do_not_activate"
 kind = "sql_expect"
 sql = "RETURN (SELECT * FROM canonical_interpretations);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = []
+
+[[cases]]
+name = "inspection_reads_but_cannot_create"
+kind = "permissions_matrix"
+actor = "inspection"
+table = "canonical_guards"
+record_id = "exact"
+[[cases.rules]]
+action = "select"
+allow = true
+[[cases.rules]]
+action = "create"
+allow = false
+
+[[cases]]
+name = "inspection_create_empty_response_is_not_authorization"
+kind = "sql_expect"
+actor = "inspection"
+sql = "CREATE canonical_guards:viewer_forbidden SET key='viewer_forbidden', generation=0dec, incarnation='fixture';"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = []
+
+[[cases]]
+name = "independent_privileged_readback_refuses_viewer_write"
+kind = "sql_expect"
+sql = "SELECT * FROM canonical_guards:viewer_forbidden;"
 allow = true
 [[cases.assertions]]
 path = ""
