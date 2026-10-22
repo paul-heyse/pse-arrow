@@ -128,7 +128,10 @@ fn admission(c: &mut Criterion) {
                 let checked = revision.checked();
                 let level = checked.table(checked.entry("minimal_named.level").unwrap());
                 assert_eq!(level.unwrap().rows.len(), ROWS as usize);
-                peak_retained_bytes = peak_retained_bytes.max(workspace.retention_usage().1);
+                let (_, retained_bytes) = workspace
+                    .retention_usage()
+                    .expect("this benchmark has no concurrent preparation readers");
+                peak_retained_bytes = peak_retained_bytes.max(retained_bytes);
             },
             BatchSize::LargeInput,
         );
