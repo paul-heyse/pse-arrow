@@ -33,9 +33,10 @@ mod surrealism_qualification {
             let module=Self::module(index);
             bounded_query(store.db.query(format!("DEFINE BUCKET {bucket} READONLY BACKEND $backend PERMISSIONS NONE; DEFINE MODULE mod::{module} FROM f\"{bucket}:/study.surli\" UNSIGNED PERMISSIONS FULL;"))
                 .bind(("backend",self.receipt.backend().unwrap()))).await.unwrap();
-            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
+            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
                 .bind(("name",module)).bind(("bucket",bucket))).await.unwrap();
-            assert_eq!(response.take::<Option<bool>>(0).unwrap(),Some(true),"actual installed qualification metadata must match the separately admitted artifact");
+            let index=response.num_statements().saturating_sub(1);
+            assert_eq!(response.take::<Option<bool>>(index).unwrap(),Some(true),"actual installed qualification metadata must match the separately admitted artifact");
         }
         async fn memory_refused(&self,store:&CanonicalStore,index:usize) {
             let mut response=bounded_query(store.db.query(format!("RETURN mod::{}::qualification::memory_refused();",Self::module(index)))).await.unwrap();

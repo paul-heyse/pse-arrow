@@ -167,9 +167,10 @@ impl CanonicalStore {
     /// artifact path and only supported read-only policy export.
     pub(crate) async fn validate_study_module(&self,receipt:&StudyModuleReceipt)->Result<(),CanonicalError> {
         let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,
-            "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse'); RETURN array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false;")
+            "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse'); RETURN array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false;")
             .bind(("bucket",receipt.bucket())).bind(("backend",receipt.backend()?))).await?;
-        if response.take::<Option<bool>>(0)?!=Some(true) {return Err(invalid("installed module, readonly bucket or pure export differs"));}
+        let index=response.num_statements().saturating_sub(1);
+        if response.take::<Option<bool>>(index)?!=Some(true) {return Err(invalid("installed module, readonly bucket or pure export differs"));}
         Ok(())
     }
 }
