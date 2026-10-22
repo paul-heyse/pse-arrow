@@ -341,7 +341,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | TOOL03 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
 | TOOL04 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
 | TOOL05 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL06 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL06 | done — retain hub and internal tooling module | [49g](49g-contracts-maintenance-and-tooling.md) | Two actual steady/fit and bounded-lifetime inquiry controls passed; no replacement substrate or separate crate selected. |
 | TOOL07 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
 | QUAL01 | in-progress | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
 | QUAL02 | proposed | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
@@ -429,7 +429,7 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I18 | open | RUN09 | Which separate ftol/xtol/gtol policy fits LM while cosine gtol stays distinct from physical stationarity? | Adopt a declared cosine stop policy only if qualification/covariance controls hold; otherwise preserve current truthful independent gate. |
 | I19 | open | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Generate each actual build catalogue/expected Python identity; identical catalogues share identity, unrelated feature bits do not change it. |
 | I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
-| I21 | open | TOOL06 | Can tracing Layer preserve actual attribution/final closure at better burden, and would a tooling crate improve independent dependencies? | Adopt each independently only with stated semantic/cost result and any required ADR; internal module split and current hub remain otherwise. |
+| I21 | resolved — retain hub and internal module | TOOL06 | Actual no-layer/current-hub/candidate-layer steady and fit results/covariance agree bitwise. Attributed spans reach the candidate, but the actual native.worker phase has no corresponding candidate span; bounded state drains on completion, future drop and panic. A separate tooling crate would currently require a runtime/catalogue dependency seam; no independent build benefit is established. | No Layer substrate or new crate adoption. Keep the current hub and corrected internal dependency boundary; no speed or overhead improvement is claimed. |
 | I22 | open | RUN04 / MAT06 | Would non-parameter overlays, IDAReInit/IDASensReInit or higher structural companions serve a reached existing capability? | Separate input/history/version decision before adoption; parameter study binding stays selected and fresh history remains default. |
 | I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
 | I24 | decided — implementation open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Operator selected retain native-child for bounded provider-free process-isolation experiments and retire unused relation canonicalizer/API/tests; preserve independent shared allocation and identity contracts. Execution remains TOOL07. |
@@ -885,6 +885,18 @@ stopped on the generic-name collision; the repair and subsequent source joins ar
 regenerated before their runtime/Python controls. No full package closure is claimed.
 
 ### Symbolica optional inquiry dispositions
+
+The TOOL06 inquiry is **Tested** in the selected native runtime queue: both
+`observation_layer_inquiry_actual_steady_and_fit_preserve_science_but_expose_phase_gap`
+and `observation_layer_inquiry_bounds_state_and_retires_on_future_drop_and_panic` passed.
+Their original science agrees across all three observation modes, while the missing native
+phase prevents replacement of the actual observation owner. The finite candidate holds at
+most64 active spans and256 closed samples and retires them on joined completion, future
+drop and unwind. This is a semantic/ownership no-adoption outcome, without a measured CPU
+or memory benefit. The optional crate remains unselected: current boundary-catalogue and
+private runtime consumers need a deliberate dependency seam before a separate crate could
+provide independent build value. The corrected internal tooling module remains selected.
+These two passes do not close the separate TOOL05 consumer or whole-series qualification.
 
 I11 retains canonical scalar formals and selected argument-free `FunctionMap` aliases.
 Pinned Symbolica3.0.1 supports function-shaped indeterminates; capability absence is not the
