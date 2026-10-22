@@ -115,6 +115,15 @@ pub enum CanonicalError {
         /// The limited effect knowledge established by this failure.
         effect: FailureEffect,
     },
+    /// Policy declined after its exact operation committed settlement and any
+    /// earlier partial progress. This is not a transaction rollback or absence proof.
+    #[error("canonical policy refusal {code} settled by operation {operation}")]
+    SettledPolicyRefusal {
+        /// Exact registry policy identity.
+        code: RefusalCode,
+        /// Original immutable operation whose receipt retains the outcome.
+        operation: String,
+    },
     /// A recognized native MX failure; never a transaction-conflict alias.
     #[error("canonical MX {failure:?} at {stage} ({effect:?}): {source}")]
     StoreFailure {

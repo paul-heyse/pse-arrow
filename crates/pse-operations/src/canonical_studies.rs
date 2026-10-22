@@ -337,10 +337,10 @@ fn readiness_coordinates(store:&CanonicalStore,study:&str,cursor:&ReadinessCurso
     coordinates.insert("mode",mode.to_owned());coordinates.insert("after",after.map(codec::encode_uint).transpose()?.unwrap_or(Value::None));coordinates.insert("source",source);
     Ok(coordinates)
 }
-fn settled_readiness_count(result:&Object,keys:&[String])->Result<u64,CanonicalError> {
+fn settled_readiness_count(result:&Object,keys:&[String],operation:&str)->Result<u64,CanonicalError> {
     if result.get("refusal")==Some(&Value::Bool(true)) {
         let code=pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessPolicyRefused;
-        return Err(CanonicalError::Refused {code,class:code.class(),stage:"canonical_studies::readiness_apply_page",effect:crate::canonical::FailureEffect::StatementRefused});
+        return Err(CanonicalError::SettledPolicyRefusal {code,operation:operation.to_owned()});
     }
     if result.get("no_effect")==Some(&Value::Bool(true)) {return Ok(0);}
     validate_repair_outcomes(result,keys)?;
@@ -1158,7 +1158,7 @@ impl CanonicalStore {
                 let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
                 if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
                     let result=readiness_object(codec::required(&mut result,"result")?)?;
-                    return settled_readiness_count(&result,&pending.keys);
+                    return settled_readiness_count(&result,&pending.keys,&pending.operation);
                 }
                 pending.epoch=codec::decode_string(codec::required(&mut result,"epoch")?)?;
                 // Another recovering caller may have won first. Obtain our own
@@ -1182,7 +1182,7 @@ impl CanonicalStore {
                         "RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
                         .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))).await {
                         if let Some(result)=readback.take::<Option<Object>>(0)? {
-                            return settled_readiness_count(&result,&pending.keys);
+                            return settled_readiness_count(&result,&pending.keys,&pending.operation);
                         }
                     }
                     return Err(error);
@@ -1191,7 +1191,7 @@ impl CanonicalStore {
             let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
             if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
                 let result=readiness_object(codec::required(&mut result,"result")?)?;
-                return settled_readiness_count(&result,&pending.keys);
+                return settled_readiness_count(&result,&pending.keys,&pending.operation);
             }
             fence=result.get("fenced")==Some(&Value::Bool(true));
             // A committed bounded prefix remains on the same pending row. An
@@ -1224,7 +1224,7 @@ impl CanonicalStore {
         let Some(mut row)=response.take::<Option<Object>>(0)? else {return Ok(0);};
         if row.get("settled")==Some(&Value::Bool(true)) {
             let keys=readiness_array(codec::required(&mut row,"keys")?)?.into_iter().map(codec::decode_string).collect::<Result<Vec<_>,_>>()?;
-            return settled_readiness_count(&readiness_object(codec::required(&mut row,"result")?)?,&keys);
+            return settled_readiness_count(&readiness_object(codec::required(&mut row,"result")?)?,&keys,&operation);
         }
         let (pending,created)=decode_pending_readiness(row)?;
         self.resume_readiness_page(pending,!created).await
@@ -3073,6 +3073,30 @@ mod canonical_studies_server_unit {
         }
         store.remove_isolated_fixture().await.unwrap();
     }
+    #[tokio::test]
+    async fn canonical_studies_surrealism_malformed_return_cannot_commit_a_prefix_or_cursor() {
+        let (store,_,revision)=fixture().await;
+        store.create_study("module-return",&request(&revision,"module-return-parent"),&[],&[
+            occurrence(&revision,0,vec![]),occurrence(&revision,1,vec![]),
+        ],&||false).await.unwrap();
+        let before=store.canonical_study_summary("module-return").await.unwrap().unwrap();
+        let cursor=store.readiness_cursor("module-return").await.unwrap();
+        for empty in [true,false] {
+            let query=r#"BEGIN;
+                LET $page=fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,'module-return',$cursor,'rebuild',NONE,NONE,64);
+                LET $reply=fn::pse_study_v1::readiness_policy($page);
+                LET $bad=IF $empty {[]} ELSE {$reply.decisions.map(|$item,$index| IF $index=1 {object::extend($item,{pending:-1dec})} ELSE {$item})};
+                LET $request={study:'module-return',fence:$page.fence,mutating:true};
+                UPDATE ONLY type::record('canonical_studies','module-return') SET generation+=1dec;
+                RETURN fn::pse_study_v1::readiness_apply_decisions($pse_rpc_expires_at,$request,$page,$bad,true);
+                COMMIT;"#;
+            let result=bounded_query(store.db.query(query).bind(("cursor",codec::encode_uint(cursor.revision).unwrap())).bind(("empty",empty))).await;
+            assert!(result.is_err(),"complete guest output must be checked before any committed prefix");
+            assert_eq!(store.canonical_study_summary("module-return").await.unwrap().unwrap().generation,before.generation);
+            assert_eq!(store.readiness_cursor("module-return").await.unwrap().revision,cursor.revision);
+        }
+        store.remove_isolated_fixture().await.unwrap();
+    }
     async fn prepare_readiness_test(store:&CanonicalStore,coordinates:&Object,operation:&str)->PendingReadinessPage {
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$coordinates);")
             .bind(("operation",operation.to_owned())).bind(("coordinates",coordinates.clone()))).await.unwrap();
@@ -4619,5 +4643,22 @@ mod canonical_studies_server_unit {
         assert_eq!(retained.attestation.as_slice(), points[1].run.attestation);
         assert_eq!(store.database(), database);
         store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod readiness_settlement_tests {
+    use super::*;
+    #[test]
+    fn committed_policy_refusal_retains_operation_and_is_not_transaction_absence() {
+        let mut result = Object::new();
+        result.insert("refusal", true);
+        let error = settled_readiness_count(&result, &["point".into()], "original-operation").unwrap_err();
+        assert!(matches!(&error, CanonicalError::SettledPolicyRefusal { code, operation }
+            if *code == pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessPolicyRefused
+                && operation == "original-operation"));
+        assert!(!error.effect_is_unknown());
+        assert!(!error.source_transaction_refused());
+        assert!(!error.proves_source_refusal());
     }
 }

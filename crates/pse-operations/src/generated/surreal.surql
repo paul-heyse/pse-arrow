@@ -1805,18 +1805,27 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operatio
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$page:object,$items:array<object>,$finish:bool) -> object {
     LET $study=$request.study; LET $fence=$request.fence;
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
+    // Validate the entire guest result before any hint/cursor write. An empty
+    // or malformed later item cannot certify a prefix or commit earlier hints.
     LET $coverage=array::sort($items.point)=array::sort($page.items.point) AND array::len(array::distinct($items.point))=array::len($items);
-    LET $available=$page.study!=NONE AND $page.study.active AND $page.study.terminal=false;
-    LET $outcomes=$items.map(|$item| {
+    IF $coverage!=true { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
+    LET $invalid=$items.filter(|$item| {
         LET $members=($page.items.filter(|$member|$member.point=$item.point))[0];
         LET $point=($page.rows.filter(|$row|$row.key=$item.point))[0];
         LET $keys=array::concat([$item.point],$members.predecessors);
         LET $expected=$item.expected;
-        LET $valid=$coverage AND $point!=NONE AND $point.study=$study AND array::sort($expected.key)=array::sort($keys)
-            AND array::len($expected)=array::len($keys) AND $item.pending>=0dec AND $item.pending<=<decimal>array::len($members.predecessors)
-            AND array::len($expected.filter(|$premise| array::len($page.rows.filter(|$row| $row.key=$premise.key AND $row.revision=$premise.revision AND $row.study=$study))!=1))=0;
-        IF $valid=false {{point:$item.point,status:'refused',changed:false}}
-        ELSE IF $available=false {{point:$item.point,status:'stale',changed:false}}
+        LET $pending=<decimal>array::len($page.rows.filter(|$row| $row.key IN $members.predecessors AND $row.settled=false));
+        LET $valid=$point!=NONE AND $point.study=$study AND array::sort($expected.key)=array::sort($keys)
+            AND array::len($expected)=array::len($keys) AND type::is_decimal($item.pending) AND $item.pending=$pending
+            AND type::is_bool($item.eligible) AND type::is_bytes($item.premises) AND bytes::len($item.premises)<=16384
+            AND array::len($expected.filter(|$premise| type::is_decimal($premise.revision)=false OR array::len($page.rows.filter(|$row| $row.key=$premise.key AND $row.revision=$premise.revision AND $row.study=$study))!=1))=0;
+        RETURN $valid!=true;
+    });
+    IF array::len($invalid)!=0 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
+    LET $available=$page.study!=NONE AND $page.study.active AND $page.study.terminal=false;
+    LET $outcomes=$items.map(|$item| {
+        LET $point=($page.rows.filter(|$row|$row.key=$item.point))[0];
+        IF $available=false {{point:$item.point,status:'stale',changed:false}}
         ELSE {fn::pse_study_v1::readiness_apply_hint($rpc_expiry,$point,$item,$request.mutating)}
     });
     LET $safe=$available AND $finish AND array::len($outcomes.filter(|$item|$item.status='refused' OR ($request.mutating=false AND $item.status='stale')))=0;
