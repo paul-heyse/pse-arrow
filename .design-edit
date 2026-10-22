@@ -9,3 +9,7 @@ OP01 authorizes fresh selected owned-store reset/regeneration without preservati
 Older-plan reconciliation follows Q1; unrelated owners and unknown effects stay protected.
 
 2026-10-21 remaining Plan49b–49h: operator authorized ADR-0215/blueprint241 target publication before dependent implementation, including I24 canonicalizer retirement. Existing authorizations retained.
+
+2026-10-22: Maintainer explicitly selected RC22 Surrealism; root owns proposed
+ADR-0214 and blueprint243 same-source policy/deployment target. Implementation and
+assembled qualification remain in Plan49a. Earlier authorizations remain intact.
