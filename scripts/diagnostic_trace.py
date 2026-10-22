@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Explicit pinned Trace Processor installation and finite owned SQL export.
+"""Explicit pinned diagnostic tool installation and finite owned SQL export.
 
 Raw traces stay with the original capture owner. This adapter neither observes
 nor controls the target process and never installs tools during a query.
@@ -101,7 +101,7 @@ def stage_bundle(archive: Path, directory: Path, spec: dict[str, str]) -> Path:
 
 
 def install(name: str = "trace-processor") -> Path:
-    """Install only the declared binary from a bounded authenticated release archive."""
+    """Install the declared binary or complete portable runtime from its pinned archive."""
     target = binary_path(name)
     spec = tool_spec(name)
     portable = spec.get("archive") == "portable-tar"

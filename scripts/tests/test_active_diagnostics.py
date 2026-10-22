@@ -95,6 +95,13 @@ class ActiveDiagnosticsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("isolated pinned tool environment", result["error"])
 
+    def test_memray_version_follows_project_declaration(self) -> None:
+        version = {"version": "9.8.7", "prefix": "/selected/env", "executable": sys.executable, "python": sys.version}
+        completed = subprocess.CompletedProcess([], 0, json.dumps(version), "")
+        with patch.object(active.doctor, "pyproject", return_value={"dependency-groups": {"diagnostics": ["memray==9.8.7; sys_platform == 'linux'"]}}), patch.object(active.subprocess, "run", return_value=completed):
+            selected = active.memray_runtime(Path(sys.executable))
+        self.assertEqual(selected["runtime"]["version"], "9.8.7")
+
     def test_unavailable_core_and_wrong_executable_are_not_attachment(self) -> None:
         binary = Path(sys.executable).resolve()
         with patch.object(active, "collect", side_effect=AssertionError("debugger launched")):
@@ -104,6 +111,30 @@ class ActiveDiagnosticsTests(unittest.TestCase):
             code, result = self.invoke("gdb-core", "--core", str(self.root / "missing.core"), "--executable", str(binary), "--executable-sha256", active.regular(binary)["sha256"])
             self.assertEqual(code, 1)
             self.assertIn("No such file", result["error"])
+
+    def test_identified_owned_launch_preserves_literal_argv(self) -> None:
+        output = self.root / "identified"
+        output.mkdir(mode=0o700)
+        marker = output / "subject.json"
+        payload = "literal space ; $(touch forbidden)"
+        command = [sys.executable, "-c", "import json,sys; print(json.dumps(sys.argv[1:]))", payload]
+        captured = active.collect(active.identified_launch(command, marker), output, "target", seconds=5, output_bytes=65536)
+        self.assertEqual(captured["exit_code"], 0, captured)
+        self.assertEqual(json.loads((output / "target.stdout.txt").read_text()), [payload])
+        subject = active.resource_store.read(marker)
+        self.assertGreater(subject["pid"], 0)
+        self.assertTrue(subject["start"].isdigit())
+        self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+
+    def test_decoder_environment_choice_does_not_change_parent(self) -> None:
+        output = self.root / "local-symbols"
+        output.mkdir(mode=0o700)
+        with patch.dict(os.environ, {"DEBUGINFOD_URLS": "https://example.invalid"}):
+            value = active.collect([sys.executable, "-c", "import os; print('DEBUGINFOD_URLS' in os.environ)"], output, "decoder", seconds=5, output_bytes=4096, environment_remove=("DEBUGINFOD_URLS",))
+            self.assertEqual(os.environ["DEBUGINFOD_URLS"], "https://example.invalid")
+        self.assertEqual(value["exit_code"], 0, value)
+        self.assertEqual((output / "decoder.stdout.txt").read_text().strip(), "False")
+        self.assertEqual(value["environment_removed"], ["DEBUGINFOD_URLS"])
 
     def test_real_bounded_helper_timeout_does_not_stop_unrelated_target(self) -> None:
         target = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])

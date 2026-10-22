@@ -22,7 +22,7 @@ import threading
 import time
 from pathlib import Path
 
-from scripts import diagnostic_trace, native_operation, resource_store, run_inspection
+from scripts import diagnostic_trace, doctor, native_operation, resource_store, run_inspection
 
 SCHEMA = "active-diagnostic-action-v1"
 
@@ -118,13 +118,25 @@ def memray_runtime(path: Path | None) -> dict:
     selected = path.absolute()
     result = subprocess.run([str(selected), "-c", "import json,sys,memray; print(json.dumps({'version':memray.__version__,'prefix':sys.prefix,'executable':sys.executable,'python':sys.version}))"], capture_output=True, text=True, timeout=5, check=True)
     runtime = json.loads(result.stdout)
-    if runtime["version"] != "1.20.0":
-        raise ValueError("selected Memray environment must contain pinned memray==1.20.0")
+    pins = []
+    for declaration in doctor.pyproject().get("dependency-groups", {}).get("diagnostics", []):
+        if isinstance(declaration, str) and (matched := re.fullmatch(r"memray==([^; ]+)(?:;.*)?", declaration)):
+            pins.append(matched[1])
+    if len(pins) != 1:
+        raise ValueError("diagnostics dependency group must declare exactly one exact Memray pin")
+    if runtime["version"] != pins[0]:
+        raise ValueError(f"selected Memray environment must contain declared memray=={pins[0]}")
     return {"name": "memray", "status": "available", "path": str(selected),
             "identity": regular(selected.resolve(strict=True)), "runtime": runtime}
 
 
-def collect(command: list[str], output: Path, label: str, *, seconds: float, output_bytes: int, cwd: Path | None = None) -> dict:
+def identified_launch(command: list[str], subject_file: Path) -> list[str]:
+    """Publish this owned exec request's kernel identity without interpreting workload argv."""
+    launcher = "import json,os,sys,time; from pathlib import Path; from scripts.native_operation import start_identity; p=Path(sys.argv[1]); f=os.fdopen(os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w'); json.dump({'pid':os.getpid(),'start':start_identity(os.getpid()),'wall_ns':time.time_ns(),'monotonic_ns':time.monotonic_ns(),'boot':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'exec_observation':'exec requested; workload outcome is separate'},f); f.close(); os.execvp(sys.argv[2],sys.argv[2:])"
+    return [sys.executable, "-c", launcher, str(subject_file), *command]
+
+
+def collect(command: list[str], output: Path, label: str, *, seconds: float, output_bytes: int, cwd: Path | None = None, environment_remove: tuple[str, ...] = ()) -> dict:
     """Use the existing exact child scope; cap retained text while draining both pipes."""
     observation: dict[str, object] = {}
     retained = {"stdout": 0, "stderr": 0}
@@ -152,7 +164,10 @@ def collect(command: list[str], output: Path, label: str, *, seconds: float, out
     code = None
     status = "returned"
     try:
-        code = native_operation.run_child_scope(command, dict(os.environ),
+        environment = dict(os.environ)
+        for name in environment_remove:
+            environment.pop(name, None)
+        code = native_operation.run_child_scope(command, environment,
             stdout=descriptors[0], stderr=descriptors[1], observation=observation, cwd=cwd,
             deadline=started + seconds)
     except subprocess.TimeoutExpired:
@@ -170,7 +185,7 @@ def collect(command: list[str], output: Path, label: str, *, seconds: float, out
     return {"argv": command, "status": status, "exit_code": code, "process": observation,
             "elapsed_seconds": time.monotonic() - started, "output_seen_bytes": seen,
             "output_retained_bytes": retained, "truncated": any(seen[key] > retained[key] for key in seen),
-            "errors": errors}
+            "errors": errors, "environment_removed": list(environment_remove)}
 
 
 def read_action(directory: Path, *, tail: int = 0) -> dict:
@@ -227,8 +242,8 @@ def execute(args: argparse.Namespace) -> dict:
               "invocation": None, "steps": [], "status": "incomplete",
               "bounds": {"seconds_per_step": args.seconds, "text_bytes_per_stream": args.output_bytes,
                          "raw_artifact_bytes": "not capped; duration bounds execution, not raw file size"}}
-    def step(command: list[str], label: str, seconds: float | None = None, cwd: Path | None = None) -> dict:
-        value = collect(command, output, label, seconds=args.seconds if seconds is None else seconds, output_bytes=args.output_bytes, cwd=cwd)
+    def step(command: list[str], label: str, seconds: float | None = None, cwd: Path | None = None, environment_remove: tuple[str, ...] = ()) -> dict:
+        value = collect(command, output, label, seconds=args.seconds if seconds is None else seconds, output_bytes=args.output_bytes, cwd=cwd, environment_remove=environment_remove)
         record["steps"].append(value)
         return value
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -302,8 +317,7 @@ def execute(args: argparse.Namespace) -> dict:
                 instrumented = [command[0], "-X", "perf_jit" if args.jit else "perf", *command[1:]]
                 raw = output / "perf.data"
                 subject_file = output / "python-subject.json"
-                launcher = "import json,os,sys,time; from pathlib import Path; from scripts.native_operation import start_identity; p=Path(sys.argv[1]); f=os.fdopen(os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w'); json.dump({'pid':os.getpid(),'start':start_identity(os.getpid()),'wall_ns':time.time_ns(),'boot':Path('/proc/sys/kernel/random/boot_id').read_text().strip()},f); f.close(); os.execv(sys.argv[2],sys.argv[2:])"
-                selected_launch = [sys.executable, "-c", launcher, str(subject_file), *instrumented]
+                selected_launch = identified_launch(instrumented, subject_file)
                 value = step([tool["path"], "record", "-e", "cpu-clock:u", "-F", "99", *(["-k", "1"] if args.jit else []), "--call-graph", "dwarf,16384" if args.jit else "fp", "-o", str(raw), "--", *selected_launch], "perf-record")
                 if subject_file.exists():
                     subject = resource_store.read(subject_file)
@@ -357,12 +371,15 @@ def execute(args: argparse.Namespace) -> dict:
                 record["coverage"] = "actual decoded CPU stacks; retained map/JIT data and local interpreter/library identities; raw perf data references original symbol paths, retained copies do not rewrite them; Samply import not established"
             elif args.action == "sched":
                 raw = output / "sched.data"
-                value = step([tool["path"], "sched", "record", "-o", str(raw), "--", *command], "sched-record")
-                if value["exit_code"] == 0 and raw.exists():
-                    required.append(step([tool["path"], "sched", "timehist", "-i", str(raw), "--state", "--wakeups"], "sched-timehist"))
+                subject_file = output / "launch-subject.json"
+                value = step([tool["path"], "sched", "record", "-o", str(raw), "--", *identified_launch(command, subject_file)], "sched-record")
+                if value["exit_code"] == 0 and raw.exists() and subject_file.exists():
+                    subject = resource_store.read(subject_file)
+                    record["subject"]["runtime_identity"] = subject
+                    required.append(step([tool["path"], "sched", "timehist", "-i", str(raw), "--pid", str(subject["pid"]), "--state", "--wakeups", "--with-summary"], "sched-timehist"))
                 else:
                     required.append({"status": "unavailable", "exit_code": None, "reason": "no scheduler capture for required timehist"})
-                record["coverage"] = "perf sched record defaults to system-wide (-a) scheduler tracepoints, including unrelated host tasks; owned launch identifies the experiment, not an isolated captured population; timehist interpretation requires exact target thread identities; permission refusal is a prerequisite, never CPU/proc substitution"
+                record["coverage"] = "perf sched record defaults to system-wide (-a) scheduler tracepoints, including unrelated host tasks; owned launch identifies the experiment, not an isolated captured population; timehist and summary filter the owned exec PID, with recorded PID/start/boot and actual thread IDs in the trace; permission refusal is a prerequisite, never CPU/proc substitution"
             elif args.action == "heaptrack":
                 value = step([tool["path"], "--record-only", "-o", str(output / "heaptrack.data"), *command], "heaptrack")
                 printer = selected_tool("heaptrack_print")
@@ -389,7 +406,8 @@ def execute(args: argparse.Namespace) -> dict:
             record.update(tool=tool, subject={"kind": "owned-launch", "argv": command}, effect="Python allocator and native allocation interception")
             raw = output / "memray.bin"
             value = step([tool["path"], "-m", "memray", "run", "--native", "--trace-python-allocators", "-o", str(raw), *command[1:]], "memray-record")
-            decoded = step([tool["path"], "-m", "memray", "stats", str(raw)], "memray-stats") if raw.exists() else {"exit_code": None, "status": "unavailable", "reason": "capture absent"}
+            record["symbol_resolution"] = "configured debuginfod queries allowed" if args.debuginfod else "local symbols only; DEBUGINFOD_URLS removed for the decoder"
+            decoded = step([tool["path"], "-m", "memray", "stats", str(raw)], "memray-stats", environment_remove=() if args.debuginfod else ("DEBUGINFOD_URLS",)) if raw.exists() else {"exit_code": None, "status": "unavailable", "reason": "capture absent"}
             record["capture_status"] = "collected" if raw.exists() else "unavailable"
             record["target_outcome"] = {"launcher_exit": value["exit_code"], "meaning": "Memray propagates workload failures; capture and decoder statuses remain independent"}
             record["decoders"] = [decoded]
@@ -440,7 +458,7 @@ def execute(args: argparse.Namespace) -> dict:
             record["tools"] = {name: selected_tool(name) for name in ("rr", "memray", "perf", "gdb", "py-spy", "heaptrack")}
             record["host"] = {name: Path(path).read_text().strip() for name, path in (("perf_event_paranoid", "/proc/sys/kernel/perf_event_paranoid"), ("ptrace_scope", "/proc/sys/kernel/yama/ptrace_scope"), ("core_pattern", "/proc/sys/kernel/core_pattern"))}
             record["rr"] = {"decision": "optional selected recorder", "qualification": "presence is not record/replay qualification; use rr-record then rr-replay on the actual process tree", "scope": "current official rr supports selected AMD Zen hosts; exact CPU/kernel/syscall/shared-memory support requires an actual recorder probe"}
-            record["memray"] = {"decision": "optional isolated pinned Python allocation route", "qualification": "requires --memray-python with memray==1.20.0 and an actual capture", "coverage_gap": "Python allocator suballocations and Python-source allocation attribution beyond libc allocation summaries; native mode attributes observed native allocator frames"}
+            record["memray"] = {"decision": "optional isolated pinned Python allocation route", "qualification": "requires --memray-python matching the diagnostics dependency group and an actual capture", "coverage_gap": "Python allocator suballocations and Python-source allocation attribution beyond libc allocation summaries; native mode attributes observed native allocator frames"}
             record["status"] = "observed"
         else:
             raise ValueError("unsupported active action")
@@ -468,6 +486,7 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--executable-sha256")
     command.add_argument("--events")
     command.add_argument("--memray-python", type=Path)
+    command.add_argument("--debuginfod", action="store_true", help="allow configured symbol downloads for the Memray decoder; default local symbols only")
     command.add_argument("--rr-binary", type=Path, help="bin/rr from the complete pinned portable bundle")
     command.add_argument("--trace", type=Path)
     command.add_argument("--trace-sha256")
