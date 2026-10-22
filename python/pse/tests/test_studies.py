@@ -17,7 +17,7 @@ import pse
 from pse import codec
 from pse.contracts import documents
 from pse.contracts.documents import (
-    BoundaryDiagnostic,
+    BoundaryDiagnosticOutput,
     CaptureBudget,
     ClosedDuration,
     ControllerOperation,
@@ -49,7 +49,7 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
-from pse.contracts.values import SemanticId
+from pse.contracts.values import ContentHash, SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.managed_study_fixture import (
     CallerStarted,
@@ -109,7 +109,7 @@ def test_current_study_request_roundtrip_preserves_explicit_evaluator(
     preparation = msgspec.structs.replace(selected.preparation, compiler=compiler)
     selected = msgspec.structs.replace(selected, preparation=preparation)
     request = study_request(selected)
-    assert request.version == 7
+    assert request.version == 8
     assert codec.decode_json(codec.encode_json(request), StudyRequest) == request
 
 
@@ -383,7 +383,7 @@ def _assert_cancelled_managed_study(
     sys.stderr.flush()
     cancelled = handle.cancel()
     assert not cancelled.already_concluded
-    assert cancelled.study_id == handle.study_id.to_hex()
+    assert cancelled.study_id == handle.study_id
     # Do not release the barrier: the actual native stop flags must wake all
     # sixteen admitted owners, while the effect-free tail never enters it.
     sys.stderr.write("managed cancellation: waiting for native drain\n")
@@ -688,20 +688,22 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
     assert report.rule == "study.binding.physical"
     assert report.stage == "study.binding"
     diagnostic = report.envelope
-    assert isinstance(diagnostic, BoundaryDiagnostic)
+    assert isinstance(diagnostic, BoundaryDiagnosticOutput)
     assert diagnostic.rule == report.rule
     assert diagnostic.stage == report.stage
     assert diagnostic.code == report.code
     assert diagnostic.class_ == report.boundary_class
-    assert diagnostic.locations == report.source_locations
-    assert diagnostic.sources == report.source_ids
+    assert diagnostic.locations == tuple(msgspec.convert(location,
+        type=documents.SourceLocationBodyOutput, from_attributes=True)
+        for location in report.source_locations)
+    assert tuple(source.to_hex() for source in diagnostic.sources) == report.source_ids
     assert diagnostic.observations == report.observations
     assert diagnostic.locations[0].path == "a"
     assert diagnostic.locations[0].source in diagnostic.sources
     revision = diagnostic.locations[0].revision
-    assert isinstance(revision, str)
+    assert isinstance(revision, ContentHash)
     assert report.source_locations[0].path == "a"
-    assert revision.startswith("blake3:")
+    assert revision.to_prefixed().startswith("blake3:")
     assert report.source_locations[0].revision == revision
     operands = diagnostic.observations["operands"]
     assert isinstance(operands, ObservationContracts)
@@ -715,15 +717,17 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         assert all(0 <= byte <= 255 for byte in contract.quantity)
         assert contract.indices == ()
     encoded = codec.encode_json(diagnostic)
-    assert codec.decode_json(encoded, BoundaryDiagnostic) == diagnostic
-    nested = msgspec.structs.replace(diagnostic, causes=(diagnostic,))
-    restored = codec.decode_json(codec.encode_json(nested), BoundaryDiagnostic)
+    assert codec.decode_json(encoded, BoundaryDiagnosticOutput) == diagnostic
+    cause = msgspec.convert(diagnostic, type=documents.BoundaryDiagnosticBodyOutput,
+        from_attributes=True)
+    nested = msgspec.structs.replace(diagnostic, causes=(cause,))
+    restored = codec.decode_json(codec.encode_json(nested), BoundaryDiagnosticOutput)
     assert restored == nested
-    assert restored.causes[0] == diagnostic
+    assert restored.causes[0] == cause
     unknown = msgspec.json.decode(encoded, type=dict[str, object])
     unknown["unregistered"] = True
     with pytest.raises(msgspec.ValidationError, match="unregistered"):
-        codec.decode_json(msgspec.json.encode(unknown), BoundaryDiagnostic)
+        codec.decode_json(msgspec.json.encode(unknown), BoundaryDiagnosticOutput)
     indexed_operand = msgspec.structs.replace(
         operands.value[0],
         indices=((tuple(range(16)), tuple(range(16, 32)), tuple(range(32, 48))),),
@@ -738,7 +742,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         },
     )
     indexed_encoded = codec.encode_json(indexed)
-    assert codec.decode_json(indexed_encoded, BoundaryDiagnostic) == indexed
+    assert codec.decode_json(indexed_encoded, BoundaryDiagnosticOutput) == indexed
     for invalid_indices in (
         [[list(range(16))] * 2],
         [[list(range(16))] * 4],
@@ -760,7 +764,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         malformed_observations["operands"] = malformed_operands
         malformed["observations"] = malformed_observations
         with pytest.raises(msgspec.ValidationError):
-            codec.decode_json(msgspec.json.encode(malformed), BoundaryDiagnostic)
+            codec.decode_json(msgspec.json.encode(malformed), BoundaryDiagnosticOutput)
     for length in (15, 17):
         malformed = msgspec.json.decode(encoded, type=dict[str, object])
         malformed_observations = msgspec.convert(
@@ -777,7 +781,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         malformed_observations["operands"] = malformed_operands
         malformed["observations"] = malformed_observations
         with pytest.raises(msgspec.ValidationError):
-            codec.decode_json(msgspec.json.encode(malformed), BoundaryDiagnostic)
+            codec.decode_json(msgspec.json.encode(malformed), BoundaryDiagnosticOutput)
 
 
 @pytest.mark.unit
@@ -821,7 +825,8 @@ def test_native_study_version_precedes_nested_current_decode(
     # Malformed current fields precede the header at the actual native boundary.
     historical = msgspec.json.encode({"points": "retired shape", "version": version})
     handle = package._handle
-    pattern = "explicit readmission is required"
+    pattern = (rf"unsupported version {version} \(current: 8\)" if operation == "admit_study"
+        else "explicit readmission is required")
     if operation == "admit_study":
         with pytest.raises(pse.InspectionError, match=pattern):
             handle.admit_study(historical)
@@ -965,7 +970,7 @@ def test_durable_study_cancel_and_its_refusals(
     handle = runtime.start_study(runtime.record_study(definition))
     cancelled = handle.cancel()
     assert not cancelled.already_concluded
-    assert cancelled.study_id == handle.study_id.to_hex()
+    assert cancelled.study_id == handle.study_id
     runtime.work()
     status = handle.status()
     assert status.study_id == cancelled.study_id
@@ -1277,10 +1282,8 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     variants = StudyVariants(
-        source=codec.convert_document(
-            codec.document_builtins(package.operation_source),
-            documents.OperationSourceBody,
-        ),
+        source=msgspec.convert(package.operation_source,
+            type=documents.OperationSourceBody, from_attributes=True),
         choices=(
             SourceChoice(
                 alternatives=(
@@ -1304,7 +1307,8 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     assert definition.points == ()
     assert definition.variants is not None
     retained = definition.variants.variants
-    assert retained.source == package.operation_source
+    assert retained.source == msgspec.convert(package.operation_source,
+        type=documents.OperationSourceBody, from_attributes=True)
     assert retained.selected[0].point.policy.key == 17
     local_parent = definition.modeling_revision
     assert local_parent == (package.canonical_revision or package.revision_id)
@@ -1333,10 +1337,8 @@ def test_local_lazy_study_executes_selected_occurrence_without_store(
         presolve=PresolvePolicyKind.OFF,
     )
     variants = StudyVariants(
-        source=codec.convert_document(
-            codec.document_builtins(package.operation_source),
-            documents.OperationSourceBody,
-        ),
+        source=msgspec.convert(package.operation_source,
+            type=documents.OperationSourceBody, from_attributes=True),
         choices=(
             SourceChoice(
                 alternatives=(

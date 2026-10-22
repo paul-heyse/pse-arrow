@@ -195,7 +195,8 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     }
     settings = pse.SolveSettings(backend=NativeBackend.CLARABEL)
     prepared = runtime.prepare_conic(
-        codec.decode_json(codec.encode_json(request), pse.ConicRequest),
+        codec.decode_json(codec.encode_json(codec.convert_document(request, pse.ConicRequest)),
+            pse.ConicRequest),
         physical,
         settings,
     )
@@ -949,7 +950,7 @@ def test_completion_projection_and_canonical_admission(
     )
     assert completion.computation is None
     assert completion.solves[0].candidate_kind == "constant_evaluation"
-    assert completion.lineage[0].model_id == identity(101).to_hex()
+    assert completion.lineage[0].model_id == declaration(101)
     assert not result.diagnostics()
     durable_runtime.clear_program_cache()
     assert result.completion == completion
@@ -1216,7 +1217,7 @@ def test_compiler_failure_retains_typed_authored_source_span(
     assert report.boundary_class == "invalid_model"
     assert report.source_locations, (report.message, report.rule, report.source_ids)
     location = report.source_locations[0]
-    assert isinstance(location, pse.SourceLocation)
+    assert isinstance(location, documents.SourceLocationOutput)
     assert location.start is not None
     assert location.end is not None
     assert 0 <= location.start <= location.end <= len(source)
