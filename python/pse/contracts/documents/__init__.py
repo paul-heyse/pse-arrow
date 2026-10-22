@@ -211,7 +211,7 @@ class AdmittedBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Physical interpretation context.
     context: v.ContentHash
     #: Entries in member identity order.
-    entries: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], AdmittedBindingEntry]
+    entries: dict[v.SemanticId, AdmittedBindingEntry]
     #: Exact revision that admitted member identity and role.
     revision: v.ContentHash
 
@@ -868,6 +868,42 @@ class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.initial), v.scalar_key(self.next), v.scalar_key(self.prior),))
+
+
+class ArtifactIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: active
+    active: bool
+    #: block_count
+    block_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: creation_expires_at
+    creation_expires_at: Annotated[int, msgspec.Meta(ge=0)]
+    #: creation_nonce
+    creation_nonce: str
+    #: creation_request_digest
+    creation_request_digest: str
+    #: interpretation
+    interpretation: str
+    #: key
+    key: str
+    #: kind
+    kind: str
+    #: payload_bytes
+    payload_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: primary_authority
+    primary_authority: str
+    #: primary_problem
+    primary_problem: str
+    #: provenance
+    provenance: Bytes
+    #: retiring
+    retiring: bool
+    #: revision
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.block_count), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.payload_bytes), v.scalar_key(self.primary_authority), v.scalar_key(self.primary_problem), v.sequence_key(v.scalar_key)(self.provenance), v.scalar_key(self.retiring), v.scalar_key(self.revision),))
 
 
 class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -12167,12 +12203,12 @@ class PackMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class PackMemberSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One explicitly requested member. Missing optional members differ from unrequested members."""
 
+    #: Original JSON codec version, when declared. None means interpretation is unspecified.
+    document_version: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Copied capture sampling/loss/termination scope. No seal can change this text.
     capture_scope: str | None = None
     #: Actual registry diagnostic projection, independent of scientific lineage.
     diagnostic_table: PackDiagnosticTable | None = None
-    #: Original JSON codec version, when declared. None means interpretation is unspecified.
-    document_version: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Declared actual bytes encoding and interpretation version.
     format: PackFormat
     #: Unique explicit member identity within this pack.
@@ -12189,18 +12225,18 @@ class PackMemberSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     source: str | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.capture_scope), v.optional_key(v.record_key)(self.diagnostic_table), v.optional_key(v.scalar_key)(self.document_version), v.scalar_key(self.format), v.scalar_key(self.id), v.sequence_key(v.record_key)(self.references), v.scalar_key(self.required), v.optional_key(v.record_key)(self.result), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.source),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.document_version), v.optional_key(v.scalar_key)(self.capture_scope), v.optional_key(v.record_key)(self.diagnostic_table), v.scalar_key(self.format), v.scalar_key(self.id), v.sequence_key(v.record_key)(self.references), v.scalar_key(self.required), v.optional_key(v.record_key)(self.result), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.source),))
 
 
 class PackMemberSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One explicitly requested member. Missing optional members differ from unrequested members."""
 
+    #: Original JSON codec version, when declared. None means interpretation is unspecified.
+    document_version: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Copied capture sampling/loss/termination scope. No seal can change this text.
     capture_scope: str | None
     #: Actual registry diagnostic projection, independent of scientific lineage.
     diagnostic_table: PackDiagnosticTable | None = None
-    #: Original JSON codec version, when declared. None means interpretation is unspecified.
-    document_version: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Declared actual bytes encoding and interpretation version.
     format: PackFormat
     #: Unique explicit member identity within this pack.
@@ -12217,7 +12253,7 @@ class PackMemberSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     source: str | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.capture_scope), v.optional_key(v.record_key)(self.diagnostic_table), v.optional_key(v.scalar_key)(self.document_version), v.scalar_key(self.format), v.scalar_key(self.id), v.sequence_key(v.record_key)(self.references), v.scalar_key(self.required), v.optional_key(v.record_key)(self.result), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.source),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.document_version), v.optional_key(v.scalar_key)(self.capture_scope), v.optional_key(v.record_key)(self.diagnostic_table), v.scalar_key(self.format), v.scalar_key(self.id), v.sequence_key(v.record_key)(self.references), v.scalar_key(self.required), v.optional_key(v.record_key)(self.result), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.source),))
 
 
 class PackResultPredicate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17398,6 +17434,52 @@ class SolverAdviceInputsOutput(msgspec.Struct, frozen=True, forbid_unknown_field
         return (type(self), (v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
 
 
+class SolverCapability(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: automatic_classes
+    automatic_classes: tuple[enums.NativeProblemClass, ...]
+    #: backend
+    backend: enums.NativeBackend
+    #: batch
+    batch: bool
+    #: cancellation
+    cancellation: str
+    #: certifies
+    certifies: bool
+    #: classes
+    classes: tuple[enums.NativeProblemClass, ...]
+    #: derivatives
+    derivatives: enums.NativeDerivativeCapability
+    #: diagnostics
+    diagnostics: str
+    #: general_bounds
+    general_bounds: bool
+    #: lexicographic_classes
+    lexicographic_classes: tuple[enums.NativeProblemClass, ...]
+    #: lexicographic_degradation
+    lexicographic_degradation: enums.NativeLexicographicDegradation
+    #: native_forms
+    native_forms: tuple[enums.NativeConstraintForm, ...]
+    #: parallel
+    parallel: bool
+    #: requirements
+    requirements: tuple[enums.ModelingStructuralRequirement, ...]
+    #: reuse
+    reuse: str
+    #: sensitivities
+    sensitivities: bool
+    #: sign_bounds
+    sign_bounds: bool
+    #: structural_policy
+    structural_policy: enums.NativeStructuralPolicy
+    #: warm
+    warm: enums.NativeWarmCapability
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.automatic_classes), v.scalar_key(self.backend), v.scalar_key(self.batch), v.scalar_key(self.cancellation), v.scalar_key(self.certifies), v.sequence_key(v.scalar_key)(self.classes), v.scalar_key(self.derivatives), v.scalar_key(self.diagnostics), v.scalar_key(self.general_bounds), v.sequence_key(v.scalar_key)(self.lexicographic_classes), v.scalar_key(self.lexicographic_degradation), v.sequence_key(v.scalar_key)(self.native_forms), v.scalar_key(self.parallel), v.sequence_key(v.scalar_key)(self.requirements), v.scalar_key(self.reuse), v.scalar_key(self.sensitivities), v.scalar_key(self.sign_bounds), v.scalar_key(self.structural_policy), v.scalar_key(self.warm),))
+
+
 class SourceAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual immutable acknowledgement of the requested source operation."""
 
@@ -19804,6 +19886,7 @@ __all__ = [
     "ArithmeticSourceDocument",
     "ArithmeticSourceDocumentOutput",
     "ArrivalDocument",
+    "ArtifactIntent",
     "AssemblyLimits",
     "AttemptDecision",
     "AttemptDecisionOutput",
@@ -20768,6 +20851,7 @@ __all__ = [
     "SolveSettingsOutput",
     "SolverAdviceInputs",
     "SolverAdviceInputsOutput",
+    "SolverCapability",
     "SourceAcknowledgement",
     "SourceAcknowledgementOutput",
     "SourceChoice",
@@ -20930,4 +21014,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:fa91002992eae304ba7f5630c3c1fbef1709ae670f269a9cea8505ba54f84c53"
+SCHEMA_SET_FINGERPRINT = "blake3:6378b4c73b172534504288d498361c5bca0be17dfc3902ac69167e7814a2be63"

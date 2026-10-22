@@ -203,7 +203,7 @@ pub(super) fn documents() -> Vec<pse_codegen::codegen::documents::CatalogueDocum
     pse_runtime::boundary_documents::schemas().into_iter().map(|entry| pse_codegen::codegen::documents::CatalogueDocument {
         name: entry.name.into(), slug: entry.slug.into(), rust_type: entry.rust_type.into(),
         output: entry.direction == pse_runtime::boundary_documents::Direction::Output,
-        version: entry.version, schema: entry.schema,
+        version: entry.version, wire: format!("{:?}", entry.wire), schema: entry.schema,
     }).collect()
 }
 

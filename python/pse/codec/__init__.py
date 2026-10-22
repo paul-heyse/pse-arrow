@@ -200,10 +200,11 @@ def _check_version_headers(
             return
         expected = getattr(info.cls, "_pse_required_version", None)
         if expected is not None:
-            if "version" not in value:
-                message = f"Missing required document version - at `{path}.version`"
+            field = getattr(info.cls, "_pse_required_version_field", "version")
+            if field not in value:
+                message = f"Missing required document version - at `{path}.{field}`"
                 raise msgspec.ValidationError(message)
-            version = value["version"]
+            version = value[field]
             if (
                 not isinstance(version, int)
                 or isinstance(version, bool)
@@ -211,7 +212,7 @@ def _check_version_headers(
             ):
                 message = (
                     f"Unsupported document version (current: {expected}) "
-                    f"- at `{path}.version`"
+                    f"- at `{path}.{field}`"
                 )
                 raise msgspec.ValidationError(message)
         for field in info.fields:

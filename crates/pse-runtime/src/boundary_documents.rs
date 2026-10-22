@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Exported serde owners shared by schema publication and native document projection.
 
+#[path = "boundary_document_wire.rs"]
+mod wire;
+pub use wire::{Versioned, VersionedValue, Wire, check_header};
+
 /// Visit exported names, public Rust owners, schema slugs and admitted directions.
 /// A round-trip document has independent input and output generator contexts.
 #[macro_export]
@@ -175,6 +179,8 @@ pub struct DocumentSchema {
     pub direction: Direction,
     /// Owning standalone version when the schema declares one.
     pub version: Option<u32>,
+    /// Actual standalone wire-owner selection, shared with native projection.
+    pub wire: Wire,
     /// Complete schema derived in its direction-specific context.
     pub schema: serde_json::Value,
 }
@@ -215,7 +221,7 @@ fn schema<T: schemars::JsonSchema>(name: &'static str, slug: &'static str, rust_
     let mut schema = schema.to_value();
     schema.sort_all_objects();
     let version = schema["properties"]["version"]["const"].as_u64().and_then(|version| u32::try_from(version).ok());
-    DocumentSchema { name, slug, rust_type, direction, version, schema }
+    DocumentSchema { name, slug, rust_type, direction, version, wire: Wire::Native, schema }
 }
 fn export_names() -> std::collections::BTreeMap<String, &'static str> {
     macro_rules! aliases {

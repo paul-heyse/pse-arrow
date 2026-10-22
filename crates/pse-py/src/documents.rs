@@ -110,6 +110,7 @@ pub(crate) trait DocumentType {
     const OUTPUT_NAME: &'static str;
     const DISTINCT_DIRECTIONS: bool;
     const VERSION: Option<u32>;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 #[path = "generated/documents.rs"]
 mod catalogue;
@@ -121,6 +122,7 @@ macro_rules! projection {
             const OUTPUT_NAME: &'static str = <$document as $crate::documents::DocumentType>::OUTPUT_NAME;
             const DISTINCT_DIRECTIONS: bool = <$document as $crate::documents::DocumentType>::DISTINCT_DIRECTIONS;
             const VERSION: Option<u32> = <$document as $crate::documents::DocumentType>::VERSION;
+            const WIRE: pse_runtime::boundary_documents::Wire = <$document as $crate::documents::DocumentType>::WIRE;
         }
     };
 }
@@ -137,12 +139,14 @@ impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
     const OUTPUT_NAME: &'static str = T::OUTPUT_NAME;
     const DISTINCT_DIRECTIONS: bool = T::DISTINCT_DIRECTIONS;
     const VERSION: Option<u32> = T::VERSION;
+    const WIRE: pse_runtime::boundary_documents::Wire = T::WIRE;
 }
 impl<T: DocumentType> DocumentType for &T {
     const INPUT_NAME: &'static str = T::INPUT_NAME;
     const OUTPUT_NAME: &'static str = T::OUTPUT_NAME;
     const DISTINCT_DIRECTIONS: bool = T::DISTINCT_DIRECTIONS;
     const VERSION: Option<u32> = T::VERSION;
+    const WIRE: pse_runtime::boundary_documents::Wire = T::WIRE;
 }
 fn require_document<T: DocumentType>(value: Borrowed<'_, '_, PyAny>) -> PyResult<()> {
     let module = value.py().import("pse.contracts.documents")?;
@@ -164,7 +168,8 @@ impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValu
     const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr =
         pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME);
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
-        let bytes = encode(py, &self.0)?;
+        let bytes = T::WIRE.to_vec(&self.0)
+            .map_err(|error| crate::workflow::invalid(py, error.to_string()))?;
         let target = py.import("pse.contracts.documents")?.getattr(T::OUTPUT_NAME)?;
         py.import("pse.codec")?
             .call_method1("decode_json", (PyBytes::new(py, &bytes), target))
