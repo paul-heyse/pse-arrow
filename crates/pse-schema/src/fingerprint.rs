@@ -598,12 +598,15 @@ mod immutable_reuse_unit {
     #[test]
     fn immutable_reuse_preserves_frozen_catalog_and_reachable_contract_bytes() {
         let registry = crate::catalog::assemble().unwrap();
-        // Frozen before B01 from the generated catalog at ac2438a6c. These
-        // literals are independent of the runtime memo and its derivation.
+        // The complete catalogue includes the current Plan49 declarations. Its
+        // independent source assembly must agree with the published native catalogue.
+        assert_eq!(registry.fingerprint(), crate::registry().unwrap().fingerprint());
         assert_eq!(
             registry.fingerprint().to_hex(),
-            "f26f4add2bbd9aebe27ec9bc85532c40b4e0264110866a9edbcfc98ef55d5bb6"
+            "2c482b5299f5e1b14a163df2daa573789c8a11fd4358cd8e95bcdceceea2d3f2"
         );
+        // These unchanged reachable contracts retain their pre-B01 bytes from
+        // ac2438a6c, independently of unrelated additions to the full catalogue.
         for (name, bytes) in [
             (
                 "reference.dimensions",

@@ -496,6 +496,23 @@ mod tests {
             .relation_by_id(pse_relations::generated::authored::modeling_declarations::RELATION_ID)
             .unwrap();
         let prepared = validation.relation(registry, spec)?;
+        assert_eq!(prepared.evaluation_count(), 0,
+            "generated typed-value admission requires no transient Arrow projection");
+        let document = owned.bundles().iter().flat_map(|bundle| &bundle.documents)
+            .find(|document| document.modeling_rows().is_some()).unwrap();
+        assert!(!document.modeling_validation_required(registry, &validation)?,
+            "the immutable parsed rows retain their actual typed native-owner admission");
+        owned.validate_context(registry, &validation, &pool, &cancel)?;
+        assert_eq!(prepared.evaluation_count(), 0,
+            "same-owner validation consumes retained typed evidence without native reevaluation");
+        // A real Arrow export constructs fresh storage and must establish its own
+        // native field obligations. Reserve the production projection extent first.
+        {
+            let mut projection = Allocation::new(&pool, &cancel);
+            projection.grow(super::super::allocation::modeling_batch_extent(document)?)?;
+            let exported = document.modeling_batch(registry, &validation, &cancel)?.unwrap();
+            assert_eq!(exported.batch().num_rows(), document.modeling_rows().unwrap().len());
+        }
         let count = prepared.evaluation_count();
         assert!(
             count > 0,
