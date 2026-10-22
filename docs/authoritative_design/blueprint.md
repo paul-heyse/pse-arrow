@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 244
+revision: 245
 date: 2026-10-22
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 245 | 2026-10-22 | Publish completed selected remaining Plan49a–49c readiness/result/preparation acceptance, actual module capacity/fault controls and retained qualification limits (§24.2). | Maintainer-authorized entire remaining49a–49c execution; PSE_DESIGN_EDIT=1 and .design-edit record publication; proposed ADR-0214/0215 statuses unchanged. |
 | 244 | 2026-10-22 | Publish selected Plan49c finite reference retention and canonical shared/local fragment accounting (§14.3.2) under proposed ADR-0215. | Maintainer-authorized remaining 49a–49c execution; .design-edit records publication authority; compiler/modeling functional controls passed, combined qualification remains at Plan49. |
 | 243 | 2026-10-22 | Amend proposed ADR-0214 with selected RC22 same-source bounded Surrealism readiness, immutable artifact/schema activation and native uncertainty ownership (§19.3/§20.6). | Maintainer explicitly selected Surrealism; .design-edit records authorization; module cutover and assembled qualification remain Plan49a. |
 | 242 | 2026-10-21 | Refine proposed ADR-0215 target with versioned physical study requests, required standalone document wire versions and independent residual-LM criteria/profile/replay identity (§19.3/§19.4/§21.1). | Maintainer-authorized full Plan49 hard pivot; PSE_DESIGN_EDIT=1; no assembled acceptance claimed. |

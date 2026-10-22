@@ -1,6 +1,6 @@
 ---
 title: SurrealMX canonical store and generated lifecycle
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: [ADR-0214]
 doc_role: plan
@@ -10,9 +10,10 @@ doc_topics: [storage, libraries, design, validation]
 
 # SurrealMX canonical store and generated lifecycle
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
-progress. Original authoring baselines and receipts retain their dates.
+Reassessment basis: [the 2026-10-22 review](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+The coordinator's [remaining-scope Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns completed STO09 implementation and selected acceptance. Original authoring baselines
+and receipts retain their dates.
 
 This companion develops the canonical-store target of
 [Plan49](49-library-native-remediation.md). The coordinator owns all mutable package
@@ -448,16 +449,38 @@ through blueprint239/240; ADR-0214 remains proposed. The active coordinator and 
 boundary/maintenance companions still consume this design, so it remains retained under
 ADR-0096. It neither closes combined findings independently nor closes the Plan49 series.
 
+**Implemented and Tested, 2026-10-22:** STO09 is complete with selected RC22 same-source
+Surrealism readiness, immutable deployment, exact original receipt settlement and removal of
+external scientific scope/apply. The coordinator's
+[remaining-scope Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns commands, initial failures/corrections, actual-server capacity/fault/catalog acceptance
+and production-only restart handoff. Blueprint §19.3/§20.6 own the enduring contract; §24.2
+records the supported qualification. Formal ADR-0214 acceptance remains separate.
+
+### A mistake made and corrected
+
+The initial short-hold capacity fixture did not establish actual overlap through cold
+initialization. The separate long-hold qualification artifact certifies actual guest intervals
+through typed refusal. Local cancellation of dispatched work is checked through its immutable
+receipt, not presumed absence. The coordinator Outcome preserves failed and repaired attempts.
+
+### Deviations from the plan, deliberate
+
+The maintainer selected the in-transaction same-source module in place of the intermediate
+external scope/apply design. Production stays read-only, strict 1s/64MiB/pool 4, with a 16-controller
+process cap and no qualification exports. A distinct 5s/6s qualification-only hold was removed
+after capacity testing. Existing engine/transport evidence is not reclassified as new testing.
+
 
 ## STO09 — bounded study operations
 
-**Proposed, 2026-10-22:** the [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
-adds operation composition to this companion. STO01–STO08 retain their completed scope and
+**Implemented and Tested, 2026-10-22:** the [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
+introduced this operation composition; the Outcome above records acceptance. STO01–STO08 retain their completed scope and
 receipts; this addition does not reopen engine/transport compatibility or imply that generated
 functions and native graphs are absent. The coordinator alone records package progress.
 
-`canonical_studies::readiness_scan_page` and dependent notification processing currently
-acquire a scope and repair readiness separately for each point. Generate a bounded scope-page
+At the reassessment baseline, `canonical_studies::readiness_scan_page` and notification processing
+acquired a scope and repaired readiness separately for each point. The initial proposal was a bounded scope-page
 operation returning candidates and deduplicated immediate predecessor facts, followed by a
 bounded guarded repair operation consuming pure `pse-model::study_policy` decisions. Include
 complete candidate/predecessor read sets, generation, cancellation and notification source/

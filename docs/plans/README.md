@@ -17,10 +17,12 @@ adds coordinated proposed operation/preparation/explanation changes. The coordin
 [current reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22)
 owns their routing, conditional rule decisions and dependency-ordered next work. This
 review/documentation engagement did not resume production execution or the canceled campaign.
-The maintainer subsequently authorized execution of all remaining 49a–49c scope; its
-[current execution checkpoint](49-library-native-remediation.md#execution-resumption--49a49c-2026-10-22)
-owns the active lanes, selected RC22 Surrealism target and PRE09 no-adoption recommendation.
-The canceled native sweep remains closed.
+The maintainer subsequently authorized all remaining 49a–49c scope. Its
+[execution Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns completed Surrealism readiness, protected result selection and incremental resolved
+preparation acceptance, corrected failures and limits. PRE09 recommends no new configuration
+feature/Z3 binding; RC23 remains unselected. The coordinator owns remaining 49d–49h progress.
+Completed companions stay retained for active readers. The canceled native sweep remains closed.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the

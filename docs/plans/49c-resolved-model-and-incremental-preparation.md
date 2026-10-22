@@ -1,8 +1,8 @@
 ---
 title: Resolved model and incremental preparation
-status: in-progress
+status: done
 date: 2026-10-21
-adrs: []
+adrs: [ADR-0215]
 doc_role: plan
 doc_owner: docs/plans/49-library-native-remediation.md
 doc_topics: [design, preparation, libraries, validation]
@@ -10,18 +10,18 @@ doc_topics: [design, preparation, libraries, validation]
 
 # Resolved model and incremental preparation
 
-Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
+Execution acceptance: [the coordinator Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22).
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
-progress. Original authoring baselines and receipts retain their dates.
+Reassessment basis: [the 2026-10-22 review](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+The coordinator owns completed package acceptance and current series progress. Original
+authoring baselines and receipts retain their dates.
 
 This companion develops the preparation target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns rule decisions,
 source-finding dispositions, **all package status**, combined dependencies and qualification.
 The packages below explain changes and acceptance; they are not another progress ledger.
-The coordinator's recorded rule decisions govern this target. New revisions remain Proposed;
-existing implementation and evidence are distinguished below and at the coordinator.
+The coordinator's recorded rule decisions govern this target. Historical proposal text and
+current implementation/acceptance are distinguished below and at the coordinator.
 
 The basis is HEAD `e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05`, the integrated
 [in-use-library review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
@@ -39,16 +39,18 @@ and §16.2 until the decision route changes it.
 portable consumers, source correspondence, complete dependency indexes, selected-package
 firewalls, finite live-root policy and tracked annotations/view products are integrated.
 Unchanged complete `BodyInput.identity` values already reuse mathematical bodies. The old
-`bound_bodies` expansion and its final consumer are removed; remaining retirement and broad
-preparation/scientific acceptance stay open at PRE04/PRE07. Original baseline paragraphs
-below retain their historical purpose.
+`bound_bodies` expansion and its final consumer are removed. Query-owned local fragments now
+cover the supported ordinary, function, numerical, finite and reconstructed producers; complete
+root connection/contribution/closure checks remain root assembly. Selected scientific joining
+passed 51 compiler/native/runtime controls; the coordinator owns enclosing acceptance and its
+limits. Original baseline paragraphs below retain their historical purpose.
 
 The [new review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O04)
-selects a Salsa 0.28.5 safety/accounting update in PRE01, then PRE08 typed incremental fragments.
-`specialized` still consumes a selected-root package and runs the whole specializer; projection
-rebuilds root graph/index facts when that product changes. Finer derivation is now a concrete
-proposed improvement, not proof that all mathematical bodies currently rebuild. PRE09 develops
-an optional finite configuration/explanation capability and Z3-versus-enumeration decision.
+selected the implemented Salsa 0.28.5 safety/accounting update in PRE01 and PRE08 typed
+incremental fragments. At that review's baseline, `specialized` still ran the whole specializer;
+the current producer reuses tracked entity-local premises and immutable typed fragments before
+complete root finish. PRE09's bounded configuration inquiry recommends no additional feature
+or Z3 binding; RC23 remains unselected.
 
 ## Target and foundation assessment
 
@@ -222,9 +224,16 @@ query capacities and `trim_queries` together. Add selected-package tracked acces
 their backdating values. Exercise no-edit prepare, unrelated and reached edits, deleted members,
 root switches and oversized live roots in `workspace/modeling/reuse_tests.rs` and granular
 retention tests. Port the B2 observation into a durable product-level regression rather than
-copying its scratch instrumentation. Require no ordinary publish rotation, 143/143 live-body
-reuse on the recorded reference scenario and `specialized` backdating under the selected new
-defaults. Replace obsolete default/rotation expectations once these tests pass. This package
+copying its scratch instrumentation. Require no ordinary publish rotation, complete live-body
+reuse on the current reference scenario and `specialized` backdating under the selected new
+defaults. For the direct producer, acceptance covers all 126 unique body identities,
+845 actual instances and 856 original rows, with every projected original output covered and
+every retained body reached. All 126 semantic bodies execute initially and backdate after
+unrelated publication without rotation. The earlier 143-body B2 observation describes the
+historical rendered producer's partition, not a required scientific row count; the changed
+canonical partition does not waive complete row or instance coverage. No individual mapping
+of the 17-body difference is claimed. Replace obsolete default/rotation expectations once
+these tests pass. This package
 does not wait for resolved representation or claim to fix all cross-lane caches.
 
 **PRE02 — remove convention-based coverage.** Change registry declarations and generators;
@@ -273,6 +282,21 @@ terms, and existing body reuse must remain. Consider
 input `heap_size` census replacement only after shared-root accounting equivalence. No new
 persistence layer is selected: a discardable canonical-premise cache is permissible in principle,
 but needs a concrete restart-reuse benefit and version/retention owner before adoption.
+
+**Interface-checked and implemented, 2026-10-22:** the bounded PRE06 inquiry retains the
+complete runtime `BasisKey` because its product includes observation demand, while the
+compiler's structural request separates demand for existing symbols. `view_key` already
+contains its consumed semantic premises. Reached pointer uses identify actual allocations
+for the census or receiver-local replay candidates with complete source equality and live
+owners; they confer no durable scientific identity. Completion-owned flights retain producer
+clocks, independent waiter cancellation and native drain, so no additional `quick_cache`
+adapter is selected. Immutable-revision Salsa clones remain eligible; historical/writable
+lanes stay detached, and exclusive accounting drains readers before observation. The shared
+generation census remains necessary: the four canonical physical-registry owners are charged
+once, while independently allocated lexical indexes retain their own charge. No compiler
+persistence layer is added. PRE08 supplies the selected finer derivation; quantitative
+speed or RSS benefits remain unmeasured. The coordinator owns inquiry dispositions and
+package acceptance.
 
 ### PRE01 addition — Salsa 0.28.5 and exclusive accounting
 
@@ -406,7 +430,8 @@ During implementation use `just check-package pse-modeling`, `just check-package
 and targeted `just unit-package` filters selected from resolved identity, projection, granular,
 reuse, physical premise and scientific witness tests. Include `pse-ids`/`pse-schema` checks when
 their declarations change. Actual Arrow-consuming correctness closures retain force-validation.
-No command listed here has been run for this proposal. Zero is the failure baseline.
+No command was run during proposal authoring. Subsequent acceptance is recorded in the
+Outcome below and at the coordinator. Zero is the failure baseline.
 
 The coordinator selects assembled integration/Python/native journeys and once-at-scope-end
 `just hygiene`, governance, docs and applicable native/powerset checks. Local targeted passes
@@ -417,7 +442,41 @@ before/after workloads at recorded defaults; historical B2 does not measure the 
 
 Coverage explained here: R5/R6/R8/R9 and the compiler/pure-policy part of R13; DA-001–DA-003,
 DA-006, DA-013, DA-027 identity, DA-029, DA-030 in part, DA-031/DA-032 and F09. DA-022's
-accounting contribution stays bounded by known-byte/shared-root scope. Remaining uncertainty
-is confirmation of the proposed retention capacities, optional cache/incremental simplification value. Those are explicit package decisions, not an open feasibility gate
-on the resolved-model pivot. Enduring contracts move to their architecture owners through the
-coordinator's decision route before retirement.
+accounting contribution stays bounded by known-byte/shared-root scope. The complete current
+reference population now confirms the selected finite retention defaults. Optional cache/
+persistence/lane inquiries have retained-owner dispositions; quantitative improvements beyond
+the observed accounting still need a controlled comparison. Enduring contracts are published
+at their architecture owners through the coordinator's decision route.
+
+## Outcome
+
+### What was built
+
+**Implemented and Tested, 2026-10-22:** direct typed resolved production/lowering, versioned
+physical identities, generated handles/roles, complete dependency indexes, tracked policy
+products and query-owned local fragments cover supported producers. Rendered-body/name
+reconstruction is removed. Complete root scientific checks and per-instance physical premises
+remain. Exact Salsa 0.28.5 and exclusive nullable inspection work with the canonical shared-owner
+census and finite 131,072-entry/2GiB defaults. The coordinator's
+[remaining-scope Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns the 738-library/51-native/scientific selections, current126-body reference accounting,
+public reload/Arrow journeys and scope-end results. Those selections do not close whole MAT/RUN
+or broader scientific campaigns. Blueprint §14.3–§14.4 own the enduring contract.
+
+### A mistake made and corrected
+
+Broader tests exposed exchange and temporal premise errors beyond the initial local-fragment
+fixtures. The repairs preserve actual endpoints, logical versus replicated physical owners,
+shared parameter agreement and policy-axis arity. Added cached controls and the complete pure
+library selection pass; independent physical/derivative/conservation controls remain necessary.
+
+### Deviations from the plan, deliberate
+
+The initial 1GiB known-retention allowance did not fit the complete live/backdating population.
+After removing over-broad premises and fixing shared allocation ownership, the selected finite
+default is 2GiB; actual complete-body reuse remains generation zero. Accounting is not RSS or
+memory savings. Local typed fragments retain final root assembly. Completion-owned Flights,
+detached mutable/historical lanes and current artifact persistence stay with their existing
+owners. PRE09 concludes no additional configuration feature/Z3 binding for the bounded supplied-
+profile question; RC23 remains unselected. The active coordinator and downstream companions
+still consume this design, so it remains retained under ADR-0096.

@@ -807,8 +807,8 @@ their independent scope and status.
 
 Selected Plan49a canonical-store acceptance of 2026-10-21 belongs to the
 [Plan49 store Outcome](../../plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
-**Implemented and Tested, selected scope:** source-built SurrealDB3.3.4 with exact
-SurrealMX1.0.0, explicit SSI and synchronous persistent AOL, the single bounded gRPC path,
+**Implemented and Tested, selected scope:** source-built SurrealDB 3.3.4 with exact
+SurrealMX 1.0.0, explicit SSI and synchronous persistent AOL, the single bounded gRPC path,
 registry-generated physical lifecycle/refusals and native record/graph access operate through
 one supervised authority. Fresh data replaces the retired store; no historical import or
 old-AOL rollback is qualified. New-data restart, interrupted initialization, exact protected
@@ -833,6 +833,41 @@ relations and high-degree fallback. Output-page bounds do not bound engine scans
 hardware power-loss, statistical speedup, whole scientific-model library, new-platform or
 release/distribution qualification is established. The historical full basis and independent
 Plan28/32/40 campaigns, other Plan49 packages and their proposed decisions retain their scope.
+
+Selected remaining Plan49a–49c acceptance of 2026-10-22 belongs to the
+[remaining-scope Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22).
+**Implemented and Tested, selected scope:** the same Rust study policy runs read-only through
+Surrealism inside bounded native readiness transactions, with complete output admission before
+writes and immutable original intent settlement. External scope/apply is retired. Actual-server
+controls cover full-u64 decisions, stale/fresh facts, notification/cursor/epoch fences, committed
+policy refusal, uncertain cancellation on both sides of commit, trap/timeout/memory rollback and
+subsequent recovery. A separate qualification artifact certifies sixteen actual guest hold
+intervals throughout typed global-capacity refusal, including cache eviction and post-drain reuse.
+Production keeps its strict 1s/64MiB/pool 4 manifest, global 16 controller bound and cache 4; the
+5s/6s qualification-only artifact is absent from the final active deployment. Cold initialization
+and synchronous host work are finite but not instantly preemptible. Public open refuses missing
+module and tampered read-only backend; authenticated initialization/stop/drain/restart passed.
+
+**Implemented and Tested, selected scope:** joined protected result pages and one selection-local
+native predicate/pruning plan replace scalar locators, public legacy block paging and repeated
+physical planning. Full file/batch admission, conservative IEEE/null pruning, residual-before-limit,
+original coordinates, escaped Arrow ownership, protected retirement and durable reopen remain.
+Direct resolved bodies, generated semantic handles, complete dependency indexes and query-owned
+local fragments replace rendered reconstruction. Final root scientific obligations remain.
+Salsa 0.28.5 exclusive nullable accounting plus shared-owner census supports finite 131,072-entry/
+2GiB known-retention defaults; complete current reference coverage/backdating remains generation
+zero. This accounting is not process RSS. PRE09 concludes no new configuration feature or Z3
+binding for the bounded supplied-profile inquiry; RC23 remains unselected.
+
+The Outcome names the 738 pure-library,51 selected native/scientific,15 readiness,3 module-capacity/
+catalog and8 assembled Rust controls,52 Python contract controls and composite six-plus-one
+public Python journeys, their actual commands and initial failures/repairs. Scope-end default,
+no-default and linked-native all-target Clippy, repaired hygiene leaves, generator/family checks
+and manual publication retain their stated scopes. A bounded complete source/publication/
+simulation/selection measurement records the current target with competing compiler activity;
+it establishes no controlled speedup. These selected checks do not close whole 49d–49h, the
+canceled native sweep, broader model-library/parity campaigns or independent plans. Proposed
+ADR-0214/0215 remain formally proposed; older unknown creation effects remain unresolved.
 
 ### 24.3 Benchmarks
 

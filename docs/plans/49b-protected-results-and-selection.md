@@ -1,8 +1,8 @@
 ---
 title: Protected result batches and native selection
-status: in-progress
+status: done
 date: 2026-10-21
-adrs: []
+adrs: [ADR-0215]
 doc_role: plan
 doc_owner: docs/plans/49-library-native-remediation.md
 doc_topics: [storage, libraries, design, validation]
@@ -10,11 +10,11 @@ doc_topics: [storage, libraries, design, validation]
 
 # Protected result batches and native selection
 
-Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
+Execution acceptance: [the coordinator Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22).
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Execution resumed for remaining 49a–49c scope on 2026-10-22; the coordinator owns current
-progress. Original authoring baselines and receipts retain their dates.
+Reassessment basis: [the 2026-10-22 review](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
+The coordinator owns completed package acceptance and current series progress. Original
+authoring baselines and receipts retain their dates.
 
 This companion develops R4 and F06 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
@@ -23,9 +23,9 @@ This companion develops R4 and F06 from the
 rule decisions and finding dispositions. The package explanations below own local target,
 consumer integration and acceptance, without duplicating that ledger.
 
-**Proposed:** canonical guarded appends retain exact metadata per admitted IPC record
-batch; DataFusion plans selection and conservatively prunes whole batches. Remove the
-per-scalar-row SurrealDB locator and its index writes after every reader/writer migrates.
+**Implemented and Tested:** canonical guarded appends retain exact metadata per admitted IPC
+record batch; DataFusion plans selection and conservatively prunes whole batches. The
+per-scalar-row SurrealDB locator and its index writes are removed with their migrated consumers.
 Keep the protected file, complete relation admission, exact coordinates, scientific bits
 and one decoder. A narrower projected decoder, Parquet format transition and literal-set
 pruning are separate bounded inquiries, not assumed benefits of this target.
@@ -40,14 +40,16 @@ redefine those authorities or make scientific qualification follow from database
 
 **Implemented/source-inspected, 2026-10-22:** result producers retain admitted statistics,
 `SnapshotProvider` supports inexact physical pruning, and substrate v8 removes scalar locators.
-Selected protected read/export controls exist at the coordinator; complete RES/QUAL acceptance
-remains open. RES04 stays superseded and no old-data backfill is required. Historical baseline
+Selected protected read/export/retirement acceptance is recorded at the coordinator Outcome;
+broader QUAL campaigns retain their own scope. RES04 stays superseded and no old-data backfill is required. Historical baseline
 statements below explain the change, not a request to implement already-replaced mechanisms.
 
 The [remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O02)
-adds RES07: return one protected metadata product and retain native selection preparation
-through pages. Existing RES01–RES03 meaning, scientific bits, full decoder and exact positions
-remain the target; this is a refinement of their physical realization.
+added RES07, now implemented: one protected metadata product carries exact block/batch
+descriptor coverage, and selection-local native predicate/pruning preparation survives across
+pages. The replaced public block-page route is retired. Existing RES01–RES03 meaning,
+scientific bits, full decoder and exact positions remain the target; this refines their physical
+realization. The coordinator owns selected assembled acceptance and broader qualification.
 
 ## Baseline and focused foundation assessment
 
@@ -335,7 +337,7 @@ integration; a concrete compatible lifecycle and an actual comparison must justi
 
 ### RES07 — joined metadata and retained native selection
 
-**Proposed:** replace the sequential `result_block_page` → `result_file_batch_descriptors`
+**Implemented and Tested:** replaced the sequential `result_block_page` → `result_file_batch_descriptors`
 composition in full snapshots and typed readers with a generated protected operation returning
 blocks and exact descriptors together. Derive descriptor membership from the returned blocks,
 require exactly one matching descriptor per identity/ordinal and refuse missing/duplicate
@@ -386,3 +388,30 @@ requires RES03's working replacement and its own targeted/assembled evidence.
 On closure, enduring result-selection and metadata meaning moves to blueprint §19.2/§20.1/
 §20.2/§21 through GOV02. The coordinator records final acceptance and limits and retires
 eligible material under ADR-0096.
+
+## Outcome
+
+### What was built
+
+**Implemented and Tested, 2026-10-22:** exact admitted batch facts, native pruning/residual
+semantics, joined protected pages and selection-owned physical planning replace scalar locators
+and repeated per-block preparation. Public block paging and the unused native file-cache
+adapter are removed. Full file/decoder admission and reached analysis/preparation caches remain.
+The coordinator's [remaining-scope Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
+owns commands, current Rust/Python/SQL/export/reopen/retirement acceptance and the bounded
+complete-operation measurement. No controlled latency or memory improvement is claimed.
+
+### A mistake made and corrected
+
+The public Python result fixture omitted required version headers on standalone history
+documents. Fixing the fixture restored its selected journey without relaxing the document
+codec. The coordinator records the initial failure and exact affected rerun separately.
+
+### Deviations from the plan, deliberate
+
+Existing data is regenerated, so RES04 backfill is superseded. I02 removes only the unused
+adapter; I03–I05/I16 retain conservative facts, full decoding, protected IPC and actual allocation
+owners with explicit revisit triggers. One representative current-target measurement supplies
+cost context; it does not recreate a deleted locator path for a comparison. Enduring contracts
+live at blueprint §19.2/§20.1/§20.2/§21 and qualification at §24.2. This companion remains
+retained for active series readers; broader 49h campaigns retain their own scope.

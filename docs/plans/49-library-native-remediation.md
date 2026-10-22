@@ -80,7 +80,9 @@ compiled catalogue and generated maintenance. The earlier authoring-baseline par
 below and in companions describe their original date, not work presumed still unwritten.
 Remaining consumer retirement, acceptance and enduring publication remain open.
 
-**Proposed additions and refinements:**
+**Reassessment proposals at the review baseline:** selected 49a–49c work is now implemented;
+the [execution Outcome](#outcome--remaining-49a49c-2026-10-22) records its acceptance. Other
+companions keep their existing package states.
 
 - STO09 composes bounded study scope acquisition and revision-fenced repair pages inside
   SurrealDB; Rust retains scientific policy. Bound total encoded premises, preserve per-item
@@ -97,8 +99,8 @@ Remaining consumer retirement, acceptance and enduring publication remain open.
 - QUAL01–QUAL05 consume these changes through representative contract tests. The canceled
   native sweep stays incomplete; no product campaign or benchmark resumed for this review.
 
-The new package rows remain **proposed**. Existing package states and STO01–STO08 evidence
-are preserved. Reopening 49a is limited to STO09 operation composition, not a rerun of the
+At that review checkpoint the new package rows remained **proposed**. STO01–STO08 evidence
+retains its original scope. Reopening 49a is limited to STO09 operation composition, not a rerun of the
 completed engine/transport integration. Regeneration remains the selected data transition.
 
 ### Rule decisions from the reassessment
@@ -162,53 +164,170 @@ intermediate implementation to retire after the in-transaction replacement quali
 routing without a configuration feature or Z3 binding for its bounded supplied-profile
 question. These conclusions do not block the selected production work.
 
-**Implementation checkpoint after RC22 selection:** joined result metadata and selection-local
-native plans are integrated, with the legacy public block-page route retired. Exclusive Salsa
-accounting, structural/observation demand separation, entity preludes and typed function and
-ordinary member/equation fragments are integrated. Canonical shared physical-input owners
-avoid charging those registries once per fragment. The provisional retention default is now 2 GiB after removing over-broad interface/instance
-premises and accounting the complete reference live/backdating population. ThreeUnits retains
-generation zero and all 126 mathematical bodies. Broader library verification exposed nine
-exchange/temporal premise regressions; their structural repairs and two added cached controls
-passed all 591 compiler/modeling library tests. The final combined compiler/modeling/model/
-quantity/module run then passed all 738 tests with zero failures or skips. Scope-end combined
-qualification remains open.
-
-`pse-study-module` compiles and links for WASI against the existing pure policy source.
-Native readiness now invokes it inside the generated transaction, with complete output
-prevalidation before writes, exact intent settlement and a distinct committed-policy-refusal
-error. The bounded external scientific-snapshot response is retired. The selected server
-source includes global controller/memory bounds and acquisition/initialization deadlines.
-Real preliminary CLI packaging established the exact read-only production/qualification
-exports, SDK/ABI compatibility, single-memory instantiation and identical successive archive
-bytes. The corrected source-built server and authoritative main-checkout artifacts were subsequently
-admitted and initialized in the fresh private deployment. Actual fault rollback/recovery passed.
-The initial global-capacity and queued-cancellation controls exposed test assumptions rather
-than qualifying those obligations: synchronous guests occupied host workers before saturation,
-and local cancellation deliberately retains dispatched work until exact completion/deadline.
-A qualification-only cooperative hold now supplies observed overlap intervals; capacity and
-pending-page receipt/fence qualification remain in progress. Production exports stay read-only
-and exclude every qualification helper. Earlier enclosing initialization-clock failures remain
-failed attempts; a later exact-target initialization completed without a shutdown workaround.
+**Current checkpoint:** the selected Surrealism readiness cutover, joined protected result
+pages/selection-local native plans, direct resolved preparation and entity-local Salsa fragments
+are integrated. External scientific-snapshot scope/apply, public legacy block paging, scalar
+row locators and rendered-body reconstruction are retired. Finite retention is 131,072 entries
+and 2 GiB of known retained allocations, with explicit shared-owner accounting. The
+[execution Outcome](#outcome--remaining-49a49c-2026-10-22) owns selected functional/native/Python
+acceptance, measured conditions, corrected failures and final qualification limits. PRE09 is
+complete as an inquiry recommending no new feature or Z3 binding; RC23 remains unselected.
 
 The earlier `surreal-plan49-closeout-20261022` service was quiesced and then stopped through
 its authenticated immutable supervisor's abrupt-stop route after graceful stop correctly
 refused unresolved fixture creations. Actual server process/cgroup drain and storage allocation
 release completed. Its data and all eleven incomplete creation records remain preserved,
-pinned and unresolved; no absence or successful outcome was inferred. The replacement will
-use normal setup in a distinct private state, `surreal-plan49-surrealism-20261022`, on the
-released functional-store slot. That deployment is now active, authenticated and open for
-qualification. A failed pre-bind launch after supervisor readmission is settled through
+pinned and unresolved; no absence or successful outcome was inferred. The replacement uses
+normal setup in the distinct private state `surreal-plan49-surrealism-20261022`, on the
+released functional-store slot. Its final fresh instance is active, authenticated and open,
+with only the production module selected. A failed pre-bind launch after supervisor readmission is settled through
 authenticated archived-source/configuration evidence and actual kernel drain; changed or
 unknown histories still refuse. Its lifecycle controls passed 63 targeted tests. No third
 concurrent server or borrower-record rewrite is
 selected. The older poisoned deployment remains separately retained.
 
-Current implementation lanes remain isolated for preparation, native study consumer/fault
-controls, and server/module tooling. The coordinator owns integration, fresh activation,
-acceptance and publication. Targeted compile/unit controls run during implementation;
-scope-end qualification and enduring publication follow the remaining functional cutovers.
-No whole-product qualification or speed/memory benefit is claimed by this checkpoint.
+The preparation, readiness and server/module contributions are integrated in main. No
+whole-product qualification or speed/memory improvement is claimed. Remaining 49d–49h work
+retains its owners and is not closed by the selected 49a–49c acceptance.
+
+## Outcome — remaining 49a–49c, 2026-10-22
+
+### What was built
+
+**Implemented:** STO09 and the remaining RES/PRE packages implement the selected target.
+The sole production `study::readiness` export runs the existing Rust policy inside bounded
+SurrealDB transactions. Complete output admission precedes writes; immutable original intent/
+epoch receipts distinguish accepted repair, committed policy refusal and unknown effect.
+Claims still check fresh authoritative facts. External scope/apply and scientific-snapshot
+transport are removed. The pinned source-built SurrealDB 3.3.4/MX 1.0.0 server adds actual global
+controller/single-memory ownership, acquisition/cold-initialization deadlines and cancellation
+checks; these guarantees require source integration beyond the dependency change.
+
+**Implemented:** joined protected result pages supply the exact block/descriptor population.
+Each selection retains one native physical predicate/pruning plan across pages. Typed,
+snapshot and SQL consumers preserve complete physical/decoded admission, original coordinates,
+conservative null/IEEE pruning and residual-before-limit. Scalar locators, the superseded
+public block-page route and the unused native file-cache adapter are removed. Actual analysis/
+preparation caches and permission-bound IPC readers remain.
+
+**Implemented:** direct resolved physical bodies and declaration-generated handles/roles feed
+library lowering without rendered-name reconstruction. Query-owned entity fragments cover
+supported producers; complete root connection, contribution, conservation and closure checks
+remain. Exact Salsa 0.28.5 supplies exclusive inspection with an owned nullable observation.
+Canonical shared-allocation census, structural/observation demand separation and finite
+131,072-entry/2GiB known-retention defaults preserve the complete reference population.
+Mutable/historical lanes remain detached; no additional compiler persistence or flight adapter
+is adopted. PRE09 closes as an inquiry recommending no new configuration feature or Z3 binding;
+RC23 remains unselected.
+
+**Tested:** these selected Linux checks use the pinned toolchain, explicit force-validation
+for Arrow-consuming correctness closures and a **zero failure/warning baseline**. Selections
+overlap; counts are not a grand total. Earlier STO01–08 evidence retains its original scope.
+
+| Command / mode / selected scope | Actual result and conditions |
+| --- | --- |
+| `just unit-package pse-relations 'test(result_batch::tests::)' --test-threads 1` | 6 passed, zero failed; 0.985s, invocation `8c6387817e6d4ce8a1c3da4195eb14de`. All four key shapes, admitted sorting/IEEE values, empty/null/nonfinite facts, schema/digest/interpretation binding, uniqueness and refusal/cancellation allowances. |
+| `just unit-package pse-operations 'test(canonical::metadata::tests::) \| test(canonical_results_blocks_narrow_ranges_and_payload_receipts) \| test(multipage_result_read_hands_protection_to_analysis_before_retirement)' --features pse-operations/canonical-tests,pse-operations/canonical-maintenance --test-threads 1`, current production store | 4 passed, zero failed; 36.917s, invocation `95843f8606c94e6c9636b7e03ef34cb9`, complete owned drain. Missing/duplicate/extra/foreign descriptors, identity/ordinal/digest/interpretation/cursor/short-page/exhaustion controls, bounded 64+64-member/4MiB wire layout and multipage protection-to-analysis/retirement. |
+| `just unit-package pse-compiler 'all()' -p pse-modeling -p pse-model -p pse-quantity -p pse-study-module` | 738 passed, zero skipped/failed; 54.796s. Resolved identity, fragments, physical premises, dependency completeness, pure policy and retention/backdating. |
+| `just unit-native-capability-package pse-runtime 'native-solvers,canonical-tests' 'solver,klu,isolation,uno,petsc' <PRE07 selection> -p pse-compiler -p pse-backend-native` | 51 passed, zero failed; 13.697s test execution. Exact frozen selector/XML/terminal: invocation `29e663bfe34648499906e195b1dfbf77`; native provenance/selection `build/native-tests/1792670299036298025/`. Independent physical/derivative/conservation checks, incremental/fresh preparation, native provider callbacks, Ipopt/POUNCE/KINSOL/Diffsol/IDAS and actual private-child A/B/A reconstruction/reap. |
+| `just unit-package pse-operations` with canonical-tests, selected native readiness/receipt filters and one test thread | 15 passed, zero failed; 139.578s, run `4190b705`. Full-u64 policy equivalence, complete-output rollback, fresh facts, immutable receipt/prefix/restart/epoch fences, notification/recovery and cancellation before/after commit. |
+| Actual short-module fault and queued-acquisition controls | Fault rollback/recovery and pool 4 saturation/original100ms queue expiry passed: trap, strict 1s busy timeout and memory refusal leave no late canary commit. These are the passing two of the initial four-control run; capacity/cancellation fixture corrections are recorded below. |
+| `just unit-package pse-operations 'test(canonical_studies_surrealism_qualification_global_capacity_) \| test(study_module_receipt_qualification_variants_) \| test(canonical_studies_surrealism_open_refuses_)' --features pse-operations/canonical-tests --test-threads 1`, ordinary canonical observer | 3 passed, zero failed; 64.743s. Invocation `acf986f487b4470d857856edf597f195`. Sixteen actual 5s guest intervals cover the entire extra-request submission/refusal interval through cache eviction; typed capacity refusal and post-drain reuse pass. Public open refuses removed module/tampered read-only backend and succeeds after exact restoration. Exact short/long receipt variants reject mixed inputs. |
+| `just unit-native-package pse-runtime '<three result_pruning_tests plus five connected/durable/study controls>' --features native-solvers,canonical-tests --test-threads 1` | 8 passed, zero failed; 108.152s. Exact selector/XML/terminal: invocation `7f0dbec85640431ab34b2a7da79c39fc`; native provenance `build/native-tests/1792672053562403792/`. One physical plan over pages/unknown facts, residual-before-limit, protected schema/decode skipping, original IEEE coordinates, escaped Arrow retirement, durable reopen, retired seed refusal and single physical study admission. Bounded page/three-row/one-occurrence fixtures. |
+| `just unit-package pse-codegen 'test(codegen::documents::tests::)'` | 14 passed, zero failed. Generated standalone documents use shared mechanical identity conversion without importing the public orchestration codec. |
+| `python -m unittest scripts.tests.test_surrealism_module scripts.tests.test_surreal_server scripts.tests.test_host_admission` | 312 passed, zero failed; 32.2s. Packaging, source/profile binding, activation/deadlines/capacity and authenticated historical-launch settlement. |
+| `just py-sync-native-correctness`; `just py-unit` on document hooks, standalone wire, generated contracts/edit codec, `-n 0` and task-private basetemp | Extension/stub validation passed; 52 Python controls passed, zero failed, 1.04s. Initial global pytest-temp ownership error was environmental; private basetemp rerun and `just ready` passed without changing global temp ownership. |
+| `just native-python build/plan49-native-python-final-20261022 -m 'unit or component or integration' -n 0`, seven selected result/lifetime/review/reload/Arrow node IDs, private basetemp | 6 passed, 1 failed, 86.96s. The failed canonical-result fixture omitted required standalone document headers. After repair its exact integration node passed in `build/plan49-native-python-result-repair-20261022`, 74.32s. Composite acceptance is six unchanged passes plus one repaired pass, not a clean seven-test rerun. |
+
+Selected clients/native children drained through their actual owners. The three ordinary
+operations controls record runner-owned drain as unobserved; the later authenticated server
+stop/drain and restart supply separate physical evidence. The final eight-test native run
+records complete owned drain. Required XML, terminal records and native provenance remain
+outside worker worktrees.
+
+**Tested, deployment handoff:** final fresh instance `0a7d4aa4-fee0-429a-a95f-fa224a749dc7`
+in `surreal-plan49-surrealism-20261022` is authenticated/open with production-only module
+SHA256 `f13446a6bf52aff8835b160d82367e67dd9445cec35997582dfbc701951b8282`.
+Final initialization/start and authenticated quiesce/stop/drain/same-instance restart passed.
+The actual process selects 16 global controllers and 1000ms execution ceiling. Production
+retains 64MiB/pool 4/strict 1s/KV0, compilation cache 4; qualification exports are absent.
+Server/MX envelopes are 8/4GiB with one 32GiB native worker in 48GiB total; this does not qualify
+a new sixteen-native-worker deployment. The admitted executable SHA256 is
+`cdc3d974dfe69303161201b73d1b8a68b5e9f59c1bb98f57621c3efbeafcb749`.
+
+**Measured, current-target cost point:**
+`just case-measure build/plan49-results-publication-measurement-20261022 --case p44-results-publish-chain-80-5 --cargo-profile dev`
+passed with no source/environment changes during sampling. Eighty states, five trajectory
+samples, one lane, three selections and no padding exercise admission/source publication,
+simulation/result publication and dense/selected/graph reads with existing analytic, identity,
+row-count and digest assertions. Ten flat Criterion samples report 33.558s mean (reported
+interval 33.418–33.737s); runtime/fixture setup and explicit teardown are untimed. Compilation
+is untimed, but cooperating/external compiler load was observed; filesystem cache/isolation
+are uncontrolled. This is not a before/after speedup, isolated latency bound or broad campaign.
+The report separates scientific pool reservations from process RSS; retained-runtime teardown
+returns owned accounting to zero.
+
+**Tested, retention accounting:** current ThreeUnits retains 126 canonical bodies covering 845
+actual instances and 856 original rows. First/warm known retained allocation counts are
+1,426,036,749 bytes, rising to 1,453,825,251 after unrelated publication, with 56,663 entries,
+generation zero and all 126 body Arcs/backdating results retained. These are owned accounting
+observations, not RSS or memory savings. Historical 143 rendered bodies are not a required
+current canonical partition or proof of a particular 17-body improvement.
+
+**Scope-end static/manual verification:** initial full `just hygiene` exposed seven failing
+leaves, repaired structurally: ADR evidence metadata, SPDX/REUSE, Ruff, Pyrefly, Python import
+direction, default Clippy and no-default Clippy. Full `just clippy` subsequently passed both
+default/no-default all-target modes; `just lint-solver-contracts` passed the full linked-native
+all-target graph. Global Pyrefly reports zero errors (three existing suppressions), Ruff passes,
+four import contracts have zero broken contracts, REUSE covers 11,775 files and Rust documentation
+passes. Generator publication and final `just governance` pass include complete codegen
+comparison/family checks. Focused `just check-package pse-runtime --features pse-runtime/canonical-tests`
+also passes with zero warnings without native features, after matching two helper cfgs to
+their solver callers. Final global Ruff passes after the Python fixture correction. Documentation
+publication passes with 590 chapters; lifecycle validation passes with zero errors over 1,011
+scope items and five declared exclusions. `just turn-end` passes ADR index/formatting. The final
+feature powerset remains running at this checkpoint. Repaired leaf passes do not imply a fresh
+monolithic hygiene pass. Old unsupported-profile cleanup deferrals retain their original owners
+and unresolved effects; they are not erased by a successful check.
+
+### A mistake made and corrected
+
+Broader preparation tests exposed nine exchange/temporal premise regressions. Repairs preserve
+actual PairedExchange endpoints, distinguish logical temporal parameter owners from actual
+state replicas, and retain shared-parameter agreement and synthetic policy-axis arity. The
+final 738-control pass includes added cached regressions; matching two representations was
+not accepted as an independent scientific oracle.
+
+The initial 500ms capacity hold did not certify overlap because cold initialization could
+reach acquisition after that window. A separate exact-input-bound qualification artifact uses
+a 5s cooperative hold and 6s manifest ceiling. Its observed intervals certify all 16 occupied
+controllers throughout the typed refusal; production keeps its 1s manifest. Local cancellation
+also cannot establish absence of dispatched SDK work: revised controls prove original receipt
+settlement on both sides of commit. Duplicate fixture identities and missing Python document
+headers were repaired without weakening production validation. Earlier failures remain failed
+attempts, including initial enclosing-clock initialization failures before normal initialization
+of the exact final target passed.
+
+### Deviations from the plan, deliberate
+
+Selected RC22 executes the same Rust policy through Surrealism rather than retaining the
+review's intermediate external scope/apply design. No SQL policy copy survives. Source
+integration supplies strict controller ownership/deadline behavior. Cold JIT and synchronous
+host sections are finite but not instantly preemptible; cancellation is observed at bounded
+return/epoch/cooperative yield and dispatched effects are reconciled.
+
+The complete reference live/backdating population exceeded provisional 1GiB accounting even
+after eliminating over-broad premises. The selected default is finite 2GiB, with entry/LRU
+limits retained and actual shared-owner accounting. No process-wide saving is claimed.
+Generated data is regenerated without a compatibility importer or fallback representation.
+
+Scope-owned findings are reconciled below; shared runtime, mathematical, boundary and tooling
+findings stay open at remaining owners. The canceled production-configuration native sweep
+stays canceled. No full scientific-model library, IDAES parity, hardware power-loss, new-platform,
+release/distribution or controlled performance-improvement qualification is claimed. Unknown
+creation records/older poisoned state remain preserved: neither process absence nor the new
+deployment settles them. ADR-0214/0215 remain formally proposed. Downstream active readers
+still consume 49a–49c design, so these completed companions remain retained under ADR-0096.
 
 ## Reading route and ownership
 
@@ -446,7 +565,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | Package | Status | Owner | Required capability / completion |
 | --- | --- | --- | --- |
 | GOV01 | done | coordinator | Operator explicitly accepted RC01–RC21, 2026-10-21; no product implementation claimed |
-| GOV02 | in-progress | coordinator | ADR-0214/blueprint239 cover storage; proposed ADR-0215/blueprint241 publish remaining accepted target and I24 before dependent changes. Final implemented publication remains open. |
+| GOV02 | in-progress | coordinator | Proposed ADR-0214/0215 and blueprint239–245 publish selected targets and completed 49a–49c acceptance. Publication for remaining 49d–49h stays open; formal ADR acceptance is separate. |
 | STO01 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: pinned source-built3.3.4/MX1.0, owned adapter conversions and actual source units; store Outcome. |
 | STO02 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: SSI, synchronous persistence/finite controls, authenticated native statistics, reader/fault controls; store Outcome. |
 | STO03 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: generated v7 phases/constraints/refusals, migrated consumers, terminal manifest event and exact witnesses; store Outcome. |
@@ -455,22 +574,22 @@ GOV02 is the remaining coordinator decision/publication route.
 | STO06 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: commit-order paging and sixteen-lane progress. I01 retains necessary source/sequence pacing with explicit rationale; store Outcome. |
 | STO07 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: fresh functional/reference profiles, frozen schema activation, interrupted initialization, new-data recovery/backup/restore; store Outcome. |
 | STO08 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: selected assembled durability/native/Python/interruption journeys, repaired hygiene, full Clippy/manual/feature checks and installed handoff; store Outcome and limits. |
-| STO09 | in-progress | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | O01 / selected RC22: same-source policy inside bounded native readiness transactions, immutable module activation and exact intent settlement; retire external scope/apply. Existing engine/transport evidence retains its scope. |
-| RES01 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES02 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES03 | in-progress | [49b](49b-protected-results-and-selection.md) | Scalar locators and consumers retired on v8; selected canonical controls passed; assembled result acceptance remains with RES06/QUAL. |
+| STO09 | done | [49a](49a-surrealmx-canonical-store.md#sto09--bounded-study-operations) | Implemented and Tested: selected RC22 same-source read-only policy inside bounded native transactions, exact receipt settlement, immutable activation, live fault/capacity/catalog controls and external scope/apply retirement. Remaining-scope Outcome owns results and limits. |
+| RES01 | done | [49b](49b-protected-results-and-selection.md) | Implemented and Tested: admitted batch statistics, exact schema/digest/interpretation binding and generated selection vocabulary. Remaining-scope Outcome. |
+| RES02 | done | [49b](49b-protected-results-and-selection.md) | Implemented and Tested: DataFusion pruning/residual before limit; conservative unknown/IEEE semantics, protected admission and native-decode skipping. Remaining-scope Outcome. |
+| RES03 | done | [49b](49b-protected-results-and-selection.md) | Implemented and Tested: scalar locators/consumers retired on v8; assembled Rust/Python SQL, protected result, review/export, reopen and retirement acceptance. Remaining-scope Outcome. |
 | RES04 | superseded | [49b](49b-protected-results-and-selection.md) | Maintainer waived existing-data preservation; no historical backfill is required |
-| RES05 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES06 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES07 | in-progress | [49b](49b-protected-results-and-selection.md#res07--joined-metadata-and-retained-native-selection) | O02/O03: joined protected metadata and selection-local physical predicate/pruning reuse, preserving exact descriptor coverage and custody. |
-| PRE01 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Existing retention/firewalls have bounded evidence; O04 adds proposed Salsa 0.28.5/exclusive accounting before new incremental work. |
-| PRE02 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE03 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE04 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE05 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE06 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE07 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE08 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md#pre08--typed-incremental-fragments) | O05/I07: entity-local tracked premises and immutable fragments with complete root assembly; no claim of affected-only global validation. |
+| RES05 | done | [49b](49b-protected-results-and-selection.md) | Implemented and Tested: unused native file-cache adapter removed; actual analysis/preparation and protected reader owners retained and exercised. I02. |
+| RES06 | done | [49b](49b-protected-results-and-selection.md) | Tested: selected assembled Rust/Python/export/retirement journeys; bounded complete-operation measurement recorded. I03–I05/I16 retain explicit no-additional-adoption triggers; no comparative speed claim. |
+| RES07 | done | [49b](49b-protected-results-and-selection.md#res07--joined-metadata-and-retained-native-selection) | Implemented and Tested: joined protected metadata with exact descriptor coverage and one selection-local native plan across pages; superseded public block paging retired. |
+| PRE01 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Implemented and Tested: exact Salsa 0.28.5, exclusive nullable owned accounting, shared-owner census and finite production defaults; complete reference live/backdating population remains generation zero. |
+| PRE02 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Implemented and Tested: declaration-generated handles/roles and semantic framing replace spelling-derived meaning. |
+| PRE03 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Implemented and Tested: current-identity indexes and complete dependency/consumer graph, including rates and membership. |
+| PRE04 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Implemented and Tested: direct resolved physical bodies/derived identities and all supported producer consumers; rendered reconstruction retired. |
+| PRE05 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Implemented and Tested: tracked annotation/view/start products and structural versus observation demand; downstream RUN05 acceptance remains independently owned. |
+| PRE06 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Interface-checked and Tested: key/pointer lifetime review, retained completion-owned Flights, detached mutable/historical lanes and shared census; no additional cache adapter or persistence. |
+| PRE07 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Tested: 738 pure library controls plus 51 selected native/scientific/portable controls and public reload/ownership journeys; wider MAT/QUAL campaigns remain separate. |
+| PRE08 | done | [49c](49c-resolved-model-and-incremental-preparation.md#pre08--typed-incremental-fragments) | Implemented and Tested: entity-local tracked premises and immutable fragments across supported producers; original root closure/contribution obligations and body backdating retained. |
 | PRE09 | done — investigation only | [49c](49c-resolved-model-and-incremental-preparation.md#pre09--finite-configuration-exploration-decision) | Bounded operation, alternatives, unknown/limit semantics and no-adoption recommendation recorded at the linked owner; RC23 remains unselected. |
 | MAT01 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
 | MAT02 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
@@ -515,19 +634,19 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 
 | Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 | --- | --- | --- | --- | --- |
-| DA-001 | S11 | open — proposed route | PRE04 | Resolved physical identity before library algebra |
-| DA-002 | S11 | open — proposed route | PRE04 | Versioned derivation frames and declared relationships |
-| DA-003 | S11 | open — proposed route | PRE02 / PRE04 | Generated grammar/role metadata; no formatting-derived meaning |
+| DA-001 | S11 | resolved — Implemented and Tested | PRE04 | Direct resolved physical identity before algebra; 738 pure and 51 selected scientific/native controls at remaining-scope Outcome. |
+| DA-002 | S11 | resolved — Implemented and Tested | PRE04 | Versioned derivation frames, declared relationships and old-frame refusal; remaining-scope Outcome. |
+| DA-003 | S11 | resolved — Implemented and Tested | PRE02 / PRE04 | Generated grammar/role handles and direct typed producer; rendered/text reconstruction retired. Remaining-scope Outcome. |
 | DA-004 | S04 | open — store portion implemented/tested | STO / BND01 | Store native phases/projections pass; complete shared boundary vocabulary remains BND01. See store Outcome. |
 | DA-005 | S08 | open — proposed route | BND02 / I20 | Physical keyed side inputs; unit resolver is a separate project decision |
-| DA-006 | S07 | open — proposed route | PRE05 / RUN05 | Compiler annotation product, deliberate per-mode differences |
+| DA-006 | S07 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | Tracked annotation/view products and deliberate mode distinctions pass selected preparation controls; complete runtime consumer acceptance stays RUN05. |
 | DA-007 | S04 | open — store portion implemented/tested | STO lifecycle / TOOL04 | Native transition/holder/release controls pass with race guards; broader generated operator migration remains TOOL04. |
 | DA-008 | S05 | resolved — Implemented and Tested | STO typed refusals | Registry-native codes, typed exhaustion and distinct dispatch/cancel/replay/effect controls; unknown/forged errors fail closed. See store Outcome. |
 | DA-009 | S10 | open — proposed route | RUN02 / RUN03 | Discriminant-paired requests and outcomes |
 | DA-010 | S08 | open — proposed route | BND03 / BND04 | Hydrate/reconcile complete covariance; independent PSD admission |
 | DA-011 | S04 | open — proposed route | TOOL01 | Direction-aware actual compiled catalogue and import identity |
 | DA-012 | S03 | open — proposed route | RUN01 / RUN02 / RUN03 | Shared supervisor; explicitly state strategy exception, no automatic new durable feature |
-| DA-013 | S09 | open — proposed route | PRE05 / RUN05 | One pure predicted-start/fallback owner |
+| DA-013 | S09 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | Pure predicted-start/fallback owner supplied; enclosing runtime adoption remains RUN05. |
 | DA-014 | S09 | open — proposed route | RUN04 / I22 | Parameter-valued Fit/Simulation selected; other overlay/history questions bounded |
 | DA-015 | S10 | open — proposed route | RUN03 | Runtime admission, typed host projection and deployment owner |
 | DA-016 | S07 | open — proposed route | RUN06 | Settings-dependent map/recovery seam with original residual |
@@ -536,26 +655,26 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 | DA-019 | S04 | open — store portion implemented/tested | STO lifecycle / TOOL04 | Fresh installation/activation and exact event witnesses pass; broader generated guarded operator mutations remain TOOL04. Historical data preservation superseded. |
 | DA-020 | S10 | open — proposed route | TOOL05 / I21 | Product contracts before tooling; optional tracing/crate outcome |
 | DA-021 | S10 | open — proposed route | RUN03 | Test eligibility from explicit inputs without full runtime |
-| DA-022 | S01 | open — proposed route | PRE01 / RUN08 / I06 / I16 | Actual retention and allocator domains; project structure sizing remains bounded lead |
+| DA-022 | S01 | open — compiler portion Implemented and Tested | PRE01 / RUN08 / I06 / I16 | Exclusive owned Salsa observation, finite defaults and shared-Arc census exercised; this is known retained allocation accounting, not RSS or complete foreign/native coverage. RUN08 remains. |
 | DA-023 | S04 | open — proposed route | TOOL07 / QUAL05 | Documentation follows selected implemented changes through decision route |
 | DA-024 | S10 | open — proposed route | TOOL07 / I24 | Purpose decision on native child and pse.canon.v2; no automatic deletion |
-| DA-025 | S05 / S06 | open — store portion implemented/tested | STO / RES / TOOL04 | Necessary participants retained; pacing inquiry and key-index correction completed. Result writes/reclamation and broader tooling remain RES/TOOL04. |
-| DA-026 | S06 | open — proposed route | RES01–RES06 | Batch summaries + residual semantics replace scalar locator writes |
-| DA-027 | S11 | open — proposed route | PRE04 / MAT01–MAT05 | Versioned resolved body frames and no text re-expansion |
+| DA-025 | S05 / S06 | open — store/result portions Implemented and Tested | STO / RES / TOOL04 | Necessary participants retained; scalar locator writes/collection removed, protected result retirement exercised. Broader operator migration remains TOOL04. |
+| DA-026 | S06 | resolved — Implemented and Tested | RES01–RES06 | Exact batch summaries and conservative native pruning/residual replace scalar locator writes; selected assembled acceptance and current complete-operation measurement at remaining-scope Outcome, without comparative speed claim. |
+| DA-027 | S11 | open — resolved-model portion Implemented and Tested | PRE04 / MAT01–MAT05 | Versioned resolved bodies lower directly with no text re-expansion; selected derivative/native controls pass. Whole mathematical execution acceptance remains MAT01–MAT05. |
 | DA-028 | S11 | open — proposed route | MAT01–MAT05 / I11 | Guarded regional realization; prior fixture did not establish universal magnitude |
-| DA-029 | S01 | open — proposed route | PRE03 / PRE04 | Dependency→consumer graph including rates and complete memberships |
-| DA-030 | S01 / S02 | open — proposed route | PRE01 / PRE06 | Retention/default cause corrected; audit pointer/key lifetime separately |
-| DA-031 | S07 | open — proposed route | PRE05 / RUN05 | One compiler view choice consumed by relevant modes |
-| DA-032 | S06 / S11 | open — proposed route | PRE02 / RES | Generated declared handles and membership |
+| DA-029 | S01 | resolved — Implemented and Tested | PRE03 / PRE04 | Complete current dependency/consumer graph, including rates, guards and memberships; incremental versus fresh preparation controls pass. |
+| DA-030 | S01 / S02 | resolved — Implemented and Tested | PRE01 / PRE06 | Production defaults preserve complete current ThreeUnits live/backdating population; pointer/key uses retain complete equality and live owners. No broad RSS or speed claim. |
+| DA-031 | S07 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | One compiler view choice/product supplied and tested; full runtime consumer qualification remains RUN05. |
+| DA-032 | S06 / S11 | resolved — Implemented and Tested | PRE02 / RES | Declaration-generated handles/roles and complete membership replace spelling-derived interpretation; result and preparation controls at remaining-scope Outcome. |
 | F01 | S03 | open — proposed route | RUN01 / RUN02 | Caller cancellation, deadline and native join |
 | F02 | S07 | open — proposed route | RUN07 | Uno code 5 Numerical, all named constants |
 | F03 | S05 | resolved — Implemented and Tested | STO refusals / I01 | Typed retry exhaustion/fresh decision under original clock; commit-order cursor and sixteen-lane controls pass. Necessary sequence/source guards retained. See store Outcome. |
 | F04 | S03 | open — proposed route | RUN10 / I14 | Retained actual worker join; global reach investigated |
 | F05 | S09 | open — proposed route | RUN09 / I18 | Cosine gtol distinct from absolute scaled stationarity |
-| F06 | S06 | open — proposed route | RES cache package / I02 | Reached source-generation cache or remove only unused adapters |
+| F06 | S06 | resolved — Implemented and Tested | RES cache package / I02 | Unused native file-cache adapter removed; reached analysis/preparation and protected IPC reader ownership retained and exercised. No hit-rate claim. |
 | F07 | S04 | resolved — Implemented and Tested | STO graph/access | Consumers use native records/ranges/graphs; direct CRUD key/id/u64 and access-plan controls precede redundant key-index removal. Engine scans remain distinct from page bounds. |
 | F08 | S04 | open — proposed route | TOOL07 | Correct stale statrs note without pretending type-crossing defect |
-| F09 | S01 / S02 | open — proposed route | PRE01 | Production-default live-set retention, reuse/churn/oversize |
+| F09 | S01 / S02 | resolved — Implemented and Tested | PRE01 | Finite production-default live-set/backdating retention, churn/oversize and complete reference body coverage; remaining-scope Outcome. |
 | F10 | S08 | open — proposed route | BND03 / BND04 | Content-sensitive fit provenance; indefinite refused and singular PSD admitted |
 
 ## Inquiry outcomes
@@ -572,9 +691,9 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I03 | resolved — retain min/max | RES | Existing facts own min/max, null and row counts, not exact bounded multi-value membership sets. Native contained means all/none of the queried literals; unknown must remain unknown. | No parallel membership index. Revisit an already-owned exact bounded dictionary/set with proved complete coverage, null/NaN semantics and same-file binding. |
 | I04 | resolved — retain full decoder | RES | A projected IPC reader omits fields and changes its schema; full footer schema alone does not admit omitted batch buffers or their semantics. | Keep full protected validation and batch admission, then engine projection/residuals. Revisit a measured wide payload with immutable prior full-batch admission, predicate/key closure and omitted-column corruption controls. |
 | I05 | resolved — retain protected IPC | RES | Native Parquet page/row selection exists, but current protected result descriptors, checksums, footer validation and decoder consume IPC. Parquet authoring import is a separate boundary. | Revisit a reached workload with measured page/range benefit under full-file integrity, explicit format/interpretation decision, IEEE bit preservation, full admission, conservative residuals and finite decoded memory. No comparative speed claim. |
-| I06 | resolved — retain shared census | PRE01 | Salsa0.28.4 invokes heap_size independently per input; it cannot deduplicate allocations shared by retained inputs and generations. | Keep the actual shared-Arc census; local callbacks do not replace its ownership set. |
-| I07 | open — revised target proposed | PRE08 / PRE06 | O05: typed resolved production now permits entity-local tracked fragments and selective graph facts; current root specialization/projection still recomputes selected-root derivation. | Develop typed fragment/import contract and compare incremental with clean assembly; preserve original contributions/closure and unchanged body reuse. No benchmark failure prerequisite or speed claim. |
-| I08 | resolved — retain independent publication lanes | PRE06 | Salsa0.28.4 Storage::cancel_others cancels and waits for storage clones during mutation. Existing historical/current workspaces retain independent publication ownership. | No new shared read-handle seam is selected; reconsider a concrete immutable-revision benefit with fresh ownership controls. |
+| I06 | resolved — retain shared census | PRE01 | Salsa 0.28.5 exclusive memory inspection supplies an owned observation but cannot deduplicate shared input/generation allocations by itself. | Keep the shared-Arc census and nullable observation; no false zero when inspection is unavailable. |
+| I07 | resolved — typed fragments adopted | PRE08 / PRE06 | O05: query-owned local fragments cover supported producers; incremental versus clean preparation, complete contribution/closure and unchanged body reuse pass selected controls. | Retain complete root assembly and original scientific obligations. No affected-only global validation or measured speedup claim. |
+| I08 | resolved — retain independent publication lanes | PRE06 | Salsa 0.28.5 storage-clone mutation cancels and waits; existing historical/current workspaces retain independent publication ownership. | Immutable snapshots may share reads; writable/historical lanes remain detached. No new public read-handle seam. |
 | I09 | resolved — retain reached pure Flights | PRE06 | Existing exact-key flights retain producer clocks, independent waiter stop and actual exit; quick_cache0.6.24 directly awaits a supplied loader. | Retain the reached flight contract rather than add an adapter to recreate it. Native drain is never cache-flight completion. |
 | I10 | resolved — no additional compiler persistence | PRE06 | Existing qualified artifact recipes restore reconstructible products with version/receipt readmission; no distinct reached cold-work need is established. | Keep those owners and in-process correction; add no persistent compiler cache or lifecycle authority. |
 | I11 | resolved — retain scalar formals and aliases | MAT06 | Which function-shaped formal/retained definition path preserves cross-process identities, derivative expansion and compiled export? | Adopt the exact supported post-admission path; otherwise canonical scalar slots plus selected alias expansion remain. |
@@ -592,9 +711,9 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
 | I24 | decided — implementation open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Operator selected retain native-child for bounded provider-free process-isolation experiments and retire unused relation canonicalizer/API/tests; preserve independent shared allocation and identity contracts. Execution remains TOOL07. |
 | I25 | resolved — no hot-start adoption | MAT06 | Can hot_start reuse an identity-bearing previous scheme on a non-direct path with a concrete preparation benefit? | Adopt only with scheme in identity and correct derivative semantics; direct-translation alias target remains and cancelled truncated optimization is never retained. |
-| I26 | resolved — module pivot selected; implementation open | STO09 / GOV02 | [49a I26](49a-surrealmx-canonical-store.md#i26--surrealism-decision-investigation-2026-10-22) identifies the tagged WASI invocation/timeout seam and exact deployment/rollback controls. | Recommend the same-source module for STO09 readiness to remove its scope/apply interval; no benchmark prerequisite. The maintainer selected RC22 on 2026-10-22; in-transaction implementation and activation/rollback qualification are now required, with external scope/apply retirement. No independent SQL policy copy. |
+| I26 | resolved — selected module Implemented and Tested | STO09 / GOV02 | [49a I26](49a-surrealmx-canonical-store.md#i26--surrealism-decision-investigation-2026-10-22) supplies source basis; remaining-scope Outcome records actual rollback/recovery, exact settlement, controller saturation, catalog refusal and production-only restoration. | Same-source read-only readiness replaces external scope/apply. Production manifest remains strict 1s/64MiB/pool 4; long-hold capacity artifact is qualification-only and removed from final deployment. |
 | I27 | resolved — no new feature/binding adopted | PRE09 / GOV02 | [49c PRE09](49c-resolved-model-and-incremental-preparation.md#pre09i27-decision-investigation--2026-10-22) compares finite supplied-profile enumeration with Z3 assumptions/cores and defines independent acceptance. | Retain concrete requests/routing; RC23 remains unselected. Revisit a named jointly constrained multi-stage consumer or demonstrated finite-enumeration limit. |
-| I28 | resolved — retain bounded canonical pages | STO09 / RES07 | Current canonical bounded_query materializes responses; local stream_items refuses payload-drain-owned requests. | Joined bounded pages are proposed. Reopen streaming for a named consumer only with original deadlines, aggregate bytes, late failure and physical drop/drain. |
+| I28 | resolved — retain bounded canonical pages | STO09 / RES07 | Joined protected metadata/readiness pages are implemented and tested; bounded_query materializes responses and stream_items refuses payload-drain-owned requests. | Reopen streaming for a named consumer only with original deadlines, aggregate bytes, late failure and physical drop/drain. |
 | I29 | resolved — no notification authority added | STO09 / TOOL08 | LIVE/changefeeds/async events provide observations with retention/delivery/import limits; current durable cursors/recovery remain necessary. | Reopen an actual wakeup/operator consumer with bounded catch-up; notifications never replace exact receipts, canonical claim or native drain. |
 
 ## Verification, checkpoint and completion
@@ -662,7 +781,7 @@ The Plan49 series remains in progress for its other companions.
 ADR-0214 remains proposed under the separate decision-PR rule. Other companions retain
 their packages and findings; selected store acceptance does not accept their implementation.
 
-One source-built SurrealDB3.3.4 server uses exact SurrealMX1.0.0, explicit SSI, synchronous
+One source-built SurrealDB 3.3.4 server uses exact SurrealMX 1.0.0, explicit SSI, synchronous
 AOL/EveryAppend and periodic snapshots. Finite engine memory, transaction age, queues and
 outer process allocations remain distinct. Authenticated existing metrics expose engine
 statistics and reader pins. The pinned server source, patch inputs, resolved lock and binary
