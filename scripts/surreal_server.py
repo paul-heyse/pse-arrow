@@ -4554,6 +4554,76 @@ def storage_launch(
     return launch
 
 
+def storage_launch_drain_config(
+    state: Path,
+    config: dict[str, object],
+    launch: dict[str, object],
+    *,
+    deadline: float | None = None,
+) -> dict[str, object]:
+    """Resolve an unbound failed launch for drain, never for execution/admission.
+
+    Explicit supervisor readmission archives its exact predecessor. A failed
+    pre-bind launch can retain that predecessor after the config moves forward;
+    only this closed, otherwise identical selection may use its historical
+    immutable code witness. Bound lifetimes keep their original kernel proof.
+    """
+    if "binding" in launch:
+        raise SupervisorError("Historical drain cannot replace a bound storage proof")
+    try:
+        if storage_launch(state, config, deadline=deadline) == launch:
+            return config
+    except SupervisorError:
+        pass
+    if (
+        config.get("owner") != OWNER
+        or config.get("accepting_writes") is not False
+        or config.get("admission") != "quiesced"
+        or launch.get("generation") != config.get("instance_id")
+        or launch.get("server_generation") != config.get("server")
+        or launch.get("service_class") != config.get("service_class", "functional")
+        or launch.get("server_memory_bytes")
+        != object_mapping(config.get("resources"))["server_memory_bytes"]
+    ):
+        raise SupervisorError("Failed launch lacks an exact closed readmission predecessor")
+    history = state / ".profile-history"
+    information = history.lstat()
+    if (
+        not stat.S_ISDIR(information.st_mode)
+        or information.st_uid != os.getuid()
+        or stat.S_IMODE(information.st_mode) != 0o700
+    ):
+        raise SupervisorError("Readmission history lost private ownership")
+    unchanged = {key: value for key, value in config.items() if key not in {"service_supervisor", "restart_qualified"}}
+    for path in sorted(history.glob("*.json")):
+        if not re.fullmatch(r"[a-f0-9]{32}\.json", path.name):
+            continue
+        if deadline is not None:
+            remaining(deadline)
+        predecessor = object_mapping(json.loads(private_record_bytes(path, deadline)))
+        if {key: value for key, value in predecessor.items() if key not in {"service_supervisor", "restart_qualified"}} != unchanged:
+            continue
+        if predecessor.get("service_supervisor") != launch.get("supervisor_generation"):
+            continue
+        if storage_launch(state, predecessor, deadline=deadline) != launch:
+            continue
+        supervisor = object_mapping(predecessor.get("service_supervisor"))
+        script = Path(str(supervisor.get("supervisor_script", "")))
+        if (
+            not script.is_absolute()
+            or script.name != "surreal_server.py"
+            or script.parent.name != "scripts"
+            or script.parent.parent.parent != state / ".generations"
+        ):
+            raise SupervisorError("Historical launch source escaped its immutable state")
+        with lifecycle_deadline(deadline):
+            verified = verify_generation(script.parent.parent)
+        if verified.files.get("scripts/surreal_server.py") != supervisor.get("supervisor_sha256"):
+            raise SupervisorError("Historical launch supervisor identity differs")
+        return predecessor
+    raise SupervisorError("Exact historical failed-launch selection is unavailable")
+
+
 def recorded_storage_owner(
     state: Path, config: dict[str, object], *, deadline: float | None = None
 ) -> tuple[host_admission.Allocation, dict[str, object]]:
