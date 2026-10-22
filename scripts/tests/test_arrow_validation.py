@@ -83,7 +83,7 @@ class ScopedValidationTests(unittest.TestCase):
                 "policy",
                 return_value={"test-runner": {"rust_thread_stack_mib": 19}},
             ),
-            patch.object(arrow_validation.subprocess, "call", return_value=7) as child,
+            patch.object(arrow_validation.build_observation, "run_command", return_value=7) as child,
         ):
             self.assertEqual(arrow_validation.main(["--", *requested]), 7)
             self.assertEqual(dict(os.environ), supplied)
@@ -109,7 +109,7 @@ class ScopedValidationTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    arrow_validation.subprocess, "call", return_value=0
+                    arrow_validation.build_observation, "run_command", return_value=0
                 ) as child,
             ):
                 if value == "24681012":

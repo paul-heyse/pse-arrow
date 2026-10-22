@@ -1323,6 +1323,13 @@ codex-session *args:
 context *args:
     exec "{{ py }}" -m scripts.workspace_context "$@"
 
+[group('local')]
+[doc('Build/setup then own one reference start/init/work/drained-stop lifetime; literal workload after --')]
+[positional-arguments]
+[script("bash", "-euo", "pipefail")]
+reference-run *args:
+    exec "{{ py }}" -m scripts.reference_run "$@"
+
 [group('env')]
 [doc('Second working copy for a parallel agent: just worktree <name> [--ref REF] [--python|--native]')]
 [positional-arguments]

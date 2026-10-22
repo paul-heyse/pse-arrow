@@ -25,6 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import (  # noqa: E402 -- direct-script path routing
     host_admission,
+    build_observation,
     native_operation,
     pse_env,
 )
@@ -207,6 +208,11 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as error:
         builds = None
         errors.append(f"build processes unavailable: {error}")
+    try:
+        build_stages = build_observation.observations(host_admission.root_path())
+    except (OSError, ValueError) as error:
+        build_stages = None
+        errors.append(f"build observations unavailable: {error}")
     selected = None
     try:
         selected = pse_env.slice_name(os.environ)
@@ -228,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
                     ]
                     if builds is not None
                     else None,
+                    "build_stages": build_stages,
                     "slice": selected,
                     "aggregate_limits": bounds,
                     "explanation": explanation,
@@ -240,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
     if explanation is not None:
         print(json.dumps(explanation, indent=2))
+    if build_stages:
+        print("Build observations: " + json.dumps(build_stages))
     print(
         f"slice: {selected or 'caller slice'}; aggregate limits: "
         + (

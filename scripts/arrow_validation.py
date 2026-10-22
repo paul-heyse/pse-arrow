@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts import host_admission
+from scripts import build_observation, host_admission
 
 
 def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
@@ -430,7 +430,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"arrow-validation: {error}", file=sys.stderr)
         return 2
     print("arrow-validation: " + shlex.join(command), file=sys.stderr, flush=True)
-    return subprocess.call(command, env=rust_test_environment(os.environ))
+    return build_observation.run_command(command, env=rust_test_environment(os.environ))
 
 
 if __name__ == "__main__":
