@@ -817,6 +817,246 @@ class ManagedRustSelectionTests(unittest.TestCase):
         )
         self.assertEqual(scoped.count("-E"), 1)
 
+    def select_fixture_consumer(self, variable: str, *, selected: bool = True) -> None:
+        inventory = json.loads(self.inventory)
+        inventory["rust-suites"]["runtime"]["testcases"][
+            native_tests.RUST_FIXTURE_TESTS[variable]
+        ] = {"filter-match": {"status": "matches" if selected else "mismatch"}}
+        self.inventory = json.dumps(inventory)
+
+    def test_native_lane_build_uses_selected_profile_and_actual_cargo_artifact(
+        self,
+    ) -> None:
+        response = subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "reason": "compiler-artifact",
+                    "target": {"name": "pse-native-lane"},
+                    "executable": str(self.worker),
+                }
+            ),
+        )
+        with patch.object(
+            native_tests.subprocess, "run", return_value=response
+        ) as build:
+            actual = native_tests.native_lane_binary(
+                ["--cargo-profile", "producer"], {}
+            )
+        self.assertEqual(actual, self.worker)
+        command = build.call_args.args[0]
+        self.assertEqual(command[command.index("--bin") + 1], "pse-native-lane")
+        self.assertEqual(command[command.index("--features") + 1], "native-solvers")
+        self.assertEqual(command[command.index("--profile") + 1], "producer")
+        self.assertIn("--locked", command)
+
+    def test_selected_native_lane_is_source_bound_and_refuses_changed_artifact_or_role(
+        self,
+    ) -> None:
+        variable = "PSE_NATIVE_LANE_EXECUTABLE"
+        self.select_fixture_consumer(variable)
+        with patch.object(
+            native_tests, "native_lane_binary", return_value=self.worker
+        ) as build:
+            execution, _, _ = self.capture(["--cargo-profile", "producer"])
+        self.assertEqual(build.call_args.args[0], ["--cargo-profile", "producer"])
+        environment = self.prepared_environment()
+        bindings = native_tests.rust_fixture_bindings(self.provenance, environment)
+        self.assertEqual(bindings, {variable: str(self.worker)})
+        environment.update(bindings)
+        native_tests.prepared_rust_inventory(execution, environment)
+        with self.assertRaisesRegex(ValueError, "binding differs"):
+            native_tests.rust_fixture_bindings(
+                self.provenance, {variable: str(self.binary)}
+            )
+        original = self.worker.read_bytes()
+        self.worker.write_bytes(original + b"changed")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            native_tests.rust_fixture_bindings(self.provenance, environment)
+        self.worker.write_bytes(original)
+        native = json.loads(self.provenance.read_text())
+        native["rust_invocation"]["environment"][variable] = "different-role"
+        self.provenance.write_text(json.dumps(native))
+        with self.assertRaisesRegex(ValueError, "role differs"):
+            native_tests.rust_fixture_bindings(self.provenance, environment)
+
+    def test_unselected_fixture_consumer_does_not_build_or_capture(self) -> None:
+        self.select_fixture_consumer("PSE_NATIVE_LANE_EXECUTABLE", selected=False)
+        self.select_fixture_consumer("PSE_PRODUCER_FIXTURE_RECEIPT", selected=False)
+        with (
+            patch.object(native_tests, "native_lane_binary") as lane,
+            patch.object(native_tests.subprocess, "run") as capture,
+        ):
+            self.assertEqual(
+                native_tests.prepare_rust_fixtures(
+                    json.loads(self.inventory), [], self.root / "receipt.json", {}
+                ),
+                {},
+            )
+        lane.assert_not_called()
+        capture.assert_not_called()
+
+    def test_selected_portable_consumer_runs_real_recipe_or_preserves_explicit_receipt(
+        self,
+    ) -> None:
+        variable = "PSE_PRODUCER_FIXTURE_RECEIPT"
+        self.select_fixture_consumer(variable)
+        receipt = self.root / "actual-tool-receipt.json"
+
+        def capture(
+            command: list[str], **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            self.assertEqual(command, ["just", "producer-fixture", str(receipt)])
+            receipt.write_text("actual tool output")
+            return subprocess.CompletedProcess(command, 0)
+
+        environment = {}
+        with patch.object(native_tests.subprocess, "run", side_effect=capture) as run:
+            bindings = native_tests.prepare_rust_fixtures(
+                json.loads(self.inventory), [], receipt, environment
+            )
+        self.assertEqual(bindings, {variable: str(receipt)})
+        self.assertEqual(environment, bindings)
+        self.assertEqual(run.call_count, 1)
+        with patch.object(native_tests.subprocess, "run") as run:
+            self.assertEqual(
+                native_tests.prepare_rust_fixtures(
+                    json.loads(self.inventory), [], self.root / "unused", environment
+                ),
+                bindings,
+            )
+        run.assert_not_called()
+
+    def test_native_local_fixture_binding_reaches_actual_execution_environment(
+        self,
+    ) -> None:
+        variable = "PSE_NATIVE_LANE_EXECUTABLE"
+        self.select_fixture_consumer(variable)
+        with patch.object(native_tests, "native_lane_binary", return_value=self.worker):
+            execution, _, _ = self.capture([])
+        environment = self.prepared_environment()
+        with (
+            patch.object(
+                native_tests, "ordinary_rust_capture", return_value=(execution, None)
+            ),
+            patch.object(test_run.validation_receipts, "verify_native"),
+            patch.object(test_run, "run_rust", return_value=7) as run,
+        ):
+            self.assertEqual(
+                test_run.observer_rust(
+                    ["cargo", "nextest", "run"], environment, effects="native-local"
+                ),
+                7,
+            )
+        self.assertEqual(run.call_args.kwargs["env"][variable], str(self.worker))
+        self.assertEqual(run.call_args.kwargs["effects"], "native-local")
+
+    def test_canonical_fixture_binding_is_scoped_through_observer_and_restored(
+        self,
+    ) -> None:
+        variable = "PSE_NATIVE_LANE_EXECUTABLE"
+        self.select_fixture_consumer(variable)
+        with patch.object(native_tests, "native_lane_binary", return_value=self.worker):
+            execution, _, _ = self.capture([])
+        environment = {
+            **self.prepared_environment(),
+            "PSE_SURREAL_STATE": str(self.root),
+        }
+        report = self.root / "report.xml"
+
+        def observer(*_args: object, **_kwargs: object) -> int:
+            self.assertEqual(os.environ[variable], str(self.worker))
+            return 7
+
+        def execute(*_args: object, **kwargs: object) -> int:
+            launch = kwargs["launch"]
+            assert callable(launch)
+            return launch({})
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(
+                native_tests,
+                "ordinary_rust_capture",
+                return_value=(execution, self.worker),
+            ),
+            patch.object(
+                test_run.resources,
+                "invocation",
+                return_value=self.root / "invocation.json",
+            ),
+            patch.object(
+                test_run,
+                "rust_report_command",
+                return_value=(["cargo", "nextest", "run", *execution], report),
+            ),
+            patch.object(test_run, "execute_selected", side_effect=execute),
+            patch.object(surreal_server, "observer", side_effect=observer),
+        ):
+            self.assertEqual(
+                test_run.observer_rust(["cargo", "nextest", "run"], environment), 7
+            )
+            self.assertNotIn(variable, os.environ)
+
+    def test_selected_receipt_is_hashed_by_real_provenance_and_checked_at_forwarding(
+        self,
+    ) -> None:
+        variable = "PSE_PRODUCER_FIXTURE_RECEIPT"
+        self.select_fixture_consumer(variable)
+        receipt = self.root / "producer-fixture.json"
+        receipt.write_bytes(b"immutable fixture capture bytes")
+        suite = json.loads(self.inventory)["rust-suites"]["runtime"]
+        responses = [
+            subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    {
+                        "rust-binaries": {
+                            suite["binary-id"]: {
+                                key: value
+                                for key, value in suite.items()
+                                if key != "testcases"
+                            }
+                        }
+                    }
+                ),
+            ),
+            subprocess.CompletedProcess([], 0, self.inventory),
+        ]
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(native_tests, "worker_binary", return_value=self.worker),
+            patch.object(native_tests.subprocess, "run", side_effect=responses),
+            patch.object(
+                native_tests.subprocess,
+                "check_output",
+                return_value="observed tool metadata",
+            ),
+            patch.object(native_tests, "observe_deployed_artifacts"),
+        ):
+            execution, _ = native_tests.ordinary_rust_capture(
+                ["cargo", "nextest", "run"],
+                self.provenance,
+                self.selected,
+                {variable: str(receipt)},
+            )
+        native = json.loads(self.provenance.read_text())
+        self.assertEqual(
+            native["files"][str(receipt)],
+            hashlib.sha256(receipt.read_bytes()).hexdigest(),
+        )
+        environment = {**self.prepared_environment(), variable: str(receipt)}
+        self.assertEqual(
+            native_tests.rust_fixture_bindings(self.provenance, environment),
+            {variable: str(receipt)},
+        )
+        native_tests.prepared_rust_inventory(execution, environment)
+        receipt.write_bytes(b"same path changed after capture")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            native_tests.rust_fixture_bindings(self.provenance, environment)
+
 
 class PythonSelectionTests(unittest.TestCase):
     def setUp(self) -> None:

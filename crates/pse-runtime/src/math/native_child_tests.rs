@@ -76,7 +76,10 @@ fn source() -> PortableRootSource {
         &checked,
         root,
         pse_modeling::specialize::root_instance(root),
-        &Bindings::default(),
+        &Bindings {
+            demand: vec!["residual".into()],
+            ..Default::default()
+        },
         Limits::default(),
     )
     .unwrap();

@@ -673,7 +673,7 @@ mod tests {
         );
         assert!(
             matches!(result, Err(MathRuntimeError::Solve(ProblemError::Contract(message)))
-            if message == "callable POUNCE settings differ")
+            if message == "wrong pounce settings")
         );
         assert!(!executed.load(Ordering::SeqCst));
         assert!(dropped.load(Ordering::SeqCst));
@@ -829,6 +829,14 @@ mod tests {
         let service = crate::math::tests::service();
         let mut solver = super::super::super::solves::SolverProfile::default();
         solver.controls.history = 0;
+        let contract = pse_backend_native::OracleContract {
+            identity: hash(1),
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+            variables: vec![],
+            rows: vec![],
+        };
+        solver.resolve_curvature(contract.derivatives);
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let project = |profile: &super::super::super::solves::SolverProfile| {
@@ -868,13 +876,6 @@ mod tests {
                 profiles.push(project(profile).unwrap());
                 let execution =
                     Execution::new(pse_diagnostics::Cancellation::default(), &profile.controls);
-                let contract = pse_backend_native::OracleContract {
-                    identity: hash(1),
-                    derivatives: pse_kernels::DerivativeOrder::First,
-                    smoothness: pse_kernels::DerivativeOrder::First,
-                    variables: vec![],
-                    rows: vec![],
-                };
                 Ok(SolveReport::new(
                     Backend::Pounce,
                     &contract,

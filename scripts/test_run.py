@@ -649,6 +649,8 @@ def observer_rust(
         package_scope=package_scope,
     )
     inventory = validation_receipts.native_inventory(selection.read_text())
+    fixtures = native_tests.rust_fixture_bindings(provenance, environment)
+    environment.update(fixtures)
     if effects == "native-local":
         validation_receipts.verify_native(json.loads(provenance.read_text()))
         return run_rust(
@@ -678,6 +680,7 @@ def observer_rust(
     else:
         invocation = resources.invocation("rust", selected)
     forwarded = {
+        **fixtures,
         resources.MARKER: str(invocation),
         "PSE_NATIVE_PROVENANCE": str(provenance),
         "PSE_NATIVE_SELECTION": str(selection),

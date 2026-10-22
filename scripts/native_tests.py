@@ -433,6 +433,9 @@ def prepared_rust_inventory(
     )
     if inventory is not None and inventory != retained:
         raise ValueError("Rust inventory differs from prepared invocation")
+    fixtures = rust_fixture_bindings(Path(provenance), environment)
+    if set(fixtures) != selected_rust_fixtures(retained):
+        raise ValueError("Rust selected fixtures differ from preparation")
     binaries = json.loads(Path(prepared["binaries_metadata"]).read_text()).get(
         "rust-binaries"
     )
@@ -573,13 +576,21 @@ def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
     ]
 
 
-def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
+def _fixture_binary(
+    extra: list[str],
+    environment: Mapping[str, str],
+    *,
+    target: str,
+    variable: str,
+    features: str,
+    role: str,
+) -> Path:
     """Supply the actual child-process executable in the selected Cargo profile."""
-    supplied = environment.get("PSE_WORKER_BINARY")
+    supplied = environment.get(variable)
     if supplied:
         binary = Path(supplied).resolve()
         if not binary.is_file() or not os.access(binary, os.X_OK):
-            raise ValueError("PSE_WORKER_BINARY must name an executable file")
+            raise ValueError(f"{variable} must name an executable file")
         return binary
     profile = (
         "release"
@@ -603,10 +614,10 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
                 "-p",
                 "xtask",
                 "--bin",
-                "pse-worker",
+                target,
                 "--locked",
                 "--features",
-                "native-solvers,canonical-tests",
+                features,
                 "--profile",
                 profile,
                 "--message-format",
@@ -622,7 +633,7 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
     )
     if built.returncode:
         print(built.stdout, end="")
-        raise ValueError(f"native worker build failed with exit {built.returncode}")
+        raise ValueError(f"{role} build failed with exit {built.returncode}")
     artifacts = set()
     for line in built.stdout.splitlines():
         if not line.startswith("{"):
@@ -630,16 +641,120 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
         message = json.loads(line)
         if (
             message.get("reason") == "compiler-artifact"
-            and message.get("target", {}).get("name") == "pse-worker"
+            and message.get("target", {}).get("name") == target
             and message.get("executable")
         ):
             artifacts.add(Path(message["executable"]).resolve())
     if len(artifacts) != 1:
-        raise ValueError("native worker build did not identify one executable")
+        raise ValueError(f"{role} build did not identify one executable")
     binary = artifacts.pop()
     if not binary.is_file() or not os.access(binary, os.X_OK):
-        raise ValueError("native worker artifact is not executable")
+        raise ValueError(f"{role} artifact is not executable")
     return binary
+
+
+def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
+    return _fixture_binary(
+        extra,
+        environment,
+        target="pse-worker",
+        variable="PSE_WORKER_BINARY",
+        features="native-solvers,canonical-tests",
+        role="native worker",
+    )
+
+
+def native_lane_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
+    return _fixture_binary(
+        extra,
+        environment,
+        target="pse-native-lane",
+        variable="PSE_NATIVE_LANE_EXECUTABLE",
+        features="native-solvers",
+        role="native lane",
+    )
+
+
+RUST_FIXTURE_TESTS = {
+    "PSE_NATIVE_LANE_EXECUTABLE": "math::native_child::tests::actual_portable_native_root_child_reconstructs_and_parent_screens",
+    "PSE_PRODUCER_FIXTURE_RECEIPT": "math::portable::canonical_portable_body_tests::canonical_portable_body_reconnect_reuses_ordinary_scalar_solve_with_actual_tool_fixture_receipt",
+}
+
+
+def selected_rust_fixtures(inventory: dict) -> set[str]:
+    """Only the actual selected consumer can request its fixture preparation."""
+    return {
+        variable
+        for suite in inventory["rust-suites"].values()
+        if suite.get("binary-id", "").split("::", 1)[0] == "pse-runtime"
+        for variable, name in RUST_FIXTURE_TESTS.items()
+        if suite["testcases"].get(name, {}).get("filter-match", {}).get("status")
+        == "matches"
+    }
+
+
+def prepare_rust_fixtures(
+    inventory: dict,
+    extra: list[str],
+    destination: Path,
+    environment: dict[str, str],
+) -> dict[str, str]:
+    """Prepare selected artifacts within the original source/configuration capture."""
+    selected = selected_rust_fixtures(inventory)
+    bindings = {}
+    if "PSE_NATIVE_LANE_EXECUTABLE" in selected:
+        bindings["PSE_NATIVE_LANE_EXECUTABLE"] = str(
+            native_lane_binary(extra, environment)
+        )
+    if "PSE_PRODUCER_FIXTURE_RECEIPT" in selected:
+        supplied = environment.get("PSE_PRODUCER_FIXTURE_RECEIPT")
+        receipt = Path(supplied).resolve() if supplied else destination.resolve()
+        if not supplied:
+            result = subprocess.run(
+                ["just", "producer-fixture", str(receipt)],
+                cwd=ROOT,
+                env=environment,
+                check=False,
+            )
+            if result.returncode:
+                raise ValueError(
+                    f"native producer fixture capture failed with exit {result.returncode}"
+                )
+        if not receipt.is_file():
+            raise ValueError("producer fixture capture did not identify one receipt")
+        bindings["PSE_PRODUCER_FIXTURE_RECEIPT"] = str(receipt)
+    environment.update(bindings)
+    return bindings
+
+
+def rust_fixture_bindings(
+    provenance: Path, environment: Mapping[str, str]
+) -> dict[str, str]:
+    """Forward only exact source-bound fixture roles in the prepared artifact set."""
+    native = json.loads(provenance.read_text())
+    prepared = native.get("rust_invocation", {})
+    if not isinstance(prepared, dict):
+        raise TypeError("Unknown Rust preparation identity")
+    bindings = prepared.get("fixtures", {})
+    if not isinstance(bindings, dict) or set(bindings) - RUST_FIXTURE_TESTS.keys():
+        raise ValueError("Unknown prepared Rust fixture roles")
+    files = native.get("files", {})
+    recorded = prepared.get("environment", {})
+    for name, value in bindings.items():
+        if not isinstance(value, str) or str(Path(value).resolve()) != value:
+            raise ValueError("Rust fixture path is not an exact prepared artifact")
+        if name in environment and str(Path(environment[name]).resolve()) != value:
+            raise ValueError(f"Rust fixture binding differs from preparation: {name}")
+        if recorded.get(name) != hashlib.sha256(value.encode()).hexdigest():
+            raise ValueError("Rust fixture role differs from prepared environment")
+        if (
+            value not in files
+            or validation_receipts.digest(Path(value)) != files[value]
+        ):
+            raise ValueError("Rust fixture artifact changed after preparation")
+        if name == "PSE_NATIVE_LANE_EXECUTABLE" and not os.access(value, os.X_OK):
+            raise ValueError("Rust native lane artifact is not executable")
+    return bindings
 
 
 def managed_rust_arguments(
@@ -997,6 +1112,12 @@ def _rust_capture(
         )
     validation_receipts.native_selection(inventory.stdout)
     data = json.loads(inventory.stdout)
+    fixtures = prepare_rust_fixtures(
+        data,
+        ["--cargo-profile", profile],
+        selected.with_name(selected.stem + "-producer-fixture.json"),
+        environment,
+    )
     binaries = [
         suite["binary-path"]
         for suite in data["rust-suites"].values()
@@ -1016,7 +1137,15 @@ def _rust_capture(
             "cargo_profile": profile,
             "managed_build_arguments" if managed else "build_arguments": scoped,
         },
-        [*binaries, *([str(worker)] if worker is not None else [])],
+        [
+            *binaries,
+            *([str(worker)] if worker is not None else []),
+            *(
+                [fixtures["PSE_NATIVE_LANE_EXECUTABLE"]]
+                if "PSE_NATIVE_LANE_EXECUTABLE" in fixtures
+                else []
+            ),
+        ],
         environment=environment,
     )
     for destination in (selected, binary_metadata, cargo_metadata):
@@ -1030,6 +1159,7 @@ def _rust_capture(
         raise ValueError("Rust Cargo configuration changed during preparation")
     native["rust_invocation"] = {
         "schema": "prepared-rust-v1",
+        "fixtures": fixtures,
         "source": source,
         "configuration": configuration,
         "environment": rust_environment_identity(environment),
@@ -1141,6 +1271,7 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
         raise ValueError("managed Rust worker is outside parent provenance")
     environment["PSE_WORKER_BINARY"] = str(worker)
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
+    environment.update(rust_fixture_bindings(provenance, environment))
     prepared = native.get("rust_invocation")
     if not isinstance(prepared, dict) or prepared.get("schema") != "prepared-rust-v1":
         raise ValueError("Unknown Rust preparation identity")
@@ -1377,6 +1508,7 @@ def main() -> int:
     inventory = validation_receipts.native_inventory(selected_path.read_text())
     environment["PSE_NATIVE_PROVENANCE"] = str(Path(path).resolve())
     environment["PSE_NATIVE_SELECTION"] = str(selected_path.resolve())
+    environment.update(rust_fixture_bindings(Path(path), environment))
     if worker is not None:
         environment["PSE_WORKER_BINARY"] = str(worker)
     from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
