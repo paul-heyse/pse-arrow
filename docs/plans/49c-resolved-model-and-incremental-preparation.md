@@ -153,12 +153,15 @@ live root's body values and catalog-firewall results while its lease is active; 
 extent before retaining it. Disposable query results can evict under their family capacities.
 This is project policy over a **count LRU**, never a claim of native byte-weighted LRU.
 
-Propose ordinary defaults of 131,072 retained entries and 1 GiB known retained bytes, with
+Use ordinary defaults of 131,072 retained entries and 2 GiB known retained bytes, with
 granular declaration-family capacities of 4,096 and 256 values for each live-root query family
 (`specialized`, projection/firewalls and semantic bodies), replacing the single capacity of 64.
-These finite starting values cover the observed reference counts; PRE01 adjusts them if the
-actual retained representation and targeted B2 check require it, under the enclosing allocation
-allowance. They are a policy proposal, not a measured capacity guarantee or reservation.
+The initial 1 GiB proposal was adjusted after the complete typed ThreeUnits reference
+retained 1,426,036,749 known bytes initially and 1,453,825,251 after unrelated publication,
+with 56,663 entries. At 2 GiB, generation remains zero and all 126 bodies backdate unchanged.
+The estimate includes original granular inputs, live products and valid backdating owners;
+it is neither RSS nor a memory reservation. Further adjustment remains subordinate to actual
+retained representation and the enclosing allocation allowance.
 Salsa supplies no per-memo pinning here. Admit the active-root set and temporary construction
 working set together, and raise the relevant count capacities within their finite allowance
 before queries can displace required live/backdating values. If that cannot fit, refuse or retire

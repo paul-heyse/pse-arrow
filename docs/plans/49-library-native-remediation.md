@@ -166,9 +166,11 @@ question. These conclusions do not block the selected production work.
 native plans are integrated, with the legacy public block-page route retired. Exclusive Salsa
 accounting, structural/observation demand separation, entity preludes and typed function and
 ordinary member/equation fragments are integrated. Canonical shared physical-input owners
-avoid charging those registries once per fragment. Combined preparation controls retain one
-open ThreeUnits generation-stability failure; its actual retained populations are being
-investigated without increasing limits or weakening semantic equivalence.
+avoid charging those registries once per fragment. The provisional retention default is now 2 GiB after removing over-broad interface/instance
+premises and accounting the complete reference live/backdating population. ThreeUnits retains
+generation zero and all 126 mathematical bodies. Broader library verification exposed nine
+exchange/temporal premise regressions; their structural repairs and two added cached controls
+passed all 591 compiler/modeling library tests. Scope-end combined qualification remains open.
 
 `pse-study-module` compiles and links for WASI against the existing pure policy source.
 Native readiness now invokes it inside the generated transaction, with complete output
@@ -177,9 +179,15 @@ error. The bounded external scientific-snapshot response is retired. The selecte
 source includes global controller/memory bounds and acquisition/initialization deadlines.
 Real preliminary CLI packaging established the exact read-only production/qualification
 exports, SDK/ABI compatibility, single-memory instantiation and identical successive archive
-bytes. Those probes used an unselected builder; final source-server build, authoritative
-main-checkout module receipts, activation and actual-server failure controls remain open.
-Existing evidence does not qualify the unactivated module/server combination.
+bytes. The corrected source-built server and authoritative main-checkout artifacts were subsequently
+admitted and initialized in the fresh private deployment. Actual fault rollback/recovery passed.
+The initial global-capacity and queued-cancellation controls exposed test assumptions rather
+than qualifying those obligations: synchronous guests occupied host workers before saturation,
+and local cancellation deliberately retains dispatched work until exact completion/deadline.
+A qualification-only cooperative hold now supplies observed overlap intervals; capacity and
+pending-page receipt/fence qualification remain in progress. Production exports stay read-only
+and exclude every qualification helper. Earlier enclosing initialization-clock failures remain
+failed attempts; a later exact-target initialization completed without a shutdown workaround.
 
 The earlier `surreal-plan49-closeout-20261022` service was quiesced and then stopped through
 its authenticated immutable supervisor's abrupt-stop route after graceful stop correctly
