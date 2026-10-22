@@ -1,6 +1,6 @@
 ---
 title: "Plan 49g: Shared contracts, maintenance and tooling"
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md]
@@ -10,6 +10,8 @@ doc_topics: [design, documentation, libraries, storage, validation]
 ---
 
 # Plan 49g: Shared contracts, maintenance and tooling
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 ## Purpose, basis and responsibility
 

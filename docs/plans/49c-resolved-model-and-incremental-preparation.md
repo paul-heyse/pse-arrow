@@ -1,6 +1,6 @@
 ---
 title: Resolved model and incremental preparation
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -9,6 +9,8 @@ doc_topics: [design, preparation, libraries, validation]
 ---
 
 # Resolved model and incremental preparation
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 This companion develops the preparation target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns rule decisions,

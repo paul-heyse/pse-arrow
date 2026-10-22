@@ -1,6 +1,6 @@
 ---
 title: Protected result batches and native selection
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -9,6 +9,8 @@ doc_topics: [storage, libraries, design, validation]
 ---
 
 # Protected result batches and native selection
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 This companion develops R4 and F06 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)

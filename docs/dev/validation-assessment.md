@@ -260,6 +260,18 @@ Missing records/files and unattempted declared gates remain explicit. A readable
 or incomplete assessment gives reader exit zero; this means only that it was read.
 Missing/malformed checkpoints give exit 1; usage or an unknown gate gives exit 2.
 
+## Representative functional selections
+
+Choose package/filter selections that reveal the changed contracts. The whole-workspace
+`native-test` command also includes fresh full-schema fixtures, real-window lifecycle
+controls and large store qualification cases. It is not a default fast functional bundle.
+Pure controls, native-local solver/ownership checks and selected live-store transitions
+should be qualified at representative scale. Page-boundary and race controls retain their
+actual boundary and relevant orderings; full deployment/capacity journeys remain explicitly
+selected scope. Report exclusions and interrupted cases rather than treating a smaller
+selection as full qualification. Plan49's current [qualification approach](../plans/49h-qualification-and-design-publication.md#representative-functional-checks)
+records the selected fixture corrections and evidence limits.
+
 ## Individual commands
 
 | Command | Scope |

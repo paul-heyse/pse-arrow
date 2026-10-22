@@ -1,6 +1,6 @@
 ---
 title: Runtime and native execution remediation
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -9,6 +9,8 @@ doc_topics: [design, numerical-execution, validation]
 ---
 
 # Runtime and native execution remediation
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 This companion develops R10–R16, retained-pool drain F04 and the fitting termination candidate F05 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)

@@ -1,6 +1,6 @@
 ---
 title: Symbolica mathematical execution
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -9,6 +9,8 @@ doc_topics: [design, libraries, numerical-execution, preparation, validation]
 ---
 
 # Symbolica mathematical execution
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 This companion develops the mathematical execution target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns source dispositions,

@@ -126,6 +126,17 @@ bounded `pse.slice` hierarchy. Their scopes omit `MemoryMax` and `MemorySwapMax`
 verify actual `memory.max=max` through every ancestor, including the cgroup root.
 A finite ancestor refuses this mode instead of substituting a RAM-sized cap.
 
+Resident functional/timing store counts are declared by `store_slots` beside each
+lane's existing `store_gib` in `.config/agent-capacity.toml`. Each admitted store retains
+its complete finite charge. An unknown prior owner still occupies its slot; admitting
+another deployment never settles or frees the first deployment's effects.
+
+Run separate Clippy feature graphs sequentially: concurrent default/native Clippy runs
+have formed a read/write artifact-lock upgrade cycle on the pinned Cargo implementation.
+Independent ordinary builds and functional work may still overlap. Native provider
+preparation can also wait for an active Cargo artifact writer; this does not lower the
+declared compiler-job count.
+
 Explicit `--resource-class`, `PSE_RESOURCE_CLASS` and finite `PSE_MEMORY_MAX` choices
 keep their existing precedence; local mode changes recipe defaults only. Managed-primary,
 reference and timing routes keep their selected bounded allocations and isolation.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 49h: Qualification and design publication"
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md]
@@ -11,6 +11,8 @@ doc_topics: [design, validation, performance, documentation]
 ---
 
 # Plan 49h: Qualification and design publication
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 ## Purpose and evidence boundary
 
@@ -51,6 +53,50 @@ An existing shared-resource-registry migration is an environment prerequisite at
 owner, not a product repair adopted by this plan. A deliberately isolated test registry
 may establish local evidence, but is named as such and does not qualify the canonical
 resource registry or actual canonical store.
+
+### Representative functional checks
+
+The maintainer selected representative functional assessment on 2026-10-22 and canceled
+the broad native sweep. The [coordinator pause handoff](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21)
+owns actual results, interruption and retained-state status. This section specifies the
+revised approach; the scale/setup corrections below are **Proposed**, not implemented.
+No further campaign or benchmark is authorized by documenting them.
+
+Routine checks use the smallest fixture that exercises each required transition, refusal,
+source attribution, conservation/accuracy assertion and ownership boundary. Resource policy,
+fan-out, payload extent and validity windows need not copy production defaults. They must
+remain valid inputs to the same checked implementation. Retain real schema/query semantics
+when those contracts are the subject; never stamp a reduced schema with the complete
+production schema digest or bypass normal admission to accelerate a test.
+
+Separate pure model/policy/codec controls, native-local execution and selected live-store
+contract checks using the existing package/filter routes. A whole-workspace native sweep
+includes expensive store qualification and is not the default representative functional
+selection. Explicit 16-client characterization, large declaration inventories, large-payload
+multi-page campaigns and real production-window coverage remain separately selected
+full-store component qualification. They are not silently replaced by a small smoke pass,
+and they do not require a benchmark for this pause closeout.
+
+| Existing case | Representative correction | Preserve |
+| --- | --- | --- |
+| Artifact original intent / bounded collection | Each already stores one four-byte block but waits for the production 60-second creation window. Supply a short legally admitted original window, fixed before sealing/submission, through the same checked path; implementing that input remains necessary if the current constructor cannot express it. | Real server-clock expiry, pending-window refusal, immutable intent, late-creation fencing, settlement and replay; keep production-default coverage separately |
+| ACK close corruption variants | Initialize one database for the four variants; assign distinct run/claim/operation keys and independent attempts. | Every original corruption refusal and the open-attempt assertion; remove three repeated full-schema installations |
+| Seed inventory variants | Initialize one database for three states with distinct attempt/seed/operation identities. | Unregistered, registered-but-unacknowledged and fully acknowledged states; remove two repeated installations |
+| Edge-first retirement | Replace 128 nodes/1,024 edges with 2 nodes/65 edges for the 64-edge page boundary; use 65 nodes/65 edges if the same case must also cross the node-page boundary. | Edge-first deletion, continuation, live roots, final absence and replay |
+| Result paging / concurrent effects | Use one item past the actual page limit and the smallest distinct clients needed for the interleaving. | Actual production page/serialization boundary and both relevant orders; fixed-limit acceptance remains separately identifiable |
+
+Share a database only within independent variants whose identities and effects remain
+separate. Fresh installation, absent/corrupt databases, fixture lifetime and true cross-database
+isolation controls still require their own fixtures. Preserve native numerical value,
+derivative, cancellation, original-clock and physical lifetime assertions.
+
+The interrupted report observed 112.698 s for retirement, 98.138 s for ACK close, 84.112 s for seed
+inventory, and 88.032 s/85.917 s for the two artifact controls. These are whole-test durations
+under concurrent load, not phase measurements. Add revealing setup/body/drain timings before
+attributing latency to SurrealDB, Rust, schema installation, transport or cleanup. Repeated
+full-schema setup and explicit 60-second waits are established work, but their aggregate
+contribution has not been measured. Scope the next selection by the changed contracts and
+reuse already completed case evidence; do not automatically repeat the canceled sweep.
 
 ### Scenario coverage and independent controls
 

@@ -1,6 +1,6 @@
 ---
 title: Python and scientific boundary remediation
-status: proposed
+status: in-progress
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -9,6 +9,8 @@ doc_topics: [design, libraries, validation]
 ---
 
 # Python and scientific boundary remediation
+
+Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 This companion develops R17, R18 and R20/F10 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)

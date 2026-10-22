@@ -9,7 +9,10 @@ selected; all rule decisions are recorded at the coordinator. The maintainer aut
 STO01–STO08 are complete with a fresh active MX1.0/gRPC store and selected assembled
 qualification. The [store Outcome](49-library-native-remediation.md#outcome--plan49a-canonical-store)
 owns exact results and limits. The maintainer also authorized full 49b–49h execution;
-the coordinator owns remaining package progress and acceptance.
+the coordinator owns remaining package progress and acceptance. Execution is paused at the
+maintainer's request; its [pause handoff](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21)
+owns the integrated checkpoint, completed checks, canceled native sweep, representative
+functional assessment and remaining obligations.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the

@@ -671,6 +671,10 @@ to support an unmade quantitative benefit claim. Formal ADR acceptance remains s
 
 ## Execution checkpoint — remaining series authorized, 2026-10-21
 
+The following development observations retain their original stage and evidence scope. The
+[pause handoff](#pause-handoff--requested-closeout-2026-10-21) is the current state; references
+to pending checks below describe those earlier stages.
+
 The maintainer authorized the conversational execution approach for all remaining 49b–49h
 packages. Clean starting source is `4065690aa`. STO01–STO08 remain done and RES04 remains
 superseded; existing generated data can be regenerated. Proposed ADR-0215 and blueprint241
@@ -853,9 +857,123 @@ work to native children. The command parent now authenticates its exact register
 cgroup, invocation and inode before establishing foreground custody; it gains no native
 reuse authority. Seventeen targeted controls passed, including actual-kernel normal and
 original-deadline descendant drain. All owned test scopes and allocations were released.
-PRE04's direct production rewrite, exact attribution and compiler/portable consumers
-remain the larger open functional dependency; its temporary drafts are uncompiled and
-have not replaced the production path.
+PRE04's direct typed producer, compiler/portable consumers and per-body receiving
+source bindings are now integrated in the checkout. Specialization emits typed roots,
+original-source correspondence and physical obligations during its one construction rewrite;
+compiler projection and numerical construction consume those products directly. The old
+dispatch-body expansion and its final consumer are removed. Ordered composition retains
+original guards, nominal member boundaries, ranges, actual input contracts and independent
+source/member tokens. Provider conversion/partial contracts are prepared before numerical
+construction and restored only inside qualified recipe sessions. Broader PRE04 acceptance,
+remaining retirement and assembled qualification remain open.
+
+### Pause handoff — requested closeout, 2026-10-21
+
+Verified 2026-10-22. The maintainer requested integration, correction, qualification,
+documentation and local commits before pausing. On 2026-10-22 the maintainer canceled the
+broad native sweep and selected representative functional assessment without a benchmark
+or production-scale campaign. Remaining 49b–49h execution is paused; nothing here completes
+those packages or authorizes automatic continuation. There is one checkout on `main`, no
+worktree merge is needed, and all workers and one-shot closeout jobs have drained.
+
+**Implemented:** direct typed model/body production and consumers, receiving source maps,
+demanded original-equation preparation, protected result/maintenance consumers and strict
+directional Python documents are integrated. Original supplier projection now retains real
+independent coordinates and only substitutes selected suppliers and their demanded dependency
+closure. Private inner KINSOL execution honors explicitly tighter normalized precision while
+retaining public defaults, native failure qualification and the original accuracy assertions;
+its solver identity advances to v2. Physical body premises remain distinct from the complete
+receiving deployment envelope. Generated scientific artifact completeness is qualified by the
+admitted modeling/simulation/fit family. Positive native fixtures admit their complete finite
+construction envelopes, and escaped registrations prove actual program ownership after cache
+clear. No compatibility path or scientific tolerance relaxation was introduced for these fixes.
+
+**Tested, baseline zero:** the final completed checks below passed. Rust correctness selections
+used explicit Arrow force-validation; Python used the rebuilt linked, validated extension,
+Python 3.14.8 and 16 workers. Ordinary build placement retains the maintainer's unbounded-memory,
+16-compiler-job selection; scientific children retain their own finite contracts.
+
+| Command / scope | Result and boundary |
+| --- | --- |
+| `just clippy` | Full workspace/all-target default and no-default graphs; zero errors/warnings, keep-going, warnings denied |
+| Native `just clippy-default` | Full workspace/all-target selected native/canonical/maintenance graph; zero errors/warnings; feature selection below |
+| `just typecheck`; `just lint-py` | Pyrefly zero diagnostics (three existing suppressions); Ruff zero findings |
+| Full zero-argument `just codegen` | All five publication targets passed, no final generated drift |
+| `just test -E '<functional-filter>'` | 3,491 passed, zero failures, nine skipped; default graph on the new functional store, run `e4710ccd-8c7b-42ba-8138-4d00a5801840` |
+| `just doctest` | 48 passed, zero failures or ignored doctests |
+| `python -m scripts.python_tests --maxfail=0 --continue-on-collection-errors --basetemp <owned-directory>` | All 270 unit/component tests passed in 147.44 s; integration/performance/parity excluded |
+| `python -m scripts.setup_report <owned-output>` | All 1,241 tooling tests passed, zero failures/errors/skips |
+| Selected native-local repair controls | 17 backend precision/policy, 50 runtime, 19 child/target, 13 IBEX, six dynamics and four Pounce controls passed; these selections are not a unique combined test count or full native qualification |
+| `just ready` | Skill synchronization and doctor passed against the new 3.3.4/MX 1.0 deployment |
+
+The functional filter is `not binary(=worker) & not (package(pse-tests-conformance) & test(/^acceptance::/))`.
+The final native Clippy feature selection was
+`pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-operations/canonical-tests,pse-operations/canonical-maintenance,pse-tests-conformance/native-acceptance,pse-benches/native-process,xtask/canonical-tests`.
+The linked extension and its actual compiled API stubs were rebuilt before Python execution.
+The child/target selection passed 19/19 with a frozen terminal, completed projection and released
+host allocation; run `e3aa395b-6a23-4f2a-a753-28a51183a406`.
+
+**Canceled, not full native qualification:**
+`just native-test --profile local -E '<functional-filter>' --features pse-operations/canonical-maintenance`
+selected 4,779 tests across 80 binaries. The maintainer interrupted it after 862.203 s of test
+execution: **2,759 passed, 11 SIGINT, 2,009 not_run**, with 30 tests and one binary skipped
+(including six managed-primary tests excluded by the default filter). No failure was reported
+before interruption. Nextest labels the interrupted cases failures; they are not 11 diagnosed
+regressions. Run `16c32128-60a0-4317-955e-c3b37af45bd2` and
+`build/native-tests/1792650816881675357/native.json` retain the selected scope. The frozen
+invocation is `f8d0dc8ea0e2480f849e420e4517e61b`; its XML preserves individual outcomes and
+durations. Its assessment is incomplete, while terminal acknowledgment, metadata projection,
+physical process/scope drain and host allocation release completed. The identity-mismatch
+footer reports interrupted coverage, not additional scientific failures.
+
+Individual completed results remain bounded evidence. In that interrupted run, the repaired
+exact-protection settlement, bounded interval reclamation and blocked-product controls passed
+in 11.789 s, 14.260 s and 24.136 s respectively. These durations include concurrent execution and
+fixture work, not isolated mechanism measurements. Full integrated worker/acceptance/managed
+journeys, parity, performance, feature powersets and platform qualification were not_run.
+No build-speed, scientific-speed or memory-capacity improvement is claimed.
+
+**Functional assessment:** the broad sweep mixes pure/native-local controls with expensive
+live-store qualification. Each initialized UUID fixture installs 251,529 bytes containing 777
+table/field/index/function/event declarations in one atomic transaction, with two physical
+clients, authorization/context selection and durable registry registration/drain. This is
+per-fixture work, not 777 external RPCs or per-query Python mediation. Sampled concurrency
+varied from one exclusive control to 16 simultaneous store tests; low occupancy was not a
+compiler-job limit. More importantly, two four-byte artifact cases explicitly wait for the
+production 60-second original creation window. Whole-test timings do not isolate schema,
+transport, registry or cleanup cost. The [representative functional route](49h-qualification-and-design-publication.md#representative-functional-checks)
+owns the revised qualification approach and proposed fixture corrections. No replacement
+campaign, benchmark or scale/setup rewrite was run after cancellation.
+
+**Store and retained-state handoff:** earlier ENOSPC poisoned the old functional engine.
+Free space did not clear its fail-stop. Normal restart correctly refused three unobserved
+fixture-creation borrowers from earlier invocation `d63c4731f12e4cc7b2a0d7eef19f7fac`.
+That old service, data and evidence were preserved. Its dead-job owner
+`bb40005600a842fab3327793beb5dd15` still retains one build slot through its unsatisfied
+terminal guard; no supported same-boot recovery acknowledgment was fabricated.
+
+A separate generated deployment was initialized through the normal canonical-tools route and
+opened with the current `pse.substrate.v8` contract. The ignored local selector now names
+`~/.local/state/pse-arrow/surreal-plan49-closeout-20261022`, gRPC loopback18349,
+instance `6e982d05-8e9a-452f-a4a6-c39af9104387`. Host policy explicitly admits two functional
+stores, each retaining its own 8 GiB charge; all 57 host-admission controls passed, including
+third-store refusal, timing isolation and retention of an unknown owner. Ordinary build
+memory policy is unchanged. Both persistent services remain intentional resident state.
+
+The newly canceled campaign retains 217 pinned resources: 206 recorded physically drained,
+11 with unobserved creation effects despite dead borrower PIDs. Its current finalizer marks
+all resources incomplete when overall selected coverage is interrupted. None was deleted
+or relabeled successful. These retained effects differ from the fully drained job processes.
+TOOL04/RUN01 retain the recovery/disposition obligation, including truthful per-test outcomes;
+unknown external effects cannot be released merely because a process disappeared. Unsupported
+historical profile records were also preserved rather than rewritten to silence cleanup output.
+
+**Next work, only after explicit resumption:** implement the representative functional fixture
+and selection changes in 49h, retaining actual contract semantics and all refusal/source/clock
+assertions. Address retained-state disposition through its authenticated owners. Reconcile
+remaining producer/caller retirement and package acceptance, then select the still-required
+assembled QUAL journeys and enduring publication. GOV02, the remaining 49b–49h packages and
+whole-series qualification remain open. Proposed ADR-0215 does not by itself establish them.
 
 ### Bounded native inquiry dispositions
 
