@@ -43,6 +43,29 @@ Under invocation exclusion registration verifies Open, reserves identity, durabl
 
 The selected terminal composer freezes an immutable authenticated terminal identity binding catalog/selection, workload status/signal, complete or partial reports, dispositions, reconciliation and drain. It then releases invocation exclusion and projects exact members individually. Projection is idempotent against that terminal identity and can resume after interruption. Pass needs complete authentic passing evidence. Freeze does not prove effect drain: accepted creation/effect borrowers remain owned and charged through settlement. Bare unassociated resources remain incomplete/pinned. Reports and membership remain until projection, diagnostic retention and references release them.
 
+### Explicit abandonment without a terminal (Plan50 C05)
+
+The maintainer selected this extension on 2026-10-22. An explicit exact-invocation
+abandonment may close membership separately from terminal reconciliation, under the same
+invocation authority, exclusion order and original deadline. Resolve proven unpublished
+Pending intents and reconstruct published members using the existing conservative rules;
+uncertain or contradictory publication remains protected. Durably publish membership closure
+before projecting any release and refuse later registration before effects. Repeated or
+interrupted requests resume the same disposition; they never reopen membership.
+
+An absent terminal remains absent. Abandonment supplies no terminal identity, outcome,
+selection acknowledgement or automatic-cleanup eligibility. An existing frozen terminal stays
+immutable. The selected terminal composer remains the sole outcome authority; disposition
+must not race a live composer or resurrect closed execution. Physical owner/descendant drain,
+creation borrowers, reference protections and unknown external effects retain their existing
+release conditions. Resource removal remains exact, separately resumable owner work.
+
+The alternative of synthesizing an incomplete terminal would claim reconciliation that did
+not occur; releasing individual resources without closing membership leaves a late-registration
+race. A separate membership fence expresses the actual operator decision without either error.
+Plan50 C05 owns registration/disposition races, crash-prefix recovery, truthful missing-terminal
+reads and protected-effect controls. This target is Proposed until those controls establish it.
+
 Cutover excludes legacy writers using the existing legacy lock; imports and validates identified live/unresolved and known cold authorities; then durably publishes the unsupported-version refusal sentinel at the legacy ledger path **before** v2 activation. A crash in this fenced-but-unactivated state makes old writers refuse; the new owner resumes/validates the same staged imports under legacy exclusion and publishes activation only when they agree. It never serves writable v1 while recovering. All consumers migrate together. Preserve ambiguous records and migration evidence. Never restore a writable v1 ledger after activation. No automatic live production registry cutover is part of the implementation tests.
 
 ### Consequences
@@ -68,3 +91,5 @@ Exact access removes unrelated ledger work while keeping policy local. Pending m
 ## Status history
 
 - 2026-10-11 — proposed during maintainer-authorized execution of the accepted Plan 36 target.
+
+- 2026-10-22 — maintainer selected explicit abandonment membership closure for Plan50 C05; terminal and release safeguards retained; status unchanged.

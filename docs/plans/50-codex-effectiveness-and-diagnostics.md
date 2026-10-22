@@ -1,6 +1,6 @@
 ---
 title: "Plan 50: Codex effectiveness and diagnostic tooling"
-status: draft
+status: in-progress
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -57,7 +57,7 @@ acceptance descriptions; they link this state rather than copy it.
 - Active diagnostics have separate requests and declared effects. Existing passive readers
   and exporter-only `CaptureSession` do not gain hidden process control or task re-polling.
   Python runtime capture options do not inherently require a new interpreter build.
-- No rule waiver is selected by this plan. Its disposal workflow uses existing explicit-release
+- The maintainer accepted C05 separate abandonment membership closure on 2026-10-22; proposed ADR-0174 and blueprint §24.1 are amended before dependent implementation. Existing terminal truth and all release protections remain. No broader rule waiver is selected by this plan. Its disposal workflow uses existing explicit-release
   authority; its diagnostic selection preserves ordinary build and observation contracts.
   If an investigation finds that a required behavior needs an actual rule change, present the
   exact change for explicit operator acceptance before fixing that dependent target, following
@@ -135,7 +135,7 @@ owners; do not force every operational result through a scientific product schem
 | [50f](50f-preparation-explanations-and-reproducers.md) | Edit/preparation, mathematical/relational comparison and supported executable reproducers |
 | [50g](50g-qualification-and-publication.md) | Representative composed acceptance, scope-end checks and enduring publication |
 
-Plan49g TOOL01/BND05 supplies catalogue projection; TOOL05 owns its product/tooling separation;
+Plan49g TOOL01 supplies catalogue projection; BND05 is downstream scientific-boundary adoption, not a general prerequisite; TOOL05 owns its product/tooling separation;
 TOOL08 supplies canonical blocker/source/consumer explanations; TOOL04/RUN01 retains its
 maintenance/recovery-disposition work. Consume exact delivered slices rather than declaring
 all of Plan49g a prerequisite. In particular, O19's canonical graph consumer can wait for TOOL08
@@ -306,7 +306,7 @@ recorded with exclusions; enduring operation/contract meaning is published throu
 An unavailable optional tool is an honest inquiry outcome, not permission to mark a required
 workflow delivered without its explicitly supported alternative or narrowed scope.
 
-Current checkpoint: the target is proposed and production execution is not started. The first
+Current checkpoint: the maintainer authorized all Plan50 scope on 2026-10-22. Environment/session, host lifecycle, database and preparation implementation are underway; composed acceptance and scope-end qualification remain open. The first
 executable work after authorization is A01 plus the independent C01/E01 contract slices and
 ready B/D/F source-owned work. Other active plans keep their own checkpoints. Authoring evidence
 and any later plan changes must not overwrite historical source-review judgments or old receipts.

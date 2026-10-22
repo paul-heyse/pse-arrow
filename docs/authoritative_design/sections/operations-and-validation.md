@@ -570,6 +570,14 @@ activation. Fenced-but-unactivated recovery validates the same staged imports be
 activation, preserving uncertainty/evidence and never restoring writable legacy metadata. Plan 36e owns the
 implementation and actual-file/race qualification of this amendment.
 
+Explicit exact-invocation abandonment may separately close membership under that same
+owner and exclusion, without fabricating a missing terminal. Pending publication uncertainty
+remains protected; later registration refuses before effects. Disposition is resumable and
+never grants automatic cleanup, overrides a frozen terminal or bypasses owner/descendant
+drain, creation borrowers, references or unknown external effects. The selected composer
+retains sole outcome authority. Plan50 C05 owns implementation and race/recovery qualification
+of this maintainer-selected extension to proposed ADR-0174.
+
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
 (default feature graph), `just native-test` (full linked native feature graph),
