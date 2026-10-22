@@ -168,10 +168,11 @@ fn evaluate(page: Page) -> Reply {
 
 #[cfg(target_family = "wasm")]
 #[surrealism::surrealism]
+// The SDK module macro recognizes unqualified nested attributes when composing namespaces.
 mod study {
     use super::{Page, Reply, evaluate};
     /// Compute readiness from one complete bounded native scope. Grants no permission.
-    #[surrealism::surrealism]
+    #[surrealism]
     fn readiness(page: Page) -> Reply { evaluate(page) }
 }
 
@@ -181,15 +182,15 @@ mod study {
 #[surrealism::surrealism]
 mod qualification {
     /// Trap after a sibling native write so rollback can be observed independently.
-    #[surrealism::surrealism]
+    #[surrealism]
     fn trap() -> bool { core::arch::wasm32::unreachable() }
 
     /// Deliberately consume an invocation until strict runtime interruption.
-    #[surrealism::surrealism]
+    #[surrealism]
     fn busy() -> bool { loop { std::hint::spin_loop(); } }
 
     /// An allocation larger than the declared linear-memory ceiling must refuse.
-    #[surrealism::surrealism]
+    #[surrealism]
     fn memory_refused() -> bool {
         let mut bytes = Vec::<u8>::new();
         bytes.try_reserve_exact(96 * 1024 * 1024).is_err()
