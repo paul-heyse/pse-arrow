@@ -1162,47 +1162,5 @@ mod tests {
         };
         assert!(SelectedRegion::combine(std::slice::from_ref(&row), &ports, &stale).is_err());
     }
-    #[test]
-    #[allow(
-        unsafe_code,
-        reason = "controlled test recipe transfers only actual admitted support; restoration must remain non-live"
-    )]
-    fn region_composition_refuses_qualified_restored_support_as_live_context() {
-        let (registry, facts, scope, ty) = setup();
-        let context = context(&registry, &facts, &scope);
-        let (model, relation, _) = model(80, &ty);
-        let mut row = model
-            .prepare_region(
-                RegionRequest {
-                    outputs: &[RegionOutput::RelationResidual(relation)],
-                    validity: &[],
-                },
-                &context,
-            )
-            .unwrap();
-        let record = SupportRecord::capture(&row.support).unwrap();
-        let (_, stream) =
-            pse_quantity::resolved::receipts::capture(|| Ok::<_, pse_quantity::QuantityError>(()))
-                .unwrap();
-        let payload = serde_json::to_vec(&(&stream, &record)).unwrap();
-        let digest = pse_ids::scientific_replay::admitted_recipe_payload_hash(&payload);
-        // SAFETY: Isolated immutable fixture of actual successful model admission,
-        // using the private process authority boundary solely to exercise strict replay.
-        let recipe = unsafe {
-            pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_process_message(
-                payload,
-                digest,
-                ContentHash::from_bytes([1; 32]),
-                ContentHash::from_bytes([2; 32]),
-            )
-        }
-        .unwrap();
-        row.support = pse_quantity::resolved::receipts::replay(&stream, recipe.records(), || {
-            Ok::<_, pse_quantity::QuantityError>(record.restore(&row.syntax))
-        })
-        .unwrap()
-        .unwrap();
-        row.support_identity = support_identity(&row.support);
-        assert!(SelectedRegion::combine(&[row], &actual_inputs(&model), &context).is_err());
-    }
+
 }

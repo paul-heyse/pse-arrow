@@ -18,15 +18,44 @@
 
 mod common;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use syn::visit::Visit;
 
-use regex::Regex;
+#[derive(Default)]
+struct PublicStructs(BTreeSet<String>);
+impl<'ast> Visit<'ast> for PublicStructs {
+    fn visit_item_struct(&mut self, item: &'ast syn::ItemStruct) {
+        if !matches!(item.vis, syn::Visibility::Inherited) {
+            self.0.insert(item.ident.to_string());
+        }
+        syn::visit::visit_item_struct(self, item);
+    }
+}
+fn public_structs(source: &str) -> BTreeSet<String> {
+    let mut declarations = PublicStructs::default();
+    declarations.visit_file(&syn::parse_file(source).expect("valid Rust source"));
+    declarations.0
+}
+
+#[test]
+fn generator_text_is_not_a_struct_declaration() {
+    let source = r##"
+        pub struct Actual;
+        mod nested { pub(crate) struct Scoped; struct Private; }
+        const GENERATED: &str = r#"
+            pub struct Generated;
+        "#;
+        // pub struct Commented;
+    "##;
+    assert_eq!(
+        public_structs(source),
+        BTreeSet::from(["Actual".into(), "Scoped".into()])
+    );
+}
 
 #[test]
 fn no_hand_written_struct_shadows_a_generated_one() {
     let root = common::workspace_root();
-    let struct_re =
-        Regex::new(r"(?m)^\s*pub(?:\([^)]*\))?\s+struct\s+(\w+)").expect("static regex");
     let mut generated: BTreeMap<String, String> = BTreeMap::new();
     for directory in ["pse-model", "pse-relations"] {
         let directory = root.join(format!("crates/{directory}/src/generated"));
@@ -37,8 +66,8 @@ fn no_hand_written_struct_shadows_a_generated_one() {
         );
         let mut count = 0;
         for path in common::rust_sources(&directory) {
-            for caps in struct_re.captures_iter(&common::read(&path)) {
-                generated.insert(caps[1].to_owned(), common::rel(&path));
+            for name in public_structs(&common::read(&path)) {
+                generated.insert(name, common::rel(&path));
                 count += 1;
             }
         }
@@ -50,9 +79,8 @@ fn no_hand_written_struct_shadows_a_generated_one() {
         if common::rel(&path).contains("/src/generated/") {
             continue;
         }
-        for caps in struct_re.captures_iter(&common::read(&path)) {
-            let name = &caps[1];
-            if let Some(origin) = generated.get(name) {
+        for name in public_structs(&common::read(&path)) {
+            if let Some(origin) = generated.get(&name) {
                 problems.push(format!(
                     "{}: `pub struct {name}` shadows the generated one in {origin}",
                     common::rel(&path)

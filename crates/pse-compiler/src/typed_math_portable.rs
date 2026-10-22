@@ -250,3 +250,74 @@ pub(super) fn reconstruct_fixture(
     }
     Ok(body)
 }
+
+#[cfg(test)]
+#[test]
+#[allow(
+    unsafe_code,
+    reason = "controlled compiler fixture qualifies actual admitted support solely to test live-context refusal"
+)]
+fn region_composition_refuses_qualified_restored_support_as_live_context() {
+    use pse_modeling::resolved::{RegionOutput, RegionRequest, SelectedRegion};
+    let inputs = crate::authored_transfer_tests::context();
+    let scope = pse_modeling::PhysicalScope::default();
+    let context = pse_modeling::TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &inputs.quantities,
+        preconditions: &inputs.preconditions,
+        scope: &scope,
+    };
+    let declarations = pse_authoring::language::parse(
+        "package p {def Root {var x:Scalar; eq e:x==2;}}",
+        SemanticId::from_bytes([146; 16]),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    ).unwrap();
+    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let package = pse_modeling::check(&declarations, &context).unwrap();
+    let model = pse_modeling::specialize(
+        &package,
+        root,
+        pse_modeling::specialize::root_instance(root),
+        &pse_modeling::Bindings::default(),
+        pse_modeling::Limits::default(),
+    ).unwrap();
+    let relation = model.equation_roots[&model.equations[0].id];
+    let mut region = model.prepare_region(RegionRequest {
+        outputs: &[RegionOutput::RelationResidual(relation)],
+        validity: &[],
+    }, &context).unwrap();
+    let declaration = declarations.iter().find(|row| row.name == "x").unwrap().declaration_id;
+    let ports = vec![model.symbols.values().find(|symbol|
+        symbol.lineage.declaration == declaration
+            && symbol.lineage.instance == pse_modeling::specialize::root_instance(root)
+    ).unwrap()];
+    assert!(SelectedRegion::combine(std::slice::from_ref(&region), &ports, &context).is_ok());
+    let record = SupportRecord::capture(&region.support).unwrap();
+    let (_, stream) = pse_quantity::resolved::receipts::capture(||
+        Ok::<_, pse_quantity::QuantityError>(())
+    ).unwrap();
+    let payload = serde_json::to_vec(&(&stream, &record)).unwrap();
+    let digest = pse_ids::scientific_replay::admitted_recipe_payload_hash(&payload);
+    // SAFETY: This private compiler fixture retains the complete immutable record
+    // of actual successful source admission. It cannot issue production authority.
+    let recipe = unsafe {
+        pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_process_message(
+            payload,
+            digest,
+            ContentHash::from_bytes([1; 32]),
+            ContentHash::from_bytes([2; 32]),
+        )
+    }.unwrap();
+    region.support = pse_quantity::resolved::receipts::replay(&stream, recipe.records(), || {
+        Ok::<_, pse_quantity::QuantityError>(record.restore(&region.syntax))
+    }).unwrap().unwrap();
+    assert!(region.support.premises().is_err());
+    let error = SelectedRegion::combine(&[region], &ports, &context).unwrap_err();
+    assert!(error.to_string().contains("qualified restored support cannot supply live preparation context"), "{error}");
+}
+
+#[cfg(test)]
+#[path = "typed_math_quantity_record_tests.rs"]
+mod quantity_record_tests;
