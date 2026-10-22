@@ -1422,12 +1422,13 @@ fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
         crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
     ).unwrap();
     let reader = workspace.db.clone();
-    let token = reader.cancellation_token();
     let (ready, started) = std::sync::mpsc::channel();
     let worker = std::thread::spawn(move || {
         ready.send(()).unwrap();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        while !token.is_cancelled() {
+        while salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
+            reader.unwind_if_revision_cancelled();
+        })).is_ok() {
             assert!(std::time::Instant::now() < deadline, "observation did not cancel reader");
             std::thread::yield_now();
         }
