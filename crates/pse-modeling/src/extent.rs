@@ -28,7 +28,7 @@ fn closure_requirement(value: &crate::specialize::ClosureRequirement) -> usize {
         crate::specialize::ClosureTolerance::EngineeringRule { .. } => 0,
     }
 }
-fn selections(values: &crate::scientific_selection::Selections) -> usize {
+pub(crate) fn selections(values: &crate::scientific_selection::Selections) -> usize {
     map(values, |occurrence, closure| {
         occurrence.expression.capacity()
             + occurrence.roots.capacity() * size_of::<Value>()

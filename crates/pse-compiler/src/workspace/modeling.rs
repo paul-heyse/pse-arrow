@@ -351,6 +351,45 @@ fn function_contracts(
 ) -> Result<Arc<CheckedPackage>> {
     selected(db, catalog, root)
 }
+#[derive(Clone, Debug, PartialEq)]
+struct PreludeInput {
+    premises: Arc<pse_modeling::specialize::prelude::PreludePremises>,
+    bindings: pse_modeling::specialize::prelude::PreludeBindings,
+}
+impl Eq for PreludeInput {}
+impl std::hash::Hash for PreludeInput {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // A bucket hint only: complete entity-local premises remain Eq authority.
+        std::hash::Hash::hash(&self.bindings, state);
+    }
+}
+#[salsa::interned(heap_size=prelude_key_heap)]
+struct PreludeKey<'db> { input: Arc<PreludeInput> }
+fn prelude_key_heap((input,): &(Arc<PreludeInput>,)) -> usize {
+    input.premises.retained_bytes().saturating_add(input.bindings.retained_bytes())
+}
+#[salsa::tracked(returns(clone),lru=256,heap_size=prelude_heap)]
+fn instance_prelude(db: &dyn CompilerDb, key: PreludeKey<'_>) -> Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>> {
+    checkpoint(db);
+    let input = key.input(db);
+    let result = pse_modeling::specialize::prelude::derive(&input.premises, &input.bindings)?;
+    checkpoint(db);
+    Ok(Arc::new(result))
+}
+fn prelude_heap(value: &Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>>) -> usize {
+    value.as_ref().map_or(0, |prelude| prelude.retained_bytes())
+}
+struct QueryFragments<'db> { db: &'db dyn CompilerDb }
+impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
+    fn instance_prelude(&self, premises: Arc<pse_modeling::specialize::prelude::PreludePremises>, bindings: pse_modeling::specialize::prelude::PreludeBindings) -> std::result::Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>, pse_modeling::ModelingError> {
+        let key = PreludeKey::new(self.db, Arc::new(PreludeInput { premises, bindings }));
+        instance_prelude(self.db, key).map_err(|error| match error {
+            CompileError::Modeling(error) => error,
+            CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
+            error => pse_modeling::ModelingError::Contract { declaration: SemanticId::NIL, message: error.to_string() },
+        })
+    }
+}
 #[salsa::tracked(returns(clone),lru=64,heap_size=specialized_heap)]
 fn specialized(
     db: &dyn CompilerDb,
@@ -360,7 +399,7 @@ fn specialized(
     let _phase = pse_diagnostics::observation::phase("compiler.query.specialized");
     checkpoint(db);
     let package = selected(db, catalog, *request.root(db))?;
-    let result = pse_modeling::specialize::specialize_with_discretizer(
+    let result = pse_modeling::specialize::specialize_with_fragments(
         &package,
         *request.root(db),
         *request.instance(db),
@@ -368,6 +407,7 @@ fn specialized(
         *request.limits(db),
         &|| db.cancel().load(Ordering::Acquire),
         &LibraryDiscretizer,
+        Some(&QueryFragments { db }),
     );
     checkpoint(db);
     result.map(Arc::new).map_err(CompileError::from)
@@ -752,6 +792,7 @@ impl CompilerWorkspace {
             selected::set_lru_capacity(&mut self.db, self.limits.query_values);
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
             observed_specialization::set_lru_capacity(&mut self.db, self.limits.query_values);
+            instance_prelude::set_lru_capacity(&mut self.db, self.limits.query_values);
             physical_scope::set_lru_capacity(&mut self.db, self.limits.query_values);
             function_contracts::set_lru_capacity(&mut self.db, self.limits.query_values);
             document_table::set_lru_capacity(&mut self.db, self.limits.query_values);
