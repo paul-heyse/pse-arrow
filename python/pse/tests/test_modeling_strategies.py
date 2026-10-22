@@ -78,6 +78,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     selection = codec.decode_json(
         codec.encode_json(
             {
+                "document_version": 1,
                 "nodes": [case.to_hex()],
                 "connections": [
                     {
@@ -108,6 +109,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     request = codec.decode_json(
         codec.encode_json(
             {
+                "document_version": 1,
                 "tears": selected.decisions,
                 "units": [
                     {

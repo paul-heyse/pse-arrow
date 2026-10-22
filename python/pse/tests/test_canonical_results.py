@@ -122,7 +122,9 @@ def _physical_cache_usage(runtime: pse.Runtime) -> tuple[int, int]:
 
 @pytest.mark.component
 def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
-    inspection_settings: pse.EngineSettings, tmp_path: Path
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
     state = tmp_path / "private-storage"
     state.mkdir(mode=0o700)
@@ -138,8 +140,12 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
         )
     )
     credentials.chmod(0o600)
+    # Borrow the immutable selected artifact receipt. The private endpoint below
+    # is synthetic, but its local module admission must use real pinned evidence.
+    selected = server.read_json(Path(canonical_substrate.state) / "config.json")
     config = {
         "profile_version": 3,
+        "study_module": selected["study_module"],
         "endpoint": "grpc://127.0.0.1:1",
         "namespace": "fixture",
         "database": "fixture",
@@ -159,6 +165,9 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
     with pytest.raises(pse.InspectionError) as mismatch:
         pse.Runtime(inspection_settings, substrate=str(state))
     assert mismatch.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+    interpretation_detail = mismatch.value.report.observations["detail"]
+    assert isinstance(interpretation_detail, ObservationText)
+    assert "unsupported-fixture-interpretation" in interpretation_detail.value
     stopped = threading.Event()
     accepted = threading.Event()
     with socket.socket() as listener:
@@ -188,9 +197,9 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
             )
             # An expired gRPC capability handshake keeps the public typed
             # infrastructure boundary and its owned diagnostic detail.
-            assert isinstance(
-                timeout.value.report.observations["detail"], ObservationText
-            )
+            detail = timeout.value.report.observations["detail"]
+            assert isinstance(detail, ObservationText)
+            assert "deadline expired" in detail.value
         finally:
             stopped.set()
             # If construction refused before connecting, wake the fixture's accept.

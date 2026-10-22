@@ -21,15 +21,45 @@ from pse.contracts.enums import (
     DynamicSensitivity,
     DynamicsMethod,
     HessianMode,
+    ModelingDeclarationKind,
+    Namespace,
     NativeBackend,
     NativeSolveIntent,
     NumericalTarget,
     PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId
+from pse.contracts.reference import ReferenceSchemaRelationsRow
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.physical_input_fixture import coordinate_batch, member
+
+
+def _source_declarations(
+    package: pse.ModelingPackage, settings: pse.EngineSettings
+) -> list[authored.AuthoredModelingDeclarationsRow]:
+    with (
+        pse.registry_table("reference.schema_relations", settings=settings) as stream,
+        pa.RecordBatchReader.from_stream(stream) as reader,
+    ):
+        relations = codec.structure_rows(
+            reader.read_all().to_pylist(), ReferenceSchemaRelationsRow
+        )
+    declaration_relation = next(
+        relation.relation_id
+        for relation in relations
+        if relation.namespace is Namespace.AUTHORED
+        and relation.name == "modeling_declarations"
+    )
+    sources = package.source_tables()
+    try:
+        return codec.structure_rows(
+            pa.table(sources[declaration_relation]).to_pylist(),
+            authored.AuthoredModelingDeclarationsRow,
+        )
+    finally:
+        for stream in sources.values():
+            stream.close()
 
 
 @pytest.mark.integration
@@ -121,11 +151,8 @@ def test_public_native_process_and_exact_results(
         )
     }
     assert expectations <= {SemanticId(row["source_id"]) for row in checks}
-    sources = package.source_tables()
-    source = pa.table(sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")])
-    assert any(SemanticId(row["declaration_id"]) == case for row in source.to_pylist())
-    for stream in sources.values():
-        stream.close()
+    declarations = _source_declarations(package, inspection_settings)
+    assert any(row.declaration_id == case for row in declarations)
     arrays = table.column("value").chunks
     del table, result, prepared, package, runtime
     gc.collect()
@@ -251,15 +278,31 @@ def test_public_dynamic_and_transient_fit(
     assert pa.table(joined.table("runtime.simulation_samples")).to_pylist() == [
         {**row, "run_id": bytes.fromhex(joined.run_id.to_hex())} for row in samples
     ]
-    sources = package.source_tables()
-    assert (
-        pa.table(
-            sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")]
-        ).num_rows
-        > 0
+    declarations = _source_declarations(package, inspection_settings)
+    experiment = next(
+        row
+        for row in declarations
+        if row.name == "Experiment"
+        and row.value.kind is ModelingDeclarationKind.DEFINITION
     )
-    for stream in sources.values():
-        stream.close()
+    children = {
+        row.name: row
+        for row in declarations
+        if row.parent_id == experiment.declaration_id
+    }
+    rate = children["rate"]
+    assert rate.value.kind is ModelingDeclarationKind.PARAMETER
+    assert rate.value.binding is not None
+    assert rate.value.binding.expression == "3"
+    total = children["total"]
+    assert total.value.kind is ModelingDeclarationKind.VARIABLE
+    assert total.value.binding is not None
+    assert len(total.value.binding.indices) == 1
+    assert total.value.binding.indices[0].domain == "t"
+    assert any(
+        row.declaration_id == case and row.name == "experiment_integrated"
+        for row in declarations
+    )
     assert joined.canonical_run_key is not None
     assert joined.canonical_attempt_key is not None
     (stored,) = pa.table(
@@ -332,7 +375,9 @@ def test_public_dynamic_and_transient_fit(
         authored.AuthoredFitCasesRow,
     )
     package = package.with_fit_declarations((fit,))
-    simulation_profile = settings.document
+    # Standalone coordinate keys belong to the case instance. Each fit experiment
+    # has its own instance and consumes the integration controls authored above,
+    # with forward sensitivities selected by the fitting response owner.
     fit_settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
         intent=NativeSolveIntent.OPTIMIZE,
@@ -349,11 +394,6 @@ def test_public_dynamic_and_transient_fit(
                         "version": 1,
                         "settings": {
                             "solver": fit_settings,
-                            "simulations": {
-                                fit.experiments[
-                                    0
-                                ].experiment_id.to_hex(): simulation_profile
-                            },
                         },
                     }
                 ),
