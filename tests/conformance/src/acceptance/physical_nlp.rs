@@ -64,7 +64,6 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
     let id = |s| pse_ids::SemanticId::parse_hex(s).unwrap();
     let heater = id("68ba8dc2d6b05d9a9fe1b1a3625d8015");
     let optimization = id("079a378ba3ce46728b32c87f4fe6a3df");
-    let flash = id("040af20814bc57abb565c3c7f680be05");
     for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
         let prepared = seed_prepare(
             &package,
@@ -179,23 +178,6 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         assert_eq!(kkt.stationarity, Some(true));
         assert_eq!(kkt.complementarity, Some(true));
     }
-    for backend in [Backend::Ipopt, Backend::Pounce] {
-        let result = seed_prepare(
-            &package,
-            flash,
-            profile(backend, false),
-            &CancelSource::new(),
-        )
-        .await
-        .unwrap()
-        .start()
-        .unwrap()
-        .wait()
-        .await
-        .unwrap();
-        native_failure_context(&result, flash, backend, &Default::default());
-        authored_success(&result);
-    }
     for case in [
         "fc52409793e44e61adb3eff88946fdb6",
         "efcd1d0ad288438daf6764b4ab25a2a6",
@@ -229,4 +211,37 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         .await
         .is_err()
     );
+}
+
+/// Keep the guarded flash demand independently selectable from the heater and
+/// optimization routes, with the same original scientific/result qualifications.
+#[tokio::test]
+async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualification() {
+    let owner = WorkflowRuntime::new().unwrap();
+    let package = seed_package(&owner).await;
+    let flash = pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
+    for backend in [Backend::Ipopt, Backend::Pounce] {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("guarded flash constructor populations");
+        let context = operation.context();
+        let prepared = pse_diagnostics::observation::scope(
+            Some(context.clone()),
+            seed_prepare(&package, flash, profile(backend, false), &CancelSource::new()),
+        ).await;
+        let mut pending = vec![context.reader()];
+        let mut visited = std::collections::HashSet::new();
+        while let Some(reader) = pending.pop() {
+            let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+            if !visited.insert(snapshot.id) {
+                continue;
+            }
+            for metric in snapshot.metrics.iter().filter(|metric| metric.name.starts_with("math.scalar_") || metric.name.starts_with("math.constructor_")) {
+                eprintln!("flash {backend:?} operation {:?}: {} cumulative={:?} latest={:?}", snapshot.id, metric.name, metric.cumulative, metric.latest);
+            }
+            pending.extend(snapshot.children.iter().filter_map(|child| hub.reader(child.id)));
+        }
+        let result = prepared.unwrap().start().unwrap().wait().await.unwrap();
+        native_failure_context(&result, flash, backend, &Default::default());
+        authored_success(&result);
+    }
 }

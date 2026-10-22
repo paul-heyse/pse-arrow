@@ -86,43 +86,59 @@ fn expansion_with_products(
 pub(crate) struct EvaluatorConstruction {
     pub(crate) entries: usize,
     pub(crate) instructions: usize,
+    /// Separate arbitrary-precision literal payload/copies, never numeric slots.
+    pub(crate) coefficient_payload: usize,
 }
-fn source_operations<'a>(
+/// Distinct source populations: encoded payload bytes are not numeric slots.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct SourceShape {
+    bytes: usize,
+    nodes: usize,
+    operands: usize,
+    literal_bytes: usize,
+    operations: usize,
+}
+fn source_shape<'a>(
     expressions: impl IntoIterator<Item = &'a Atom>,
-) -> Result<usize, MathError> {
-    let mut operations = 0usize;
-    let mut failed = false;
+) -> Result<SourceShape, MathError> {
+    let mut shape = SourceShape::default();
     for expression in expressions {
+        shape.bytes = add(shape.bytes, expression.as_view().get_byte_size())?;
+        let mut failed = false;
         expression.as_view().visitor(&mut |node| {
-            let next = match node {
-                AtomView::Add(a) => Some(a.get_nargs().saturating_sub(1)),
-                AtomView::Mul(a) => Some(a.get_nargs().saturating_sub(1)),
-                AtomView::Pow(p) => match isize::try_from(p.get_exp()) {
-                    Ok(exponent) => exponent
-                        .unsigned_abs()
-                        .saturating_sub(1)
-                        .checked_add(usize::from(exponent < 0)),
-                    Err(_) => Some(1),
-                },
-                // Atom::count_operations in 3.0.1 omits Fun nodes. Count them here
-                // because the exact evaluator and Dualizer do allocate for them.
-                AtomView::Fun(_) => Some(1),
-                _ => Some(0),
+            let mut record = || -> Result<(), MathError> {
+                shape.nodes = add(shape.nodes, 1)?;
+                let (operands, operations) = match node {
+                    AtomView::Add(a) => (a.get_nargs(), a.get_nargs().saturating_sub(1)),
+                    AtomView::Mul(a) => (a.get_nargs(), a.get_nargs().saturating_sub(1)),
+                    AtomView::Pow(p) => (2, match isize::try_from(p.get_exp()) {
+                        Ok(exponent) => add(exponent.unsigned_abs().saturating_sub(1), usize::from(exponent < 0))?,
+                        Err(_) => 1,
+                    }),
+                    // Function nodes retain their operands and the evaluator call
+                    // independently of the encoding of their symbol or arguments.
+                    AtomView::Fun(f) => (f.get_nargs(), 1),
+                    AtomView::Num(_) => {
+                        shape.literal_bytes = add(shape.literal_bytes, node.get_byte_size())?;
+                        (0, 0)
+                    }
+                    _ => (0, 0),
+                };
+                shape.operands = add(shape.operands, operands)?;
+                shape.operations = add(shape.operations, operations)?;
+                Ok(())
             };
-            if let Some(next) = next.and_then(|next| operations.checked_add(next)) {
-                operations = next;
-            } else {
-                failed = true;
-            }
+            failed |= record().is_err();
             !failed
         });
         if failed {
-            return Err(MathError::Limit("source evaluator operations"));
+            return Err(MathError::Limit("source evaluator population"));
         }
     }
-    Ok(operations)
+    Ok(shape)
 }
-/// One source atom byte bounds one encoded node/constant/operand. Integer powers
+/// Source node/operand counts bound numeric populations. Encoded bytes remain a
+/// separate payload charge; integer powers
 /// additionally contribute their explicit arithmetic expansion. The maximum of
 /// Dualizer's four operation costs allows Horner optimization to redistribute work;
 /// positive actual export excess is reserved before any floating conversion.
@@ -157,13 +173,8 @@ pub(crate) fn evaluator_construction_shape(
     width: usize,
     products: usize,
 ) -> Result<EvaluatorConstruction, MathError> {
-    let source = expressions
-        .iter()
-        .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
-    let operations = source_operations(expressions)?;
     construction_shape(
-        source,
-        operations,
+        source_shape(expressions)?,
         expressions.len(),
         parameters,
         order,
@@ -172,8 +183,7 @@ pub(crate) fn evaluator_construction_shape(
     )
 }
 fn construction_shape(
-    source: usize,
-    operations: usize,
+    source: SourceShape,
     outputs: usize,
     parameters: usize,
     order: pse_kernels::DerivativeOrder,
@@ -189,12 +199,13 @@ fn construction_shape(
     ] {
         per_operation = per_operation.max(expansion_with_products(count, order, width, products)?);
     }
+    let operations = source.operations;
     let expanded = mul(operations, per_operation)?;
-    let scalar_instructions = add(add(source, operations)?, outputs)?;
+    let scalar_instructions = add(add(add(source.nodes, source.operands)?, operations)?, outputs)?;
     let vectors = add(
         add(mul(2, parameters)?, outputs)?,
         add(
-            source,
+            source.nodes,
             add(mul(3, scalar_instructions)?, mul(10, operations)?)?,
         )?,
     )?;
@@ -210,11 +221,12 @@ fn construction_shape(
                 mul(4, size_of::<symbolica::evaluate::Slot>())?,
             )?,
         )?,
-        source,
+        source.bytes,
     )?;
     Ok(EvaluatorConstruction {
         entries,
         instructions,
+        coefficient_payload: mul(mul(4, width)?, source.literal_bytes)?,
     })
 }
 fn reserve_facts(facts: &EvaluatorFacts, initial: EvaluatorConstruction) -> Result<(), MathError> {
@@ -314,8 +326,7 @@ struct ScalarProduct {
     evaluator: ExpressionEvaluator<Complex<Rational>>,
     bytes: usize,
     facts: EvaluatorFacts,
-    source_bytes: usize,
-    source_operations: usize,
+    source: SourceShape,
     source_atom_operations: usize,
     owner: std::sync::OnceLock<Arc<dyn crate::AllocationOwner>>,
 }
@@ -493,24 +504,16 @@ impl ScalarCache {
                     context.count("math.scalar_constructions", "count", 1);
                     context.phase("math.scalar_construction")
                 });
-                let source_operations = add(
-                    source_operations(expressions)?,
-                    source_operations(definitions.iter().map(|(_, rhs)| rhs))?,
-                )?;
+                let source = source_shape(expressions.iter().chain(definitions.iter().map(|(_, rhs)| rhs)))?;
                 let source_atom_operations = expressions
                     .iter()
                     .chain(definitions.iter().map(|(_, rhs)| rhs))
                     .try_fold(0, |sum, expression| {
                         add(sum, total(expression.count_operations())?)
                     })?;
-                source_limit.check(source_operations, source_atom_operations)?;
-                let source_bytes = expressions
-                    .iter()
-                    .chain(definitions.iter().map(|(_, rhs)| rhs))
-                    .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+                source_limit.check(source.operations, source_atom_operations)?;
                 let initial = construction_shape(
-                    source_bytes,
-                    source_operations,
+                    source,
                     expressions.len(),
                     parameters.len(),
                     pse_kernels::DerivativeOrder::Value,
@@ -532,10 +535,19 @@ impl ScalarCache {
                         size_of::<Atom>(),
                     )?,
                 )?;
-                crate::construction::additional(add(
+                // Rational payloads remain bytes. They do not create one numeric
+                // stack entry per encoding byte of a literal or formal symbol.
+                let constructor_bytes = add(
                     mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                    add(initial.instructions, add(atoms, key_bytes)?)?,
-                )?)?;
+                    add(initial.instructions, add(initial.coefficient_payload, add(atoms, key_bytes)?)?)?,
+                )?;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("math.scalar_source_nodes", "count", source.nodes as u64);
+                    context.count("math.scalar_source_bytes", "bytes", source.bytes as u64);
+                    context.count("math.scalar_literal_bytes", "bytes", source.literal_bytes as u64);
+                    context.count("math.scalar_constructor_bytes", "bytes", constructor_bytes as u64);
+                }
+                crate::construction::additional(constructor_bytes)?;
                 let evaluator =
                     exact_evaluator(expressions, parameters, definitions, options, cancelled)?;
                 let export = evaluator.export_instructions();
@@ -548,7 +560,7 @@ impl ScalarCache {
                 let bytes = add(
                     size_of::<ScalarProduct>(),
                     add(
-                        add(atoms, key_bytes)?,
+                        add(mul(2, source.literal_bytes)?, add(atoms, key_bytes)?)?,
                         add(
                             mul(
                                 facts.storage.numeric_entries,
@@ -567,8 +579,7 @@ impl ScalarCache {
                         evaluator,
                         bytes,
                         facts,
-                        source_bytes,
-                        source_operations,
+                        source,
                         source_atom_operations,
                         owner: std::sync::OnceLock::new(),
                     }),
@@ -580,7 +591,7 @@ impl ScalarCache {
                 product
             }
         };
-        source_limit.check(product.source_operations, product.source_atom_operations)?;
+        source_limit.check(product.source.operations, product.source_atom_operations)?;
         Ok(product.as_ref())
     }
 }
@@ -624,8 +635,7 @@ pub(crate) fn bounded_defined_scalar_evaluator(
         SourceOperationLimit::Scalar(limits.operations),
     )?;
     let initial = construction_shape(
-        product.source_bytes,
-        product.source_operations,
+        product.source,
         expressions.len(),
         parameters.len(),
         pse_kernels::DerivativeOrder::Value,
@@ -640,6 +650,7 @@ pub(crate) fn bounded_defined_scalar_evaluator(
     if cancelled.load(std::sync::atomic::Ordering::Acquire) {
         return Err(MathError::Cancelled);
     }
+    crate::construction::additional(initial.coefficient_payload)?;
     FloatingEvaluator::new(product.evaluator.clone().map_coeff(&|c| c.re.to_f64()))
 }
 
@@ -684,8 +695,7 @@ pub(crate) fn bounded_evaluator(
         SourceOperationLimit::Taylor(remaining),
     )?;
     let construction = construction_shape(
-        product.source_bytes,
-        product.source_operations,
+        product.source,
         expressions.len(),
         parameters.len(),
         layout.order,
@@ -703,6 +713,7 @@ pub(crate) fn bounded_evaluator(
     )?)?;
     if layout.width() == 1 {
         reserve_facts(&product.facts, construction)?;
+        crate::construction::additional(construction.coefficient_payload)?;
         return FloatingEvaluator::new(evaluator.clone().map_coeff(&|c| c.re.to_f64()));
     }
     if !product.facts.taylor_supported {
@@ -736,6 +747,7 @@ pub(crate) fn bounded_evaluator(
         occupied_entries,
         add(bound, mul(layout.width(), vectors)?)?,
     )?)?;
+    crate::construction::additional(construction.coefficient_payload)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
     let evaluator = scoped_abort(cancelled, || {
         evaluator
@@ -776,6 +788,75 @@ pub(crate) fn bounded_evaluator(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_encoding_and_literal_payload_do_not_become_numeric_slot_populations() {
+        crate::initialize().unwrap();
+        let small = formal(0).unwrap();
+        let wide = formal(FORMAL_CHUNK).unwrap();
+        let small = source_shape([&small]).unwrap();
+        let wide = source_shape([&wide]).unwrap();
+        assert_eq!((small.nodes, small.operands, small.operations), (1, 0, 0));
+        assert_eq!((wide.nodes, wide.operands, wide.operations), (1, 0, 0));
+        let bound = |source| construction_shape(source, 1, 1, pse_kernels::DerivativeOrder::Value, 1, 1).unwrap();
+        let a = bound(small);
+        let b = bound(wide);
+        assert_eq!(a.entries, b.entries, "formal encoding width does not add numeric slots");
+        assert_eq!(a.instructions + wide.bytes, b.instructions + small.bytes);
+
+        let small = Atom::num(1);
+        let large = symbolica::parse!("123456789012345678901234567890123456789/100000000000000000000000000000000000003");
+        let small_shape = source_shape([&small]).unwrap();
+        let large_shape = source_shape([&large]).unwrap();
+        assert!(large_shape.bytes > small_shape.bytes);
+        assert!(large_shape.literal_bytes > small_shape.literal_bytes);
+        let a = bound(small_shape);
+        let b = bound(large_shape);
+        assert_eq!(a.entries, b.entries, "literal digits are payload bytes, not stack entries");
+        assert!(b.coefficient_payload > a.coefficient_payload);
+        let second = construction_shape(large_shape, 1, 1, pse_kernels::DerivativeOrder::Second, 3, 5).unwrap();
+        assert_eq!(second.coefficient_payload, 3 * b.coefficient_payload, "Taylor coefficient copies retain their width-scaled byte charge");
+
+        #[derive(Debug)]
+        struct Reports(std::sync::atomic::AtomicUsize);
+        impl crate::construction::ConstructionAdmission for Reports {
+            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+                self.0.fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        let prepare = |literal: Atom| {
+            let reports = Arc::new(Reports(std::sync::atomic::AtomicUsize::new(0)));
+            let prepared = crate::construction::scoped(reports.clone(), || {
+                bounded_scalar_evaluator(&[literal], &[], Optimization::default(), &Arc::new(AtomicBool::new(false)), EvaluationLimits::default(), &mut ScalarCache::default()).unwrap()
+            });
+            assert!(prepared.facts.storage.numeric_entries > 0);
+            reports.0.load(std::sync::atomic::Ordering::Relaxed)
+        };
+        assert!(prepare(large) > prepare(small), "actual constructor admission retains the larger literal payload");
+    }
+
+    #[test]
+    fn source_census_includes_nested_builtin_operands_and_every_alias_definition() {
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let a = formal(1).unwrap();
+        let b = formal(2).unwrap();
+        let sine = symbolica::atom::FunctionBuilder::new(Symbol::SIN).add_arg(&a).finish();
+        let exponential = symbolica::atom::FunctionBuilder::new(Symbol::EXP).add_arg(&a).finish();
+        let outputs = [b.clone()];
+        let definitions = [(a, x.pow(2)), (b, sine + exponential)];
+        let shape = source_shape(outputs.iter().chain(definitions.iter().map(|(_, rhs)| rhs))).unwrap();
+        // Symbolica normalizes exp(a) to E^a: one additional leaf and
+        // operand beyond the sin(a) function node. Both alias bodies count.
+        assert_eq!(shape.nodes, 10);
+        assert_eq!(shape.operands, 7);
+        assert_eq!(shape.operations, 4);
+        assert!(shape.literal_bytes > 0);
+        let mut prepared = bounded_defined_scalar_evaluator(&outputs, &[x], &definitions, Optimization::default(), &Arc::new(AtomicBool::new(false)), EvaluationLimits::default(), &mut ScalarCache::default()).unwrap();
+        let expected = 4_f64.sin() + 4_f64.exp();
+        assert!((prepared.evaluator.evaluate_single(&[2.]) - expected).abs() < 1e-12);
+    }
 
     #[test]
     fn scalar_definition_map_participates_in_exact_identity_and_refusal() {
@@ -1198,7 +1279,7 @@ mod tests {
             .add_arg(&x)
             .finish();
         assert_eq!(
-            source_operations(std::slice::from_ref(&expression)).unwrap(),
+            source_shape(std::slice::from_ref(&expression)).unwrap().operations,
             1
         );
         let value = evaluator_construction(
@@ -1399,6 +1480,7 @@ mod tests {
         let initial = EvaluatorConstruction {
             entries: 4,
             instructions: 1024,
+            coefficient_payload: 0,
         };
         let export = ExportedInstructions::<f64> {
             input_count: 1,
@@ -1466,6 +1548,7 @@ mod tests {
         let initial = EvaluatorConstruction {
             entries: entries - 1,
             instructions: instruction_description(&export).unwrap().bytes,
+            coefficient_payload: 0,
         };
         let owner = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
         crate::construction::scoped(owner.clone(), || {
