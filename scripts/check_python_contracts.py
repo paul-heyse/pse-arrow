@@ -36,11 +36,12 @@ def main() -> None:
     # would couple pure generation to scientific libraries and to workflow classes
     # that cannot be rebuilt until these candidate contracts have been generated.
     # A forbidden invocation fails rather than substituting a second identity codec.
-    def annotation_only_codec(_value: object) -> object:
+    def annotation_only_codec(*_values: object) -> object:
         raise RuntimeError("annotation checking cannot execute native scalar codecs")
 
     boundary = ModuleType("pse._build")
     for name in (
+        "_check_document_header",
         "semantic_id_from_hex",
         "semantic_id_to_hex",
         "content_hash_from_prefixed",

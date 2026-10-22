@@ -5,7 +5,6 @@
 //! (ADR-0116 Outcomes 6 and 7). Each schema is derived by schemars from the document's
 //! serde type in its owning crate; the pure generator renders them.
 
-
 /// Isolated values serialized by the same owners as exported operation products.
 /// These fixtures exercise transport only; no solver or operational store is invoked.
 pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::GeneratedTree> {
@@ -19,11 +18,15 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
     };
     use std::collections::BTreeMap;
 
-    fn encoded<T: serde::Serialize + serde::de::DeserializeOwned + pse_runtime::boundary_documents::BoundaryDocument>(
+    fn encoded<
+        T: serde::Serialize
+            + serde::de::DeserializeOwned
+            + pse_runtime::boundary_documents::BoundaryDocument,
+    >(
         value: &T,
     ) -> anyhow::Result<serde_json::Value> {
         let bytes = T::WIRE.to_vec(value)?;
-        let retained: T = T::WIRE.from_slice(&bytes)?;
+        let retained: T = T::WIRE.decode_slice(&bytes)?;
         let original = serde_json::to_value(value)?;
         anyhow::ensure!(
             serde_json::to_value(retained)? == original,
@@ -200,11 +203,18 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
 
 /// The actual compiled catalogue supplies both publication and native registrations.
 pub(super) fn documents() -> Vec<pse_codegen::codegen::documents::CatalogueDocument> {
-    pse_runtime::boundary_documents::schemas().into_iter().map(|entry| pse_codegen::codegen::documents::CatalogueDocument {
-        name: entry.name.into(), slug: entry.slug.into(), rust_type: entry.rust_type.into(),
-        output: entry.direction == pse_runtime::boundary_documents::Direction::Output,
-        version: entry.version, wire: format!("{:?}", entry.wire), schema: entry.schema,
-    }).collect()
+    pse_runtime::boundary_documents::schemas()
+        .into_iter()
+        .map(|entry| pse_codegen::codegen::documents::CatalogueDocument {
+            name: entry.name.into(),
+            slug: entry.slug.into(),
+            rust_type: entry.rust_type.into(),
+            output: entry.direction == pse_runtime::boundary_documents::Direction::Output,
+            version: entry.version,
+            wire: format!("{:?}", entry.wire),
+            schema: entry.schema,
+        })
+        .collect()
 }
 
 #[cfg(test)]

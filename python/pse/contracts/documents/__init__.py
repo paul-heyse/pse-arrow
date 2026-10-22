@@ -9,20 +9,18 @@ types are the authority. Every enumeration is a registry vocabulary.
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal, TypeVar
 
 import msgspec
 
+from pse import codec
 from pse.contracts import enums, identities
 from pse.contracts import values as v
-
-from typing import TypeVar
 
 _DocumentT = TypeVar("_DocumentT")
 
 def _document_default(value: object, target: type[_DocumentT]) -> _DocumentT:
-    from pse.codec import convert_document
-    return convert_document(value, target)
+    return codec.convert_document(value, target)
 
 AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
 
@@ -10054,7 +10052,7 @@ class InspectionTransportOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
         return (type(self), (v.optional_key(v.scalar_key)(self.checkpoint), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.process), v.optional_key(v.scalar_key)(self.published_unix_micros),))
 
 
-class IntegrationControlsForArray_of_ScientificCoordinateValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class IntegrationControlsForArrayOfScientificCoordinateValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
     _pse_required_version: ClassVar[int] = 3
@@ -10123,7 +10121,7 @@ class IntegrationControlsForArray_of_ScientificCoordinateValue(msgspec.Struct, f
         return (type(self), (v.scalar_key(self.version), v.record_key(self.adjoint), v.sequence_key(v.record_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.record_key(self.initialization), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.native), v.record_key(self.numerics), v.sequence_key(v.record_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.record_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
 
 
-class IntegrationControlsForArray_of_ScientificCoordinateValueOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class IntegrationControlsForArrayOfScientificCoordinateValueOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
     _pse_required_version: ClassVar[int] = 3
@@ -10192,7 +10190,7 @@ class IntegrationControlsForArray_of_ScientificCoordinateValueOutput(msgspec.Str
         return (type(self), (v.scalar_key(self.version), v.record_key(self.adjoint), v.sequence_key(v.record_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.record_key(self.initialization), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.native), v.record_key(self.numerics), v.sequence_key(v.record_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.record_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
 
 
-class IntegrationControlsForArray_of_double(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class IntegrationControlsForArrayOfDouble(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
     _pse_required_version: ClassVar[int] = 3
@@ -14150,7 +14148,7 @@ class PhysicalSimulationRequest(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Required physical-input interpretation.
     version: Literal[1] = 1
     #: One controls declaration with physically typed Delta coordinate payloads.
-    controls: IntegrationControlsForArray_of_ScientificCoordinateValue
+    controls: IntegrationControlsForArrayOfScientificCoordinateValue
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.record_key(self.controls),))
@@ -14166,7 +14164,7 @@ class PhysicalSimulationRequestOutput(msgspec.Struct, frozen=True, forbid_unknow
     #: Required physical-input interpretation.
     version: Literal[1] = 1
     #: One controls declaration with physically typed Delta coordinate payloads.
-    controls: IntegrationControlsForArray_of_ScientificCoordinateValueOutput
+    controls: IntegrationControlsForArrayOfScientificCoordinateValueOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.record_key(self.controls),))
@@ -16219,7 +16217,7 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Exact original residual algorithm policy, independent of physical stationarity.
     residual_lm_criteria: ResidualLmCriteria
     #: Complete original integration controls by experiment identity.
-    simulations: dict[identities.InstanceId, IntegrationControlsForArray_of_double]
+    simulations: dict[identities.InstanceId, IntegrationControlsForArrayOfDouble]
     #: Complete original native/scientific policy.
     solver: ReplaySolverSettingsOutput
     #: Source closure index.
@@ -16586,7 +16584,7 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Original compiler and specialization allowances.
     preparation: PreparationSettingsBodyOutput
     #: Full native dynamic settings, horizon, start, sensitivities and allowance.
-    profile: IntegrationControlsForArray_of_double
+    profile: IntegrationControlsForArrayOfDouble
     #: Explicit provisional quadrature demands.
     provisional_quadratures: tuple[v.SemanticId, ...]
     #: Original authored root.
@@ -22706,9 +22704,9 @@ __all__ = [
     "InspectionRequestOutput",
     "InspectionTransport",
     "InspectionTransportOutput",
-    "IntegrationControlsForArray_of_ScientificCoordinateValue",
-    "IntegrationControlsForArray_of_ScientificCoordinateValueOutput",
-    "IntegrationControlsForArray_of_double",
+    "IntegrationControlsForArrayOfDouble",
+    "IntegrationControlsForArrayOfScientificCoordinateValue",
+    "IntegrationControlsForArrayOfScientificCoordinateValueOutput",
     "IntervalBound",
     "InvocationComparisonDocument",
     "InvocationComparisonDocumentOutput",

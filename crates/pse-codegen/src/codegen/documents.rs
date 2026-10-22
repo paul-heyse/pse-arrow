@@ -589,7 +589,7 @@ impl<'a> Emitter<'a> {
             return Ok(format!("enums.{name}"));
         }
         self.define(name)?;
-        Ok(name.to_owned())
+        Ok(python_type_name(name))
     }
 
     fn define(&mut self, name: &str) -> Result<(), SchemaError> {
@@ -659,7 +659,7 @@ impl<'a> Emitter<'a> {
                     "{name}: the class {class} has conflicting definitions"
                 )));
             }
-            members.push(class);
+            members.push(python_type_name(&class));
         }
         self.unions.insert(name.to_owned(), members.join(" | "));
         Ok(())
@@ -700,7 +700,8 @@ impl<'a> Emitter<'a> {
                 py_str(value)
             );
         }
-        let mut source = format!("class {name}(msgspec.Struct, {options}):\n");
+        let python_name = python_type_name(name);
+        let mut source = format!("class {python_name}(msgspec.Struct, {options}):\n");
         let doc = text(schema, "description")
             .map_or_else(|| format!("The `{name}` document type."), ToOwned::to_owned);
         // `version` first, so a reader meets it first; then every field by name.
@@ -923,7 +924,7 @@ impl<'a> Emitter<'a> {
                 .get(name)
                 .ok_or_else(|| error(format!("unknown definition {name}")))?;
             if definition.get("properties").is_some() {
-                return Ok(format!("isinstance(value, {name})"));
+                return Ok(format!("isinstance(value, {})", python_type_name(name)));
             }
             return self.key_condition(definition);
         }
@@ -1240,6 +1241,14 @@ fn normalize_root_references(value: &mut Value, title: &str) {
     }
 }
 
+/// Schemars generic names may contain separators; Python classes use CapWords.
+fn python_type_name(name: &str) -> String {
+    name.split('_').filter(|part| !part.is_empty()).map(|part| {
+        let mut characters = part.chars();
+        characters.next().map(|first| first.to_uppercase().collect::<String>() + characters.as_str()).unwrap_or_default()
+    }).collect()
+}
+
 fn docstring(text: &str) -> String {
     let text = text
         .trim()
@@ -1278,17 +1287,17 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Every enumeration is a registry vocabulary.\n\"\"\"\n\n",
     );
     source.push_str(
-        "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n\n",
+        "from __future__ import annotations\n\nfrom typing import Annotated, Literal, TypeVar\n\nimport msgspec\n\nfrom pse import codec\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n\n",
     );
-    source.push_str("from typing import TypeVar\n\n_DocumentT = TypeVar(\"_DocumentT\")\n\ndef _document_default(value: object, target: type[_DocumentT]) -> _DocumentT:\n    from pse.codec import convert_document\n    return convert_document(value, target)\n\n");
+    source.push_str("_DocumentT = TypeVar(\"_DocumentT\")\n\ndef _document_default(value: object, target: type[_DocumentT]) -> _DocumentT:\n    return codec.convert_document(value, target)\n\n");
     for (name, annotation) in &emitter.aliases {
-        let _ = write!(source, "{name} = {annotation}\n\n");
+        let _ = writeln!(source, "{} = {annotation}\n", python_type_name(name));
     }
     for class in emitter.classes.values() {
         let _ = write!(source, "\n{class}\n");
     }
     for (name, members) in &emitter.unions {
-        let _ = write!(source, "\n{name} = {members}\n");
+        let _ = writeln!(source, "\n{} = {members}", python_type_name(name));
     }
     let names = emitter
         .aliases
@@ -1296,8 +1305,17 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         .chain(emitter.classes.keys())
         .chain(emitter.unions.keys())
         .collect::<BTreeSet<_>>();
+    let mut python_names = BTreeMap::new();
     source.push_str("\n__all__ = [\n");
     for name in names {
+        let python_name = python_type_name(name);
+        if let Some(previous) = python_names.insert(python_name.clone(), name)
+            && previous != name
+        {
+            return Err(error(format!("Python document names {previous} and {name} collide as {python_name}")));
+        }
+    }
+    for name in python_names.keys() {
         let _ = writeln!(source, "    {},", py_str(name));
     }
     source.push_str("]\n");
@@ -1314,7 +1332,7 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
                 "from typing import Annotated, Literal",
                 "from typing import Annotated",
             )
-            .replace("from typing import Literal\n\n", "");
+            .replace("from typing import Literal, TypeVar\n\n", "from typing import TypeVar\n\n");
     }
     if source.contains("ClassVar[") {
         // Keep imports derived from emitted use, as for Annotated and Literal.
