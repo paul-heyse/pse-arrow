@@ -1089,6 +1089,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("rebuild_after", uint()).optional(),
                 column("notify_after", uint()).optional(),
                 column("verify_after", uint()).optional(),
+                column("pending_operation", text()).optional(),
             ],
             "Derived per-study round-robin notification and resumable rebuild/verification cursors. Scientific state transitions never write this row.",
         ),

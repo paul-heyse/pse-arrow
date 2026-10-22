@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "5185bfa1fdc0dae90ed2fc06d38e25599d2864cefb9718dddb4e0345b33cf444";
+pub const SCHEMA_DIGEST: &str = "b09813f02ffc908fcb2bcf92eef0dc757ba48dbb7965638c2283540b68747f2b";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -4684,6 +4684,13 @@ pub fn encode_canonical_study_readiness_cursors(
     if let Some(value) = &row.r#verify_after {
         object.insert("verify_after", crate::canonical_codec::encode_uint(*value)?);
     }
+    if let Some(value) = &row.r#pending_operation {
+        object
+            .insert(
+                "pending_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -4718,6 +4725,10 @@ pub fn decode_canonical_study_readiness_cursors(
         r#verify_after: match object.remove("verify_after") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_uint(value)?),
+        },
+        r#pending_operation: match object.remove("pending_operation") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
         },
     };
     if let Some(native_id) = native_id {

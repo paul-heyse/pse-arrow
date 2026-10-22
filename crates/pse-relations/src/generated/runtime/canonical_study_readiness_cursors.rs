@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    45u8, 74u8, 226u8, 125u8, 207u8, 66u8, 168u8, 229u8, 101u8, 210u8, 93u8, 217u8, 54u8,
-    46u8, 225u8, 228u8, 8u8, 166u8, 255u8, 75u8, 192u8, 172u8, 115u8, 97u8, 251u8, 246u8,
-    143u8, 173u8, 63u8, 94u8, 216u8, 3u8,
+    4u8, 178u8, 26u8, 76u8, 102u8, 78u8, 192u8, 95u8, 249u8, 235u8, 148u8, 241u8, 39u8,
+    144u8, 190u8, 237u8, 53u8, 71u8, 197u8, 246u8, 90u8, 134u8, 14u8, 149u8, 23u8, 87u8,
+    157u8, 32u8, 214u8, 63u8, 126u8, 100u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalStudyReadinessCursorsRow {
     fn append(
@@ -56,6 +56,10 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyReadinessCursorsRow {
             &self.r#verify_after,
             children[6usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#pending_operation,
+            children[7usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -79,6 +83,9 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyReadinessCursorsRow {
         <Option<
             u64,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -121,6 +128,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyReadinessCursorsRow {
                 u64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#pending_operation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -198,6 +211,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyReadinessCursorsRow {
             &self.r#verify_after,
             columns[6usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#pending_operation,
+            columns[7usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -237,10 +254,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyReadinessCursorsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        16_384_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        128usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -293,6 +310,17 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyReadinessCursorsRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#pending_operation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -303,7 +331,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -339,6 +367,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
         name: "verify_after",
         position: 6usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "pending_operation",
+        position: 7usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -356,6 +389,8 @@ pub mod columns {
     pub const NOTIFY_AFTER: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///verify_after
     pub const VERIFY_AFTER: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///pending_operation
+    pub const PENDING_OPERATION: crate::columnar::ColumnReference = super::COLUMNS[7usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -370,6 +405,7 @@ pub struct RuntimeCanonicalStudyReadinessCursorsView<'a> {
     rebuild_after_column: &'a arrow_array::UInt64Array,
     notify_after_column: &'a arrow_array::UInt64Array,
     verify_after_column: &'a arrow_array::UInt64Array,
+    pending_operation_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalStudyReadinessCursorsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -435,6 +471,9 @@ impl<'a> RuntimeCanonicalStudyReadinessCursorsView<'a> {
             verify_after_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
             >(batch.column(6usize).as_ref())?,
+            pending_operation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -533,6 +572,18 @@ impl<'a> RuntimeCanonicalStudyReadinessCursorsView<'a> {
     pub fn verify_after_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[6usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "pending_operation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn pending_operation_column(&self) -> &'a arrow_array::StringArray {
+        self.pending_operation_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "pending_operation", "`.")]
+    pub fn pending_operation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -562,6 +613,10 @@ impl<'a> RuntimeCanonicalStudyReadinessCursorsView<'a> {
             )?,
             r#verify_after: crate::columnar::ArrowValue::read(
                 self.verify_after_column,
+                index,
+            )?,
+            r#pending_operation: crate::columnar::ArrowValue::read(
+                self.pending_operation_column,
                 index,
             )?,
         })

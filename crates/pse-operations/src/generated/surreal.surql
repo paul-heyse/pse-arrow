@@ -537,6 +537,7 @@ DEFINE FIELD rebuild_pending ON canonical_study_readiness_cursors TYPE bool;
 DEFINE FIELD rebuild_after ON canonical_study_readiness_cursors TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD notify_after ON canonical_study_readiness_cursors TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD verify_after ON canonical_study_readiness_cursors TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD pending_operation ON canonical_study_readiness_cursors TYPE option<string>;
 DEFINE TABLE canonical_study_retirements SCHEMAFULL;
 DEFINE FIELD key ON canonical_study_retirements TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD study ON canonical_study_retirements TYPE string;
@@ -1682,11 +1683,11 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:st
         LET $hint=SELECT * FROM ONLY type::record('canonical_study_readiness',$source.point);
         IF $hint=NONE OR $hint.study!=$study OR $hint.notify=false OR $hint.notify_revision!=$source.revision OR $hint.notify_after!=$source.before { THROW 'PSE_REFUSAL:study_readiness_notification_changed'; };
         LET $edges=type::record('canonical_study_points',$source.point)<-(SELECT key,dependent FROM canonical_study_dependencies WHERE key>$source.before ORDER BY key LIMIT 65);
-        LET $children=$edges.enumerate().map(|$pair| {point:$pair[1].dependent,edge:$pair[1].key,ordinal:NONE,position:$pair[0]});
+        LET $children=$edges.map(|$edge,$index| {point:$edge.dependent,edge:$edge.key,ordinal:NONE,position:$index});
         IF $hint.dirty {array::prepend($children,{point:$source.point,edge:NONE,ordinal:NONE,position:-1})} ELSE {$children}
     } ELSE IF $mode IN ['rebuild','verify'] {
         LET $points=SELECT key,ordinal FROM canonical_study_points WHERE study=$study AND ordinal>($after ?? -1dec) ORDER BY ordinal LIMIT 65;
-        $points.enumerate().map(|$pair| {point:$pair[1].key,ordinal:$pair[1].ordinal,edge:NONE,position:$pair[0]})
+        $points.map(|$point,$index| {point:$point.key,ordinal:$point.ordinal,edge:NONE,position:$index})
     } ELSE { THROW 'PSE_REFUSAL:study_readiness_cursor_mode'; };
     // Position bounds outgoing edges even when relation kinds repeat a child.
     LET $page=$entries.fold({rows:[],items:[],stopped:false,next_edge:$source.before,next_ordinal:$after},|$acc,$entry| fn::pse_study_v1::readiness_page_item($rpc_expiry,$study,$acc,$entry,$maximum));
@@ -1700,7 +1701,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:st
 // history release and issuing-store/parent/study attribution remain authoritative.
 DEFINE FUNCTION fn::pse_study_v1::readiness_receipt($rpc_expiry:int,$operation:string,$study:string,$run:string,$request:object) -> option<object> {
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,encoding::cbor::encode($request));
-    RETURN IF $old=NONE {NONE} ELSE {encoding::cbor::decode($old.result)};
+    RETURN IF $old=NONE OR $old.disposition NOT IN ['settled','no-effect'] {NONE} ELSE IF $old.disposition='no-effect' {{no_effect:true}} ELSE {encoding::cbor::decode($old.result)};
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_repair_item($rpc_expiry:int,$study:string,$generation:decimal,$cancelled:bool,$item:object,$mutating:bool) -> object {
@@ -1733,19 +1734,65 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_repair_item($rpc_expiry:int,$study:s
     RETURN {point:$item.point,status:'accepted',changed:$changed};
 };
 
-DEFINE FUNCTION fn::pse_study_v1::readiness_repair_page($rpc_expiry:int,$operation:string,$request:object) -> object {
-    LET $study=$request.study; LET $run=$request.run; LET $generation=$request.generation;
-    LET $cancelled=$request.cancelled; LET $fence=$request.fence; LET $items=$request.items;
-    LET $old=fn::pse_study_v1::readiness_receipt($rpc_expiry,$operation,$study,$run,$request);
-    IF $old!=NONE { RETURN $old; };
-    fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
+DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operation:string,$study:string,$run:string) -> option<object> {
+    LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
+    RETURN IF $old=NONE OR $old.disposition NOT IN ['settled','no-effect'] {NONE} ELSE IF $old.disposition='no-effect' {{no_effect:true}} ELSE {encoding::cbor::decode($old.result)};
+};
+
+// The pending locator, exact original request and history obligation are born
+// in one transaction. Losing preparation's acknowledgment cannot orphan an ID.
+DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:string) -> option<object> {
+    fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
+    LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
+    IF $cursor.pending_operation=NONE { RETURN NONE; };
     LET $s=SELECT run FROM ONLY type::record('canonical_studies',$study);
-    IF ($request.mutating=false AND $fence.mode!='verify') OR $s=NONE OR $s.run!=$run OR array::len($items)>65 OR bytes::len(encoding::cbor::encode($request))>1048576 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
-    LET $old_cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
+    LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$cursor.pending_operation,$study,$s.run,NONE);
+    IF $old=NONE OR $old.disposition IN ['settled','no-effect'] { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
+    LET $request=encoding::cbor::decode($old.request);
+    RETURN {operation:$old.key,study:$study,run:$old.run,epoch:$old.disposition,keys:$request.items.point,created:false};
+};
+
+DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operation:string,$request:object) -> option<object> {
+    LET $study=$request.study; LET $run=$request.run;
+    fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
+    LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
+    IF $cursor=NONE { THROW 'PSE_REFUSAL:study_readiness_owner_unavailable'; };
+    IF $cursor.pending_operation!=NONE { RETURN fn::pse_study_v1::readiness_pending_page($rpc_expiry,$study); };
+    IF $cursor.revision!=$request.fence.cursor { RETURN NONE; };
+    LET $s=SELECT run,active,terminal FROM ONLY type::record('canonical_studies',$study);
+    IF $s!=NONE AND ($s.active=false OR $s.terminal) { RETURN NONE; };
+    IF $s=NONE OR $s.run!=$run OR $request.mutating!=true OR array::len($request.items)>65 OR bytes::len(encoding::cbor::encode($request))>1048576 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
+    LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,encoding::cbor::encode($request));
+    IF $old!=NONE { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
+    fn::pse_history_v1::retain($rpc_expiry,$operation,'run',$run,'unsettled','study-readiness-repair-page');
+    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,NONE,'study-readiness-repair-page',encoding::cbor::encode($request),encoding::cbor::encode({outcomes:[]}),$study,NONE);
+    LET $epoch='pending:'+$operation;
+    UPDATE ONLY type::record('canonical_execution_operations',$operation) SET disposition=$epoch;
+    UPDATE ONLY type::record('canonical_study_readiness_cursors',$study) SET pending_operation=$operation;
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {operation:$operation,study:$study,run:$run,epoch:$epoch,keys:$request.items.point,created:true};
+};
+
+// Writing the SAME row that every apply must read and write is an authenticated
+// transaction fence, not an inference from a missing receipt or a dead client.
+// A delayed old dispatch mismatches its epoch; an in-flight old transaction
+// cannot commit its receipt after this write wins under native SSI.
+DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$before:string,$after:string) -> object {
+    LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
+    IF $old=NONE { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
+    IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
+    IF $old.disposition='settled' { RETURN {settled:true,result:encoding::cbor::decode($old.result)}; };
+    IF $old.disposition=$before { UPDATE ONLY type::record('canonical_execution_operations',$operation) SET disposition=$after; };
+    LET $current=SELECT disposition FROM ONLY type::record('canonical_execution_operations',$operation);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {settled:false,epoch:$current.disposition};
+};
+
+DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$items:array<object>,$finish:bool) -> object {
+    LET $study=$request.study; LET $generation=$request.generation; LET $cancelled=$request.cancelled; LET $fence=$request.fence;
+    fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     LET $outcomes=$items.map(|$item| fn::pse_study_v1::readiness_repair_item($rpc_expiry,$study,$generation,$cancelled,$item,$request.mutating));
-    // A logical refusal cannot certify a scan prefix. Stale items have a durable
-    // dirty/notify obligation and therefore do not block independent progress.
-    LET $safe=array::len($outcomes.filter(|$item|$item.status='refused' OR ($request.mutating=false AND $item.status='stale')))=0;
+    LET $safe=$finish AND array::len($outcomes.filter(|$item|$item.status='refused' OR ($request.mutating=false AND $item.status='stale')))=0;
     LET $notified=IF $safe AND $fence.mode='notify' {
         fn::pse_study_v1::readiness_notify_advance($rpc_expiry,$study,$fence.source.point,$fence.source.revision,$fence.source.before,$fence.next_edge ?? $fence.source.before,$fence.exhausted)
     } ELSE {false};
@@ -1753,14 +1800,57 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_repair_page($rpc_expiry:int,$operati
         fn::pse_study_v1::readiness_scan_advance($rpc_expiry,$study,$fence.cursor,$fence.mode,IF $fence.mode='notify' {$fence.source.ordinal} ELSE IF $fence.exhausted AND $fence.mode='verify' {NONE} ELSE {$fence.next_ordinal},$fence.exhausted)
     } ELSE {false};
     LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
-    LET $result={outcomes:$outcomes,advanced:$advanced,notified:$notified,cursor:$cursor};
-    // Verification cursor wraps forever. Only actual obligation mutations create
-    // permanent IDs; cursor-only and unchanged/refused pages create no receipt.
-    IF $notified OR ($advanced AND $fence.mode='rebuild' AND $cursor!=$old_cursor) OR array::len($outcomes.filter(|$item|$item.changed))>0 {
-        fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,NONE,'study-readiness-repair-page',encoding::cbor::encode($request),encoding::cbor::encode($result),$study,NONE);
+    RETURN {outcomes:$outcomes,advanced:$advanced,notified:$notified,cursor:$cursor};
+};
+
+// Partial application shrinks a repeatedly conflicting transaction while keeping
+// the same original operation, exact inputs and cursor fence. Committed prefixes
+// are retained in its pending body; only a complete result becomes immutable.
+DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$epoch:string,$maximum:int) -> object {
+    LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
+    IF $old=NONE OR $maximum<1 OR $maximum>65 { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
+    IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
+    IF $old.disposition='settled' { RETURN {settled:true,result:encoding::cbor::decode($old.result)}; };
+    IF $old.disposition!=$epoch { RETURN {settled:false,fenced:true}; };
+    LET $cursor=SELECT pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
+    IF $cursor.pending_operation!=$operation { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
+    LET $request=encoding::cbor::decode($old.request);
+    LET $previous=encoding::cbor::decode($old.result);
+    LET $offset=array::len($previous.outcomes);
+    LET $items=array::slice($request.items,$offset,$offset+$maximum);
+    LET $finish=$offset+array::len($items)=array::len($request.items);
+    // A prior logical refusal also prevents cursor certification at the end.
+    LET $safe=array::len($previous.outcomes.filter(|$item|$item.status='refused'))=0;
+    LET $next=fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$request,$items,$finish AND $safe);
+    IF $finish {
+        UPDATE ONLY type::record('canonical_study_readiness_cursors',$study) SET pending_operation=NONE;
+        fn::pse_history_v1::drop_obligation($rpc_expiry,$operation,'run',$run,'unsettled','study-readiness-repair-page');
+    };
+    LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
+    LET $result=object::extend($next,{outcomes:array::concat($previous.outcomes,$next.outcomes),cursor:$cursor});
+    LET $effect=$result.notified OR ($result.advanced AND $request.fence.mode='rebuild') OR array::len($result.outcomes.filter(|$item|$item.changed))>0;
+    // An acknowledged transaction with no obligation effect still consumes the
+    // exact epoch. Its tiny permanent attribution is not a full history receipt.
+    IF $finish AND $effect=false {
+        UPDATE ONLY type::record('canonical_execution_operations',$operation) SET request=type::bytes(''),result=type::bytes(''),minimal=true,disposition='no-effect';
+    } ELSE {
+        UPDATE ONLY type::record('canonical_execution_operations',$operation) SET result=encoding::cbor::encode($result),disposition=IF $finish {'settled'} ELSE {$epoch};
     };
     fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN $result;
+    RETURN {settled:$finish,result:$result};
+};
+
+// No-op verification can only change scheduling state. It never creates an
+// intent, permanent receipt ID or history obligation. A raced hint is retried
+// with a new authoritative page, not silently upgraded into a write here.
+DEFINE FUNCTION fn::pse_study_v1::readiness_verify_page($rpc_expiry:int,$request:object) -> object {
+    fn::pse_history_v1::check_owner($rpc_expiry,'study',$request.study);
+    LET $cursor=SELECT pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$request.study) FOR UPDATE;
+    IF $cursor.pending_operation!=NONE { RETURN {pending:true}; };
+    IF $request.mutating!=false OR $request.fence.mode!='verify' OR array::len($request.items)>64 OR bytes::len(encoding::cbor::encode($request))>1048576 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
+    LET $result=fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$request,$request.items,true);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {settled:true,result:$result};
 };
 
 DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> object {
@@ -2815,15 +2905,15 @@ DEFINE FUNCTION fn::pse_history_v1::operation($rpc_expiry:int,$key:string,$expec
 
 // Narrow maintenance readback: payload retirement does not release exact
 // readiness settlement evidence, but detailed history release still fences it.
-DEFINE FUNCTION fn::pse_history_v1::study_repair_operation($rpc_expiry:int,$key:string,$study:string,$run:string,$request:bytes) -> option<object> {
+DEFINE FUNCTION fn::pse_history_v1::study_repair_operation($rpc_expiry:int,$key:string,$study:string,$run:string,$request:option<bytes>) -> option<object> {
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_history_v1::run($rpc_expiry,$run);
     LET $locator=SELECT * FROM ONLY type::record('canonical_history_locators','summary:'+$study);
     IF $locator=NONE OR $locator.study!=$study OR $locator.run!=$run OR $locator.point!=NONE OR $locator.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_readiness_receipt_owner_differs'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_execution_operations',$key) FOR UPDATE;
     IF $old!=NONE {
-        IF $old.minimal { THROW 'PSE_REFUSAL:operation_history_unavailable_minimal_settled_attribution_only'; };
-        IF $old.kind!='study-readiness-repair-page' OR $old.run!=$run OR $old.study!=$study OR $old.point!=NONE OR $old.attempt!=NONE OR $old.request!=$request OR $old.issuing_store!=$locator.issuing_store { THROW 'PSE_REFUSAL:study_readiness_receipt_request_differs'; };
+        IF $old.minimal AND NOT ($old.disposition='no-effect' AND $request=NONE) { THROW 'PSE_REFUSAL:operation_history_unavailable_minimal_settled_attribution_only'; };
+        IF $old.kind!='study-readiness-repair-page' OR $old.run!=$run OR $old.study!=$study OR $old.point!=NONE OR $old.attempt!=NONE OR ($request!=NONE AND $old.request!=$request) OR $old.issuing_store!=$locator.issuing_store { THROW 'PSE_REFUSAL:study_readiness_receipt_request_differs'; };
     };
     RETURN $old;
 };

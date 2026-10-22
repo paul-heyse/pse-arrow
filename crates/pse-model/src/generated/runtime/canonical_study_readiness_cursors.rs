@@ -23,6 +23,8 @@ pub struct RuntimeCanonicalStudyReadinessCursorsRow {
     pub r#notify_after: Option<u64>,
     ///verify_after
     pub r#verify_after: Option<u64>,
+    ///pending_operation
+    pub r#pending_operation: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalStudyReadinessCursorsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -44,6 +46,10 @@ impl crate::SemanticEq for RuntimeCanonicalStudyReadinessCursorsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#verify_after,
                 &other.r#verify_after,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#pending_operation,
+                &other.r#pending_operation,
             )
     }
 }
@@ -70,6 +76,8 @@ impl crate::SemanticFrame for RuntimeCanonicalStudyReadinessCursorsRow {
         crate::SemanticFrame::frame(&self.r#notify_after, hash);
         hash.str(stringify!(r#verify_after));
         crate::SemanticFrame::frame(&self.r#verify_after, hash);
+        hash.str(stringify!(r#pending_operation));
+        crate::SemanticFrame::frame(&self.r#pending_operation, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalStudyReadinessCursorsRow {
@@ -82,5 +90,6 @@ impl crate::HeapUsage for RuntimeCanonicalStudyReadinessCursorsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rebuild_after))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#notify_after))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#verify_after))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pending_operation))
     }
 }

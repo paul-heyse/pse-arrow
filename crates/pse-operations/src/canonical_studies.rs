@@ -56,7 +56,8 @@ pub struct StudySummary {
 /// Actual bounded derived maintenance, distinct from scientific settlement.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ReadinessAdvance {
-    /// Point derivations examined during this call, including repeated premises.
+    /// Candidate decisions covered by the bounded operation completed here,
+    /// including an already committed prefix when recovering that same operation.
     pub examined: u64,
     /// A durable notification or mandatory rebuild obligation remains reachable.
     /// Periodic verification alone does not keep an idle worker running forever.
@@ -294,6 +295,23 @@ struct ReadinessScopePage {
     fence:Object,
     mode:String,
 }
+struct PendingReadinessPage {
+    operation:String,
+    study:String,
+    run:String,
+    epoch:String,
+    keys:Vec<String>,
+}
+fn decode_pending_readiness(mut row:Object)->Result<(PendingReadinessPage,bool),CanonicalError> {
+    let operation=codec::decode_string(codec::required(&mut row,"operation")?)?;
+    let study=codec::decode_string(codec::required(&mut row,"study")?)?;
+    let run=codec::decode_string(codec::required(&mut row,"run")?)?;
+    let epoch=codec::decode_string(codec::required(&mut row,"epoch")?)?;
+    let keys=readiness_array(codec::required(&mut row,"keys")?)?.into_iter().map(codec::decode_string).collect::<Result<Vec<_>,_>>()?;
+    let created=codec::decode_boolean(codec::required(&mut row,"created")?)?;
+    if keys.len()>65 || keys.iter().collect::<BTreeSet<_>>().len()!=keys.len() {return Err(CanonicalError::IncompleteResponse);}
+    Ok((PendingReadinessPage {operation,study,run,epoch,keys},created))
+}
 struct ReadinessScopeItem {
     point:String,
     predecessors:Vec<String>,
@@ -368,6 +386,11 @@ fn hint_matches(
     let dirty=codec::decode_boolean(codec::required(&mut hint,"dirty")?)?;
     let actual_premises=match hint.remove("premises") {None|Some(Value::None)=>None,Some(value)=>Some(codec::decode_bytes(value)?)};
     Ok(revision==point.revision && actual_pending==pending && actual_eligible==(eligible && !point.assigned && !point.settled) && !dirty && actual_premises.as_ref().is_some_and(|bytes|bytes.as_slice()==premises))
+}
+fn settled_readiness_count(result:&Object,keys:&[String])->Result<u64,CanonicalError> {
+    if result.get("no_effect")==Some(&Value::Bool(true)) {return Ok(0);}
+    validate_repair_outcomes(result,keys)?;
+    Ok(keys.len() as u64)
 }
 fn validate_repair_outcomes(result:&Object,expected:&[String])->Result<(),CanonicalError> {
     let Some(Value::Array(outcomes))=result.get("outcomes") else {return Err(CanonicalError::IncompleteResponse);};
@@ -1191,7 +1214,7 @@ impl CanonicalStore {
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?)
     }
-    #[cfg(test)]
+    #[cfg(all(test,feature="canonical-tests"))]
     async fn readiness_hint(&self, point: &str) -> Result<Option<ReadinessHint>, CanonicalError> {
         let mut response = bounded_query(
             self.db
@@ -1208,54 +1231,86 @@ impl CanonicalStore {
             .transpose()
             .map_err(Into::into)
     }
-    /// Derive pure policy decisions over shared, decoded premises and apply one
-    /// transaction. No owning StudyScope is copied for each page member.
-    async fn repair_readiness_page(&self, page: ReadinessScopePage) -> Result<u64, CanonicalError> {
-        use crate::canonical_history::{HistoryObligation, HistoryOwner, HistoryPurpose};
-        let study=page.study.clone();
-        let run=page.run.clone();
-        let (request,examined,changes)=readiness_decisions(page)?;
-        let operation = format!("study-readiness:{}", uuid::Uuid::new_v4());
-        let obligation = HistoryObligation {
-            key: operation.clone(), owner: HistoryOwner::Run(run.clone()),
-            purpose: HistoryPurpose::Unsettled, attribution: "study-readiness-repair-page".into(),
-        };
-        // A stable verification pass creates no permanent receipt/obligation ID.
-        // Potential mutations retain exact history before dispatch, including an
-        // acknowledgment lost after a newer invalidation.
-        if changes { self.retain_history_obligation(&obligation).await?; }
-        self.ensure_writes()?;
-        let result = protected_query("canonical_studies::readiness_repair_page", || Ok(
-            self.db.metadata_query(crate::canonical::MetadataResponse::Page,
-                "RETURN fn::pse_study_v1::readiness_repair_page($pse_rpc_expires_at,$operation,$request);")
-                .bind(("operation",operation.clone())).bind(("request",request.clone()))
-        )).await;
-        let mut response = match result {
-            Ok(response) => response,
-            Err(error) => {
-                // Immutable receipt first. Mutable hints may already represent a
-                // newer revision, and missing evidence never proves no effect.
-                let readback = bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
-                    "RETURN fn::pse_study_v1::readiness_receipt($pse_rpc_expires_at,$operation,$study,$run,$request);")
-                    .bind(("operation",operation)).bind(("study",study))
-                    .bind(("run",run)).bind(("request",request))).await;
-                if let Ok(mut readback) = readback {
-                    if let Some(receipt) = readback.take::<Option<Object>>(0)? {
-                        validate_repair_outcomes(&receipt, &examined)?;
-                        if changes { self.release_history_obligation(&obligation).await?; }
-                        return Ok(examined.len() as u64);
-                    }
+    /// Derive one bounded request. Potential obligation mutations first retain
+    /// their original inputs and a discoverable owner atomically in the store.
+    async fn repair_readiness_page(&self, page:ReadinessScopePage)->Result<u64,CanonicalError> {
+        let (request,keys,changes)=readiness_decisions(page)?;
+        if !changes {
+            let mut response=protected_query("canonical_studies::readiness_verify_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                "RETURN fn::pse_study_v1::readiness_verify_page($pse_rpc_expires_at,$request);").bind(("request",request.clone())))).await?;
+            let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+            if result.get("pending")==Some(&Value::Bool(true)) {return Ok(0);}
+            let result=readiness_object(codec::required(&mut result,"result")?)?;
+            validate_repair_outcomes(&result,&keys)?;
+            return Ok(keys.len() as u64);
+        }
+        let operation=format!("study-readiness:{}",uuid::Uuid::new_v4());
+        // Preparation is itself a single transaction: locator, exact request
+        // and Unsettled obligation either all exist or none exists. A lost reply
+        // leaves the original request discoverable on the next worker call.
+        let mut response=protected_query("canonical_studies::readiness_prepare_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+            "RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$request);")
+            .bind(("operation",operation.clone())).bind(("request",request.clone())))).await?;
+        let Some(row)=response.take::<Option<Object>>(0)? else {return Ok(0);};
+        let (pending,created)=decode_pending_readiness(row)?;
+        self.resume_readiness_page(pending,!created).await
+    }
+    async fn pending_readiness_page(&self,study:&str)->Result<Option<PendingReadinessPage>,CanonicalError> {
+        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+            "RETURN fn::pse_study_v1::readiness_pending_page($pse_rpc_expires_at,$study);").bind(("study",study.to_owned()))).await?;
+        response.take::<Option<Object>>(0)?.map(|row|decode_pending_readiness(row).map(|(pending,_)|pending)).transpose()
+    }
+    async fn resume_readiness_page(&self,mut pending:PendingReadinessPage,mut fence:bool)->Result<u64,CanonicalError> {
+        let mut maximum=65;
+        loop {
+            if fence {
+                let after=format!("fenced:{}",uuid::Uuid::new_v4());
+                let mut response=protected_query("canonical_studies::readiness_fence_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                    "RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,$operation,$study,$run,$before,$after);")
+                    .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
+                    .bind(("before",pending.epoch.clone())).bind(("after",after.clone())))).await?;
+                let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+                if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
+                    let result=readiness_object(codec::required(&mut result,"result")?)?;
+                    return settled_readiness_count(&result,&pending.keys);
                 }
-                if changes && error.source_transaction_refused() {
-                    self.release_history_obligation(&obligation).await?;
-                }
-                return Err(error);
+                pending.epoch=codec::decode_string(codec::required(&mut result,"epoch")?)?;
+                // Another recovering caller may have won first. Obtain our own
+                // acknowledged native epoch write before dispatching the body.
+                if pending.epoch!=after {continue;}
             }
-        };
-        let result = response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
-        validate_repair_outcomes(&result, &examined)?;
-        if changes { self.release_history_obligation(&obligation).await?; }
-        Ok(examined.len() as u64)
+            let response=protected_query("canonical_studies::readiness_apply_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                "RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,$operation,$study,$run,$epoch,$maximum);")
+                .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
+                .bind(("epoch",pending.epoch.clone())).bind(("maximum",maximum as i64)))).await;
+            let mut response=match response {
+                Ok(response)=>response,
+                Err(CanonicalError::ConflictExhausted{..}) if maximum>1=>{
+                    maximum=(maximum/2).max(1);fence=true;continue;
+                }
+                Err(error)=>{
+                    // Only immutable settlement answers an uncertain reply.
+                    // Failure or absence leaves the exact durable pending owner;
+                    // a later invocation fences it before resuming the same body.
+                    if let Ok(mut readback)=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                        "RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
+                        .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))).await {
+                        if let Some(result)=readback.take::<Option<Object>>(0)? {
+                            return settled_readiness_count(&result,&pending.keys);
+                        }
+                    }
+                    return Err(error);
+                }
+            };
+            let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+            if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
+                let result=readiness_object(codec::required(&mut result,"result")?)?;
+                return settled_readiness_count(&result,&pending.keys);
+            }
+            fence=result.get("fenced")==Some(&Value::Bool(true));
+            // A committed bounded prefix remains on the same pending row. An
+            // acknowledged prefix can proceed directly; uncertainty must fence.
+        }
     }
     async fn readiness_scope_page(
         &self,
@@ -1282,7 +1337,7 @@ impl CanonicalStore {
         decode_readiness_page(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?, mode)
     }
     async fn readiness_pending(&self, study: &str) -> Result<bool, CanonicalError> {
-        let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0);","study")).bind(("study",study.to_owned()))).await?;
+        let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending,pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $c.pending_operation!=NONE OR ($s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0));","study")).bind(("study",study.to_owned()))).await?;
         response.take::<Option<bool>>(0)?.ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_scan_page(
@@ -1292,20 +1347,16 @@ impl CanonicalStore {
         let examined = self.readiness_apply_bounded(study, cursor, mode, None).await?;
         Ok(ReadinessAdvance { examined, pending:self.readiness_pending(study).await? })
     }
-    // Definite SSI conflicts already receive bounded whole-operation retries.
-    // Reduce the next complete page rather than abandoning independent work;
-    // within_clock keeps every reduction under the original caller deadline.
     async fn readiness_apply_bounded(
         &self, study: &str, cursor: &ReadinessCursor, mode: &str, source: Option<&ReadinessHint>,
     ) -> Result<u64, CanonicalError> {
-        let mut maximum = 64;
-        loop {
-            let page = self.readiness_scope_page(study,cursor,mode,source,maximum).await?;
-            match self.repair_readiness_page(page).await {
-                Err(CanonicalError::ConflictExhausted { .. }) if maximum > 1 => maximum /= 2,
-                result => return result,
-            }
-        }
+        let page=match self.readiness_scope_page(study,cursor,mode,source,64).await {
+            Err(CanonicalError::Refused {code:pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessNotificationChanged,..})=>return Ok(0),
+            result=>result?,
+        };
+        // A pending operation owns its original page. Conflict reduction happens
+        // inside that owner, never by replacing its request with a fresh scope.
+        self.repair_readiness_page(page).await
     }
     /// Rebuild or propagate one bounded shared-premise page. The generated
     /// transition retains every unfinished item before moving either cursor.
@@ -1313,6 +1364,10 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT),async {
             self.ensure_writes()?;
+            if let Some(pending)=self.pending_readiness_page(study).await? {
+                let examined=self.resume_readiness_page(pending,true).await?;
+                return Ok(ReadinessAdvance {examined,pending:self.readiness_pending(study).await?});
+            }
             let Some(owner)=self.canonical_study_summary(study).await? else { return Err(CanonicalError::IncompleteResponse); };
             if !owner.active || owner.cancelled || owner.terminal { return Ok(ReadinessAdvance::default()); }
             let cursor=self.readiness_cursor(study).await?;
@@ -1336,6 +1391,10 @@ impl CanonicalStore {
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     self.ensure_writes()?;
+                    if let Some(pending)=self.pending_readiness_page(study).await? {
+                        let examined=self.resume_readiness_page(pending,true).await?;
+                        return Ok(ReadinessAdvance {examined,pending:self.readiness_pending(study).await?});
+                    }
                     let Some(owner) = self.canonical_study_summary(study).await? else {
                         return Err(CanonicalError::IncompleteResponse);
                     };
@@ -2125,7 +2184,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM $page WHERE active=true AND terminal=false ORDER BY id LIMIT 64;").bind(("page",crate::canonical_codec::record_page("canonical_studies",after.unwrap_or(""))))).await?;
+            let mut result=bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM $page WHERE active=true AND (terminal=false OR type::record('canonical_study_readiness_cursors',key).pending_operation!=NONE) ORDER BY id LIMIT 64;").bind(("page",crate::canonical_codec::record_page("canonical_studies",after.unwrap_or(""))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -3064,6 +3123,17 @@ mod canonical_studies_server_unit {
         restarted.remove_isolated_fixture().await.unwrap();
     }
 
+    async fn prepare_readiness_test(store:&CanonicalStore,request:&Object,operation:&str)->PendingReadinessPage {
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$request);")
+            .bind(("operation",operation.to_owned())).bind(("request",request.clone()))).await.unwrap();
+        decode_pending_readiness(response.take::<Option<Object>>(0).unwrap().unwrap()).unwrap().0
+    }
+    async fn apply_readiness_test(store:&CanonicalStore,pending:&PendingReadinessPage,maximum:i64)->Object {
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,$operation,$study,$run,$epoch,$maximum);")
+            .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
+            .bind(("epoch",pending.epoch.clone())).bind(("maximum",maximum))).await.unwrap();
+        response.take::<Option<Object>>(0).unwrap().unwrap()
+    }
     #[tokio::test]
     async fn canonical_studies_readiness_pages_share_premises_and_read_immutable_receipts() {
         let (store, _, revision)=fixture().await;
@@ -3078,9 +3148,10 @@ mod canonical_studies_server_unit {
         assert_eq!(page.items.len(),4);
         assert_eq!(page.items[1].predecessors,page.items[2].predecessors);
         let (request,keys,_)=readiness_decisions(page).unwrap();
-        let apply=|| store.db.query("RETURN fn::pse_study_v1::readiness_repair_page($pse_rpc_expires_at,'original-page',$request);").bind(("request",request.clone()));
-        let mut response=bounded_query(apply()).await.unwrap();
-        let original=response.take::<Option<Object>>(0).unwrap().unwrap();
+        let pending=prepare_readiness_test(&store,&request,"original-page").await;
+        let mut applied=apply_readiness_test(&store,&pending,65).await;
+        assert_eq!(applied.get("settled"),Some(&Value::Bool(true)));
+        let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
         validate_repair_outcomes(&original,&keys).unwrap();
         let scope=store.study_scope(&point_key("shared-page",OccurrenceKey(0))).await.unwrap();
         let _claim=store.claim_study_point(&scope,None,"shared-claim","worker",Duration::from_secs(60)).await.unwrap();
@@ -3089,16 +3160,20 @@ mod canonical_studies_server_unit {
         // invalidation. Exact immutable readback must win over the mutable hint.
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_receipt($pse_rpc_expires_at,'original-page','shared-page','shared-parent',$request);").bind(("request",request.clone()))).await.unwrap();
         assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap(),original);
-        let mut response=bounded_query(apply()).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap(),original);
+        let mut applied=apply_readiness_test(&store,&pending,65).await;
+        assert_eq!(readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap(),original);
         assert!(store.readiness_hint(&scope.point.key).await.unwrap().unwrap().dirty,"reconciling the old operation cannot overwrite a new obligation");
         // Old per-item premises do not stall an independent candidate.
         let mut stale=request.clone();
         let Value::Array(items)=stale.get_mut("items").unwrap() else {unreachable!()};
         let Value::Object(first)=items.get_mut(0).unwrap() else {unreachable!()};
         first.insert("premises",Bytes::from(vec![42]));
-        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_repair_page($pse_rpc_expires_at,'stale-page',$request);").bind(("request",stale))).await.unwrap();
-        let result=response.take::<Option<Object>>(0).unwrap().unwrap();
+        let cursor=store.readiness_cursor("shared-page").await.unwrap();
+        let Value::Object(fence)=stale.get_mut("fence").unwrap() else {unreachable!()};
+        fence.insert("cursor",codec::encode_uint(cursor.revision).unwrap());
+        let pending=prepare_readiness_test(&store,&stale,"stale-page").await;
+        let mut applied=apply_readiness_test(&store,&pending,65).await;
+        let result=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
         let Value::Array(outcomes)=result.get("outcomes").unwrap() else {unreachable!()};
         assert_eq!(readiness_object(outcomes[0].clone()).unwrap().get("status"),Some(&Value::String("stale".into())));
         assert_eq!(readiness_object(outcomes[3].clone()).unwrap().get("status"),Some(&Value::String("accepted".into())));
@@ -3112,6 +3187,43 @@ mod canonical_studies_server_unit {
         assert_eq!(receipt_count().await,before,"unchanged periodic verification must not accumulate permanent receipt IDs");
         assert!(store.readiness_hint(&scope.point.key).await.unwrap().is_some());
         store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_studies_readiness_pending_epoch_and_prefix_survive_restarted_clients() {
+        let (store,database,revision)=fixture().await;
+        let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
+        store.create_study("pending-page",&request(&revision,"pending-parent"),&[],&points,&||false).await.unwrap();
+        let cursor=store.readiness_cursor("pending-page").await.unwrap();
+        let page=store.readiness_scope_page("pending-page",&cursor,"verify",None,64).await.unwrap();
+        let (request,keys,_)=readiness_decisions(page).unwrap();
+        // The prepare acknowledgment may disappear: the exact original request,
+        // parent attribution and Unsettled owner remain reachable by study alone.
+        let original=prepare_readiness_test(&store,&request,"pending-original").await;
+        assert_eq!(store.pending_readiness_page("pending-page").await.unwrap().unwrap().operation,"pending-original");
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,'pending-original','pending-page','pending-parent',$before,'fenced:known');")
+            .bind(("before",original.epoch.clone()))).await.unwrap();
+        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("epoch"),Some(&Value::String("fenced:known".into())));
+        let late=apply_readiness_test(&store,&original,65).await;
+        assert_eq!(late.get("fenced"),Some(&Value::Bool(true)),"a delayed original dispatcher cannot commit after the native epoch write");
+        let pending=store.pending_readiness_page("pending-page").await.unwrap().unwrap();
+        let partial=apply_readiness_test(&store,&pending,1).await;
+        assert_eq!(partial.get("settled"),Some(&Value::Bool(false)));
+        assert!(store.pending_readiness_page("pending-page").await.unwrap().is_some());
+        let state=std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database=database;
+        let restarted=crate::testing::canonical_fixture_peer(&store,&options).unwrap();
+        // Recovery starts from the persisted operation, not a newly derived page
+        // or a fresh operation UUID. A committed prefix must not be appended twice.
+        assert_eq!(restarted.repair_study_readiness("pending-page").await.unwrap().examined,4);
+        assert!(restarted.pending_readiness_page("pending-page").await.unwrap().is_none());
+        let mut response=bounded_query(restarted.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'pending-original','pending-page','pending-parent');")).await.unwrap();
+        let settled=response.take::<Option<Object>>(0).unwrap().unwrap();
+        validate_repair_outcomes(&settled,&keys).unwrap();
+        let mut response=bounded_query(restarted.db.query("SELECT * FROM ONLY type::record('canonical_history_obligations','pending-original');")).await.unwrap();
+        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("released"),Some(&Value::Bool(true)));
+        restarted.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
