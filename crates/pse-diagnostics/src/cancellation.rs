@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One cooperative stop state shared by numerical callbacks and idle waiters.
-use event_listener::{Event, EventListener, Listener};
+use event_listener::{Event, EventListener};
+#[cfg(not(target_family = "wasm"))]
+use event_listener::Listener;
+#[cfg(not(target_family = "wasm"))]
+use std::time::Instant;
 use std::{
     future::Future,
     pin::Pin,
@@ -10,7 +14,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     task::{Context, Waker},
-    time::Instant,
 };
 
 #[derive(Debug, Default)]
@@ -70,6 +73,8 @@ impl Cancellation {
 
     /// Block until cancellation or an original absolute deadline.
     /// Returns true only when cancellation was observed; a timeout does not set stop.
+    /// Blocking waits are unavailable in WASI policy modules; async notification remains usable.
+    #[cfg(not(target_family = "wasm"))]
     pub fn wait_until(&self, deadline: Option<Instant>) -> bool {
         let listener = self.0.changed.listen();
         if !self.is_cancelled() {

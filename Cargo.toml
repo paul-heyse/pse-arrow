@@ -153,6 +153,8 @@ pyo3-introspection = "=0.29.2"
 surrealdb-protocol = { version = "=0.13.1", default-features = false, features = [
   "flatbuffers",
 ] }
+surrealism = "=0.6.4"
+surrealdb-types = "=3.3.4"
 surrealdb-syn = "=3.3.4"
 surrealdb-sql = "=3.3.4"
 surrealdb = { version = "=3.3.4", path = "vendor/surrealdb", default-features = false, features = [
