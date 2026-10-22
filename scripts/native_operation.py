@@ -27,13 +27,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
     from types import FrameType, TracebackType
 
-    from scripts import host_admission
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import (  # noqa: E402 -- direct-script path routing
     build_environment,
+    host_admission,
     native_cache,
     pse_env,
 )
@@ -1167,8 +1167,6 @@ def terminal_guard_complete(
             abandonment = state.get("abandonment")
             selected_composer = state.get("composer")
             if isinstance(abandonment, dict):
-                from scripts import host_admission as host
-
                 return (
                     state["phase"] in {"abandoned", "frozen"}
                     and re.fullmatch(r"[a-f0-9]{32}", str(abandonment.get("identity", ""))) is not None
@@ -1177,7 +1175,7 @@ def terminal_guard_complete(
                     and isinstance(selected_composer, dict)
                     and all(selected_composer.get(key) == composer.get(key) for key in ("pid", "start", "scope"))
                     and selected_composer.get("scope") == guard["scope"]
-                    and not host.caller_alive(selected_composer)
+                    and not host_admission.caller_alive(selected_composer)
                     and drained({"scope": guard["scope"]}, **deadline_options(deadline)).complete
                 )
             return False

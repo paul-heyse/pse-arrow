@@ -9,7 +9,8 @@ import os
 import time
 from pathlib import Path
 
-from scripts import surreal_diagnostics as diagnostics, surreal_server as server
+from scripts import surreal_diagnostics as diagnostics
+from scripts import surreal_server as server
 
 
 def run(state:Path,database:str,kind:str,request:Path,evidence:Path) -> None:
@@ -30,11 +31,15 @@ def run(state:Path,database:str,kind:str,request:Path,evidence:Path) -> None:
     server.write_json(evidence,result)
     if kind=="graph":
         graph=result["neighborhood"]
-        assert graph["anchor"]==selected["anchor"] and graph["scope"]==selected["scope"]
-        assert len(graph["edges"])==1 and graph["complete"] is False and graph["continuation"] is not None
+        assert graph["anchor"]==selected["anchor"]
+        assert graph["scope"]==selected["scope"]
+        assert len(graph["edges"])==1
+        assert graph["complete"] is False
+        assert graph["continuation"] is not None
         assert result["physical"]["experimental_execution"] is True
     else:
-        assert result["database"]==database and result["query"]["readiness_index"]=="study_ready_candidates"
+        assert result["database"]==database
+        assert result["query"]["readiness_index"]=="study_ready_candidates"
         assert "study_ready_candidates" in json.dumps(result["observations"]["readiness_static"])
         samples=[metric for metric in result["statistics"]["metrics"] if metric["name"]=="canonical.query.latest_sample"]
         assert len(samples)==1
@@ -42,8 +47,11 @@ def run(state:Path,database:str,kind:str,request:Path,evidence:Path) -> None:
         assert latest["kind"]=="Text"
         sample=json.loads(latest["value"])["s"]
         assert set(sample)=={"q","s","ns","ok"}
-        assert sample["q"]>0 and sample["s"]==1 and sample["ok"] is True
-        assert isinstance(sample["ns"],int) and sample["ns"]>=0
+        assert sample["q"]>0
+        assert sample["s"]==1
+        assert sample["ok"] is True
+        assert isinstance(sample["ns"],int)
+        assert sample["ns"]>=0
 
 
 def main() -> None:

@@ -9,7 +9,12 @@ import json
 import subprocess
 from pathlib import Path
 
-from scripts import affected, document_lifecycle, document_metadata, session_retrospective
+from scripts import (
+    affected,
+    document_lifecycle,
+    document_metadata,
+    session_retrospective,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -80,7 +85,7 @@ def describe(query: str, *, owner: str | None, scope: bool, changes: bool,
     items = recipe_context(declaration["recipes"], query) if owner is None else []
     if scope:
         for item in document_lifecycle.aggregate(ROOT, document_metadata.load_policy(ROOT)):
-            if owner is not None and owner.casefold() not in str(item.get("owner", item["document"])).casefold():
+            if owner is not None and owner.casefold() not in item.get("owner", item["document"]).casefold():
                 continue
             if all(word in json.dumps(item).casefold() for word in query.casefold().split()):
                 items.append({"kind": "native-scope", **item})

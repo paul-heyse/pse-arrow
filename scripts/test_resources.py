@@ -27,8 +27,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast, overload
 
 from scripts import host_admission as host
+from scripts import invocation_disposition, resource_store
 from scripts import native_operation as operation
-from scripts import resource_store
 from scripts.resource_store import StoreError as ResourceError
 
 if TYPE_CHECKING:
@@ -1704,8 +1704,6 @@ def main() -> int:
     if args.action == "abandon":
         if not args.resource:
             parser.error("abandon requires an exact invocation declaration or identity")
-        from scripts import invocation_disposition
-
         return invocation_disposition.main([args.resource, "--seconds", str(args.seconds), *(["--apply"] if args.apply else []), *(["--storage"] if args.storage else [])])
     if args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):

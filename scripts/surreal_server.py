@@ -61,8 +61,8 @@ from scripts import (
 )
 
 if TYPE_CHECKING:
+    import io
     from collections.abc import Callable, Generator, Mapping
-    from typing import BinaryIO
 
 
 MIB = 1024 * 1024
@@ -5648,7 +5648,7 @@ def inspect_log_configuration(state: Path, deadline: float) -> dict[str, object]
 def mcp_audit_records(state: Path, deadline: float) -> dict[str, object]:
     """Return only native audit metadata; never echo arbitrary server log text or payloads."""
     selected = selected_service(state, deadline)
-    maximum = integer(selected._config["log_max_bytes"])
+    maximum = integer(config_for(selected.state, deadline=deadline)["log_max_bytes"])
     raw = private_record_bytes(selected.state / "server.log", deadline, maximum_bytes=maximum)
     events: list[dict[str, object]] = []
     malformed = 0
@@ -5685,11 +5685,11 @@ def restart_diagnostic_configuration(state: Path, updates: dict[str, object], se
         if config.get("service_state") is not None or config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
             raise SupervisorError("Log restart requires an independent settled service owner")
         before = selected_service(state, deadline)
-        receipt = {"schema": "diagnostic-log-change-v1", "selection": selection,
+        receipt: dict[str, object] = {"schema": "diagnostic-log-change-v1", "selection": selection,
                    "previous": {"logging":log_configuration(config), "telemetry":config.get("diagnostic_telemetry")}, "before": before.identity, "phase": "quiescing"}
         path = state / ("diagnostic-"+category+"-change.json")
         write_json(path, receipt)
-        try:
+        def restart_selected() -> None:
             close_context_admission(state, admission="quiescing")
             for context in managed_contexts(state):
                 selected = config_for(context, deadline=deadline)
@@ -5717,7 +5717,8 @@ def restart_diagnostic_configuration(state: Path, updates: dict[str, object], se
                 raise SupervisorError("Log restart did not produce a new invocation")
             receipt.update(phase="applied" if selection in {"mcp-audit", "telemetry-capture"} else "restored", after=after.identity)
             write_json(path, receipt)
-            return receipt
+        try:
+            restart_selected()
         except BaseException:
             # A partial start is not a successful application. Keep admission closed and
             # preserve the selected phase for explicit stop/recovery rather than restart it.
@@ -5726,6 +5727,7 @@ def restart_diagnostic_configuration(state: Path, updates: dict[str, object], se
             write_json(path, receipt)
             raise
 
+        return receipt
 
 class BoundedLog:
     """Bound each write and retain a fixed number of private rotated files."""
@@ -5761,7 +5763,7 @@ class BoundedLog:
             with os.fdopen(fd, "ab") as output:
                 output.write(part)
 
-    def capture(self, stream: BinaryIO) -> None:
+    def capture(self, stream: io.BufferedIOBase) -> None:
         # Retain overlap so a secret split across pipe reads is still redacted.
         tail = b""
         overlap = len(self.secret)
@@ -9287,8 +9289,8 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
     ):
         raise SupervisorError("MCP VIEWER readiness identity is unavailable")
     selected = SelectedService(state, integer(config["port"]), config, credential_digest,
-                               proof_digest, str(observed.get("InvocationID", "")),
-                               str(credentials["selection_password"]))
+                               proof_digest, observed.get("InvocationID", ""),
+                               credentials["selection_password"])
     selected.recheck(deadline)
     return selected
 

@@ -32,22 +32,24 @@ class ReferenceRunTests(unittest.TestCase):
                 reference_run.freeze_initializer(source, root / "other-invocation.json")
 
     def run_lifetime(self, *, code: int = 0, changed: bool = False, stop: int = 0) -> tuple[dict, list]:
-        calls = []
+        calls: list[tuple] = []
         def phase(command: str, state: Path, *extra: str) -> int:
             calls.append((command, state, extra))
             return stop if command == "stop" else 0
-        def work(command: list[str], environment: dict, **options: object) -> int:
+        def work(command: list[str], _environment: dict, **options: object) -> int:
             self.assertEqual(command, ["tool with spaces", "a; touch never", "$(never)", "--value=a b"])
             calls.append(("work", command))
-            options["observation"].update(owned_drain="complete", forwarded_signal=2 if code == 130 else None)
+            observation = options["observation"]
+            assert isinstance(observation, dict)
+            observation.update(owned_drain="complete", forwarded_signal=2 if code == 130 else None)
             return code
         owner = SimpleNamespace(nonce="a" * 32, profile=SimpleNamespace(name="reference"))
         with (
             patch.object(reference_run.host_admission, "inherit", return_value=owner),
             patch.object(reference_run.surreal_server, "config_for", side_effect=[{"instance_id": "initial", "admission": "validation_required"}, {"instance_id": "initial"}, {"instance_id": "initial", "primary_receiver": {"worker_executable": "/admitted/worker"}}, {"instance_id": "changed" if changed else "initial"}]),
-            patch.object(reference_run.surreal_server, "lifecycle_reservation", side_effect=lambda *args, **kwargs: contextlib.nullcontext()),
+            patch.object(reference_run.surreal_server, "lifecycle_reservation", side_effect=lambda *_args, **_kwargs: contextlib.nullcontext()),
             patch.object(reference_run.surreal_server, "service_readiness", return_value=SimpleNamespace(phase=surreal_server.Readiness.ACTIONABLE_ABSENT)),
-            patch.object(reference_run.surreal_server, "start", side_effect=lambda *args: calls.append(("start",))),
+            patch.object(reference_run.surreal_server, "start", side_effect=lambda *_args: calls.append(("start",))),
             patch.object(reference_run.surreal_server, "storage_unit_observation", return_value={"InvocationID": "b" * 32}),
             patch.object(reference_run, "phase", side_effect=phase),
             patch.object(reference_run, "checkpoint"),
@@ -96,7 +98,7 @@ class ReferenceRunTests(unittest.TestCase):
         with (
             patch.object(reference_run.host_admission, "inherit", return_value=SimpleNamespace(nonce="a", profile=SimpleNamespace(name="reference"))),
             patch.object(reference_run.surreal_server, "config_for", return_value={"instance_id": "initial"}),
-            patch.object(reference_run.surreal_server, "lifecycle_reservation", side_effect=lambda *args, **kwargs: contextlib.nullcontext()),
+            patch.object(reference_run.surreal_server, "lifecycle_reservation", side_effect=lambda *_args, **_kwargs: contextlib.nullcontext()),
             patch.object(reference_run.surreal_server, "service_readiness", return_value=SimpleNamespace(phase=surreal_server.Readiness.READY)),
             patch.object(reference_run, "checkpoint"),
             patch.object(reference_run, "phase") as phase,

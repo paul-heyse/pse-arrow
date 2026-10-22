@@ -8,7 +8,6 @@ import argparse
 import contextlib
 import io
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path

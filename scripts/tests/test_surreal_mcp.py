@@ -383,9 +383,11 @@ class SurrealMcpTests(unittest.TestCase):
             self.assertEqual(selected.identity["invocation"], "b" * 32)
             self.assertNotIn(self.secret, repr(selected))
             self.assertNotIn(self.secret, json.dumps(selected.identity))
-            with patch.object(server, "storage_unit_observation", return_value={"InvocationID": "c" * 32}):
-                with self.assertRaisesRegex(server.SupervisorError, "changed"):
-                    selected.recheck(self.deadline)
+            with (
+                patch.object(server, "storage_unit_observation", return_value={"InvocationID": "c" * 32}),
+                self.assertRaisesRegex(server.SupervisorError, "changed"),
+            ):
+                selected.recheck(self.deadline)
 
     def test_selection_fence_refuses_same_port_restart_and_credential_rotation(self) -> None:
         with self.proof_controls():
@@ -405,9 +407,12 @@ class SurrealMcpTests(unittest.TestCase):
 
     def test_fixed_helper_forwards_nonsecret_selection_fence(self) -> None:
         fence="a"*64
-        with patch.object(pse_env,"control_environment",return_value={}), patch.object(pse_env,"run_light_control",return_value=subprocess.CompletedProcess([],0,json.dumps({"Authorization":self.authorization}),"")) as run:
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(server.main(["mcp-headers","--state",str(self.state),"--expected-endpoint",self.endpoint,"--expected-selection",fence]),0)
+        with (
+            patch.object(pse_env,"control_environment",return_value={}),
+            patch.object(pse_env,"run_light_control",return_value=subprocess.CompletedProcess([],0,json.dumps({"Authorization":self.authorization}),"")) as run,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(server.main(["mcp-headers","--state",str(self.state),"--expected-endpoint",self.endpoint,"--expected-selection",fence]),0)
         command=run.call_args.args[0]
         self.assertEqual(command[command.index("--expected-selection")+1],fence)
 
@@ -423,9 +428,10 @@ class SurrealMcpTests(unittest.TestCase):
         observed = server.selected_metric_values(
             f"# HELP {prefix}active_readers Native reader count\n# TYPE {prefix}active_readers gauge\n{prefix}active_readers 0\n# TYPE {prefix}oldest_pinned_version gauge\n"
         )["families"]
-        self.assertEqual(observed[prefix + "active_readers"]["samples"], [{"labels": "", "value": 0}])
-        self.assertEqual(observed[prefix + "oldest_pinned_version"]["availability"], "registered_no_sample")
-        self.assertEqual(observed[prefix + "poisoned"]["availability"], "unregistered")
+        observed = server.object_mapping(observed)
+        self.assertEqual(server.object_mapping(observed[prefix + "active_readers"])["samples"], [{"labels": "", "value": 0}])
+        self.assertEqual(server.object_mapping(observed[prefix + "oldest_pinned_version"])["availability"], "registered_no_sample")
+        self.assertEqual(server.object_mapping(observed[prefix + "poisoned"])["availability"], "unregistered")
         with self.assertRaises(server.SupervisorError):
             server.selected_metric_values(prefix + "active_readers not-a-number")
 
@@ -437,7 +443,7 @@ class SurrealMcpTests(unittest.TestCase):
         with self.proof_controls(), patch.object(server.http.client, "HTTPConnection", return_value=connection):
             snapshot = server.metric_snapshot(self.state, self.deadline)
             connection.request.assert_called_once_with("GET", "/metrics", headers={"Authorization": self.authorization})
-            self.assertEqual(snapshot["identity"]["instance_id"], "server-instance")
+            self.assertEqual(server.object_mapping(snapshot["identity"])["instance_id"], "server-instance")
             self.assertNotIn(self.secret, json.dumps(snapshot))
         with self.proof_controls(), patch.object(server.http.client, "HTTPConnection", return_value=connection):
             connection.getresponse.side_effect = lambda: (self.write("protocol-readiness.json", {**self.proof, "invocation": "changed"}), reply)[1]
@@ -454,9 +460,13 @@ class SurrealMcpTests(unittest.TestCase):
             clock[0] += 0.4
             return b"# harmless comment\n"
         reply.read1.side_effect = drip
-        with self.proof_controls(), patch.object(server.time, "monotonic", side_effect=lambda: clock[0]), patch.object(server.http.client, "HTTPConnection", return_value=connection):
-            with self.assertRaises(server.DeadlineExpiredError):
-                server.metric_snapshot(self.state, 101.0)
+        with (
+            self.proof_controls(),
+            patch.object(server.time, "monotonic", side_effect=lambda: clock[0]),
+            patch.object(server.http.client, "HTTPConnection", return_value=connection),
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.metric_snapshot(self.state, 101.0)
         self.assertEqual(reply.read1.call_count, 3)
         connection.close.assert_called_once()
 
@@ -464,7 +474,7 @@ class SurrealMcpTests(unittest.TestCase):
         before = {"identity": {"invocation": "first"}, **server.selected_metric_values(server.MX_METRIC_PREFIX + "active_readers 0")}
         after = {"identity": before["identity"], **server.selected_metric_values(server.MX_METRIC_PREFIX + "active_readers 1")}
         comparison = server.compare_metric_snapshots(before, after)
-        self.assertIn("gauge", comparison["scope"])
+        self.assertIn("gauge", str(comparison["scope"]))
         after["identity"] = {"invocation": "second"}
         with self.assertRaisesRegex(server.SupervisorError, "changed"):
             server.compare_metric_snapshots(before, after)

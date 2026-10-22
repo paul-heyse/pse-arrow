@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
 from scripts import native_operation as operation
-from scripts import pse_env
+from scripts import pse_env, resource_store
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
@@ -1623,8 +1623,6 @@ class AdmissionCheckpoint:
 
 def admission_observations(directory: Path, *, attempt: str | None = None) -> list[dict]:
     """Detached atomic producer checkpoints; no startup, locks or reconciliation."""
-    from scripts import resource_store
-
     if attempt is not None and not re.fullmatch(r"[a-f0-9]{32}", attempt):
         raise AdmissionError("Invalid exact admission attempt")
     area = directory / "observations" / "admission"

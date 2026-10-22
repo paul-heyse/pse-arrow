@@ -10,7 +10,10 @@ import hashlib
 import json
 import re
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def inspect(sessions: Path, checkout: Path, *, hours: float = 24, now: dt.datetime | None = None) -> dict:
@@ -60,7 +63,7 @@ def inspect(sessions: Path, checkout: Path, *, hours: float = 24, now: dt.dateti
                             break
                     if not selected:
                         continue
-                    stamp = dt.datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00'))
+                    stamp = dt.datetime.fromisoformat(item['timestamp'])
                     if not since <= stamp <= now:
                         continue
                 except (ValueError, TypeError, KeyError, AttributeError):

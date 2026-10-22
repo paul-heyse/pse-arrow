@@ -22,9 +22,16 @@ import threading
 import time
 from pathlib import Path
 
-from scripts import diagnostic_trace, doctor, native_operation, resource_store, run_inspection
+from scripts import (
+    diagnostic_trace,
+    doctor,
+    native_operation,
+    resource_store,
+    run_inspection,
+)
 
 SCHEMA = "active-diagnostic-action-v1"
+CPYTHON_SYMBOL_DIRECTORY = Path(os.path.sep) / "tmp"
 
 
 def regular(path: Path, expected: str | None = None, *, hash_contents: bool = True) -> dict:
@@ -44,6 +51,22 @@ def regular(path: Path, expected: str | None = None, *, hash_contents: bool = Tr
         raise ValueError("selected executable identity differs from the supplied digest")
     return {"path": str(path), "sha256": digest, "bytes": before.st_size,
             "device": before.st_dev, "inode": before.st_ino}
+
+
+def retain_symbol(original: Path, destination: Path, wall_ns: int, *, maximum_bytes: int | None = None) -> None:
+    """Copy a fresh owned CPython symbol file through one verified descriptor."""
+    descriptor = os.open(original, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    with os.fdopen(descriptor, "rb") as source:
+        before = os.fstat(source.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+            or before.st_mtime_ns < wall_ns
+            or (maximum_bytes is not None and before.st_size > maximum_bytes)):
+            raise ValueError("symbol file is not fresh bounded output from the selected process")
+        with destination.open("xb") as target:
+            shutil.copyfileobj(source, target, 1 << 20)
+        after = os.fstat(source.fileno())
+        if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
+            raise ValueError("symbol file changed during retention")
 
 
 def process_subject(pid: int, start: str) -> dict:
@@ -132,8 +155,25 @@ def memray_runtime(path: Path | None) -> dict:
 
 def identified_launch(command: list[str], subject_file: Path) -> list[str]:
     """Publish this owned exec request's kernel identity without interpreting workload argv."""
-    launcher = "import json,os,sys,time; from pathlib import Path; from scripts.native_operation import start_identity; p=Path(sys.argv[1]); f=os.fdopen(os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w'); json.dump({'pid':os.getpid(),'start':start_identity(os.getpid()),'wall_ns':time.time_ns(),'monotonic_ns':time.monotonic_ns(),'boot':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'exec_observation':'exec requested; workload outcome is separate'},f); f.close(); os.execvp(sys.argv[2],sys.argv[2:])"
-    return [sys.executable, "-c", launcher, str(subject_file), *command]
+    selected_environment = {"LD_LIBRARY_PATH": os.environ["LD_LIBRARY_PATH"]} if "LD_LIBRARY_PATH" in os.environ else {}
+    # A capability-bearing perf executable enters glibc secure mode, which strips
+    # LD_LIBRARY_PATH. Restore this exact selected value only after perf has
+    # exec'd the unprivileged relay, then re-exec the real target so its loader
+    # consumes it. Never forward other LD_* values or compose a new default.
+    launcher = (
+        "import json,os,sys,time; from pathlib import Path; "
+        "from scripts.native_operation import start_identity; "
+        "selected=json.loads(sys.argv[2]); os.environ.update(selected); "
+        "p=Path(sys.argv[1]); "
+        "f=os.fdopen(os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w'); "
+        "json.dump({'pid':os.getpid(),'start':start_identity(os.getpid()),"
+        "'wall_ns':time.time_ns(),'monotonic_ns':time.monotonic_ns(),"
+        "'boot':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),"
+        "'restored_environment':list(selected),"
+        "'exec_observation':'exec requested; workload outcome is separate'},f); "
+        "f.close(); os.execvp(sys.argv[3],sys.argv[3:])"
+    )
+    return [sys.executable, "-c", launcher, str(subject_file), json.dumps(selected_environment), *command]
 
 
 def collect(command: list[str], output: Path, label: str, *, seconds: float, output_bytes: int, cwd: Path | None = None, environment_remove: tuple[str, ...] = ()) -> dict:
@@ -199,9 +239,12 @@ def read_action(directory: Path, *, tail: int = 0) -> dict:
         name = artifact.get("member")
         if not isinstance(name, str) or Path(name).name != name:
             raise ValueError("invalid owned action artifact reference")
+        if not isinstance(artifact.get("sha256"), str):
+            observed = {"path": str(directory / name), "status": "unavailable",
+                        "error": "artifact has no recorded digest; original collection was incomplete"}
+            result["artifact_observations"].append(observed)
+            continue
         try:
-            if not isinstance(artifact.get("sha256"), str):
-                raise ValueError("artifact has no recorded digest; original collection was incomplete")
             observed = run_inspection.artifact_observation(directory / name, artifact["sha256"], tail if name.endswith(".txt") else 0, None)
         except (OSError, ValueError) as error:
             observed = {"path": str(directory / name), "status": "unavailable", "error": str(error)}
@@ -237,7 +280,7 @@ def execute(args: argparse.Namespace) -> dict:
     if any(path.is_symlink() for path in (output, *output.parents)):
         raise ValueError("action output must not traverse symlinks")
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
-    record = {"schema": SCHEMA, "action": args.action, "started_monotonic_ns": time.monotonic_ns(),
+    record: dict = {"schema": SCHEMA, "action": args.action, "started_monotonic_ns": time.monotonic_ns(),
               "target_outcome": "not observed; collection success is independent", "operation": args.operation,
               "invocation": None, "steps": [], "status": "incomplete",
               "bounds": {"seconds_per_step": args.seconds, "text_bytes_per_stream": args.output_bytes,
@@ -247,7 +290,7 @@ def execute(args: argparse.Namespace) -> dict:
         record["steps"].append(value)
         return value
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    try:
+    def perform() -> None:
         if args.invocation is not None:
             root, declaration, _state = run_inspection.resolve(args.invocation, args.registry)
             record["invocation"] = {"registry": str(root), "identity": declaration["nonce"]}
@@ -266,7 +309,7 @@ def execute(args: argparse.Namespace) -> dict:
                 raise ValueError(tool["reason"])
             if native_operation.start_identity(args.pid) != args.start:
                 raise ValueError("selected target identity changed before attachment")
-            argv = [tool["path"], "dump", "--pid", str(args.pid), "--json"] if args.action == "python-snapshot" else [tool["path"], "record", "--pid", str(args.pid), "--duration", str(args.seconds), "--threads", "--idle", "--format", "speedscope", "--output", str(output / "python.speedscope.json")]
+            argv = [tool["path"], "dump", "--pid", str(args.pid), "--json"] if args.action == "python-snapshot" else [tool["path"], "record", "--pid", str(args.pid), "--duration", str(int(args.seconds)), "--threads", "--idle", "--format", "speedscope", "--output", str(output / "python.speedscope.json")]
             argv += ["--native"] if args.native else []
             argv += ["--nonblocking"] if args.nonblocking else []
             value = step(argv, "py-spy", args.seconds + 5)
@@ -311,6 +354,7 @@ def execute(args: argparse.Namespace) -> dict:
             if tool["status"] != "available":
                 raise ValueError(tool["reason"])
             required = []
+            subject: dict = {}
             if args.action == "python-perf":
                 if Path(command[0]).resolve() != Path(sys.executable).resolve():
                     raise ValueError("Python perf requires the selected interpreter as the literal executable")
@@ -324,18 +368,9 @@ def execute(args: argparse.Namespace) -> dict:
                     record["subject"]["runtime_identity"] = subject
                     retained_symbols = []
                     for extension, prefix in (("map", "perf"), ("dump", "jit")):
-                        original = Path("/tmp") / f"{prefix}-{subject['pid']}.{extension}"
+                        original = CPYTHON_SYMBOL_DIRECTORY / f"{prefix}-{subject['pid']}.{extension}"
                         try:
-                            descriptor = os.open(original, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-                            with os.fdopen(descriptor, "rb") as source:
-                                before = os.fstat(source.fileno())
-                                if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_mtime_ns < subject["wall_ns"]:
-                                    raise ValueError("perf symbol file is not fresh output from the selected process")
-                                with (output / f"python.{extension}").open("xb") as destination:
-                                    shutil.copyfileobj(source, destination, 1 << 20)
-                                after = os.fstat(source.fileno())
-                                if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
-                                    raise ValueError("perf symbols changed during retention")
+                            retain_symbol(original, output / f"python.{extension}", subject["wall_ns"])
                             retained_symbols.append({"original": str(original), "member": f"python.{extension}", "status": "retained"})
                         except (OSError, ValueError) as error:
                             retained_symbols.append({"original": str(original), "status": "unavailable", "reason": str(error)})
@@ -345,22 +380,16 @@ def execute(args: argparse.Namespace) -> dict:
                     decoded = output / "perf.jit.data"
                     required.append(step([tool["path"], "inject", "--jit", "-i", str(raw), "-o", str(decoded)], "perf-inject", cwd=output))
                     if subject_file.exists():
-                        candidates = sorted(Path("/tmp").glob(f"jitted-{subject['pid']}-*.so"))
+                        candidates = sorted(CPYTHON_SYMBOL_DIRECTORY.glob(f"jitted-{subject['pid']}-*.so"))
                         record["jit_symbol_retention"] = {"status": "complete" if len(candidates) <= 512 else "partial", "files": []}
                         symbols = output / "jit-symbols"
                         symbols.mkdir(mode=0o700)
                         for original in candidates[:512]:
-                            descriptor = os.open(original, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-                            with os.fdopen(descriptor, "rb") as source:
-                                before = os.fstat(source.fileno())
-                                if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_mtime_ns < subject["wall_ns"] or before.st_size > 1 << 20:
-                                    raise ValueError("JIT ELF is not fresh bounded output from the selected injection")
-                                selected = symbols / original.name
-                                with selected.open("xb") as destination:
-                                    shutil.copyfileobj(source, destination)
+                            selected = symbols / original.name
+                            retain_symbol(original, selected, subject["wall_ns"], maximum_bytes=1 << 20)
                             record["jit_symbol_retention"]["files"].append({"original": str(original), "member": f"jit-symbols/{original.name}", **regular(selected)})
                 if decoded.exists() and decoded.stat().st_size:
-                    required.append(step([tool["path"], "script", "-i", str(decoded)], "perf-stacks"))
+                    required.append(step([tool["path"], "script", "-i", str(decoded)], "perf-stacks", environment_remove=() if args.debuginfod else ("DEBUGINFOD_URLS",)))
                 else:
                     required.append({"status": "unavailable", "exit_code": None, "reason": "no nonempty perf data for required stack decoding"})
                 stacks = output / "perf-stacks.stdout.txt"
@@ -462,6 +491,8 @@ def execute(args: argparse.Namespace) -> dict:
             record["status"] = "observed"
         else:
             raise ValueError("unsupported active action")
+    try:
+        perform()
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         record.update(status="unavailable", error=str(error))
     finally:
@@ -486,7 +517,7 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--executable-sha256")
     command.add_argument("--events")
     command.add_argument("--memray-python", type=Path)
-    command.add_argument("--debuginfod", action="store_true", help="allow configured symbol downloads for the Memray decoder; default local symbols only")
+    command.add_argument("--debuginfod", action="store_true", help="allow configured symbol downloads for perf/Memray decoders; default local symbols only")
     command.add_argument("--rr-binary", type=Path, help="bin/rr from the complete pinned portable bundle")
     command.add_argument("--trace", type=Path)
     command.add_argument("--trace-sha256")
@@ -504,15 +535,19 @@ def main(argv: list[str] | None = None) -> int:
     split = arguments.index("--") if "--" in arguments else len(arguments)
     args = parser().parse_args(arguments[:split])
     args.command = arguments[split + 1:]
-    try:
+    def validate() -> None:
         if not math.isfinite(args.seconds) or not 0 < args.seconds <= 300 or not 0 <= args.output_bytes <= 64 << 20:
             raise ValueError("select a finite duration in (0,300] and text bound in 0..64MiB")
+        if args.action == "python-sample" and not args.seconds.is_integer():
+            raise ValueError("py-spy sampling requires a whole number of seconds")
         if args.action.startswith("python-") and args.action != "python-perf" and (args.pid is None or args.start is None):
             raise ValueError("Python attachment requires exact --pid and --start")
         if args.action not in {"python-snapshot", "python-sample"} and (args.pid is not None or args.start is not None):
             raise ValueError("live process attachment is supported only by explicit Python snapshot/sample actions; GDB uses owned launch or supplied core")
         if args.registry is not None and args.invocation is None:
             raise ValueError("--registry requires an authentic --invocation association")
+    try:
+        validate()
         record = read_action(args.output.absolute(), tail=args.tail) if args.action == "read" else execute(args)
         print(json.dumps(record, indent=2))
         return 0 if args.action == "read" or record["status"] in {"collected", "observed"} else 1

@@ -13,8 +13,8 @@ import subprocess
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import activity
 
@@ -47,6 +47,7 @@ class ActivityTests(unittest.TestCase):
         with patch.object(activity.native_operation, "unit_observation", return_value=fields), patch.object(activity.native_operation, "populated", return_value=False):
             observed, errors = activity.units(["pse-empty.scope"])
         self.assertEqual(errors, [])
+        assert observed is not None
         self.assertEqual(observed[0]["population"], "empty")
         self.assertIn("user manager", observed[0]["wait_explanation"])
 

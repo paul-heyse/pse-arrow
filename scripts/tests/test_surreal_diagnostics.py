@@ -4,19 +4,22 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-import os
 import contextlib
-import json
 import io
-import tempfile
-from pathlib import Path
+import json
+import os
 import sys
+import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from scripts import surreal_diagnostics as diagnostics
 from scripts import surreal_server as server
+from scripts import surreal_telemetry as telemetry
+from scripts.surreal_telemetry import Capture
+from scripts.tests.surreal_mx_check import field
 
 
 class ParserCaptureTests(unittest.TestCase):
@@ -56,7 +59,8 @@ class LogConfigurationTests(unittest.TestCase):
                     super().__init__()
                     self.chunks = iter((b"prefix split-", b"secret suffix\n", b"last"))
                     self.calls = 0
-                def read1(self, _size: int = -1) -> bytes:
+                def read1(self, size: int | None = -1, /) -> bytes:
+                    del size
                     self.calls += 1
                     if self.calls == 3:
                         self.assert_published()
@@ -69,14 +73,13 @@ class LogConfigurationTests(unittest.TestCase):
 
     def test_audit_reader_projects_metadata_and_omits_payload(self) -> None:
         selected = MagicMock()
-        selected._config = {"log_max_bytes":4096}
         selected.state = Path("/fixture")
         selected.identity = {"invocation":"fixed"}
         raw = json.dumps({"target":"surrealdb::mcp::audit", "fields":{"tool":"query", "outcome":"ok", "time_ms":1, "query":"secret-query", "row":"secret-row"}}).encode()+b"\n"
-        with patch.object(server, "selected_service", return_value=selected), patch.object(server, "private_record_bytes", return_value=raw):
+        with patch.object(server, "selected_service", return_value=selected), patch.object(server, "config_for", return_value={"log_max_bytes": 4096}), patch.object(server, "private_record_bytes", return_value=raw):
             observed = server.mcp_audit_records(Path("/fixture"), time.monotonic()+5)
         self.assertNotIn("secret", json.dumps(observed))
-        self.assertEqual(observed["records"][0]["tool"], "query")
+        self.assertEqual(server.object_inventory(observed["records"])[0]["tool"], "query")
         selected.recheck.assert_called_once()
 
     def test_owned_restart_changes_invocation_and_interruption_remains_pending(self) -> None:
@@ -104,7 +107,7 @@ class LogConfigurationTests(unittest.TestCase):
                 else:
                     result = server.restart_log_configuration(state, "baseline", time.monotonic()+5)
                     self.assertEqual(result["phase"], "restored")
-                    self.assertNotEqual(result["before"]["invocation"], result["after"]["invocation"])
+                    self.assertNotEqual(server.object_mapping(result["before"])["invocation"], server.object_mapping(result["after"])["invocation"])
                 stop.assert_called_once()
                 reconfigure.assert_not_called()
                 receipt = json.loads((state / "diagnostic-log-change.json").read_text())
@@ -116,8 +119,6 @@ class LogConfigurationTests(unittest.TestCase):
 
 class TelemetryTests(unittest.TestCase):
     def test_capture_projects_span_parentage_and_refuses_compressed_frames(self) -> None:
-        from scripts.surreal_telemetry import Capture
-        from scripts.tests.surreal_mx_check import field
         span=field(1,b"t"*16)+field(2,b"s"*8)+field(4,b"p"*8)+field(5,b"invoke_with_timeout")+field(9,b"private-query")
         body=field(1,field(2,field(2,span)))
         with Capture() as capture:
@@ -131,7 +132,6 @@ class TelemetryTests(unittest.TestCase):
                 capture.observe(b"x")
 
     def test_owned_capture_restores_after_success_and_workload_failure(self) -> None:
-        from scripts import surreal_telemetry as telemetry
         for failure in (False,True):
             with self.subTest(failed=failure),tempfile.TemporaryDirectory() as directory,contextlib.ExitStack() as controls:
                 selected=MagicMock(identity={"invocation":"selected"})

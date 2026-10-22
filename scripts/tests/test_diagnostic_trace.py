@@ -48,9 +48,12 @@ class DiagnosticBundleTests(unittest.TestCase):
 
     def test_escape_symlink_and_incomplete_runtime_refused(self) -> None:
         for entries, link in [({"release/../outside": b"bad"}, None), ({"release/bin/rr": b"rr"}, "/etc/passwd"), ({"release/bin/rr": b"rr"}, None)]:
-            with self.subTest(entries=entries, link=link), tempfile.TemporaryDirectory(dir=self.root) as directory:
-                with self.assertRaises(ValueError):
-                    trace.stage_bundle(self.archive(entries, link), Path(directory), self.spec)
+            with (
+                self.subTest(entries=entries, link=link),
+                tempfile.TemporaryDirectory(dir=self.root) as directory,
+                self.assertRaises(ValueError),
+            ):
+                trace.stage_bundle(self.archive(entries, link), Path(directory), self.spec)
         self.assertFalse((self.root / "outside").exists())
 
     def test_binary_paths_keep_existing_tools_and_rr_bundle(self) -> None:

@@ -594,7 +594,7 @@ class TestResourceTests(unittest.TestCase):
             ),
         ):
             surreal_server.require_borrowers_drained(self.state)
-        with self.assertRaisesRegex(resources.ResourceError, "frozen"):
+        with self.assertRaisesRegex(resources.ResourceError, "Invocation membership is closed"):
             resources.register(
                 {
                     "state": str(self.state),

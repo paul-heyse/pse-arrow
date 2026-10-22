@@ -46,7 +46,7 @@ def processes(pid: int, start: str) -> list[dict]:
 class BuildObservation:
     def __init__(self, pid: int, environment: dict[str, str]) -> None:
         self.path = host_admission.root_path(environment) / "observations" / "build" / (uuid.uuid4().hex + ".json")
-        self.value = {"version": 1, "attempt": self.path.stem, "pid": pid,
+        self.value: dict = {"version": 1, "attempt": self.path.stem, "pid": pid,
                       "start": native_operation.start_identity(pid), "boot": host_admission.boot(),
                       "invocation_declaration": environment.get("PSE_TEST_INVOCATION"),
                       "allocation": environment.get(host_admission.MARKER),
@@ -108,11 +108,13 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
         with selectors.DefaultSelector() as selected:
             buffers = {"stdout": b"", "stderr": b""}
             for stream, name in ((child.stdout, "stdout"), (child.stderr, "stderr")):
+                if stream is None:
+                    raise RuntimeError("Cargo output stream was not created")
                 selected.register(stream, selectors.EVENT_READ, name)
             while selected.get_map():
                 for key, _event in selected.select(0.2):
                     name = key.data
-                    data = os.read(key.fileobj.fileno(), 65536)
+                    data = os.read(key.fd, 65536)
                     if not data:
                         selected.unregister(key.fileobj)
                         continue

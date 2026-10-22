@@ -42,6 +42,12 @@ class ActiveDiagnosticsTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("cannot be nonblocking", result["error"])
 
+    def test_fractional_python_sampling_refuses_before_tool(self) -> None:
+        with patch.object(active, "collect", side_effect=AssertionError("tool launched")):
+            code, result = self.invoke("python-sample", "--seconds", "0.5", "--pid", str(os.getpid()), "--start", active.native_operation.start_identity(os.getpid()))
+        self.assertEqual(code, 1)
+        self.assertIn("whole number of seconds", result["error"])
+
     def test_genuine_invocation_is_optional_and_read_never_launches(self) -> None:
         code, result = self.invoke("feasibility")
         self.assertEqual(code, 0)
@@ -64,7 +70,7 @@ class ActiveDiagnosticsTests(unittest.TestCase):
         self.assertEqual(observed["tail"], [])
 
     def test_required_decoder_failure_is_partial(self) -> None:
-        def capture(command, output, label, **_options):
+        def capture(_command: list[str], output: Path, label: str, **_options: object) -> dict:
             if label == "perf-record":
                 (output / "perf.data").write_bytes(b"raw data")
             return {"status": "returned", "exit_code": 1 if label == "perf-stacks" else 0}
@@ -125,6 +131,20 @@ class ActiveDiagnosticsTests(unittest.TestCase):
         self.assertGreater(subject["pid"], 0)
         self.assertTrue(subject["start"].isdigit())
         self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+
+    def test_identified_launch_restores_only_selected_loader_path_before_reexec(self) -> None:
+        output = self.root / "selected-loader"
+        output.mkdir(mode=0o700)
+        marker = output / "subject.json"
+        selected = "/selected/lib path;literal"
+        command = [sys.executable, "-c", "import json,os;print(json.dumps({'path':os.environ.get('LD_LIBRARY_PATH')}))"]
+        with patch.dict(os.environ, {"LD_LIBRARY_PATH": selected}):
+            launch = active.identified_launch(command, marker)
+            self.assertEqual(json.loads(launch[4]), {"LD_LIBRARY_PATH": selected})
+            captured = active.collect(launch, output, "target", seconds=5, output_bytes=65536, environment_remove=("LD_LIBRARY_PATH",))
+        self.assertEqual(captured["exit_code"], 0, captured)
+        self.assertEqual(json.loads((output / "target.stdout.txt").read_text()), {"path": selected})
+        self.assertEqual(active.resource_store.read(marker)["restored_environment"], ["LD_LIBRARY_PATH"])
 
     def test_decoder_environment_choice_does_not_change_parent(self) -> None:
         output = self.root / "local-symbols"

@@ -8,13 +8,14 @@ import argparse
 import json
 import os
 import selectors
-import tempfile
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 from scripts import surreal_server as server
+from scripts.surreal_telemetry import capture_operation
 
 
 def syntax_capture(command: list[str], sql: str, environment: dict[str, str], deadline: float) -> dict[str, object]:
@@ -33,7 +34,7 @@ def syntax_capture(command: list[str], sql: str, environment: dict[str, str], de
                 streams.register(stream, selectors.EVENT_READ, name)
             while streams.get_map():
                 for key, _ in streams.select(server.remaining(deadline)):
-                    block = os.read(key.fileobj.fileno(), 64 << 10)
+                    block = os.read(key.fd, 64 << 10)
                     server.remaining(deadline)
                     if not block:
                         streams.unregister(key.fileobj)
@@ -108,16 +109,15 @@ def main(arguments: list[str] | None = None) -> int:
     try:
         deadline = time.monotonic() + 15
         if args.command == "trace-capture":
-            from scripts.surreal_telemetry import capture_operation  # noqa: PLC0415 -- selected optional capture only
             operation=args.operation[1:] if args.operation[:1]==["--"] else args.operation
             result=capture_operation(args.state,args.output,operation)
-            print(json.dumps({"artifact":str(args.output/"capture.json"),"exported_bytes":result["exported_bytes"],"spans":len(result["spans"]),"workload":result["workload"]}))
-            return int(result["workload"])
+            print(json.dumps({"artifact":str(args.output/"capture.json"),"exported_bytes":result["exported_bytes"],"spans":len(server.object_inventory(result["spans"])),"workload":result["workload"]}))
+            return server.integer(result["workload"])
         if args.command == "metrics":
             result = server.metric_snapshot(args.state, deadline)
             if args.output:
                 server.write_json(args.output, result)
-                print(json.dumps({"artifact": str(args.output), "identity": result["identity"], "families": len(result["families"])}))
+                print(json.dumps({"artifact": str(args.output), "identity": result["identity"], "families": len(server.object_mapping(result["families"]))}))
                 return 0
         elif args.command == "compare-metrics":
             result = server.compare_metric_snapshots(server.read_json(args.before), server.read_json(args.after))

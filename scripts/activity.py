@@ -24,10 +24,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import (  # noqa: E402 -- direct-script path routing
-    host_admission,
     build_observation,
+    host_admission,
     native_operation,
     pse_env,
+    run_inspection,
 )
 
 BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "maturin"}
@@ -201,8 +202,6 @@ def main(argv: list[str] | None = None) -> int:
             explanation["attempts"] = None
             errors.append(f"admission attempts unavailable: {error}")
         if args.run is not None:
-            from scripts import run_inspection
-
             try:
                 explanation["run"] = run_inspection.product_result(args.run, registry=args.registry)
             except (OSError, ValueError, TypeError, KeyError) as error:

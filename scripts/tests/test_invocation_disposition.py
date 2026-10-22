@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import contextlib
 import os
-import tempfile
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -38,13 +38,13 @@ class InvocationDispositionTests(unittest.TestCase):
                      "scope": {"unit": "pse-native-" + "a" * 32 + ".scope", "group": "/private-control", "invocation": "b" * 32}}
         with self.store.invocation_edit(self.path.stem) as state:
             state["producer"] = self.dead
-        self.facts = {"pid": self.dead["pid"], "start": "never", "boot": self.dead["boot"],
+        self.facts: test_resources.ResourceRecord = {"pid": self.dead["pid"], "start": "never", "boot": self.dead["boot"],
                       "state": str(self.root), "database": "canonical_test_" + "a" * 32,
                       "namespace": "pse", "service_generation": "owned", "kind": "database",
                       "directory": None, "invocation": self.path.stem, "test": "fixture::selected",
                       "cleanup": "retained", "disposition": "incomplete", "pin": True, "drained": True,
                       "units": [self.dead["scope"]], "references": {}, "borrows": {}}
-        self.resource = self.store.register(test_resources.resource_identity(self.facts), self.facts, invocation=self.path.stem)
+        self.resource = self.store.register(test_resources.resource_identity(self.facts), dict(self.facts), invocation=self.path.stem)
 
     def apply(self) -> dict:
         return disposition.apply(str(self.path), deadline=time.monotonic() + 5)
@@ -65,7 +65,11 @@ class InvocationDispositionTests(unittest.TestCase):
             self.store.freeze(self.path.stem, {})
 
     def test_unknown_creation_and_active_reference_are_fenced_but_never_released(self) -> None:
-        for update in ({"creation_borrower": self.dead}, {"references": {"report": "digest"}}, {"borrows": {"active": self.dead}}, {"manual_pin": True}):
+        updates: list[test_resources.ResourceRecord] = [
+            {"creation_borrower": {"pid": 99999999, "start": "never"}}, {"references": {"report": "digest"}},
+            {"borrows": {"active": {"pid": 99999999, "start": "never"}}}, {"manual_pin": True},
+        ]
+        for update in updates:
             with test_resources.resource_update(self.resource) as record:
                 record.update(update)
             with patch.object(test_resources, "reclaim", side_effect=AssertionError("protected removal")):
@@ -158,7 +162,7 @@ class InvocationDispositionTests(unittest.TestCase):
         config = {"instance_id": "changed", "namespace": "pse", "admission": "open", "accepting_writes": True}
         with (
             patch("scripts.surreal_server.config_for", return_value=config),
-            patch("scripts.surreal_server.context_admission", side_effect=lambda *args, **kwargs: contextlib.nullcontext()),
+            patch("scripts.surreal_server.context_admission", side_effect=lambda *_args, **_kwargs: contextlib.nullcontext()),
             patch.object(test_resources, "remove_owned", side_effect=AssertionError("changed-generation removal")),
         ):
             result = self.apply()

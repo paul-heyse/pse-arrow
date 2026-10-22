@@ -62,12 +62,15 @@ def session_description(
                     "-c", "mcp_servers.pse-python.cwd=" + json.dumps(str(ROOT)),
                 "-c", "mcp_servers.pse-python.required=" + str(require_python).lower()]
 
+    def require_interpreter() -> None:
+        if not interpreter_available:
+            raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
+
     if database:
         selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
         deadline = time.monotonic() + 8.0
         try:
-            if not interpreter_available:
-                raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
+            require_interpreter()
             selected = surreal_server.selected_service(selected_state, deadline)
             endpoint = f"http://127.0.0.1:{selected.port}/mcp"
             helper = shlex.join([
@@ -132,8 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(description, indent=2) if args.json else description)
         return 0
     print(json.dumps(description), file=sys.stderr)
-    os.execv(command[0], command)
-    return 127
+    return pse_env.execute(command, dict(os.environ))
 
 
 if __name__ == "__main__":

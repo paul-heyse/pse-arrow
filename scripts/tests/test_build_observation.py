@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Cargo records and actual child streams retain their exact evidence scope."""
-# ruff: noqa: PT009, PT027
+# ruff: noqa: PT009
 
 from __future__ import annotations
 

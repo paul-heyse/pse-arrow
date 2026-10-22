@@ -5,16 +5,16 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import stat
-import contextlib
 import time
 from pathlib import Path
 
 from scripts import host_admission as host
 from scripts import native_operation as operation
-from scripts import run_inspection, test_resources
+from scripts import run_inspection, surreal_server, test_resources
 
 
 def owner_reason(record: object, deadline: float) -> str | None:
@@ -28,7 +28,7 @@ def owner_reason(record: object, deadline: float) -> str | None:
     return None if observation.complete else "execution scope not drained: " + observation.diagnostic()
 
 
-def storage_observation(record: dict, *, deadline: float, seen: set[tuple[int, int]], limit: int = 512) -> dict:
+def storage_observation(record: test_resources.ResourceRecord, *, deadline: float, seen: set[tuple[int, int]], limit: int = 512) -> dict:
     """Bound exact owned file metadata; never attribute a shared database tree."""
     result = {"status": "measured", "allocated_bytes": 0, "logical_bytes": 0,
               "exclusive_allocated_bytes": 0, "shared_allocated_bytes": 0,
@@ -40,7 +40,7 @@ def storage_observation(record: dict, *, deadline: float, seen: set[tuple[int, i
     path = Path(directory)
     if not path.is_absolute() or ".." in path.parts or any(item.is_symlink() for item in (path, *path.parents)):
         return {"status": "unavailable", "reason": "exact resource path ownership changed"}
-    try:
+    def observe() -> dict:
         with contextlib.ExitStack() as contexts:
             if record.get("kind") == "evidence":
                 root = contexts.enter_context(test_resources.report_directory(record))
@@ -48,8 +48,6 @@ def storage_observation(record: dict, *, deadline: float, seen: set[tuple[int, i
                 state = Path(record["state"])
                 if state not in path.parents:
                     raise ValueError("control path is outside its exact declared state")
-                from scripts import surreal_server
-
                 config = surreal_server.config_for(state, deadline=deadline)
                 if config.get("instance_id") != record.get("service_generation"):
                     raise ValueError("service generation changed; control bytes remain unattributed")
@@ -101,9 +99,31 @@ def storage_observation(record: dict, *, deadline: float, seen: set[tuple[int, i
             if after.st_mtime_ns != information.st_mtime_ns:
                 result["status"] = "partial"
                 result["reasons"].append("directory changed during metadata observation")
+        return result
+    try:
+        return observe()
     except (OSError, ValueError, RuntimeError) as error:
         result.update(status="unavailable", reasons=[str(error)])
     return result
+
+
+def associated_resource(identity: str, nonce: str) -> tuple:
+    """Read the detached resource snapshot and require its exact invocation owner."""
+    entry = test_resources.storage().resource_snapshot(identity)
+    record = test_resources.entry_facts(entry).copy()
+    if record.get("invocation") != nonce:
+        raise ValueError("resource membership association changed")
+    return entry, record
+
+
+def release_resource(identity: str, expected: dict, deadline: float) -> str:
+    """Unpin only the exact inspected resource under its existing metadata owner."""
+    with test_resources.resource_update(identity, deadline=deadline) as record:
+        if record != expected:
+            raise ValueError("resource changed after exact disposition inspection")
+        record["pin"] = False
+        record["explicit_release"] = True
+    return test_resources.reclaim(identity, deadline=deadline)
 
 
 def inspect(handle: str, *, deadline: float, storage: bool = False) -> tuple[dict, dict]:
@@ -120,10 +140,7 @@ def inspect(handle: str, *, deadline: float, storage: bool = False) -> tuple[dic
     seen: set[tuple[int, int]] = set()
     for identity, membership in list(state["members"].items())[:1000]:
         try:
-            entry = test_resources.storage()._entry(identity)
-            record = test_resources.entry_facts(entry).copy()
-            if record.get("invocation") != declaration["nonce"]:
-                raise ValueError("resource membership association changed")
+            entry, record = associated_resource(identity, declaration["nonce"])
             reason = None
             if entry.phase == "disposed":
                 reason = "already disposed"
@@ -175,12 +192,7 @@ def apply(handle: str, *, deadline: float, storage: bool = False) -> dict:
         status = resource.get("reason")
         if status is None:
             try:
-                with test_resources.resource_update(identity, deadline=deadline) as record:
-                    if record != resource["record"]:
-                        raise ValueError("resource changed after exact disposition inspection")
-                    record["pin"] = False
-                    record["explicit_release"] = True
-                status = test_resources.reclaim(identity, deadline=deadline)
+                status = release_resource(identity, resource["record"], deadline)
             except (OSError, ValueError, RuntimeError) as error:
                 status = f"retained: {error}"
         with store.invocation_edit(result["invocation"], deadline=deadline) as image:

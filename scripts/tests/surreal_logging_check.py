@@ -63,21 +63,22 @@ def run(state: Path, evidence: Path, initializer: Path, worker: Path) -> None:
             if audit["records"]:
                 break
             time.sleep(min(0.02, server.remaining(until)))
-        assert all(record["tool"] == "query" and record["outcome"] == "ok" and record["time_ms"] is not None for record in audit["records"])
+        assert all(record["tool"] == "query" and record["outcome"] == "ok" and record["time_ms"] is not None for record in server.object_inventory(audit["records"]))
         assert "query-payload-must-not-appear" not in json.dumps(audit)
         restored = server.restart_log_configuration(state, "baseline", time.monotonic()+120)
         mcp_call(state)
         after = server.mcp_audit_records(state, time.monotonic()+5)
-        assert len(after["records"]) == len(audit["records"])
+        assert len(server.object_inventory(after["records"])) == len(server.object_inventory(audit["records"]))
         capture=evidence/"trace"
         code=subprocess.call([sys.executable,"-m","scripts.surreal_diagnostics","trace-capture","--state",str(state),"--output",str(capture),"--",sys.executable,"-m","scripts.tests.surreal_logging_check","--state",str(state),"--probe-only"],cwd=ROOT)
         assert code==0
         traces=server.read_json(capture/"capture.json")
-        assert traces["exported_bytes"]>0 and traces["workload"]==0
-        assert any(span["name"]=="invoke_with_timeout" for span in traces["spans"])
+        assert server.integer(traces["exported_bytes"])>0
+        assert traces["workload"]==0
+        assert any(span["name"]=="invoke_with_timeout" for span in server.object_inventory(traces["spans"]))
         assert server.config_for(state).get("diagnostic_telemetry") is None
         assert server.log_configuration(server.config_for(state))==server.LOG_CONFIGURATIONS["baseline"]
-        server.write_json(evidence / "qualified.json", {"audit":audit, "candidate":candidate, "restored":restored, "baseline_records":len(after["records"]), "scope":"disposable exact supervisor restart and scoped MCP metadata only"})
+        server.write_json(evidence / "qualified.json", {"audit":audit, "candidate":candidate, "restored":restored, "baseline_records":len(server.object_inventory(after["records"])), "scope":"disposable exact supervisor restart and scoped MCP metadata only"})
     finally:
         if active:
             server.close_context_admission(state)

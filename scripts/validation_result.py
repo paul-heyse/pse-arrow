@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-from scripts import test_resources
+from scripts import run_inspection, test_resources
 from scripts.validation_receipts import qualified
 
 
@@ -218,8 +218,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.kind == "product-test":
         if args.gate is not None:
             parser.error("--gate belongs to assessment results; use --subject")
-        from scripts import run_inspection
-
         try:
             result = run_inspection.product_result(str(args.run_path), registry=args.registry,
                 subject=args.subject, failures=args.failures, offset=args.offset, limit=args.limit,

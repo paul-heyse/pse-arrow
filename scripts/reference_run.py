@@ -10,7 +10,6 @@ import os
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from scripts import host_admission, native_operation, surreal_server, test_resources
@@ -59,10 +58,12 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
     config = surreal_server.config_for(state)
     selected: dict[str, str] | None = None
     instance = config["instance_id"]
-    try:
-        if setup_result is not None and isinstance(setup_result.get("initializer"), dict):
-            if test_resources.file_digest(initializer) != setup_result["initializer"].get("sha256"):
-                raise ValueError("captured initializer bytes changed; initialization refused")
+    def run_selected() -> None:
+        nonlocal selected, config
+        if (setup_result is not None
+            and isinstance(setup_result.get("initializer"), dict)
+            and test_resources.file_digest(initializer) != setup_result["initializer"].get("sha256")):
+            raise ValueError("captured initializer bytes changed; initialization refused")
         # Serialize only start/selection. Workloads remain free to use their
         # existing context owners; finalization reacquires and rechecks identity.
         with surreal_server.lifecycle_reservation(state, purpose="startup"):
@@ -72,7 +73,7 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
             if config.get("admission") == "validation_required" or config.get("derived_rebuild_pending"):
                 value["initialize"] = phase("initialize", state, "--initializer-command", str(initializer), "canonical-init", str(state))
                 if value["initialize"] != 0:
-                    return value
+                    return
                 config = surreal_server.config_for(state)
             else:
                 value["initialize"] = "already admitted"
@@ -90,11 +91,13 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
         value["process"] = observation
         value["signal"] = observation.get("forwarded_signal")
         value["drain"] = observation.get("owned_drain", "unobserved")
+    try:
+        run_selected()
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         value["error"] = f"{type(error).__name__}: {error}"
     finally:
         if selected is not None:
-            try:
+            def cleanup_selected() -> None:
                 with surreal_server.lifecycle_reservation(state, purpose="stop"):
                     current = surreal_server.config_for(state)
                     actual = surreal_server.storage_unit_observation(state)
@@ -107,6 +110,8 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
                     if value["cleanup"] != 0:
                         raise ValueError("selected drained stop failed")
                     value["service_drain"] = "complete"
+            try:
+                cleanup_selected()
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
                 value["cleanup"] = "unresolved"
                 value["cleanup_error"] = f"{type(error).__name__}: {error}"
@@ -122,7 +127,7 @@ def execute(state: Path, worker: Path, command: list[str], *, profile: str = "pl
         raise ValueError("run reference-run from outside an allocation; it owns its setup and reference phases")
     state, worker = state.absolute(), worker.resolve(strict=True)
     invocation = test_resources.invocation("reference", [])
-    value = {"invocation": str(invocation), "setup": "not_run", "workload": "not_run",
+    value: dict = {"invocation": str(invocation), "setup": "not_run", "workload": "not_run",
              "drain": "not_run", "cleanup": "not_run", "normal_resume": "not_run"}
     checkpoint(invocation, value)
     environment = {**os.environ, "PSE_SURREAL_STATE": str(state)}
