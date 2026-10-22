@@ -164,21 +164,37 @@ question. These conclusions do not block the selected production work.
 
 **Implementation checkpoint after RC22 selection:** joined result metadata and selection-local
 native plans are integrated, with the legacy public block-page route retired. Exclusive Salsa
-accounting, structural/observation demand separation, entity preludes and typed function-body
-fragments are integrated; ordinary member/equation derivation and complete PRE08 acceptance
-remain open. `pse-study-module` now compiles and links for WASI against the existing pure policy
-source, with separate qualification-only fault exports. Native transaction/caller cutover,
-server-wide controller bounds, immutable deployment and assembled RC22 controls are in progress.
-Existing test evidence does not qualify the unactivated module/server combination. Scope-end
-qualification and enduring publication follow the remaining functional cutovers.
+accounting, structural/observation demand separation, entity preludes and typed function and
+ordinary member/equation fragments are integrated. Canonical shared physical-input owners
+avoid charging those registries once per fragment. Combined preparation controls retain one
+open ThreeUnits generation-stability failure; its actual retained populations are being
+investigated without increasing limits or weakening semantic equivalence.
 
-Current implementation lanes are isolated for concurrent edits: exclusive Salsa accounting
-and incremental preparation; study scope/repair composition; protected joined result metadata
-and retained native selections. The coordinator owns shared response bounds, integration,
-acceptance and publication. Existing retained unknown effects and canceled-campaign resources
-remain at their authenticated owners. No third server or speculative cleanup is selected.
-Targeted compile/unit controls run during implementation, with scope-end qualification after
-integration. No new product qualification is claimed by this checkpoint.
+`pse-study-module` compiles and links for WASI against the existing pure policy source.
+Native readiness now invokes it inside the generated transaction, with complete output
+prevalidation before writes, exact intent settlement and a distinct committed-policy-refusal
+error. The bounded external scientific-snapshot response is retired. The selected server
+source includes global controller/memory bounds and acquisition/initialization deadlines.
+Real preliminary CLI packaging established the exact read-only production/qualification
+exports, SDK/ABI compatibility, single-memory instantiation and identical successive archive
+bytes. Those probes used an unselected builder; final source-server build, authoritative
+main-checkout module receipts, activation and actual-server failure controls remain open.
+Existing evidence does not qualify the unactivated module/server combination.
+
+The earlier `surreal-plan49-closeout-20261022` service was quiesced and then stopped through
+its authenticated immutable supervisor's abrupt-stop route after graceful stop correctly
+refused unresolved fixture creations. Actual server process/cgroup drain and storage allocation
+release completed. Its data and all eleven incomplete creation records remain preserved,
+pinned and unresolved; no absence or successful outcome was inferred. The replacement will
+use normal setup in a distinct private state, `surreal-plan49-surrealism-20261022`, on the
+released functional-store slot. No third concurrent server or borrower-record rewrite is
+selected. The older poisoned deployment remains separately retained.
+
+Current implementation lanes remain isolated for preparation, native study consumer/fault
+controls, and server/module tooling. The coordinator owns integration, fresh activation,
+acceptance and publication. Targeted compile/unit controls run during implementation;
+scope-end qualification and enduring publication follow the remaining functional cutovers.
+No whole-product qualification or speed/memory benefit is claimed by this checkpoint.
 
 ## Reading route and ownership
 
