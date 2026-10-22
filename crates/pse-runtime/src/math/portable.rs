@@ -1072,6 +1072,7 @@ async fn native_receiving<T: Send + 'static>(
 struct Envelope {
     interpretation: String,
     semantic_identity: SemanticBodyHash,
+    // Complete receiving deployment context; spec.physical seals consumed premises.
     physical: ContentHash,
     spec: pse_math::binding::BodySpec,
     payload_hash: ContentHash,
@@ -1190,13 +1191,8 @@ fn request(identity: SemanticBodyHash, physical: ContentHash) -> Vec<u8> {
 }
 fn encode(
     body: &AdmittedBody,
-    physical: ContentHash,
+    deployment_physical: ContentHash,
 ) -> Result<(Envelope, Vec<u8>), PortableError> {
-    if body.spec().physical != physical {
-        return Err(PortableError::Qualification(
-            "admitted body physical context differs from deployment".into(),
-        ));
-    }
     let semantic_identity = body.semantic_identity().ok_or_else(|| {
         PortableError::Qualification("body lacks compiler-issued selected semantic identity".into())
     })?;
@@ -1205,7 +1201,7 @@ fn encode(
         Envelope {
             interpretation: INTERPRETATION.into(),
             semantic_identity,
-            physical,
+            physical: deployment_physical,
             spec: body.spec().clone(),
             payload_hash: portable_payload_hash(&payload),
         },
@@ -1311,6 +1307,7 @@ async fn publish_with_producer_key(
 #[derive(Debug)]
 pub(super) struct EncodedBody {
     semantic_identity: SemanticBodyHash,
+    deployment_physical: ContentHash,
     request: Vec<u8>,
     payload: Arc<Vec<u8>>,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -1350,7 +1347,10 @@ fn encoded_body(
             "portable encoding requires a compiler-sealed semantic body".into(),
         )
     })?;
-    if let Some(encoded) = service.modeling_cache.encoded_body(identity) {
+    let physical = physical_identity(&context.quantities, &context.preconditions);
+    if let Some(encoded) = service.modeling_cache.encoded_body(identity)
+        && encoded.deployment_physical == physical
+    {
         return Ok(encoded);
     }
     let generation = service.modeling_cache.generation();
@@ -1362,7 +1362,6 @@ fn encoded_body(
             .saturating_mul(3)
             .saturating_add(MAX_METADATA_BYTES.saturating_mul(3)),
     )?;
-    let physical = physical_identity(&context.quantities, &context.preconditions);
     let (envelope, body_payload) = encode(body, physical)?;
     let request = request(envelope.semantic_identity, physical);
     let payload = pack(&envelope, &body_payload)?;
@@ -1373,6 +1372,7 @@ fn encoded_body(
     )?;
     let encoded = Arc::new(EncodedBody {
         semantic_identity: identity,
+        deployment_physical: physical,
         request,
         payload: Arc::new(payload),
         _owner: owner,
@@ -1605,7 +1605,6 @@ pub(crate) async fn reuse_body_current(
         if envelope.interpretation != INTERPRETATION
             || envelope.semantic_identity != identity
             || envelope.physical != physical
-            || envelope.spec.physical != physical
         {
             return Err(PortableError::Qualification(
                 "persisted body differs from qualified selected request".into(),
@@ -3134,6 +3133,45 @@ mod canonical_portable_body_tests {
             identity: ContentHash::from_bytes([byte; 32]),
         }
         .into()
+    }
+    #[test]
+    fn canonical_portable_body_encoding_keeps_consumed_and_deployment_contexts_distinct() {
+        let context = context();
+        let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
+        let body = admitted(context.clone(), text);
+        let deployment = physical_identity(&context.quantities, &context.preconditions);
+        assert_ne!(body.spec().physical, deployment);
+        let mut changed_context = context.clone();
+        changed_context.preconditions =
+            Arc::new(pse_quantity::PhysicalPreconditions::new(vec![]).unwrap());
+        let changed_body = admitted(changed_context.clone(), text);
+        assert_eq!(changed_body.spec(), body.spec());
+        assert_eq!(changed_body.semantic_identity(), body.semantic_identity());
+        let changed_deployment =
+            physical_identity(&changed_context.quantities, &changed_context.preconditions);
+        assert_ne!(deployment, changed_deployment);
+
+        let service = crate::math::tests::service();
+        let baseline = service.pool.reserved();
+        let encoded = encoded_body(&service, &body, &context).unwrap();
+        let changed = encoded_body(&service, &changed_body, &changed_context).unwrap();
+        assert!(!Arc::ptr_eq(&encoded, &changed));
+        assert_ne!(encoded.request, changed.request);
+        let warm = encoded_body(&service, &changed_body, &changed_context).unwrap();
+        assert!(Arc::ptr_eq(&changed, &warm));
+        let (original, original_payload) = unpack(&encoded.payload).unwrap();
+        let (current, current_payload) = unpack(&changed.payload).unwrap();
+        assert_eq!(original.physical, deployment);
+        assert_eq!(current.physical, changed_deployment);
+        assert_eq!(original.spec, current.spec);
+        assert_eq!(current.spec, *changed_body.spec());
+        assert_eq!(original_payload, current_payload);
+        assert_eq!(portable_payload_hash(current_payload), current.payload_hash);
+        service.clear_program_cache();
+        drop(warm);
+        drop(changed);
+        drop(encoded);
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[test]
     fn canonical_portable_body_pure_retention_and_encoding_share_owned_material_after_clear() {
