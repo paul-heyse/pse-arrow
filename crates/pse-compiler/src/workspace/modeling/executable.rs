@@ -375,7 +375,7 @@ fn projection(
     use pse_modeling::annotation::{AnnotationRoots as Roots, AnnotationValue as A};
     use pse_modeling::resolved::{Node, Reference, RegionOutput, RegionRequest};
 
-    let model = specialized(db, catalog, request)?;
+    let model = observed_specialization(db, catalog, request)?;
     let registry = inventory.quantities(db);
     let selected_contracts = function_contracts(db, catalog, *request.root(db))?;
     let package = model.function_contracts(&selected_contracts);
@@ -1484,15 +1484,15 @@ impl CompilerWorkspace {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
-        let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
         self.db.cancel = cancel;
+        let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
         let result = salsa::Cancelled::catch(|| {
             let (mut frontier, premises) = pse_quantity::premises::capture(
                 &self.inputs.quantities,
                 &self.inputs.preconditions,
                 || -> Result<_> {
                     let model = pse_quantity::premises::without_recording(|| {
-                        specialized(&self.db, catalog, request)
+                        observed_specialization(&self.db, catalog, request)
                     })?;
                     let semantic = SemanticModeling::admit(
                         model.clone().into(),
