@@ -182,9 +182,19 @@ impl Engine<'_, '_> {
         }
         .seal()?;
         let name = if let Some(context) = self.inspection_context {
-            format!("f_{}_inspection_{}_{}_{}", product.identity.to_hex(), at.as_id(), context.to_hex(), self.model.functions.len())
+            format!(
+                "f_{}_inspection_{}_{}_{}",
+                product.identity.to_hex(),
+                at.as_id(),
+                context.to_hex(),
+                self.model.functions.len()
+            )
         } else {
-            format!("f_{}_inspection_{}", product.identity.to_hex(), self.model.functions.len())
+            format!(
+                "f_{}_inspection_{}",
+                product.identity.to_hex(),
+                self.model.functions.len()
+            )
         };
         self.model.functions.insert(
             name.clone(),

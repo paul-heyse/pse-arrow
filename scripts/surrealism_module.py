@@ -34,7 +34,12 @@ QUALIFICATION_KIND = "pse-study-module-qualification-v1"
 LONG_HOLD_KIND = "pse-study-module-qualification-long-hold-v1"
 LONG_HOLD_MANIFEST = CRATE / "surrealism-qualification-long-hold.toml"
 PRODUCTION_EXPORTS = {"study::readiness"}
-QUALIFICATION_EXPORTS = PRODUCTION_EXPORTS | {"qualification::busy", "qualification::trap", "qualification::memory_refused", "qualification::hold"}
+QUALIFICATION_EXPORTS = PRODUCTION_EXPORTS | {
+    "qualification::busy",
+    "qualification::trap",
+    "qualification::memory_refused",
+    "qualification::hold",
+}
 ABI = 2
 MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAX_MANIFEST_BYTES = 64 * 1024
@@ -49,7 +54,9 @@ if LONG_HOLD_DECLARATION != {
     **DECLARATION,
     "capabilities": {**CAPABILITIES, "max_execution_time": 6000},
 }:
-    raise RuntimeError("Long-hold qualification may change only its declared execution time")
+    raise RuntimeError(
+        "Long-hold qualification may change only its declared execution time"
+    )
 LIMITS: dict[str, int | bool] = {
     "max_memory_bytes": CAPABILITIES["max_memory_bytes"],
     "max_pool_size": CAPABILITIES["max_pool_size"],
@@ -58,7 +65,10 @@ LIMITS: dict[str, int | bool] = {
     "max_kv_value_bytes": CAPABILITIES["max_kv_value_bytes"],
     "strict_timeout": CAPABILITIES["strict_timeout"],
 }
-LONG_HOLD_LIMITS = {**LIMITS, "max_execution_time_ms": LONG_HOLD_CAPABILITIES["max_execution_time"]}
+LONG_HOLD_LIMITS = {
+    **LIMITS,
+    "max_execution_time_ms": LONG_HOLD_CAPABILITIES["max_execution_time"],
+}
 MEMBERS = {
     "surrealism/mod.wasm",
     "surrealism/surrealism.toml",
@@ -77,8 +87,10 @@ def _object(value: object) -> dict[str, object]:
 
 
 def _identity(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(
-        item not in "0123456789abcdef" for item in value
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(item not in "0123456789abcdef" for item in value)
     ):
         raise ModuleError("Module provenance requires an exact SHA256 identity")
     return value
@@ -94,8 +106,13 @@ def _command(arguments: list[str]) -> str:
     environment = dict(os.environ)
     environment.pop("BASH_ENV", None)
     result = subprocess.run(
-        arguments, cwd=ROOT, env=environment, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        arguments,
+        cwd=ROOT,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
     )
     if result.returncode:
         raise ModuleError(
@@ -110,10 +127,17 @@ def _variant(qualification: bool, long_hold: bool) -> tuple[str, list[str]]:
         raise ModuleError("Long-hold is available only for explicit qualification")
     if long_hold:
         return LONG_HOLD_KIND, ["module-qualification-long-hold"]
-    return (QUALIFICATION_KIND, ["module-qualification"]) if qualification else (KIND, [])
+    return (
+        (QUALIFICATION_KIND, ["module-qualification"]) if qualification else (KIND, [])
+    )
 
 
-def source_inputs(server: Mapping[str, object], *, qualification: bool = False, long_hold: bool = False) -> dict[str, object]:
+def source_inputs(
+    server: Mapping[str, object],
+    *,
+    qualification: bool = False,
+    long_hold: bool = False,
+) -> dict[str, object]:
     """Record the declared local dependency closure and exact resolved lockfile."""
     if server.get("surrealism_sdk_version") != surreal_source.SURREALISM_SDK:
         raise ModuleError("Module builder does not carry the selected Surrealism SDK")
@@ -122,11 +146,29 @@ def source_inputs(server: Mapping[str, object], *, qualification: bool = False, 
     if not binary.is_file() or surreal_source.digest(binary) != binary_digest:
         raise ModuleError("Module builder binary differs from its admitted receipt")
     kind, features = _variant(qualification, long_hold)
-    feature_arguments = ["--features", ",".join("pse-study-module/" + feature for feature in features)] if features else []
-    metadata = _object(json.loads(_command([
-        "cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", TARGET,
-        "--manifest-path", str(ROOT / CRATE / "Cargo.toml"), *feature_arguments,
-    ])))
+    feature_arguments = (
+        ["--features", ",".join("pse-study-module/" + feature for feature in features)]
+        if features
+        else []
+    )
+    metadata = _object(
+        json.loads(
+            _command(
+                [
+                    "cargo",
+                    "metadata",
+                    "--locked",
+                    "--format-version",
+                    "1",
+                    "--filter-platform",
+                    TARGET,
+                    "--manifest-path",
+                    str(ROOT / CRATE / "Cargo.toml"),
+                    *feature_arguments,
+                ]
+            )
+        )
+    )
     packages = metadata.get("packages")
     resolve = _object(metadata.get("resolve"))
     nodes = resolve.get("nodes")
@@ -180,13 +222,21 @@ def source_inputs(server: Mapping[str, object], *, qualification: bool = False, 
         if not directory.is_relative_to(ROOT):
             raise ModuleError("Module local dependency escaped its declared workspace")
         for path in sorted(directory.rglob("*")):
-            if any(part in {"target", ".git", "__pycache__"} for part in path.relative_to(directory).parts):
+            if any(
+                part in {"target", ".git", "__pycache__"}
+                for part in path.relative_to(directory).parts
+            ):
                 continue
             if path.is_symlink():
                 raise ModuleError("Module source inputs must not traverse symlinks")
             if path.is_file():
                 sources[str(path.relative_to(ROOT))] = surreal_source.digest(path)
-    for relative in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml"):
+    for relative in (
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        ".cargo/config.toml",
+    ):
         sources[relative] = surreal_source.digest(ROOT / relative)
     inputs: dict[str, object] = {
         "kind": kind,
@@ -216,19 +266,31 @@ def _configuration(value: object, *, long_hold: bool = False) -> None:
     expected = LONG_HOLD_CAPABILITIES if long_hold else CAPABILITIES
     if (
         capabilities != expected
-        or any(type(capabilities.get(name)) is not type(value) for name, value in expected.items())
-        or any(capabilities.get(name) is not False for name in ("allow_scripting", "allow_arbitrary_queries"))
-        or capabilities.get("allow_functions") != [] or capabilities.get("allow_net") != []
-        or capabilities.get("max_kv_entries") != 0 or capabilities.get("max_kv_value_bytes") != 0
+        or any(
+            type(capabilities.get(name)) is not type(value)
+            for name, value in expected.items()
+        )
+        or any(
+            capabilities.get(name) is not False
+            for name in ("allow_scripting", "allow_arbitrary_queries")
+        )
+        or capabilities.get("allow_functions") != []
+        or capabilities.get("allow_net") != []
+        or capabilities.get("max_kv_entries") != 0
+        or capabilities.get("max_kv_value_bytes") != 0
         or capabilities.get("strict_timeout") is not True
         or config.get("attach", {}) != {}
     ):
-        raise ModuleError("Module host capabilities, attachment or resource limits differ")
+        raise ModuleError(
+            "Module host capabilities, attachment or resource limits differ"
+        )
     if set(config) - {"abi", "target", "package", "capabilities", "attach"}:
         raise ModuleError("Module config carries unadmitted fields")
 
 
-def inspect_archive(path: Path, *, qualification: bool = False, long_hold: bool = False) -> None:
+def inspect_archive(
+    path: Path, *, qualification: bool = False, long_hold: bool = False
+) -> None:
     """Validate bounded package contents without extracting or granting host access."""
     _variant(qualification, long_hold)
     if not 0 < path.stat().st_size <= MAX_ARCHIVE_BYTES:
@@ -237,12 +299,24 @@ def inspect_archive(path: Path, *, qualification: bool = False, long_hold: bool 
     try:
         with tarfile.open(path, mode="r|zst") as archive:
             for member in archive:
-                if member.name not in MEMBERS or member.name in seen or not member.isfile():
-                    raise ModuleError("Module archive has an extra, duplicate or linked member")
+                if (
+                    member.name not in MEMBERS
+                    or member.name in seen
+                    or not member.isfile()
+                ):
+                    raise ModuleError(
+                        "Module archive has an extra, duplicate or linked member"
+                    )
                 seen.add(member.name)
-                maximum = MAX_ARCHIVE_BYTES if member.name.endswith(".wasm") else MAX_MANIFEST_BYTES
+                maximum = (
+                    MAX_ARCHIVE_BYTES
+                    if member.name.endswith(".wasm")
+                    else MAX_MANIFEST_BYTES
+                )
                 if not 0 < member.size <= maximum:
-                    raise ModuleError("Module archive member exceeds its admitted extent")
+                    raise ModuleError(
+                        "Module archive member exceeds its admitted extent"
+                    )
                 stream = archive.extractfile(member)
                 if stream is None:
                     raise ModuleError("Module archive member is unavailable")
@@ -255,25 +329,43 @@ def inspect_archive(path: Path, *, qualification: bool = False, long_hold: bool 
                         _configuration(value, long_hold=long_hold)
                     else:
                         functions = value.get("functions")
-                        expected = QUALIFICATION_EXPORTS if qualification else PRODUCTION_EXPORTS
-                        if not isinstance(functions, list) or len(functions) != len(expected):
-                            raise ModuleError("Module exports differ from its selected production or qualification contract")
+                        expected = (
+                            QUALIFICATION_EXPORTS
+                            if qualification
+                            else PRODUCTION_EXPORTS
+                        )
+                        if not isinstance(functions, list) or len(functions) != len(
+                            expected
+                        ):
+                            raise ModuleError(
+                                "Module exports differ from its selected production or qualification contract"
+                            )
                         names: set[str] = set()
                         for item in functions:
                             export = _object(item)
                             name = export.get("name")
-                            if not isinstance(name, str) or name in names or export.get("writeable") is not False:
-                                raise ModuleError("Module policy export identity or write permission differs")
+                            if (
+                                not isinstance(name, str)
+                                or name in names
+                                or export.get("writeable") is not False
+                            ):
+                                raise ModuleError(
+                                    "Module policy export identity or write permission differs"
+                                )
                             names.add(name)
                         if names != expected:
-                            raise ModuleError("Module policy exports differ from the selected feature contract")
+                            raise ModuleError(
+                                "Module policy exports differ from the selected feature contract"
+                            )
     except (tarfile.TarError, UnicodeError, ValueError) as error:
         raise ModuleError("Module archive is unreadable") from error
     if seen != MEMBERS:
         raise ModuleError("Module archive is incomplete")
 
 
-def verify(value: object, *, qualification: bool = False, long_hold: bool = False) -> dict[str, object]:
+def verify(
+    value: object, *, qualification: bool = False, long_hold: bool = False
+) -> dict[str, object]:
     """Authenticate the retained immutable artifact, not current mutable sources."""
     receipt = _object(value)
     inputs = _object(receipt.get("inputs"))
@@ -282,11 +374,19 @@ def verify(value: object, *, qualification: bool = False, long_hold: bool = Fals
     expected_limits = LONG_HOLD_LIMITS if long_hold else LIMITS
     artifact = receipt.get("artifact")
     if (
-        receipt.get("kind") != kind or receipt.get("sdk_version") != surreal_source.SURREALISM_SDK
-        or receipt.get("abi") != ABI or limits != expected_limits
-        or any(type(limits.get(name)) is not type(value) for name, value in expected_limits.items())
-        or inputs.get("kind") != kind or inputs.get("features") != features or inputs.get("sdk_version") != surreal_source.SURREALISM_SDK
-        or inputs.get("target") != TARGET or inputs.get("profile") != "release"
+        receipt.get("kind") != kind
+        or receipt.get("sdk_version") != surreal_source.SURREALISM_SDK
+        or receipt.get("abi") != ABI
+        or limits != expected_limits
+        or any(
+            type(limits.get(name)) is not type(value)
+            for name, value in expected_limits.items()
+        )
+        or inputs.get("kind") != kind
+        or inputs.get("features") != features
+        or inputs.get("sdk_version") != surreal_source.SURREALISM_SDK
+        or inputs.get("target") != TARGET
+        or inputs.get("profile") != "release"
         or not isinstance(artifact, str)
     ):
         raise ModuleError("Module receipt or resource contract differs")
@@ -301,22 +401,34 @@ def verify(value: object, *, qualification: bool = False, long_hold: bool = Fals
         if (
             set(packaging) != {"variant", "packer_sha256", "manifest_sha256"}
             or packaging.get("variant") != "qualification-long-hold-v1"
-            or packaging.get("manifest_sha256") != source_files.get(str(LONG_HOLD_MANIFEST))
+            or packaging.get("manifest_sha256")
+            != source_files.get(str(LONG_HOLD_MANIFEST))
         ):
             raise ModuleError("Long-hold module packaging provenance differs")
         _identity(packaging.get("packer_sha256"))
         _identity(packaging.get("manifest_sha256"))
     path = Path(artifact)
-    if not path.is_absolute() or os.pathsep in str(path.parent) or path.name != "study.surli" or path.parent.name != _input_digest(inputs):
-        raise ModuleError("Module artifact does not belong to its immutable input directory")
+    if (
+        not path.is_absolute()
+        or os.pathsep in str(path.parent)
+        or path.name != "study.surli"
+        or path.parent.name != _input_digest(inputs)
+    ):
+        raise ModuleError(
+            "Module artifact does not belong to its immutable input directory"
+        )
     if any(parent.is_symlink() for parent in (path, *path.parents)):
         raise ModuleError("Module artifact must not traverse symlinks")
     status = path.stat()
     parent = path.parent.stat()
     if (
-        not stat.S_ISREG(status.st_mode) or status.st_uid != os.getuid() or status.st_nlink != 1
-        or stat.S_IMODE(status.st_mode) != 0o400 or parent.st_uid != os.getuid()
-        or stat.S_IMODE(parent.st_mode) != 0o700 or status.st_size != receipt.get("bytes")
+        not stat.S_ISREG(status.st_mode)
+        or status.st_uid != os.getuid()
+        or status.st_nlink != 1
+        or stat.S_IMODE(status.st_mode) != 0o400
+        or parent.st_uid != os.getuid()
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or status.st_size != receipt.get("bytes")
     ):
         raise ModuleError("Module artifact ownership, immutability or extent differs")
     if surreal_source.digest(path) != _identity(receipt.get("sha256")):
@@ -334,7 +446,10 @@ def _package_long_hold(artifact: Path) -> None:
     """
     inspect_archive(artifact, qualification=True)
     replacement = artifact.with_suffix(".long-hold.surli")
-    with tarfile.open(artifact, mode="r|zst") as source, tarfile.open(replacement, mode="w:zst") as target:
+    with (
+        tarfile.open(artifact, mode="r|zst") as source,
+        tarfile.open(replacement, mode="w:zst") as target,
+    ):
         for member in source:
             if member.name == "surrealism/surrealism.toml":
                 payload = (ROOT / LONG_HOLD_MANIFEST).read_bytes()
@@ -353,7 +468,13 @@ def _package_long_hold(artifact: Path) -> None:
     replacement.replace(artifact)
 
 
-def install(server: Mapping[str, object], tool_root: Path, *, qualification: bool = False, long_hold: bool = False) -> dict[str, object]:
+def install(
+    server: Mapping[str, object],
+    tool_root: Path,
+    *,
+    qualification: bool = False,
+    long_hold: bool = False,
+) -> dict[str, object]:
     """Build once with the pinned CLI, then publish a private immutable artifact."""
     kind, features = _variant(qualification, long_hold)
     inputs = source_inputs(server, qualification=qualification, long_hold=long_hold)
@@ -370,13 +491,29 @@ def install(server: Mapping[str, object], tool_root: Path, *, qualification: boo
         artifact = pending / "study.surli"
         lock_digest = surreal_source.digest(ROOT / "Cargo.lock")
         feature_arguments = ["--features", ",".join(features)] if features else []
-        _command([
-            str(ROOT / "scripts/pse-env"), "--resource-class", "compile", "--",
-            str(server["binary"]), "module", "build", *feature_arguments,
-            "--out", str(artifact), str(ROOT / CRATE),
-        ])
-        if surreal_source.digest(ROOT / "Cargo.lock") != lock_digest or source_inputs(server, qualification=qualification, long_hold=long_hold) != inputs:
-            raise ModuleError("Module sources or locked dependencies changed during its build")
+        _command(
+            [
+                str(ROOT / "scripts/pse-env"),
+                "--resource-class",
+                "compile",
+                "--",
+                str(server["binary"]),
+                "module",
+                "build",
+                *feature_arguments,
+                "--out",
+                str(artifact),
+                str(ROOT / CRATE),
+            ]
+        )
+        if (
+            surreal_source.digest(ROOT / "Cargo.lock") != lock_digest
+            or source_inputs(server, qualification=qualification, long_hold=long_hold)
+            != inputs
+        ):
+            raise ModuleError(
+                "Module sources or locked dependencies changed during its build"
+            )
         if long_hold:
             _package_long_hold(artifact)
             if source_inputs(server, qualification=True, long_hold=True) != inputs:
@@ -384,10 +521,14 @@ def install(server: Mapping[str, object], tool_root: Path, *, qualification: boo
         inspect_archive(artifact, qualification=qualification, long_hold=long_hold)
         artifact.chmod(0o400)
         receipt: dict[str, object] = {
-            "kind": kind, "artifact": str(directory / "study.surli"),
-            "sha256": surreal_source.digest(artifact), "bytes": artifact.stat().st_size,
-            "sdk_version": surreal_source.SURREALISM_SDK, "abi": ABI,
-            "inputs": inputs, "limits": dict(LONG_HOLD_LIMITS if long_hold else LIMITS),
+            "kind": kind,
+            "artifact": str(directory / "study.surli"),
+            "sha256": surreal_source.digest(artifact),
+            "bytes": artifact.stat().st_size,
+            "sdk_version": surreal_source.SURREALISM_SDK,
+            "abi": ABI,
+            "inputs": inputs,
+            "limits": dict(LONG_HOLD_LIMITS if long_hold else LIMITS),
         }
         record = pending / "module.json"
         with record.open("w") as output:
@@ -403,9 +544,15 @@ def install(server: Mapping[str, object], tool_root: Path, *, qualification: boo
         try:
             pending.rename(directory)
         except FileExistsError:
-            existing = verify(_object(json.loads((directory / "module.json").read_text())), qualification=qualification, long_hold=long_hold)
+            existing = verify(
+                _object(json.loads((directory / "module.json").read_text())),
+                qualification=qualification,
+                long_hold=long_hold,
+            )
             if existing != receipt:
-                raise ModuleError("Concurrent module generation differs from the exact completed artifact")
+                raise ModuleError(
+                    "Concurrent module generation differs from the exact completed artifact"
+                )
             return existing
         descriptor = os.open(modules, os.O_DIRECTORY)
         try:
@@ -419,21 +566,39 @@ def main() -> int:
     """Explicit artifact preparation; this command never starts or mutates a database."""
     import argparse  # noqa: PLC0415 -- CLI dependencies stay outside the retained verifier path.
 
-    from scripts import surreal_server  # noqa: PLC0415 -- Avoid reciprocal supervisor import during startup.
+    from scripts import (
+        surreal_server,
+    )
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tool-root", type=Path)
     parser.add_argument("--qualification", action="store_true")
-    parser.add_argument("--long-hold", action="store_true", help="Build the separately admitted six-second qualification package")
+    parser.add_argument(
+        "--long-hold",
+        action="store_true",
+        help="Build the separately admitted six-second qualification package",
+    )
     arguments = parser.parse_args()
     if arguments.long_hold and not arguments.qualification:
         parser.error("--long-hold requires --qualification")
     root = arguments.tool_root or surreal_server.default_tool_root()
-    receipt = install(surreal_server.install(None, root), root, qualification=arguments.qualification, long_hold=arguments.long_hold)
-    print(json.dumps({
-        "kind": receipt["kind"], "artifact": receipt["artifact"],
-        "sha256": receipt["sha256"], "bytes": receipt["bytes"],
-    }, sort_keys=True))
+    receipt = install(
+        surreal_server.install(None, root),
+        root,
+        qualification=arguments.qualification,
+        long_hold=arguments.long_hold,
+    )
+    print(
+        json.dumps(
+            {
+                "kind": receipt["kind"],
+                "artifact": receipt["artifact"],
+                "sha256": receipt["sha256"],
+                "bytes": receipt["bytes"],
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

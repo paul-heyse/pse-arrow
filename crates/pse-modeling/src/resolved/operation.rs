@@ -188,26 +188,42 @@ impl OperationMeaning {
         fn refinement(value: &crate::PhysicalRefinement) -> usize {
             match value {
                 crate::PhysicalRefinement::Transfer {
-                    boundary: crate::BoundaryRef::Bound { coordinates, .. }, ..
-                } => coordinates.capacity().saturating_mul(size_of::<crate::specialize::Value>())
+                    boundary: crate::BoundaryRef::Bound { coordinates, .. },
+                    ..
+                } => coordinates
+                    .capacity()
+                    .saturating_mul(size_of::<crate::specialize::Value>())
                     .saturating_add(coordinates.iter().fold(0usize, |bytes, value| {
-                        bytes.saturating_add(value.retained_bytes().saturating_sub(size_of::<crate::specialize::Value>()))
+                        bytes.saturating_add(
+                            value
+                                .retained_bytes()
+                                .saturating_sub(size_of::<crate::specialize::Value>()),
+                        )
                     })),
                 _ => 0,
             }
         }
         fn translation(value: &Translation) -> usize {
-            value.provenance.capacity().saturating_mul(size_of::<SemanticId>())
+            value
+                .provenance
+                .capacity()
+                .saturating_mul(size_of::<SemanticId>())
                 .saturating_add(value.anchors.capacity().saturating_mul(size_of::<Anchor>()))
         }
         size_of::<Self>().saturating_add(match self {
             Self::ReferenceTranslation(value)
-            | Self::ReferenceAnchorMean { translation: value, .. } => translation(value),
-            Self::Transfer { source, result, .. } => source.as_ref().map_or(0, refinement)
+            | Self::ReferenceAnchorMean {
+                translation: value, ..
+            } => translation(value),
+            Self::Transfer { source, result, .. } => source
+                .as_ref()
+                .map_or(0, refinement)
                 .saturating_add(refinement(result)),
             Self::TransferMagnitude { source } => refinement(source),
-            Self::Coordinate { .. } | Self::ReducedLaw { .. }
-            | Self::Reconstruction { .. } | Self::Response { .. } => 0,
+            Self::Coordinate { .. }
+            | Self::ReducedLaw { .. }
+            | Self::Reconstruction { .. }
+            | Self::Response { .. } => 0,
         })
     }
     pub(crate) fn capture(

@@ -29,8 +29,8 @@ mod temporal;
 pub mod types;
 
 pub use check::{
-    CheckedPackage, SharedPackageInputs, FiniteReduction, Function, FunctionAdmission, FunctionContracts, check,
-    check_with,
+    CheckedPackage, FiniteReduction, Function, FunctionAdmission, FunctionContracts,
+    SharedPackageInputs, check, check_with,
 };
 pub use contextual::{BoundaryRef, PhysicalRefinement, TransferDirection};
 pub use physical_operations::PhysicalOperation;

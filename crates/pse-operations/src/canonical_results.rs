@@ -531,7 +531,10 @@ fn validate_result_block_interpretation(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments, reason = "the decoder verifies every independent admitted selection premise")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the decoder verifies every independent admitted selection premise"
+)]
 fn decode_joined_result_page(
     mut envelope: Object,
     read: &ResultRead,
@@ -544,42 +547,65 @@ fn decode_joined_result_page(
 ) -> Result<JoinedResultBlockPage, CanonicalError> {
     fn rows(value: Value) -> Result<Vec<Object>, CanonicalError> {
         match value {
-            Value::Array(rows) if rows.len() <= PAGE => rows.into_iter().map(|row| match row {
-                Value::Object(row) => Ok(row),
-                _ => Err(invalid("joined result member shape")),
-            }).collect(),
+            Value::Array(rows) if rows.len() <= PAGE => rows
+                .into_iter()
+                .map(|row| match row {
+                    Value::Object(row) => Ok(row),
+                    _ => Err(invalid("joined result member shape")),
+                })
+                .collect(),
             _ => Err(CanonicalError::PayloadLimit),
         }
     }
-    let blocks = rows(canonical_codec::required(&mut envelope,"blocks")?)?.into_iter()
-        .map(wire::decode_canonical_result_blocks).collect::<Result<Vec<_>,_>>()?;
-    let batches = rows(canonical_codec::required(&mut envelope,"batches")?)?.into_iter()
-        .map(wire::decode_canonical_result_batches).collect::<Result<Vec<_>,_>>()?;
-    let next = match canonical_codec::required(&mut envelope,"next")? {
+    let blocks = rows(canonical_codec::required(&mut envelope, "blocks")?)?
+        .into_iter()
+        .map(wire::decode_canonical_result_blocks)
+        .collect::<Result<Vec<_>, _>>()?;
+    let batches = rows(canonical_codec::required(&mut envelope, "batches")?)?
+        .into_iter()
+        .map(wire::decode_canonical_result_batches)
+        .collect::<Result<Vec<_>, _>>()?;
+    let next = match canonical_codec::required(&mut envelope, "next")? {
         Value::None | Value::Null => None,
         value => Some(canonical_codec::decode_uint(value)?),
     };
-    let exhausted = canonical_codec::decode_boolean(canonical_codec::required(&mut envelope,"exhausted")?)?;
-    if !envelope.is_empty() || blocks.len()!=batches.len()
-        || next != blocks.last().map(|block|block.ordinal)
-        || (!exhausted && blocks.is_empty()) {
-        return Err(invalid("joined result page coverage or continuation differs"));
+    let exhausted =
+        canonical_codec::decode_boolean(canonical_codec::required(&mut envelope, "exhausted")?)?;
+    if !envelope.is_empty()
+        || blocks.len() != batches.len()
+        || next != blocks.last().map(|block| block.ordinal)
+        || (!exhausted && blocks.is_empty())
+    {
+        return Err(invalid(
+            "joined result page coverage or continuation differs",
+        ));
     }
-    let mut previous=after;
-    for (block,batch) in blocks.iter().zip(&batches) {
-        validate_result_block(block,batch)?;
-        if previous.is_some_and(|ordinal|block.ordinal<=ordinal)
-            || block.key!=result_batch_key(&read.attempt.key,&set.key,block.ordinal)
-            || block.result_set!=set.key || block.ordinal>=set.batch_count
-            || block.output!=output || block.partition!=partition
-            || block.end<=start || block.start>=end
-            || block.interpretation!=read.run.interpretation
-            || batch.attempt!=read.attempt.key {
-            return Err(invalid("joined result page outside exact admitted selection"));
+    let mut previous = after;
+    for (block, batch) in blocks.iter().zip(&batches) {
+        validate_result_block(block, batch)?;
+        if previous.is_some_and(|ordinal| block.ordinal <= ordinal)
+            || block.key != result_batch_key(&read.attempt.key, &set.key, block.ordinal)
+            || block.result_set != set.key
+            || block.ordinal >= set.batch_count
+            || block.output != output
+            || block.partition != partition
+            || block.end <= start
+            || block.start >= end
+            || block.interpretation != read.run.interpretation
+            || batch.attempt != read.attempt.key
+        {
+            return Err(invalid(
+                "joined result page outside exact admitted selection",
+            ));
         }
-        previous=Some(block.ordinal);
+        previous = Some(block.ordinal);
     }
-    Ok(JoinedResultBlockPage {blocks,batches,next,exhausted})
+    Ok(JoinedResultBlockPage {
+        blocks,
+        batches,
+        next,
+        exhausted,
+    })
 }
 
 impl CanonicalStore {
@@ -961,7 +987,10 @@ impl CanonicalStore {
     /// Read protected block coverage and its complete exact file descriptors in
     /// one bounded native transaction. Physical opening still reauthenticates the
     /// current file incarnation and placement under the same protection.
-    #[allow(clippy::too_many_arguments, reason = "selection, scientific coordinates and original ordinal independently constrain a protected page")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "selection, scientific coordinates and original ordinal independently constrain a protected page"
+    )]
     pub async fn result_joined_block_page(
         &self,
         read: &ResultRead,
@@ -1580,21 +1609,72 @@ mod canonical_results_server_unit {
         .await
         .unwrap();
         let read = store.read_results("run", fence.attempt()).await.unwrap();
-        let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 10, 20, None).await.unwrap();
+        let joined = store
+            .result_joined_block_page(&read, &set, "temperature", "time", 10, 20, None)
+            .await
+            .unwrap();
         assert_eq!(joined.blocks.len(), 1);
         assert_eq!(joined.next, Some(1));
         assert!(joined.exhausted);
-        let encoded = |blocks: &[BlockMetadata], batches: &[ResultBatch], next: Option<u64>, exhausted: bool| {
+        let encoded = |blocks: &[BlockMetadata],
+                       batches: &[ResultBatch],
+                       next: Option<u64>,
+                       exhausted: bool| {
             let mut envelope = Object::new();
-            envelope.insert("blocks", Value::Array(blocks.iter().map(|block| Value::Object(wire::encode_canonical_result_blocks(block).unwrap())).collect()));
-            envelope.insert("batches", Value::Array(batches.iter().map(|batch| Value::Object(wire::encode_canonical_result_batches(batch).unwrap())).collect()));
-            envelope.insert("next", next.map(canonical_codec::encode_uint).transpose().unwrap().unwrap_or(Value::None));
+            envelope.insert(
+                "blocks",
+                Value::Array(
+                    blocks
+                        .iter()
+                        .map(|block| {
+                            Value::Object(wire::encode_canonical_result_blocks(block).unwrap())
+                        })
+                        .collect(),
+                ),
+            );
+            envelope.insert(
+                "batches",
+                Value::Array(
+                    batches
+                        .iter()
+                        .map(|batch| {
+                            Value::Object(wire::encode_canonical_result_batches(batch).unwrap())
+                        })
+                        .collect(),
+                ),
+            );
+            envelope.insert(
+                "next",
+                next.map(canonical_codec::encode_uint)
+                    .transpose()
+                    .unwrap()
+                    .unwrap_or(Value::None),
+            );
             envelope.insert("exhausted", Value::Bool(exhausted));
             envelope
         };
-        let decode = |envelope| decode_joined_result_page(envelope, &read, read.set(&set).unwrap(), "temperature", "time", 10, 20, None);
+        let decode = |envelope| {
+            decode_joined_result_page(
+                envelope,
+                &read,
+                read.set(&set).unwrap(),
+                "temperature",
+                "time",
+                10,
+                20,
+                None,
+            )
+        };
         assert!(decode(encoded(&joined.blocks, &[], Some(1), true)).is_err());
-        assert!(decode(encoded(&joined.blocks, &[joined.batches[0].clone(), joined.batches[0].clone()], Some(1), true)).is_err());
+        assert!(
+            decode(encoded(
+                &joined.blocks,
+                &[joined.batches[0].clone(), joined.batches[0].clone()],
+                Some(1),
+                true
+            ))
+            .is_err()
+        );
         for changed in 0..5 {
             let mut batches = joined.batches.clone();
             match changed {
@@ -1611,8 +1691,12 @@ mod canonical_results_server_unit {
         assert!(decode(encoded(&blocks, &joined.batches, Some(1), true)).is_err());
         assert!(decode(encoded(&joined.blocks, &joined.batches, None, false)).is_err());
         assert!(decode(encoded(&[], &[], None, false)).is_err());
-        assert!(!decode(encoded(&joined.blocks, &joined.batches, Some(1), false)).unwrap().exhausted,
-            "a byte-limited short page remains resumable");
+        assert!(
+            !decode(encoded(&joined.blocks, &joined.batches, Some(1), false))
+                .unwrap()
+                .exhausted,
+            "a byte-limited short page remains resumable"
+        );
         let page = joined.blocks;
         assert_eq!(page[0].ordinal, 1);
         let resumed = store
@@ -1623,11 +1707,7 @@ mod canonical_results_server_unit {
         assert_eq!(resumed.batches, joined.batches);
         assert_eq!(resumed.next, Some(1));
         assert!(resumed.exhausted);
-        for (start, end, after) in [
-            (10, 20, Some(1)),
-            (20, 25, None),
-            (0, 35, Some(2)),
-        ] {
+        for (start, end, after) in [(10, 20, Some(1)), (20, 25, None), (0, 35, Some(2))] {
             let exhausted = store
                 .result_joined_block_page(&read, &set, "temperature", "time", start, end, after)
                 .await
@@ -1641,7 +1721,10 @@ mod canonical_results_server_unit {
             .result_joined_block_page(&read, &set, "temperature", "time", 0, 35, Some(1))
             .await
             .unwrap();
-        assert_eq!(tail.blocks.iter().map(|m| m.ordinal).collect::<Vec<_>>(), vec![2]);
+        assert_eq!(
+            tail.blocks.iter().map(|m| m.ordinal).collect::<Vec<_>>(),
+            vec![2]
+        );
         assert_eq!(tail.next, Some(2));
         assert!(tail.exhausted);
 
@@ -1686,7 +1769,8 @@ mod canonical_results_server_unit {
                 .result_joined_block_page(&read, &set, "other", "time", 0, 30, None)
                 .await
                 .unwrap()
-                .blocks.is_empty()
+                .blocks
+                .is_empty()
         );
         let mut changed = page[0].clone();
         changed.payload_digest = "wrong".into();

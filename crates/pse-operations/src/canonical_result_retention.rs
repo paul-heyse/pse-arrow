@@ -529,20 +529,38 @@ mod canonical_result_retention_server_unit {
             .read_results(&request.key, fence.attempt())
             .await
             .unwrap();
-        let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, None).await.unwrap();
+        let joined = store
+            .result_joined_block_page(&read, &set, "temperature", "time", 0, 65, None)
+            .await
+            .unwrap();
         assert!(!joined.exhausted);
-        assert!(!joined.blocks.is_empty() && joined.blocks.len() < 64,
-            "complete member bytes stop this legal page before the row ceiling");
+        assert!(
+            !joined.blocks.is_empty() && joined.blocks.len() < 64,
+            "complete member bytes stop this legal page before the row ceiling"
+        );
         assert_eq!(joined.blocks.len(), joined.batches.len());
-        let mut ordinals = joined.blocks.iter().map(|block|block.ordinal).collect::<Vec<_>>();
+        let mut ordinals = joined
+            .blocks
+            .iter()
+            .map(|block| block.ordinal)
+            .collect::<Vec<_>>();
         let mut next = joined.next;
         loop {
-            let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, next).await.unwrap();
-            ordinals.extend(joined.blocks.iter().map(|block|block.ordinal));
-            next=joined.next.or(next);
-            if joined.exhausted { break; }
+            let joined = store
+                .result_joined_block_page(&read, &set, "temperature", "time", 0, 65, next)
+                .await
+                .unwrap();
+            ordinals.extend(joined.blocks.iter().map(|block| block.ordinal));
+            next = joined.next.or(next);
+            if joined.exhausted {
+                break;
+            }
         }
-        assert_eq!(ordinals, (0..65).collect::<Vec<_>>(), "resuming a short byte-limited page loses no member");
+        assert_eq!(
+            ordinals,
+            (0..65).collect::<Vec<_>>(),
+            "resuming a short byte-limited page loses no member"
+        );
         let (first, retired) = tokio::join!(
             store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, None),
             store.forget_run_results(&request.key)
@@ -552,7 +570,10 @@ mod canonical_result_retention_server_unit {
         assert!(!first.exhausted);
         assert_eq!(first.next, first.blocks.last().map(|block| block.ordinal));
         assert!(retired.is_err());
-        let escaped = store.result_block(&read, first.blocks[0].clone()).await.unwrap();
+        let escaped = store
+            .result_block(&read, first.blocks[0].clone())
+            .await
+            .unwrap();
         // Advance the source head and relinquish default history: the protected
         // read and resulting analysis must preserve this exact older source.
         store
@@ -635,19 +656,17 @@ mod canonical_result_retention_server_unit {
         assert!(analysis.unwrap().active);
         assert!(retired.is_err());
         let second = store
-            .result_joined_block_page(
-                &read,
-                &set,
-                "temperature",
-                "time",
-                0,
-                65,
-                first.next,
-            )
+            .result_joined_block_page(&read, &set, "temperature", "time", 0, 65, first.next)
             .await
             .unwrap();
-        assert_eq!(second.blocks.iter().map(|block| block.ordinal).collect::<Vec<_>>(),
-            (first.next.unwrap()+1..65).collect::<Vec<_>>());
+        assert_eq!(
+            second
+                .blocks
+                .iter()
+                .map(|block| block.ordinal)
+                .collect::<Vec<_>>(),
+            (first.next.unwrap() + 1..65).collect::<Vec<_>>()
+        );
         assert_eq!(second.next, Some(64));
         assert!(second.exhausted);
         assert_eq!(
@@ -665,7 +684,8 @@ mod canonical_result_retention_server_unit {
                 .result_joined_block_page(&read, &set, "temperature", "time", 0, 65, Some(64))
                 .await
                 .unwrap()
-                .blocks.is_empty()
+                .blocks
+                .is_empty()
         );
         drop(read);
         assert!(store.forget_run_results(&request.key).await.is_err());

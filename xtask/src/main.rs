@@ -426,7 +426,8 @@ fn canonical_maintenance(
                 None if schemas.is_empty() => store.validate_definitions().await,
                 None => store.validate_definition_files(schemas).await,
             }
-        }.await;
+        }
+        .await;
         // This owner finishes both drivers even when validation refuses. A
         // successful body alone never establishes enclosing physical cleanup.
         let drained = store.disconnect().await;

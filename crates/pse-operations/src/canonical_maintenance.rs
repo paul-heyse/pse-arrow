@@ -303,7 +303,8 @@ impl CanonicalStore {
             .scope(async {
                 within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
                     let config = self.maintenance_config()?;
-                    let module = crate::canonical::study_module::StudyModuleReceipt::read(&self.state_path)?;
+                    let module =
+                        crate::canonical::study_module::StudyModuleReceipt::read(&self.state_path)?;
                     self.validate_study_module(&module).await?;
                     let mut expected = BTreeMap::new();
                     for input in inputs {

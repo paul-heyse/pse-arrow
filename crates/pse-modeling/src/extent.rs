@@ -278,20 +278,28 @@ impl Value {
 }
 impl crate::check::SharedPackageInputs {
     /// Known allocation of one immutable physical visibility owner.
-    pub fn scope_retained_bytes(scope:&crate::PhysicalScope)->usize {
-        size_of::<crate::PhysicalScope>() + 2*size_of::<usize>()
-            + scope.package.as_ref().map_or(0,String::capacity)
-            + scope.documents.as_ref().map_or(0,|documents|documents.len()*(size_of::<pse_ids::SemanticId>()+32))
+    pub fn scope_retained_bytes(scope: &crate::PhysicalScope) -> usize {
+        size_of::<crate::PhysicalScope>()
+            + 2 * size_of::<usize>()
+            + scope.package.as_ref().map_or(0, String::capacity)
+            + scope.documents.as_ref().map_or(0, |documents| {
+                documents.len() * (size_of::<pse_ids::SemanticId>() + 32)
+            })
     }
     /// Known allocation of one immutable physical name/type owner.
-    pub fn physical_types_retained_bytes(types:&BTreeMap<String,Type>)->usize {
-        size_of::<BTreeMap<String,Type>>() + 2*size_of::<usize>()
-            + map(types,|name,value|name.capacity()+ty(value))
+    pub fn physical_types_retained_bytes(types: &BTreeMap<String, Type>) -> usize {
+        size_of::<BTreeMap<String, Type>>()
+            + 2 * size_of::<usize>()
+            + map(types, |name, value| name.capacity() + ty(value))
     }
     /// Known extents in quantities, preconditions, scope and physical-type order.
-    pub fn retained_extents(&self)->[usize;4] {
-        [self.quantities.allocation_extent(), self.preconditions.allocation_extent(),
-         Self::scope_retained_bytes(&self.scope), Self::physical_types_retained_bytes(&self.physical_types)]
+    pub fn retained_extents(&self) -> [usize; 4] {
+        [
+            self.quantities.allocation_extent(),
+            self.preconditions.allocation_extent(),
+            Self::scope_retained_bytes(&self.scope),
+            Self::physical_types_retained_bytes(&self.physical_types),
+        ]
     }
 }
 impl CheckedPackage {
@@ -303,7 +311,10 @@ impl CheckedPackage {
         census: &mut crate::check::phases::RetainedInputs<'a>,
     ) {
         let lexical_index = self.lexical_index.retained_bytes();
-        census.add(self.retained_bytes_excluding_shared_inputs().saturating_sub(size_of::<Self>()+lexical_index));
+        census.add(
+            self.retained_bytes_excluding_shared_inputs()
+                .saturating_sub(size_of::<Self>() + lexical_index),
+        );
         if census.include_shared(&self.quantities) {
             census.add(self.quantities.allocation_extent());
         }
@@ -311,10 +322,16 @@ impl CheckedPackage {
             census.add(self.preconditions.allocation_extent());
         }
         if census.include_shared(&self.scope) {
-            census.add(crate::check::SharedPackageInputs::scope_retained_bytes(&self.scope));
+            census.add(crate::check::SharedPackageInputs::scope_retained_bytes(
+                &self.scope,
+            ));
         }
         if census.include_shared(&self.physical_types) {
-            census.add(crate::check::SharedPackageInputs::physical_types_retained_bytes(&self.physical_types));
+            census.add(
+                crate::check::SharedPackageInputs::physical_types_retained_bytes(
+                    &self.physical_types,
+                ),
+            );
         }
         if census.include_shared(&self.lexical_index) {
             census.add(lexical_index);
@@ -322,7 +339,7 @@ impl CheckedPackage {
     }
     /// Owned local package storage when each shared registry input has an
     /// independently retained, uniquely counted owner.
-    pub fn retained_bytes_excluding_shared_inputs(&self)->usize {
+    pub fn retained_bytes_excluding_shared_inputs(&self) -> usize {
         size_of::<Self>()
             + self.selection_index.retained_bytes()
             + self.lexical_index.retained_bytes()
@@ -404,9 +421,13 @@ impl CheckedPackage {
     /// each physical shared owner once for a standalone package.
     pub fn retained_bytes(&self) -> usize {
         self.retained_bytes_excluding_shared_inputs()
-            .saturating_add(self.shared_inputs().retained_extents().into_iter().sum::<usize>())
+            .saturating_add(
+                self.shared_inputs()
+                    .retained_extents()
+                    .into_iter()
+                    .sum::<usize>(),
+            )
     }
-
 }
 impl SpecializedModel {
     /// Conservative owned specialization storage, excluding separately owned library math.
@@ -559,10 +580,18 @@ impl SpecializedModel {
                 crate::specialize::Realization::Accelerated(id) => id.capacity(),
                 _ => 0,
             })
-            + map(&self.exchanges, |_, pair| [&pair.first,&pair.second].into_iter().map(|boundary|match boundary {
-                crate::contextual::BoundaryRef::Declared(_)=>0,
-                crate::contextual::BoundaryRef::Bound{coordinates,..}=>coordinates.capacity()*size_of::<Value>()+coordinates.iter().map(Value::retained_bytes).sum::<usize>(),
-            }).sum::<usize>())
+            + map(&self.exchanges, |_, pair| {
+                [&pair.first, &pair.second]
+                    .into_iter()
+                    .map(|boundary| match boundary {
+                        crate::contextual::BoundaryRef::Declared(_) => 0,
+                        crate::contextual::BoundaryRef::Bound { coordinates, .. } => {
+                            coordinates.capacity() * size_of::<Value>()
+                                + coordinates.iter().map(Value::retained_bytes).sum::<usize>()
+                        }
+                    })
+                    .sum::<usize>()
+            })
             + map(&self.meshes, |_, m| {
                 m.points.capacity() * size_of::<Value>()
                     + m.points.iter().map(Value::retained_bytes).sum::<usize>()

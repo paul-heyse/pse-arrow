@@ -154,7 +154,9 @@ def verify_source(source: Path) -> None:
     if 'name = "surrealmx"\nversion = "1.0.0"' not in lock:
         raise BuildError("Source lockfile does not resolve the required MX engine")
     if f'name = "surrealism-runtime"\nversion = "{SURREALISM_SDK}"' not in lock:
-        raise BuildError("Source lockfile does not resolve the required Surrealism runtime")
+        raise BuildError(
+            "Source lockfile does not resolve the required Surrealism runtime"
+        )
 
 
 def tree_digest(directory: Path) -> dict[str, str]:

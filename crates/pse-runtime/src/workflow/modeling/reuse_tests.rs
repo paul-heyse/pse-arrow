@@ -1352,12 +1352,15 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
     );
     assert_eq!(demanded.solved(), first.solved());
     let returned = prepared(&package).await;
-    assert!(Arc::ptr_eq(
-        &retained_preparation_basis(&package, root, instance, Bindings::default(), default)
-            .await
-            .unwrap(),
-        &original_basis,
-    ), "A/B/A observation selection returns the original complete basis");
+    assert!(
+        Arc::ptr_eq(
+            &retained_preparation_basis(&package, root, instance, Bindings::default(), default)
+                .await
+                .unwrap(),
+            &original_basis,
+        ),
+        "A/B/A observation selection returns the original complete basis"
+    );
     for (identity, body) in &first.compiled().admitted.bodies {
         assert!(Arc::ptr_eq(
             body.math(),

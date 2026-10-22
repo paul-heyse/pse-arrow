@@ -6,10 +6,10 @@ mod applicability;
 mod contextual;
 mod continuous;
 mod envelopes;
-pub mod finite;
-pub mod prelude;
-pub mod function_fragments;
 pub mod field_fragments;
+pub mod finite;
+pub mod function_fragments;
+pub mod prelude;
 mod symbols;
 pub use symbols::Symbols;
 mod fold;
@@ -619,12 +619,24 @@ pub fn specialize_with_discretizer(
     cancel: &dyn Fn() -> bool,
     discretizer: &dyn crate::continuous::Discretizer,
 ) -> Result<SpecializedModel> {
-    specialize_with_fragments(package, root, instance, bindings, limits, cancel, discretizer, None)
+    specialize_with_fragments(
+        package,
+        root,
+        instance,
+        bindings,
+        limits,
+        cancel,
+        discretizer,
+        None,
+    )
 }
 /// Specialize through query-owned local derivation supplied by the compiler.
 /// # Errors
 /// The same admission, construction and cancellation refusals as direct specialization.
-#[expect(clippy::too_many_arguments, reason = "the selected derivation owner augments the existing complete specialization request")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the selected derivation owner augments the existing complete specialization request"
+)]
 pub fn specialize_with_fragments(
     package: &CheckedPackage,
     root: DeclarationId,
@@ -650,7 +662,15 @@ pub fn specialize_with_fragments(
     // ambient fact any definition reads.
     let ambient = crate::analysis::facts(&bindings.facts)?;
     let context = package.context();
-    let mut engine = Engine::new(package, &context, root, limits, cancel, discretizer, fragments);
+    let mut engine = Engine::new(
+        package,
+        &context,
+        root,
+        limits,
+        cancel,
+        discretizer,
+        fragments,
+    );
     engine.model.engineering_rules = crate::annotation::engineering_rules(package)?;
     engine.facts = ambient.clone();
     engine.objective_level = crate::analysis::objective_level(&bindings.facts)?;
@@ -823,54 +843,54 @@ impl<'a, 'b> Engine<'a, 'b> {
         fragments: Option<&'a dyn prelude::Fragments>,
     ) -> Self {
         Self {
-        fragments,
-        field_fragment_active: false,
-        root,
-        function_permissions: None,
-        inspection_context: None,
-        selection_collector: crate::scientific_selection::Collector::default(),
-        finite_collector: finite::Collector::default(),
-        construction: crate::resolved::construction::Construction::new(limits.items),
-        originals: Vec::new(),
-        original_guards: Vec::new(),
-        lexical_references: BTreeMap::new(),
-        p: package,
-        c: context,
-        limits,
-        model: SpecializedModel {
-            construction_limit: limits.items,
-            ..SpecializedModel::default()
-        },
-        states: BTreeMap::new(),
-        numerical_sources: BTreeMap::new(),
-        numerical_source_stack: Vec::new(),
-        source_locals: BTreeSet::new(),
-        set_alias_sources: BTreeMap::new(),
-        temporal_owners: BTreeMap::new(),
-        temporal_axis: None,
-        stack: Vec::new(),
-        count: 0,
-        lexical: BTreeMap::new(),
-        indexed_arguments: BTreeMap::new(),
-        function_stack: Vec::new(),
-        function_types: BTreeMap::new(),
-        function_substitutions: BTreeMap::new(),
-        function_symbols: None,
-        lexical_bases: lexical::LexicalBases::default(),
-        preset_stack: Vec::new(),
-        local_serial: 0,
-        continuity_done: BTreeSet::new(),
-        replicated: Vec::new(),
-        pending_inventories: Vec::new(),
-        inventory_initial_sources: BTreeMap::new(),
-        relaxations: BTreeMap::new(),
-        form_realizations: BTreeMap::new(),
-        form_sources: Vec::new(),
-        facts: Environment::new(),
-        objective_level: None,
-        discretizer,
-        cancel,
-        reader: crate::provenance::Reader::of(package, root),
+            fragments,
+            field_fragment_active: false,
+            root,
+            function_permissions: None,
+            inspection_context: None,
+            selection_collector: crate::scientific_selection::Collector::default(),
+            finite_collector: finite::Collector::default(),
+            construction: crate::resolved::construction::Construction::new(limits.items),
+            originals: Vec::new(),
+            original_guards: Vec::new(),
+            lexical_references: BTreeMap::new(),
+            p: package,
+            c: context,
+            limits,
+            model: SpecializedModel {
+                construction_limit: limits.items,
+                ..SpecializedModel::default()
+            },
+            states: BTreeMap::new(),
+            numerical_sources: BTreeMap::new(),
+            numerical_source_stack: Vec::new(),
+            source_locals: BTreeSet::new(),
+            set_alias_sources: BTreeMap::new(),
+            temporal_owners: BTreeMap::new(),
+            temporal_axis: None,
+            stack: Vec::new(),
+            count: 0,
+            lexical: BTreeMap::new(),
+            indexed_arguments: BTreeMap::new(),
+            function_stack: Vec::new(),
+            function_types: BTreeMap::new(),
+            function_substitutions: BTreeMap::new(),
+            function_symbols: None,
+            lexical_bases: lexical::LexicalBases::default(),
+            preset_stack: Vec::new(),
+            local_serial: 0,
+            continuity_done: BTreeSet::new(),
+            replicated: Vec::new(),
+            pending_inventories: Vec::new(),
+            inventory_initial_sources: BTreeMap::new(),
+            relaxations: BTreeMap::new(),
+            form_realizations: BTreeMap::new(),
+            form_sources: Vec::new(),
+            facts: Environment::new(),
+            objective_level: None,
+            discretizer,
+            cancel,
+            reader: crate::provenance::Reader::of(package, root),
         }
     }
 }
@@ -1570,20 +1590,32 @@ impl Engine<'_, '_> {
         self.reserve(1)?;
         self.stack.push(definition);
         let inherited = if row.value.kind == Kind::Implicit {
-            parent.and_then(|owner| self.states.get(&owner)).map(|state| state.env.clone()).unwrap_or_default()
-        } else { Environment::new() };
+            parent
+                .and_then(|owner| self.states.get(&owner))
+                .map(|state| state.env.clone())
+                .unwrap_or_default()
+        } else {
+            Environment::new()
+        };
         let bindings = prelude::PreludeBindings {
-            definition, root: self.root,
+            definition,
+            root: self.root,
             fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
-            arguments: arguments.clone(), scope: scope.clone(), inherited,
-            facts: self.facts.clone(), members: self.limits.members,
+            arguments: arguments.clone(),
+            scope: scope.clone(),
+            inherited,
+            facts: self.facts.clone(),
+            members: self.limits.members,
         };
         let premises = std::sync::Arc::new(prelude::PreludePremises::select(self.p, &bindings)?);
         let prelude = if let Some(fragments) = self.fragments {
             fragments.instance_prelude(premises, bindings)?
-        } else { std::sync::Arc::new(prelude::derive(&premises, &bindings)?) };
+        } else {
+            std::sync::Arc::new(prelude::derive(&premises, &bindings)?)
+        };
         for (occurrence, closure) in &prelude.selections {
-            self.selection_collector.record(occurrence.clone(), closure.clone());
+            self.selection_collector
+                .record(occurrence.clone(), closure.clone());
         }
         let mut env = prelude.environment.clone();
         let mut source_env = None;
@@ -1665,7 +1697,10 @@ impl Engine<'_, '_> {
                 scope: published,
                 path: path.clone(),
                 members: members.clone(),
-                member_kinds: members.values().map(|id|(*id,self.p.declarations[id].value.kind)).collect(),
+                member_kinds: members
+                    .values()
+                    .map(|id| (*id, self.p.declarations[id].value.kind))
+                    .collect(),
                 children: BTreeMap::new(),
                 symbols: BTreeMap::new(),
                 stack: Vec::new(),
@@ -3078,20 +3113,25 @@ impl SpecializedModel {
         let Some(owner) = self.instances.get(&instance) else {
             return BTreeMap::new();
         };
-        let by_path = self.symbols.values().map(|symbol| {
-            (symbol.lineage.path.as_str(), symbol.id)
-        }).collect::<BTreeMap<_, _>>();
-        paths.iter().filter_map(|original| {
-            if let Some(id) = self.paths.get(original) {
-                return Some((original.clone(), *id));
-            }
-            let expression = dsl::parse_expr(original).ok()?;
-            let ExprKind::Path(path) = expression.kind else {
-                return None;
-            };
-            let full = format!("{}.{}", owner.path, dsl::render_path(&path));
-            by_path.get(full.as_str()).map(|id| (original.clone(), *id))
-        }).collect()
+        let by_path = self
+            .symbols
+            .values()
+            .map(|symbol| (symbol.lineage.path.as_str(), symbol.id))
+            .collect::<BTreeMap<_, _>>();
+        paths
+            .iter()
+            .filter_map(|original| {
+                if let Some(id) = self.paths.get(original) {
+                    return Some((original.clone(), *id));
+                }
+                let expression = dsl::parse_expr(original).ok()?;
+                let ExprKind::Path(path) = expression.kind else {
+                    return None;
+                };
+                let full = format!("{}.{}", owner.path, dsl::render_path(&path));
+                by_path.get(full.as_str()).map(|id| (original.clone(), *id))
+            })
+            .collect()
     }
     /// Number of required original physical closure checks, excluding accounting reports.
     pub fn required_closure_checks(&self) -> usize {

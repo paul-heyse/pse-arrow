@@ -12,35 +12,79 @@ use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub(super) struct ExpressionSources {
-    expressions: Vec<(Source, Option<crate::expression::admission::PhysicalAdmission>)>,
+    expressions: Vec<(
+        Source,
+        Option<crate::expression::admission::PhysicalAdmission>,
+    )>,
     predicates: Vec<Source>,
 }
 impl PartialEq for ExpressionSources {
     fn eq(&self, other: &Self) -> bool {
         use crate::expression::admission::PhysicalAdmissionRecord as Record;
-        self.predicates == other.predicates && self.expressions.len() == other.expressions.len()
-            && self.expressions.iter().zip(&other.expressions).all(|((source, admission),(other_source, other_admission))| source==other_source
-                && admission.as_ref().map(Record::capture)==other_admission.as_ref().map(Record::capture))
+        self.predicates == other.predicates
+            && self.expressions.len() == other.expressions.len()
+            && self.expressions.iter().zip(&other.expressions).all(
+                |((source, admission), (other_source, other_admission))| {
+                    source == other_source
+                        && admission.as_ref().map(Record::capture)
+                            == other_admission.as_ref().map(Record::capture)
+                },
+            )
     }
 }
 impl Eq for ExpressionSources {}
 impl ExpressionSources {
     pub(super) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.expressions.iter().map(|(source, admission)| source.field.role.capacity() + admission.as_ref().map_or(0, crate::expression::admission::PhysicalAdmission::retained_bytes) + 256).sum::<usize>()
-            + self.predicates.iter().map(|source| source.field.role.capacity() + 128).sum::<usize>()
+        size_of::<Self>()
+            + self
+                .expressions
+                .iter()
+                .map(|(source, admission)| {
+                    source.field.role.capacity()
+                        + admission.as_ref().map_or(
+                            0,
+                            crate::expression::admission::PhysicalAdmission::retained_bytes,
+                        )
+                        + 256
+                })
+                .sum::<usize>()
+            + self
+                .predicates
+                .iter()
+                .map(|source| source.field.role.capacity() + 128)
+                .sum::<usize>()
     }
     pub(super) fn inspection_frame(&self, hash: &mut FramedHasher) {
-        hash.u64(self.expressions.len() as u64).u64(self.predicates.len() as u64);
-        for source in self.expressions.iter().map(|(source,_)|source).chain(&self.predicates) {
-            hash.id(&source.field.declaration.as_id()).str(&source.field.role).u64(source.field.position as u64)
-                .u64(source.span.start as u64).u64(source.span.end as u64);
-            if let Some(coordinate)=&source.coordinate {
-                hash.str(match coordinate.grammar {InventoryGrammar::Expression=>"expression",InventoryGrammar::Predicate=>"predicate",InventoryGrammar::Equation=>"equation"});
+        hash.u64(self.expressions.len() as u64)
+            .u64(self.predicates.len() as u64);
+        for source in self
+            .expressions
+            .iter()
+            .map(|(source, _)| source)
+            .chain(&self.predicates)
+        {
+            hash.id(&source.field.declaration.as_id())
+                .str(&source.field.role)
+                .u64(source.field.position as u64)
+                .u64(source.span.start as u64)
+                .u64(source.span.end as u64);
+            if let Some(coordinate) = &source.coordinate {
+                hash.str(match coordinate.grammar {
+                    InventoryGrammar::Expression => "expression",
+                    InventoryGrammar::Predicate => "predicate",
+                    InventoryGrammar::Equation => "equation",
+                });
                 match coordinate.occurrence {
-                    ExpressionOccurrence::Node{body,position}=>{hash.str("node").u64(body as u64).u64(position as u64);},
-                    ExpressionOccurrence::FiniteReduction=>{hash.str("finite-reduction");}
+                    ExpressionOccurrence::Node { body, position } => {
+                        hash.str("node").u64(body as u64).u64(position as u64);
+                    }
+                    ExpressionOccurrence::FiniteReduction => {
+                        hash.str("finite-reduction");
+                    }
                 }
-            } else {hash.str("generated");}
+            } else {
+                hash.str("generated");
+            }
         }
     }
     pub(super) fn install(&self, expression: &Expr, allowance: usize) -> Result<OriginalScope> {
@@ -56,15 +100,27 @@ impl ExpressionSources {
             }
             ordinal += 1;
         });
-        if ordinal != self.expressions.len() { return Err(invalid(SemanticId::NIL, "field fragment expression source arity changed")); }
+        if ordinal != self.expressions.len() {
+            return Err(invalid(
+                SemanticId::NIL,
+                "field fragment expression source arity changed",
+            ));
+        }
         let mut ordinal = 0;
         each_predicate(expression, &mut |value| {
             if let Some(source) = self.predicates.get(ordinal) {
-                scope.predicates.insert(std::ptr::from_ref(value) as usize, source.clone());
+                scope
+                    .predicates
+                    .insert(std::ptr::from_ref(value) as usize, source.clone());
             }
             ordinal += 1;
         });
-        if ordinal != self.predicates.len() { return Err(invalid(SemanticId::NIL, "field fragment predicate source arity changed")); }
+        if ordinal != self.predicates.len() {
+            return Err(invalid(
+                SemanticId::NIL,
+                "field fragment predicate source arity changed",
+            ));
+        }
         Ok(scope)
     }
 }
@@ -72,13 +128,21 @@ fn each_predicate(expression: &Expr, apply: &mut impl FnMut(&dsl::Predicate)) {
     fn predicate(value: &dsl::Predicate, apply: &mut impl FnMut(&dsl::Predicate)) {
         apply(value);
         match &value.kind {
-            dsl::PredicateKind::And(lhs,rhs) | dsl::PredicateKind::Or(lhs,rhs) => { predicate(lhs,apply); predicate(rhs,apply); }
-            dsl::PredicateKind::Not(value) => predicate(value,apply), _ => {}
+            dsl::PredicateKind::And(lhs, rhs) | dsl::PredicateKind::Or(lhs, rhs) => {
+                predicate(lhs, apply);
+                predicate(rhs, apply);
+            }
+            dsl::PredicateKind::Not(value) => predicate(value, apply),
+            _ => {}
         }
     }
     expression.walk(|value| match &value.kind {
         ExprKind::Conditional { guard, .. } => predicate(guard, apply),
-        ExprKind::Reduce { binder, .. } | ExprKind::Fold { binder, .. } => { if let Some(filter) = &binder.filter { predicate(filter, apply); } },
+        ExprKind::Reduce { binder, .. } | ExprKind::Fold { binder, .. } => {
+            if let Some(filter) = &binder.filter {
+                predicate(filter, apply);
+            }
+        }
         _ => {}
     });
 }
@@ -640,24 +704,41 @@ impl Engine<'_, '_> {
             engine.rewrite_equation(instance, &equation, env, chain)
         })
     }
-    pub(super) fn expression_sources(&self, expression: &Expr, at: DeclarationId) -> Result<ExpressionSources> {
+    pub(super) fn expression_sources(
+        &self,
+        expression: &Expr,
+        at: DeclarationId,
+    ) -> Result<ExpressionSources> {
         let mut expressions = Vec::new();
         let mut failure = None;
-        expression.walk(|value| {
-            match self.original_expression_source(value, at) {
-                Ok(source) => {
-                    let address = std::ptr::from_ref(value) as usize;
-                    let admission = self.originals.iter().rev().find_map(|scope| scope.admissions.get(&address)).cloned();
-                    expressions.push((source, admission));
-                }, Err(error) => failure = Some(error),
+        expression.walk(|value| match self.original_expression_source(value, at) {
+            Ok(source) => {
+                let address = std::ptr::from_ref(value) as usize;
+                let admission = self
+                    .originals
+                    .iter()
+                    .rev()
+                    .find_map(|scope| scope.admissions.get(&address))
+                    .cloned();
+                expressions.push((source, admission));
             }
+            Err(error) => failure = Some(error),
         });
         let mut predicates = Vec::new();
-        each_predicate(expression, &mut |value| match self.original_predicate_source(value, at) {
-            Ok(source) => predicates.push(source), Err(error) => failure = Some(error),
-        });
-        if let Some(error) = failure { return Err(error); }
-        Ok(ExpressionSources { expressions, predicates })
+        each_predicate(
+            expression,
+            &mut |value| match self.original_predicate_source(value, at) {
+                Ok(source) => predicates.push(source),
+                Err(error) => failure = Some(error),
+            },
+        );
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        Ok(ExpressionSources {
+            expressions,
+            predicates,
+        })
     }
     pub(super) fn original_expression_source(
         &self,

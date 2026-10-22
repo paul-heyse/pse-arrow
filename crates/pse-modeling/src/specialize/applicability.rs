@@ -67,7 +67,9 @@ impl Engine<'_, '_> {
     }
 
     pub(super) fn evidence_permissions(&self, instance: InstanceId) -> Result<Vec<Permission>> {
-        if let Some(permissions) = &self.function_permissions { return Ok(permissions.as_ref().clone()); }
+        if let Some(permissions) = &self.function_permissions {
+            return Ok(permissions.as_ref().clone());
+        }
         let mut permissions = Vec::new();
         let mut current = Some(instance);
         let mut seen = BTreeSet::new();

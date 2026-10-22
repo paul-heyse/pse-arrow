@@ -725,29 +725,57 @@ class HostAdmissionTests(unittest.TestCase):
                     current_launch,
                 )
 
-    def historical_failed_launch_fixture(self) -> tuple[host.Allocation, Path, str, dict[str, object], dict[str, object], dict[str, str], Path]:
+    def historical_failed_launch_fixture(
+        self,
+    ) -> tuple[
+        host.Allocation,
+        Path,
+        str,
+        dict[str, object],
+        dict[str, object],
+        dict[str, str],
+        Path,
+    ]:
         owner, service, unit = self.storage_process_fixture()
 
         def generation(payload: bytes) -> dict[str, str]:
             files = {"scripts/surreal_server.py": hashlib.sha256(payload).hexdigest()}
-            identity = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            identity = hashlib.sha256(
+                json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
             directory = service / ".generations" / identity
             (directory / "scripts").mkdir(mode=0o700, parents=True)
             script = directory / "scripts/surreal_server.py"
             script.write_bytes(payload)
             script.chmod(0o600)
-            surreal_server.write_json(directory / "generation.json", {"version": 1, "identity": identity, "files": files})
-            return {"supervisor_script": str(script), "supervisor_sha256": files["scripts/surreal_server.py"], "supervisor_executable": sys.executable}
+            surreal_server.write_json(
+                directory / "generation.json",
+                {"version": 1, "identity": identity, "files": files},
+            )
+            return {
+                "supervisor_script": str(script),
+                "supervisor_sha256": files["scripts/surreal_server.py"],
+                "supervisor_executable": sys.executable,
+            }
 
         prior = {
-            "owner": surreal_server.OWNER, "instance_id": "original", "admission": "quiesced",
-            "accepting_writes": False, "service_supervisor": generation(b"owned historical supervisor"),
-            "server": {}, "resources": {"server_memory_bytes": host.GIB},
-            "port": 18240, "study_module": {"sha256": "1" * 64},
+            "owner": surreal_server.OWNER,
+            "instance_id": "original",
+            "admission": "quiesced",
+            "accepting_writes": False,
+            "service_supervisor": generation(b"owned historical supervisor"),
+            "server": {},
+            "resources": {"server_memory_bytes": host.GIB},
+            "port": 18240,
+            "study_module": {"sha256": "1" * 64},
             "study_module_qualification": {"sha256": "2" * 64},
             "restart_qualified": True,
         }
-        current = {**prior, "service_supervisor": generation(b"owned readmitted supervisor"), "restart_qualified": False}
+        current = {
+            **prior,
+            "service_supervisor": generation(b"owned readmitted supervisor"),
+            "restart_qualified": False,
+        }
         history = service / ".profile-history"
         history.mkdir(mode=0o700)
         witness = history / ("c" * 32 + ".json")
@@ -756,28 +784,65 @@ class HostAdmissionTests(unittest.TestCase):
         process["allocation"] = str(self.directory / ("b" * 32))
         surreal_server.write_json(service / "server-process.json", process)
         launch = surreal_server.read_json(service / "service-launch.json")
-        launch.update(deadline=time.monotonic() + 30, supervisor_generation=prior["service_supervisor"], server_generation=prior["server"], service_class="functional", server_memory_bytes=host.GIB)
+        launch.update(
+            deadline=time.monotonic() + 30,
+            supervisor_generation=prior["service_supervisor"],
+            server_generation=prior["server"],
+            service_class="functional",
+            server_memory_bytes=host.GIB,
+        )
         surreal_server.write_json(service / "service-launch.json", launch)
         with host.allocation_metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce]["units"][unit] = {}
             ledger["owners"][owner.nonce]["released"] = True
-        manager = {"LoadState": "loaded", "ActiveState": "failed", "ControlGroup": "", "InvocationID": "a" * 32}
+        manager = {
+            "LoadState": "loaded",
+            "ActiveState": "failed",
+            "ControlGroup": "",
+            "InvocationID": "a" * 32,
+        }
         return owner, service, unit, prior, current, manager, witness
 
-    def test_failed_prebind_launch_after_readmission_reconciles_exact_history_without_rewriting_receipts(self) -> None:
-        owner, service, unit, prior, current, manager, witness = self.historical_failed_launch_fixture()
-        retained = {path: path.read_bytes() for path in [service / "service-launch.json", service / "server-process.json", witness]}
-        absent = surreal_server.ServiceObservation(surreal_server.Readiness.ACTIONABLE_ABSENT, service, "original", unit, "terminal exact historical selection", manager=manager)
+    def test_failed_prebind_launch_after_readmission_reconciles_exact_history_without_rewriting_receipts(
+        self,
+    ) -> None:
+        owner, service, unit, prior, current, manager, witness = (
+            self.historical_failed_launch_fixture()
+        )
+        retained = {
+            path: path.read_bytes()
+            for path in [
+                service / "service-launch.json",
+                service / "server-process.json",
+                witness,
+            ]
+        }
+        absent = surreal_server.ServiceObservation(
+            surreal_server.Readiness.ACTIONABLE_ABSENT,
+            service,
+            "original",
+            unit,
+            "terminal exact historical selection",
+            manager=manager,
+        )
         deadline = time.monotonic() + 5
         with (
             patch.object(surreal_server, "config_for", return_value=current),
-            patch.object(surreal_server, "service_readiness", return_value=absent) as readiness,
+            patch.object(
+                surreal_server, "service_readiness", return_value=absent
+            ) as readiness,
             patch.object(host.operation, "unit_observation", return_value=manager),
-            patch.object(host.operation, "start_identity", side_effect=FileNotFoundError()),
+            patch.object(
+                host.operation, "start_identity", side_effect=FileNotFoundError()
+            ),
         ):
             with host.allocation_metadata(self.directory) as ledger:
                 record = dict(ledger["owners"][owner.nonce])
-            self.assertTrue(host.drained(record, allocation=self.directory / owner.nonce, deadline=deadline))
+            self.assertTrue(
+                host.drained(
+                    record, allocation=self.directory / owner.nonce, deadline=deadline
+                )
+            )
             readiness.assert_called_once_with(service, prior, deadline=deadline)
             host.reconcile(self.directory, resume_parked=False)
         with host.allocation_metadata(self.directory) as ledger:
@@ -785,35 +850,73 @@ class HostAdmissionTests(unittest.TestCase):
         for path, raw in retained.items():
             self.assertEqual(path.read_bytes(), raw)
 
-    def test_historical_failed_launch_refuses_changed_or_unknown_selection_and_source(self) -> None:
-        owner, service, unit, prior, current, manager, witness = self.historical_failed_launch_fixture()
+    def test_historical_failed_launch_refuses_changed_or_unknown_selection_and_source(
+        self,
+    ) -> None:
+        owner, service, unit, prior, current, manager, witness = (
+            self.historical_failed_launch_fixture()
+        )
         launch = surreal_server.read_json(service / "service-launch.json")
         with host.allocation_metadata(self.directory) as ledger:
             original = dict(ledger["owners"][owner.nonce])
-        absent = surreal_server.ServiceObservation(surreal_server.Readiness.ACTIONABLE_ABSENT, service, "original", unit, "terminal exact historical selection", manager=manager)
-        for case in ["missing-history", "changed-source", "wrong-supervisor-hash", "changed-server", "changed-module", "changed-qualification", "changed-port", "open-admission", "bound-launch", "history-changes-during-proof"]:
+        absent = surreal_server.ServiceObservation(
+            surreal_server.Readiness.ACTIONABLE_ABSENT,
+            service,
+            "original",
+            unit,
+            "terminal exact historical selection",
+            manager=manager,
+        )
+        for case in [
+            "missing-history",
+            "changed-source",
+            "wrong-supervisor-hash",
+            "changed-server",
+            "changed-module",
+            "changed-qualification",
+            "changed-port",
+            "open-admission",
+            "bound-launch",
+            "history-changes-during-proof",
+        ]:
             config = dict(current)
             historical = dict(prior)
             current_launch = dict(launch)
             supervisor = surreal_server.object_mapping(prior["service_supervisor"])
             script = Path(str(supervisor["supervisor_script"]))
             script.write_bytes(b"owned historical supervisor")
-            if case == "changed-source": script.write_bytes(b"unadmitted source")
+            if case == "changed-source":
+                script.write_bytes(b"unadmitted source")
             elif case == "wrong-supervisor-hash":
-                historical["service_supervisor"] = {**supervisor, "supervisor_sha256": "0" * 64}
-                current_launch["supervisor_generation"] = historical["service_supervisor"]
-            elif case == "changed-server": config["server"] = {"different": True}
-            elif case == "changed-module": config["study_module"] = {"sha256": "3" * 64}
-            elif case == "changed-qualification": config["study_module_qualification"] = {"sha256": "3" * 64}
-            elif case == "changed-port": config["port"] = 18241
-            elif case == "open-admission": config.update(admission="open", accepting_writes=True)
-            elif case == "bound-launch": current_launch["binding"] = {"unknown": True}
+                historical["service_supervisor"] = {
+                    **supervisor,
+                    "supervisor_sha256": "0" * 64,
+                }
+                current_launch["supervisor_generation"] = historical[
+                    "service_supervisor"
+                ]
+            elif case == "changed-server":
+                config["server"] = {"different": True}
+            elif case == "changed-module":
+                config["study_module"] = {"sha256": "3" * 64}
+            elif case == "changed-qualification":
+                config["study_module_qualification"] = {"sha256": "3" * 64}
+            elif case == "changed-port":
+                config["port"] = 18241
+            elif case == "open-admission":
+                config.update(admission="open", accepting_writes=True)
+            elif case == "bound-launch":
+                current_launch["binding"] = {"unknown": True}
             surreal_server.write_json(witness, historical)
-            if case == "missing-history": witness.unlink()
+            if case == "missing-history":
+                witness.unlink()
             surreal_server.write_json(service / "service-launch.json", current_launch)
 
-            def observe(*_args: object, case: str = case, **_kwargs: object) -> surreal_server.ServiceObservation:
-                if case == "history-changes-during-proof": witness.unlink()
+            def observe(
+                *_args: object, case: str = case, **_kwargs: object
+            ) -> surreal_server.ServiceObservation:
+                if case == "history-changes-during-proof":
+                    witness.unlink()
                 return absent
 
             with (
@@ -821,9 +924,13 @@ class HostAdmissionTests(unittest.TestCase):
                 patch.object(surreal_server, "config_for", return_value=config),
                 patch.object(surreal_server, "service_readiness", side_effect=observe),
                 patch.object(host.operation, "unit_observation", return_value=manager),
-                patch.object(host.operation, "start_identity", side_effect=FileNotFoundError()),
+                patch.object(
+                    host.operation, "start_identity", side_effect=FileNotFoundError()
+                ),
             ):
-                self.assertFalse(host.drained(original, allocation=self.directory / owner.nonce))
+                self.assertFalse(
+                    host.drained(original, allocation=self.directory / owner.nonce)
+                )
             with host.allocation_metadata(self.directory) as ledger:
                 self.assertIn(owner.nonce, ledger["owners"])
 

@@ -104,18 +104,32 @@ pub(super) fn arena(value: &Arena) -> usize {
             ])
         })),
         vector::<EvidenceUse>(value.evidence.capacity()),
-        total(value.evidence.iter().map(|evidence| total([
-            evidence.node.retained_bytes(),
-            vector::<NodeIx>(evidence.inputs.capacity()),
-            vector::<PredicateIx>(evidence.predicates.capacity()),
-        ]))),
-        value.member_ranges.len().saturating_mul(size_of::<(SymbolIx, MemberRange)>() + 96),
-        value.finite_folds.len().saturating_mul(size_of::<(NodeIx, FiniteFold)>() + 96),
-        total(value.finite_folds.values().map(|fold| total([
-            vector::<crate::specialize::Value>(fold.selected.len()),
-            total(fold.selected.iter().map(crate::specialize::Value::retained_bytes)),
-            ty(&fold.prototype),
-        ]))),
+        total(value.evidence.iter().map(|evidence| {
+            total([
+                evidence.node.retained_bytes(),
+                vector::<NodeIx>(evidence.inputs.capacity()),
+                vector::<PredicateIx>(evidence.predicates.capacity()),
+            ])
+        })),
+        value
+            .member_ranges
+            .len()
+            .saturating_mul(size_of::<(SymbolIx, MemberRange)>() + 96),
+        value
+            .finite_folds
+            .len()
+            .saturating_mul(size_of::<(NodeIx, FiniteFold)>() + 96),
+        total(value.finite_folds.values().map(|fold| {
+            total([
+                vector::<crate::specialize::Value>(fold.selected.len()),
+                total(
+                    fold.selected
+                        .iter()
+                        .map(crate::specialize::Value::retained_bytes),
+                ),
+                ty(&fold.prototype),
+            ])
+        })),
         value
             .node_sources
             .len()

@@ -366,12 +366,20 @@ impl std::hash::Hash for PreludeInput {
     }
 }
 #[salsa::interned(heap_size=prelude_key_heap)]
-struct PreludeKey<'db> { input: Arc<PreludeInput> }
+struct PreludeKey<'db> {
+    input: Arc<PreludeInput>,
+}
 fn prelude_key_heap((input,): &(Arc<PreludeInput>,)) -> usize {
-    input.premises.retained_bytes().saturating_add(input.bindings.retained_bytes())
+    input
+        .premises
+        .retained_bytes()
+        .saturating_add(input.bindings.retained_bytes())
 }
 #[salsa::tracked(returns(clone),lru=256,heap_size=prelude_heap)]
-fn instance_prelude(db: &dyn CompilerDb, key: PreludeKey<'_>) -> Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>> {
+fn instance_prelude(
+    db: &dyn CompilerDb,
+    key: PreludeKey<'_>,
+) -> Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>> {
     checkpoint(db);
     let input = key.input(db);
     let result = pse_modeling::specialize::prelude::derive(&input.premises, &input.bindings)?;
@@ -386,65 +394,141 @@ struct FunctionFragmentKey<'db> {
     package: StaticFunctionPackageKey<'db>,
     recipe: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentRecipe>,
 }
-fn function_fragment_key_heap((_package, recipe): &(StaticFunctionPackageKey<'_>, Arc<pse_modeling::specialize::function_fragments::FunctionFragmentRecipe>)) -> usize { recipe.retained_bytes() }
+fn function_fragment_key_heap(
+    (_package, recipe): &(
+        StaticFunctionPackageKey<'_>,
+        Arc<pse_modeling::specialize::function_fragments::FunctionFragmentRecipe>,
+    ),
+) -> usize {
+    recipe.retained_bytes()
+}
 #[salsa::tracked(returns(clone),lru=256,heap_size=function_fragment_heap)]
-fn function_fragment(db: &dyn CompilerDb, key: FunctionFragmentKey<'_>) -> Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>> {
+fn function_fragment(
+    db: &dyn CompilerDb,
+    key: FunctionFragmentKey<'_>,
+) -> Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>> {
     checkpoint(db);
     let package = read_static_package(db, key.package(db))?;
-    let input = pse_modeling::specialize::function_fragments::FunctionFragmentInput::from_parts(package, key.recipe(db).clone());
+    let input = pse_modeling::specialize::function_fragments::FunctionFragmentInput::from_parts(
+        package,
+        key.recipe(db).clone(),
+    );
     let result = pse_modeling::specialize::function_fragments::derive(
-        &input, Some(&QueryFragments { db }),
-        &|| db.cancel().load(Ordering::Acquire), &LibraryDiscretizer,
+        &input,
+        Some(&QueryFragments { db }),
+        &|| db.cancel().load(Ordering::Acquire),
+        &LibraryDiscretizer,
     )?;
     checkpoint(db);
     Ok(Arc::new(result))
 }
-fn function_fragment_heap(value: &Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>>) -> usize { value.as_ref().map_or(0, |fragment| fragment.retained_bytes()) }
+fn function_fragment_heap(
+    value: &Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>>,
+) -> usize {
+    value
+        .as_ref()
+        .map_or(0, |fragment| fragment.retained_bytes())
+}
 #[salsa::interned(heap_size=field_fragment_key_heap)]
 struct FieldFragmentKey<'db> {
     package: StaticFunctionPackageKey<'db>,
     recipe: Arc<pse_modeling::specialize::field_fragments::FieldFragmentRecipe>,
 }
-fn field_fragment_key_heap((_package, recipe): &(StaticFunctionPackageKey<'_>, Arc<pse_modeling::specialize::field_fragments::FieldFragmentRecipe>)) -> usize { recipe.retained_bytes() }
+fn field_fragment_key_heap(
+    (_package, recipe): &(
+        StaticFunctionPackageKey<'_>,
+        Arc<pse_modeling::specialize::field_fragments::FieldFragmentRecipe>,
+    ),
+) -> usize {
+    recipe.retained_bytes()
+}
 #[salsa::tracked(returns(clone),lru=256,heap_size=field_fragment_heap)]
-fn field_fragment(db: &dyn CompilerDb, key: FieldFragmentKey<'_>) -> Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>> {
+fn field_fragment(
+    db: &dyn CompilerDb,
+    key: FieldFragmentKey<'_>,
+) -> Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>> {
     checkpoint(db);
     let _phase = pse_diagnostics::observation::phase("compiler.query.field_fragment");
-    let input = pse_modeling::specialize::field_fragments::FieldFragmentInput::from_parts(read_static_package(db, key.package(db))?, key.recipe(db).clone());
-    let result = pse_modeling::specialize::field_fragments::derive(&input,Some(&QueryFragments{db}), &|| db.cancel().load(Ordering::Acquire),&LibraryDiscretizer)?;
+    let input = pse_modeling::specialize::field_fragments::FieldFragmentInput::from_parts(
+        read_static_package(db, key.package(db))?,
+        key.recipe(db).clone(),
+    );
+    let result = pse_modeling::specialize::field_fragments::derive(
+        &input,
+        Some(&QueryFragments { db }),
+        &|| db.cancel().load(Ordering::Acquire),
+        &LibraryDiscretizer,
+    )?;
     checkpoint(db);
     Ok(Arc::new(result))
 }
-fn field_fragment_heap(value: &Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>>) -> usize { value.as_ref().map_or(0, |fragment| fragment.retained_bytes()) }
-struct QueryFragments<'db> { db: &'db dyn CompilerDb }
+fn field_fragment_heap(
+    value: &Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>>,
+) -> usize {
+    value
+        .as_ref()
+        .map_or(0, |fragment| fragment.retained_bytes())
+}
+struct QueryFragments<'db> {
+    db: &'db dyn CompilerDb,
+}
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
-    fn field_fragment(&self, input: Arc<pse_modeling::specialize::field_fragments::FieldFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>, pse_modeling::ModelingError> {
-        let (package,recipe)=input.parts();
-        let package=intern_static_package(self.db, package)?;
-        let key=FieldFragmentKey::new(self.db,package,recipe);
-        field_fragment(self.db,key).map_err(|error|match error {
-            CompileError::Modeling(error)=>error, CompileError::Cancelled=>pse_modeling::ModelingError::Cancelled,
-            error=>pse_modeling::ModelingError::Contract{declaration:SemanticId::NIL,message:error.to_string()},
+    fn field_fragment(
+        &self,
+        input: Arc<pse_modeling::specialize::field_fragments::FieldFragmentInput>,
+    ) -> std::result::Result<
+        Arc<pse_modeling::specialize::field_fragments::FieldFragment>,
+        pse_modeling::ModelingError,
+    > {
+        let (package, recipe) = input.parts();
+        let package = intern_static_package(self.db, package)?;
+        let key = FieldFragmentKey::new(self.db, package, recipe);
+        field_fragment(self.db, key).map_err(|error| match error {
+            CompileError::Modeling(error) => error,
+            CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
+            error => pse_modeling::ModelingError::Contract {
+                declaration: SemanticId::NIL,
+                message: error.to_string(),
+            },
         })
     }
 
-    fn function_fragment(&self, input: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>, pse_modeling::ModelingError> {
+    fn function_fragment(
+        &self,
+        input: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentInput>,
+    ) -> std::result::Result<
+        Arc<pse_modeling::specialize::function_fragments::FunctionFragment>,
+        pse_modeling::ModelingError,
+    > {
         let (package, recipe) = input.parts();
         let package = intern_static_package(self.db, package)?;
         let key = FunctionFragmentKey::new(self.db, package, recipe);
         function_fragment(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
-            error => pse_modeling::ModelingError::Contract { declaration: SemanticId::NIL, message: error.to_string() },
+            error => pse_modeling::ModelingError::Contract {
+                declaration: SemanticId::NIL,
+                message: error.to_string(),
+            },
         })
     }
 
-    fn instance_prelude(&self, premises: Arc<pse_modeling::specialize::prelude::PreludePremises>, bindings: pse_modeling::specialize::prelude::PreludeBindings) -> std::result::Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>, pse_modeling::ModelingError> {
+    fn instance_prelude(
+        &self,
+        premises: Arc<pse_modeling::specialize::prelude::PreludePremises>,
+        bindings: pse_modeling::specialize::prelude::PreludeBindings,
+    ) -> std::result::Result<
+        Arc<pse_modeling::specialize::prelude::InstancePrelude>,
+        pse_modeling::ModelingError,
+    > {
         let key = PreludeKey::new(self.db, Arc::new(PreludeInput { premises, bindings }));
         instance_prelude(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
-            error => pse_modeling::ModelingError::Contract { declaration: SemanticId::NIL, message: error.to_string() },
+            error => pse_modeling::ModelingError::Contract {
+                declaration: SemanticId::NIL,
+                message: error.to_string(),
+            },
         })
     }
 }
@@ -478,7 +562,10 @@ fn observed_specialization(
 ) -> Result<Arc<SpecializedModel>> {
     let model = specialized(db, catalog, *request.structure(db))?;
     let paths = model.observation_paths(*request.instance(db), &request.bindings(db).demand);
-    if paths.iter().all(|(path, id)| model.paths.get(path) == Some(id)) {
+    if paths
+        .iter()
+        .all(|(path, id)| model.paths.get(path) == Some(id))
+    {
         return Ok(model);
     }
     let mut observed = model.as_ref().clone();
@@ -880,8 +967,9 @@ impl CompilerWorkspace {
     ) -> Result<Arc<SpecializedModel>> {
         self.db.cancel = Arc::new(AtomicBool::new(false));
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
-        let result = salsa::Cancelled::catch(|| observed_specialization(&self.db, catalog, request))
-            .map_err(|_| CompileError::Cancelled)?;
+        let result =
+            salsa::Cancelled::catch(|| observed_specialization(&self.db, catalog, request))
+                .map_err(|_| CompileError::Cancelled)?;
         self.trim_queries()?;
         result
     }
@@ -927,19 +1015,20 @@ impl CompilerWorkspace {
         let mut base_bindings = bindings.clone();
         base_bindings.demand.clear();
         let base_hash = request_hash(root, instance, &base_bindings, limits);
-        let (catalog, base) = self.modeling_request_in_bucket(
-            root, instance, base_bindings, limits, base_hash,
-        )?;
-        let base = salsa::Cancelled::catch(|| {
-            specialized(&self.db, catalog, *base.structure(&self.db))
-        }).map_err(|_| CompileError::Cancelled)?;
+        let (catalog, base) =
+            self.modeling_request_in_bucket(root, instance, base_bindings, limits, base_hash)?;
+        let base =
+            salsa::Cancelled::catch(|| specialized(&self.db, catalog, *base.structure(&self.db)))
+                .map_err(|_| CompileError::Cancelled)?;
         // A demand may make an otherwise absent construction reachable. If the
         // baseline refuses, retain every demand as structural and let the ordinary
         // producer establish the exact outcome, rather than guessing from syntax.
         let mut structural = bindings.clone();
         if let Ok(base) = base {
             let observations = base.observation_paths(instance, &bindings.demand);
-            structural.demand.retain(|path| !observations.contains_key(path));
+            structural
+                .demand
+                .retain(|path| !observations.contains_key(path));
         }
         self.modeling_request_with_structure(root, instance, bindings, limits, hash, structural)
     }
@@ -951,7 +1040,14 @@ impl CompilerWorkspace {
         limits: Limits,
         hash: u64,
     ) -> Result<(Catalog, Request)> {
-        self.modeling_request_with_structure(root, instance, bindings.clone(), limits, hash, bindings)
+        self.modeling_request_with_structure(
+            root,
+            instance,
+            bindings.clone(),
+            limits,
+            hash,
+            bindings,
+        )
     }
     fn modeling_request_with_structure(
         &mut self,
@@ -1022,7 +1118,8 @@ impl CompilerWorkspace {
         // conservative table allowance applies even when a hash bucket exists.
         let index_bytes =
             4 * (size_of::<(u64, Vec<Request>)>() + 1) + 2 * size_of::<Request>() + 128;
-        let bytes = binding_bytes.saturating_mul(2)
+        let bytes = binding_bytes
+            .saturating_mul(2)
             .saturating_add(
                 2 * (size_of::<Bindings>() + size_of::<Limits>() + size_of::<Request>() + 128),
             )
@@ -1038,17 +1135,32 @@ impl CompilerWorkspace {
                 context.count("compiler.request_byte_limit_rotations", "count", 1);
             }
             self.rebuild(self.inputs.clone())?;
-            return self.modeling_request_with_structure(root, instance, bindings, limits, hash, structural);
+            return self.modeling_request_with_structure(
+                root, instance, bindings, limits, hash, structural,
+            );
         }
         let structural_hash = request_hash(root, instance, &structural, limits);
-        let structure = state.structures.get(&structural_hash).into_iter().flatten().find(|r| {
-            *r.root(&self.db) == root && *r.instance(&self.db) == instance
-                && r.bindings(&self.db) == &structural && *r.limits(&self.db) == limits
-        }).copied().unwrap_or_else(|| {
-            let request = StructuralRequest::new(&self.db, root, instance, structural, limits);
-            state.structures.entry(structural_hash).or_default().push(request);
-            request
-        });
+        let structure = state
+            .structures
+            .get(&structural_hash)
+            .into_iter()
+            .flatten()
+            .find(|r| {
+                *r.root(&self.db) == root
+                    && *r.instance(&self.db) == instance
+                    && r.bindings(&self.db) == &structural
+                    && *r.limits(&self.db) == limits
+            })
+            .copied()
+            .unwrap_or_else(|| {
+                let request = StructuralRequest::new(&self.db, root, instance, structural, limits);
+                state
+                    .structures
+                    .entry(structural_hash)
+                    .or_default()
+                    .push(request);
+                request
+            });
         let request = Request::new(&self.db, root, instance, bindings, limits, structure);
         state
             .requests

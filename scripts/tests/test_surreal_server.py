@@ -1354,7 +1354,8 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
         module_install = patch.object(
-            server.surrealism_module, "install",
+            server.surrealism_module,
+            "install",
             side_effect=lambda selected, _tools: fixture_module(
                 self.root / "modules", str(selected["binary_sha256"])
             ),
@@ -4438,32 +4439,51 @@ class SurrealSupervisorTests(unittest.TestCase):
         with self.assertRaisesRegex(server.SupervisorError, "absent or mismatched"):
             server.config_for(self.state)
 
-    def test_module_environment_uses_only_private_artifact_and_finite_server_budget(self) -> None:
+    def test_module_environment_uses_only_private_artifact_and_finite_server_budget(
+        self,
+    ) -> None:
         config = self.initialized()
-        with patch.dict(os.environ, {
-            "SURREAL_CAPS_ALLOW_EXPERIMENTAL": "*",
-            "SURREAL_BUCKET_FOLDER_ALLOWLIST": "/",
-            "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS": "999999",
-        }):
-            environment = server.server_environment(config, {"username": "user", "password": "secret"})
-        self.assertEqual(environment["SURREAL_CAPS_ALLOW_EXPERIMENTAL"], "files,surrealism")
+        with patch.dict(
+            os.environ,
+            {
+                "SURREAL_CAPS_ALLOW_EXPERIMENTAL": "*",
+                "SURREAL_BUCKET_FOLDER_ALLOWLIST": "/",
+                "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS": "999999",
+            },
+        ):
+            environment = server.server_environment(
+                config, {"username": "user", "password": "secret"}
+            )
+        self.assertEqual(
+            environment["SURREAL_CAPS_ALLOW_EXPERIMENTAL"], "files,surrealism"
+        )
         artifact = Path(str(server.study_module(config)["artifact"]))
-        self.assertEqual(environment["SURREAL_BUCKET_FOLDER_ALLOWLIST"], str(artifact.parent))
-        self.assertEqual(environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB))
+        self.assertEqual(
+            environment["SURREAL_BUCKET_FOLDER_ALLOWLIST"], str(artifact.parent)
+        )
+        self.assertEqual(
+            environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB)
+        )
         self.assertEqual(environment["SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS"], "4")
         self.assertEqual(environment["SURREAL_SURREALISM_CACHE_SIZE"], "1")
         self.assertEqual(environment["SURREAL_SURREALISM_MAX_FS_BYTES"], "0")
         self.assertEqual(environment["SURREAL_SURREALISM_MAX_KV_ENTRIES"], "0")
         self.assertEqual(environment["SURREAL_SURREALISM_MAX_KV_VALUE_BYTES"], "0")
-        with self.assertRaisesRegex(server.SupervisorError, "complete bounded study module pool"):
+        with self.assertRaisesRegex(
+            server.SupervisorError, "complete bounded study module pool"
+        ):
             server.module_runtime_allocation({"server_memory_bytes": 512 * server.MIB})
 
-    def test_qualification_module_selection_requires_offline_drain_and_restores_private_allowlist(self) -> None:
+    def test_qualification_module_selection_requires_offline_drain_and_restores_private_allowlist(
+        self,
+    ) -> None:
         config = self.initialized()
         config.update(accepting_writes=False, admission="quiesced")
         server.write_json(self.state / "config.json", config)
         qualification = fixture_module(
-            self.root / "modules", str(server.object_mapping(config["server"])["binary_sha256"]), qualification=True,
+            self.root / "modules",
+            str(server.object_mapping(config["server"])["binary_sha256"]),
+            qualification=True,
         )
         record = Path(str(qualification["artifact"])).parent / "module.json"
         with (
@@ -4475,9 +4495,17 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.select_module_qualification(self.state, record)
             selected = server.config_for(self.state)
             self.assertEqual(selected["study_module_qualification"], qualification)
-            environment = server.server_environment(selected, {"username": "user", "password": "secret"})
+            environment = server.server_environment(
+                selected, {"username": "user", "password": "secret"}
+            )
             parents = environment["SURREAL_BUCKET_FOLDER_ALLOWLIST"].split(os.pathsep)
-            self.assertEqual(parents, [str(Path(str(server.study_module(config)["artifact"])).parent), str(record.parent)])
+            self.assertEqual(
+                parents,
+                [
+                    str(Path(str(server.study_module(config)["artifact"])).parent),
+                    str(record.parent),
+                ],
+            )
             offline.assert_called_once()
             drained.assert_called_once()
             with (
@@ -4489,14 +4517,23 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.select_module_qualification(self.state, None)
             selected = server.config_for(self.state)
             self.assertNotIn("study_module_qualification", selected)
-            self.assertEqual(server.server_environment(selected, {"username": "user", "password": "secret"})["SURREAL_BUCKET_FOLDER_ALLOWLIST"], parents[0])
+            self.assertEqual(
+                server.server_environment(
+                    selected, {"username": "user", "password": "secret"}
+                )["SURREAL_BUCKET_FOLDER_ALLOWLIST"],
+                parents[0],
+            )
 
-    def test_long_hold_selection_is_explicit_and_does_not_relax_production_limits(self) -> None:
+    def test_long_hold_selection_is_explicit_and_does_not_relax_production_limits(
+        self,
+    ) -> None:
         config = self.initialized()
         config.update(accepting_writes=False, admission="quiesced")
         server.write_json(self.state / "config.json", config)
         builder = str(server.object_mapping(config["server"])["binary_sha256"])
-        receipt = fixture_module(self.root / "modules", builder, qualification=True, long_hold=True)
+        receipt = fixture_module(
+            self.root / "modules", builder, qualification=True, long_hold=True
+        )
         record = Path(str(receipt["artifact"])).parent / "module.json"
         with (
             patch.object(server, "private_offline_state"),
@@ -4506,29 +4543,57 @@ class SurrealSupervisorTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(server.SupervisorError, "explicit long-hold"):
                 server.select_module_qualification(self.state, record)
-            self.assertNotIn("study_module_qualification", server.config_for(self.state))
+            self.assertNotIn(
+                "study_module_qualification", server.config_for(self.state)
+            )
             server.select_module_qualification(self.state, record, long_hold=True)
             selected = server.config_for(self.state)
-            environment = server.server_environment(selected, {"username": "user", "password": "secret"})
-            self.assertEqual(environment["SURREAL_SURREALISM_MAX_EXECUTION_TIME"], "6000")
-            self.assertEqual(server.object_mapping(server.study_module(selected)["limits"])["max_execution_time_ms"], 1000)
-            self.assertEqual(environment["SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS"], "4")
+            environment = server.server_environment(
+                selected, {"username": "user", "password": "secret"}
+            )
+            self.assertEqual(
+                environment["SURREAL_SURREALISM_MAX_EXECUTION_TIME"], "6000"
+            )
+            self.assertEqual(
+                server.object_mapping(server.study_module(selected)["limits"])[
+                    "max_execution_time_ms"
+                ],
+                1000,
+            )
+            self.assertEqual(
+                environment["SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS"], "4"
+            )
             self.assertEqual(environment["SURREAL_SURREALISM_CACHE_SIZE"], "1")
-            self.assertEqual(environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB))
-            with self.assertRaisesRegex(server.SupervisorError, "explicit qualification receipt"):
+            self.assertEqual(
+                environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB)
+            )
+            with self.assertRaisesRegex(
+                server.SupervisorError, "explicit qualification receipt"
+            ):
                 server.select_module_qualification(self.state, None, long_hold=True)
             server.select_module_qualification(self.state, None)
             restored = server.config_for(self.state)
-            self.assertEqual(server.server_environment(restored, {"username": "user", "password": "secret"})["SURREAL_SURREALISM_MAX_EXECUTION_TIME"], "1000")
+            self.assertEqual(
+                server.server_environment(
+                    restored, {"username": "user", "password": "secret"}
+                )["SURREAL_SURREALISM_MAX_EXECUTION_TIME"],
+                "1000",
+            )
             short = fixture_module(self.root / "modules", builder, qualification=True)
             short_record = Path(str(short["artifact"])).parent / "module.json"
             with self.assertRaisesRegex(server.SupervisorError, "explicit long-hold"):
-                server.select_module_qualification(self.state, short_record, long_hold=True)
+                server.select_module_qualification(
+                    self.state, short_record, long_hold=True
+                )
             self.assertEqual(drained.call_count, 4)
 
-    def test_long_hold_cli_is_restricted_to_explicit_qualification_selection(self) -> None:
+    def test_long_hold_cli_is_restricted_to_explicit_qualification_selection(
+        self,
+    ) -> None:
         arguments = server.parser().parse_args(["status", "--long-hold"])
-        with self.assertRaisesRegex(server.SupervisorError, "only available with module-qualification"):
+        with self.assertRaisesRegex(
+            server.SupervisorError, "only available with module-qualification"
+        ):
             server.dispatch(arguments)
 
     def test_grpc_readiness_proof_binds_invocation_generation_and_credentials(

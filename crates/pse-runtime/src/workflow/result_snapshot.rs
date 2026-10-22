@@ -155,9 +155,16 @@ impl ResultSnapshot {
                 let joined = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
                     runtime.canonical_store()?.result_joined_block_page(
-                        &read, set, &relation.to_string(), "0", start, end, after,
+                        &read,
+                        set,
+                        &relation.to_string(),
+                        "0",
+                        start,
+                        end,
+                        after,
                     ),
-                ).await?;
+                )
+                .await?;
                 let finished = joined.exhausted;
                 after = joined.next.or(after);
                 let page = joined.blocks;
@@ -757,8 +764,8 @@ impl NativeResultSelection {
         expression: Expr,
     ) -> NativeResult<Arc<Self>> {
         use datafusion::common::DFSchema;
-        let owner = MemoryConsumer::new("canonical:result-selection-plan")
-            .register(&runtime.shared.pool());
+        let owner =
+            MemoryConsumer::new("canonical:result-selection-plan").register(&runtime.shared.pool());
         // The registry predicate has bounded shape; retain the native expression,
         // pruning rewrite and schema handles for the full selection lifetime.
         owner.try_grow(64 * 1024 + schema.fields().len() * 512)?;
@@ -772,7 +779,13 @@ impl NativeResultSelection {
             .try_build(physical.clone())
             .ok()
             .filter(|predicate| !predicate.always_true());
-        Ok(Arc::new(Self { relation, schema, physical, pruning, _owner: owner }))
+        Ok(Arc::new(Self {
+            relation,
+            schema,
+            physical,
+            pruning,
+            _owner: owner,
+        }))
     }
 
     pub(super) fn mask(
@@ -780,9 +793,14 @@ impl NativeResultSelection {
         batch: &datafusion::arrow::record_batch::RecordBatch,
     ) -> NativeResult<datafusion::arrow::array::BooleanArray> {
         if batch.schema().as_ref() != self.schema.as_ref() {
-            return Err(DataFusionError::Execution("selection native schema differs".into()));
+            return Err(DataFusionError::Execution(
+                "selection native schema differs".into(),
+            ));
         }
-        let mask = self.physical.evaluate(batch)?.into_array(batch.num_rows())?;
+        let mask = self
+            .physical
+            .evaluate(batch)?
+            .into_array(batch.num_rows())?;
         mask.as_any()
             .downcast_ref::<datafusion::arrow::array::BooleanArray>()
             .cloned()
@@ -796,54 +814,80 @@ impl NativeResultSelection {
         member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
     ) -> NativeResult<Option<Arc<PrunedSelection>>> {
         use datafusion::common::{Statistics, pruning::PrunableStatistics, stats::Precision};
-        let Some(predicate) = &self.pruning else { return Ok(None); };
-        if count == 0 || !(0..count).any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some())) {
+        let Some(predicate) = &self.pruning else {
+            return Ok(None);
+        };
+        if count == 0
+            || !(0..count)
+                .any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some()))
+        {
             return Ok(None);
         }
-        let extent = self.schema.fields().len().checked_mul(512)
+        let extent = self
+            .schema
+            .fields()
+            .len()
+            .checked_mul(512)
             .and_then(|bytes| bytes.checked_add(2048))
             .and_then(|bytes| count.checked_mul(bytes))
-            .and_then(|base| (0..count).try_fold(base, |bytes, index| {
-                let encoded = member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len());
-                bytes.checked_add(encoded.checked_mul(16)?)
-            }))
-            .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning metadata extent".into()))?;
-        let owner = MemoryConsumer::new("canonical:result-pruning-page").register(&runtime.shared.pool());
+            .and_then(|base| {
+                (0..count).try_fold(base, |bytes, index| {
+                    let encoded = member(index)
+                        .and_then(|(block, _)| block.statistics.as_ref())
+                        .map_or(0, |bytes| bytes.len());
+                    bytes.checked_add(encoded.checked_mul(16)?)
+                })
+            })
+            .ok_or_else(|| {
+                DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
+            })?;
+        let owner =
+            MemoryConsumer::new("canonical:result-pruning-page").register(&runtime.shared.pool());
         owner.try_grow(extent)?;
-    let mut statistics = Vec::with_capacity(count);
-    for index in 0..count {
-        let exact = member(index).and_then(|(block, descriptor)| {
-            let bytes = block.statistics.as_ref()?;
-            let binding = pse_relations::result_batch::StatisticsBinding {
-                instance: descriptor.file_instance.clone(),
-                digest: descriptor.file_digest.clone(),
-                index: descriptor.file_batch_index,
-                interpretation: block.interpretation.clone(),
-            };
-            let facts = pse_relations::result_batch::recorded_statistics(
-                bytes.as_slice(),
-                runtime.registry(),
-                self.relation,
-                self.schema.as_ref(),
-                &binding,
-            )?;
-            (facts.num_rows == Precision::Exact(usize::try_from(block.rows).ok()?)).then_some(facts)
-        });
-        statistics.push(Arc::new(
-            exact.unwrap_or_else(|| Statistics::new_unknown(self.schema.as_ref())),
-        ));
-    }
-    let statistics = PrunableStatistics::new(statistics, self.schema.clone());
-    let keep = match predicate.prune(&statistics) {
-        Ok(keep) if keep.len() == count => keep,
-        _ => return Ok(None),
-    };
-    drop(statistics);
-        let retained = keep.capacity().checked_add(size_of::<PrunedSelection>())
-            .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
-        if retained > owner.size() { owner.try_grow(retained - owner.size())?; }
+        let mut statistics = Vec::with_capacity(count);
+        for index in 0..count {
+            let exact = member(index).and_then(|(block, descriptor)| {
+                let bytes = block.statistics.as_ref()?;
+                let binding = pse_relations::result_batch::StatisticsBinding {
+                    instance: descriptor.file_instance.clone(),
+                    digest: descriptor.file_digest.clone(),
+                    index: descriptor.file_batch_index,
+                    interpretation: block.interpretation.clone(),
+                };
+                let facts = pse_relations::result_batch::recorded_statistics(
+                    bytes.as_slice(),
+                    runtime.registry(),
+                    self.relation,
+                    self.schema.as_ref(),
+                    &binding,
+                )?;
+                (facts.num_rows == Precision::Exact(usize::try_from(block.rows).ok()?))
+                    .then_some(facts)
+            });
+            statistics.push(Arc::new(
+                exact.unwrap_or_else(|| Statistics::new_unknown(self.schema.as_ref())),
+            ));
+        }
+        let statistics = PrunableStatistics::new(statistics, self.schema.clone());
+        let keep = match predicate.prune(&statistics) {
+            Ok(keep) if keep.len() == count => keep,
+            _ => return Ok(None),
+        };
+        drop(statistics);
+        let retained = keep
+            .capacity()
+            .checked_add(size_of::<PrunedSelection>())
+            .ok_or_else(|| {
+                DataFusionError::ResourcesExhausted("result pruning mask extent".into())
+            })?;
+        if retained > owner.size() {
+            owner.try_grow(retained - owner.size())?;
+        }
         owner.shrink(owner.size() - retained);
-        Ok(Some(Arc::new(PrunedSelection { keep, _owner: owner })))
+        Ok(Some(Arc::new(PrunedSelection {
+            keep,
+            _owner: owner,
+        })))
     }
 
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -853,7 +897,8 @@ impl NativeResultSelection {
         block: &Block,
         descriptor: &FileBatch,
     ) -> NativeResult<bool> {
-        Ok(self.prune_members(runtime, 1, |_| Some((block, descriptor)))?
+        Ok(self
+            .prune_members(runtime, 1, |_| Some((block, descriptor)))?
             .is_none_or(|selection| selection.keeps(0)))
     }
 }
@@ -867,7 +912,11 @@ fn prepare_pruning_members<'a>(
     count: usize,
     member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
 ) -> NativeResult<Option<Arc<PrunedSelection>>> {
-    let Some(expression) = filters.iter().cloned().reduce(|left, right| left.and(right)) else {
+    let Some(expression) = filters
+        .iter()
+        .cloned()
+        .reduce(|left, right| left.and(right))
+    else {
         return Ok(None);
     };
     let selection = NativeResultSelection::new(runtime, relation, schema, state, expression)?;

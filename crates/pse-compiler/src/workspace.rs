@@ -1875,19 +1875,23 @@ impl CompilerWorkspace {
                 .lock()
                 .map_or(0, |live| live.bodies.len()),
         );
-        let (entries, known_bytes, metadata_bytes) = report
-            .structs.iter().chain(report.queries.values()).fold(
+        let (entries, known_bytes, metadata_bytes) =
+            report.structs.iter().chain(report.queries.values()).fold(
                 (
                     self.granular.entries().saturating_add(live_entries),
-                    self.granular.known_bytes(&self.db)
+                    self.granular
+                        .known_bytes(&self.db)
                         .saturating_add(live_entries.saturating_mul(256)),
                     0usize,
                 ),
                 |(entries, bytes, metadata), info| {
-                    let inline = info.size_of_metadata().saturating_add(info.size_of_fields());
+                    let inline = info
+                        .size_of_metadata()
+                        .saturating_add(info.size_of_fields());
                     (
                         entries.saturating_add(info.count()),
-                        bytes.saturating_add(inline)
+                        bytes
+                            .saturating_add(inline)
                             .saturating_add(info.heap_size_of_fields().unwrap_or(0)),
                         metadata.saturating_add(inline),
                     )
@@ -1896,7 +1900,9 @@ impl CompilerWorkspace {
         let observed = RetentionSnapshot {
             generation: self.generation,
             revision: salsa::plumbing::current_revision(&self.db),
-            observation: self.retention_snapshot.map_or(1, |prior| prior.observation.saturating_add(1)),
+            observation: self
+                .retention_snapshot
+                .map_or(1, |prior| prior.observation.saturating_add(1)),
             entries,
             known_bytes,
             metadata_bytes,

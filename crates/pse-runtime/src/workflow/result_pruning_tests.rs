@@ -207,45 +207,89 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
 #[tokio::test]
 async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_and_residual() {
     let (runtime, fence) = pruning_fixture("res-plan-reuse").await.unwrap();
-    let reader = runtime.results(
-        "res-plan-reuse", fence.attempt(), "runtime.fit_parameters", 0,
-        u64::MAX, CancellationToken::new(),
-    ).await.unwrap();
+    let reader = runtime
+        .results(
+            "res-plan-reuse",
+            fence.attempt(),
+            "runtime.fit_parameters",
+            0,
+            u64::MAX,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
     let snapshot = reader.snapshot();
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = hub.start("selection native preparation");
     pse_diagnostics::observation::scope(Some(observed.context()), async {
         let selection = NativeResultSelection::new(
-            &runtime, fit_parameters::RELATION_ID, snapshot.schema(),
-            &snapshot.session_state(), col("value").eq(lit(1.0)),
-        ).unwrap();
+            &runtime,
+            fit_parameters::RELATION_ID,
+            snapshot.schema(),
+            &snapshot.session_state(),
+            col("value").eq(lit(1.0)),
+        )
+        .unwrap();
         // Two successive pages use the retained physical plan. The first is a
         // genuine min/max false positive, so pruning cannot replace residuals.
         for block in snapshot.blocks() {
             let descriptor = snapshot.0.batches.get(&block.batch).unwrap();
-            assert!(selection.block_may_match(&runtime, block, descriptor).unwrap());
+            assert!(
+                selection
+                    .block_may_match(&runtime, block, descriptor)
+                    .unwrap()
+            );
         }
         let block = &snapshot.blocks()[0];
         let descriptor = snapshot.0.batches.get(&block.batch).unwrap();
         let mut unknown = block.clone();
         unknown.statistics = None;
-        assert!(selection.block_may_match(&runtime, &unknown, descriptor).unwrap());
+        assert!(
+            selection
+                .block_may_match(&runtime, &unknown, descriptor)
+                .unwrap()
+        );
         unknown.statistics = Some(vec![0xff].into());
-        assert!(selection.block_may_match(&runtime, &unknown, descriptor).unwrap());
-        let checked = snapshot.read_block(block, &CancellationToken::new()).await.unwrap();
+        assert!(
+            selection
+                .block_may_match(&runtime, &unknown, descriptor)
+                .unwrap()
+        );
+        let checked = snapshot
+            .read_block(block, &CancellationToken::new())
+            .await
+            .unwrap();
         let mask = selection.mask(checked.batch()).unwrap();
         assert_eq!(mask.true_count(), 0);
         let last = snapshot.blocks().last().unwrap();
-        let checked = snapshot.read_block(last, &CancellationToken::new()).await.unwrap();
+        let checked = snapshot
+            .read_block(last, &CancellationToken::new())
+            .await
+            .unwrap();
         assert_eq!(selection.mask(checked.batch()).unwrap().true_count(), 1);
         let projected = checked.batch().project(&[0]).unwrap();
-        assert!(selection.mask(&projected).is_err(), "a different schema cannot reuse this plan");
-    }).await;
-    let metrics = observed.reader().snapshot(std::time::Duration::from_secs(60)).metrics;
-    assert_eq!(metrics.iter().find(|metric| metric.name == "canonical.result.physical_predicate_plans").unwrap().cumulative,
-        pse_diagnostics::observation::Value::Count(1));
+        assert!(
+            selection.mask(&projected).is_err(),
+            "a different schema cannot reuse this plan"
+        );
+    })
+    .await;
+    let metrics = observed
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60))
+        .metrics;
+    assert_eq!(
+        metrics
+            .iter()
+            .find(|metric| metric.name == "canonical.result.physical_predicate_plans")
+            .unwrap()
+            .cumulative,
+        pse_diagnostics::observation::Value::Count(1)
+    );
     drop((snapshot, reader));
-    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap()).await.unwrap();
+    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -312,17 +356,27 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     unknown.statistics = None;
     assert!(
         NativeResultSelection::new(
-            &runtime, fit_parameters::RELATION_ID, snapshot.schema(),
-            &snapshot.session_state(), col("value").gt(lit(1000.0)),
-        ).unwrap().block_may_match(&runtime, &unknown, descriptor)
+            &runtime,
+            fit_parameters::RELATION_ID,
+            snapshot.schema(),
+            &snapshot.session_state(),
+            col("value").gt(lit(1000.0)),
+        )
+        .unwrap()
+        .block_may_match(&runtime, &unknown, descriptor)
         .unwrap()
     );
     unknown.statistics = Some(vec![0xff].into());
     assert!(
         NativeResultSelection::new(
-            &runtime, fit_parameters::RELATION_ID, snapshot.schema(),
-            &snapshot.session_state(), col("value").gt(lit(1000.0)),
-        ).unwrap().block_may_match(&runtime, &unknown, descriptor)
+            &runtime,
+            fit_parameters::RELATION_ID,
+            snapshot.schema(),
+            &snapshot.session_state(),
+            col("value").gt(lit(1000.0)),
+        )
+        .unwrap()
+        .block_may_match(&runtime, &unknown, descriptor)
         .unwrap()
     );
 

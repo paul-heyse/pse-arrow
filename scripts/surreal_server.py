@@ -4154,8 +4154,11 @@ def protocol_ready(
         == object_mapping(config["server"]).get("binary_sha256")
         and proof.get("credentials_sha256") == file_digest(state / "credentials.json")
         and proof.get("study_module_sha256") == study_module(config)["sha256"]
-        and proof.get("study_module_qualification_sha256") == (
-            None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"]
+        and proof.get("study_module_qualification_sha256")
+        == (
+            None
+            if qualification_module(config) is None
+            else object_mapping(config["study_module_qualification"])["sha256"]
         )
     )
 
@@ -4237,7 +4240,9 @@ def establish_protocol_readiness(
             "binary_sha256": object_mapping(config["server"]).get("binary_sha256"),
             "credentials_sha256": file_digest(state / "credentials.json"),
             "study_module_sha256": study_module(config)["sha256"],
-            "study_module_qualification_sha256": None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"],
+            "study_module_qualification_sha256": None
+            if qualification_module(config) is None
+            else object_mapping(config["study_module_qualification"])["sha256"],
         },
     )
 
@@ -4586,7 +4591,9 @@ def storage_launch_drain_config(
         or launch.get("server_memory_bytes")
         != object_mapping(config.get("resources"))["server_memory_bytes"]
     ):
-        raise SupervisorError("Failed launch lacks an exact closed readmission predecessor")
+        raise SupervisorError(
+            "Failed launch lacks an exact closed readmission predecessor"
+        )
     history = state / ".profile-history"
     information = history.lstat()
     if (
@@ -4595,14 +4602,22 @@ def storage_launch_drain_config(
         or stat.S_IMODE(information.st_mode) != 0o700
     ):
         raise SupervisorError("Readmission history lost private ownership")
-    unchanged = {key: value for key, value in config.items() if key not in {"service_supervisor", "restart_qualified"}}
+    unchanged = {
+        key: value
+        for key, value in config.items()
+        if key not in {"service_supervisor", "restart_qualified"}
+    }
     for path in sorted(history.glob("*.json")):
         if not re.fullmatch(r"[a-f0-9]{32}\.json", path.name):
             continue
         if deadline is not None:
             remaining(deadline)
         predecessor = object_mapping(json.loads(private_record_bytes(path, deadline)))
-        if {key: value for key, value in predecessor.items() if key not in {"service_supervisor", "restart_qualified"}} != unchanged:
+        if {
+            key: value
+            for key, value in predecessor.items()
+            if key not in {"service_supervisor", "restart_qualified"}
+        } != unchanged:
             continue
         if predecessor.get("service_supervisor") != launch.get("supervisor_generation"):
             continue
@@ -4616,10 +4631,14 @@ def storage_launch_drain_config(
             or script.parent.name != "scripts"
             or script.parent.parent.parent != state / ".generations"
         ):
-            raise SupervisorError("Historical launch source escaped its immutable state")
+            raise SupervisorError(
+                "Historical launch source escaped its immutable state"
+            )
         with lifecycle_deadline(deadline):
             verified = verify_generation(script.parent.parent)
-        if verified.files.get("scripts/surreal_server.py") != supervisor.get("supervisor_sha256"):
+        if verified.files.get("scripts/surreal_server.py") != supervisor.get(
+            "supervisor_sha256"
+        ):
             raise SupervisorError("Historical launch supervisor identity differs")
         return predecessor
     raise SupervisorError("Exact historical failed-launch selection is unavailable")
@@ -5428,9 +5447,15 @@ def study_module(config: dict[str, object]) -> dict[str, object]:
     try:
         module = surrealism_module.verify(config.get("study_module"))
     except (surrealism_module.ModuleError, OSError, ValueError) as error:
-        raise SupervisorError("Study module is absent or mismatched: " + str(error)) from error
-    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(config["server"]).get("binary_sha256"):
-        raise SupervisorError("Study module was not built by this exact admitted server")
+        raise SupervisorError(
+            "Study module is absent or mismatched: " + str(error)
+        ) from error
+    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(
+        config["server"]
+    ).get("binary_sha256"):
+        raise SupervisorError(
+            "Study module was not built by this exact admitted server"
+        )
     return module
 
 
@@ -5440,32 +5465,57 @@ def qualification_module(config: dict[str, object]) -> dict[str, object] | None:
     if value is None:
         return None
     try:
-        module = surrealism_module.verify(value, qualification=True, long_hold=object_mapping(value).get("kind") == surrealism_module.LONG_HOLD_KIND)
+        module = surrealism_module.verify(
+            value,
+            qualification=True,
+            long_hold=object_mapping(value).get("kind")
+            == surrealism_module.LONG_HOLD_KIND,
+        )
     except (surrealism_module.ModuleError, OSError, ValueError) as error:
-        raise SupervisorError("Qualification study module is mismatched: " + str(error)) from error
-    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(config["server"]).get("binary_sha256"):
-        raise SupervisorError("Qualification module builder differs from the selected server")
+        raise SupervisorError(
+            "Qualification study module is mismatched: " + str(error)
+        ) from error
+    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(
+        config["server"]
+    ).get("binary_sha256"):
+        raise SupervisorError(
+            "Qualification module builder differs from the selected server"
+        )
     return module
 
 
-def select_module_qualification(state: Path, receipt_path: Path | None, *, long_hold: bool = False) -> dict[str, object]:
+def select_module_qualification(
+    state: Path, receipt_path: Path | None, *, long_hold: bool = False
+) -> dict[str, object]:
     """Select/remove probe access only after the actual owned service and queries drain."""
     if long_hold and receipt_path is None:
-        raise SupervisorError("Long-hold selection requires its explicit qualification receipt")
+        raise SupervisorError(
+            "Long-hold selection requires its explicit qualification receipt"
+        )
     with lifecycle_deadline(time.monotonic() + 30), lifecycle_reservation(state):
         config = config_for(state)
         private_offline_state(state, config)
         if active(state) or config.get("accepting_writes") is not False:
-            raise SupervisorError("Qualification module selection requires stopped closed service admission")
+            raise SupervisorError(
+                "Qualification module selection requires stopped closed service admission"
+            )
         all_contexts_drained(state)
         selected = dict(config)
         if receipt_path is None:
             selected.pop("study_module_qualification", None)
         else:
-            receipt = read_json(receipt_path, deadline=getattr(_STARTUP, "deadline", None))
-            expected_kind = surrealism_module.LONG_HOLD_KIND if long_hold else surrealism_module.QUALIFICATION_KIND
+            receipt = read_json(
+                receipt_path, deadline=getattr(_STARTUP, "deadline", None)
+            )
+            expected_kind = (
+                surrealism_module.LONG_HOLD_KIND
+                if long_hold
+                else surrealism_module.QUALIFICATION_KIND
+            )
             if receipt.get("kind") != expected_kind:
-                raise SupervisorError("Qualification receipt differs from the explicit long-hold selection")
+                raise SupervisorError(
+                    "Qualification receipt differs from the explicit long-hold selection"
+                )
             selected["study_module_qualification"] = receipt
             qualification_module(selected)
         selected["restart_qualified"] = False
@@ -5488,8 +5538,14 @@ def module_runtime_allocation(allocation: dict[str, object]) -> dict[str, int]:
     controllers = integer(allocation["server_memory_bytes"]) // 8 // memory
     cache = min(4, controllers // pool)
     if cache < 1:
-        raise SupervisorError("Server budget cannot admit one complete bounded study module pool")
-    return {"cache_modules": cache, "max_controllers": controllers, "max_memory_bytes": memory}
+        raise SupervisorError(
+            "Server budget cannot admit one complete bounded study module pool"
+        )
+    return {
+        "cache_modules": cache,
+        "max_controllers": controllers,
+        "max_memory_bytes": memory,
+    }
 
 
 def server_environment(
@@ -5506,7 +5562,10 @@ def server_environment(
     runtime = module_runtime_allocation(allocation)
     execution_ms = integer(object_mapping(module["limits"])["max_execution_time_ms"])
     if qualification is not None:
-        execution_ms = max(execution_ms, integer(object_mapping(qualification["limits"])["max_execution_time_ms"]))
+        execution_ms = max(
+            execution_ms,
+            integer(object_mapping(qualification["limits"])["max_execution_time_ms"]),
+        )
     # Inherited SURREAL_* settings cannot silently override the owned profile.
     environment = {
         key: value
@@ -8610,7 +8669,13 @@ def validate_interpretation(
         or len(result) != 1
         or not isinstance(result[0], dict)
         or result[0].get("status") != "OK"
-        or result[0].get("result") != [{"interpretation": interpretation, "study_module_sha256": study_module(config)["sha256"]}]
+        or result[0].get("result")
+        != [
+            {
+                "interpretation": interpretation,
+                "study_module_sha256": study_module(config)["sha256"],
+            }
+        ]
     ):
         raise SupervisorError(
             "Canonical database interpretation was not validated; writes remain closed"
@@ -9037,8 +9102,11 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
         != object_mapping(config["server"]).get("binary_sha256")
         or proof.get("credentials_sha256") != credential_digest
         or proof.get("study_module_sha256") != study_module(config)["sha256"]
-        or proof.get("study_module_qualification_sha256") != (
-            None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"]
+        or proof.get("study_module_qualification_sha256")
+        != (
+            None
+            if qualification_module(config) is None
+            else object_mapping(config["study_module_qualification"])["sha256"]
         )
         or credentials.get("selection_username") != "pse-selection"
         or not isinstance(credentials.get("selection_password"), str)
@@ -9245,8 +9313,16 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument("--destination", type=Path)
     result.add_argument("--source", type=Path)
-    result.add_argument("--module-receipt", type=Path, help="Immutable qualification module receipt; omit to restore production-only module access")
-    result.add_argument("--long-hold", action="store_true", help="Explicitly select the separate long-hold module qualification receipt")
+    result.add_argument(
+        "--module-receipt",
+        type=Path,
+        help="Immutable qualification module receipt; omit to restore production-only module access",
+    )
+    result.add_argument(
+        "--long-hold",
+        action="store_true",
+        help="Explicitly select the separate long-hold module qualification receipt",
+    )
     result.add_argument("--initializer-command", nargs=argparse.REMAINDER)
     result.add_argument("--check-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-command", nargs=argparse.REMAINDER)
@@ -9281,7 +9357,9 @@ def _dispatch(args: argparse.Namespace) -> int:
     if args.command == "build-server":
         output = install(args.version, args.tool_root or default_tool_root())
     elif args.command == "module-qualification":
-        output = select_module_qualification(args.state.absolute(), args.module_receipt, long_hold=args.long_hold)
+        output = select_module_qualification(
+            args.state.absolute(), args.module_receipt, long_hold=args.long_hold
+        )
     elif args.command == "initialize":
         output = initialize(args.state.absolute(), args.initializer_command or [])
     elif args.command == "fresh-engine":

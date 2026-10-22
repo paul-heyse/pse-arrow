@@ -280,83 +280,159 @@ impl StudyScope {
         &self,
         seed: Option<SeedFact>,
     ) -> Result<pse_model::study::PointAction, CanonicalError> {
-        scope_action(&self.point, &self.predecessors.iter().collect::<Vec<_>>(), self.cancelled, seed)
+        scope_action(
+            &self.point,
+            &self.predecessors.iter().collect::<Vec<_>>(),
+            self.cancelled,
+            seed,
+        )
     }
 }
 
 struct PendingReadinessPage {
-    operation:String,
-    study:String,
-    run:String,
-    epoch:String,
-    keys:Vec<String>,
+    operation: String,
+    study: String,
+    run: String,
+    epoch: String,
+    keys: Vec<String>,
 }
-fn decode_pending_readiness(mut row:Object)->Result<(PendingReadinessPage,bool),CanonicalError> {
-    let operation=codec::decode_string(codec::required(&mut row,"operation")?)?;
-    let study=codec::decode_string(codec::required(&mut row,"study")?)?;
-    let run=codec::decode_string(codec::required(&mut row,"run")?)?;
-    let epoch=codec::decode_string(codec::required(&mut row,"epoch")?)?;
-    let keys=readiness_array(codec::required(&mut row,"keys")?)?.into_iter().map(codec::decode_string).collect::<Result<Vec<_>,_>>()?;
-    let created=codec::decode_boolean(codec::required(&mut row,"created")?)?;
-    if keys.len()>65 || keys.iter().collect::<BTreeSet<_>>().len()!=keys.len() {return Err(CanonicalError::IncompleteResponse);}
-    Ok((PendingReadinessPage {operation,study,run,epoch,keys},created))
+fn decode_pending_readiness(
+    mut row: Object,
+) -> Result<(PendingReadinessPage, bool), CanonicalError> {
+    let operation = codec::decode_string(codec::required(&mut row, "operation")?)?;
+    let study = codec::decode_string(codec::required(&mut row, "study")?)?;
+    let run = codec::decode_string(codec::required(&mut row, "run")?)?;
+    let epoch = codec::decode_string(codec::required(&mut row, "epoch")?)?;
+    let keys = readiness_array(codec::required(&mut row, "keys")?)?
+        .into_iter()
+        .map(codec::decode_string)
+        .collect::<Result<Vec<_>, _>>()?;
+    let created = codec::decode_boolean(codec::required(&mut row, "created")?)?;
+    if keys.len() > 65 || keys.iter().collect::<BTreeSet<_>>().len() != keys.len() {
+        return Err(CanonicalError::IncompleteResponse);
+    }
+    Ok((
+        PendingReadinessPage {
+            operation,
+            study,
+            run,
+            epoch,
+            keys,
+        },
+        created,
+    ))
 }
 fn scope_action(
-    point:&ScopedStudyPoint,
-    predecessors:&[&ScopedStudyPoint],
-    cancelled:bool,
-    seed:Option<SeedFact>,
-) -> Result<pse_model::study::PointAction,CanonicalError> {
-    let policy:PointPolicy=decode(point.policy.as_slice())?;
-    let mut candidate=point.facts()?;
-    candidate.seed=seed;
-    let mut facts=vec![candidate];
-    let mut policies=Vec::with_capacity(predecessors.len());
+    point: &ScopedStudyPoint,
+    predecessors: &[&ScopedStudyPoint],
+    cancelled: bool,
+    seed: Option<SeedFact>,
+) -> Result<pse_model::study::PointAction, CanonicalError> {
+    let policy: PointPolicy = decode(point.policy.as_slice())?;
+    let mut candidate = point.facts()?;
+    candidate.seed = seed;
+    let mut facts = vec![candidate];
+    let mut policies = Vec::with_capacity(predecessors.len());
     for predecessor in predecessors {
         policies.push(decode(predecessor.policy.as_slice())?);
         facts.push(predecessor.facts()?);
     }
-    pse_model::study_policy::candidate_action(&policy,&policies,&facts,cancelled)
-        .map_err(|error|CanonicalError::Configuration(error.to_string()))
+    pse_model::study_policy::candidate_action(&policy, &policies, &facts, cancelled)
+        .map_err(|error| CanonicalError::Configuration(error.to_string()))
 }
-fn readiness_object(value:Value)->Result<Object,CanonicalError> {
-    match value {Value::Object(row)=>Ok(row),_=>Err(CanonicalError::IncompleteResponse)}
+fn readiness_object(value: Value) -> Result<Object, CanonicalError> {
+    match value {
+        Value::Object(row) => Ok(row),
+        _ => Err(CanonicalError::IncompleteResponse),
+    }
 }
-fn readiness_array(value:Value)->Result<Vec<Value>,CanonicalError> {
-    match value {Value::Array(rows)=>Ok(rows.into_iter().collect()),_=>Err(CanonicalError::IncompleteResponse)}
+fn readiness_array(value: Value) -> Result<Vec<Value>, CanonicalError> {
+    match value {
+        Value::Array(rows) => Ok(rows.into_iter().collect()),
+        _ => Err(CanonicalError::IncompleteResponse),
+    }
 }
-fn readiness_coordinates(store:&CanonicalStore,study:&str,cursor:&ReadinessCursor,mode:&str,source:Option<&ReadinessHint>)->Result<Object,CanonicalError> {
-    let after=match mode {"rebuild"=>cursor.rebuild_after,"verify"=>cursor.verify_after,_=>None};
-    let source=source.map(|source| {
-        let mut row=Object::new();
-        row.insert("point",source.point.clone());row.insert("revision",codec::encode_uint(source.notify_revision)?);
-        row.insert("before",source.notify_after.clone());row.insert("ordinal",codec::encode_uint(source.ordinal)?);
-        Ok::<_,CanonicalError>(Value::Object(row))
-    }).transpose()?.unwrap_or(Value::None);
-    let mut coordinates=Object::new();coordinates.insert("module_sha256",store.study_module_hash()?.to_owned());coordinates.insert("study",study.to_owned());coordinates.insert("cursor",codec::encode_uint(cursor.revision)?);
-    coordinates.insert("mode",mode.to_owned());coordinates.insert("after",after.map(codec::encode_uint).transpose()?.unwrap_or(Value::None));coordinates.insert("source",source);
+fn readiness_coordinates(
+    store: &CanonicalStore,
+    study: &str,
+    cursor: &ReadinessCursor,
+    mode: &str,
+    source: Option<&ReadinessHint>,
+) -> Result<Object, CanonicalError> {
+    let after = match mode {
+        "rebuild" => cursor.rebuild_after,
+        "verify" => cursor.verify_after,
+        _ => None,
+    };
+    let source = source
+        .map(|source| {
+            let mut row = Object::new();
+            row.insert("point", source.point.clone());
+            row.insert("revision", codec::encode_uint(source.notify_revision)?);
+            row.insert("before", source.notify_after.clone());
+            row.insert("ordinal", codec::encode_uint(source.ordinal)?);
+            Ok::<_, CanonicalError>(Value::Object(row))
+        })
+        .transpose()?
+        .unwrap_or(Value::None);
+    let mut coordinates = Object::new();
+    coordinates.insert("module_sha256", store.study_module_hash()?.to_owned());
+    coordinates.insert("study", study.to_owned());
+    coordinates.insert("cursor", codec::encode_uint(cursor.revision)?);
+    coordinates.insert("mode", mode.to_owned());
+    coordinates.insert(
+        "after",
+        after
+            .map(codec::encode_uint)
+            .transpose()?
+            .unwrap_or(Value::None),
+    );
+    coordinates.insert("source", source);
     Ok(coordinates)
 }
-fn settled_readiness_count(result:&Object,keys:&[String],operation:&str)->Result<u64,CanonicalError> {
-    if result.get("refusal")==Some(&Value::Bool(true)) {
-        let code=pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessPolicyRefused;
-        return Err(CanonicalError::SettledPolicyRefusal {code,operation:operation.to_owned()});
+fn settled_readiness_count(
+    result: &Object,
+    keys: &[String],
+    operation: &str,
+) -> Result<u64, CanonicalError> {
+    if result.get("refusal") == Some(&Value::Bool(true)) {
+        let code =
+            pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessPolicyRefused;
+        return Err(CanonicalError::SettledPolicyRefusal {
+            code,
+            operation: operation.to_owned(),
+        });
     }
-    if result.get("no_effect")==Some(&Value::Bool(true)) {return Ok(0);}
-    validate_repair_outcomes(result,keys)?;
+    if result.get("no_effect") == Some(&Value::Bool(true)) {
+        return Ok(0);
+    }
+    validate_repair_outcomes(result, keys)?;
     Ok(keys.len() as u64)
 }
-fn validate_repair_outcomes(result:&Object,expected:&[String])->Result<(),CanonicalError> {
-    let Some(Value::Array(outcomes))=result.get("outcomes") else {return Err(CanonicalError::IncompleteResponse);};
-    if outcomes.len()!=expected.len() {return Err(CanonicalError::IncompleteResponse);}
-    let mut keys=BTreeSet::new();
-    for outcome in outcomes.iter() {
-        let mut outcome=readiness_object(outcome.clone())?;
-        if !keys.insert(codec::decode_string(codec::required(&mut outcome,"point")?)?) {return Err(CanonicalError::IncompleteResponse);}
-        let status=codec::decode_string(codec::required(&mut outcome,"status")?)?;
-        if !matches!(status.as_str(),"accepted"|"stale"|"refused") {return Err(CanonicalError::IncompleteResponse);}
+fn validate_repair_outcomes(result: &Object, expected: &[String]) -> Result<(), CanonicalError> {
+    let Some(Value::Array(outcomes)) = result.get("outcomes") else {
+        return Err(CanonicalError::IncompleteResponse);
+    };
+    if outcomes.len() != expected.len() {
+        return Err(CanonicalError::IncompleteResponse);
     }
-    if keys!=expected.iter().cloned().collect() {return Err(CanonicalError::IncompleteResponse);}
+    let mut keys = BTreeSet::new();
+    for outcome in outcomes.iter() {
+        let mut outcome = readiness_object(outcome.clone())?;
+        if !keys.insert(codec::decode_string(codec::required(
+            &mut outcome,
+            "point",
+        )?)?) {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        let status = codec::decode_string(codec::required(&mut outcome, "status")?)?;
+        if !matches!(status.as_str(), "accepted" | "stale" | "refused") {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+    }
+    if keys != expected.iter().cloned().collect() {
+        return Err(CanonicalError::IncompleteResponse);
+    }
     Ok(())
 }
 
@@ -1124,7 +1200,7 @@ impl CanonicalStore {
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?)
     }
-    #[cfg(all(test,feature="canonical-tests"))]
+    #[cfg(all(test, feature = "canonical-tests"))]
     async fn readiness_hint(&self, point: &str) -> Result<Option<ReadinessHint>, CanonicalError> {
         let mut response = bounded_query(
             self.db
@@ -1141,40 +1217,63 @@ impl CanonicalStore {
             .transpose()
             .map_err(Into::into)
     }
-    async fn pending_readiness_page(&self,study:&str)->Result<Option<PendingReadinessPage>,CanonicalError> {
-        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
-            "RETURN fn::pse_study_v1::readiness_pending_page($pse_rpc_expires_at,$study);").bind(("study",study.to_owned()))).await?;
-        response.take::<Option<Object>>(0)?.map(|row|decode_pending_readiness(row).map(|(pending,_)|pending)).transpose()
+    async fn pending_readiness_page(
+        &self,
+        study: &str,
+    ) -> Result<Option<PendingReadinessPage>, CanonicalError> {
+        let mut response = bounded_query(
+            self.db
+                .metadata_query(
+                    crate::canonical::MetadataResponse::Page,
+                    "RETURN fn::pse_study_v1::readiness_pending_page($pse_rpc_expires_at,$study);",
+                )
+                .bind(("study", study.to_owned())),
+        )
+        .await?;
+        response
+            .take::<Option<Object>>(0)?
+            .map(|row| decode_pending_readiness(row).map(|(pending, _)| pending))
+            .transpose()
     }
-    async fn resume_readiness_page(&self,mut pending:PendingReadinessPage,mut fence:bool)->Result<u64,CanonicalError> {
-        let mut maximum=65;
+    async fn resume_readiness_page(
+        &self,
+        mut pending: PendingReadinessPage,
+        mut fence: bool,
+    ) -> Result<u64, CanonicalError> {
+        let mut maximum = 65;
         loop {
             if fence {
-                let after=format!("fenced:{}",uuid::Uuid::new_v4());
+                let after = format!("fenced:{}", uuid::Uuid::new_v4());
                 let mut response=protected_query("canonical_studies::readiness_fence_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
                     "RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,$operation,$study,$run,$before,$after);")
                     .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
                     .bind(("before",pending.epoch.clone())).bind(("after",after.clone())))).await?;
-                let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
-                if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
-                    let result=readiness_object(codec::required(&mut result,"result")?)?;
-                    return settled_readiness_count(&result,&pending.keys,&pending.operation);
+                let mut result = response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                if codec::decode_boolean(codec::required(&mut result, "settled")?)? {
+                    let result = readiness_object(codec::required(&mut result, "result")?)?;
+                    return settled_readiness_count(&result, &pending.keys, &pending.operation);
                 }
-                pending.epoch=codec::decode_string(codec::required(&mut result,"epoch")?)?;
+                pending.epoch = codec::decode_string(codec::required(&mut result, "epoch")?)?;
                 // Another recovering caller may have won first. Obtain our own
                 // acknowledged native epoch write before dispatching the body.
-                if pending.epoch!=after {continue;}
+                if pending.epoch != after {
+                    continue;
+                }
             }
             let response=protected_query("canonical_studies::readiness_apply_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
                 "RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,$operation,$study,$run,$epoch,$maximum);")
                 .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
                 .bind(("epoch",pending.epoch.clone())).bind(("maximum",maximum as i64)))).await;
-            let mut response=match response {
-                Ok(response)=>response,
-                Err(CanonicalError::ConflictExhausted{..}) if maximum>1=>{
-                    maximum=(maximum/2).max(1);fence=true;continue;
+            let mut response = match response {
+                Ok(response) => response,
+                Err(CanonicalError::ConflictExhausted { .. }) if maximum > 1 => {
+                    maximum = (maximum / 2).max(1);
+                    fence = true;
+                    continue;
                 }
-                Err(error)=>{
+                Err(error) => {
                     // Only immutable settlement answers an uncertain reply.
                     // Failure or absence leaves the exact durable pending owner;
                     // a later invocation fences it before resuming the same body.
@@ -1188,32 +1287,48 @@ impl CanonicalStore {
                     return Err(error);
                 }
             };
-            let mut result=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
-            if codec::decode_boolean(codec::required(&mut result,"settled")?)? {
-                let result=readiness_object(codec::required(&mut result,"result")?)?;
-                return settled_readiness_count(&result,&pending.keys,&pending.operation);
+            let mut result = response
+                .take::<Option<Object>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            if codec::decode_boolean(codec::required(&mut result, "settled")?)? {
+                let result = readiness_object(codec::required(&mut result, "result")?)?;
+                return settled_readiness_count(&result, &pending.keys, &pending.operation);
             }
-            fence=result.get("fenced")==Some(&Value::Bool(true));
+            fence = result.get("fenced") == Some(&Value::Bool(true));
             // A committed bounded prefix remains on the same pending row. An
             // acknowledged prefix can proceed directly; uncertainty must fence.
         }
     }
     async fn readiness_pending(&self, study: &str) -> Result<bool, CanonicalError> {
         let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending,pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $c.pending_operation!=NONE OR ($s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0));","study")).bind(("study",study.to_owned()))).await?;
-        response.take::<Option<bool>>(0)?.ok_or(CanonicalError::IncompleteResponse)
+        response
+            .take::<Option<bool>>(0)?
+            .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_scan_page(
-        &self, study: &str, cursor: &ReadinessCursor, rebuild: bool,
+        &self,
+        study: &str,
+        cursor: &ReadinessCursor,
+        rebuild: bool,
     ) -> Result<ReadinessAdvance, CanonicalError> {
         let mode = if rebuild { "rebuild" } else { "verify" };
-        let examined = self.readiness_apply_bounded(study, cursor, mode, None).await?;
-        Ok(ReadinessAdvance { examined, pending:self.readiness_pending(study).await? })
+        let examined = self
+            .readiness_apply_bounded(study, cursor, mode, None)
+            .await?;
+        Ok(ReadinessAdvance {
+            examined,
+            pending: self.readiness_pending(study).await?,
+        })
     }
     async fn readiness_apply_bounded(
-        &self, study: &str, cursor: &ReadinessCursor, mode: &str, source: Option<&ReadinessHint>,
+        &self,
+        study: &str,
+        cursor: &ReadinessCursor,
+        mode: &str,
+        source: Option<&ReadinessHint>,
     ) -> Result<u64, CanonicalError> {
-        let coordinates=readiness_coordinates(self,study,cursor,mode,source)?;
-        let operation=format!("study-readiness:{}",uuid::Uuid::new_v4());
+        let coordinates = readiness_coordinates(self, study, cursor, mode, source)?;
+        let operation = format!("study-readiness:{}", uuid::Uuid::new_v4());
         let response=protected_query("canonical_studies::readiness_prepare_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
             "RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$coordinates);")
             .bind(("operation",operation.clone())).bind(("coordinates",coordinates.clone())))).await;
@@ -1221,17 +1336,29 @@ impl CanonicalStore {
             Err(CanonicalError::Refused {code:pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessNotificationChanged,..})=>return Ok(0),
             response=>response?,
         };
-        let Some(mut row)=response.take::<Option<Object>>(0)? else {return Ok(0);};
-        if row.get("settled")==Some(&Value::Bool(true)) {
-            let keys=readiness_array(codec::required(&mut row,"keys")?)?.into_iter().map(codec::decode_string).collect::<Result<Vec<_>,_>>()?;
-            return settled_readiness_count(&readiness_object(codec::required(&mut row,"result")?)?,&keys,&operation);
+        let Some(mut row) = response.take::<Option<Object>>(0)? else {
+            return Ok(0);
+        };
+        if row.get("settled") == Some(&Value::Bool(true)) {
+            let keys = readiness_array(codec::required(&mut row, "keys")?)?
+                .into_iter()
+                .map(codec::decode_string)
+                .collect::<Result<Vec<_>, _>>()?;
+            return settled_readiness_count(
+                &readiness_object(codec::required(&mut row, "result")?)?,
+                &keys,
+                &operation,
+            );
         }
-        let (pending,created)=decode_pending_readiness(row)?;
-        self.resume_readiness_page(pending,!created).await
+        let (pending, created) = decode_pending_readiness(row)?;
+        self.resume_readiness_page(pending, !created).await
     }
     /// Rebuild or propagate one bounded shared-premise page. The generated
     /// transition retains every unfinished item before moving either cursor.
-    pub async fn advance_study_readiness(&self, study:&str) -> Result<ReadinessAdvance,CanonicalError> {
+    pub async fn advance_study_readiness(
+        &self,
+        study: &str,
+    ) -> Result<ReadinessAdvance, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT),async {
             self.ensure_writes()?;
@@ -1262,9 +1389,12 @@ impl CanonicalStore {
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     self.ensure_writes()?;
-                    if let Some(pending)=self.pending_readiness_page(study).await? {
-                        let examined=self.resume_readiness_page(pending,true).await?;
-                        return Ok(ReadinessAdvance {examined,pending:self.readiness_pending(study).await?});
+                    if let Some(pending) = self.pending_readiness_page(study).await? {
+                        let examined = self.resume_readiness_page(pending, true).await?;
+                        return Ok(ReadinessAdvance {
+                            examined,
+                            pending: self.readiness_pending(study).await?,
+                        });
                     }
                     let Some(owner) = self.canonical_study_summary(study).await? else {
                         return Err(CanonicalError::IncompleteResponse);
@@ -2619,7 +2749,7 @@ mod canonical_studies_server_unit {
             .unwrap();
         readiness_failure(&store, &claim, true, EffectState::Absent).await;
         drain_readiness(&store, "readiness-policy").await;
-        assert_native_readiness_policy(&store,"readiness-policy").await;
+        assert_native_readiness_policy(&store, "readiness-policy").await;
         let retry = store.study_scope(&first.point.key).await.unwrap();
         assert!(matches!(
             retry.action(None).unwrap().kind,
@@ -2647,7 +2777,7 @@ mod canonical_studies_server_unit {
             .unwrap();
         readiness_failure(&store, &claim, false, EffectState::Absent).await;
         drain_readiness(&store, "readiness-policy").await;
-        assert_native_readiness_policy(&store,"readiness-policy").await;
+        assert_native_readiness_policy(&store, "readiness-policy").await;
         let refused = store
             .readiness_hint(&point_key("readiness-policy", OccurrenceKey(2)))
             .await
@@ -2825,7 +2955,7 @@ mod canonical_studies_server_unit {
         // permits blind re-execution of this actual sealed failed attempt.
         readiness_failure(&store, &claim, false, EffectState::Unknown).await;
         drain_readiness(&store, "readiness-seed").await;
-        assert_native_readiness_policy(&store,"readiness-seed").await;
+        assert_native_readiness_policy(&store, "readiness-seed").await;
         let unknown = store.study_scope(&scope.point.key).await.unwrap();
         assert!(matches!(
             unknown.action(None).unwrap().kind,
@@ -2870,8 +3000,17 @@ mod canonical_studies_server_unit {
         );
         assert_eq!(store.database(), database);
         store.cancel_study("readiness-seed").await.unwrap();
-        assert_native_readiness_policy(&store,"readiness-seed").await;
-        assert!(matches!(store.study_scope(&scope.point.key).await.unwrap().action(None).unwrap().kind,ActionKind::Reconcile));
+        assert_native_readiness_policy(&store, "readiness-seed").await;
+        assert!(matches!(
+            store
+                .study_scope(&scope.point.key)
+                .await
+                .unwrap()
+                .action(None)
+                .unwrap()
+                .kind,
+            ActionKind::Reconcile
+        ));
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -3001,89 +3140,224 @@ mod canonical_studies_server_unit {
         restarted.remove_isolated_fixture().await.unwrap();
     }
 
-    async fn native_scope_test(store:&CanonicalStore,study:&str,cursor:&ReadinessCursor)->Object {
-        let coordinates=readiness_coordinates(store,study,cursor,"verify",None).unwrap();
+    async fn native_scope_test(
+        store: &CanonicalStore,
+        study: &str,
+        cursor: &ReadinessCursor,
+    ) -> Object {
+        let coordinates = readiness_coordinates(store, study, cursor, "verify", None).unwrap();
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,$coordinates.study,$coordinates.cursor,$coordinates.mode,$coordinates.after,$coordinates.source,64);").bind(("coordinates",coordinates))).await.unwrap();
         response.take::<Option<Object>>(0).unwrap().unwrap()
     }
-    async fn assert_native_readiness_policy(store:&CanonicalStore,study:&str) {
+    async fn assert_native_readiness_policy(store: &CanonicalStore, study: &str) {
         use pse_model::study::WaitReason;
-        let cursor=store.readiness_cursor(study).await.unwrap();
-        let page=native_scope_test(store,study,&cursor).await;
-        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_policy($page);").bind(("page",page))).await.unwrap();
-        let mut reply=response.take::<Option<Object>>(0).unwrap().unwrap();
-        assert_eq!(reply.remove("accepted"),Some(Value::Bool(true)));
-        let decisions=readiness_array(reply.remove("decisions").unwrap()).unwrap();
+        let cursor = store.readiness_cursor(study).await.unwrap();
+        let page = native_scope_test(store, study, &cursor).await;
+        let mut response = bounded_query(
+            store
+                .db
+                .query("RETURN fn::pse_study_v1::readiness_policy($page);")
+                .bind(("page", page)),
+        )
+        .await
+        .unwrap();
+        let mut reply = response.take::<Option<Object>>(0).unwrap().unwrap();
+        assert_eq!(reply.remove("accepted"), Some(Value::Bool(true)));
+        let decisions = readiness_array(reply.remove("decisions").unwrap()).unwrap();
         assert!(!decisions.is_empty());
         for decision in decisions {
-            let mut decision=readiness_object(decision).unwrap();
-            let point=codec::decode_string(codec::required(&mut decision,"point").unwrap()).unwrap();
-            let scope=store.study_scope(&point).await.unwrap();
-            let action=scope.action(scope.point.facts().unwrap().seed).unwrap();
-            let eligible=!scope.point.assigned && !scope.point.settled && !matches!(action.kind,
-                ActionKind::Wait(WaitReason::Dependency {..}|WaitReason::Assigned|WaitReason::Terminal));
-            assert_eq!(codec::decode_boolean(codec::required(&mut decision,"eligible").unwrap()).unwrap(),eligible,"{point}");
-            let pending=scope.predecessors.iter().filter(|point|!point.settled).count() as u64;
-            assert_eq!(codec::decode_uint(codec::required(&mut decision,"pending").unwrap()).unwrap(),pending);
-            let expected=std::iter::once(&scope.point).chain(scope.predecessors.iter()).map(|point|(point.key.clone(),point.revision)).collect::<Vec<_>>();
-            let premises=codec::decode_bytes(codec::required(&mut decision,"premises").unwrap()).unwrap();
-            assert_eq!(decode::<(u64,Vec<(String,u64)>)>(premises.as_slice()).unwrap(),(scope.generation,expected));
+            let mut decision = readiness_object(decision).unwrap();
+            let point =
+                codec::decode_string(codec::required(&mut decision, "point").unwrap()).unwrap();
+            let scope = store.study_scope(&point).await.unwrap();
+            let action = scope.action(scope.point.facts().unwrap().seed).unwrap();
+            let eligible = !scope.point.assigned
+                && !scope.point.settled
+                && !matches!(
+                    action.kind,
+                    ActionKind::Wait(
+                        WaitReason::Dependency { .. } | WaitReason::Assigned | WaitReason::Terminal
+                    )
+                );
+            assert_eq!(
+                codec::decode_boolean(codec::required(&mut decision, "eligible").unwrap()).unwrap(),
+                eligible,
+                "{point}"
+            );
+            let pending = scope
+                .predecessors
+                .iter()
+                .filter(|point| !point.settled)
+                .count() as u64;
+            assert_eq!(
+                codec::decode_uint(codec::required(&mut decision, "pending").unwrap()).unwrap(),
+                pending
+            );
+            let expected = std::iter::once(&scope.point)
+                .chain(scope.predecessors.iter())
+                .map(|point| (point.key.clone(), point.revision))
+                .collect::<Vec<_>>();
+            let premises =
+                codec::decode_bytes(codec::required(&mut decision, "premises").unwrap()).unwrap();
+            assert_eq!(
+                decode::<(u64, Vec<(String, u64)>)>(premises.as_slice()).unwrap(),
+                (scope.generation, expected)
+            );
         }
     }
     #[tokio::test]
     async fn canonical_studies_surrealism_native_policy_preserves_full_unsigned_revisions() {
-        let (store,_,revision)=fixture().await;
-        let points=[occurrence(&revision,0,vec![]),occurrence(&revision,1,vec![Dependency::Ordering(OccurrenceKey(0))])];
-        store.create_study("module-u64",&request(&revision,"module-u64-parent"),&[],&points,&||false).await.unwrap();
+        let (store, _, revision) = fixture().await;
+        let points = [
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![Dependency::Ordering(OccurrenceKey(0))]),
+        ];
+        store
+            .create_study(
+                "module-u64",
+                &request(&revision, "module-u64-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
         bounded_query(store.db.query("UPDATE canonical_study_points SET revision=$revision WHERE study='module-u64'; UPDATE ONLY type::record('canonical_studies','module-u64') SET generation=$revision;")
             .bind(("revision",codec::encode_uint(u64::MAX).unwrap()))).await.unwrap();
-        assert_native_readiness_policy(&store,"module-u64").await;
+        assert_native_readiness_policy(&store, "module-u64").await;
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn canonical_studies_surrealism_pending_page_refuses_artifact_replacement() {
-        let (store,_,revision)=fixture().await;
-        store.create_study("module-fence",&request(&revision,"module-fence-parent"),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
-        let cursor=store.readiness_cursor("module-fence").await.unwrap();
-        let coordinates=readiness_coordinates(&store,"module-fence",&cursor,"verify",None).unwrap();
-        let pending=prepare_readiness_test(&store,&coordinates,"module-fence-operation").await;
+        let (store, _, revision) = fixture().await;
+        store
+            .create_study(
+                "module-fence",
+                &request(&revision, "module-fence-parent"),
+                &[],
+                &[occurrence(&revision, 0, vec![])],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("module-fence").await.unwrap();
+        let coordinates =
+            readiness_coordinates(&store, "module-fence", &cursor, "verify", None).unwrap();
+        let pending = prepare_readiness_test(&store, &coordinates, "module-fence-operation").await;
         // Direct isolated-fixture corruption tests a fail-closed fence. Supported
         // installation/activation reject this change and require a fresh namespace.
-        bounded_query(store.db.query("UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;").bind(("hash","0".repeat(64)))).await.unwrap();
-        let error=store.resume_readiness_page(pending,true).await.unwrap_err();
+        bounded_query(
+            store
+                .db
+                .query(
+                    "UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;",
+                )
+                .bind(("hash", "0".repeat(64))),
+        )
+        .await
+        .unwrap();
+        let error = store
+            .resume_readiness_page(pending, true)
+            .await
+            .unwrap_err();
         assert!(matches!(error,CanonicalError::Refused{code:pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessModuleIdentityChanged,..}));
-        assert!(store.pending_readiness_page("module-fence").await.unwrap().is_some());
-        bounded_query(store.db.query("UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;").bind(("hash",store.study_module_hash().unwrap().to_owned()))).await.unwrap();
+        assert!(
+            store
+                .pending_readiness_page("module-fence")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        bounded_query(
+            store
+                .db
+                .query(
+                    "UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;",
+                )
+                .bind(("hash", store.study_module_hash().unwrap().to_owned())),
+        )
+        .await
+        .unwrap();
         store.repair_study_readiness("module-fence").await.unwrap();
-        assert!(store.pending_readiness_page("module-fence").await.unwrap().is_none());
+        assert!(
+            store
+                .pending_readiness_page("module-fence")
+                .await
+                .unwrap()
+                .is_none()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn canonical_studies_surrealism_malformed_abi_and_policy_refusal_roll_back() {
-        let (store,_,revision)=fixture().await;
-        store.create_study("module-rollback",&request(&revision,"module-rollback-parent"),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
-        let before=store.canonical_study_summary("module-rollback").await.unwrap().unwrap();
+        let (store, _, revision) = fixture().await;
+        store
+            .create_study(
+                "module-rollback",
+                &request(&revision, "module-rollback-parent"),
+                &[],
+                &[occurrence(&revision, 0, vec![])],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let before = store
+            .canonical_study_summary("module-rollback")
+            .await
+            .unwrap()
+            .unwrap();
         for body in [
             "LET $reply=mod::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
             "RETURN mod::pse::study::readiness('malformed ABI input');",
         ] {
             let error=bounded_query(store.db.query(format!("BEGIN; UPDATE ONLY type::record('canonical_studies','module-rollback') SET generation+=1dec; {body} COMMIT;"))).await;
-            assert!(error.is_err(),"module refusal/ABI error must abort the containing transaction");
-            assert_eq!(store.canonical_study_summary("module-rollback").await.unwrap().unwrap().generation,before.generation);
-            assert!(store.pending_readiness_page("module-rollback").await.unwrap().is_none());
+            assert!(
+                error.is_err(),
+                "module refusal/ABI error must abort the containing transaction"
+            );
+            assert_eq!(
+                store
+                    .canonical_study_summary("module-rollback")
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .generation,
+                before.generation
+            );
+            assert!(
+                store
+                    .pending_readiness_page("module-rollback")
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
         }
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn canonical_studies_surrealism_malformed_return_cannot_commit_a_prefix_or_cursor() {
-        let (store,_,revision)=fixture().await;
-        store.create_study("module-return",&request(&revision,"module-return-parent"),&[],&[
-            occurrence(&revision,0,vec![]),occurrence(&revision,1,vec![]),
-        ],&||false).await.unwrap();
-        let before=store.canonical_study_summary("module-return").await.unwrap().unwrap();
-        let cursor=store.readiness_cursor("module-return").await.unwrap();
-        for empty in [true,false] {
-            let query=r#"BEGIN;
+        let (store, _, revision) = fixture().await;
+        store
+            .create_study(
+                "module-return",
+                &request(&revision, "module-return-parent"),
+                &[],
+                &[
+                    occurrence(&revision, 0, vec![]),
+                    occurrence(&revision, 1, vec![]),
+                ],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let before = store
+            .canonical_study_summary("module-return")
+            .await
+            .unwrap()
+            .unwrap();
+        let cursor = store.readiness_cursor("module-return").await.unwrap();
+        for empty in [true, false] {
+            let query = r#"BEGIN;
                 LET $page=fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,'module-return',$cursor,'rebuild',NONE,NONE,64);
                 LET $reply=fn::pse_study_v1::readiness_policy($page);
                 LET $bad=IF $empty {[]} ELSE {$reply.decisions.map(|$item,$index| IF $index=1 {object::extend($item,{pending:-1dec})} ELSE {$item})};
@@ -3091,19 +3365,54 @@ mod canonical_studies_server_unit {
                 UPDATE ONLY type::record('canonical_studies','module-return') SET generation+=1dec;
                 RETURN fn::pse_study_v1::readiness_apply_decisions($pse_rpc_expires_at,$request,$page,$bad,true);
                 COMMIT;"#;
-            let result=bounded_query(store.db.query(query).bind(("cursor",codec::encode_uint(cursor.revision).unwrap())).bind(("empty",empty))).await;
-            assert!(result.is_err(),"complete guest output must be checked before any committed prefix");
-            assert_eq!(store.canonical_study_summary("module-return").await.unwrap().unwrap().generation,before.generation);
-            assert_eq!(store.readiness_cursor("module-return").await.unwrap().revision,cursor.revision);
+            let result = bounded_query(
+                store
+                    .db
+                    .query(query)
+                    .bind(("cursor", codec::encode_uint(cursor.revision).unwrap()))
+                    .bind(("empty", empty)),
+            )
+            .await;
+            assert!(
+                result.is_err(),
+                "complete guest output must be checked before any committed prefix"
+            );
+            assert_eq!(
+                store
+                    .canonical_study_summary("module-return")
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .generation,
+                before.generation
+            );
+            assert_eq!(
+                store
+                    .readiness_cursor("module-return")
+                    .await
+                    .unwrap()
+                    .revision,
+                cursor.revision
+            );
         }
         store.remove_isolated_fixture().await.unwrap();
     }
-    async fn prepare_readiness_test(store:&CanonicalStore,coordinates:&Object,operation:&str)->PendingReadinessPage {
+    async fn prepare_readiness_test(
+        store: &CanonicalStore,
+        coordinates: &Object,
+        operation: &str,
+    ) -> PendingReadinessPage {
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$coordinates);")
             .bind(("operation",operation.to_owned())).bind(("coordinates",coordinates.clone()))).await.unwrap();
-        decode_pending_readiness(response.take::<Option<Object>>(0).unwrap().unwrap()).unwrap().0
+        decode_pending_readiness(response.take::<Option<Object>>(0).unwrap().unwrap())
+            .unwrap()
+            .0
     }
-    async fn apply_readiness_test(store:&CanonicalStore,pending:&PendingReadinessPage,maximum:i64)->Object {
+    async fn apply_readiness_test(
+        store: &CanonicalStore,
+        pending: &PendingReadinessPage,
+        maximum: i64,
+    ) -> Object {
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,$operation,$study,$run,$epoch,$maximum);")
             .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))
             .bind(("epoch",pending.epoch.clone())).bind(("maximum",maximum))).await.unwrap();
@@ -3111,235 +3420,579 @@ mod canonical_studies_server_unit {
     }
     #[tokio::test]
     async fn canonical_studies_readiness_pages_share_premises_and_read_immutable_receipts() {
-        let (store, _, revision)=fixture().await;
-        let points=[occurrence(&revision,0,vec![]),
-            occurrence(&revision,1,vec![Dependency::Ordering(OccurrenceKey(0))]),
-            occurrence(&revision,2,vec![Dependency::Ordering(OccurrenceKey(0))]),
-            occurrence(&revision,3,vec![])];
-        store.create_study("shared-page",&request(&revision,"shared-parent"),&[],&points,&||false).await.unwrap();
-        let cursor=store.readiness_cursor("shared-page").await.unwrap();
-        let page=native_scope_test(&store,"shared-page",&cursor).await;
-        let Value::Array(rows)=page.get("rows").unwrap() else {unreachable!()};
-        let Value::Array(items)=page.get("items").unwrap() else {unreachable!()};
-        assert_eq!(rows.len(),4,"shared predecessor occupies exactly one native row");
-        assert_eq!(items.len(),4);
-        let coordinates=readiness_coordinates(&store,"shared-page",&cursor,"verify",None).unwrap();
-        let pending=prepare_readiness_test(&store,&coordinates,"original-page").await;
-        let independent=store.study_scope(&point_key("shared-page",OccurrenceKey(3))).await.unwrap();
-        store.claim_study_point(&independent,None,"fresh-native-claim","worker",Duration::from_secs(60)).await.unwrap();
-        let mut applied=apply_readiness_test(&store,&pending,65).await;
-        assert_eq!(applied.get("settled"),Some(&Value::Bool(true)));
-        let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
-        validate_repair_outcomes(&original,&pending.keys).unwrap();
-        let current=store.canonical_study_point(&independent.point.key).await.unwrap().unwrap();
-        let fresh=store.readiness_hint(&independent.point.key).await.unwrap().unwrap();
-        assert_eq!(fresh.source_revision,current.revision);
-        assert!(!fresh.eligible && !fresh.dirty,"the guest uses facts acquired after the reservation");
-        let scope=store.study_scope(&point_key("shared-page",OccurrenceKey(0))).await.unwrap();
-        let _claim=store.claim_study_point(&scope,None,"shared-claim","worker",Duration::from_secs(60)).await.unwrap();
-        assert!(store.readiness_hint(&scope.point.key).await.unwrap().unwrap().dirty);
+        let (store, _, revision) = fixture().await;
+        let points = [
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![Dependency::Ordering(OccurrenceKey(0))]),
+            occurrence(&revision, 2, vec![Dependency::Ordering(OccurrenceKey(0))]),
+            occurrence(&revision, 3, vec![]),
+        ];
+        store
+            .create_study(
+                "shared-page",
+                &request(&revision, "shared-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("shared-page").await.unwrap();
+        let page = native_scope_test(&store, "shared-page", &cursor).await;
+        let Value::Array(rows) = page.get("rows").unwrap() else {
+            unreachable!()
+        };
+        let Value::Array(items) = page.get("items").unwrap() else {
+            unreachable!()
+        };
+        assert_eq!(
+            rows.len(),
+            4,
+            "shared predecessor occupies exactly one native row"
+        );
+        assert_eq!(items.len(), 4);
+        let coordinates =
+            readiness_coordinates(&store, "shared-page", &cursor, "verify", None).unwrap();
+        let pending = prepare_readiness_test(&store, &coordinates, "original-page").await;
+        let independent = store
+            .study_scope(&point_key("shared-page", OccurrenceKey(3)))
+            .await
+            .unwrap();
+        store
+            .claim_study_point(
+                &independent,
+                None,
+                "fresh-native-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let mut applied = apply_readiness_test(&store, &pending, 65).await;
+        assert_eq!(applied.get("settled"), Some(&Value::Bool(true)));
+        let original = readiness_object(codec::required(&mut applied, "result").unwrap()).unwrap();
+        validate_repair_outcomes(&original, &pending.keys).unwrap();
+        let current = store
+            .canonical_study_point(&independent.point.key)
+            .await
+            .unwrap()
+            .unwrap();
+        let fresh = store
+            .readiness_hint(&independent.point.key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fresh.source_revision, current.revision);
+        assert!(
+            !fresh.eligible && !fresh.dirty,
+            "the guest uses facts acquired after the reservation"
+        );
+        let scope = store
+            .study_scope(&point_key("shared-page", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let _claim = store
+            .claim_study_point(
+                &scope,
+                None,
+                "shared-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        assert!(
+            store
+                .readiness_hint(&scope.point.key)
+                .await
+                .unwrap()
+                .unwrap()
+                .dirty
+        );
         // Simulate an acknowledgment lost after commit, followed by a newer
         // invalidation. Exact immutable readback must win over the mutable hint.
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'original-page','shared-page','shared-parent');")).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap(),original);
-        let mut applied=apply_readiness_test(&store,&pending,65).await;
-        assert_eq!(readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap(),original);
-        assert!(store.readiness_hint(&scope.point.key).await.unwrap().unwrap().dirty,"reconciling the old operation cannot overwrite a new obligation");
-        drain_readiness(&store,"shared-page").await;
-        let receipt_count=||async {
+        assert_eq!(
+            response.take::<Option<Object>>(0).unwrap().unwrap(),
+            original
+        );
+        let mut applied = apply_readiness_test(&store, &pending, 65).await;
+        assert_eq!(
+            readiness_object(codec::required(&mut applied, "result").unwrap()).unwrap(),
+            original
+        );
+        assert!(
+            store
+                .readiness_hint(&scope.point.key)
+                .await
+                .unwrap()
+                .unwrap()
+                .dirty,
+            "reconciling the old operation cannot overwrite a new obligation"
+        );
+        drain_readiness(&store, "shared-page").await;
+        let receipt_count = || async {
             let mut response=bounded_query(store.db.query("RETURN array::len(SELECT key FROM canonical_execution_operations WHERE kind='study-readiness-repair-page');")).await.unwrap();
             response.take::<Option<i64>>(0).unwrap().unwrap()
         };
-        let before=receipt_count().await;
-        for _ in 0..5 {store.repair_study_readiness("shared-page").await.unwrap();}
-        assert_eq!(receipt_count().await,before,"unchanged periodic verification must not accumulate permanent receipt IDs");
-        assert!(store.readiness_hint(&scope.point.key).await.unwrap().is_some());
+        let before = receipt_count().await;
+        for _ in 0..5 {
+            store.repair_study_readiness("shared-page").await.unwrap();
+        }
+        assert_eq!(
+            receipt_count().await,
+            before,
+            "unchanged periodic verification must not accumulate permanent receipt IDs"
+        );
+        assert!(
+            store
+                .readiness_hint(&scope.point.key)
+                .await
+                .unwrap()
+                .is_some()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
     async fn canonical_studies_readiness_pending_epoch_and_prefix_survive_restarted_clients() {
-        let (store,database,revision)=fixture().await;
-        let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
-        store.create_study("pending-page",&request(&revision,"pending-parent"),&[],&points,&||false).await.unwrap();
-        let cursor=store.readiness_cursor("pending-page").await.unwrap();
-        let coordinates=readiness_coordinates(&store,"pending-page",&cursor,"verify",None).unwrap();
+        let (store, database, revision) = fixture().await;
+        let points = (0..4)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        store
+            .create_study(
+                "pending-page",
+                &request(&revision, "pending-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("pending-page").await.unwrap();
+        let coordinates =
+            readiness_coordinates(&store, "pending-page", &cursor, "verify", None).unwrap();
 
         // The prepare acknowledgment may disappear: the exact original request,
         // parent attribution and Unsettled owner remain reachable by study alone.
-        let original=prepare_readiness_test(&store,&coordinates,"pending-original").await;
-        assert_eq!(store.pending_readiness_page("pending-page").await.unwrap().unwrap().operation,"pending-original");
+        let original = prepare_readiness_test(&store, &coordinates, "pending-original").await;
+        assert_eq!(
+            store
+                .pending_readiness_page("pending-page")
+                .await
+                .unwrap()
+                .unwrap()
+                .operation,
+            "pending-original"
+        );
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,'pending-original','pending-page','pending-parent',$before,'fenced:known');")
             .bind(("before",original.epoch.clone()))).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("epoch"),Some(&Value::String("fenced:known".into())));
-        let late=apply_readiness_test(&store,&original,65).await;
-        assert_eq!(late.get("fenced"),Some(&Value::Bool(true)),"a delayed original dispatcher cannot commit after the native epoch write");
-        let pending=store.pending_readiness_page("pending-page").await.unwrap().unwrap();
-        let partial=apply_readiness_test(&store,&pending,1).await;
-        assert_eq!(partial.get("settled"),Some(&Value::Bool(false)));
-        assert!(store.pending_readiness_page("pending-page").await.unwrap().is_some());
-        let state=std::env::var("PSE_SURREAL_STATE").unwrap();
-        let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
-        options.database=database;
-        let restarted=crate::testing::canonical_fixture_peer(&store,&options).unwrap();
+        assert_eq!(
+            response
+                .take::<Option<Object>>(0)
+                .unwrap()
+                .unwrap()
+                .get("epoch"),
+            Some(&Value::String("fenced:known".into()))
+        );
+        let late = apply_readiness_test(&store, &original, 65).await;
+        assert_eq!(
+            late.get("fenced"),
+            Some(&Value::Bool(true)),
+            "a delayed original dispatcher cannot commit after the native epoch write"
+        );
+        let pending = store
+            .pending_readiness_page("pending-page")
+            .await
+            .unwrap()
+            .unwrap();
+        let partial = apply_readiness_test(&store, &pending, 1).await;
+        assert_eq!(partial.get("settled"), Some(&Value::Bool(false)));
+        assert!(
+            store
+                .pending_readiness_page("pending-page")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        let state = std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database = database;
+        let restarted = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
         // Recovery starts from the persisted operation, not a newly derived page
         // or a fresh operation UUID. A committed prefix must not be appended twice.
-        assert_eq!(restarted.repair_study_readiness("pending-page").await.unwrap().examined,4);
-        assert!(restarted.pending_readiness_page("pending-page").await.unwrap().is_none());
+        assert_eq!(
+            restarted
+                .repair_study_readiness("pending-page")
+                .await
+                .unwrap()
+                .examined,
+            4
+        );
+        assert!(
+            restarted
+                .pending_readiness_page("pending-page")
+                .await
+                .unwrap()
+                .is_none()
+        );
         let mut response=bounded_query(restarted.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'pending-original','pending-page','pending-parent');")).await.unwrap();
-        let settled=response.take::<Option<Object>>(0).unwrap().unwrap();
-        validate_repair_outcomes(&settled,&original.keys).unwrap();
-        let mut response=bounded_query(restarted.db.query("SELECT * FROM ONLY type::record('canonical_history_obligations','pending-original');")).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("released"),Some(&Value::Bool(true)));
+        let settled = response.take::<Option<Object>>(0).unwrap().unwrap();
+        validate_repair_outcomes(&settled, &original.keys).unwrap();
+        let mut response = bounded_query(restarted.db.query(
+            "SELECT * FROM ONLY type::record('canonical_history_obligations','pending-original');",
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            response
+                .take::<Option<Object>>(0)
+                .unwrap()
+                .unwrap()
+                .get("released"),
+            Some(&Value::Bool(true))
+        );
         restarted.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
     async fn canonical_studies_readiness_epoch_race_settles_one_original_page() {
-        let (store,database,revision)=fixture().await;
-        let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
-        store.create_study("epoch-race",&request(&revision,"race-parent"),&[],&points,&||false).await.unwrap();
-        let cursor=store.readiness_cursor("epoch-race").await.unwrap();
-        let coordinates=readiness_coordinates(&store,"epoch-race",&cursor,"verify",None).unwrap();
+        let (store, database, revision) = fixture().await;
+        let points = (0..4)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        store
+            .create_study(
+                "epoch-race",
+                &request(&revision, "race-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("epoch-race").await.unwrap();
+        let coordinates =
+            readiness_coordinates(&store, "epoch-race", &cursor, "verify", None).unwrap();
 
-        let pending=prepare_readiness_test(&store,&coordinates,"race-original").await;
-        let state=std::env::var("PSE_SURREAL_STATE").unwrap();
-        let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
-        options.database=database;
-        let peer=crate::testing::canonical_fixture_peer(&store,&options).unwrap();
-        let start=tokio::sync::Barrier::new(2);
-        let apply=async {
+        let pending = prepare_readiness_test(&store, &coordinates, "race-original").await;
+        let state = std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database = database;
+        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let start = tokio::sync::Barrier::new(2);
+        let apply = async {
             start.wait().await;
             bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_apply_page($pse_rpc_expires_at,'race-original','epoch-race','race-parent',$epoch,65);")
                 .bind(("epoch",pending.epoch.clone()))).await
         };
-        let fence=async {
+        let fence = async {
             start.wait().await;
             bounded_query(peer.db.query("RETURN fn::pse_study_v1::readiness_fence_page($pse_rpc_expires_at,'race-original','epoch-race','race-parent',$before,'fenced:race');")
                 .bind(("before",pending.epoch.clone()))).await
         };
-        let (apply,fence)=tokio::join!(apply,fence);
+        let (apply, fence) = tokio::join!(apply, fence);
         assert!(apply.is_ok() || fence.is_ok());
-        for result in [&apply,&fence] {
-            if let Err(error)=result {
-                assert!(matches!(error,CanonicalError::Driver(error) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))),"{error}");
+        for result in [&apply, &fence] {
+            if let Err(error) = result {
+                assert!(
+                    matches!(error,CanonicalError::Driver(error) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))),
+                    "{error}"
+                );
             }
         }
-        if let Some(pending)=peer.pending_readiness_page("epoch-race").await.unwrap() {
-            peer.resume_readiness_page(pending,true).await.unwrap();
+        if let Some(pending) = peer.pending_readiness_page("epoch-race").await.unwrap() {
+            peer.resume_readiness_page(pending, true).await.unwrap();
         }
         let mut response=bounded_query(peer.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'race-original','epoch-race','race-parent');")).await.unwrap();
-        validate_repair_outcomes(&response.take::<Option<Object>>(0).unwrap().unwrap(),&pending.keys).unwrap();
-        assert!(peer.pending_readiness_page("epoch-race").await.unwrap().is_none());
+        validate_repair_outcomes(
+            &response.take::<Option<Object>>(0).unwrap().unwrap(),
+            &pending.keys,
+        )
+        .unwrap();
+        assert!(
+            peer.pending_readiness_page("epoch-race")
+                .await
+                .unwrap()
+                .is_none()
+        );
         let mut response=bounded_query(peer.db.query("RETURN array::len(SELECT key FROM canonical_execution_operations WHERE kind='study-readiness-repair-page');")).await.unwrap();
-        assert_eq!(response.take::<Option<i64>>(0).unwrap(),Some(1));
+        assert_eq!(response.take::<Option<i64>>(0).unwrap(), Some(1));
         peer.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
     async fn canonical_studies_readiness_known_refusal_consumes_reservation_without_full_receipt() {
-        let (store,_,revision)=fixture().await;
-        let points=[occurrence(&revision,0,vec![])];
-        store.create_study("no-effect-page",&request(&revision,"no-effect-parent"),&[],&points,&||false).await.unwrap();
-        let cursor=store.readiness_cursor("no-effect-page").await.unwrap();
-        let coordinates=readiness_coordinates(&store,"no-effect-page",&cursor,"verify",None).unwrap();
-        let pending=prepare_readiness_test(&store,&coordinates,"no-effect-original").await;
+        let (store, _, revision) = fixture().await;
+        let points = [occurrence(&revision, 0, vec![])];
+        store
+            .create_study(
+                "no-effect-page",
+                &request(&revision, "no-effect-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("no-effect-page").await.unwrap();
+        let coordinates =
+            readiness_coordinates(&store, "no-effect-page", &cursor, "verify", None).unwrap();
+        let pending = prepare_readiness_test(&store, &coordinates, "no-effect-original").await;
         // An independently committed fact update can make a reserved page
         // inadmissible. The pure guest refuses, rather than leaking its owner.
-        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_study_points',$point) SET facts=$facts;")
-            .bind(("point",point_key("no-effect-page",OccurrenceKey(0)))).bind(("facts",Bytes::from(vec![42])))).await.unwrap();
-        let applied=apply_readiness_test(&store,&pending,65).await;
-        assert_eq!(applied.get("settled"),Some(&Value::Bool(true)));
-        assert!(store.pending_readiness_page("no-effect-page").await.unwrap().is_none());
-        let current=store.readiness_cursor("no-effect-page").await.unwrap();
-        assert!(current.revision>cursor.revision,"even refused/no-effect completion consumes the original reservation fence");
+        bounded_query(
+            store
+                .db
+                .query(
+                    "UPDATE ONLY type::record('canonical_study_points',$point) SET facts=$facts;",
+                )
+                .bind(("point", point_key("no-effect-page", OccurrenceKey(0))))
+                .bind(("facts", Bytes::from(vec![42]))),
+        )
+        .await
+        .unwrap();
+        let applied = apply_readiness_test(&store, &pending, 65).await;
+        assert_eq!(applied.get("settled"), Some(&Value::Bool(true)));
+        assert!(
+            store
+                .pending_readiness_page("no-effect-page")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let current = store.readiness_cursor("no-effect-page").await.unwrap();
+        assert!(
+            current.revision > cursor.revision,
+            "even refused/no-effect completion consumes the original reservation fence"
+        );
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,'delayed-other-uuid',$coordinates);").bind(("coordinates",coordinates))).await.unwrap();
-        assert!(response.take::<Option<Object>>(0).unwrap().is_none(),"a delayed competing prepare cannot reuse a completed cursor reservation under a fresh UUID");
+        assert!(
+            response.take::<Option<Object>>(0).unwrap().is_none(),
+            "a delayed competing prepare cannot reuse a completed cursor reservation under a fresh UUID"
+        );
         let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations','no-effect-original');")).await.unwrap();
-        let row=wire::decode_canonical_execution_operations(response.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();
+        let row = wire::decode_canonical_execution_operations(
+            response.take::<Option<Object>>(0).unwrap().unwrap(),
+        )
+        .unwrap();
         assert!(row.minimal && row.request.is_empty() && row.result.is_empty());
-        assert_eq!(row.disposition,"refused");
+        assert_eq!(row.disposition, "refused");
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'no-effect-original','no-effect-page','no-effect-parent');")).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("refusal"),Some(&Value::Bool(true)));
+        assert_eq!(
+            response
+                .take::<Option<Object>>(0)
+                .unwrap()
+                .unwrap()
+                .get("refusal"),
+            Some(&Value::Bool(true))
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
     async fn canonical_studies_readiness_receipts_outlive_payloads_but_not_history_release() {
         use crate::canonical_history::HistoryOwner;
-        let (store,_,revision)=fixture().await;
-        let points=[occurrence(&revision,0,vec![])];
-        store.create_study("receipt-lifetime",&request(&revision,"receipt-parent"),&[],&points,&||false).await.unwrap();
-        let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
-        let coordinates=readiness_coordinates(&store,"receipt-lifetime",&cursor,"verify",None).unwrap();
+        let (store, _, revision) = fixture().await;
+        let points = [occurrence(&revision, 0, vec![])];
+        store
+            .create_study(
+                "receipt-lifetime",
+                &request(&revision, "receipt-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let cursor = store.readiness_cursor("receipt-lifetime").await.unwrap();
+        let coordinates =
+            readiness_coordinates(&store, "receipt-lifetime", &cursor, "verify", None).unwrap();
 
-        let pending=prepare_readiness_test(&store,&coordinates,"retained-repair").await;
-        let mut applied=apply_readiness_test(&store,&pending,65).await;
-        let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
-        validate_repair_outcomes(&original,&pending.keys).unwrap();
-        let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
-        let late_coordinates=readiness_coordinates(&store,"receipt-lifetime",&cursor,"rebuild",None).unwrap();
-        let _late=prepare_readiness_test(&store,&late_coordinates,"late-repair").await;
+        let pending = prepare_readiness_test(&store, &coordinates, "retained-repair").await;
+        let mut applied = apply_readiness_test(&store, &pending, 65).await;
+        let original = readiness_object(codec::required(&mut applied, "result").unwrap()).unwrap();
+        validate_repair_outcomes(&original, &pending.keys).unwrap();
+        let cursor = store.readiness_cursor("receipt-lifetime").await.unwrap();
+        let late_coordinates =
+            readiness_coordinates(&store, "receipt-lifetime", &cursor, "rebuild", None).unwrap();
+        let _late = prepare_readiness_test(&store, &late_coordinates, "late-repair").await;
         store.cancel_study("receipt-lifetime").await.unwrap();
-        let scope=store.study_scope(&point_key("receipt-lifetime",OccurrenceKey(0))).await.unwrap();
-        let action=scope.action(None).unwrap();
-        store.refuse_study_point(&scope,&action,None).await.unwrap();
-        let summary=store.canonical_study_summary("receipt-lifetime").await.unwrap().unwrap();
-        let fence=store.begin_study_finalization(&summary,"summary-worker",Duration::from_secs(60)).await.unwrap().unwrap();
-        let closed=store.close_result_ingestion(&fence,"receipt-summary-close").await.unwrap();
-        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        let scope = store
+            .study_scope(&point_key("receipt-lifetime", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let action = scope.action(None).unwrap();
+        store
+            .refuse_study_point(&scope, &action, None)
+            .await
+            .unwrap();
+        let summary = store
+            .canonical_study_summary("receipt-lifetime")
+            .await
+            .unwrap()
+            .unwrap();
+        let fence = store
+            .begin_study_finalization(&summary, "summary-worker", Duration::from_secs(60))
+            .await
+            .unwrap()
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "receipt-summary-close")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: the summary records only the effect-free cancelled observation.
-        unsafe {store.seal_study_summary("receipt-lifetime",&manifest,"receipt-summary-seal",TerminalClass::Cancelled,b"cancelled fixture").await}.unwrap();
-        assert!(store.study_page(None).await.unwrap().iter().any(|study|study.key=="receipt-lifetime"),
-            "a terminal study with a pending original operation remains discoverable");
-        store.repair_study_readiness("receipt-lifetime").await.unwrap();
-        assert!(store.pending_readiness_page("receipt-lifetime").await.unwrap().is_none(),
-            "recovery precedes cancelled/terminal early exits");
-        assert!(!store.study_page(None).await.unwrap().iter().any(|study|study.key=="receipt-lifetime"));
-        store.forget_study_results("receipt-lifetime").await.unwrap();
+        unsafe {
+            store
+                .seal_study_summary(
+                    "receipt-lifetime",
+                    &manifest,
+                    "receipt-summary-seal",
+                    TerminalClass::Cancelled,
+                    b"cancelled fixture",
+                )
+                .await
+        }
+        .unwrap();
+        assert!(
+            store
+                .study_page(None)
+                .await
+                .unwrap()
+                .iter()
+                .any(|study| study.key == "receipt-lifetime"),
+            "a terminal study with a pending original operation remains discoverable"
+        );
+        store
+            .repair_study_readiness("receipt-lifetime")
+            .await
+            .unwrap();
+        assert!(
+            store
+                .pending_readiness_page("receipt-lifetime")
+                .await
+                .unwrap()
+                .is_none(),
+            "recovery precedes cancelled/terminal early exits"
+        );
+        assert!(
+            !store
+                .study_page(None)
+                .await
+                .unwrap()
+                .iter()
+                .any(|study| study.key == "receipt-lifetime")
+        );
+        store
+            .forget_study_results("receipt-lifetime")
+            .await
+            .unwrap();
         store.forget_run_results("receipt-parent").await.unwrap();
-        let mut complete=false;
-        for _ in 0..8 {if store.reclaim_result_page("receipt-parent").await.unwrap().complete {complete=true;break;}}
-        assert!(complete,"the single empty summary's payload retirement is bounded");
-        let readback=||store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'retained-repair','receipt-lifetime','receipt-parent');");
-        let mut response=bounded_query(readback()).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap(),original,"payload retirement does not erase exact maintenance settlement evidence");
-        let owner=HistoryOwner::Run("receipt-parent".into());
+        let mut complete = false;
+        for _ in 0..8 {
+            if store
+                .reclaim_result_page("receipt-parent")
+                .await
+                .unwrap()
+                .complete
+            {
+                complete = true;
+                break;
+            }
+        }
+        assert!(
+            complete,
+            "the single empty summary's payload retirement is bounded"
+        );
+        let readback = || {
+            store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,'retained-repair','receipt-lifetime','receipt-parent');")
+        };
+        let mut response = bounded_query(readback()).await.unwrap();
+        assert_eq!(
+            response.take::<Option<Object>>(0).unwrap().unwrap(),
+            original,
+            "payload retirement does not erase exact maintenance settlement evidence"
+        );
+        let owner = HistoryOwner::Run("receipt-parent".into());
         store.release_history(&owner).await.unwrap();
-        assert!(bounded_query(readback()).await.is_err(),"detailed history release is unavailable, never absence authorizing replay");
-        for _ in 0..8 {if store.reclaim_history_page(&owner).await.unwrap().complete {break;}}
+        assert!(
+            bounded_query(readback()).await.is_err(),
+            "detailed history release is unavailable, never absence authorizing replay"
+        );
+        for _ in 0..8 {
+            if store.reclaim_history_page(&owner).await.unwrap().complete {
+                break;
+            }
+        }
         assert!(bounded_query(readback()).await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
     async fn canonical_studies_readiness_byte_limited_pages_keep_explicit_continuation() {
-        let (store,_,revision)=fixture().await;
-        let mut points=(0..9).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
-        points.push(occurrence(&revision,9,(0..9).map(|key|Dependency::Ordering(OccurrenceKey(key))).collect()));
-        store.create_study("byte-page",&request(&revision,"byte-parent"),&[],&points,&||false).await.unwrap();
+        let (store, _, revision) = fixture().await;
+        let mut points = (0..9)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        points.push(occurrence(
+            &revision,
+            9,
+            (0..9)
+                .map(|key| Dependency::Ordering(OccurrenceKey(key)))
+                .collect(),
+        ));
+        store
+            .create_study(
+                "byte-page",
+                &request(&revision, "byte-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
         for occurrence in 0..9 {
-            let key=point_key("byte-page",OccurrenceKey(occurrence));
-            let scope=store.study_scope(&key).await.unwrap();
-            let mut facts=scope.point.facts.as_slice().to_vec();
-            facts.resize(128*1024,b' ');
-            bounded_query(store.db.query("UPDATE ONLY type::record('canonical_study_points',$key) SET facts=$facts;")
-                .bind(("key",key)).bind(("facts",Bytes::from(facts)))).await.unwrap();
+            let key = point_key("byte-page", OccurrenceKey(occurrence));
+            let scope = store.study_scope(&key).await.unwrap();
+            let mut facts = scope.point.facts.as_slice().to_vec();
+            facts.resize(128 * 1024, b' ');
+            bounded_query(
+                store
+                    .db
+                    .query(
+                        "UPDATE ONLY type::record('canonical_study_points',$key) SET facts=$facts;",
+                    )
+                    .bind(("key", key))
+                    .bind(("facts", Bytes::from(facts))),
+            )
+            .await
+            .unwrap();
         }
-        let mut cursor=store.readiness_cursor("byte-page").await.unwrap();
-        let first=native_scope_test(&store,"byte-page",&cursor).await;
-        let Value::Array(items)=first.get("items").unwrap() else {unreachable!()};
-        assert!(items.len()<9 && !items.is_empty());
-        let fence=readiness_object(first.get("fence").unwrap().clone()).unwrap();
-        assert_eq!(fence.get("exhausted"),Some(&Value::Bool(false)));
-        cursor.verify_after=Some(codec::decode_uint(fence.get("next_ordinal").unwrap().clone()).unwrap());
-        let second=native_scope_test(&store,"byte-page",&cursor).await;
-        let fence=readiness_object(second.get("fence").unwrap().clone()).unwrap();
-        assert_eq!(fence.get("exhausted"),Some(&Value::Bool(false)));
-        cursor.verify_after=Some(8);
-        let coordinates=readiness_coordinates(&store,"byte-page",&cursor,"verify",None).unwrap();
+        let mut cursor = store.readiness_cursor("byte-page").await.unwrap();
+        let first = native_scope_test(&store, "byte-page", &cursor).await;
+        let Value::Array(items) = first.get("items").unwrap() else {
+            unreachable!()
+        };
+        assert!(items.len() < 9 && !items.is_empty());
+        let fence = readiness_object(first.get("fence").unwrap().clone()).unwrap();
+        assert_eq!(fence.get("exhausted"), Some(&Value::Bool(false)));
+        cursor.verify_after =
+            Some(codec::decode_uint(fence.get("next_ordinal").unwrap().clone()).unwrap());
+        let second = native_scope_test(&store, "byte-page", &cursor).await;
+        let fence = readiness_object(second.get("fence").unwrap().clone()).unwrap();
+        assert_eq!(fence.get("exhausted"), Some(&Value::Bool(false)));
+        cursor.verify_after = Some(8);
+        let coordinates =
+            readiness_coordinates(&store, "byte-page", &cursor, "verify", None).unwrap();
         let error=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,$coordinates.study,$coordinates.cursor,$coordinates.mode,$coordinates.after,$coordinates.source,64);").bind(("coordinates",coordinates))).await.err().unwrap();
-        assert!(error.to_string().contains("study_readiness_single_scope_extent"),"{error}");
+        assert!(
+            error
+                .to_string()
+                .contains("study_readiness_single_scope_extent"),
+            "{error}"
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -4654,10 +5307,13 @@ mod readiness_settlement_tests {
     fn committed_policy_refusal_retains_operation_and_is_not_transaction_absence() {
         let mut result = Object::new();
         result.insert("refusal", true);
-        let error = settled_readiness_count(&result, &["point".into()], "original-operation").unwrap_err();
-        assert!(matches!(&error, CanonicalError::SettledPolicyRefusal { code, operation }
+        let error =
+            settled_readiness_count(&result, &["point".into()], "original-operation").unwrap_err();
+        assert!(
+            matches!(&error, CanonicalError::SettledPolicyRefusal { code, operation }
             if *code == pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessPolicyRefused
-                && operation == "original-operation"));
+                && operation == "original-operation")
+        );
         assert!(!error.effect_is_unknown());
         assert!(!error.source_transaction_refused());
         assert!(!error.proves_source_refusal());

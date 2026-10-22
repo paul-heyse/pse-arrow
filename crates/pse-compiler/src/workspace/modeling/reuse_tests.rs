@@ -1100,7 +1100,10 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         generation,
         0,
         "ordinary reference publication retains its generation; retained={:?}",
-        { let s = workspace.observe_retention(); (s.entries, s.known_bytes) }
+        {
+            let s = workspace.observe_retention();
+            (s.entries, s.known_bytes)
+        }
     );
     let prepare_reference = |workspace: &mut CompilerWorkspace| {
         workspace
@@ -1224,7 +1227,10 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
             &unrelated.admitted.bodies[key].math
         ));
     }
-    let (entries, bytes) = { let s = workspace.observe_retention(); (s.entries, s.known_bytes) };
+    let (entries, bytes) = {
+        let s = workspace.observe_retention();
+        (s.entries, s.known_bytes)
+    };
     assert!(entries <= workspace.limits.retained_entries, "{entries}");
     assert!(bytes <= workspace.limits.retained_bytes, "{bytes}");
 }
@@ -1282,7 +1288,10 @@ fn generation_bounds_survive_edit_deletion_and_root_switch_churn() {
         if n % 20 == 0 {
             escaped.push(product);
         }
-        let (entries, bytes) = { let s = workspace.observe_retention(); (s.entries, s.known_bytes) };
+        let (entries, bytes) = {
+            let s = workspace.observe_retention();
+            (s.entries, s.known_bytes)
+        };
         assert!(
             entries <= workspace.limits.retained_entries,
             "iteration {n}: {entries}"
@@ -1396,8 +1405,10 @@ fn receiving_model_refreshes_worker_error_locations_while_sharing_numerical_prog
 #[test]
 fn retention_observation_is_exclusive_owned_and_explicitly_fresh() {
     let mut workspace = CompilerWorkspace::new(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
-    ).unwrap();
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     assert_eq!(workspace.retention_snapshot(), None);
     let first = workspace.observe_retention();
     assert!(first.entries > 0);
@@ -1405,7 +1416,10 @@ fn retention_observation_is_exclusive_owned_and_explicitly_fresh() {
     workspace.db.synthetic_write(salsa::Durability::LOW);
     // Read-only diagnostics expose the old observation rather than cancelling readers.
     assert_eq!(workspace.retention_snapshot(), Some(first));
-    assert_eq!(workspace.retention_usage(), Some((first.entries, first.known_bytes)));
+    assert_eq!(
+        workspace.retention_usage(),
+        Some((first.entries, first.known_bytes))
+    );
     assert_eq!(workspace.metadata_bytes(), Some(first.metadata_bytes));
     let next = workspace.observe_retention();
     assert_ne!(next.revision, first.revision);
@@ -1419,8 +1433,10 @@ fn retention_observation_is_exclusive_owned_and_explicitly_fresh() {
 #[test]
 fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
     let mut workspace = CompilerWorkspace::new(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
-    ).unwrap();
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     let reader = workspace.db.clone();
     let (ready, started) = std::sync::mpsc::channel();
     let worker = std::thread::spawn(move || {
@@ -1428,8 +1444,13 @@ fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         while salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
             reader.unwind_if_revision_cancelled();
-        })).is_ok() {
-            assert!(std::time::Instant::now() < deadline, "observation did not cancel reader");
+        }))
+        .is_ok()
+        {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "observation did not cancel reader"
+            );
             std::thread::yield_now();
         }
         drop(reader);
@@ -1445,30 +1466,49 @@ fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
     let executions = Arc::new(AtomicUsize::new(0));
     let observed = executions.clone();
     let mut workspace = CompilerWorkspace::with_events(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
         Some(Box::new(move |event: salsa::Event| {
             let event = format!("{:?}", event.kind);
             if event.contains("WillExecute") && event.contains("specialized(") {
                 observed.fetch_add(1, Ordering::Relaxed);
             }
         })),
-    ).unwrap();
-    let declarations = rows("package p {def Root {var x:Scalar; var y:Scalar; let lazy:Scalar=x+y; eq e:x==1;}}");
-    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+    )
+    .unwrap();
+    let declarations =
+        rows("package p {def Root {var x:Scalar; var y:Scalar; let lazy:Scalar=x+y; eq e:x==1;}}");
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
     let instance = InstanceId::from_id(SemanticId::NIL);
     let specialize = |workspace: &mut CompilerWorkspace, paths: &[&str]| {
-        workspace.specialize_modeling(root, instance, Bindings {
-            demand: paths.iter().map(|path| (*path).to_owned()).collect(),
-            ..Bindings::default()
-        }, Limits::default()).unwrap()
+        workspace
+            .specialize_modeling(
+                root,
+                instance,
+                Bindings {
+                    demand: paths.iter().map(|path| (*path).to_owned()).collect(),
+                    ..Bindings::default()
+                },
+                Limits::default(),
+            )
+            .unwrap()
     };
     let base = specialize(&mut workspace, &[]);
     assert_eq!(executions.load(Ordering::Relaxed), 1);
     let x = specialize(&mut workspace, &["x"]);
     let y = specialize(&mut workspace, &["y"]);
     let x_again = specialize(&mut workspace, &["x"]);
-    assert!(Arc::ptr_eq(&x, &x_again), "A/B/A reuses the exact observation product");
+    assert!(
+        Arc::ptr_eq(&x, &x_again),
+        "A/B/A reuses the exact observation product"
+    );
     assert_eq!(executions.load(Ordering::Relaxed), 1);
     assert_eq!(x.symbols, base.symbols);
     assert_eq!(y.symbols, base.symbols);
@@ -1486,32 +1526,52 @@ fn instance_prelude_is_local_to_membership_and_static_meaning() {
     let executions = Arc::new(AtomicUsize::new(0));
     let observed = executions.clone();
     let mut workspace = CompilerWorkspace::with_events(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
         Some(Box::new(move |event: salsa::Event| {
             let event = format!("{:?}", event.kind);
             if event.contains("WillExecute") && event.contains("instance_prelude(") {
                 observed.fetch_add(1, Ordering::Relaxed);
             }
         })),
-    ).unwrap();
+    )
+    .unwrap();
     let original = "package p {def Root {var x:Scalar; eq a:x==1;}}";
     let mut root = None;
     for (source, expected) in [
         (original, 1),
         ("package p {def Root {var x:Scalar; eq a:x==2;}}", 1),
-        ("package p {def Root {var x:Scalar; eq a:x==2; eq b:x==3;}}", 2),
+        (
+            "package p {def Root {var x:Scalar; eq a:x==2; eq b:x==3;}}",
+            2,
+        ),
         (original, 2),
     ] {
         let declarations = rows(source);
-        let selected_root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let selected_root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
         assert_eq!(*root.get_or_insert(selected_root), selected_root);
-        let revision = workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
         let bindings = Bindings::default();
         let instance = pse_modeling::specialize::root_instance(selected_root);
-        let incremental = workspace.specialize_modeling(selected_root, instance, bindings.clone(), Limits::default()).unwrap();
+        let incremental = workspace
+            .specialize_modeling(selected_root, instance, bindings.clone(), Limits::default())
+            .unwrap();
         let clean = pse_modeling::specialize::specialize_with_discretizer(
-            revision.checked(), selected_root, instance, &bindings, Limits::default(), &|| false, &LibraryDiscretizer,
-        ).unwrap();
+            revision.checked(),
+            selected_root,
+            instance,
+            &bindings,
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
         assert_eq!(executions.load(Ordering::Relaxed), expected);
     }
@@ -1522,15 +1582,18 @@ fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution()
     let executions = Arc::new(AtomicUsize::new(0));
     let observed = executions.clone();
     let mut workspace = CompilerWorkspace::with_events(
-        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
         Some(Box::new(move |event: salsa::Event| {
             let event = format!("{:?}", event.kind);
             if event.contains("WillExecute") && event.contains("function_fragment(") {
                 observed.fetch_add(1, Ordering::Relaxed);
             }
         })),
-    ).unwrap();
-    let original = "package p {fn law(x:Scalar)->Scalar=x*x; def Root {var x:Scalar;eq e:law(x)==1;}}";
+    )
+    .unwrap();
+    let original =
+        "package p {fn law(x:Scalar)->Scalar=x*x; def Root {var x:Scalar;eq e:law(x)==1;}}";
     for (source, expected) in [
         (original.to_owned(), 1),
         (original.replace("==1", "==2"), 1),
@@ -1538,13 +1601,28 @@ fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution()
         (format!("\n{original}"), 3),
     ] {
         let declarations = rows(&source);
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let revision = workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
         let instance = pse_modeling::specialize::root_instance(root);
-        let incremental = workspace.specialize_modeling(root, instance, Bindings::default(), Limits::default()).unwrap();
+        let incremental = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
         let clean = pse_modeling::specialize::specialize_with_discretizer(
-            revision.checked(), root, instance, &Bindings::default(), Limits::default(), &|| false, &LibraryDiscretizer,
-        ).unwrap();
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
         assert_eq!(executions.load(Ordering::Relaxed), expected);
     }
@@ -1552,123 +1630,333 @@ fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution()
 
 #[test]
 fn shared_typed_function_math_preserves_distinct_original_callable_selections() {
-    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
-    let declarations = rows("package p {fn first(x:Scalar)->Scalar=x; fn second(x:Scalar)->Scalar=x; fn apply(method:Fn(x:Scalar)->Scalar,x:Scalar)->Scalar=method(x); def Root {var x:Scalar;eq a:apply(first,x)==1;eq b:apply(second,x)==1;}}");
-    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-    let apply = declarations.iter().find(|row| row.name == "apply").unwrap().declaration_id;
-    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
-    let model = workspace.specialize_modeling(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default()).unwrap();
-    let inspections = model.functions.values().filter(|function| function.id == apply).collect::<Vec<_>>();
-    assert_eq!(inspections.len(), 2, "equivalent arithmetic must retain the two selected original callables");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let declarations = rows(
+        "package p {fn first(x:Scalar)->Scalar=x; fn second(x:Scalar)->Scalar=x; fn apply(method:Fn(x:Scalar)->Scalar,x:Scalar)->Scalar=method(x); def Root {var x:Scalar;eq a:apply(first,x)==1;eq b:apply(second,x)==1;}}",
+    );
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let apply = declarations
+        .iter()
+        .find(|row| row.name == "apply")
+        .unwrap()
+        .declaration_id;
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    let model = workspace
+        .specialize_modeling(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let inspections = model
+        .functions
+        .values()
+        .filter(|function| function.id == apply)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        inspections.len(),
+        2,
+        "equivalent arithmetic must retain the two selected original callables"
+    );
     assert_ne!(inspections[0].body, inspections[1].body);
 }
 
 #[test]
 fn typed_ordinary_fields_reuse_local_bodies_and_preserve_lazy_source_obligations() {
-    let executions=Arc::new(AtomicUsize::new(0));
-    let observed=executions.clone();
-    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
-        let event=format!("{:?}",event.kind);
-        if event.contains("WillExecute") && event.contains("field_fragment(") {observed.fetch_add(1,Ordering::Relaxed);}
-    }))).unwrap();
-    let original="package p {def Root {var x:Scalar;let z:Scalar=x+x;let unused:Scalar=x*x;eq a:z==1;eq b:x*x==2;}}";
-    let mut counts=Vec::new();
-    for source in [original.to_owned(),original.replace("eq b:x*x", "eq b:x+x"),original.to_owned(),original.replace("eq b:x*x", "eq b:x+x*x"),format!("\n{original}")] {
-        let declarations=rows(&source);
-        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-        let instance=pse_modeling::specialize::root_instance(root);
-        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
-        assert_eq!(incremental.as_ref(),&clean);
-        assert!(!incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".unused")));
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("field_fragment(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap();
+    let original = "package p {def Root {var x:Scalar;let z:Scalar=x+x;let unused:Scalar=x*x;eq a:z==1;eq b:x*x==2;}}";
+    let mut counts = Vec::new();
+    for source in [
+        original.to_owned(),
+        original.replace("eq b:x*x", "eq b:x+x"),
+        original.to_owned(),
+        original.replace("eq b:x*x", "eq b:x+x*x"),
+        format!("\n{original}"),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert!(
+            !incremental
+                .symbols
+                .values()
+                .any(|symbol| symbol.lineage.path.ends_with(".unused"))
+        );
         counts.push(executions.load(Ordering::Relaxed));
     }
-    assert_eq!(counts[0],4,"two original equation operands own four local producers");
-    assert_eq!(counts[1]-counts[0],2,"only changed equation's two fields rebuild; demanded lazy alias belongs to first field");
-    assert_eq!(counts[2],counts[1],"A/B/A reuses original local products");
-    assert_eq!(counts[3]-counts[2],2,"different-sized unrelated body does not change another field's local key");
-    assert_eq!(counts[4]-counts[3],4,"original source shift refreshes each field's original attribution");
+    assert_eq!(
+        counts[0], 4,
+        "two original equation operands own four local producers"
+    );
+    assert_eq!(
+        counts[1] - counts[0],
+        2,
+        "only changed equation's two fields rebuild; demanded lazy alias belongs to first field"
+    );
+    assert_eq!(counts[2], counts[1], "A/B/A reuses original local products");
+    assert_eq!(
+        counts[3] - counts[2],
+        2,
+        "different-sized unrelated body does not change another field's local key"
+    );
+    assert_eq!(
+        counts[4] - counts[3],
+        4,
+        "original source shift refreshes each field's original attribution"
+    );
 }
 
 #[test]
 fn typed_ordinary_fields_preserve_inactive_aliases_and_membership_changes() {
-    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
-    let original="package p {def Root(enabled:Boolean=false) {var x:Scalar;let inactive:Scalar=inactive;when enabled {let chosen:Scalar=x+x;} eq a:(if enabled then chosen else x)==1;}}";
-    for source in [original.to_owned(),original.replace("=false", "=true"),original.to_owned()] {
-        let declarations=rows(&source);
-        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-        let instance=pse_modeling::specialize::root_instance(root);
-        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
-        assert_eq!(incremental.as_ref(),&clean);
-        assert!(!incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".inactive")));
-        assert_eq!(incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".chosen")),source.contains("=true"));
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let original = "package p {def Root(enabled:Boolean=false) {var x:Scalar;let inactive:Scalar=inactive;when enabled {let chosen:Scalar=x+x;} eq a:(if enabled then chosen else x)==1;}}";
+    for source in [
+        original.to_owned(),
+        original.replace("=false", "=true"),
+        original.to_owned(),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert!(
+            !incremental
+                .symbols
+                .values()
+                .any(|symbol| symbol.lineage.path.ends_with(".inactive"))
+        );
+        assert_eq!(
+            incremental
+                .symbols
+                .values()
+                .any(|symbol| symbol.lineage.path.ends_with(".chosen")),
+            source.contains("=true")
+        );
     }
 }
 
 #[test]
 fn inherited_numerical_body_edits_preserve_structural_preludes() {
-    let executions=Arc::new(AtomicUsize::new(0));
-    let observed=executions.clone();
-    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
-        let event=format!("{:?}",event.kind);
-        if event.contains("WillExecute") && event.contains("instance_prelude(") {observed.fetch_add(1,Ordering::Relaxed);}
-    }))).unwrap();
-    let original="package p {interface Base {var x:Scalar;eq inherited:x==2;} def Root:Base {eq local:x==1;}}";
-    for source in [original.to_owned(),original.replace("x==2","x==3"),original.to_owned()] {
-        let declarations=rows(&source);
-        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-        let instance=pse_modeling::specialize::root_instance(root);
-        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
-        assert_eq!(incremental.as_ref(),&clean);
-        assert_eq!(executions.load(Ordering::Relaxed),1,"an interface's numerical child body is not a static construction premise");
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("instance_prelude(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap();
+    let original = "package p {interface Base {var x:Scalar;eq inherited:x==2;} def Root:Base {eq local:x==1;}}";
+    for source in [
+        original.to_owned(),
+        original.replace("x==2", "x==3"),
+        original.to_owned(),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert_eq!(
+            executions.load(Ordering::Relaxed),
+            1,
+            "an interface's numerical child body is not a static construction premise"
+        );
     }
 }
 
 #[test]
 fn ordinary_field_premises_follow_actual_instances_and_forwarded_sources() {
-    let executions=Arc::new(AtomicUsize::new(0));
-    let observed=executions.clone();
-    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
-        let event=format!("{:?}",event.kind);
-        if event.contains("WillExecute") && event.contains("field_fragment(") {observed.fetch_add(1,Ordering::Relaxed);}
-    }))).unwrap();
-    let original="package p {def Unit(k:Scalar) {var x:Scalar;eq e:x==k;} def Root {child a:Unit=Unit(k=1);child b:Unit=Unit(k=2);}}";
-    let mut counts=Vec::new();
-    for source in [original.to_owned(),original.replace("k=2", "k=3"),original.to_owned()] {
-        let declarations=rows(&source);
-        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-        let instance=pse_modeling::specialize::root_instance(root);
-        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
-        assert_eq!(incremental.as_ref(),&clean);
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("field_fragment(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap();
+    let original = "package p {def Unit(k:Scalar) {var x:Scalar;eq e:x==k;} def Root {child a:Unit=Unit(k=1);child b:Unit=Unit(k=2);}}";
+    let mut counts = Vec::new();
+    for source in [
+        original.to_owned(),
+        original.replace("k=2", "k=3"),
+        original.to_owned(),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
         counts.push(executions.load(Ordering::Relaxed));
     }
-    assert_eq!(counts[0],4);
-    assert_eq!(counts[1]-counts[0],2,"another instance of the same definition is not this field's premise");
-    assert_eq!(counts[2],counts[1],"A/B/A retains each actual instance's original source product");
+    assert_eq!(counts[0], 4);
+    assert_eq!(
+        counts[1] - counts[0],
+        2,
+        "another instance of the same definition is not this field's premise"
+    );
+    assert_eq!(
+        counts[2], counts[1],
+        "A/B/A retains each actual instance's original source product"
+    );
 }
 
 #[test]
 fn typed_fields_keep_actual_exchange_premises_and_refuse_changed_endpoints() {
-    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
-    let original="package p {def Cell {boundary surface;var heat:Transfer<EnergyTransferRate,surface,Into>;} def Root {child hot:Cell=Cell();child cold:Cell=Cell();child warm:Cell=Cell();exchange pair between hot.surface and cold.surface;eq e:hot.heat==reflect(pair,cold.heat,Into);}}";
-    for source in [original.to_owned(),original.replace("and cold.surface", "and warm.surface"),original.to_owned()] {
-        let declarations=rows(&source);
-        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-        let instance=pse_modeling::specialize::root_instance(root);
-        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default());
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer);
-        if source==original {
-            assert_eq!(incremental.unwrap().as_ref(),&clean.unwrap());
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let original = "package p {def Cell {boundary surface;var heat:Transfer<EnergyTransferRate,surface,Into>;} def Root {child hot:Cell=Cell();child cold:Cell=Cell();child warm:Cell=Cell();exchange pair between hot.surface and cold.surface;eq e:hot.heat==reflect(pair,cold.heat,Into);}}";
+    for source in [
+        original.to_owned(),
+        original.replace("and cold.surface", "and warm.surface"),
+        original.to_owned(),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental =
+            workspace.specialize_modeling(root, instance, Bindings::default(), Limits::default());
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        );
+        if source == original {
+            assert_eq!(incremental.unwrap().as_ref(), &clean.unwrap());
         } else {
-            assert!(incremental.is_err(),"reflection cannot reuse an exchange that no longer contains its actual source boundary");
+            assert!(
+                incremental.is_err(),
+                "reflection cannot reuse an exchange that no longer contains its actual source boundary"
+            );
             assert!(clean.is_err());
         }
     }
@@ -1676,25 +1964,85 @@ fn typed_fields_keep_actual_exchange_premises_and_refuse_changed_endpoints() {
 
 #[test]
 fn typed_fields_keep_logical_temporal_parameters_across_actual_replicas() {
-    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
-    let original="package p {difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);def Cell(times:Set<Time>={}) {param gain:Scalar=2;var x:Time;when analysis.dynamic {eq ode[i in times]:d(x)/di==gain;}when not analysis.dynamic {eq stationary:x==gain*1{s};}port out:Time=x;}def Root {domain t:Time from 0{s} to 2{s};when analysis.route==analysis.steady {discretize mesh on t using stationary(elements=1,order=1);}when analysis.route==analysis.integrated {discretize mesh on t using integrated(elements=1,order=1);}when analysis.route==analysis.simultaneous {discretize mesh on t using backward(elements=2,order=1);}child cell:Cell=Cell();evolve time_state on cell using t bind times;when analysis.dynamic {eq initial:cell[0{s}].x==0{s};}}}";
-    let declarations=rows(original);
-    let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-    let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
-    let instance=pse_modeling::specialize::root_instance(root);
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let original = "package p {difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);def Cell(times:Set<Time>={}) {param gain:Scalar=2;var x:Time;when analysis.dynamic {eq ode[i in times]:d(x)/di==gain;}when not analysis.dynamic {eq stationary:x==gain*1{s};}port out:Time=x;}def Root {domain t:Time from 0{s} to 2{s};when analysis.route==analysis.steady {discretize mesh on t using stationary(elements=1,order=1);}when analysis.route==analysis.integrated {discretize mesh on t using integrated(elements=1,order=1);}when analysis.route==analysis.simultaneous {discretize mesh on t using backward(elements=2,order=1);}child cell:Cell=Cell();evolve time_state on cell using t bind times;when analysis.dynamic {eq initial:cell[0{s}].x==0{s};}}}";
+    let declarations = rows(original);
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let revision = workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    let instance = pse_modeling::specialize::root_instance(root);
     use pse_modeling::analysis::Route;
-    for route in [Route::Steady,Route::Integrated,Route::Simultaneous,Route::Integrated,Route::Steady] {
-        let bindings=Bindings::default().with_analysis(route);
-        let incremental=workspace.specialize_modeling(root,instance,bindings.clone(),Limits::default()).unwrap();
-        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&bindings,Limits::default(),&||false,&LibraryDiscretizer).unwrap();
-        assert_eq!(incremental.as_ref(),&clean);
-        assert_eq!(incremental.symbols.values().filter(|symbol|symbol.lineage.path.ends_with(".gain")).count(),1);
+    for route in [
+        Route::Steady,
+        Route::Integrated,
+        Route::Simultaneous,
+        Route::Integrated,
+        Route::Steady,
+    ] {
+        let bindings = Bindings::default().with_analysis(route);
+        let incremental = workspace
+            .specialize_modeling(root, instance, bindings.clone(), Limits::default())
+            .unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &bindings,
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert_eq!(
+            incremental
+                .symbols
+                .values()
+                .filter(|symbol| symbol.lineage.path.ends_with(".gain"))
+                .count(),
+            1
+        );
     }
-    let varying=original.replace("param gain:Scalar=2", "param gain:Scalar=sum(i in times | i/1{s})");
-    let revision=workspace.publish_modeling(rows(&varying),PhysicalScope::default()).unwrap();
-    let bindings=Bindings::default().with_analysis(Route::Simultaneous);
-    let incremental=workspace.specialize_modeling(root,instance,bindings.clone(),Limits::default()).unwrap_err();
-    let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&bindings,Limits::default(),&||false,&LibraryDiscretizer).unwrap_err();
-    assert!(incremental.to_string().contains("scalar temporal parameter defaults must agree"),"{incremental}");
-    assert!(clean.to_string().contains("scalar temporal parameter defaults must agree"),"{clean}");
+    let varying = original.replace(
+        "param gain:Scalar=2",
+        "param gain:Scalar=sum(i in times | i/1{s})",
+    );
+    let revision = workspace
+        .publish_modeling(rows(&varying), PhysicalScope::default())
+        .unwrap();
+    let bindings = Bindings::default().with_analysis(Route::Simultaneous);
+    let incremental = workspace
+        .specialize_modeling(root, instance, bindings.clone(), Limits::default())
+        .unwrap_err();
+    let clean = pse_modeling::specialize::specialize_with_discretizer(
+        revision.checked(),
+        root,
+        instance,
+        &bindings,
+        Limits::default(),
+        &|| false,
+        &LibraryDiscretizer,
+    )
+    .unwrap_err();
+    assert!(
+        incremental
+            .to_string()
+            .contains("scalar temporal parameter defaults must agree"),
+        "{incremental}"
+    );
+    assert!(
+        clean
+            .to_string()
+            .contains("scalar temporal parameter defaults must agree"),
+        "{clean}"
+    );
 }

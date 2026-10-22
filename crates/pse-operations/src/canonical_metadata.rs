@@ -41,8 +41,9 @@ impl MetadataResponse {
         let blobs = match self {
             Self::Protection | Self::Page => 0,
             Self::JoinedBlockPage => {
-                crate::canonical_results::PAGE * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
-                    + 2 * size_of::<f64>())
+                crate::canonical_results::PAGE
+                    * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
+                        + 2 * size_of::<f64>())
             }
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
@@ -134,8 +135,14 @@ mod tests {
             pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
         );
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
-        assert_eq!(MetadataResponse::JoinedBlockPage.limits().wire_bytes, wire::RESULT_MESSAGE_BYTES);
-        assert!(MetadataResponse::JoinedBlockPage.limits().nodes > MetadataResponse::Page.limits().nodes);
+        assert_eq!(
+            MetadataResponse::JoinedBlockPage.limits().wire_bytes,
+            wire::RESULT_MESSAGE_BYTES
+        );
+        assert!(
+            MetadataResponse::JoinedBlockPage.limits().nodes
+                > MetadataResponse::Page.limits().nodes
+        );
         assert!(
             MetadataResponse::Protection.allocation_bytes()
                 < MetadataResponse::Header.allocation_bytes()

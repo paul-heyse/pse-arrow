@@ -310,7 +310,13 @@ def recovery_equivalence(
         original["resources"] if expected_resources is None else expected_resources
     ):
         raise server.SupervisorError("Recovery exact resource profile changed")
-    for key in ("credentials_file", "server", "study_module", "study_module_qualification", "payload_verifier"):
+    for key in (
+        "credentials_file",
+        "server",
+        "study_module",
+        "study_module_qualification",
+        "payload_verifier",
+    ):
         if server.reroot_restored(
             original.get(key), str(original_root), restored_root
         ) != restored.get(key):

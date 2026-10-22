@@ -727,7 +727,9 @@ def unadmitted_service_launch_drained(
     if "binding" in launch:
         return False
     config = surreal_server.config_for(state, deadline=deadline)
-    drain_config = surreal_server.storage_launch_drain_config(state, config, launch, deadline=deadline)
+    drain_config = surreal_server.storage_launch_drain_config(
+        state, config, launch, deadline=deadline
+    )
     observed = operation.unit_observation(unit, **operation.deadline_options(deadline))
     if (
         observed.get("LoadState") != "loaded"
@@ -748,7 +750,10 @@ def unadmitted_service_launch_drained(
             for key in ("ActiveState", "ControlGroup", "InvocationID")
         )
         or surreal_server.config_for(state, deadline=deadline) != config
-        or surreal_server.storage_launch_drain_config(state, config, launch, deadline=deadline) != drain_config
+        or surreal_server.storage_launch_drain_config(
+            state, config, launch, deadline=deadline
+        )
+        != drain_config
         or surreal_server.read_json(state / "service-launch.json", deadline=deadline)
         != launch
         or operation.unit_observation(unit, **operation.deadline_options(deadline))
@@ -845,7 +850,9 @@ def service_processes_drained(
                 else:
                     return False  # Live or reused PID is uncertain, not an ACK.
                 config = surreal_server.config_for(state, deadline=deadline)
-                drain_config = surreal_server.storage_launch_drain_config(state, config, launch, deadline=deadline)
+                drain_config = surreal_server.storage_launch_drain_config(
+                    state, config, launch, deadline=deadline
+                )
                 try:
                     observed = operation.unit_observation(
                         unit, **operation.deadline_options(deadline)
@@ -875,7 +882,10 @@ def service_processes_drained(
                         for key in ("ActiveState", "ControlGroup", "InvocationID")
                     )
                     or surreal_server.config_for(state, deadline=deadline) != config
-                    or surreal_server.storage_launch_drain_config(state, config, launch, deadline=deadline) != drain_config
+                    or surreal_server.storage_launch_drain_config(
+                        state, config, launch, deadline=deadline
+                    )
+                    != drain_config
                     or surreal_server.read_json(
                         state / "service-launch.json", deadline=deadline
                     )

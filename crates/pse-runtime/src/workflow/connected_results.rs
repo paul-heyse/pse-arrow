@@ -826,8 +826,11 @@ impl ResultReader {
                 .ok_or_else(|| contract("result index extent"))?;
         }
         for (key, descriptor) in &self.descriptors {
-                bytes = bytes.checked_add(size_of_val(descriptor) + descriptor.heap_bytes() + key.capacity() + 128)
-                    .ok_or_else(|| contract("joined result descriptor extent"))?;
+            bytes = bytes
+                .checked_add(
+                    size_of_val(descriptor) + descriptor.heap_bytes() + key.capacity() + 128,
+                )
+                .ok_or_else(|| contract("joined result descriptor extent"))?;
         }
         Ok(bytes)
     }
@@ -929,7 +932,11 @@ impl ResultReader {
                                 self.exhausted = page.exhausted;
                                 self.after = page.next.or(self.after);
                                 for descriptor in page.batches {
-                                    if self.descriptors.insert(descriptor.key.clone(), descriptor).is_some() {
+                                    if self
+                                        .descriptors
+                                        .insert(descriptor.key.clone(), descriptor)
+                                        .is_some()
+                                    {
                                         return Err(contract("duplicate dense batch descriptor"));
                                     }
                                 }
@@ -944,17 +951,34 @@ impl ResultReader {
                                 }
                                 page.blocks
                             } else {
-                                let joined = self.runtime.canonical_store()?.result_joined_block_page(
-                                    &self.read, &self.set, &self.relation.to_string(), "0",
-                                    self.start, self.end, self.after,
-                                ).await?;
+                                let joined = self
+                                    .runtime
+                                    .canonical_store()?
+                                    .result_joined_block_page(
+                                        &self.read,
+                                        &self.set,
+                                        &self.relation.to_string(),
+                                        "0",
+                                        self.start,
+                                        self.end,
+                                        self.after,
+                                    )
+                                    .await?;
                                 self.exhausted = joined.exhausted;
                                 self.after = joined.next.or(self.after);
                                 if let Some(context) = pse_diagnostics::observation::current() {
-                                    context.count("canonical.result.joined_page_requests", "count", 1);
+                                    context.count(
+                                        "canonical.result.joined_page_requests",
+                                        "count",
+                                        1,
+                                    );
                                 }
                                 for descriptor in joined.batches {
-                                    if self.descriptors.insert(descriptor.key.clone(), descriptor).is_some() {
+                                    if self
+                                        .descriptors
+                                        .insert(descriptor.key.clone(), descriptor)
+                                        .is_some()
+                                    {
                                         return Err(contract("duplicate joined batch descriptor"));
                                     }
                                 }
@@ -977,12 +1001,18 @@ impl ResultReader {
                     },
                 )
                 .await?;
-                self.page_pruning = self.native_selection.as_ref().map(|selection| {
-                    selection.prune_members(&self.runtime, page.len(), |index| {
-                        let block = page.get(index)?;
-                        Some((block, self.descriptors.get(&block.batch)?))
+                self.page_pruning = self
+                    .native_selection
+                    .as_ref()
+                    .map(|selection| {
+                        selection.prune_members(&self.runtime, page.len(), |index| {
+                            let block = page.get(index)?;
+                            Some((block, self.descriptors.get(&block.batch)?))
+                        })
                     })
-                }).transpose().map_err(pse_engine::EngineError::from)?.flatten();
+                    .transpose()
+                    .map_err(pse_engine::EngineError::from)?
+                    .flatten();
                 self.pruning_position = 0;
                 self.pending = page.into();
                 self.metadata_owner = Some(retain_metadata(
@@ -1008,11 +1038,12 @@ impl ResultReader {
                 .descriptors
                 .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected batch descriptor absent"))?;
-            let keep = self.page_pruning.as_ref()
+            let keep = self
+                .page_pruning
+                .as_ref()
                 .is_none_or(|selection| selection.keeps(self.pruning_position));
             self.pruning_position += 1;
-            if !keep
-            {
+            if !keep {
                 self.indexes.remove(&metadata.batch);
                 self.selected_batch = None;
                 self.decode
@@ -1086,9 +1117,12 @@ impl ResultReader {
                     .map_err(pse_engine::EngineError::from)?;
                 let indices = match indexes {
                     OutputRows::Scalar => {
-                        let selection = self.native_selection.as_ref()
+                        let selection = self
+                            .native_selection
+                            .as_ref()
                             .ok_or_else(|| contract("original scalar selection plan absent"))?;
-                        let mask = selection.mask(checked.batch())
+                        let mask = selection
+                            .mask(checked.batch())
                             .map_err(pse_engine::EngineError::from)?;
                         let mut indices = Vec::with_capacity(checked.batch().num_rows());
                         for offset in 0..checked.batch().num_rows() {
@@ -1634,15 +1668,30 @@ impl Runtime {
                 schema.clone(),
             )?,
         };
-        let native_selection = output.as_ref().filter(|filter| !filter.dense).map(|filter| {
-            let expression = super::result_projection::scalar_selection_expression(
-                spec.id, filter.owner, &filter.partition, &filter.field,
-                filter.minimum, filter.maximum, filter.missing,
-            )?;
-            super::result_snapshot::NativeResultSelection::new(
-                self, spec.id, schema.clone(), &self.bound_model().native_state(), expression,
-            ).map_err(pse_engine::EngineError::from).map_err(WorkflowError::from)
-        }).transpose()?;
+        let native_selection = output
+            .as_ref()
+            .filter(|filter| !filter.dense)
+            .map(|filter| {
+                let expression = super::result_projection::scalar_selection_expression(
+                    spec.id,
+                    filter.owner,
+                    &filter.partition,
+                    &filter.field,
+                    filter.minimum,
+                    filter.maximum,
+                    filter.missing,
+                )?;
+                super::result_snapshot::NativeResultSelection::new(
+                    self,
+                    spec.id,
+                    schema.clone(),
+                    &self.bound_model().native_state(),
+                    expression,
+                )
+                .map_err(pse_engine::EngineError::from)
+                .map_err(WorkflowError::from)
+            })
+            .transpose()?;
         let exhausted = start == end || snapshot.as_ref().is_some_and(|s| s.blocks().is_empty());
         Ok(ResultReader {
             observation: None,

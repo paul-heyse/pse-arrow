@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One cooperative stop state shared by numerical callbacks and idle waiters.
-use event_listener::{Event, EventListener};
 #[cfg(not(target_family = "wasm"))]
 use event_listener::Listener;
+use event_listener::{Event, EventListener};
 #[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
 use std::{
