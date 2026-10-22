@@ -185,6 +185,14 @@ struct Request {
     instance: InstanceId,
     bindings: Bindings,
     limits: Limits,
+    structure: StructuralRequest,
+}
+#[salsa::input]
+struct StructuralRequest {
+    root: DeclarationId,
+    instance: InstanceId,
+    bindings: Bindings,
+    limits: Limits,
 }
 /// A process-local bucket hint only. Complete Salsa input fields remain the
 /// equality authority, and the generation owns every handle in the buckets.
@@ -214,6 +222,7 @@ fn request_hash(
 pub(super) struct State {
     pub(super) catalog: Catalog,
     requests: rustc_hash::FxHashMap<u64, Vec<Request>>,
+    structures: rustc_hash::FxHashMap<u64, Vec<StructuralRequest>>,
     request_bytes: usize,
     pub(super) revision: Arc<ModelingRevision>,
     pub(super) input_bytes: usize,
@@ -346,7 +355,7 @@ fn function_contracts(
 fn specialized(
     db: &dyn CompilerDb,
     catalog: Catalog,
-    request: Request,
+    request: StructuralRequest,
 ) -> Result<Arc<SpecializedModel>> {
     let _phase = pse_diagnostics::observation::phase("compiler.query.specialized");
     checkpoint(db);
@@ -362,6 +371,21 @@ fn specialized(
     );
     checkpoint(db);
     result.map(Arc::new).map_err(CompileError::from)
+}
+#[salsa::tracked(returns(clone),lru=256,heap_size=specialized_heap)]
+fn observed_specialization(
+    db: &dyn CompilerDb,
+    catalog: Catalog,
+    request: Request,
+) -> Result<Arc<SpecializedModel>> {
+    let model = specialized(db, catalog, *request.structure(db))?;
+    let paths = model.observation_paths(*request.instance(db), &request.bindings(db).demand);
+    if paths.iter().all(|(path, id)| model.paths.get(path) == Some(id)) {
+        return Ok(model);
+    }
+    let mut observed = model.as_ref().clone();
+    observed.paths.extend(paths);
+    Ok(Arc::new(observed))
 }
 fn selected_heap(v: &Result<Arc<CheckedPackage>>) -> usize {
     v.as_ref().map_or(0, |v| v.retained_bytes())
@@ -727,6 +751,7 @@ impl CompilerWorkspace {
             let catalog = Catalog::new(&self.db, checked);
             selected::set_lru_capacity(&mut self.db, self.limits.query_values);
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
+            observed_specialization::set_lru_capacity(&mut self.db, self.limits.query_values);
             physical_scope::set_lru_capacity(&mut self.db, self.limits.query_values);
             function_contracts::set_lru_capacity(&mut self.db, self.limits.query_values);
             document_table::set_lru_capacity(&mut self.db, self.limits.query_values);
@@ -734,6 +759,7 @@ impl CompilerWorkspace {
             self.modeling = Some(State {
                 catalog,
                 requests: rustc_hash::FxHashMap::default(),
+                structures: rustc_hash::FxHashMap::default(),
                 request_bytes: 0,
                 revision,
                 input_bytes,
@@ -753,7 +779,7 @@ impl CompilerWorkspace {
     ) -> Result<Arc<SpecializedModel>> {
         self.db.cancel = Arc::new(AtomicBool::new(false));
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
-        let result = salsa::Cancelled::catch(|| specialized(&self.db, catalog, request))
+        let result = salsa::Cancelled::catch(|| observed_specialization(&self.db, catalog, request))
             .map_err(|_| CompileError::Cancelled)?;
         self.trim_queries()?;
         result
@@ -775,7 +801,7 @@ impl CompilerWorkspace {
         self.db.cancel = cancel;
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
         let result = salsa::Cancelled::catch(|| {
-            let model = specialized(&self.db, catalog, request)?;
+            let model = observed_specialization(&self.db, catalog, request)?;
             SemanticModeling::admit(
                 model.into(),
                 self.inventory.quantities(&self.db),
@@ -794,7 +820,27 @@ impl CompilerWorkspace {
         limits: Limits,
     ) -> Result<(Catalog, Request)> {
         let hash = request_hash(root, instance, &bindings, limits);
-        self.modeling_request_in_bucket(root, instance, bindings, limits, hash)
+        if bindings.demand.is_empty() {
+            return self.modeling_request_in_bucket(root, instance, bindings, limits, hash);
+        }
+        let mut base_bindings = bindings.clone();
+        base_bindings.demand.clear();
+        let base_hash = request_hash(root, instance, &base_bindings, limits);
+        let (catalog, base) = self.modeling_request_in_bucket(
+            root, instance, base_bindings, limits, base_hash,
+        )?;
+        let base = salsa::Cancelled::catch(|| {
+            specialized(&self.db, catalog, *base.structure(&self.db))
+        }).map_err(|_| CompileError::Cancelled)?;
+        // A demand may make an otherwise absent construction reachable. If the
+        // baseline refuses, retain every demand as structural and let the ordinary
+        // producer establish the exact outcome, rather than guessing from syntax.
+        let mut structural = bindings.clone();
+        if let Ok(base) = base {
+            let observations = base.observation_paths(instance, &bindings.demand);
+            structural.demand.retain(|path| !observations.contains_key(path));
+        }
+        self.modeling_request_with_structure(root, instance, bindings, limits, hash, structural)
     }
     fn modeling_request_in_bucket(
         &mut self,
@@ -803,6 +849,17 @@ impl CompilerWorkspace {
         bindings: Bindings,
         limits: Limits,
         hash: u64,
+    ) -> Result<(Catalog, Request)> {
+        self.modeling_request_with_structure(root, instance, bindings.clone(), limits, hash, bindings)
+    }
+    fn modeling_request_with_structure(
+        &mut self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        hash: u64,
+        structural: Bindings,
     ) -> Result<(Catalog, Request)> {
         if self.retention_exceeded() {
             if let Some(context) = pse_diagnostics::observation::current() {
@@ -864,11 +921,11 @@ impl CompilerWorkspace {
         // conservative table allowance applies even when a hash bucket exists.
         let index_bytes =
             4 * (size_of::<(u64, Vec<Request>)>() + 1) + 2 * size_of::<Request>() + 128;
-        let bytes = binding_bytes
+        let bytes = binding_bytes.saturating_mul(2)
             .saturating_add(
-                size_of::<Bindings>() + size_of::<Limits>() + size_of::<Request>() + 128,
+                2 * (size_of::<Bindings>() + size_of::<Limits>() + size_of::<Request>() + 128),
             )
-            .saturating_add(index_bytes);
+            .saturating_add(index_bytes.saturating_mul(2));
         if bytes > self.limits.input_bytes.saturating_sub(state.input_bytes) {
             return Err(CompileError::Limit("modeling selection bindings"));
         }
@@ -880,9 +937,18 @@ impl CompilerWorkspace {
                 context.count("compiler.request_byte_limit_rotations", "count", 1);
             }
             self.rebuild(self.inputs.clone())?;
-            return self.modeling_request_in_bucket(root, instance, bindings, limits, hash);
+            return self.modeling_request_with_structure(root, instance, bindings, limits, hash, structural);
         }
-        let request = Request::new(&self.db, root, instance, bindings, limits);
+        let structural_hash = request_hash(root, instance, &structural, limits);
+        let structure = state.structures.get(&structural_hash).into_iter().flatten().find(|r| {
+            *r.root(&self.db) == root && *r.instance(&self.db) == instance
+                && r.bindings(&self.db) == &structural && *r.limits(&self.db) == limits
+        }).copied().unwrap_or_else(|| {
+            let request = StructuralRequest::new(&self.db, root, instance, structural, limits);
+            state.structures.entry(structural_hash).or_default().push(request);
+            request
+        });
+        let request = Request::new(&self.db, root, instance, bindings, limits, structure);
         state
             .requests
             .entry(hash)

@@ -3097,6 +3097,32 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// Resolve an observation of an already materialized scalar without creating
+    /// a let, finite member or other structural product. Paths not already issued
+    /// by this model remain structural demands; no absence is guessed from syntax.
+    pub fn observation_paths(
+        &self,
+        instance: InstanceId,
+        paths: &[String],
+    ) -> BTreeMap<String, SemanticId> {
+        let Some(owner) = self.instances.get(&instance) else {
+            return BTreeMap::new();
+        };
+        let by_path = self.symbols.values().map(|symbol| {
+            (symbol.lineage.path.as_str(), symbol.id)
+        }).collect::<BTreeMap<_, _>>();
+        paths.iter().filter_map(|original| {
+            if let Some(id) = self.paths.get(original) {
+                return Some((original.clone(), *id));
+            }
+            let expression = dsl::parse_expr(original).ok()?;
+            let ExprKind::Path(path) = expression.kind else {
+                return None;
+            };
+            let full = format!("{}.{}", owner.path, dsl::render_path(&path));
+            by_path.get(full.as_str()).map(|id| (original.clone(), *id))
+        }).collect()
+    }
     /// Number of required original physical closure checks, excluding accounting reports.
     pub fn required_closure_checks(&self) -> usize {
         self.closures

@@ -1439,3 +1439,44 @@ fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
     worker.join().unwrap();
     assert_eq!(workspace.retention_snapshot(), Some(observed));
 }
+
+#[test]
+fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("specialized(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    ).unwrap();
+    let declarations = rows("package p {def Root {var x:Scalar; var y:Scalar; let lazy:Scalar=x+y; eq e:x==1;}}");
+    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+    let instance = InstanceId::from_id(SemanticId::NIL);
+    let specialize = |workspace: &mut CompilerWorkspace, paths: &[&str]| {
+        workspace.specialize_modeling(root, instance, Bindings {
+            demand: paths.iter().map(|path| (*path).to_owned()).collect(),
+            ..Bindings::default()
+        }, Limits::default()).unwrap()
+    };
+    let base = specialize(&mut workspace, &[]);
+    assert_eq!(executions.load(Ordering::Relaxed), 1);
+    let x = specialize(&mut workspace, &["x"]);
+    let y = specialize(&mut workspace, &["y"]);
+    let x_again = specialize(&mut workspace, &["x"]);
+    assert!(Arc::ptr_eq(&x, &x_again), "A/B/A reuses the exact observation product");
+    assert_eq!(executions.load(Ordering::Relaxed), 1);
+    assert_eq!(x.symbols, base.symbols);
+    assert_eq!(y.symbols, base.symbols);
+    assert!(x.paths.contains_key("x"));
+    assert!(!x.paths.contains_key("y"));
+    assert!(y.paths.contains_key("y"));
+    let lazy = specialize(&mut workspace, &["lazy"]);
+    assert_eq!(executions.load(Ordering::Relaxed), 2);
+    assert_eq!(lazy.symbols.len(), base.symbols.len() + 1);
+    assert!(lazy.paths.contains_key("lazy"));
+}
