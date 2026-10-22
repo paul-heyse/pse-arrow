@@ -1316,6 +1316,13 @@ activity *args:
 codex-session *args:
     exec "{{ py }}" -m scripts.codex_session "$@"
 
+[group('discovery')]
+[doc('Select recipe grammar, native plan scope and changed-file context without executing work')]
+[positional-arguments]
+[script("bash", "-euo", "pipefail")]
+context *args:
+    exec "{{ py }}" -m scripts.workspace_context "$@"
+
 [group('env')]
 [doc('Second working copy for a parallel agent: just worktree <name> [--ref REF] [--python|--native]')]
 [positional-arguments]

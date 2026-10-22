@@ -115,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         "--base", default="HEAD", help="compare the working tree to REF"
     )
     parser.add_argument("--run", action="store_true", help="run the selection")
+    parser.add_argument("--json", action="store_true", help="structured preview with the same selection and exclusions")
     parser.add_argument("--features", default="", help="extra cargo features")
     parser.add_argument("nextest", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
@@ -138,22 +139,12 @@ def main(argv: list[str] | None = None) -> int:
             seeds.add(name)
         elif not path.startswith(("python/", "docs/")) and path not in WORKSPACE_WIDE:
             unowned.append(f"{status} {path}")
-    print(
-        f"affected: {len(changes)} changed file(s) against {args.base} (staged, unstaged, deleted, untracked)"
-    )
-    if not changes:
-        print("affected: nothing changed")
-        return 0
     selected = sorted(closure(seeds, dependents)) if not wide else sorted(roots)
     command = ["cargo", "nextest", "run", "--locked"]
     if args.features:
         command += ["--features", args.features]
     if wide:
         command.append("--workspace")
-        print(
-            "affected: root build configuration changed -> whole workspace: "
-            + ", ".join(wide[:5])
-        )
     else:
         for name in selected:
             command += ["-p", name]
@@ -163,37 +154,30 @@ def main(argv: list[str] | None = None) -> int:
     command += extra
     if seeds or wide:
         command = compose(command)
-    print("affected: changed packages: " + (", ".join(sorted(seeds)) or "none"))
-    if not wide:
-        print(
-            f"affected: packages built: {len(selected)} (changed packages and their reverse dependencies)"
-        )
     native = sorted(NATIVE_PACKAGES & set(selected))
-    print("not covered by this selection:")
-    print(
-        "  - feature-gated tests: native packages reached ("
-        + (", ".join(native) or "none")
-        + ")"
-        + (
-            f"; add --features {NATIVE_FEATURES} and run under --run for their native tests"
-            if native and not args.features
-            else ""
-        )
-    )
-    if python:
-        print(
-            f"  - Python consumers ({len(python)} file(s)): run just py-unit, and just py-test for component tests"
-        )
-    if generators:
-        print(
-            f"  - generator/registry inputs ({len(generators)} file(s)): run just codegen, then just codegen-check"
-        )
-    if unowned:
-        print("  - changes outside any package: " + "; ".join(unowned[:8]))
-    print(
-        "  - behaviour reached only through data, fixtures or other processes is not inferred"
-    )
-    print("command: " + shlex.join(command))
+    exclusions = [
+        {"kind": "feature-gated-native", "packages": native, "route": "--features " + NATIVE_FEATURES},
+        {"kind": "python", "files": python, "route": "just py-unit; just py-test for components"},
+        {"kind": "generator", "files": generators, "route": "just codegen; just codegen-check at scope end"},
+        {"kind": "unowned", "files": unowned},
+        {"kind": "dynamic", "meaning": "data, fixtures and external-process reach is not inferred"},
+    ]
+    result = {"schema": "affected-preview-v1", "base": args.base, "changes": changes,
+              "changed_packages": sorted(seeds), "selected_packages": selected,
+              "workspace_widening": wide, "command": command if seeds or wide else None,
+              "exclusions": exclusions, "qualification": "dependency reach only; not exhaustive behavior coverage"}
+    if args.json:
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(f"affected: {len(changes)} changed file(s) against {args.base}")
+        print("affected: changed packages: " + (", ".join(sorted(seeds)) or "none"))
+        print(f"affected: selected packages: {len(selected)}")
+        if wide:
+            print("affected: root configuration widens to workspace: " + ", ".join(wide[:5]))
+        print("not covered by this selection:")
+        for exclusion in exclusions:
+            print("  - " + json.dumps(exclusion))
+        print("command: " + (shlex.join(command) if seeds or wide else "none"))
     if not args.run or (not seeds and not wide):
         return 0
     runner = [str(ROOT / "scripts/pse-env")]
