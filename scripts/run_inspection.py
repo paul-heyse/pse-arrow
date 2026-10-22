@@ -13,7 +13,7 @@ from pathlib import Path
 from scripts import resource_store, test_resources
 
 
-def resolve(handle: str, registry: Path | None = None) -> tuple[Path, dict, dict]:
+def resolve(handle: str, registry: Path | None = None) -> tuple[Path, test_resources.InvocationRecord, dict]:
     """An exact ID uses the selected registry; a declaration must belong to it."""
     root = registry if registry is not None else test_resources.registry()
     if not root.is_absolute() or ".." in root.parts or any(path.is_symlink() for path in (root, *root.parents)):
@@ -34,7 +34,32 @@ def subject_identity(kind: str, selected: dict) -> str:
     return selected["binary_id"] + "::" + selected["name"] if kind == "rust" else selected["name"]
 
 
-def artifact_observation(path: Path, digest: str, tail: int, record: dict | None) -> dict:
+def owner_projection(owner: object) -> dict:
+    """Project captured associations without checking or implying current liveness."""
+    result: dict[str, object] = {"association": "captured-metadata" if isinstance(owner, dict) else "unavailable",
+                                "liveness": "unobserved"}
+    if not isinstance(owner, dict):
+        return result
+    for name in ("pid", "start", "boot", "allocation", "operation"):
+        value = owner.get(name)
+        if (name == "pid" and type(value) is int and value > 0) or (
+                name != "pid" and isinstance(value, str) and len(value) <= 4096):
+            result[name] = value
+    for name, fields in (("scope", ("unit", "group", "invocation")),
+                         ("allocation_owner", ("pid", "start", "boot"))):
+        value = owner.get(name)
+        if isinstance(value, dict):
+            selected = {}
+            for key in fields:
+                item = value.get(key)
+                if (key == "pid" and type(item) is int and item > 0) or (
+                        key != "pid" and isinstance(item, str) and len(item) <= 4096):
+                    selected[key] = item
+            result[name] = selected
+    return result
+
+
+def artifact_observation(path: Path, digest: str, tail: int, record: test_resources.ResourceRecord | None) -> dict:
     """Read the exact referenced descriptor through the resource owner's file reader."""
     result = {"path": str(path), "status": "available", "recorded_digest": digest, "tail": []}
     try:
@@ -51,7 +76,8 @@ def artifact_observation(path: Path, digest: str, tail: int, record: dict | None
             _parent, _name, stream = contexts.enter_context(test_resources.artifact_file(directory, path.name))
             before = os.fstat(stream.fileno())
             if not stat.S_ISREG(before.st_mode):
-                raise ValueError("artifact is not an ordinary file")
+                result.update(status="unavailable", error="artifact is not an ordinary file")
+                return result
             observed = hashlib.file_digest(stream, "sha256").hexdigest()
             result["observed_digest"] = observed
             if observed != digest:
@@ -67,6 +93,21 @@ def artifact_observation(path: Path, digest: str, tail: int, record: dict | None
     return result
 
 
+def invocation_resource(store: resource_store.FileStore, identity: str, nonce: str) -> tuple[resource_store.Entry, test_resources.ResourceRecord]:
+    entry = store.resource_snapshot(identity)
+    record = test_resources.entry_facts(entry)
+    if record.get("invocation") != nonce:
+        raise ValueError("resource association differs from invocation")
+    return entry, record
+
+
+def evidence_owner(store: resource_store.FileStore, directory: Path) -> str:
+    resource = store.identity_lookup([str(directory), "", "evidence"])
+    if resource is None:
+        raise ValueError("artifact has no current registered evidence owner")
+    return resource
+
+
 def product_result(handle: str, *, registry: Path | None = None, subject: str | None = None,
                    failures: bool = False, offset: int = 0, limit: int = 100,
                    tail: int = 0) -> dict:
@@ -75,7 +116,7 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
     evidence = frozen.get("evidence", {}) if frozen else {}
     outcomes = frozen.get("outcomes", {}) if frozen else {}
     if not isinstance(evidence, dict) or not isinstance(outcomes, dict):
-        raise ValueError("invalid frozen evidence or outcomes")
+        raise TypeError("invalid frozen evidence or outcomes")
     selected = declaration["selected"]
     catalog = [subject_identity(declaration["kind"], item) for item in selected]
     if len(catalog) != len(set(catalog)) or set(outcomes) - set(catalog):
@@ -90,15 +131,12 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
     # Metadata references are intentionally not hydrated by the ordinary view.
     artifacts = evidence.get("artifacts", {})
     if not isinstance(artifacts, dict):
-        raise ValueError("invalid frozen artifact references")
+        raise TypeError("invalid frozen artifact references")
     resources = []
     store = resource_store.FileStore(root)
     for identity, member in list(state["members"].items())[offset:offset + limit]:
         try:
-            entry = store._entry(identity)
-            record = test_resources.entry_facts(entry)
-            if record.get("invocation") != declaration["nonce"]:
-                raise ValueError("resource association differs from invocation")
+            entry, record = invocation_resource(store, identity, declaration["nonce"])
             resources.append({"resource": identity, "status": "available", "phase": entry.phase,
                               "record": record,
                               "retention_reason": test_resources.cleanup_reason(record, check_units=False)})
@@ -109,7 +147,7 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
         # Only explicit artifact references from the authentic terminal may be read.
         # Protect report directories through their current owner for the full read.
         with contextlib.ExitStack() as borrows:
-            borrowed = {}
+            borrowed: dict[Path, tuple[test_resources.ResourceRecord | None, str | None]] = {}
             for name, reference in artifacts.items():
                 if not isinstance(name, str) or not isinstance(reference, str):
                     continue  # binary/extension association is metadata, not a log
@@ -128,11 +166,18 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
                 directory = path.parent
                 if directory not in borrowed:
                     # Explicit registry selection applies to protections as well.
-                    resource = store.identity_lookup([str(directory), "", "evidence"])
-                    if resource is not None:
+                    try:
+                        resource = evidence_owner(store, directory)
                         borrows.enter_context(test_resources.borrow(resource, store=store))
-                    borrowed[directory] = test_resources.entry_facts(store._entry(resource)) if resource is not None else None
-                payloads.append(artifact_observation(directory / path.name, reference, tail, borrowed[directory]))
+                        borrowed[directory] = (test_resources.entry_facts(store.resource_snapshot(resource)), None)
+                    except (OSError, ValueError) as error:
+                        borrowed[directory] = (None, str(error))
+                record, error = borrowed[directory]
+                if record is None:
+                    payloads.append({"path": str(path), "status": "unavailable", "recorded_digest": reference,
+                                     "tail": [], "error": f"protected payload read unavailable: {error}"})
+                else:
+                    payloads.append(artifact_observation(directory / path.name, reference, tail, record))
     unreported = [name for name in catalog if name not in outcomes]
     return {"kind": "product-test", "registry": str(root), "invocation": declaration["nonce"],
             "run_kind": declaration["kind"], "run_path": str(root / "invocations" / (declaration["nonce"] + ".json")),
@@ -141,6 +186,8 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
             "terminal_identity": state.get("terminal_identity"),
             "terminal": {key: value for key, value in frozen.items() if key not in {"outcomes", "evidence"}} if frozen else None,
             "lifecycle": state.get("lifecycle"),
+            "producer": owner_projection(state.get("producer")),
+            "composer": owner_projection(state.get("composer")),
             "diagnostic_actions": state.get("diagnostic_actions", [])[offset:offset + limit],
             "selected_count": len(selected), "subjects": subjects[offset:offset + limit],
             "selected_unreported": unreported[offset:offset + limit], "selected_unreported_count": len(unreported),

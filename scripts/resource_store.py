@@ -205,6 +205,14 @@ class FileStore:
             raise StoreError("Invalid exact resource authority")
         return Entry(resource, value["identity"], value["facts"], value["phase"])
 
+    def resource_snapshot(self, resource: str) -> Entry:
+        """Read one atomic authority image without initialization, locks or repair.
+
+        This detached metadata view grants no payload protection. Explicit reads
+        acquire their resource borrow separately before using referenced files.
+        """
+        return self._entry(resource)
+
     def _save(self, entry: Entry) -> None:
         marker = self.path("active", entry.resource)
         # Access precedes active authority, while departure publishes authority
