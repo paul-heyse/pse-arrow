@@ -608,8 +608,8 @@ mod tests {
         );
         for (parameters, values, outputs) in [
             (json!([x]), json!([2.0]), json!([x])),
-            (json!([a, b]), json!([1.0, 0.5, 0.0, 1.0]), json!([x])),
-            (json!([a]), json!([-1.0]), json!([x])),
+            (json!([a, a]), json!([1.0, 0.0, 0.0, 1.0]), json!([x])),
+            (json!([a, b]), json!([1.0, 0.0]), json!([x])),
             (json!([a]), json!([1.0]), json!([])),
         ] {
             assert!(
@@ -617,6 +617,8 @@ mod tests {
                 "{parameters}"
             );
         }
+        // Symmetry and definiteness belong to the prepaid faer admission, not
+        // this structural document/profile decoder.
     }
 
     /// A value outside its single-value domain is refused where the document is decoded,

@@ -119,6 +119,16 @@ mod tests {
         assert!(admit(2, &values, &[1.0, 1.0], &pool(1 << 20), &CancellationToken::new()).is_err());
     }
     #[test]
+    fn covariance_psd_refuses_asymmetry_before_lower_triangle_eigendecomposition() {
+        let pool = pool(1 << 20);
+        let cancel = CancellationToken::new();
+        // The lower triangle alone is an identity matrix. It cannot establish
+        // covariance validity when the independent upper entry disagrees.
+        assert!(admit(2, &[1.0, 0.5, 0.0, 1.0], &[1.0; 2], &pool, &cancel).is_err());
+        assert!(admit(1, &[-1.0], &[1.0], &pool, &cancel).is_err());
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
     fn zero_singular_and_mixed_unit_psd_covariances_are_admitted() {
         let pool = pool(1 << 20);
         let cancel = CancellationToken::new();
