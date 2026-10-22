@@ -175,6 +175,76 @@ impl ContractRecord {
         self.0.contract()
     }
 }
+/// Opaque persisted ordinary boundary; decoding grants no admitted authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContractBoundaryRecord {
+    source: ContractRecord,
+    target: ContractRecord,
+    scale_bits: u64,
+}
+impl ContractBoundaryRecord {
+    /// Capture the complete contracts and exact scale of an admitted boundary.
+    pub fn capture(value: &AdmittedContractBoundary) -> Self {
+        Self {
+            source: ContractRecord::capture(&value.source),
+            target: ContractRecord::capture(&value.target),
+            scale_bits: value.scale_bits,
+        }
+    }
+    /// Restore only this complete record inside a qualified immutable recipe session.
+    pub fn restore(&self) -> Result<AdmittedContractBoundary, QuantityError> {
+        require_record(self)?;
+        AdmittedContractBoundary::from_qualified_record(
+            self.source.restore()?, self.target.restore()?, self.scale_bits,
+        )
+    }
+    /// Inline record plus the complete owned heap extents of its contracts.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(self.source.0.heap_bytes())
+            .saturating_add(self.target.0.heap_bytes())
+    }
+}
+
+/// Opaque persisted scientific output authorization, including its exact operation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutputBoundaryRecord {
+    operation: pse_ids::SemanticId,
+    source: ContractRecord,
+    target: ContractRecord,
+    scale_bits: u64,
+}
+impl OutputBoundaryRecord {
+    /// Capture one already admitted output authorization without re-admission.
+    pub fn capture(value: &AdmittedOutputBoundary) -> Self {
+        Self {
+            operation: value.operation,
+            source: ContractRecord::capture(&value.source),
+            target: ContractRecord::capture(&value.target),
+            scale_bits: value.scale_bits,
+        }
+    }
+    /// Restore only this complete record inside a qualified immutable recipe session.
+    pub fn restore(&self) -> Result<AdmittedOutputBoundary, QuantityError> {
+        require_record(self)?;
+        AdmittedOutputBoundary::from_qualified_record(
+            self.operation, self.source.restore()?, self.target.restore()?, self.scale_bits,
+        )
+    }
+    /// Inline record plus the complete owned heap extents of both contracts.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(self.source.0.heap_bytes())
+            .saturating_add(self.target.0.heap_bytes())
+    }
+}
+
+// Reconstruction remains in the representation owner, where the actual witness
+// fields are private. This is the common record namespace consumed by lowering.
+pub use crate::unit::CanonicalConversionRecord;
+
 /// Opaque persisted complete operation result, including selection and conversion scales.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InferenceRecord(InferenceWire);

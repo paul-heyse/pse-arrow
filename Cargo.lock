@@ -6542,6 +6542,7 @@ dependencies = [
  "pse-ids",
  "schemars",
  "serde",
+ "serde_json",
  "strum",
  "thiserror 2.0.21",
 ]

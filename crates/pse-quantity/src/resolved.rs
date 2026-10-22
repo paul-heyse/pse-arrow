@@ -47,6 +47,23 @@ pub struct AdmittedContractBoundary {
     scale_bits: u64,
 }
 impl AdmittedContractBoundary {
+    /// Exact source contract retained by this ordinary boundary witness.
+    pub fn source(&self) -> &ResolvedPhysicalContract {
+        &self.source
+    }
+    /// Exact target contract retained by this ordinary boundary witness.
+    pub fn target(&self) -> &ResolvedPhysicalContract {
+        &self.target
+    }
+    // Only owner-controlled record restoration calls this after recipe membership.
+    fn from_qualified_record(
+        source: ResolvedPhysicalContract,
+        target: ResolvedPhysicalContract,
+        scale_bits: u64,
+    ) -> Result<Self, QuantityError> {
+        validate_boundary_record(&source, &target, scale_bits)?;
+        Ok(Self { source, target, scale_bits })
+    }
     /// Resolve the ordinary boundary once against the actual quantity authority.
     pub fn prepare(source: &ResolvedPhysicalContract, expected: &ResolvedPhysicalContract, registry: &QuantityRegistry) -> Result<Self, QuantityError> {
         let (target, scale)=source.at_contract_boundary(expected, registry)?;
@@ -73,6 +90,28 @@ pub struct AdmittedOutputBoundary {
     scale_bits: u64,
 }
 impl AdmittedOutputBoundary {
+    /// Exact admitted scientific operation, retaining its semantic identity.
+    pub const fn operation(&self) -> pse_ids::SemanticId {
+        self.operation
+    }
+    /// Exact source contract retained by this scientific operation boundary.
+    pub fn source(&self) -> &ResolvedPhysicalContract {
+        &self.source
+    }
+    /// Exact authorized target contract retained by this scientific operation boundary.
+    pub fn target(&self) -> &ResolvedPhysicalContract {
+        &self.target
+    }
+    // Only owner-controlled record restoration calls this after recipe membership.
+    fn from_qualified_record(
+        operation: pse_ids::SemanticId,
+        source: ResolvedPhysicalContract,
+        target: ResolvedPhysicalContract,
+        scale_bits: u64,
+    ) -> Result<Self, QuantityError> {
+        validate_boundary_record(&source, &target, scale_bits)?;
+        Ok(Self { operation, source, target, scale_bits })
+    }
     /// Construct after operation-specific semantic admission, retaining both contracts.
     /// This is not an expected-type conversion: `operation` must identify an admitted
     /// coordinate, reconstruction, response, translation or transfer declaration.
@@ -132,6 +171,24 @@ impl AdmittedOutputBoundary {
         self.target.frame(hash);
         hash.u64(self.scale_bits);
     }
+}
+
+// Structural/numerical validation only; immutable recipe authority establishes the
+// original physical admission. This helper never resolves or re-infers a contract.
+fn validate_boundary_record(
+    source: &ResolvedPhysicalContract,
+    target: &ResolvedPhysicalContract,
+    scale_bits: u64,
+) -> Result<(), QuantityError> {
+    checked_scale(f64::from_bits(scale_bits))?;
+    if source.representation.dimension != target.representation.dimension {
+        return Err(refusal("physical.receipt", "boundary receipt dimensions differ"));
+    }
+    let expected = checked_scale(source.representation.scale() / target.representation.scale())?;
+    if expected.to_bits() != scale_bits {
+        return Err(refusal("physical.receipt", "boundary receipt scale differs from its retained representations"));
+    }
+    Ok(())
 }
 
 /// Retained admission for one operation. Numerical lowering consumes these scales and
