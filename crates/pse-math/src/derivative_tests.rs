@@ -1918,14 +1918,25 @@ fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
     // The declared shared regional jet has the full selected-coordinate width.
     // Each of the 2*n unary definitions prepays (1+1)*3+1 composition steps
     // per jet component, plus a finite allowance for the final numerical program.
-    let width = 1 + n + n*(n+1)/2;
-    let operations = 2*n*7*width + 5000;
-    let refused = body.compile(
-        &(0..n).collect::<Vec<_>>(), &coordinates, DerivativeOrder::Second,
-        Optimization::default(), EvaluationLimits {operations:5000,..Default::default()},
-        &ExecutionScope::new(control.clone(),None),
-    ).unwrap_err();
-    assert!(matches!(refused,MathError::Limit("regional composition work")),"{refused:?}");
+    let width = 1 + n + n * (n + 1) / 2;
+    let operations = 2 * n * 7 * width + 5000;
+    let refused = body
+        .compile(
+            &(0..n).collect::<Vec<_>>(),
+            &coordinates,
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits {
+                operations: 5000,
+                ..Default::default()
+            },
+            &ExecutionScope::new(control.clone(), None),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(refused, MathError::Limit("regional composition work")),
+        "{refused:?}"
+    );
     let compiled = body
         .compile(
             &(0..n).collect::<Vec<_>>(),

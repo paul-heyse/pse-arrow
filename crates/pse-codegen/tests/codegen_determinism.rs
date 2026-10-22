@@ -66,17 +66,37 @@ fn all_targets_regenerate_identical_bytes_and_complete_inventory() {
                             .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
                     }
                     Some("arrow") => {
-                        let index = path.file_stem().unwrap().to_str().unwrap()
-                            .strip_prefix("standard-").unwrap().parse::<usize>().unwrap();
+                        let index = path
+                            .file_stem()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .strip_prefix("standard-")
+                            .unwrap()
+                            .parse::<usize>()
+                            .unwrap();
                         let expected = &reg.schema_batches()[index].1;
                         let batches = arrow_ipc::reader::StreamReader::try_new(
-                            std::io::Cursor::new(bytes), None,
-                        ).expect("generated standard batch IPC").collect::<Result<Vec<_>, _>>()
-                            .expect("complete standard batch stream");
-                        assert_eq!(batches.as_slice(), std::slice::from_ref(expected), "{}", path.display());
+                            std::io::Cursor::new(bytes),
+                            None,
+                        )
+                        .expect("generated standard batch IPC")
+                        .collect::<Result<Vec<_>, _>>()
+                        .expect("complete standard batch stream");
+                        assert_eq!(
+                            batches.as_slice(),
+                            std::slice::from_ref(expected),
+                            "{}",
+                            path.display()
+                        );
                     }
                     Some("jsonl") => {
-                        assert_eq!(path, std::path::Path::new("crates/pse-schema/src/generated/standard-data.jsonl"));
+                        assert_eq!(
+                            path,
+                            std::path::Path::new(
+                                "crates/pse-schema/src/generated/standard-data.jsonl"
+                            )
+                        );
                         let text = std::str::from_utf8(bytes).expect("standard catalogue JSONL");
                         assert!(!text.is_empty());
                         for line in text.lines() {

@@ -939,15 +939,27 @@ mod canonical_tests {
     fn strict_conversion_records_retain_complete_context_storage() {
         let registry = registry();
         let canonical = CanonicalConversionRecord::capture(
-            &CanonicalConversionPlan::registered(&registry, id(30).into(), id(2).into()).unwrap()
+            &CanonicalConversionPlan::registered(&registry, id(30).into(), id(2).into()).unwrap(),
         );
         let direct = RepresentationConversionRecord::capture(
-            &RepresentationConversionPlan::registered(&registry, id(30).into(), id(2).into(), id(5).into()).unwrap()
+            &RepresentationConversionPlan::registered(
+                &registry,
+                id(30).into(),
+                id(2).into(),
+                id(5).into(),
+            )
+            .unwrap(),
         );
-        assert_eq!(canonical.retained_bytes(), size_of::<CanonicalConversionRecord>()
-            + canonical.context.shape.capacity() * size_of::<crate::EntityKindId>());
-        assert_eq!(direct.retained_bytes(), size_of::<RepresentationConversionRecord>()
-            + direct.context.shape.capacity() * size_of::<crate::EntityKindId>());
+        assert_eq!(
+            canonical.retained_bytes(),
+            size_of::<CanonicalConversionRecord>()
+                + canonical.context.shape.capacity() * size_of::<crate::EntityKindId>()
+        );
+        assert_eq!(
+            direct.retained_bytes(),
+            size_of::<RepresentationConversionRecord>()
+                + direct.context.shape.capacity() * size_of::<crate::EntityKindId>()
+        );
     }
 
     #[test]

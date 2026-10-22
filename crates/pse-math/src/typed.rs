@@ -434,9 +434,11 @@ impl<'a> BodyBuilder<'a> {
             return Err(MathError::Contract("input slot out of range".into()));
         }
         if !quantity.axes().is_empty() || !quantity.indices().is_empty() {
-            return Err(MathError::Contract("admitted numerical input requires its source-issued scalar contract".into()));
+            return Err(MathError::Contract(
+                "admitted numerical input requires its source-issued scalar contract".into(),
+            ));
         }
-        let scalar=quantity.require_named()?;
+        let scalar = quantity.require_named()?;
         if !self.physical_only {
             if self.input_quantities[slot].is_some_and(|previous| previous != scalar) {
                 return Err(MathError::Contract(
@@ -1457,7 +1459,9 @@ impl<'a> BodyBuilder<'a> {
             self.checker,
             self.formula_authority.as_ref(),
         )?;
-        let terms = terms.iter().map(|term| self.contract_boundary(term.clone(), prototype))
+        let terms = terms
+            .iter()
+            .map(|term| self.contract_boundary(term.clone(), prototype))
             .collect::<Result<Vec<_>, _>>()?;
         self.finite_reduce_admitted(kind, prototype, &terms, admission, source)
     }
@@ -1493,7 +1497,9 @@ impl<'a> BodyBuilder<'a> {
                     ));
                 }
                 if term.quantity != *prototype {
-                    return Err(MathError::Contract("finite reduction term differs from its admitted prototype contract".into()));
+                    return Err(MathError::Contract(
+                        "finite reduction term differs from its admitted prototype contract".into(),
+                    ));
                 }
                 Ok(term.clone())
             })

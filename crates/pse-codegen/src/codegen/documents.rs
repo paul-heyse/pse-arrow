@@ -1243,10 +1243,16 @@ fn normalize_root_references(value: &mut Value, title: &str) {
 
 /// Schemars generic names may contain separators; Python classes use CapWords.
 fn python_type_name(name: &str) -> String {
-    name.split('_').filter(|part| !part.is_empty()).map(|part| {
-        let mut characters = part.chars();
-        characters.next().map(|first| first.to_uppercase().collect::<String>() + characters.as_str()).unwrap_or_default()
-    }).collect()
+    name.split('_')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut characters = part.chars();
+            characters
+                .next()
+                .map(|first| first.to_uppercase().collect::<String>() + characters.as_str())
+                .unwrap_or_default()
+        })
+        .collect()
 }
 
 fn docstring(text: &str) -> String {
@@ -1312,7 +1318,9 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         if let Some(previous) = python_names.insert(python_name.clone(), name)
             && previous != name
         {
-            return Err(error(format!("Python document names {previous} and {name} collide as {python_name}")));
+            return Err(error(format!(
+                "Python document names {previous} and {name} collide as {python_name}"
+            )));
         }
     }
     for name in python_names.keys() {
@@ -1332,7 +1340,10 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
                 "from typing import Annotated, Literal",
                 "from typing import Annotated",
             )
-            .replace("from typing import Literal, TypeVar\n\n", "from typing import TypeVar\n\n");
+            .replace(
+                "from typing import Literal, TypeVar\n\n",
+                "from typing import TypeVar\n\n",
+            );
     }
     if source.contains("ClassVar[") {
         // Keep imports derived from emitted use, as for Annotated and Literal.

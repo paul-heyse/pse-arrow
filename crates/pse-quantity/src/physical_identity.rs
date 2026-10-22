@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical framing of actual admitted declarations, never a caller's revision assertion.
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use crate::{PhysicalPreconditions, QuantityRegistry};
+use pse_ids::{ContentHash, FramedHasher, SemanticId};
 fn id(h: &mut FramedHasher, v: Option<SemanticId>) {
     h.u64(u64::from(v.is_some()));
     if let Some(v) = v {
@@ -62,10 +62,7 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
             .part(&v.dimension.canonical_bytes())
             .u64(u64::from(v.extensive))
             .str(v.addition_kind.as_str());
-        word(
-            &mut h,
-            v.category.map(crate::QuantityKindCategory::as_str),
-        );
+        word(&mut h, v.category.map(crate::QuantityKindCategory::as_str));
         // A derived kind's canonical monomial, canonical unit and result (ADR-0124).
         h.u64(u64::from(v.definition.is_some()));
         if let Some(d) = &v.definition {
@@ -80,10 +77,7 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
                 &mut h,
                 d.reference_state.map(crate::ReferenceStateId::as_id),
             );
-            id(
-                &mut h,
-                d.subject_kind.map(crate::EntityKindId::as_id),
-            );
+            id(&mut h, d.subject_kind.map(crate::EntityKindId::as_id));
         }
     }
     h.str("bases").u64(r.bases().len() as u64);
@@ -91,14 +85,12 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
         h.id(&v.id.as_id()).str(v.kind.as_str());
         word(
             &mut h,
-            v.composition_basis
-                .map(crate::CompositionBasis::as_str),
+            v.composition_basis.map(crate::CompositionBasis::as_str),
         );
         word(&mut h, v.rate_basis.map(crate::RateBasis::as_str));
         id(
             &mut h,
-            v.reference_conditions
-                .map(crate::ReferenceStateId::as_id),
+            v.reference_conditions.map(crate::ReferenceStateId::as_id),
         );
     }
     h.str("references").u64(r.reference_states().len() as u64);
@@ -132,10 +124,7 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
             &mut h,
             k.reference_state.map(crate::ReferenceStateId::as_id),
         );
-        id(
-            &mut h,
-            k.subject_kind.map(crate::EntityKindId::as_id),
-        );
+        id(&mut h, k.subject_kind.map(crate::EntityKindId::as_id));
         number(&mut h, v.nominal_magnitude);
         h.u64(k.shape.len() as u64);
         for d in &k.shape {
@@ -178,8 +167,7 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
         id(&mut h, v.result_basis.map(crate::BasisId::as_id));
         id(
             &mut h,
-            v.result_reference_state
-                .map(crate::ReferenceStateId::as_id),
+            v.result_reference_state.map(crate::ReferenceStateId::as_id),
         );
         id(
             &mut h,
@@ -212,8 +200,7 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
     }
     id(
         &mut h,
-        r.neutral_dimensionless()
-            .map(crate::QuantityTypeId::as_id),
+        r.neutral_dimensionless().map(crate::QuantityTypeId::as_id),
     );
     h.str("preconditions").u64(p.declarations().len() as u64);
     for v in p.declarations() {

@@ -1483,7 +1483,11 @@ fn retained_physical_admission_refuses_mismatched_operands_and_binders() {
         pse_quantity::ResolvedPhysicalContract::named(shaped_id, binders[0].clone(), &extended)
             .unwrap();
     // An admitted numerical port may not silently erase the original axes or binder.
-    assert!(builder.input_admitted(0, contract.clone(), source()).is_err());
+    assert!(
+        builder
+            .input_admitted(0, contract.clone(), source())
+            .is_err()
+    );
     let admission = pse_quantity::resolved::infer_operation(
         &pse_quantity::infer::OpRequest::Neg,
         &[contract],
@@ -1694,39 +1698,145 @@ fn retained_primitive_constructors_preserve_branch_values_and_exact_boundary_sou
 
 #[test]
 fn admitted_scalar_input_consumes_exact_contract_without_registry_lookup() {
-    let source_registry=standard_registry().unwrap();
-    let temperature=ids::quantity("temperature.point");
-    let contract=pse_quantity::ResolvedPhysicalContract::named(temperature,IndexSet::new(),&source_registry).unwrap();
-    let difference=pse_quantity::ResolvedPhysicalContract::named(ids::quantity("temperature.difference"),IndexSet::new(),&source_registry).unwrap();
-    let narrowed=pse_quantity::QuantityRegistryBuilder::new().build().unwrap();
-    let mut builder=BodyBuilder::new(crate::initialize().unwrap(),&narrowed,&StandardInvariantChecker,1,BodyLimits::default()).unwrap();
-    let value=builder.input_admitted(0,contract.clone(),source()).unwrap();
-    assert_eq!(value.physical_contract(),&contract);
-    assert!(builder.input_admitted(0,difference,source()).is_err());
-    let body=builder.prepare(&[value]).unwrap();
-    assert_eq!(body.input_quantities(),&[Some(temperature)]);
-    let control=pse_diagnostics::Cancellation::default();
-    let compiled=body.compile(&[0],&[0],DerivativeOrder::First,Optimization::default(),Default::default(),
-        &pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
-    let result=compiled.worker().evaluate(&[300.0],DerivativeOrder::First,&mut pse_kernels::ProviderBindings::new(),&control).unwrap();
-    assert_eq!(result.values,vec![300.0]);assert_eq!(result.jacobian,vec![1.0]);
+    let source_registry = standard_registry().unwrap();
+    let temperature = ids::quantity("temperature.point");
+    let contract = pse_quantity::ResolvedPhysicalContract::named(
+        temperature,
+        IndexSet::new(),
+        &source_registry,
+    )
+    .unwrap();
+    let difference = pse_quantity::ResolvedPhysicalContract::named(
+        ids::quantity("temperature.difference"),
+        IndexSet::new(),
+        &source_registry,
+    )
+    .unwrap();
+    let narrowed = pse_quantity::QuantityRegistryBuilder::new()
+        .build()
+        .unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &narrowed,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let value = builder
+        .input_admitted(0, contract.clone(), source())
+        .unwrap();
+    assert_eq!(value.physical_contract(), &contract);
+    assert!(builder.input_admitted(0, difference, source()).is_err());
+    let body = builder.prepare(&[value]).unwrap();
+    assert_eq!(body.input_quantities(), &[Some(temperature)]);
+    let control = pse_diagnostics::Cancellation::default();
+    let compiled = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::First,
+            Optimization::default(),
+            Default::default(),
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
+        )
+        .unwrap();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &[300.0],
+            DerivativeOrder::First,
+            &mut pse_kernels::ProviderBindings::new(),
+            &control,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![300.0]);
+    assert_eq!(result.jacobian, vec![1.0]);
 }
 
 #[test]
 fn admitted_scalar_reduction_consumes_exact_contract_without_registry_lookup() {
-    let source_registry=standard_registry().unwrap();
-    let prototype=pse_quantity::ResolvedPhysicalContract::named(ids::quantity("neutral"),IndexSet::new(),&source_registry).unwrap();
-    let admission=pse_quantity::resolved::infer_operation(&pse_quantity::infer::OpRequest::FiniteReduce {kind:pse_quantity::ReductionKind::Sum,domain:None},std::slice::from_ref(&prototype),None,&source_registry,&StandardInvariantChecker).unwrap();
-    let narrowed=pse_quantity::QuantityRegistryBuilder::new().build().unwrap();
-    let mut builder=BodyBuilder::new(crate::initialize().unwrap(),&narrowed,&StandardInvariantChecker,1,BodyLimits::default()).unwrap();
-    let value=builder.input_admitted(0,prototype.clone(),source()).unwrap();
-    let sum=builder.finite_reduce_admitted(pse_quantity::ReductionKind::Sum,&prototype,&[value.clone(),value],admission.clone(),source()).unwrap();
-    let wrong=pse_quantity::ResolvedPhysicalContract::named(ids::quantity("temperature.point"),IndexSet::new(),&source_registry).unwrap();
-    let mut changed=sum.clone();changed.quantity=wrong;
-    assert!(builder.finite_reduce_admitted(pse_quantity::ReductionKind::Sum,&prototype,&[changed],admission,source()).is_err());
-    let body=builder.prepare(&[sum]).unwrap();
-    let control=pse_diagnostics::Cancellation::default();
-    let compiled=body.compile(&[0],&[0],DerivativeOrder::First,Optimization::default(),Default::default(),&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
-    let result=compiled.worker().evaluate(&[3.0],DerivativeOrder::First,&mut pse_kernels::ProviderBindings::new(),&control).unwrap();
-    assert_eq!(result.values,vec![6.0]);assert_eq!(result.jacobian,vec![2.0]);
+    let source_registry = standard_registry().unwrap();
+    let prototype = pse_quantity::ResolvedPhysicalContract::named(
+        ids::quantity("neutral"),
+        IndexSet::new(),
+        &source_registry,
+    )
+    .unwrap();
+    let admission = pse_quantity::resolved::infer_operation(
+        &pse_quantity::infer::OpRequest::FiniteReduce {
+            kind: pse_quantity::ReductionKind::Sum,
+            domain: None,
+        },
+        std::slice::from_ref(&prototype),
+        None,
+        &source_registry,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let narrowed = pse_quantity::QuantityRegistryBuilder::new()
+        .build()
+        .unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &narrowed,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let value = builder
+        .input_admitted(0, prototype.clone(), source())
+        .unwrap();
+    let sum = builder
+        .finite_reduce_admitted(
+            pse_quantity::ReductionKind::Sum,
+            &prototype,
+            &[value.clone(), value],
+            admission.clone(),
+            source(),
+        )
+        .unwrap();
+    let wrong = pse_quantity::ResolvedPhysicalContract::named(
+        ids::quantity("temperature.point"),
+        IndexSet::new(),
+        &source_registry,
+    )
+    .unwrap();
+    let mut changed = sum.clone();
+    changed.quantity = wrong;
+    assert!(
+        builder
+            .finite_reduce_admitted(
+                pse_quantity::ReductionKind::Sum,
+                &prototype,
+                &[changed],
+                admission,
+                source()
+            )
+            .is_err()
+    );
+    let body = builder.prepare(&[sum]).unwrap();
+    let control = pse_diagnostics::Cancellation::default();
+    let compiled = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::First,
+            Optimization::default(),
+            Default::default(),
+            &pse_kernels::ExecutionScope::new(control.clone(), None),
+        )
+        .unwrap();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &[3.0],
+            DerivativeOrder::First,
+            &mut pse_kernels::ProviderBindings::new(),
+            &control,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![6.0]);
+    assert_eq!(result.jacobian, vec![2.0]);
 }

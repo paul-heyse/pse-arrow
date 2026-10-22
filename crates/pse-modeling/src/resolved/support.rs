@@ -145,7 +145,7 @@ impl PhysicalSupport {
         authority: Option<&crate::PhysicalOperation>,
         owner: DeclarationId,
         expected: Option<&Type>,
-        pending_members: &BTreeMap<SymbolIx,Type>,
+        pending_members: &BTreeMap<SymbolIx, Type>,
     ) -> Result<InferredView> {
         let context = crate::TypeContext {
             admissions: None,
@@ -1110,7 +1110,7 @@ struct Producer<'a> {
     owner: DeclarationId,
     literal_contracts: &'a BTreeMap<NodeIx, Type>,
     // Available only during private construction-time type inquiry, never published support.
-    pending_members: Option<&'a BTreeMap<SymbolIx,Type>>,
+    pending_members: Option<&'a BTreeMap<SymbolIx, Type>>,
     nodes: BTreeMap<NodeIx, NodeSupport>,
     order: Vec<NodeIx>,
     active: std::collections::BTreeSet<NodeIx>,
@@ -1393,7 +1393,11 @@ impl Producer<'_> {
                 // The literal admission above consumes the exact retained source
                 // contract. Preserve that issued spelling as well: rebuilding a
                 // scheme from its resolved contract loses its nominal expression.
-                let ty = self.literal_contracts.get(&slot).cloned().unwrap_or(inferred_ty);
+                let ty = self
+                    .literal_contracts
+                    .get(&slot)
+                    .cloned()
+                    .unwrap_or(inferred_ty);
                 Ok(NodeSupport {
                     ty,
                     contract: operation.result.clone(),
@@ -1410,12 +1414,18 @@ impl Producer<'_> {
                     .symbols
                     .at(*symbol_slot)
                     .ok_or_else(|| invalid(at, "resolved physical symbol absent"))?;
-                if symbol.local_role() == LocalRole::Member && symbol.definition.is_none()
-                    && !self.pending_members.is_some_and(|pending|pending.get(symbol_slot)==Some(&symbol.ty))
+                if symbol.local_role() == LocalRole::Member
+                    && symbol.definition.is_none()
+                    && !self
+                        .pending_members
+                        .is_some_and(|pending| pending.get(symbol_slot) == Some(&symbol.ty))
                 {
                     return Err(invalid(
                         at,
-                        format!("required resolved numerical member definition is absent: {} ({:?})", symbol.lineage.path, symbol.lineage.declaration),
+                        format!(
+                            "required resolved numerical member definition is absent: {} ({:?})",
+                            symbol.lineage.path, symbol.lineage.declaration
+                        ),
                     ));
                 }
                 if symbol.local_role() != LocalRole::Member && symbol.definition.is_some() {

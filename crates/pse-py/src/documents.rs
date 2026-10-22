@@ -151,6 +151,7 @@ pub(crate) trait DocumentType {
     const WIRE: pse_runtime::boundary_documents::Wire;
 }
 #[path = "generated/documents.rs"]
+#[rustfmt::skip]
 mod catalogue;
 // These are explicit owning serializable projections, rather than new catalogue roots.
 macro_rules! projection {

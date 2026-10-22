@@ -600,7 +600,10 @@ mod immutable_reuse_unit {
         let registry = crate::catalog::assemble().unwrap();
         // The complete catalogue includes the current Plan49 declarations. Its
         // independent source assembly must agree with the published native catalogue.
-        assert_eq!(registry.fingerprint(), crate::registry().unwrap().fingerprint());
+        assert_eq!(
+            registry.fingerprint(),
+            crate::registry().unwrap().fingerprint()
+        );
         assert_eq!(
             registry.fingerprint().to_hex(),
             "2c482b5299f5e1b14a163df2daa573789c8a11fd4358cd8e95bcdceceea2d3f2"

@@ -1178,7 +1178,8 @@ class AuditTests(unittest.TestCase):
             ).read_text()
         )
         source = codec.decode_json(
-            json.dumps(products["diagnostic_inspection"]).encode(), InspectionDocumentOutput
+            json.dumps(products["diagnostic_inspection"]).encode(),
+            InspectionDocumentOutput,
         )
         assert source.operation is not None
         completed = replace(

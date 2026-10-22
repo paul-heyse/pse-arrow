@@ -54,7 +54,9 @@ class CollectionSelectionTests(unittest.TestCase):
         ]
         observer = Mock(diagnostics=diagnostics)
         result: dict = {}
-        request = AnalysisRequest(operation=msgspec.convert(root, type=OperationIdBody, from_attributes=True))
+        request = AnalysisRequest(
+            operation=msgspec.convert(root, type=OperationIdBody, from_attributes=True)
+        )
         analysis = case_audit.analyze_case_evidence(observer, evidence, request, result)
         self.assertIs(analysis, actual_analysis)
         self.assertEqual(result["analysis_scope"]["selected_operation"], "2")

@@ -853,9 +853,10 @@ fn checkpoint_partial(image: &ProcessCheckpoint, selected: &[OperationId]) -> bo
                             || producer.coverage.refused > 0
                             || producer.coverage.history_dropped > 0
                     })
-                    || operation.metrics.iter().any(|metric| {
-                        metric.history_partial || metric.history_dropped > 0
-                    }))
+                    || operation
+                        .metrics
+                        .iter()
+                        .any(|metric| metric.history_partial || metric.history_dropped > 0))
         })
 }
 pub(super) fn run(

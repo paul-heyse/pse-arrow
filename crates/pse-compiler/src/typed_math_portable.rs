@@ -273,8 +273,13 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
         SemanticId::from_bytes([146; 16]),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
-    ).unwrap();
-    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    )
+    .unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
     let package = pse_modeling::check(&declarations, &context).unwrap();
     let model = pse_modeling::specialize(
         &package,
@@ -282,22 +287,38 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
         pse_modeling::specialize::root_instance(root),
         &pse_modeling::Bindings::default(),
         pse_modeling::Limits::default(),
-    ).unwrap();
+    )
+    .unwrap();
     let relation = model.equation_roots[&model.equations[0].id];
-    let mut region = model.prepare_region(RegionRequest {
-        outputs: &[RegionOutput::RelationResidual(relation)],
-        validity: &[],
-    }, &context).unwrap();
-    let declaration = declarations.iter().find(|row| row.name == "x").unwrap().declaration_id;
-    let ports = vec![model.symbols.values().find(|symbol|
-        symbol.lineage.declaration == declaration
-            && symbol.lineage.instance == pse_modeling::specialize::root_instance(root)
-    ).unwrap()];
+    let mut region = model
+        .prepare_region(
+            RegionRequest {
+                outputs: &[RegionOutput::RelationResidual(relation)],
+                validity: &[],
+            },
+            &context,
+        )
+        .unwrap();
+    let declaration = declarations
+        .iter()
+        .find(|row| row.name == "x")
+        .unwrap()
+        .declaration_id;
+    let ports = vec![
+        model
+            .symbols
+            .values()
+            .find(|symbol| {
+                symbol.lineage.declaration == declaration
+                    && symbol.lineage.instance == pse_modeling::specialize::root_instance(root)
+            })
+            .unwrap(),
+    ];
     assert!(SelectedRegion::combine(std::slice::from_ref(&region), &ports, &context).is_ok());
     let record = SupportRecord::capture(&region.support).unwrap();
-    let (_, stream) = pse_quantity::resolved::receipts::capture(||
-        Ok::<_, pse_quantity::QuantityError>(())
-    ).unwrap();
+    let (_, stream) =
+        pse_quantity::resolved::receipts::capture(|| Ok::<_, pse_quantity::QuantityError>(()))
+            .unwrap();
     let payload = serde_json::to_vec(&(&stream, &record)).unwrap();
     let digest = pse_ids::scientific_replay::admitted_recipe_payload_hash(&payload);
     // SAFETY: This private compiler fixture retains the complete immutable record
@@ -309,13 +330,21 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
             ContentHash::from_bytes([1; 32]),
             ContentHash::from_bytes([2; 32]),
         )
-    }.unwrap();
+    }
+    .unwrap();
     region.support = pse_quantity::resolved::receipts::replay(&stream, recipe.records(), || {
         Ok::<_, pse_quantity::QuantityError>(record.restore(&region.syntax))
-    }).unwrap().unwrap();
+    })
+    .unwrap()
+    .unwrap();
     assert!(region.support.premises().is_err());
     let error = SelectedRegion::combine(&[region], &ports, &context).unwrap_err();
-    assert!(error.to_string().contains("qualified restored support cannot supply live preparation context"), "{error}");
+    assert!(
+        error
+            .to_string()
+            .contains("qualified restored support cannot supply live preparation context"),
+        "{error}"
+    );
 }
 
 #[cfg(test)]

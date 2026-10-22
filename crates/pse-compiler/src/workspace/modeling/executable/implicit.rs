@@ -422,12 +422,18 @@ impl AdmittedImplicit {
             + 128
             + self.unknowns.len() * size_of::<SemanticId>()
             + self.algorithm.retained_bytes()
-            + self.provider_lookups.iter().map(|(name, provider)|
-                name.capacity() + size_of::<(String, ProviderCall)>() + 128
-                    + provider.descriptor.spec().shapes.retained_bytes()
-                    + size_of_val(provider.descriptor.spec().inputs.as_slice())
-                    + size_of_val(provider.descriptor.spec().outputs.as_slice())
-            ).sum::<usize>()
+            + self
+                .provider_lookups
+                .iter()
+                .map(|(name, provider)| {
+                    name.capacity()
+                        + size_of::<(String, ProviderCall)>()
+                        + 128
+                        + provider.descriptor.spec().shapes.retained_bytes()
+                        + size_of_val(provider.descriptor.spec().inputs.as_slice())
+                        + size_of_val(provider.descriptor.spec().outputs.as_slice())
+                })
+                .sum::<usize>()
             + match &self.selection.meaning {
                 ImplicitMeaning::Operational(value) => value.len(),
                 _ => 0,
@@ -2264,14 +2270,18 @@ pub(super) fn admit(
         let admit_body = |definition, regions: &[SelectedRegion]| -> Result<Arc<ImplicitBody>> {
             // Replace reached child unknowns with their admitted supplier inputs before
             // enforcing the enclosing residual's complete independent input layout.
-            let regions = regions.iter().map(|region| resolve_region(&p.model, region, &definitions, &context))
+            let regions = regions
+                .iter()
+                .map(|region| resolve_region(&p.model, region, &definitions, &context))
                 .collect::<Result<Vec<_>>>()?;
             let region = SelectedRegion::combine(&regions, &ordered_inputs, &context)?;
             let mut lookup = |name: &str| {
                 let selected = provider(db, inventory, name.to_owned()).ok_or_else(|| {
                     MathError::Contract(format!("unregistered external implementation {name}"))
                 })?;
-                provider_lookups.borrow_mut().insert(name.to_owned(), selected.clone());
+                provider_lookups
+                    .borrow_mut()
+                    .insert(name.to_owned(), selected.clone());
                 Ok(selected)
             };
             let providers = crate::typed_math::prepare_selected_providers(

@@ -541,7 +541,11 @@ impl Engine<'_, '_> {
         // substitution as the stencil. Other bindings and fixed point references
         // retain their original identities.
         let family = self.shifted(
-            RewriteContext { instance, env, chain },
+            RewriteContext {
+                instance,
+                env,
+                chain,
+            },
             body,
             &name,
             &points[0],

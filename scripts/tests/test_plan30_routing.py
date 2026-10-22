@@ -616,7 +616,9 @@ class Plan30RoutingTests(unittest.TestCase):
             native_tests.validation.relevant_environment(default)["RUST_MIN_STACK"],
             str(16 << 20),
         )
-        explicit = arrow_validation.rust_test_environment({"RUST_MIN_STACK": str(24 << 20)})
+        explicit = arrow_validation.rust_test_environment(
+            {"RUST_MIN_STACK": str(24 << 20)}
+        )
         self.assertEqual(explicit["RUST_MIN_STACK"], str(24 << 20))
         self.assertEqual(arrow_validation.rust_test_environment(explicit), explicit)
         self.declaration()

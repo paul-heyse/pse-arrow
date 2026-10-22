@@ -329,27 +329,28 @@ impl SelectedRegion {
                 } else {
                     declarations.insert(actual, clean_symbol(source, actual));
                 }
-                let local = if source.definition.is_none() && source.local_role() != LocalRole::Member {
-                    *input_slots.get(&actual).ok_or_else(|| {
+                let local =
+                    if source.definition.is_none() && source.local_role() != LocalRole::Member {
+                        *input_slots.get(&actual).ok_or_else(|| {
                         invalid(
                             actual,
                             "guard or numerical input is absent from the complete declared layout",
                         )
                     })?
-                } else {
-                    let mut key = FramedHasher::new(pse_ids::Frame::ModelingResolvedBodyV1);
-                    key.str("composition-member-slot")
-                        .u64(part as u64)
-                        .u64(ordinal as u64);
-                    let id = key.finish_id();
-                    if raw.symbols.contains_key(&id) {
-                        return Err(invalid(id, "internal member slot identity collision"));
-                    }
-                    let slot = SymbolIx::from(raw.symbols.len());
-                    raw.symbols.push(clean_symbol(source, id));
-                    actuals.insert(id, actual);
-                    slot
-                };
+                    } else {
+                        let mut key = FramedHasher::new(pse_ids::Frame::ModelingResolvedBodyV1);
+                        key.str("composition-member-slot")
+                            .u64(part as u64)
+                            .u64(ordinal as u64);
+                        let id = key.finish_id();
+                        if raw.symbols.contains_key(&id) {
+                            return Err(invalid(id, "internal member slot identity collision"));
+                        }
+                        let slot = SymbolIx::from(raw.symbols.len());
+                        raw.symbols.push(clean_symbol(source, id));
+                        actuals.insert(id, actual);
+                        slot
+                    };
                 map.symbols.insert(old, local);
             }
             map.nodes = offset(region.syntax.nodes.len(), raw.nodes.len())?;
@@ -1162,5 +1163,4 @@ mod tests {
         };
         assert!(SelectedRegion::combine(std::slice::from_ref(&row), &ports, &stale).is_err());
     }
-
 }

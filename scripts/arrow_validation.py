@@ -50,7 +50,6 @@ def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
     return selected
 
 
-
 class ValidationError(ValueError):
     """The requested correctness scope cannot establish full Arrow validation."""
 

@@ -2530,12 +2530,16 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertIsNone(operation.owner_record())
                 self.assertTrue(json.loads(records[0].read_text())["cancelled"])
                 with (
-                    patch.dict(os.environ, {operation.MARKER: str(base / "forged.json")}),
-                    self.assertRaisesRegex(ValueError, "contradictory operation parent"),
+                    patch.dict(
+                        os.environ, {operation.MARKER: str(base / "forged.json")}
+                    ),
+                    self.assertRaisesRegex(
+                        ValueError, "contradictory operation parent"
+                    ),
                 ):
-                        operation.run_child_scope(
-                            ["payload"], {"PSE_NATIVE_CACHE": str(base)}
-                        )
+                    operation.run_child_scope(
+                        ["payload"], {"PSE_NATIVE_CACHE": str(base)}
+                    )
                 self.assertEqual(payload.call_count, 1)
 
     def test_real_command_parent_file_effect_handoff_drains_descendants(self) -> None:

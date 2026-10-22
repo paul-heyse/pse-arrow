@@ -3,11 +3,13 @@
 //! Compiler-qualified replay controls for opaque quantity-owned records.
 use pse_ids::SemanticId;
 use pse_quantity::{
-    BaseDimension, DimensionVector as Dimension, QuantityAdditionKind, QuantityKind,
-    QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeKey, ScaleKind,
-    QuantityError as Error,
-    unit::{Unit, CanonicalConversionPlan, CanonicalConversionRecord,
-        RepresentationConversionPlan, RepresentationConversionRecord},
+    BaseDimension, DimensionVector as Dimension, QuantityAdditionKind, QuantityError as Error,
+    QuantityKind, QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeKey,
+    ScaleKind,
+    unit::{
+        CanonicalConversionPlan, CanonicalConversionRecord, RepresentationConversionPlan,
+        RepresentationConversionRecord, Unit,
+    },
 };
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
@@ -293,10 +295,8 @@ fn qualified_quantity_record_roundtrip_preserves_boundary_frames_and_conversion_
         assert_eq!(&restored, &ordinary);
         assert_eq!(restored.source(), ordinary.source());
         assert_eq!(restored.target(), ordinary.target());
-        let mut expected =
-            pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
-        let mut actual =
-            pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        let mut expected = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
         ordinary.frame(&mut expected);
         restored.frame(&mut actual);
         assert_eq!(actual.finish_hash(), expected.finish_hash());
@@ -310,10 +310,8 @@ fn qualified_quantity_record_roundtrip_preserves_boundary_frames_and_conversion_
         assert_eq!(restored.operation(), id(42));
         assert_eq!(restored.source(), output.source());
         assert_eq!(restored.target(), output.target());
-        let mut expected =
-            pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
-        let mut actual =
-            pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        let mut expected = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
         output.frame(&mut expected);
         restored.frame(&mut actual);
         assert_eq!(actual.finish_hash(), expected.finish_hash());
@@ -441,4 +439,3 @@ fn qualified_quantity_records_refuse_altered_records_under_original_authority() 
     })
     .unwrap();
 }
-

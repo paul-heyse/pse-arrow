@@ -1972,6 +1972,7 @@ def _run_child_scope(
     stderr: int | None,
 ) -> int:
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+
     process_observation = observation if observation is not None else {}
     role_memory = pse_env.current_memory_ceiling()
     if allocation.profile.unbounded:

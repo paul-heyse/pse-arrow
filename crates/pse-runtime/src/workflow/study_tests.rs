@@ -3,6 +3,7 @@
 //! Immutable occurrence contracts and canonical dependency-scoped execution.
 #[cfg(feature = "canonical-tests")]
 use super::durable_tests::durable_runtime;
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 use super::worker_tests::sources;
 use super::*;
 use pse_model::study::*;
@@ -11,6 +12,7 @@ use pse_operations::canonical_studies::StudySummary;
 #[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 use std::time::Duration;
 
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 const CASES: &str = r#"package algebraic {
 def Root { param a:Scalar=4; var x:Scalar; eq square:x*x==a; annotation start x(1); annotation bounds x(0,10); annotation report x("root"); annotation check x(x>1); }
 def Failed { var x:Scalar; eq square:x*x == -1; annotation start x(1); annotation report x("root"); }
@@ -1218,10 +1220,12 @@ async fn related_case_study_uses_secant_then_original_correction() {
     .await;
 }
 
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 async fn related_definition(runtime: &Runtime) -> (ModelingPackage, LocalStudy) {
     related_definition_with_primal_accuracy(runtime, None).await
 }
 
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 async fn related_definition_with_primal_accuracy(
     runtime: &Runtime,
     primal_absolute_tolerance: Option<f64>,

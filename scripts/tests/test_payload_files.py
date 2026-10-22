@@ -83,6 +83,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             function = body.split("fn::pse_maintenance_v1::", 1)[1].split("(", 1)[0]
             arguments = json.loads("[" + body.split("(", 1)[1].split(");", 1)[0] + "]")
             self.assertGreater(arguments.pop(0), server.time.time_ns() // 1000)
+
             def acknowledged(value: object) -> object:
                 return {"value": value} if "RETURN {value:" in body else value
 
@@ -91,17 +92,29 @@ class PayloadLifecycleTests(unittest.TestCase):
                 return acknowledged(self.domain)
             generation = server.read_json(self.state / "lifecycle-owner.json")["nonce"]
             if function == "claim":
-                operation, actual_generation, phase, source, target, previous = arguments
+                operation, actual_generation, phase, source, target, previous = (
+                    arguments
+                )
                 self.assertEqual(
                     operation.split(":")[1:],
-                    ["validation", source, target, self.config["namespace"], self.config["database"]],
+                    [
+                        "validation",
+                        source,
+                        target,
+                        self.config["namespace"],
+                        self.config["database"],
+                    ],
                 )
                 self.assertEqual(actual_generation, generation)
                 self.assertEqual(phase, "validation")
                 self.assertEqual(source, self.config["payload_incarnation"])
                 self.assertEqual(target, source)
                 self.assertEqual(previous, self.domain)
-                self.domain = dict(zip(("operation", "generation", "phase"), arguments[:3], strict=True))
+                self.domain = dict(
+                    zip(
+                        ("operation", "generation", "phase"), arguments[:3], strict=True
+                    )
+                )
                 return acknowledged(self.domain)
             self.assertEqual(function, "validation_reads")
             self.assertIsNotNone(self.domain)
@@ -238,7 +251,10 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertLess(drained, self.events.index("stop"))
         self.assertIn(server.SUBSTRATE_INTERPRETATION, self.events[opened])
         self.assertIn(str(self.config["payload_incarnation"]), self.events[opened])
-        self.assertIn(str(server.read_json(self.state / "lifecycle-owner.json")["nonce"]), self.events[opened])
+        self.assertIn(
+            str(server.read_json(self.state / "lifecycle-owner.json")["nonce"]),
+            self.events[opened],
+        )
         self.assertTrue(self.owners[0]["drained"])
         selected = server.config_for(self.state)
         self.assertFalse(selected["accepting_writes"])
@@ -271,20 +287,31 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(selected["payload_frozen"])
         self.assertEqual(selected["admission"], "validation_required")
 
-    def test_domain_missing_or_multiple_administrative_results_cannot_admit_reads(self) -> None:
+    def test_domain_missing_or_multiple_administrative_results_cannot_admit_reads(
+        self,
+    ) -> None:
         self.validation_profile()
         before = (self.state / "config.json").read_bytes()
         for results in (
             [{"status": "OK", "result": None}],
-            [{"status": "OK", "result": {"value": None}}, {"status": "OK", "result": True}],
+            [
+                {"status": "OK", "result": {"value": None}},
+                {"status": "OK", "result": True},
+            ],
         ):
             with (
                 self.subTest(results=results),
                 server.lifecycle_reservation(self.state),
-                patch.object(server, "administrative_query", return_value=results) as query,
-                self.assertRaisesRegex(server.SupervisorError, "exactly one acknowledgment"),
+                patch.object(
+                    server, "administrative_query", return_value=results
+                ) as query,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "exactly one acknowledgment"
+                ),
             ):
-                server.validation_payload_reads(self.state, self.config, server.SUBSTRATE_INTERPRETATION)
+                server.validation_payload_reads(
+                    self.state, self.config, server.SUBSTRATE_INTERPRETATION
+                )
             query.assert_called_once()
             self.assertEqual((self.state / "config.json").read_bytes(), before)
 
@@ -401,7 +428,11 @@ class PayloadLifecycleTests(unittest.TestCase):
 
         def query(state: Path, config: dict[str, object], body: str) -> object:
             value = self.query(state, config, body)
-            return {"value": False} if "fn::pse_maintenance_v1::validation_reads(" in body else value
+            return (
+                {"value": False}
+                if "fn::pse_maintenance_v1::validation_reads(" in body
+                else value
+            )
 
         with (
             patch.object(server, "payload_query", side_effect=query),

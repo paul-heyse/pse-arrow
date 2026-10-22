@@ -170,7 +170,9 @@ def measure(output: Path, selected: str) -> None:
             return documents.BindingAssignment(
                 target=documents.BindingTargetPath(value=target),
                 value=documents.BindingQuantity(
-                    magnitude=magnitude, quantity=values.SemanticId.from_hex(quantity_id), unit=values.SemanticId.from_hex(unit_id)
+                    magnitude=magnitude,
+                    quantity=values.SemanticId.from_hex(quantity_id),
+                    unit=values.SemanticId.from_hex(unit_id),
                 ),
             )
 
@@ -234,7 +236,10 @@ def measure(output: Path, selected: str) -> None:
                                     settings=settings,
                                 )
                             ),
-                            preparation=codec.convert_document(codec.document_builtins(preparation), documents.PreparationSettingsBody),
+                            preparation=codec.convert_document(
+                                codec.document_builtins(preparation),
+                                documents.PreparationSettingsBody,
+                            ),
                             overlay=overlay,
                             policy=documents.StudyPointPolicy(
                                 key=index,

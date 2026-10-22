@@ -233,7 +233,9 @@ class SurrealFixtureCheckTests(unittest.TestCase):
                 fixture.initialize_canonical(self.state)
             run.assert_not_called()
 
-    def test_initializer_delegates_exact_state_and_command_to_lifecycle_owner(self) -> None:
+    def test_initializer_delegates_exact_state_and_command_to_lifecycle_owner(
+        self,
+    ) -> None:
         binary = self.initializer()
         with patch.object(fixture.server, "initialize") as initialize:
             fixture.initialize_canonical(self.state)
@@ -249,7 +251,9 @@ class SurrealFixtureCheckTests(unittest.TestCase):
             "Current initializer failed; exact target retained; private diagnostic /owned/log"
         )
         with (
-            patch.object(fixture.server, "initialize", side_effect=failure) as initialize,
+            patch.object(
+                fixture.server, "initialize", side_effect=failure
+            ) as initialize,
             patch.object(fixture.subprocess, "run") as run,
             pytest.raises(fixture.server.SupervisorError) as caught,
         ):
@@ -343,7 +347,9 @@ class SurrealFixtureCheckTests(unittest.TestCase):
         check.assert_not_called()
         stop.assert_called_once_with(self.state, {})
 
-    def test_fresh_mcp_initializes_its_own_catalog_but_attached_mcp_does_not(self) -> None:
+    def test_fresh_mcp_initializes_its_own_catalog_but_attached_mcp_does_not(
+        self,
+    ) -> None:
         with (
             self.journey_controls(),
             patch.object(fixture, "initialize_canonical") as initialize,

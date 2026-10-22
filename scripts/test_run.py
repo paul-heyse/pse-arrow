@@ -491,7 +491,9 @@ def run_rust(
     effects: str = "canonical",
     package_scope: bool = False,
 ) -> int:
-    environment = arrow_validation.rust_test_environment(os.environ if env is None else env)
+    environment = arrow_validation.rust_test_environment(
+        os.environ if env is None else env
+    )
     if effects not in {"canonical", "native-local"}:
         raise ValueError("Unknown Rust execution effects")
     environment[EXECUTION_EFFECTS] = effects

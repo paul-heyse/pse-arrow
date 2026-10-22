@@ -6858,7 +6858,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 _credentials: dict[str, object] | None,
                 function: str,
                 arguments: list[object],
-                *, fault: str = fault,
+                *,
+                fault: str = fault,
             ) -> object:
                 if function == "current":
                     return None
@@ -6983,10 +6984,20 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
     def test_generated_domain_absence_is_explicit_and_missing_ack_refuses(self) -> None:
         config = self.initialized()
-        with patch.object(server, "payload_query", return_value={"value": None}) as query:
-            self.assertIsNone(server.maintenance_domain_call(self.state, config, None, "current", []))
-        self.assertIn("LET $domain=fn::pse_maintenance_v1::current(", query.call_args.args[2])
-        self.assertTrue(query.call_args.args[2].endswith(" RETURN {value:IF $domain=NONE {NULL} ELSE {$domain}};"))
+        with patch.object(
+            server, "payload_query", return_value={"value": None}
+        ) as query:
+            self.assertIsNone(
+                server.maintenance_domain_call(self.state, config, None, "current", [])
+            )
+        self.assertIn(
+            "LET $domain=fn::pse_maintenance_v1::current(", query.call_args.args[2]
+        )
+        self.assertTrue(
+            query.call_args.args[2].endswith(
+                " RETURN {value:IF $domain=NONE {NULL} ELSE {$domain}};"
+            )
+        )
         for malformed in (None, {}, {"value": None, "extra": True}, [None]):
             with (
                 self.subTest(malformed=malformed),
@@ -7093,17 +7104,27 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         for failure in ("admission", "validator"):
             events: list[str] = []
 
-            def domain(*_arguments: object, failure: str = failure, events: list[str] = events) -> bool:
+            def domain(
+                *_arguments: object, failure: str = failure, events: list[str] = events
+            ) -> bool:
                 events.append("read-admission")
                 if failure == "admission":
                     raise server.SupervisorError("uncertain generated acknowledgment")
                 return True
 
-            def validator(*_arguments: object, events: list[str] = events, **_options: object) -> int:
+            def validator(
+                *_arguments: object, events: list[str] = events, **_options: object
+            ) -> int:
                 events.append("validator")
                 raise subprocess.TimeoutExpired(["original-validator"], 120)
 
-            def freeze(_state: Path, _config: dict[str, object], body: str, *, events: list[str] = events) -> bool:
+            def freeze(
+                _state: Path,
+                _config: dict[str, object],
+                body: str,
+                *,
+                events: list[str] = events,
+            ) -> bool:
                 events.append("freeze")
                 self.assertTrue(body.startswith("RETURN fn::pse_files_v1::freeze("))
                 return True
@@ -7123,17 +7144,23 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 patch.object(
                     server,
                     "all_contexts_drained",
-                    side_effect=lambda *_arguments, events=events: events.append("drain"),
+                    side_effect=lambda *_arguments, events=events: events.append(
+                        "drain"
+                    ),
                 ),
                 patch.object(
                     server,
                     "reap_payload_owners",
-                    side_effect=lambda *_arguments, events=events, **_options: events.append("reap"),
+                    side_effect=lambda *_arguments, events=events, **_options: (
+                        events.append("reap")
+                    ),
                 ) as reap,
                 patch.object(
                     server,
                     "stop",
-                    side_effect=lambda *_arguments, events=events: events.append("stop"),
+                    side_effect=lambda *_arguments, events=events: events.append(
+                        "stop"
+                    ),
                 ),
                 self.assertRaises((server.SupervisorError, subprocess.TimeoutExpired)),
             ):

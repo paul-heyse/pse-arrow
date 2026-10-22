@@ -422,12 +422,18 @@ impl PlannedModeling {
                 .values()
                 .map(|supplier| supplier.retained_bytes())
                 .sum::<usize>()
-            + self.provider_lookups.iter().map(|(name, provider)|
-                name.capacity() + size_of::<(String, ProviderCall)>() + 128
-                    + provider.descriptor.spec().shapes.retained_bytes()
-                    + size_of_val(provider.descriptor.spec().inputs.as_slice())
-                    + size_of_val(provider.descriptor.spec().outputs.as_slice())
-            ).sum::<usize>()
+            + self
+                .provider_lookups
+                .iter()
+                .map(|(name, provider)| {
+                    name.capacity()
+                        + size_of::<(String, ProviderCall)>()
+                        + 128
+                        + provider.descriptor.spec().shapes.retained_bytes()
+                        + size_of_val(provider.descriptor.spec().inputs.as_slice())
+                        + size_of_val(provider.descriptor.spec().outputs.as_slice())
+                })
+                .sum::<usize>()
             + self
                 .instances
                 .iter()
@@ -815,7 +821,10 @@ pub(super) fn complete(
 ) -> Result<Arc<AdmittedModeling>> {
     for (name, selected) in &planned.provider_lookups {
         if provider(db, inventory, name.clone()).as_ref() != Some(selected) {
-            return Err(MathError::Contract("planned source provider registration changed before body admission".into()).into());
+            return Err(MathError::Contract(
+                "planned source provider registration changed before body admission".into(),
+            )
+            .into());
         }
     }
     // Recheck source selectors captured by each already-admitted implicit body.
@@ -823,7 +832,10 @@ pub(super) fn complete(
     for supplier in planned.implicit.values() {
         for (name, selected) in supplier.provider_lookups() {
             if provider(db, inventory, name.clone()).as_ref() != Some(selected) {
-                return Err(MathError::Contract("planned implicit provider registration changed before body admission".into()).into());
+                return Err(MathError::Contract(
+                    "planned implicit provider registration changed before body admission".into(),
+                )
+                .into());
             }
         }
     }
@@ -1196,8 +1208,10 @@ mod dependency_tests {
             instances[0].checked_sources.keys().collect::<Vec<_>>(),
             instances[1].checked_sources.keys().collect::<Vec<_>>()
         );
-        assert_eq!(instances[0].checked_sources, instances[1].checked_sources,
-            "two instances of the same declaration retain the actual shared annotation owners");
+        assert_eq!(
+            instances[0].checked_sources, instances[1].checked_sources,
+            "two instances of the same declaration retain the actual shared annotation owners"
+        );
         let cancellation = pse_diagnostics::Cancellation::default();
         let plan = admitted
             .plan(
@@ -1558,9 +1572,14 @@ mod dependency_tests {
                 .collect::<BTreeSet<_>>();
             assert!(members.contains(&member("shared")));
             assert_eq!(members.len(), 2);
-            assert!(projected.model.symbols.values().all(|symbol|
-                !symbol.lineage.path.ends_with(".unused")),
-                "unused invalid local has no producer-issued scalar or selected binding");
+            assert!(
+                projected
+                    .model
+                    .symbols
+                    .values()
+                    .all(|symbol| !symbol.lineage.path.ends_with(".unused")),
+                "unused invalid local has no producer-issued scalar or selected binding"
+            );
             actual_members.push(members);
         }
         assert!(actual_members.iter().any(

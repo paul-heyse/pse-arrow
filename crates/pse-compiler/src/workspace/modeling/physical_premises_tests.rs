@@ -437,7 +437,9 @@ fn scientific_witness_selected_closure_preserves_unused_provider_changes() {
             .providers,
         inputs.providers
     );
-    let reused = workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))).unwrap();
+    let reused = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
     assert_same_mathematics(&current, &reused);
     assert_same_mathematics(&reused, &prepare(&mut workspace, root));
 }
@@ -449,16 +451,37 @@ fn delayed_completion_refuses_changed_reached_provider_registration() {
     let revision = selected.descriptor.spec().revision;
     let data = selected.descriptor.spec().data;
     inputs.providers.insert("reached".into(), selected);
-    let text = format!("package physical_edit {{fn law(x:Scalar)->Scalar external \"reached\" revision \"{revision}\" data \"{data}\" output 0 derivatives 1 source analytic smoothness 1;def Root {{var x:Scalar;eq e:law(x)==1;}}}}");
-    let rows=crate::authored_transfer_tests::rows(&text);
-    let root=crate::authored_transfer_tests::root(&rows,"physical_edit","Root");
-    let mut workspace=CompilerWorkspace::new(inputs.clone(),WorkspaceLimits::default()).unwrap();
-    workspace.publish_modeling(rows,PhysicalScope::default()).unwrap();
-    let frontier=workspace.plan_modeling_cancellable(root,root_instance(root),Bindings::default(),Limits::default(),Arc::new(AtomicBool::new(false))).unwrap();
-    workspace.complete_modeling_cancellable(frontier.clone(),Arc::new(AtomicBool::new(false))).unwrap();
-    let mut descriptor=inputs.providers["reached"].descriptor.spec().clone();
-    descriptor.revision=ContentHash::from_bytes([219;32]);
-    inputs.providers.get_mut("reached").unwrap().descriptor=pse_kernels::AdmittedProvider::new(descriptor,&inputs.quantities).unwrap();
-    workspace.refresh_modeling_context(inputs,Arc::new(AtomicBool::new(false))).unwrap();
-    assert!(workspace.complete_modeling_cancellable(frontier,Arc::new(AtomicBool::new(false))).is_err());
+    let text = format!(
+        "package physical_edit {{fn law(x:Scalar)->Scalar external \"reached\" revision \"{revision}\" data \"{data}\" output 0 derivatives 1 source analytic smoothness 1;def Root {{var x:Scalar;eq e:law(x)==1;}}}}"
+    );
+    let rows = crate::authored_transfer_tests::rows(&text);
+    let root = crate::authored_transfer_tests::root(&rows, "physical_edit", "Root");
+    let mut workspace = CompilerWorkspace::new(inputs.clone(), WorkspaceLimits::default()).unwrap();
+    workspace
+        .publish_modeling(rows, PhysicalScope::default())
+        .unwrap();
+    let frontier = workspace
+        .plan_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    let mut descriptor = inputs.providers["reached"].descriptor.spec().clone();
+    descriptor.revision = ContentHash::from_bytes([219; 32]);
+    inputs.providers.get_mut("reached").unwrap().descriptor =
+        pse_kernels::AdmittedProvider::new(descriptor, &inputs.quantities).unwrap();
+    workspace
+        .refresh_modeling_context(inputs, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert!(
+        workspace
+            .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+            .is_err()
+    );
 }

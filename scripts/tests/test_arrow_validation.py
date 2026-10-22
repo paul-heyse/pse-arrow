@@ -67,34 +67,56 @@ class Cargo:
 
 
 class ScopedValidationTests(unittest.TestCase):
-    def test_ordinary_correctness_runner_uses_declared_stack_without_changing_command(self) -> None:
+    def test_ordinary_correctness_runner_uses_declared_stack_without_changing_command(
+        self,
+    ) -> None:
         requested = ["nextest", "run", "-p", "pure", "--lib", "-E", "test(selected)"]
         composed = ["cargo", *requested, "--features", "pure/force-validate"]
         supplied = {"CALLER_INPUT": "retained"}
         with (
             patch.dict(os.environ, supplied, clear=True),
-            patch.object(arrow_validation, "compose", return_value=composed) as compose_command,
-            patch.object(arrow_validation.host_admission, "policy", return_value={"test-runner": {"rust_thread_stack_mib": 19}}),
+            patch.object(
+                arrow_validation, "compose", return_value=composed
+            ) as compose_command,
+            patch.object(
+                arrow_validation.host_admission,
+                "policy",
+                return_value={"test-runner": {"rust_thread_stack_mib": 19}},
+            ),
             patch.object(arrow_validation.subprocess, "call", return_value=7) as child,
         ):
             self.assertEqual(arrow_validation.main(["--", *requested]), 7)
             self.assertEqual(dict(os.environ), supplied)
         compose_command.assert_called_once_with(["cargo", *requested])
-        child.assert_called_once_with(composed, env={**supplied, "RUST_MIN_STACK": str(19 << 20)})
+        child.assert_called_once_with(
+            composed, env={**supplied, "RUST_MIN_STACK": str(19 << 20)}
+        )
 
-    def test_ordinary_runner_preserves_valid_explicit_stack_and_refuses_invalid_before_child(self) -> None:
+    def test_ordinary_runner_preserves_valid_explicit_stack_and_refuses_invalid_before_child(
+        self,
+    ) -> None:
         command = ["cargo", "test", "--lib"]
         for value in ("24681012", "", "0", "-1", "16M", " 16777216", str(1 << 64)):
             with (
                 self.subTest(value=value),
                 patch.dict(os.environ, {"RUST_MIN_STACK": value}, clear=True),
                 patch.object(arrow_validation, "compose", return_value=command),
-                patch.object(arrow_validation.host_admission, "policy", side_effect=AssertionError("explicit override must not select a default")),
-                patch.object(arrow_validation.subprocess, "call", return_value=0) as child,
+                patch.object(
+                    arrow_validation.host_admission,
+                    "policy",
+                    side_effect=AssertionError(
+                        "explicit override must not select a default"
+                    ),
+                ),
+                patch.object(
+                    arrow_validation.subprocess, "call", return_value=0
+                ) as child,
             ):
                 if value == "24681012":
                     self.assertEqual(arrow_validation.main(["test", "--lib"]), 0)
-                    child.assert_called_once_with(command, env={"RUST_MIN_STACK": value})
+                    child.assert_called_once_with(
+                        command, env={"RUST_MIN_STACK": value}
+                    )
                 else:
                     with self.assertRaisesRegex(ValueError, "positive finite"):
                         arrow_validation.main(["test", "--lib"])

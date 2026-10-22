@@ -611,10 +611,10 @@ mod tests {
             current.as_ref().unwrap().identity,
             next_model.compiled().occurrence_identity()
         );
-        assert!(!Arc::ptr_eq(
-            &first.case.compiled().plan,
-            &next.case.compiled().plan
-        ), "the receiving source has its own validated plan shell");
+        assert!(
+            !Arc::ptr_eq(&first.case.compiled().plan, &next.case.compiled().plan),
+            "the receiving source has its own validated plan shell"
+        );
         assert_eq!(
             first.case.compiled().plan.allocation_identity()[1..],
             next.case.compiled().plan.allocation_identity()[1..],
@@ -624,14 +624,24 @@ mod tests {
             assert!(Arc::ptr_eq(body, &next.case.compiled().plan.bodies()[key]));
         }
         for binding in next.case.compiled().plan.structure().instances() {
-            let actual = next_model.compiled().admitted.case().instances().iter()
-                .find(|actual| actual.instance == binding.instance).unwrap();
+            let actual = next_model
+                .compiled()
+                .admitted
+                .case()
+                .instances()
+                .iter()
+                .find(|actual| actual.instance == binding.instance)
+                .unwrap();
             assert_eq!(binding.checked_members, actual.checked_members);
             assert_eq!(binding.checked_sources, actual.checked_sources);
             assert_eq!(binding.occurrences, actual.occurrences);
             assert!(!binding.occurrences.is_empty());
-            assert!(binding.occurrences.values().all(|location|
-                location.document == Some(SemanticId::from_bytes([145; 16]))));
+            assert!(
+                binding
+                    .occurrences
+                    .values()
+                    .all(|location| location.document == Some(SemanticId::from_bytes([145; 16])))
+            );
         }
         assert_eq!(
             next.case.compiled().occurrences.allocation_identity(),
