@@ -26,7 +26,13 @@ def fixture_module(
     long_hold: bool = False,
 ) -> dict[str, object]:
     """Publish a tiny package-shaped fixture under the real receipt verifier."""
-    kind, features = module._variant(qualification, long_hold)
+    if long_hold:
+        assert qualification
+        kind, features = module.LONG_HOLD_KIND, ["module-qualification-long-hold"]
+    elif qualification:
+        kind, features = module.QUALIFICATION_KIND, ["module-qualification"]
+    else:
+        kind, features = module.KIND, []
     inputs: dict[str, object] = {
         "kind": kind,
         "sdk_version": "0.6.4",
@@ -43,7 +49,7 @@ def fixture_module(
             "packer_sha256": "3" * 64,
             "manifest_sha256": "2" * 64,
         }
-    directory = root / module._input_digest(inputs)
+    directory = root / module._input_digest(inputs)  # noqa: SLF001 -- construct the real immutable receipt layout
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     artifact = directory / "study.surli"
     if exports is None:
@@ -72,7 +78,7 @@ def fixture_module(
     }
     if artifact.exists():
         artifact.chmod(0o600)
-    with module.tarfile.open(artifact, mode="w:zst") as archive:
+    with module.tarfile.open(artifact, mode="w|zst") as archive:
         for name, payload in entries.items():
             header = module.tarfile.TarInfo(name)
             header.size = len(payload)
@@ -91,6 +97,14 @@ def fixture_module(
     (directory / "module.json").write_text(json.dumps(receipt))
     (directory / "module.json").chmod(0o600)
     return receipt
+
+
+def fixture_inputs(receipt: dict[str, object]) -> dict[str, object]:
+    """Narrow the fixture record before changing a provenance field."""
+    inputs = receipt["inputs"]
+    assert isinstance(inputs, dict)
+    assert all(isinstance(key, str) for key in inputs)
+    return inputs
 
 
 class ModuleAdmissionTests(unittest.TestCase):
@@ -159,14 +173,14 @@ class ModuleAdmissionTests(unittest.TestCase):
                 {"kind": module.QUALIFICATION_KIND},
                 {
                     "inputs": {
-                        **module._object(receipt["inputs"]),
+                        **fixture_inputs(receipt),
                         "features": [
                             "module-qualification",
                             "module-qualification-long-hold",
                         ],
                     }
                 },
-                {"inputs": {**module._object(receipt["inputs"]), "packaging": {}}},
+                {"inputs": {**fixture_inputs(receipt), "packaging": {}}},
             ):
                 with self.subTest(change=change), self.assertRaises(module.ModuleError):
                     module.verify(
@@ -198,8 +212,8 @@ class ModuleAdmissionTests(unittest.TestCase):
                     return result
 
             original = members(source)
-            module._package_long_hold(one)
-            module._package_long_hold(two)
+            module._package_long_hold(one)  # noqa: SLF001 -- exercise manifest-only packaging, independently of compilation
+            module._package_long_hold(two)  # noqa: SLF001 -- repeat the same packaging to verify reproducibility
             self.assertEqual(one.read_bytes(), two.read_bytes())
             changed = members(one)
             self.assertEqual(set(changed), module.MEMBERS)
@@ -214,7 +228,7 @@ class ModuleAdmissionTests(unittest.TestCase):
                 root / "hostile", qualification=True, exports={"study::readiness"}
             )
             with self.assertRaisesRegex(module.ModuleError, "exports differ"):
-                module._package_long_hold(Path(str(hostile["artifact"])))
+                module._package_long_hold(Path(str(hostile["artifact"])))  # noqa: SLF001 -- prove invalid CLI output is refused before repacking
 
     def test_long_hold_build_selects_feature_and_publishes_exact_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
@@ -223,7 +237,7 @@ class ModuleAdmissionTests(unittest.TestCase):
             selected = fixture_module(
                 root / "selected", qualification=True, long_hold=True
             )
-            inputs = module._object(selected["inputs"])
+            inputs = fixture_inputs(selected)
 
             def build(arguments: list[str]) -> str:
                 self.assertIn("module-qualification-long-hold", arguments)
@@ -338,7 +352,7 @@ class ModuleAdmissionTests(unittest.TestCase):
             artifact = Path(str(receipt["artifact"]))
             original = artifact.read_bytes()
             artifact.chmod(0o600)
-            with module.tarfile.open(artifact, mode="w:zst") as archive:
+            with module.tarfile.open(artifact, mode="w|zst") as archive:
                 header = module.tarfile.TarInfo("surrealism/fs/unwanted.txt")
                 header.size = 1
                 archive.addfile(header, io.BytesIO(b"x"))
@@ -358,7 +372,7 @@ class ModuleAdmissionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
             receipt = fixture_module(root / "fixture")
-            inputs = module._object(receipt["inputs"])
+            inputs = fixture_inputs(receipt)
             with (
                 patch.object(
                     module,
