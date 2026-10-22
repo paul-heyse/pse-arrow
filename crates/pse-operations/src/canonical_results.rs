@@ -958,79 +958,6 @@ impl CanonicalStore {
             .await
     }
 
-    /// Discover at most one narrow metadata page for an admitted output range.
-    /// Decimal bounds retain the full unsigned domain; payload is never projected.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "the protected selection, output identity, row window and page cursor independently bound this read"
-    )]
-    pub async fn result_block_page(
-        &self,
-        read: &ResultRead,
-        result_set: &str,
-        output: &str,
-        partition: &str,
-        start: u64,
-        end: u64,
-        after: Option<u64>,
-    ) -> Result<Vec<BlockMetadata>, CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::BlockPage, async {
-        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
-        activity.scope(async {
-        if !self.db.same_driver(&read.owner.store.db) {
-            return Err(invalid("result read belongs to another store"));
-        }
-        let set = read.set(result_set)?;
-        identity(output)?;
-        identity(partition)?;
-        if start > end {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        // SurrealDB 3.3 chooses the first range on a compound index column.
-        // Put the current cursor before the manifest's upper bound, preserving
-        // the same residual extent checks and ordered 64-row page.
-        let cursor = if after.is_some() {
-            "ordinal>$after AND "
-        } else {
-            ""
-        };
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::BlockPage, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
-            .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
-            .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
-            .bind(("protection",read.owner.selection.key().to_owned()))
-            .bind(("result_set",set.key.clone())).bind(("output",output.to_owned())).bind(("partition",partition.to_owned()))
-            .bind(("count",canonical_codec::encode_uint(set.batch_count)?)).bind(("start",canonical_codec::encode_uint(start)?))
-            .bind(("end",canonical_codec::encode_uint(end)?)).bind(("after",after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(Value::None))))).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let rows = response.take::<Vec<Object>>(index)?;
-        if rows.len() > PAGE {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut previous = after;
-        rows.into_iter()
-            .map(|row| {
-                let metadata = wire::decode_canonical_result_blocks(row)?;
-                if previous.is_some_and(|ordinal| metadata.ordinal <= ordinal)
-                    || metadata.key
-                        != result_batch_key(&read.attempt.key, &set.key, metadata.ordinal)
-                    || metadata.result_set != set.key
-                    || metadata.ordinal >= set.batch_count
-                    || metadata.output != output
-                    || metadata.partition != partition
-                    || metadata.end <= start
-                    || metadata.start >= end
-                    || metadata.interpretation != read.run.interpretation
-                {
-                    return Err(invalid("block metadata outside exact admitted selection"));
-                }
-                previous = Some(metadata.ordinal);
-                Ok(metadata)
-            })
-            .collect()
-            }).await
-        }).await
-    }
-
     /// Read protected block coverage and its complete exact file descriptors in
     /// one bounded native transaction. Physical opening still reauthenticates the
     /// current file incarnation and placement under the same protection.
@@ -1686,43 +1613,37 @@ mod canonical_results_server_unit {
         assert!(decode(encoded(&[], &[], None, false)).is_err());
         assert!(!decode(encoded(&joined.blocks, &joined.batches, Some(1), false)).unwrap().exhausted,
             "a byte-limited short page remains resumable");
-        let page = store
-            .result_block_page(&read, &set, "temperature", "time", 10, 20, None)
-            .await
-            .unwrap();
-        assert_eq!(page.len(), 1);
+        let page = joined.blocks;
         assert_eq!(page[0].ordinal, 1);
         let resumed = store
-            .result_block_page(&read, &set, "temperature", "time", 10, 20, Some(0))
+            .result_joined_block_page(&read, &set, "temperature", "time", 10, 20, Some(0))
             .await
             .unwrap();
-        assert_eq!(resumed, page);
-        assert!(
-            store
-                .result_block_page(&read, &set, "temperature", "time", 10, 20, Some(1))
+        assert_eq!(resumed.blocks, page);
+        assert_eq!(resumed.batches, joined.batches);
+        assert_eq!(resumed.next, Some(1));
+        assert!(resumed.exhausted);
+        for (start, end, after) in [
+            (10, 20, Some(1)),
+            (20, 25, None),
+            (0, 35, Some(2)),
+        ] {
+            let exhausted = store
+                .result_joined_block_page(&read, &set, "temperature", "time", start, end, after)
                 .await
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            store
-                .result_block_page(&read, &set, "temperature", "time", 20, 25, None)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+                .unwrap();
+            assert!(exhausted.blocks.is_empty());
+            assert!(exhausted.batches.is_empty());
+            assert_eq!(exhausted.next, None);
+            assert!(exhausted.exhausted);
+        }
         let tail = store
-            .result_block_page(&read, &set, "temperature", "time", 0, 35, Some(1))
+            .result_joined_block_page(&read, &set, "temperature", "time", 0, 35, Some(1))
             .await
             .unwrap();
-        assert_eq!(tail.iter().map(|m| m.ordinal).collect::<Vec<_>>(), vec![2]);
-        assert!(
-            store
-                .result_block_page(&read, &set, "temperature", "time", 0, 35, Some(2))
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert_eq!(tail.blocks.iter().map(|m| m.ordinal).collect::<Vec<_>>(), vec![2]);
+        assert_eq!(tail.next, Some(2));
+        assert!(tail.exhausted);
 
         for (start, end, after, expected) in [
             (10, 20, None, vec![10]),
@@ -1762,10 +1683,10 @@ mod canonical_results_server_unit {
         assert_eq!(blob.batch.payload.as_slice(), [1u8; 32]);
         assert!(
             store
-                .result_block_page(&read, &set, "other", "time", 0, 30, None)
+                .result_joined_block_page(&read, &set, "other", "time", 0, 30, None)
                 .await
                 .unwrap()
-                .is_empty()
+                .blocks.is_empty()
         );
         let mut changed = page[0].clone();
         changed.payload_digest = "wrong".into();
