@@ -1883,6 +1883,89 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertTrue(second.release())
         self.assertTrue(third.release())
 
+    def test_declared_store_slots_retain_each_memory_charge_and_original_timeout(
+        self,
+    ) -> None:
+        profile = host.select("store-functional")
+        self.assertEqual(host.settings("functional")["store_slots"], 2)
+        self.assertEqual(profile.memory, 8 * host.GIB)
+        first = host.acquire(profile, directory=self.directory)
+        second = host.acquire(profile, directory=self.directory)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertEqual(len(ledger["owners"]), 2)
+            self.assertEqual(
+                sum(owner["memory"] for owner in ledger["owners"].values()),
+                16 * host.GIB,
+            )
+        begun = time.monotonic()
+        with self.assertRaisesRegex(
+            host.AdmissionError, "store-functional slots occupied"
+        ):
+            host.acquire(profile, directory=self.directory, deadline=begun + 0.03)
+        self.assertLess(time.monotonic() - begun, 0.2)
+        with self.assertRaisesRegex(host.AdmissionError, "exclusive heavy-work owner"):
+            host.acquire(
+                host.select("exclusive"),
+                directory=self.directory,
+                deadline=time.monotonic() + 0.03,
+            )
+        self.assertTrue(first.release())
+        self.assertTrue(second.release())
+        with self.assertRaisesRegex(host.AdmissionError, "declared lane"):
+            host.select("store-functional", "9G")
+
+    def test_unknown_store_owner_still_occupies_its_declared_slot(self) -> None:
+        first = host.acquire(host.select("store-functional"), directory=self.directory)
+        first.register("pse-unknown-store.service")
+        with patch.object(
+            host.operation, "unit_observation", side_effect=ValueError("unknown")
+        ):
+            self.assertFalse(first.release())
+            second = host.acquire(
+                host.select("store-functional"), directory=self.directory
+            )
+            with self.assertRaisesRegex(host.AdmissionError, "slots occupied"):
+                host.acquire(
+                    host.select("store-functional"),
+                    directory=self.directory,
+                    deadline=time.monotonic() + 0.03,
+                )
+            with host.allocation_metadata(self.directory) as ledger:
+                self.assertIn(first.nonce, ledger["owners"])
+                self.assertIn(second.nonce, ledger["owners"])
+        self.assertTrue(second.release())
+
+    def test_timing_store_retains_its_single_declared_slot(self) -> None:
+        self.assertEqual(host.settings("timing")["store_slots"], 1)
+        profile = host.select("store-timing")
+        first = host.acquire(profile, directory=self.directory)
+        with self.assertRaisesRegex(host.AdmissionError, "store-timing slots occupied"):
+            host.acquire(
+                profile, directory=self.directory, deadline=time.monotonic() + 0.03
+            )
+        self.assertTrue(first.release())
+
+    def test_store_slot_declarations_are_required_positive_integers(self) -> None:
+        text = (host.ROOT / ".config/agent-capacity.toml").read_text()
+        for replacement in (
+            "",
+            "store_slots = 0",
+            "store_slots = -1",
+            "store_slots = true",
+        ):
+            with (
+                self.subTest(replacement=replacement),
+                patch.object(
+                    Path,
+                    "read_text",
+                    return_value=text.replace("store_slots = 2", replacement),
+                ),
+                self.assertRaisesRegex(
+                    host.AdmissionError, "Invalid capacity declaration"
+                ),
+            ):
+                host.policy()
+
     def test_original_deadline_and_actual_membership_required_for_reentry(self) -> None:
         owner = host.acquire(host.select("compile"), directory=self.directory)
         nested = host.inherit(owner.environment())

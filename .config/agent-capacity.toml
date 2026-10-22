@@ -25,6 +25,7 @@ memory_gib = 24
 [functional]
 slot_gib = 40
 store_gib = 8
+store_slots = 2
 receiver_gib = 32
 observer_gib = 4
 control_gib = 4
@@ -48,6 +49,7 @@ compiler_cores = 1
 [timing]
 slot_gib = 56
 store_gib = 8
+store_slots = 1
 receiver_gib = 48
 observer_gib = 4
 control_gib = 4

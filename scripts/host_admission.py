@@ -138,6 +138,11 @@ def policy() -> HostPolicy:
             valid = type(value) is int
         if not valid:
             raise AdmissionError(f"Invalid capacity declaration {key}")
+    for lane in ("functional", "timing"):
+        selected = declared.get(lane)
+        slots = selected.get("store_slots") if isinstance(selected, dict) else None
+        if type(slots) is not int or slots <= 0:
+            raise AdmissionError(f"Invalid capacity declaration {lane}.store_slots")
     return cast("HostPolicy", declared)
 
 
@@ -1232,8 +1237,10 @@ def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
         if profile.lane == "light"
         else settings("build")["slots"]
         if profile.lane == "build"
+        else settings(profile.lane.removeprefix("store-"))["store_slots"]
+        if profile.lane in {"store-functional", "store-timing"}
         else 1
-        if profile.lane in {"timing", "store-functional", "store-timing"}
+        if profile.lane == "timing"
         else 2
     )
     if used + profile.slots > capacity:
