@@ -293,10 +293,17 @@ their solver callers. The repaired recovery fixture's exact `canonical-tools,can
 force-validated bin compile/build and all-target Clippy also pass with zero warnings/errors.
 Final global Ruff passes after the Python fixture correction. Documentation
 publication passes with 590 chapters; lifecycle validation passes with zero errors over 1,011
-scope items and five declared exclusions. `just turn-end` passes ADR index/formatting. The final
-feature powerset remains running at this checkpoint. Repaired leaf passes do not imply a fresh
-monolithic hygiene pass. Old unsupported-profile cleanup deferrals retain their original owners
-and unresolved effects; they are not erased by a successful check.
+scope items and five declared exclusions. `just turn-end` passes ADR index/formatting.
+`just features-powerset` passes all **420 depth-two feature combinations** and **34 no-default
+package checks**, with zero rendered warnings/errors. Its assessment is
+`build/assessment/20261022T123431.111710Z-features-powerset-1223236-34e320/`; this includes fresh
+post-repair coverage of every tooling combination. Independent parallel cache-warmup subsets
+overlap that matrix and are not additional coverage. Two optional singleton-filter warmups
+were refused by cargo-hack before any checks; the supported combined filter then passed.
+Repaired leaf passes do not imply a fresh monolithic hygiene pass. Old unsupported-profile
+cleanup deferrals retain their original owners and unresolved effects; a successful check
+does not erase them. Selected 49a–49c implementation, acceptance and publication are complete;
+remaining series work stays at 49d–49h.
 
 ### A mistake made and corrected
 

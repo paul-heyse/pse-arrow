@@ -866,7 +866,9 @@ The Outcome names the 738 pure-library,51 selected native/scientific,15 readines
 catalog and8 assembled Rust controls,52 Python contract controls and composite six-plus-one
 public Python journeys, their actual commands and initial failures/repairs. Scope-end default,
 no-default and linked-native all-target Clippy, repaired hygiene leaves, generator/family checks
-and manual publication retain their stated scopes. A bounded complete source/publication/
+and manual publication retain their stated scopes. The complete depth-two feature matrix
+passes 420 combinations plus 34 no-default package checks with zero warnings/errors, including
+post-repair tooling coverage. A bounded complete source/publication/
 simulation/selection measurement records the current target with competing compiler activity;
 it establishes no controlled speedup. These selected checks do not close whole 49d–49h, the
 canceled native sweep, broader model-library/parity campaigns or independent plans. Proposed
