@@ -243,6 +243,20 @@ mod tests {
         }
     }
     #[test]
+    fn native_value_carriers_roundtrip_without_signed_integer_coercion() {
+        let page = shared(true);
+        let native = page.into_value();
+        let page = Page::from_value(native).unwrap();
+        assert_eq!(uint(page.generation).unwrap(), u64::MAX);
+        assert_eq!(uint(page.rows[0].revision).unwrap(), u64::MAX);
+        let reply = evaluate(page).into_value();
+        let reply = Reply::from_value(reply).unwrap();
+        assert!(reply.accepted);
+        assert_eq!(uint(reply.decisions[0].expected[0].revision).unwrap(), u64::MAX);
+        let premises: (u64, Vec<(String, u64)>) = serde_json::from_slice(reply.decisions[0].premises.as_ref()).unwrap();
+        assert_eq!(premises.0, u64::MAX);
+    }
+    #[test]
     fn malformed_or_incomplete_scopes_return_no_partial_decisions() {
         let mut bad = Vec::new();
         let mut page = shared(true); page.rows.push(page.rows[0].clone()); bad.push(page);
