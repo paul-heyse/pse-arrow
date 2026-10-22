@@ -300,6 +300,7 @@ def install(server: Mapping[str, object], tool_root: Path, *, qualification: boo
         lock_digest = surreal_source.digest(ROOT / "Cargo.lock")
         feature_arguments = ["--features", "module-qualification"] if qualification else []
         _command([
+            str(ROOT / "scripts/pse-env"), "--resource-class", "compile", "--",
             str(server["binary"]), "db", "module", "build", *feature_arguments,
             "--out", str(artifact), str(ROOT / CRATE),
         ])

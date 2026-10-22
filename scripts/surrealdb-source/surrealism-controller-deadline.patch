@@ -1,0 +1,293 @@
+--- a/surrealdb/core/src/legacy/expr/module.rs
++++ b/surrealdb/core/src/legacy/expr/module.rs
+@@ -222,7 +222,19 @@
+ 		#[cfg(feature = "http")]
+ 		client,
+ 	));
+-	let mut controller = runtime.acquire_controller(host).await.map_err(|error| {
++	if let Some(reason) = ctx.done(true)? {
++		return Err(crate::err::Error::from(reason).into());
++	}
++	let acquire = runtime.acquire_controller_with_timeout(host, ctx.timeout());
++	let acquired = match ctx.cancel_token() {
++		Some(token) => tokio::select! {
++			biased;
++			_ = token.cancelled() => return Err(crate::err::Error::from(crate::ctx::reason::Reason::Canceled).into()),
++			result = acquire => result,
++		},
++		None => acquire.await,
++	};
++	let mut controller = acquired.map_err(|error| {
+ 		if matches!(error, surrealism_runtime::SurrealismError::ControllerCapacityExceeded) {
+ 			anyhow::Error::from(crate::exec::Error::Thrown("PSE_REFUSAL:surrealism_controller_capacity_exceeded".into()))
+ 		} else {
+@@ -230,6 +242,10 @@
+ 		}
+ 	})?;
+ 
++	if let Some(reason) = ctx.done(true)? {
++		drop(controller);
++		return Err(crate::err::Error::from(reason).into());
++	}
+ 	let ctx_timeout = ctx.timeout();
+ 	let result = controller.invoke_with_timeout(sub.map(String::from), args, ctx_timeout).await;
+ 
+--- a/surrealism/runtime/Cargo.toml
++++ b/surrealism/runtime/Cargo.toml
+@@ -26,7 +26,7 @@
+ wasmtime-wasi.workspace = true
+ toml.workspace = true
+ tempfile.workspace = true
+-tokio = { workspace = true, default-features = false, features = ["sync", "io-util"] }
++tokio = { workspace = true, default-features = false, features = ["sync", "io-util", "time"] }
+ tracing.workspace = true
+ web-time.workspace = true
+ 
+--- a/surrealism/runtime/src/controller.rs
++++ b/surrealism/runtime/src/controller.rs
+@@ -148,18 +148,35 @@
+ 
+ 	#[tracing::instrument(skip_all)]
+ 	pub async fn init(&mut self) -> SurrealismResult<()> {
++		self.init_with_timeout(None).await
++	}
++
++	pub async fn init_with_timeout(&mut self, context_timeout: Option<Duration>) -> SurrealismResult<()> {
++		let module_limit = self.module_execution_time;
++		let effective = effective_timeout(context_timeout, self.module_execution_time);
++		if effective.is_some_and(|timeout| timeout.is_zero()) {
++			return Err(SurrealismError::Timeout { effective, context_timeout, module_limit: self.module_execution_time });
++		}
+ 		let t0 = Instant::now();
+ 		let Some(func) = self.init_fn else {
+ 			tracing::debug!("controller.init(): no init_fn, skipping");
+ 			return Ok(());
+ 		};
+-		self.apply_module_deadline();
++		match effective {
++			Some(timeout) => self.store.set_epoch_deadline(((timeout.as_millis() as u64) / EPOCH_TICK_MS).max(1)),
++			None => self.reset_epoch_deadline(),
++		}
+ 		tracing::info!(
+ 			module_execution_time = ?self.module_execution_time,
+ 			"controller.init(): calling init function..."
+ 		);
+ 		let typed = func.typed::<(), (Result<(), String>,)>(&self.store)?;
+-		match typed.call_async(&mut self.store, ()).await {
++		let call = typed.call_async(&mut self.store, ());
++		let result = match effective {
++			Some(timeout) => tokio::time::timeout(timeout, call).await.map_err(|_| SurrealismError::Timeout { effective, context_timeout, module_limit })?,
++			None => call.await,
++		};
++		match result {
+ 			Ok((result,)) => {
+ 				tracing::info!(elapsed = ?t0.elapsed(), ok = result.is_ok(), "controller.init(): completed");
+ 				result.map_err(SurrealismError::FunctionCallError)
+@@ -168,8 +185,8 @@
+ 				if e.downcast_ref::<Trap>() == Some(&Trap::Interrupt) {
+ 					tracing::error!(elapsed = ?t0.elapsed(), "controller.init(): timed out");
+ 					return Err(SurrealismError::Timeout {
+-						effective: self.module_execution_time,
+-						context_timeout: None,
++						effective,
++						context_timeout,
+ 						module_limit: self.module_execution_time,
+ 					});
+ 				}
+@@ -198,7 +215,14 @@
+ 		context_timeout: Option<Duration>,
+ 	) -> SurrealismResult<surrealdb_types::Value> {
+ 		let display_name = name.as_deref().unwrap_or("<default>");
++		let started = Instant::now();
++		let args_values = args.to_values();
++		let args_bytes = surrealdb_types::encode_value_list(&args_values)?;
++		let context_timeout = context_timeout.map(|timeout| timeout.saturating_sub(started.elapsed()));
+ 		let effective = effective_timeout(context_timeout, self.module_execution_time);
++		if effective.is_some_and(|timeout| timeout.is_zero()) {
++			return Err(SurrealismError::Timeout { effective, context_timeout, module_limit: self.module_execution_time });
++		}
+ 
+ 		match effective {
+ 			Some(timeout) => {
+@@ -209,9 +233,6 @@
+ 				self.reset_epoch_deadline();
+ 			}
+ 		}
+-
+-		let args_values = args.to_values();
+-		let args_bytes = surrealdb_types::encode_value_list(&args_values)?;
+ 
+ 		let typed = self
+ 			.invoke_fn
+--- a/surrealism/runtime/src/runtime.rs
++++ b/surrealism/runtime/src/runtime.rs
+@@ -114,6 +114,77 @@
+ 		for value in ["0", "-1", "max", "18446744073709551615"] {
+ 			assert!(global_controller_limit(Some(value)).is_err());
+ 		}
++	}
++}
++
++// One original monotonic deadline covers queueing, cold start and init. A
++// refreshed relative duration at each phase must never restart that budget.
++#[derive(Clone, Copy)]
++struct ControllerDeadline {
++	deadline: Option<Instant>,
++	context_timeout: Option<Duration>,
++	module_limit: Option<Duration>,
++}
++
++impl ControllerDeadline {
++	fn new(context_timeout: Option<Duration>, module_limit: Option<Duration>) -> SurrealismResult<Self> {
++		let effective = [context_timeout, module_limit].into_iter().flatten().min();
++		let deadline = effective.map(|timeout| Instant::now().checked_add(timeout)
++			.ok_or_else(|| SurrealismError::Other(anyhow::anyhow!("Surrealism controller deadline overflow"))))
++			.transpose()?;
++		Ok(Self { deadline, context_timeout, module_limit })
++	}
++
++	fn expired(self) -> SurrealismError {
++		SurrealismError::Timeout {
++			effective: [self.context_timeout, self.module_limit].into_iter().flatten().min(),
++			context_timeout: self.context_timeout,
++			module_limit: self.module_limit,
++		}
++	}
++
++	fn remaining(self) -> SurrealismResult<Option<Duration>> {
++		let remaining = self.deadline.map(|deadline| deadline.saturating_duration_since(Instant::now()));
++		if remaining.is_some_and(|remaining| remaining.is_zero()) {
++			return Err(self.expired());
++		}
++		Ok(remaining)
++	}
++}
++
++async fn acquire_controller_slot(slots: Arc<Semaphore>, deadline: ControllerDeadline) -> SurrealismResult<tokio::sync::OwnedSemaphorePermit> {
++	deadline.remaining()?;
++	let wait = slots.acquire_owned();
++	let permit = match deadline.deadline {
++		Some(at) => tokio::time::timeout_at(tokio::time::Instant::from_std(at), wait)
++			.await.map_err(|_| deadline.expired())?,
++		None => wait.await,
++	};
++	let permit = permit.map_err(|_| SurrealismError::Other(anyhow::anyhow!("Surrealism controller semaphore closed")))?;
++	deadline.remaining()?;
++	Ok(permit)
++}
++
++#[cfg(test)]
++mod controller_deadline_tests {
++	use super::*;
++
++	#[tokio::test(flavor = "current_thread")]
++	async fn occupied_pool_wait_obeys_original_deadline_without_leaking_slot() {
++		let slots = Arc::new(Semaphore::new(1));
++		let held = slots.clone().acquire_owned().await.unwrap();
++		let budget = ControllerDeadline::new(Some(Duration::from_millis(5)), Some(Duration::from_secs(1))).unwrap();
++		assert!(matches!(acquire_controller_slot(slots.clone(), budget).await, Err(SurrealismError::Timeout { .. })));
++		drop(held);
++		assert_eq!(slots.available_permits(), 1);
++		assert!(matches!(acquire_controller_slot(slots.clone(), budget).await, Err(SurrealismError::Timeout { .. })));
++		assert_eq!(slots.available_permits(), 1);
++	}
++
++	#[test]
++	fn zero_remaining_never_admits_cold_start_or_init() {
++		let budget = ControllerDeadline::new(Some(Duration::ZERO), Some(Duration::from_secs(1))).unwrap();
++		assert!(matches!(budget.remaining(), Err(SurrealismError::Timeout { .. })));
+ 	}
+ }
+ 
+@@ -344,7 +415,17 @@
+ 		&self,
+ 		context: Box<dyn InvocationContext>,
+ 	) -> SurrealismResult<Controller> {
+-		let permit = self.acquire_slot().await?;
++		self.acquire_controller_with_timeout(context, None).await
++	}
++
++	/// Preserve one context deadline across waiting, cold construction and init.
++	pub async fn acquire_controller_with_timeout(
++		&self,
++		context: Box<dyn InvocationContext>,
++		context_timeout: Option<Duration>,
++	) -> SurrealismResult<Controller> {
++		let deadline = ControllerDeadline::new(context_timeout, self.module_execution_time)?;
++		let permit = acquire_controller_slot(Arc::clone(&self.controller_slots), deadline).await?;
+ 
+ 		let pooled = {
+ 			let mut pool = self.pool.lock();
+@@ -368,8 +449,9 @@
+ 			}
+ 			None => {
+ 				tracing::info!("acquire_controller: creating NEW controller + init()");
+-				let mut ctrl = self.create_controller(context, permit).await?;
+-				ctrl.init().await?;
++				let mut ctrl = self.create_controller(context, permit, deadline).await?;
++				ctrl.init_with_timeout(deadline.remaining()?).await?;
++				deadline.remaining()?;
+ 				Ok(ctrl)
+ 			}
+ 		}
+@@ -432,16 +514,9 @@
+ 		&self,
+ 		context: Box<dyn InvocationContext>,
+ 	) -> SurrealismResult<Controller> {
+-		let permit = self.acquire_slot().await?;
+-		self.create_controller(context, permit).await
+-	}
+-
+-	async fn acquire_slot(&self) -> SurrealismResult<tokio::sync::OwnedSemaphorePermit> {
+-		Arc::clone(&self.controller_slots).acquire_owned().await.map_err(|_| {
+-			SurrealismError::Other(anyhow::anyhow!(
+-				"Surrealism controller semaphore closed (runtime shutdown?)"
+-			))
+-		})
++		let deadline = ControllerDeadline::new(None, self.module_execution_time)?;
++		let permit = acquire_controller_slot(Arc::clone(&self.controller_slots), deadline).await?;
++		self.create_controller(context, permit, deadline).await
+ 	}
+ 
+ 	/// Inner constructor that takes a pre-acquired semaphore permit.
+@@ -450,7 +525,9 @@
+ 		&self,
+ 		context: Box<dyn InvocationContext>,
+ 		controller_slot: tokio::sync::OwnedSemaphorePermit,
++		deadline: ControllerDeadline,
+ 	) -> SurrealismResult<Controller> {
++		deadline.remaining()?;
+ 		let global_slot = acquire_global_controller_slot()?;
+ 		let t0 = Instant::now();
+ 
+@@ -487,14 +564,24 @@
+ 		};
+ 		let mut store = Store::new(self.engine_handle.engine(), store_data);
+ 		store.limiter(|data| &mut data.limiter);
+-		store.set_epoch_deadline(self.epoch_deadline_max());
++		let remaining = deadline.remaining()?;
++		store.set_epoch_deadline(remaining.map(|timeout| ((timeout.as_millis() as u64) / crate::epoch::EPOCH_TICK_MS).max(1))
++			.unwrap_or_else(|| self.epoch_deadline_max()));
+ 
+ 		let t1 = Instant::now();
+-		let instance = self
+-			.instance_pre
+-			.instantiate_async(&mut store)
+-			.await
+-			.map_err(SurrealismError::Instantiation)?;
++		let instantiate = self.instance_pre.instantiate_async(&mut store);
++		let instance = match deadline.deadline {
++			Some(at) => tokio::time::timeout_at(tokio::time::Instant::from_std(at), instantiate)
++				.await.map_err(|_| deadline.expired())?,
++			None => instantiate.await,
++		}.map_err(|error| {
++			if error.downcast_ref::<wasmtime::Trap>() == Some(&wasmtime::Trap::Interrupt) {
++				deadline.expired()
++			} else {
++				SurrealismError::Instantiation(error)
++			}
++		})?;
++		deadline.remaining()?;
+ 		tracing::debug!(elapsed = ?t1.elapsed(), "new_controller: instantiate_async");
+ 
+ 		let t2 = Instant::now();
