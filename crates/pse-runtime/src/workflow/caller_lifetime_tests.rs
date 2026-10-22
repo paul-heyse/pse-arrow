@@ -308,9 +308,7 @@ async fn cancel_prepared_family_at_worker_entry(
 }
 
 #[cfg(feature = "solver-diffsol")]
-#[tokio::test]
-async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_and_joins_drain() {
-    let runtime = tests::runtime();
+async fn prepared_simulation(runtime: &Runtime) -> PreparedStudyOperation {
     let rows = pse_authoring::language::parse(
         "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; } test plant fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } { child root:Root=Root(); } }",
         pse_ids::SemanticId::from_bytes([174; 16]), pse_authoring::language::IdentityPolicy::Named, Default::default(),
@@ -338,7 +336,14 @@ async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_
         )
         .await
         .unwrap();
-    let prepared = PreparedStudyOperation::Simulation(Box::new(simulation));
+    PreparedStudyOperation::Simulation(Box::new(simulation))
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_and_joins_drain() {
+    let runtime = tests::runtime();
+    let prepared = prepared_simulation(&runtime).await;
     cancel_prepared_family_at_worker_entry(&runtime, &prepared).await;
     let rerun = prepared
         .start(&runtime, &crate::CancelSource::new())
@@ -353,6 +358,59 @@ async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_
     };
     assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
     assert!((trajectory.report().samples.last().unwrap().state[0] - 2.0).abs() < 1e-8);
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn prepared_simulation_original_deadline_retains_native_drain_without_cancelling_caller() {
+    let runtime = tests::runtime();
+    let prepared = prepared_simulation(&runtime).await;
+    let baseline = runtime.shared.math().test_admission_snapshot();
+    let gate = Arc::new(FamilyEntryDrain::default());
+    let _drain = FamilyEntryRelease(gate.clone());
+    let observed = gate.clone();
+    let deadline = std::time::Instant::now() + Duration::from_secs(1);
+    let caller = crate::CancelSource::new().with_deadline(Some(deadline));
+    let sibling = caller.child_with_deadline(None);
+    let handle = run::observed_family_worker_entry(
+        Arc::new(move |flag| observed.enter(flag)),
+        prepared.start(&runtime, &caller),
+    )
+    .await
+    .unwrap();
+    assert_eq!(handle.cancellation_scope().deadline(), Some(deadline));
+    gate.wait(false).await;
+    let entered = runtime.shared.math().test_admission_snapshot();
+    assert_eq!((entered.1 + 1, entered.2 + 1), (baseline.1, baseline.2));
+    let mut waiting = Box::pin(handle.wait());
+    tokio::time::sleep_until(deadline.into()).await;
+    assert!(
+        futures_util::poll!(waiting.as_mut()).is_pending(),
+        "deadline expiry cannot detach an issued native worker"
+    );
+    let draining = runtime.shared.math().test_admission_snapshot();
+    assert_eq!((draining.1, draining.2), (entered.1, entered.2));
+    assert!(!caller.token().is_cancelled());
+    assert!(!sibling.token().is_cancelled());
+    gate.release();
+    let result = tokio::time::timeout(Duration::from_secs(10), waiting)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        result.error().map(AsRef::as_ref),
+        Some(WorkflowError::Math(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        )))
+    ), "original deadline must retain its typed time limit: {:?}", result.report());
+    assert!(!result.usable());
+    let drained = runtime.shared.math().test_admission_snapshot();
+    assert_eq!((drained.1, drained.2), (baseline.1, baseline.2));
+    assert!(!caller.token().is_cancelled());
+    assert!(!sibling.token().is_cancelled());
 }
 
 #[cfg(feature = "solver-ipopt")]

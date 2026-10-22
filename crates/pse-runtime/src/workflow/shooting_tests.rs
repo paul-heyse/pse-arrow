@@ -4,6 +4,7 @@
 //! continuity closing from perturbed nodes and path bounds at the samples.
 use super::*;
 use crate::workflow::tests::{compiler_profile, id};
+use crate::workflow::{Durability, PreparedOperation, RuntimeOperationRequest};
 use native::solve::{Backend, Controls, SolverSelection};
 use pse_backend_native::dynamics::{Method, ScheduledInput};
 use pse_model::scalars::Tolerance;
@@ -599,6 +600,32 @@ fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
     assert_eq!(final_row.evaluations, None);
     assert_eq!(final_row.factorizations, None);
     report
+}
+
+#[tokio::test]
+async fn host_shooting_study_projection_refuses_without_native_or_durable_effects() {
+    let simulation = tracking(Method::Diffsol).await;
+    let problem = Arc::new(
+        simulation
+            .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
+            .unwrap(),
+    );
+    let baseline = problem.runtime.shared.math().test_admission_snapshot();
+    let host = RuntimeOperationRequest::Shooting {
+        problem: problem.clone(),
+        initial: None,
+    };
+    let prepared = PreparedOperation::Shooting {
+        problem: problem.clone(),
+        initial: None,
+    };
+    for error in [host.into_study().unwrap_err(), prepared.into_study().unwrap_err()] {
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(diagnostic.class, pse_model::diagnostic::BoundaryClass::Unsupported);
+        assert_eq!(diagnostic.rule, pse_diagnostics::DiagnosticRule::StudyOperationUnsupported);
+    }
+    assert_eq!(problem.runtime.shared.math().test_admission_snapshot(), baseline);
+    assert!(matches!(problem.runtime.durability(), Durability::Ephemeral));
 }
 
 #[tokio::test]
