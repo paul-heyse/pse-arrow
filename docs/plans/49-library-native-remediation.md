@@ -755,13 +755,19 @@ the inherited-stop horizon fixture omitting its required estimator/controller. F
 repairs and their focused retry remain pending; these results do not establish complete
 RUN04/RUN05 or assembled runtime acceptance.
 The maintainer subsequently requested 16 compiler jobs, concurrent independent builds and
-no operating-system memory budget for ordinary builds/tests. The environment owner is
-implementing that persistent opt-in, retaining process/drain ownership and the separate
-scientific pool, timing and reference contracts. The earlier 64GiB/single-job results above
+no operating-system memory budget for ordinary builds/tests. That persistent local opt-in
+is implemented, retaining process/drain ownership and the separate scientific pool, timing
+and reference contracts. Nine focused mode controls and twelve existing allocation controls
+passed; two actual kernel build owners overlapped with sixteen compiler jobs, sixteen
+physical cores and `memory.max=max`. This establishes resource configuration, not a measured
+build-speed improvement. The earlier 64GiB/single-job results above
 retain their original conditions. Readiness found host Python patch drift: `.venv` had
 followed `/usr/bin/python3.14` to3.14.9. A locked
 sync recreated it with managed3.14.8, preserving the repository pin. The editable extension
-must still be built before Python execution; the earlier readiness failure is not a pass.
+must still be built before Python execution. The subsequent `just ready` passed with that
+missing extension reported as a warning; four unsupported historical service records were
+preserved and their cleanup warnings remain. Neither readiness nor resource controls qualify
+the uninstalled Python boundary.
 
 The expanded normal `just unit-package pse-math` queue with `compiled-evaluator` and one
 test thread passed 191 tests, zero failures (266 filtered), including all five regional
