@@ -13,7 +13,12 @@ const MATRIX_ALLOWANCE: usize = 1 << 20;
 
 #[tokio::test]
 async fn fit_covariance_owned_result_reconciles_decoded_content_and_refuses_tampering() {
-    let fit = fixture("linear", [1.0; 2]).await.unwrap();
+    let seed = fixture("linear", [1.0; 2]).await.unwrap();
+    let mut profile = seed.problem.profile.clone();
+    profile.uncertainty = Some(FitUncertainty {
+        level: Fraction::try_new(0.95).unwrap(), profile: None, predictions: false,
+    });
+    let fit = production_profile(&seed, profile).await.unwrap();
     let result = fit.start().unwrap().wait().await.unwrap();
     let original = result.parameter_covariance().unwrap().unwrap();
     let bytes = serde_json::to_vec(&original).unwrap();
