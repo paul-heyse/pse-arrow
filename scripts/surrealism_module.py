@@ -110,8 +110,7 @@ def _command(arguments: list[str]) -> str:
         cwd=ROOT,
         env=environment,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
     if result.returncode:
@@ -448,7 +447,7 @@ def _package_long_hold(artifact: Path) -> None:
     replacement = artifact.with_suffix(".long-hold.surli")
     with (
         tarfile.open(artifact, mode="r|zst") as source,
-        tarfile.open(replacement, mode="w:zst") as target,
+        tarfile.open(replacement, mode="w|zst") as target,
     ):
         for member in source:
             if member.name == "surrealism/surrealism.toml":
@@ -543,7 +542,7 @@ def install(
         # an admitted artifact and cannot overwrite another completed generation.
         try:
             pending.rename(directory)
-        except FileExistsError:
+        except FileExistsError as error:
             existing = verify(
                 _object(json.loads((directory / "module.json").read_text())),
                 qualification=qualification,
@@ -552,7 +551,7 @@ def install(
             if existing != receipt:
                 raise ModuleError(
                     "Concurrent module generation differs from the exact completed artifact"
-                )
+                ) from error
             return existing
         descriptor = os.open(modules, os.O_DIRECTORY)
         try:
@@ -566,9 +565,8 @@ def main() -> int:
     """Explicit artifact preparation; this command never starts or mutates a database."""
     import argparse  # noqa: PLC0415 -- CLI dependencies stay outside the retained verifier path.
 
-    from scripts import (
-        surreal_server,
-    )
+    # The supervisor imports this verifier; only the CLI may load it reciprocally.
+    from scripts import surreal_server  # noqa: PLC0415
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tool-root", type=Path)

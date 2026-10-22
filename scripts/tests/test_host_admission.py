@@ -758,7 +758,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "supervisor_executable": sys.executable,
             }
 
-        prior = {
+        prior: dict[str, object] = {
             "owner": surreal_server.OWNER,
             "instance_id": "original",
             "admission": "quiesced",
@@ -771,7 +771,7 @@ class HostAdmissionTests(unittest.TestCase):
             "study_module_qualification": {"sha256": "2" * 64},
             "restart_qualified": True,
         }
-        current = {
+        current: dict[str, object] = {
             **prior,
             "service_supervisor": generation(b"owned readmitted supervisor"),
             "restart_qualified": False,
@@ -795,7 +795,7 @@ class HostAdmissionTests(unittest.TestCase):
         with host.allocation_metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce]["units"][unit] = {}
             ledger["owners"][owner.nonce]["released"] = True
-        manager = {
+        manager: dict[str, str] = {
             "LoadState": "loaded",
             "ActiveState": "failed",
             "ControlGroup": "",
