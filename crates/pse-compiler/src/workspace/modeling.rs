@@ -400,8 +400,34 @@ fn function_fragment(db: &dyn CompilerDb, key: FunctionFragmentKey<'_>) -> Resul
     Ok(Arc::new(result))
 }
 fn function_fragment_heap(value: &Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>>) -> usize { value.as_ref().map_or(0, |fragment| fragment.retained_bytes()) }
+#[salsa::interned(heap_size=field_fragment_key_heap)]
+struct FieldFragmentKey<'db> {
+    package: StaticFunctionPackageKey<'db>,
+    recipe: Arc<pse_modeling::specialize::field_fragments::FieldFragmentRecipe>,
+}
+fn field_fragment_key_heap((_package, recipe): &(StaticFunctionPackageKey<'_>, Arc<pse_modeling::specialize::field_fragments::FieldFragmentRecipe>)) -> usize { recipe.retained_bytes() }
+#[salsa::tracked(returns(clone),lru=256,heap_size=field_fragment_heap)]
+fn field_fragment(db: &dyn CompilerDb, key: FieldFragmentKey<'_>) -> Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>> {
+    checkpoint(db);
+    let _phase = pse_diagnostics::observation::phase("compiler.query.field_fragment");
+    let input = pse_modeling::specialize::field_fragments::FieldFragmentInput::from_parts(key.package(db).package(db).0.clone(), key.recipe(db).clone());
+    let result = pse_modeling::specialize::field_fragments::derive(&input,Some(&QueryFragments{db}), &|| db.cancel().load(Ordering::Acquire),&LibraryDiscretizer)?;
+    checkpoint(db);
+    Ok(Arc::new(result))
+}
+fn field_fragment_heap(value: &Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>>) -> usize { value.as_ref().map_or(0, |fragment| fragment.retained_bytes()) }
 struct QueryFragments<'db> { db: &'db dyn CompilerDb }
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
+    fn field_fragment(&self, input: Arc<pse_modeling::specialize::field_fragments::FieldFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>, pse_modeling::ModelingError> {
+        let (package,recipe)=input.parts();
+        let package=StaticFunctionPackageKey::new(self.db,StaticFunctionPackage(package));
+        let key=FieldFragmentKey::new(self.db,package,recipe);
+        field_fragment(self.db,key).map_err(|error|match error {
+            CompileError::Modeling(error)=>error, CompileError::Cancelled=>pse_modeling::ModelingError::Cancelled,
+            error=>pse_modeling::ModelingError::Contract{declaration:SemanticId::NIL,message:error.to_string()},
+        })
+    }
+
     fn function_fragment(&self, input: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>, pse_modeling::ModelingError> {
         let (package, recipe) = input.parts();
         let package = intern_static_package(self.db, package)?;
@@ -826,6 +852,7 @@ impl CompilerWorkspace {
             observed_specialization::set_lru_capacity(&mut self.db, self.limits.query_values);
             instance_prelude::set_lru_capacity(&mut self.db, self.limits.query_values);
             function_fragment::set_lru_capacity(&mut self.db, self.limits.query_values);
+            field_fragment::set_lru_capacity(&mut self.db, self.limits.query_values);
             physical_scope::set_lru_capacity(&mut self.db, self.limits.query_values);
             function_contracts::set_lru_capacity(&mut self.db, self.limits.query_values);
             document_table::set_lru_capacity(&mut self.db, self.limits.query_values);

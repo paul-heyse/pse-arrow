@@ -9,6 +9,7 @@ mod envelopes;
 pub mod finite;
 pub mod prelude;
 pub mod function_fragments;
+pub mod field_fragments;
 mod symbols;
 pub use symbols::Symbols;
 mod fold;
@@ -452,7 +453,7 @@ pub struct Connection {
     /// Original connection declaration.
     pub lineage: Lineage,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 struct State {
     /// Only selections consumed while constructing or demanding this instance's members.
     selections: crate::scientific_selection::Selections,
@@ -463,13 +464,14 @@ struct State {
     scope: Environment,
     path: String,
     members: BTreeMap<String, DeclarationId>,
+    member_kinds: BTreeMap<DeclarationId, Kind>,
     children: BTreeMap<(String, Vec<SemanticId>), InstanceId>,
     symbols: BTreeMap<(DeclarationId, Vec<SemanticId>), SemanticId>,
     stack: Vec<DeclarationId>,
 }
 /// Syntax ownership of a numerical or Set scope argument before its value is inlined.
 /// Coefficients remain owned by the admitted records; this retains only their read source.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 struct NumericalSource {
     instance: InstanceId,
     declaration: DeclarationId,
@@ -489,6 +491,7 @@ struct ReplicatedEquation {
 }
 pub(crate) struct Engine<'a, 'b> {
     fragments: Option<&'a dyn prelude::Fragments>,
+    field_fragment_active: bool,
     root: DeclarationId,
     function_permissions: Option<std::sync::Arc<Vec<pse_model::applicability::Permission>>>,
     inspection_context: Option<ContentHash>,
@@ -821,6 +824,7 @@ impl<'a, 'b> Engine<'a, 'b> {
     ) -> Self {
         Self {
         fragments,
+        field_fragment_active: false,
         root,
         function_permissions: None,
         inspection_context: None,
@@ -1661,6 +1665,7 @@ impl Engine<'_, '_> {
                 scope: published,
                 path: path.clone(),
                 members: members.clone(),
+                member_kinds: members.values().map(|id|(*id,self.p.declarations[id].value.kind)).collect(),
                 children: BTreeMap::new(),
                 symbols: BTreeMap::new(),
                 stack: Vec::new(),

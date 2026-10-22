@@ -1562,3 +1562,48 @@ fn shared_typed_function_math_preserves_distinct_original_callable_selections() 
     assert_eq!(inspections.len(), 2, "equivalent arithmetic must retain the two selected original callables");
     assert_ne!(inspections[0].body, inspections[1].body);
 }
+
+#[test]
+fn typed_ordinary_fields_reuse_local_bodies_and_preserve_lazy_source_obligations() {
+    let executions=Arc::new(AtomicUsize::new(0));
+    let observed=executions.clone();
+    let mut workspace=CompilerWorkspace::with_events(crate::authored_transfer_tests::context(),WorkspaceLimits::default(),Some(Box::new(move |event:salsa::Event| {
+        let event=format!("{:?}",event.kind);
+        if event.contains("WillExecute") && event.contains("field_fragment(") {observed.fetch_add(1,Ordering::Relaxed);}
+    }))).unwrap();
+    let original="package p {def Root {var x:Scalar;let z:Scalar=x+x;let unused:Scalar=x*x;eq a:z==1;eq b:x*x==2;}}";
+    let mut counts=Vec::new();
+    for source in [original.to_owned(),original.replace("eq b:x*x", "eq b:x+x"),original.to_owned(),original.replace("eq b:x*x", "eq b:x+x*x"),format!("\n{original}")] {
+        let declarations=rows(&source);
+        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+        let instance=pse_modeling::specialize::root_instance(root);
+        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
+        assert_eq!(incremental.as_ref(),&clean);
+        assert!(!incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".unused")));
+        counts.push(executions.load(Ordering::Relaxed));
+    }
+    assert_eq!(counts[0],4,"two original equation operands own four local producers");
+    assert_eq!(counts[1]-counts[0],2,"only changed equation's two fields rebuild; demanded lazy alias belongs to first field");
+    assert_eq!(counts[2],counts[1],"A/B/A reuses original local products");
+    assert_eq!(counts[3]-counts[2],2,"different-sized unrelated body does not change another field's local key");
+    assert_eq!(counts[4]-counts[3],4,"original source shift refreshes each field's original attribution");
+}
+
+#[test]
+fn typed_ordinary_fields_preserve_inactive_aliases_and_membership_changes() {
+    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
+    let original="package p {def Root(enabled:Boolean=false) {var x:Scalar;let inactive:Scalar=inactive;when enabled {let chosen:Scalar=x+x;} eq a:(if enabled then chosen else x)==1;}}";
+    for source in [original.to_owned(),original.replace("=false", "=true"),original.to_owned()] {
+        let declarations=rows(&source);
+        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+        let instance=pse_modeling::specialize::root_instance(root);
+        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default()).unwrap();
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer).unwrap();
+        assert_eq!(incremental.as_ref(),&clean);
+        assert!(!incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".inactive")));
+        assert_eq!(incremental.symbols.values().any(|symbol|symbol.lineage.path.ends_with(".chosen")),source.contains("=true"));
+    }
+}

@@ -125,7 +125,7 @@ pub fn derive(
     engine.states.insert(input.recipe.instance, State {
         selections: BTreeMap::new(), presets: Vec::new(), definition: input.recipe.function, parent: None,
         env: Environment::new(), scope: Environment::new(), path: String::new(),
-        members: BTreeMap::new(), children: BTreeMap::new(), symbols: BTreeMap::new(), stack: Vec::new(),
+        members: BTreeMap::new(), member_kinds: BTreeMap::new(), children: BTreeMap::new(), symbols: BTreeMap::new(), stack: Vec::new(),
     });
     let (product, name) = engine.build_function_fragment(input)?;
     if !engine.model.symbols.is_empty() || !engine.model.equations.is_empty() {

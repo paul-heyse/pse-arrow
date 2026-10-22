@@ -172,7 +172,7 @@ impl Engine<'_, '_> {
             .get(&segment.name)
             .ok_or_else(|| invalid(at, format!("unknown child {}", segment.name)))?;
         if !matches!(
-            self.p.declarations[&member].value.kind,
+            self.states[&instance].member_kinds[&member],
             Kind::Child | Kind::Implicit
         ) {
             return Err(invalid(at, "child instance required"));
@@ -198,7 +198,7 @@ impl Engine<'_, '_> {
         member: DeclarationId,
         values: Vec<Value>,
     ) -> Result<Vec<(String, Value)>> {
-        let declaration = &self.p.declarations[&member];
+        let declaration = self.p.declarations.get(&member).ok_or_else(||invalid(member,format!("field context lacks member coordinate contract: owner={} member={:?}",self.states[&instance].path,self.states[&instance].members.iter().find(|(_,id)|**id==member).map(|(name,_)|name))))?;
         let indices = if let Some(v) = &declaration.value.binding {
             v.indices
                 .iter()
@@ -314,7 +314,7 @@ impl Engine<'_, '_> {
             if let Some(disjunction) = state
                 .members
                 .get(&first.name)
-                .filter(|id| self.p.declarations[*id].value.kind == Kind::Disjunction)
+                .filter(|id| state.member_kinds.get(id)==Some(&Kind::Disjunction))
             {
                 let mut owner = *disjunction;
                 let mut alternative = None;
@@ -386,6 +386,9 @@ impl Engine<'_, '_> {
         local: &Environment,
         chain: &[DeclarationId],
     ) -> Result<Rewritten> {
+        if !self.field_fragment_active && self.function_symbols.is_none() {
+            return self.rewrite_local_field(instance, expression, local, chain);
+        }
         self.reserve(1)?;
         let at = chain
             .last()

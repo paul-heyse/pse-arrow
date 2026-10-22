@@ -118,6 +118,8 @@ impl InstancePrelude {
 /// The compiler provides query-owned derivation; standalone specialization derives
 /// exactly the same pure result without introducing another production mechanism.
 pub trait Fragments {
+    /// Derive one source-owned expression with explicit local typed and namespace premises.
+    fn field_fragment(&self, input: Arc<field_fragments::FieldFragmentInput>) -> Result<Arc<field_fragments::FieldFragment>>;
     /// Derive a local typed function body under its exact finite and physical premises.
     fn function_fragment(&self, input: Arc<function_fragments::FunctionFragmentInput>) -> Result<Arc<function_fragments::FunctionFragment>>;
     /// Derive from entity-local premises and exact bindings.

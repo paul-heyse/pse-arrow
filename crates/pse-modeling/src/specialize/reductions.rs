@@ -25,7 +25,9 @@ impl Engine<'_, '_> {
             self.c.preconditions,
         )?;
         let function = self.construction.function(product.clone())?;
-        let name = format!("f_{}", product.identity.to_hex());
+        let name = if let Some(context)=self.inspection_context {
+            format!("f_{}_inspection_{}_{}",product.identity.to_hex(),at.as_id(),context.to_hex())
+        } else {format!("f_{}", product.identity.to_hex())};
         let args = terms.iter().map(|term| term.root).collect();
         let inspection = terms.into_iter().map(|term| term.inspection).collect();
         // This contract is retained exclusively for independent source/scientific inspection.
