@@ -14,7 +14,8 @@ doc_topics: [design, documentation, libraries, storage, validation]
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Production execution remains paused apart from the explicitly authorized minimal TOOL08 dependency
+for Plan 50 D01 below; original authoring baselines and receipts retain their dates.
 
 ## Purpose, basis and responsibility
 
@@ -261,6 +262,40 @@ consumer. Targeted tests cover a known blocker, independent point, distinct edge
 page-plus-one continuation, changed selected revision, protected reference and incomplete scope.
 Independent expected graphs/facts specify results. Keep frontend formatting outside the semantic
 query, and remove any replaced flat-page client stitching once its consumers move.
+
+### TOOL08 selected Plan 50 dependency checkpoint — 2026-10-22
+
+**Implemented:** the selected dependency supplies typed immediate-blocker, recorded-source and
+retained-consumer responses in `pse-operations::canonical_explanations`, published through the
+existing boundary catalogue. `canonical-graph-inspect` is the first operator consumer; its
+explicit database selector uses the existing canonical receiving authority. The response keeps
+original directed identities and parallel edge roles, protected evidence locators, isolates,
+revision/generation-bound continuation and explicit local completeness. Shared study policy
+selects the observed blocker. No payload acquisition, second graph or client stitching path
+was introduced.
+
+**Tested:** the two `canonical_graph_explanation` controls and the adjacent readiness-query
+control passed (3 selected tests, zero failures; 14.725 seconds) through the existing C04
+reference lifetime with explicit correctness validation. Both real operator commands also ran
+while their registered fixtures remained owned. Conditions included three study points with
+an independent point and two prerequisite kinds, a three-node analysis with two parallel edge
+roles and an isolate, one protected artifact reference, a one-edge page with its sentinel,
+changed selection refusal and an 80-point readiness fixture. The reference owner drained,
+quiesced and stopped; broader Plan 49 qualification was not run. Plan 50 D01 owns the adjacent
+query-inspection acceptance and native physical-plan evidence.
+
+**Still unresolved in TOOL08:** the selected response bounds decoded rows to the requested
+page plus one, retained output to 256 KiB and the request to its original clock. It does not
+establish a strict bound on native edges examined. Actual native plans retained a downstream
+Filter and limit; positive cache observations do not establish folded-block use. The exact
+[3.3.4 planner source](https://github.com/surrealdb/surrealdb/blob/1ac2b1dba7cd177621a4cf5d507caebeb2414395/surrealdb/core/src/exec/planner/source.rs)
+excludes predicates in the full projection pipeline from graph pushdown, leaves its direct
+key-residency recognizer disabled and counts pushed limits after visible filtering. Merely
+changing to native IDs and literal limits therefore cannot establish a bounded physical scan
+for continuation pages. Choose and test an actual composite-index seek or native range/cursor
+mechanism when completing this remaining Plan 49g obligation. This checkpoint accepts only the
+minimal semantic/API/decoded-output dependency for Plan 50; it neither closes TOOL08 nor resumes
+other Plan 49 packages.
 
 PRE09's optional configuration documents use the same catalogue only after explicit selection.
 No new Python policy engine, raw SMT endpoint or hidden default becomes a tooling convenience.

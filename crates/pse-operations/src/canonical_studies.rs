@@ -2437,6 +2437,7 @@ mod canonical_studies_server_unit {
         assert!(inspected["observations"]["readiness_static"].to_string().contains("study_ready_candidates"), "{inspected}");
         let module = store.inspect_study_module().await.unwrap();
         assert!(module["scope"].as_str().unwrap().contains("no execution"));
+        crate::canonical_explanations::qualify_operator(&store,"query",&serde_json::json!({"study":"query-inspection","after":15})).await;
         store.remove_isolated_fixture().await.unwrap();
     }
 

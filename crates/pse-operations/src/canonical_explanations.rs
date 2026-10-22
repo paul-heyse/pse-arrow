@@ -217,11 +217,11 @@ fn graph_plan_observations(value:&Value) -> Vec<serde_json::Value> {
                     if operator.contains("Graph") || !selected.is_empty() {
                         output.push(serde_json::json!({"operator":operator,"attributes":selected,"observed_counters":counters,
                             "folded_blocks_observed":counters.contains_key("block_hits"),"delta_entries_observed":counters.contains_key("delta_hits"),
-                            "predicate_interpretation":match attributes.and_then(|attrs|attrs.get("predicate_scope")) {
+                            "predicate_interpretation":if operator=="Filter" {"downstream Filter; predicate not pushed into graph scan"} else {match attributes.and_then(|attrs|attrs.get("predicate_scope")) {
                                 Some(Value::String(scope)) if scope=="key"=>"key predicate before edge record fetch",
                                 Some(Value::String(scope)) if scope=="payload"=>"inline payload predicate with record fallback when payload is unusable",
                                 Some(Value::String(scope)) if scope=="record"=>"predicate requires edge record evaluation",
-                                _=>"no native predicate placement observation"}}));
+                                _=>"no native predicate placement observation"}}}));
                     }
                 }
                 for child in object.values() {visit(child,depth+1,output);}
@@ -342,6 +342,26 @@ fn decode_edge(anchor:&GraphAnchor,row:Object)->Result<(String,GraphEdge),Canoni
     })
 }
 
+#[cfg(all(test,feature="canonical-tests"))]
+#[allow(clippy::unwrap_used,clippy::panic,reason="bounded actual CLI fixture controls fail on any missing input, failed child or timeout")]
+pub(crate) async fn qualify_operator(store:&CanonicalStore,kind:&str,input:&serde_json::Value) {
+    let Ok(directory)=std::env::var("PSE_DIAGNOSTIC_EVIDENCE") else {return;};
+    if std::env::var_os("PSE_CANONICAL_TOOLS").is_none() {return;}
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
+    let request=std::path::Path::new(&directory).join(format!("{}-{kind}-request.json",store.database()));
+    let evidence=std::path::Path::new(&directory).join(format!("{}-{kind}-operator.json",store.database()));
+    std::fs::write(&request,serde_json::to_vec(input).unwrap()).unwrap();
+    let mut child=tokio::process::Command::new(root.join("scripts/pse-env"))
+        .current_dir(root)
+        .arg("--native=").arg("--").arg(root.join(".venv/bin/python")).args(["-m","scripts.tests.canonical_inspection_check","--kind",kind,"--database",store.database(),"--state"])
+        .arg(store.deployment_state()).arg("--request").arg(&request).arg("--evidence").arg(&evidence)
+        .kill_on_drop(true).stdout(std::process::Stdio::null()).spawn().unwrap();
+    match tokio::time::timeout(std::time::Duration::from_secs(45),child.wait()).await {
+        Ok(status)=>assert!(status.unwrap().success(),"actual operator failed; evidence {evidence:?}"),
+        Err(_)=>{child.kill().await.unwrap();panic!("actual operator exceeded its finite child budget");}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,10 +384,13 @@ mod tests {
         let mut attrs=Object::new();attrs.insert("direction",Value::String("out".into()));attrs.insert("predicate_scope",Value::String("payload".into()));
         let mut metrics=Object::new();metrics.insert("block_hits",codec::encode_int(3).unwrap());
         let mut object=Object::new();object.insert("operator",Value::String("GraphEdgeScan".into()));object.insert("attributes",Value::Object(attrs));object.insert("metrics",Value::Object(metrics));
-        let observed=graph_plan_observations(&Value::Object(object));
+        let observed=graph_plan_observations(&Value::Object(object.clone()));
         assert_eq!(observed[0]["folded_blocks_observed"],true);
         assert!(!observed[0]["observed_counters"].as_object().unwrap().contains_key("cache_misses"));
         assert!(observed[0]["predicate_interpretation"].as_str().unwrap().contains("record fallback"));
+        object.insert("operator",Value::String("Filter".into()));
+        let filtered=graph_plan_observations(&Value::Object(object));
+        assert!(filtered[0]["predicate_interpretation"].as_str().unwrap().contains("downstream Filter"));
     }
 
     #[test]
@@ -427,6 +450,7 @@ mod server_tests {
         let first=store.graph_explanation(&request).await.unwrap();
         let physical=store.inspect_graph_explanation(&request,true).await.unwrap();
         assert!(!physical["operator_observations"]["analyze"].as_array().unwrap().is_empty());
+        qualify_operator(&store,"graph",&serde_json::to_value(&request).unwrap()).await;
         if let Ok(directory)=std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
             std::fs::write(std::path::Path::new(&directory).join("analysis-graph.json"),serde_json::to_vec_pretty(&serde_json::json!({"conditions":{"nodes":3,"parallel_edges":2,"isolates":1,"page_limit":1,"protected_artifact_bytes":24},"semantic":first,"physical":physical})).unwrap()).unwrap();
         }
