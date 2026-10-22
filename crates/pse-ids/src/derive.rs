@@ -608,6 +608,8 @@ frames! {
         FitProfileV4 => "pse.fit.profile.v4",
         /// Complete fitting-owned optimizer selection and numerical settings (ADR-0209).
         FitProfileV5 => "pse.fit.profile.v5",
+        /// Complete fitting policy including distinct residual LM algorithm criteria.
+        FitProfileV6 => "pse.fit.profile.v6",
         /// A fit source.
         FitSourceV1 => "pse.fit.source.v1",
         /// Compiled simulation modes.

@@ -151,3 +151,22 @@ pse.math.artifact.v6
 pse.math.directional-artifact.v2
 pse:numerical-strategy:v4
 pse.fit.profile.v5
+
+# Plan49: explicit resolved/derived, regional execution, boundary and physical-input frames.
+# Existing spellings remain frozen; these separate the selected new interpretations.
+pse.compiler.modeling-view.v6
+pse.math.physical-premises.v1
+pse.modeling.consumer-body.v5
+pse.modeling.resolved-syntax.v1
+pse.modeling.resolved-function.v1
+pse.modeling.resolved-body.v1
+pse.modeling.derived-relationship.v1
+pse.math.product-artifact.v1
+pse.math.scalar-family.v2
+pse.boundary.schema-set.v1
+pse.covariance.input.v1
+pse.dynamic.profile.v11
+pse.dynamic.profile.v12
+
+# RUN09: distinct residual LM criteria in fitting profile identity.
+pse.fit.profile.v6

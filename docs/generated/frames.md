@@ -291,6 +291,7 @@ Derived in: pse-runtime.
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile: its solver profile, rank tolerance, cell budget, derivative source, simulation profiles and requested intervals. |
 | `FitProfileV4` | `pse.fit.profile.v4` | Fit profile using canonical numeric and uncertainty document framing. |
 | `FitProfileV5` | `pse.fit.profile.v5` | Complete fitting-owned optimizer selection and numerical settings (ADR-0209). |
+| `FitProfileV6` | `pse.fit.profile.v6` | Complete fitting policy including distinct residual LM algorithm criteria. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV3` | `pse.modeling.dynamic.v3` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |
