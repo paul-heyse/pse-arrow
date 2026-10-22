@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 244 | 2026-10-22 | Publish selected Plan49c finite reference retention and canonical shared/local fragment accounting (§14.3.2) under proposed ADR-0215. | Maintainer-authorized remaining 49a–49c execution; .design-edit records publication authority; compiler/modeling functional controls passed, combined qualification remains at Plan49. |
 | 243 | 2026-10-22 | Amend proposed ADR-0214 with selected RC22 same-source bounded Surrealism readiness, immutable artifact/schema activation and native uncertainty ownership (§19.3/§20.6). | Maintainer explicitly selected Surrealism; .design-edit records authorization; module cutover and assembled qualification remain Plan49a. |
 | 242 | 2026-10-21 | Refine proposed ADR-0215 target with versioned physical study requests, required standalone document wire versions and independent residual-LM criteria/profile/replay identity (§19.3/§19.4/§21.1). | Maintainer-authorized full Plan49 hard pivot; PSE_DESIGN_EDIT=1; no assembled acceptance claimed. |
 | 241 | 2026-10-21 | Proposed ADR-0215 records remaining Plan49 resolved/library execution, runtime/native, result, Python/covariance and tooling contracts plus selected canonicalizer retirement before implementation. | Maintainer-authorized 49b–49h execution and I24; .design-edit records authorization; implementation and qualification remain Plan49 packages. |
