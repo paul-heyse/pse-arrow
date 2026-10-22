@@ -1,6 +1,6 @@
 ---
 title: "Plan 50b: Change scoping and development feedback"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,11 +11,15 @@ doc_topics: [environment, diagnostics, documentation, validation, performance]
 
 # Plan 50b: Change scoping and development feedback
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose and current foundation
 
 Deliver O03–O05: identify real consumers and useful tests, retrieve the right command/context,
 and explain what builds are doing. The [coordinator](50-codex-effectiveness-and-diagnostics.md)
-owns progress and shared scope. **Interface-checked:** source `bb61ae3f5`; **Proposed:** target and
+owns progress and shared scope. **Interface-checked:** source `bb61ae3f5`; **Acceptance criteria:** target and
 verification. This is a local navigation/feedback capability, not automatic architecture approval
 or proof that every changed behavior has a test.
 
@@ -134,7 +138,7 @@ platform or periodic review duty.
 
 ## Acceptance and integration
 
-**Proposed:** independent expectations for structured selection/exclusions; recipe argument and
+**Acceptance criteria:** independent expectations for structured selection/exclusions; recipe argument and
 effect descriptions; source/stub/native navigation; partial-index reports; selective output and
 actual build stage controls. Pure preview tests need no solver/store. A02 supplies client access;
 C01/C02 supplies run/wait identity. B02 can ship its recipe/document subset before those consumers.
@@ -147,3 +151,11 @@ changes; it does not promote package reach to exhaustive behavioral coverage. So
 [rust-analyzer configuration](https://rust-analyzer.github.io/book/configuration.html),
 [LSP extensions](https://github.com/rust-lang/rust-analyzer/blob/master/docs/book/src/contributing/lsp-extensions.md),
 [Pyrefly IDE services](https://pyrefly.org/en/docs/IDE).
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

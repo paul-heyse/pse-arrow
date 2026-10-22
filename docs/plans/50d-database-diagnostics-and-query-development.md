@@ -1,6 +1,6 @@
 ---
 title: "Plan 50d: Database diagnostics and query development"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,12 +11,16 @@ doc_topics: [diagnostics, libraries, storage, performance, validation]
 
 # Plan 50d: Database diagnostics and query development
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose, sources and current foundation
 
 Deliver O10–O13: inspect the actual query and storage behavior, develop queries/schema with
 early useful feedback, rehearse changes in disposable fixtures and retrieve scoped log/trace
 evidence. The [coordinator](50-codex-effectiveness-and-diagnostics.md) owns state and optional
-inquiry dispositions. **Interface-checked:** `bb61ae3f5`; **Proposed:** this design/acceptance.
+inquiry dispositions. **Interface-checked:** `bb61ae3f5`; **Acceptance criteria:** this design/acceptance.
 
 The new working reference `docs/libraries/surrealdb_tooling.md` was read comprehensively.
 Its §§5–12 and 14–15 contributed concrete source-backed mechanisms below; orientation does
@@ -213,12 +217,15 @@ Do not install their ecosystems merely to close a tooling inventory.
 
 ## Dependencies, verification and sources
 
+**Tested:** selected package and composed acceptance are recorded with commands, modes,
+zero-failure baseline and exclusions in the [series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 A02 supplies exact service validation; C04 supplies disposable lifetime; Plan49 declarations,
 SurrealKit and module owners are existing foundations. D01/D02 can proceed independently;
 D03/D04 consume the actual query/schema slices. D05 uses C01/C03 and explicit lifecycle actions.
 No whole-companion barrier is needed. 50g owns composed acceptance and scope-end checks.
 
-**Proposed:** query/binding equivalence, real index/graph plan controls, root VIEWER/anonymous
+**Acceptance criteria:** query/binding equivalence, real index/graph plan controls, root VIEWER/anonymous
 metrics, LSP diagnostic/scan controls, sync/replay parity, actor readback, module mismatch and
 interrupted log activation. Actual measurements retain fixture/concurrency scope. Ordinary
 source/metadata checking needs no full scientific solve.
@@ -234,3 +241,11 @@ Primary mechanisms: [3.3.4 EXPLAIN](https://github.com/surrealdb/surrealdb/blob/
 Local routes: `canonical_transport.rs`, `canonical_studies.rs`, `canonical_study_module.rs`,
 schema/codegen declarations, `surreal_server.py`, `surrealkit.py`, `surrealkit_maintenance.py`,
 `surreal_rollout_producer.py`, `surrealism_module.py` and existing MCP/MX fixtures.
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

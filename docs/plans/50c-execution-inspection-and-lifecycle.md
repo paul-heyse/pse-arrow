@@ -1,6 +1,6 @@
 ---
 title: "Plan 50c: Execution inspection and lifecycle workflows"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,13 +11,17 @@ doc_topics: [diagnostics, environment, storage, validation]
 
 # Plan 50c: Execution inspection and lifecycle workflows
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose and foundation assessment
 
 Deliver O06–O09 through the existing command, admission, server and resource owners. Codex
 should explain a live wait, read the correct product-test evidence, run a reference fixture
 under one lifetime and explicitly settle obsolete generated work. The
 [coordinator](50-codex-effectiveness-and-diagnostics.md#package-state) owns package state.
-**Interface-checked:** source `bb61ae3f5`; **Proposed:** target and acceptance.
+**Interface-checked:** source `bb61ae3f5`; **Acceptance criteria:** target and acceptance.
 
 `test_resources.invocation/publish_selection` owns exact selected identities before execution.
 `test_run.finish` already joins result rows, report errors, workload exit, artifacts, process
@@ -180,10 +184,18 @@ selection/resource/observer slices. C05 coordinates Plan49g TOOL04/RUN01 recover
 Plan32 producer lifecycle. It does not finish either plan. Product boundary projections use the
 existing catalogue only where they actually cross Rust/Python, not for every host-only JSON view.
 
-**Proposed:** package-local functional controls and one relevant actual producer/reader/lifecycle
+**Acceptance criteria:** package-local functional controls and one relevant actual producer/reader/lifecycle
 composition. 50g owns combined acceptance and scope-end checks. The zero target applies to checks
 run, but a documented protected resource is not an artificial test failure or cleanup permission.
 Publish durable mechanics to the environment, substrate and qualification guides through their
 existing decision routes. Sources: `scripts/test_run.py`, `test_resources.py`, `validation_result.py`,
 `host_admission.py`, `native_operation.py`, `activity.py`, `surreal_server.py`, `build_storage.py`,
 blueprint §§20.6, 24.1 and 24.4.1, and [current operating guidance](../dev/agent-environment.md).
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

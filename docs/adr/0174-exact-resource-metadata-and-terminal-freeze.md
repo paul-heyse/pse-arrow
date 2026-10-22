@@ -64,7 +64,10 @@ The alternative of synthesizing an incomplete terminal would claim reconciliatio
 not occur; releasing individual resources without closing membership leaves a late-registration
 race. A separate membership fence expresses the actual operator decision without either error.
 Plan50 C05 owns registration/disposition races, crash-prefix recovery, truthful missing-terminal
-reads and protected-effect controls. This target is Proposed until those controls establish it.
+reads and protected-effect controls. **Tested:** the explicit disposition controls in
+`scripts.tests.test_invocation_disposition`, including the actual dead-composer/no-terminal
+case, pass within Plan50's full 1,343-test setup suite; its Outcome records conditions and
+limits. This implementation evidence does not change this ADR's proposed decision status.
 
 Cutover excludes legacy writers using the existing legacy lock; imports and validates identified live/unresolved and known cold authorities; then durably publishes the unsupported-version refusal sentinel at the legacy ledger path **before** v2 activation. A crash in this fenced-but-unactivated state makes old writers refuse; the new owner resumes/validates the same staged imports under legacy exclusion and publishes activation only when they agree. It never serves writable v1 while recovering. All consumers migrate together. Preserve ambiguous records and migration evidence. Never restore a writable v1 ledger after activation. No automatic live production registry cutover is part of the implementation tests.
 

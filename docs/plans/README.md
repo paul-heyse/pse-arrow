@@ -1,14 +1,13 @@
 # Current work and plans
 
 [Plan50: Codex effectiveness and diagnostic tooling](50-codex-effectiveness-and-diagnostics.md)
-is the proposed series consuming the
-[2026-10-22 functional review](../functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md).
-Its coordinator owns O01–O20, the package state, bounded investigations and shared decisions;
-50a–50g develop session/environment integration, development feedback, execution/lifecycle,
-database tooling, native/Python diagnostics, preparation/reproduction and qualification.
-The [checkpoint](50-codex-effectiveness-and-diagnostics.md#verification-checkpoint-and-completion)
-records the authoring boundary and next work after authorization. This series does not resume
-production execution or close existing Plans32, 40 or 49.
+is complete for all 32 packages and O01–O20 selected routes. Its
+[Outcome](50-codex-effectiveness-and-diagnostics.md#outcome) owns inquiry decisions, actual
+composed acceptance, corrected zero-target checks and coverage limits. Enduring workflows live
+in the environment, substrate, diagnostic and qualification guides. The highest-numbered
+coordinator and consumed companions/source review remain retained for qualification and proposed
+ADR readers; they authorize no new work. The native graph-work cap remains with Plan49g TOOL08;
+Plans32, 40 and 49 keep their independent scope and status.
 
 [Plan49: Library-native remediation and SurrealMX integration](49-library-native-remediation.md)
 is the series consuming the revised in-use-library review, recommendation audit

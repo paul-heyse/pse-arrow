@@ -1,6 +1,6 @@
 ---
 title: "Plan 50f: Preparation explanations and reproducers"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,12 +11,16 @@ doc_topics: [diagnostics, preparation, performance, libraries, validation]
 
 # Plan 50f: Preparation explanations and reproducers
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose and assessed foundations
 
 Deliver O18–O20: explain an edit's actual preparation work, compare generated mathematical and
 relational execution, and extract a supported executable diagnostic case from complete evidence.
 The [coordinator](50-codex-effectiveness-and-diagnostics.md#package-state) owns progress and
-inquiry outcomes. **Interface-checked:** `bb61ae3f5`; **Proposed:** design/acceptance below.
+inquiry outcomes. **Interface-checked:** `bb61ae3f5`; **Acceptance criteria:** design/acceptance below.
 
 Existing observations already include selected Salsa executions/validations/waits/discards,
 an exclusive retention census, evaluator/instruction/storage facts, actual logical plan graphs,
@@ -170,13 +174,16 @@ and actual feature consumers exist.
 
 ## Dependencies, verification and sources
 
+**Tested:** selected package and composed acceptance are recorded with commands, modes,
+zero-failure baseline and exclusions in the [series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 F01/F02 proceed independently of profiling; they consume Plan49c/d's actual producers and the
 current observation boundary. F03 depends on its codec/reconstruction proof, not all of 50e.
 C01/C03 supplies run/artifact projection; product hooks follow TOOL05's dependency direction.
 Source recording/export already exists; novel extraction is executable transformation with
 explicit follow-on execution, not another generic pack export.
 
-**Proposed:** targeted compiler/math/engine/runtime/Python controls with explicit correctness
+**Acceptance criteria:** targeted compiler/math/engine/runtime/Python controls with explicit correctness
 validation where Arrow is consumed, plus the supported real source/reproducer examples. 50g
 owns composed qualification and scope-end checks. Quantitative speed/memory claims need their
 own actual measurement; a useful explanation is not a benchmark result.
@@ -189,3 +196,11 @@ Primary mechanisms: [Salsa0.28.5 events](https://docs.rs/salsa/0.28.5/src/salsa/
 [DataFusion EXPLAIN](https://datafusion.apache.org/user-guide/sql/explain.html), and the
 [diagnostic guide](../dev/simulation-diagnostics.md). Exact installed sources and the source
 review retain version-specific API details; no new mathematical or graph authority is selected.
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

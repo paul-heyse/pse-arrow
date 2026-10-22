@@ -735,6 +735,10 @@ Recording changes execution and is unsuitable for a parallel timing claim.
 `just py-sync-taskdump dev` builds the explicit diagnostic profile with `tokio_unstable` and
 Tokio's taskdump feature into **`.venv-diagnostic-taskdump`**. It installs a wheel containing
 the matching Python/contracts snapshot; it does not replace the ordinary editable extension.
+The local wheel enables Maturin's explicit ZIP64 support and stored compression so full debug
+ELFs larger than 4 GiB retain their symbols. Source-tree editable binaries are excluded from
+wheel collection; installation checks the actual imported package/binary paths, Rust features
+and digest. A successful build alone does not establish the selected diagnostic identity.
 The ordinary build refuses this unsupported action explicitly. Rust consumers pass their
 actual multi-thread executor handle to `tooling::taskdump::request`; Python uses
 `Runtime.task_dump(TaskDumpRequest(...))` and `Runtime.task_dump_status()`.
@@ -748,6 +752,19 @@ and `collector_failed` describe that request independently of scientific complet
 trace count/bytes may be truncated even though tracing visits the executor population.
 Blocked workers can prevent cooperation. LocalSet tasks, internal FuturesUnordered children
 and native threads can be absent; no task dump implies whole-process or whole-study coverage.
+
+The Linux diagnostic-profile control exercised an issued Python request interrupted by SIGINT:
+the observer raised `KeyboardInterrupt`, the same request remained owned until completion, and
+independent public physical/model reconstruction returned. Its observed dump population was
+zero tasks: Python `block_on` root/reconstruction work was not represented in this dump.
+The separate Rust pending-channel control captured spawned-task traces; neither establishes
+whole Python workflow coverage. Mathematical execution on a background Python thread remains
+unqualified: with the same four-equation
+source, two executor threads, 64 GiB logical capacity and canonical math defaults, a main-thread
+no-dump diagnostic completed in 0.303 seconds, while the matched background-thread no-dump
+control reached its 30-second provider deadline (30.006 seconds). A dumped background control
+also timed out; these observations do not establish that taskdump caused that deadline. Keep
+the diagnostic action, original scientific outcome and caller-thread context separate.
 
 ### Preparation comparison and executable reproducer extraction
 

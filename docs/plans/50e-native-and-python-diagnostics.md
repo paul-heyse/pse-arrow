@@ -1,6 +1,6 @@
 ---
 title: "Plan 50e: Native and Python diagnostic capabilities"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,12 +11,16 @@ doc_topics: [diagnostics, performance, numerical-execution, environment, validat
 
 # Plan 50e: Native and Python diagnostic capabilities
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose and assessed foundation
 
 Deliver O14–O17 and the deeper-counter/rr alternatives: useful mixed stacks, crashes, actual
 scheduling classes, suspended tasks and allocating stacks. These answer questions beyond existing
 operation snapshots and user CPU sampling. The [coordinator](50-codex-effectiveness-and-diagnostics.md)
-owns state and feasibility outcomes. **Interface-checked:** `bb61ae3f5`; **Proposed:** this target.
+owns state and feasibility outcomes. **Interface-checked:** `bb61ae3f5`; **Acceptance criteria:** this target.
 
 Installed-tool checks from the source review found perf, Samply, GDB15.1, py-spy0.4.2 and
 Heaptrack1.5; Python3.14.8 reports `PY_HAVE_PERF_TRAMPOLINE=1`. Memray/rr were not found on that
@@ -196,7 +200,10 @@ when direct established commands satisfy the chosen consumer.
 
 ## Verification and sources
 
-**Proposed:** small independent controls establish useful stacks, trace classes, identity checks,
+**Tested:** selected package and composed acceptance are recorded with commands, modes,
+zero-failure baseline and exclusions in the [series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
+**Acceptance criteria:** small independent controls establish useful stacks, trace classes, identity checks,
 safe detach, noncompletion, allocator population and capture finalization. Actual symbol/thread
 coverage must accompany the real examples. G02 composes selected pipeline journeys after functional
 delivery; static checks occur once at scope end. No full benchmark/scientific campaign is required.
@@ -214,3 +221,11 @@ Sources: existing `tooling/capture`, inspection/review-pack owners, native-opera
 [server Console](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/server/src/telemetry/console/mod.rs),
 [Heaptrack](https://github.com/KDE/heaptrack),
 [Memray](https://bloomberg.github.io/memray/native_mode.html), [rr](https://rr-project.org/).
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

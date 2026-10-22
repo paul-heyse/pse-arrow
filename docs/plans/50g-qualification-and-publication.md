@@ -1,6 +1,6 @@
 ---
 title: "Plan 50g: Qualification and publication"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -12,12 +12,16 @@ doc_topics: [diagnostics, validation, documentation, current-work]
 
 # Plan 50g: Qualification and publication
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Responsibility and evidence boundary
 
 Qualify the selected Plan50 capabilities as actual Codex/operator workflows after functional
 delivery, then publish enduring meaning and reconcile scope. Package progress and opportunity/
 inquiry dispositions remain at the [coordinator](50-codex-effectiveness-and-diagnostics.md).
-**Proposed:** all implementation acceptance below. Plan authoring and documentation publication
+**Acceptance criteria:** all implementation acceptance below. Plan authoring and documentation publication
 do not establish product, host-tool, profiler or scientific qualification.
 
 Per-package compile checks, targeted functional controls and required codegen belong with their
@@ -131,9 +135,18 @@ outcomes; required replacement removal; representative composed acceptance and z
 scope-end checks; and enduring documented contracts with bounded final evidence. Optional
 mechanisms are not required adoptions, but their selected investigation/disposition is required.
 
-Current state is proposed/unexecuted. No functional test, profiler experiment or assembled
-qualification ran because these documents were authored. Documentation checks performed during
-authoring establish only document consistency/publication. Sources: the
+The selected implementation and qualification are complete under the coordinator Outcome.
+The package/inquiry rows remain the sole status owner; the acceptance descriptions above are
+criteria, and actual coverage/exclusions are recorded there. Documentation checks performed
+during authoring established only document consistency/publication. Sources: the
 [qualification guide](../dev/validation-assessment.md), [diagnostic guide](../dev/simulation-diagnostics.md),
 [document lifecycle guide](../dev/documentation.md#metadata-and-aggregate-scope), AGENTS execution
 rhythm and the coordinator's source/opportunity mapping.
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.

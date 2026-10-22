@@ -1,6 +1,6 @@
 ---
 title: "Plan 50a: Session and environment integration"
-status: draft
+status: complete
 date: 2026-10-22
 adrs: []
 review_sources: [docs/functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md]
@@ -11,13 +11,17 @@ doc_topics: [environment, libraries, diagnostics, validation]
 
 # Plan 50a: Session and environment integration
 
+The foundation paragraphs describe the named authoring baseline. Selected implementation,
+inquiry outcomes, corrected mistakes and qualification conditions are recorded in the
+[coordinator Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
 ## Purpose and foundations
 
 Deliver [O01/O02](../functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md#O01):
 fresh Codex commands select the intended checkout and preserve the complete workload environment;
 useful semantic/database capabilities attach to the actual selected session. Package state and
 shared decisions belong to the [coordinator](50-codex-effectiveness-and-diagnostics.md#package-state).
-**Interface-checked:** `bb61ae3f5`; **Proposed:** this design and acceptance. Existing review probes
+**Interface-checked:** `bb61ae3f5`; **Acceptance criteria:** this design and acceptance. Existing review probes
 did not reproduce the historical cache-variable loss and do not qualify the replacement.
 
 The workstation injects `~/.config/codex/bash-env.bash` into each Codex Bash launch. It unloads
@@ -119,7 +123,10 @@ hard-coded selected-store instructions superseded by A02 while preserving standa
 
 ## Acceptance and boundaries
 
-**Proposed targeted evidence:** shell propagation/argument tests, selected-service/helper refusal
+**Tested:** selected package and composed acceptance are recorded with commands, modes,
+zero-failure baseline and exclusions in the [series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome).
+
+**Acceptance criteria:** shell propagation/argument tests, selected-service/helper refusal
 controls and explicit real Codex interactions. A mocked MCP initialization is not the real-client
 acceptance. External tool availability and client resource/prompt support remain distinct.
 
@@ -133,3 +140,11 @@ Sources: `scripts/pse-env`, `scripts/pse_env.py`, `scripts/build_environment.py`
 [official Codex configuration](https://developers.openai.com/codex/config-reference/),
 [MCP guidance](https://developers.openai.com/codex/mcp/) and
 [hook behavior](https://learn.chatgpt.com/docs/hooks) when adapting actual client capabilities.
+
+## Outcome
+
+**Implemented:** the selected packages in this companion, with the optional mechanism decisions
+recorded at the coordinator. **Tested:** package-local controls and selected composed consumers
+under the commands, modes, zero-failure baseline and exclusions in the
+[series Outcome](50-codex-effectiveness-and-diagnostics.md#outcome). That owner also records
+corrected mistakes and deliberate deviations; this companion does not duplicate live status.
