@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
 use super::RunReport;
 use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
 use super::{RunRequest, RunResult, WorkflowError, contract, relation};
@@ -874,7 +874,7 @@ impl FinishExportGate {
 tokio::task_local! {
     static WORKER_EXPORT_CONTROL: Arc<Mutex<Option<FinishExportGate>>>;
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
 pub(super) async fn gated_worker_export<T>(
     reached: tokio::sync::oneshot::Sender<()>,
     release: tokio::sync::oneshot::Receiver<()>,
