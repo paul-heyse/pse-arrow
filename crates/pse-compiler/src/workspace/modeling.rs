@@ -11,7 +11,9 @@ use pse_modeling::{
 use salsa::Setter;
 pub(super) mod granular;
 mod shared_packages;
-use shared_packages::{StaticFunctionPackageKey, intern_static_package, read_static_package};
+use shared_packages::{
+    StaticFunctionPackageKey, read_static_package, root_package, select_package,
+};
 
 /// Bounded immutable body retention owned by the mathematics service. No database
 /// handles or attempt workers cross this interface; cache state never defines meaning.
@@ -329,7 +331,7 @@ fn selected(
 ) -> Result<Arc<CheckedPackage>> {
     let _phase = pse_diagnostics::observation::phase("compiler.query.selected");
     checkpoint(db);
-    Ok(Arc::new(catalog.checked(db).select(root)?))
+    read_static_package(db, &root_package(db, catalog, root)?).map_err(Into::into)
 }
 // Catalog equality is filtered through selected() before these retained firewalls.
 // Unrelated package edits may validate them, but cannot invalidate projection.
@@ -403,9 +405,9 @@ fn function_fragment_key_heap(
     recipe.retained_bytes()
 }
 #[salsa::tracked(returns(clone),lru=256,heap_size=function_fragment_heap)]
-fn function_fragment(
-    db: &dyn CompilerDb,
-    key: FunctionFragmentKey<'_>,
+fn function_fragment<'db>(
+    db: &'db dyn CompilerDb,
+    key: FunctionFragmentKey<'db>,
 ) -> Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>> {
     checkpoint(db);
     let package = read_static_package(db, key.package(db))?;
@@ -415,7 +417,10 @@ fn function_fragment(
     );
     let result = pse_modeling::specialize::function_fragments::derive(
         &input,
-        Some(&QueryFragments { db }),
+        Some(&QueryFragments {
+            db,
+            parent: *key.package(db),
+        }),
         &|| db.cancel().load(Ordering::Acquire),
         &LibraryDiscretizer,
     )?;
@@ -443,9 +448,9 @@ fn field_fragment_key_heap(
     recipe.retained_bytes()
 }
 #[salsa::tracked(returns(clone),lru=256,heap_size=field_fragment_heap)]
-fn field_fragment(
-    db: &dyn CompilerDb,
-    key: FieldFragmentKey<'_>,
+fn field_fragment<'db>(
+    db: &'db dyn CompilerDb,
+    key: FieldFragmentKey<'db>,
 ) -> Result<Arc<pse_modeling::specialize::field_fragments::FieldFragment>> {
     checkpoint(db);
     let _phase = pse_diagnostics::observation::phase("compiler.query.field_fragment");
@@ -455,7 +460,10 @@ fn field_fragment(
     );
     let result = pse_modeling::specialize::field_fragments::derive(
         &input,
-        Some(&QueryFragments { db }),
+        Some(&QueryFragments {
+            db,
+            parent: *key.package(db),
+        }),
         &|| db.cancel().load(Ordering::Acquire),
         &LibraryDiscretizer,
     )?;
@@ -469,8 +477,19 @@ fn field_fragment_heap(
         .as_ref()
         .map_or(0, |fragment| fragment.retained_bytes())
 }
+fn fragment_error(error: CompileError) -> pse_modeling::ModelingError {
+    match error {
+        CompileError::Modeling(error) => error,
+        CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
+        error => pse_modeling::ModelingError::Contract {
+            declaration: SemanticId::NIL,
+            message: error.to_string(),
+        },
+    }
+}
 struct QueryFragments<'db> {
     db: &'db dyn CompilerDb,
+    parent: StaticFunctionPackageKey<'db>,
 }
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
     fn field_fragment(
@@ -480,8 +499,9 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
         Arc<pse_modeling::specialize::field_fragments::FieldFragment>,
         pse_modeling::ModelingError,
     > {
-        let (package, recipe) = input.parts();
-        let package = intern_static_package(self.db, package)?;
+        let (_, recipe) = input.parts();
+        let package = select_package(self.db, self.parent, input.selection().clone())
+            .map_err(fragment_error)?;
         let key = FieldFragmentKey::new(self.db, package, recipe);
         field_fragment(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,
@@ -500,8 +520,9 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
         Arc<pse_modeling::specialize::function_fragments::FunctionFragment>,
         pse_modeling::ModelingError,
     > {
-        let (package, recipe) = input.parts();
-        let package = intern_static_package(self.db, package)?;
+        let (_, recipe) = input.parts();
+        let package = select_package(self.db, self.parent, input.selection().clone())
+            .map_err(fragment_error)?;
         let key = FunctionFragmentKey::new(self.db, package, recipe);
         function_fragment(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,
@@ -540,7 +561,8 @@ fn specialized(
 ) -> Result<Arc<SpecializedModel>> {
     let _phase = pse_diagnostics::observation::phase("compiler.query.specialized");
     checkpoint(db);
-    let package = selected(db, catalog, *request.root(db))?;
+    let parent = root_package(db, catalog, *request.root(db))?;
+    let package = read_static_package(db, &parent)?;
     let result = pse_modeling::specialize::specialize_with_fragments(
         &package,
         *request.root(db),
@@ -549,7 +571,7 @@ fn specialized(
         *request.limits(db),
         &|| db.cancel().load(Ordering::Acquire),
         &LibraryDiscretizer,
-        Some(&QueryFragments { db }),
+        Some(&QueryFragments { db, parent }),
     );
     checkpoint(db);
     result.map(Arc::new).map_err(CompileError::from)
@@ -572,8 +594,9 @@ fn observed_specialization(
     observed.paths.extend(paths);
     Ok(Arc::new(observed))
 }
-fn selected_heap(v: &Result<Arc<CheckedPackage>>) -> usize {
-    v.as_ref().map_or(0, |v| v.retained_bytes())
+fn selected_heap(_v: &Result<Arc<CheckedPackage>>) -> usize {
+    // The tracked root-package product owns the payload and shared physical inputs.
+    0
 }
 fn specialized_heap(v: &Result<Arc<SpecializedModel>>) -> usize {
     v.as_ref().map_or(0, |v| v.retained_bytes())
@@ -935,6 +958,7 @@ impl CompilerWorkspace {
         } else {
             let catalog = Catalog::new(&self.db, checked);
             selected::set_lru_capacity(&mut self.db, self.limits.query_values);
+            shared_packages::configure(&mut self.db, self.limits.query_values);
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
             observed_specialization::set_lru_capacity(&mut self.db, self.limits.query_values);
             instance_prelude::set_lru_capacity(&mut self.db, self.limits.query_values);

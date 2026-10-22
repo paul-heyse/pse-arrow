@@ -12,6 +12,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldFragmentInput {
     package: Arc<CheckedPackage>,
+    selection: crate::check::StaticPackageSelection,
     recipe: Arc<FieldFragmentRecipe>,
 }
 /// Exact derivation fields excluding the independently shared checked package.
@@ -56,7 +57,15 @@ impl FieldFragmentInput {
     }
     /// Reassemble a tracked package owner and local immutable recipe.
     pub fn from_parts(package: Arc<CheckedPackage>, recipe: Arc<FieldFragmentRecipe>) -> Self {
-        Self { package, recipe }
+        Self {
+            package,
+            selection: crate::check::StaticPackageSelection::complete(),
+            recipe,
+        }
+    }
+    /// Exact projection from the parent retained by the calling fragment producer.
+    pub fn selection(&self) -> &crate::check::StaticPackageSelection {
+        &self.selection
     }
 }
 impl FieldFragmentRecipe {
@@ -762,7 +771,15 @@ impl Engine<'_, '_> {
             permissions: self.evidence_permissions(instance)?,
             continuity_done,
         });
-        let input = Arc::new(FieldFragmentInput { package, recipe });
+        let selection = crate::check::StaticPackageSelection::field(
+            source.field.declaration,
+            dependencies.into_iter().collect(),
+        );
+        let input = Arc::new(FieldFragmentInput {
+            package,
+            selection,
+            recipe,
+        });
         let fragment = if let Some(fragments) = self.fragments {
             fragments.field_fragment(input)?
         } else {

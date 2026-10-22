@@ -753,7 +753,7 @@ impl Engine<'_, '_> {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let package = prelude::PreludePremises::select(
+        let premises = prelude::PreludePremises::select(
             self.p,
             &prelude::PreludeBindings {
                 definition: function,
@@ -768,10 +768,10 @@ impl Engine<'_, '_> {
                 facts: Environment::new(),
                 members: self.limits.members,
             },
-        )?
-        .package;
+        )?;
         let input = Arc::new(function_fragments::FunctionFragmentInput {
-            package,
+            package: premises.package,
+            selection: premises.selection,
             recipe: Arc::new(function_fragments::FunctionFragmentRecipe {
                 function,
                 instance,

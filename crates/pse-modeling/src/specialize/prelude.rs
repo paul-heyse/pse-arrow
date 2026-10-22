@@ -9,6 +9,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreludePremises {
     pub(super) package: Arc<CheckedPackage>,
+    pub(super) selection: crate::check::StaticPackageSelection,
     members: BTreeMap<String, PreludeMember>,
     conditional: BTreeMap<DeclarationId, Vec<PreludeMember>>,
 }
@@ -115,8 +116,10 @@ impl PreludePremises {
         {
             dependencies(value, &mut additional);
         }
+        let selection = crate::check::StaticPackageSelection::static_scope(definition, additional);
         Ok(Self {
-            package: Arc::new(package.select_static(definition, &additional)?),
+            package: Arc::new(selection.select(package)?),
+            selection,
             members,
             conditional,
         })
@@ -125,6 +128,7 @@ impl PreludePremises {
     pub fn retained_bytes(&self) -> usize {
         self.package
             .retained_bytes()
+            .saturating_add(self.selection.retained_bytes())
             .saturating_add(self.members.len().saturating_mul(256))
             .saturating_add(
                 self.members

@@ -9,6 +9,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionFragmentInput {
     pub(super) package: Arc<CheckedPackage>,
+    pub(super) selection: crate::check::StaticPackageSelection,
     pub(super) recipe: Arc<FunctionFragmentRecipe>,
 }
 /// Complete local fields excluding the separately owned shared static package.
@@ -119,7 +120,15 @@ impl FunctionFragmentInput {
     }
     /// Reassemble immutable local input after reading its tracked package owner.
     pub fn from_parts(package: Arc<CheckedPackage>, recipe: Arc<FunctionFragmentRecipe>) -> Self {
-        Self { package, recipe }
+        Self {
+            package,
+            selection: crate::check::StaticPackageSelection::complete(),
+            recipe,
+        }
+    }
+    /// Exact projection from the parent retained by the calling fragment producer.
+    pub fn selection(&self) -> &crate::check::StaticPackageSelection {
+        &self.selection
     }
 }
 /// Immutable local producer output; invocation edges bind actual caller arguments separately.

@@ -196,6 +196,74 @@ pub struct SharedPackageInputs {
     /// Generated physical name/type bindings.
     pub physical_types: Arc<BTreeMap<String, Type>>,
 }
+/// Complete local projection request over an already admitted parent package.
+/// The parent retains the physical environment and source/record attribution.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StaticPackageSelection {
+    mode: StaticSelectionMode,
+    root: DeclarationId,
+    additional: Vec<DeclarationId>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum StaticSelectionMode {
+    Complete,
+    Root,
+    Static,
+    Field,
+}
+impl StaticPackageSelection {
+    /// The input is already the exact selected package.
+    pub fn complete() -> Self {
+        Self {
+            mode: StaticSelectionMode::Complete,
+            root: SemanticId::NIL.into(),
+            additional: Vec::new(),
+        }
+    }
+    /// Select the checked root before any instance-local projection.
+    pub fn root(root: DeclarationId) -> Self {
+        Self {
+            mode: StaticSelectionMode::Root,
+            root,
+            additional: Vec::new(),
+        }
+    }
+    /// Select a static root and the complete additional finite/record read set.
+    pub fn static_scope(root: DeclarationId, mut additional: Vec<DeclarationId>) -> Self {
+        additional.sort_unstable();
+        additional.dedup();
+        Self {
+            mode: StaticSelectionMode::Static,
+            root,
+            additional,
+        }
+    }
+    /// Select executable field premises with source extents handled by its recipe.
+    pub fn field(root: DeclarationId, mut additional: Vec<DeclarationId>) -> Self {
+        additional.sort_unstable();
+        additional.dedup();
+        Self {
+            mode: StaticSelectionMode::Field,
+            root,
+            additional,
+        }
+    }
+    /// Reproduce the exact projection inside its current parent authority.
+    /// # Errors
+    /// A selected declaration or required read is absent from that parent.
+    pub fn select(&self, parent: &CheckedPackage) -> Result<CheckedPackage> {
+        match self.mode {
+            StaticSelectionMode::Complete => Ok(parent.clone()),
+            StaticSelectionMode::Root => parent.select(self.root),
+            StaticSelectionMode::Static => parent.select_static(self.root, &self.additional),
+            StaticSelectionMode::Field => parent.select_field(self.root, &self.additional),
+        }
+    }
+    /// Owned immutable selector storage, independent from the package payload.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.additional.capacity() * size_of::<DeclarationId>()
+    }
+}
 impl CheckedPackage {
     /// Borrow the shared registry owners separately from this package's local maps.
     pub fn shared_inputs(&self) -> SharedPackageInputs {
