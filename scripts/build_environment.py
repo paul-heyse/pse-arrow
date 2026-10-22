@@ -15,8 +15,43 @@ import sys
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def language_server_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Project already selected compiler/native state through a filtering LSP bridge.
+
+    No defaults are composed here. In particular credentials, license values and
+    unrelated caller state never become LSP server configuration.
+    """
+    from scripts import (  # noqa: PLC0415 -- reciprocal owners; bootstrap configure remains stdlib-only
+        host_admission,
+        native_operation,
+    )
+
+    keys = {
+        "RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTDOCFLAGS", "CARGO_ENCODED_RUSTDOCFLAGS",
+        "CARGO_BUILD_JOBS", "CARGO_BUILD_TARGET", "CARGO_INCREMENTAL", "PSE_CARGO_TARGET_DIR",
+        "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "PSE_NATIVE_COMPILER_CACHE",
+        "PSE_SCCACHE_BINARY", "SCCACHE_DIR", "SCCACHE_CACHE_SIZE", "SCCACHE_CONF",
+        "SCCACHE_SERVER_UDS", "SCCACHE_CLIENT_SIDE", "SCCACHE_DIRECT", "SCCACHE_NO_DAEMON",
+        "PSE_LLVM_PREFIX", "LLVM_CONFIG_PATH", "LIBCLANG_PATH", "LIBRARY_PATH",
+        "LD_LIBRARY_PATH", "PKG_CONFIG_PATH", "PYO3_CONFIG_FILE", "PYO3_PYTHON",
+        "PYO3_BUILD_EXTENSION_MODULE", "PYO3_ENVIRONMENT_SIGNATURE", "PYTHON_SYS_EXECUTABLE",
+        "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "PSE_NATIVE_CACHE",
+        "PSE_NATIVE_SETUP_PYTHON", "PSE_NATIVE_HANDOFF", "PSE_ROOT_ISOLATION_DIR",
+        "PSE_ADMISSION_DEADLINE", "PSE_RESOURCE_CLASS", "PSE_MEMORY_MAX",
+        host_admission.MARKER, native_operation.MARKER, native_operation.OFF_MARKER,
+        *native_operation.OVERRIDABLE, *native_operation.AUTHORITATIVE,
+        *(key for group in native_operation.CAPABILITY_PATHS.values() for key in group),
+    }
+    return {key: environment[key] for key in sorted(keys) if key in environment}
 
 
 def configure(

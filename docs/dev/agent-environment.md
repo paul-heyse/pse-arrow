@@ -507,6 +507,11 @@ attachment never installs it. `python -m scripts.semantic_navigation describe --
 reports availability without starting an LSP. The explicit temporary configuration selects the
 checkout and `.pyi` coverage. Rust configuration derives from `rust-analyzer.toml`; automatic
 checks are disabled for navigation, while explicit correctness recipes remain unchanged.
+The bridge clears ambient environment by design. Its Rust declaration explicitly forwards
+only the already selected compiler/native/admission keys through the environment owner's
+allowlist; credentials and licence values are excluded. This keeps compiler-cache startup
+under its managed owner instead of falling back to a machine-global wrapper. A navigation
+client's shutdown must drain its actual children, independently of a successful semantic reply.
 The bridge adds implementation and call-hierarchy queries absent from rust-analyzer-mcp 0.4.0.
 Readiness and missing capabilities belong to the real request, not an executable-presence check.
 mcpls positions are **one-based**; rust-analyzer-mcp's direct tool positions are zero-based.
