@@ -503,8 +503,12 @@ mod tests {
     fn tear_component_native_optimum_charges_shared_group_once() {
         let g = graph(&[(0, 1, 0), (1, 0, 1), (1, 2, 2), (2, 3, 0), (3, 2, 3)]);
         let controls = Controls::default();
-        let (selected, report) =
+        let declared_coordinates = compile(&g).unwrap().problem.contract.variables
+            .iter().map(|variable| variable.id).collect::<Vec<_>>();
+        let (selected, report, coordinates) =
             solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        assert_eq!(coordinates, declared_coordinates, "the producer retains the actual declared rank/decision coordinates");
+        assert_eq!(coordinates, report.variables, "native values preserve that declared source order");
         let selected = selected.unwrap();
         assert_eq!(selected.decisions, BTreeSet::from([sid(40)]));
         assert_eq!(selected.cost, 1.0);
@@ -552,8 +556,12 @@ mod tests {
         // Each separate SCC would avoid the shared cost 6. The complete model pays
         // it once, preserving the mandatory cost 2, rather than costs 2+3+4.
         let controls = Controls::default();
-        let (selected, report) =
+        let declared_coordinates = compile(&g).unwrap().problem.contract.variables
+            .iter().map(|variable| variable.id).collect::<Vec<_>>();
+        let (selected, report, coordinates) =
             solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        assert_eq!(coordinates, declared_coordinates, "the producer retains the actual declared rank/decision coordinates");
+        assert_eq!(coordinates, report.variables, "native values preserve that declared source order");
         let selected = selected.unwrap();
         assert_eq!(selected.decisions, BTreeSet::from([sid(40), sid(41)]));
         assert_eq!(selected.cost, 8.0);
@@ -609,8 +617,12 @@ mod tests {
             ]),
             ..Controls::default()
         };
-        let (selected, report) =
+        let declared_coordinates = compile(&g).unwrap().problem.contract.variables
+            .iter().map(|variable| variable.id).collect::<Vec<_>>();
+        let (selected, report, coordinates) =
             solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        assert_eq!(coordinates, declared_coordinates, "the producer retains the actual declared rank/decision coordinates");
+        assert_eq!(coordinates, report.variables, "native values preserve that declared source order");
         assert_eq!(
             report.termination.category,
             Termination::SolutionLimit,
