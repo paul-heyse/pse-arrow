@@ -329,7 +329,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | RUN06 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
 | RUN07 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
 | RUN08 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN09 | in-progress | [49e](49e-runtime-and-native-execution.md) | Explicit independent library-default criteria selected; production integration and acceptance remain open |
+| RUN09 | in-progress | [49e](49e-runtime-and-native-execution.md) | Independent library-default criteria, profile/replay and retained results implemented; focused native controls passed; wider Python/scientific qualification remains open |
 | RUN10 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
 | BND01 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
 | BND02 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
@@ -426,7 +426,7 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I15 | resolved — retain envelope | RUN08 | Can PETSc/KLU hooks retain original allocation owner/size across free/realloc and process initialization, with bypasses identified? | Use domain-specific accounting with remaining envelope; otherwise retain the complete foreign envelope. |
 | I16 | resolved — retain admitted ownership and sizing | RES / RUN08 | Arrow claim tracks existing backing with an infallible reservation and replaces a shared per-buffer owner; it cannot replace fallible preflight or imported lease custody. Project HeapUsage and generated rows already account their actual structures; shared result facts retain one owner. | No additional pool or sizing crate. Revisit a concrete unsupported allocation/graph lifecycle with fallible admission, no double charge, last-alias custody and measured overhead; DataFusion structure sizing alone is not an admission proof. |
 | I17 | resolved — fresh sessions | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
-| I18 | selected — integration and acceptance open | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon. These are independent of physical stationarity and covariance qualification. | Integrate the named policy, exact replay/profile identity and effective work caps; compare actual fits with the original policy, including the cosine/stationarity disagreement. No public tuning knobs or speed claim. |
+| I18 | resolved — fixed independent criteria | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon, independently of physical stationarity and covariance qualification. Five actual LM controls passed, including the original-policy comparison and cosine/stationarity disagreement; retained public result reopening also passed. | Keep exact profile/replay identity and effective work caps. Wider scientific and Python qualification remains RUN09/QUAL scope; no public tuning knobs or speed claim. |
 | I19 | open | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Generate each actual build catalogue/expected Python identity; identical catalogues share identity, unrelated feature bits do not change it. |
 | I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
 | I21 | resolved — retain hub and internal module | TOOL06 | Actual no-layer/current-hub/candidate-layer steady and fit results/covariance agree bitwise. Attributed spans reach the candidate, but the actual native.worker phase has no corresponding candidate span; bounded state drains on completion, future drop and panic. A separate tooling crate would currently require a runtime/catalogue dependency seam; no independent build benefit is established. | No Layer substrate or new crate adoption. Keep the current hub and corrected internal dependency boundary; no speed or overhead improvement is claimed. |
@@ -801,29 +801,43 @@ schema fixture, repaired before its passing retry. Actual protected-provider pru
 locator retirement and assembled result qualification remain open.
 
 The current integration checkpoint carries an explicit standalone wire selection for all
-143 exported owners, including the source-reclamation page. Native versioned domain roots
-keep their own encoding; the other roots use actual flat or scalar versioned wire owners.
-Nested domain values keep their original meanings. Native header admission and Python
-original-slice traversal share serde version checks. Full publication, generated consumer
-migration and native/Python acceptance of this cutover remain open; the earlier five wire
-foundation controls do not qualify all exported roots.
+144 exported owners: 58 native versions, 85 flat-v1 roots and one value-v1 root. Existing
+fixed ProcessCheckpoint4 and InvocationEvidence2 remain their native version owners.
+Nested values keep their original domain meaning; explicit body/root joins replace
+implicit caller reinterpretation. Submitted starts now use the existing complete native
+receipt declaration, with borrowed numeric/IEEE-bit serialization under actual report
+custody. The public source-reclamation continuation is part of the same compiled catalogue.
+Full generation and the complete native Python compile passed. Twenty-one targeted
+native-local controls passed against the zero baseline, including document headers,
+parameter-valued simulation IC/trajectory/replay/schedule behavior, LM policy, submitted
+receipts and tear coordinate receipts. Installed-extension Python behavior and the actual
+default/full-native catalogue comparison remain open; these checks do not qualify every
+exported root or the assembled product.
 
-RUN09 now records fixed independent library-relative cost, step and cosine criteria,
-effective work caps, FitProfileV6 and ReplayDocument3. Production comparison, limits,
-replay and covariance controls remain pending for that source checkpoint. Proposed
-ADR-0215 and blueprint242 reconcile the target's physical study request8/stored
-definition12 and standalone wire versions without asserting assembled acceptance.
+RUN09 implements fixed independent library-relative cost, step and cosine criteria,
+effective work caps, FitProfileV6 and ReplayDocument3. Five LM controls cover the actual
+original-policy comparison, cosine/stationarity disagreement, qualification/covariance
+withholding, limits/cancellation and replay/profile chains. The canonical retained-result
+control also passed. This resolves I18's bounded policy inquiry while the package retains
+its wider Python/scientific qualification obligations. Proposed ADR-0215 and blueprint242
+retain the physical study request8/stored definition12 and standalone wire target.
 
-TOOL04 now has one canonical source cursor and shared physical source deletion, one
-bounded foreground page plus explicit continuation, and public Rust/Python continuation
-without caller cursor authority. Cleanup follows the completed mutation timeout owner
-under the same original deadline; a deferred page cannot replace its immutable receipt.
-Protected-first-page progress, peer reopening, replay and deadline controls are authored.
-The first canonical acceptance build exposed stale tooling imports and a native scalar
-test decode; their source repairs precede the pending test retry. Result locator deletion
-still waits for the replacement provider's actual protected pruning controls. PRE04's
-direct production rewrite and its compiler/portable consumers remain the larger open
-functional dependency; producer-only checks do not close it.
+TOOL04 implements one canonical source cursor and shared physical source deletion, one
+bounded foreground page plus explicit continuation, without caller cursor authority.
+Cleanup follows the completed mutation timeout owner under the same original deadline;
+a deferred page cannot replace its immutable receipt. Actual canonical controls passed
+for protected-first-page progress, peer reopening, replay, deadline behavior and exact
+root/pin races. The combined nineteen-control selection initially had seventeen passes
+and two fixture failures; the corrected pair then passed. One fixture incorrectly reused
+a unique guard incarnation; another expected withdrawal to restart the cursor instead
+of resuming the six-candidate tail after a protected 64-candidate page. Their corrected
+assertions preserve uniqueness and exact continuation, rather than changing production
+semantics. The actual protected-pruning pair passed, releasing the prerequisite for
+scalar locator retirement; that deletion and interpretation change are the next source
+cutover. Native protected-file maintenance phases and assembled qualification remain open.
+PRE04's direct production rewrite, exact attribution and compiler/portable consumers
+remain the larger open functional dependency; its temporary drafts are uncompiled and
+have not replaced the production path.
 
 ### Bounded native inquiry dispositions
 
