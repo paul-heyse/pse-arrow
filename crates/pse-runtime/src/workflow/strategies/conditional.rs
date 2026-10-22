@@ -416,20 +416,16 @@ pub struct PreparedRecycle {
     resident_foreign_bytes: usize,
 }
 impl PreparedRecycle {
-    /// Actual original model ports retained independently from map reports.
+    /// Actual tear-port meanings retained by the admitted physical flow graph.
     pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
-        crate::workflow::PrimalCoordinates::original(
-            &self.runtime,
-            self._source
-                .case
-                .compiled()
-                .plan
-                .structure()
-                .variables()
-                .iter()
-                .map(|variable| variable.port.clone())
-                .collect(),
-        )
+        let ports: BTreeMap<_, _> = self.graph.declaration().nodes.iter()
+            .flat_map(|node| node.ports.iter().map(|port| (port.id, port)))
+            .collect();
+        let original = self.contract.variables.iter().map(|variable| {
+            ports.get(&variable.id).map(|port| (*port).clone())
+                .ok_or_else(|| contract("recycle tear lacks admitted physical port meaning"))
+        }).collect::<Result<Vec<_>, _>>()?;
+        crate::workflow::PrimalCoordinates::original(&self.runtime, original)
     }
 
     /// The selected, linked declared-map route, consumed by runtime and language inspection.
