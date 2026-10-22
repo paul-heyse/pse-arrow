@@ -365,6 +365,11 @@ pub(in crate::workflow) async fn cancel_after_declared_admission<T>(
 }
 
 #[cfg(test)]
+pub(in crate::workflow) fn count_declared_admission() {
+    let _ = DECLARED_ADMISSIONS.try_with(|count| count.set(count.get() + 1));
+}
+
+#[cfg(test)]
 pub(in crate::workflow) fn observe_declared_admission() {
     let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
 }
@@ -441,7 +446,7 @@ impl DeclaredStudyAdmission {
         cancel: &CancelSource,
     ) -> Result<Self, WorkflowError> {
         #[cfg(test)]
-        let _ = DECLARED_ADMISSIONS.try_with(|count| count.set(count.get() + 1));
+        count_declared_admission();
         let OperationRequest::DeclaredCase(case) = &operation.operation else {
             return Err(super::contract(
                 "declared admission requires a declared case",
@@ -1311,6 +1316,8 @@ async fn declared_paths(
     cancel: &CancelSource,
     paths: Vec<String>,
 ) -> Result<super::DeclaredExecution, WorkflowError> {
+    #[cfg(test)]
+    count_declared_admission();
     let execution = package
         .declared_execution_with_demand(
             case.case,

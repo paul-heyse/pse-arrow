@@ -224,6 +224,8 @@ impl ModelingPackage {
         binding: Option<&AdmittedBinding>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        #[cfg(test)]
+        super::study_operations::count_declared_admission();
         let execution = self
             .admit_declared_request(case, preparation, settings.clone(), cancel)
             .await?;
