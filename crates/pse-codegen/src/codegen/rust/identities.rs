@@ -190,8 +190,8 @@ mod tests {
         let ids = text(&rust, "crates/pse-model/src/generated/identities.rs");
         assert!(ids.contains("pse_ids::semantic_id_newtype!"), "{ids}");
         let tokens = ids.split_whitespace().collect::<String>();
-        assert!(tokens.contains("WidgetId}"), "{ids}");
-        assert!(tokens.contains("BundleId:ContentHash}"), "{ids}");
+        assert!(tokens.contains("WidgetId:RegistrySemanticId}"), "{ids}");
+        assert!(tokens.contains("BundleId:RegistryContentHash}"), "{ids}");
         assert!(ids.contains("impl crate::SemanticFrame for WidgetId"));
         let codecs = text(&rust, "crates/pse-relations/src/generated/identities.rs");
         assert!(

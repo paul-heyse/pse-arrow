@@ -184,6 +184,7 @@ mod tests {
         assert_eq!(
             Language::Rust.roots(),
             vec![
+                PathBuf::from("crates/pse-schema/src/generated"),
                 PathBuf::from("crates/pse-relations/src/generated"),
                 PathBuf::from("crates/pse-model/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),

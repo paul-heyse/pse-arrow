@@ -248,18 +248,21 @@ fn all_extension_factories_reject_wrong_storage_versions_and_extra_metadata() {
         assert!(
             validate_extension(&field.as_ref().clone().with_data_type(DataType::Boolean)).is_err()
         );
-        for corrupt in [
-            field.metadata()[pse_schema::arrow::KEY_EXTENSION_METADATA]
-                .replace("\"v\":1", "\"v\":2"),
-            "{\"v\":1,\"extra\":false}".to_owned(),
-            "{\"v\":1,\"v\":1}".to_owned(),
-        ] {
+        let original = &field.metadata()[pse_schema::arrow::KEY_EXTENSION_METADATA];
+        let metadata_value: serde_json::Value = serde_json::from_str(original).unwrap();
+        let version = metadata_value["v"].as_u64().unwrap();
+        let mut wrong_version = metadata_value.clone();
+        wrong_version["v"] = (version + 1).into();
+        let mut extra_field = metadata_value;
+        extra_field["extra"] = false.into();
+        let duplicate_version = format!("{},\"v\":{version}}}", original.strip_suffix('}').unwrap());
+        for corrupt in [wrong_version.to_string(), extra_field.to_string(), duplicate_version] {
             let mut metadata = field.metadata().clone();
             metadata.insert(
                 pse_schema::arrow::KEY_EXTENSION_METADATA.to_owned(),
                 corrupt,
             );
-            assert!(validate_extension(&field.as_ref().clone().with_metadata(metadata)).is_err());
+            assert!(validate_extension(&field.as_ref().clone().with_metadata(metadata)).is_err(), "{}", field.name());
         }
     }
     assert_eq!(count, 11);

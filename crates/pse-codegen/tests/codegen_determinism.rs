@@ -60,8 +60,32 @@ fn all_targets_regenerate_identical_bytes_and_complete_inventory() {
         );
         if language == Language::Rust {
             for (path, bytes) in &first.files {
-                syn::parse_file(std::str::from_utf8(bytes).expect("utf8"))
-                    .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+                match path.extension().and_then(|extension| extension.to_str()) {
+                    Some("rs") => {
+                        syn::parse_file(std::str::from_utf8(bytes).expect("utf8"))
+                            .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+                    }
+                    Some("arrow") => {
+                        let index = path.file_stem().unwrap().to_str().unwrap()
+                            .strip_prefix("standard-").unwrap().parse::<usize>().unwrap();
+                        let expected = &reg.schema_batches()[index].1;
+                        let batches = arrow_ipc::reader::StreamReader::try_new(
+                            std::io::Cursor::new(bytes), None,
+                        ).expect("generated standard batch IPC").collect::<Result<Vec<_>, _>>()
+                            .expect("complete standard batch stream");
+                        assert_eq!(batches.as_slice(), std::slice::from_ref(expected), "{}", path.display());
+                    }
+                    Some("jsonl") => {
+                        assert_eq!(path, std::path::Path::new("crates/pse-schema/src/generated/standard-data.jsonl"));
+                        let text = std::str::from_utf8(bytes).expect("standard catalogue JSONL");
+                        assert!(!text.is_empty());
+                        for line in text.lines() {
+                            serde_json::from_str::<serde_json::Value>(line)
+                                .expect("complete standard catalogue value");
+                        }
+                    }
+                    _ => panic!("unexpected Rust target artifact {}", path.display()),
+                }
             }
             for spec in reg.relations() {
                 let path = format!(

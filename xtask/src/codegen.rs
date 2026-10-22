@@ -154,7 +154,11 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
 /// crates' serde types (ADR-0116 Outcome 7).
 #[cfg(feature = "product-schemas")]
 fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
-    let mut tree = documents::generate_catalogue(registry, &schemas::documents(), pse_runtime::boundary_documents::fingerprint()?)?;
+    let mut tree = documents::generate_catalogue(
+        registry,
+        &schemas::documents(),
+        pse_runtime::boundary_documents::fingerprint()?,
+    )?;
     let fixtures = schemas::boundary_fixtures()?;
     tree.roots.extend(fixtures.roots);
     tree.files.extend(fixtures.files);
@@ -463,6 +467,7 @@ mod tests {
         assert_eq!(
             tree.roots,
             [
+                "pse-schema",
                 "pse-relations",
                 "pse-model",
                 "pse-authoring",
