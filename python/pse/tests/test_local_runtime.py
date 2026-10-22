@@ -214,14 +214,20 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
     assert isinstance(frozen.support, documents.AdviceSupportCompleteMatched)
     assert frozen.support.pairs == 1
     assert (
-        codec.decode_json(codec.encode_json(frozen), documents.FrozenAdvice) == frozen
+        codec.decode_json(codec.encode_json(frozen), documents.FrozenAdviceOutput)
+        == frozen
     )
     tied = prepared.freeze_advice("native_execution_nanoseconds", ())
     assert isinstance(tied.support, documents.AdviceSupportBaselineTie)
     assert tied.ordered == tied.baseline
     settings = msgspec.structs.replace(
         settings,
-        composition=msgspec.structs.replace(settings.composition, advice=frozen),
+        composition=msgspec.structs.replace(
+            settings.composition,
+            advice=msgspec.convert(
+                frozen, type=documents.FrozenAdviceBody, from_attributes=True
+            ),
+        ),
     )
     advised = package.prepare_solve(declaration(202), settings)
     assert advised.advice_inputs == inputs
@@ -230,9 +236,17 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
     assert result.usable
     summary = result.attempt_summary
     assert (
-        codec.decode_json(codec.encode_json(summary), documents.AttemptSummary)
+        codec.decode_json(codec.encode_json(summary), documents.AttemptSummaryOutput)
         == summary
     )
     exported = result.replay().document(bytes=128 * 1024 * 1024)
-    assert exported.case_constructors[0].settings.composition.advice == frozen
+    assert (
+        codec.convert_document(
+            codec.document_builtins(
+                exported.case_constructors[0].settings.composition.advice
+            ),
+            documents.FrozenAdviceOutput,
+        )
+        == frozen
+    )
     runtime.close()

@@ -28,10 +28,12 @@ from pse.contracts.documents import (
     DetailRequest,
     DiagnosticListRequest,
     DiagnosticProcessPage,
+    DiagnosticProcessPageOutput,
     InspectionDocument,
+    InspectionDocumentOutput,
     InspectionRequest,
-    InvocationComparisonDocument,
-    InvocationEvidenceDocument,
+    InvocationComparisonDocumentOutput,
+    InvocationEvidenceDocumentOutput,
     LaunchCaptureRequest,
     MetricSnapshotOutput,
     NativeCountersOutputKinsol,
@@ -125,10 +127,12 @@ def observed_runtime(
     runtime.physical_from_documents(physical_documents())
     page = observations.list(limit=32)
     assert page.operations, "physical preparation publishes its actual operation"
-    reader = observations.reader(codec.convert_document(
-        codec.document_builtins(page.operations[-1].id),
-        documents.OperationId,
-    ))
+    reader = observations.reader(
+        codec.convert_document(
+            codec.document_builtins(page.operations[-1].id),
+            documents.OperationId,
+        )
+    )
     assert reader is not None
     return runtime, observations, reader
 
@@ -190,10 +194,12 @@ def diagnostic_scientific_probe(
             ]
         ] = []
         for operation in page.operations:
-            reader = observations.reader(codec.convert_document(
-                codec.document_builtins(operation.id),
-                documents.OperationId,
-            ))
+            reader = observations.reader(
+                codec.convert_document(
+                    codec.document_builtins(operation.id),
+                    documents.OperationId,
+                )
+            )
             assert reader is not None
             snapshot = reader.snapshot()
             before.append((reader, snapshot.metrics, snapshot.observed_at))
@@ -365,9 +371,13 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
                 )
                 == 0
             )
-            copied = codec.decode_json(capsys.readouterr().out, InspectionDocument)
+            copied = codec.decode_json(
+                capsys.readouterr().out, InspectionDocumentOutput
+            )
             assert copied.operation is not None
-            assert copied.operation.id == reader.id
+            assert diagnostics.operation_text(
+                copied.operation.id
+            ) == diagnostics.operation_text(reader.id)
             assert copied.operation.outcome == original.outcome
             assert {child.id for child in copied.related} == expected_related
             for operation in (copied.operation, *copied.related):
@@ -384,13 +394,19 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
             )
             == 0
         )
-        discovered = codec.decode_json(capsys.readouterr().out, DiagnosticProcessPage)
+        discovered = codec.decode_json(
+            capsys.readouterr().out, DiagnosticProcessPageOutput
+        )
         selected = next(
             process
             for process in discovered.processes
             if process.checkpoint == str(checkpoint_copy)
         )
-        assert any(operation.id == reader.id for operation in selected.operations)
+        assert any(
+            diagnostics.operation_text(operation.id)
+            == diagnostics.operation_text(reader.id)
+            for operation in selected.operations
+        )
     finally:
         runtime.close()
 
@@ -425,6 +441,9 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
     )
     assert document.operation is not None
     locator = ProcessLocator(pid=(1 << 32) - 1, start_ticks=77, executable=None)
+    locator_body = msgspec.convert(
+        locator, type=documents.ProcessLocatorBody, from_attributes=True
+    )
     image = ProcessCheckpoint(
         version=4,
         process="0000000000000001-0000000000000002",
@@ -441,22 +460,16 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
             system_cpu_ticks=None,
         ),
         parent=None,
-        locator=codec.convert_document(
-            codec.document_builtins(locator),
-            documents.ProcessLocatorBody,
-        ),
+        locator=locator_body,
         clock=None,
         threads=(),
         threads_partial=False,
     )
     checkpoint = tmp_path / "retained.json"
     checkpoint.write_bytes(codec.encode_json(image))
-    expected = CheckpointIdentity(process=image.process, locator=codec.convert_document(
-        codec.document_builtins(locator),
-        documents.ProcessLocatorBody,
-    ))
+    expected = CheckpointIdentity(process=image.process, locator=locator_body)
     retained = diagnostics.read_checkpoint(checkpoint, expected=expected)
-    assert retained == image
+    assert codec.document_builtins(retained) == codec.document_builtins(image)
     checkpoint.write_bytes(b"replacement/truncated path")
     inspected = diagnostics.inspect_image(
         retained, document.request, checkpoint=checkpoint
@@ -481,10 +494,7 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
             checkpoint,
             expected=CheckpointIdentity(
                 process="wrong",
-                locator=codec.convert_document(
-                    codec.document_builtins(locator),
-                    documents.ProcessLocatorBody,
-                ),
+                locator=locator_body,
             ),
         )
 
@@ -511,7 +521,10 @@ def test_standalone_diagnostic_discovery_preserves_unavailable_prefixes(
     assert {process.checkpoint for process in first.processes}.isdisjoint(
         process.checkpoint for process in second.processes
     )
-    assert codec.decode_json(codec.encode_json(first), DiagnosticProcessPage) == first
+    assert (
+        codec.decode_json(codec.encode_json(first), DiagnosticProcessPageOutput)
+        == first
+    )
 
 
 @pytest.mark.unit
@@ -521,9 +534,13 @@ def test_operation_reader_survives_runtime_release_without_scientific_permission
     runtime, observations, reader = observed_runtime(inspection_settings)
     before = reader.inspect()
     assert before.operation is not None
-    assert before.operation.id == reader.id
+    assert diagnostics.operation_text(
+        before.operation.id
+    ) == diagnostics.operation_text(reader.id)
     assert before.request.window == ClosedDuration(secs=60, nanos=0)
-    assert codec.decode_json(codec.encode_json(before), InspectionDocument) == before
+    assert (
+        codec.decode_json(codec.encode_json(before), InspectionDocumentOutput) == before
+    )
     runtime.close()
     del runtime
     gc.collect()
@@ -532,7 +549,9 @@ def test_operation_reader_survives_runtime_release_without_scientific_permission
     assert after.operation.id == before.operation.id
     assert after.operation.outcome == before.operation.outcome
     assert observations.reader(reader.id) is not None
-    assert reader.snapshot().id == reader.id
+    assert diagnostics.operation_text(
+        reader.snapshot().id
+    ) == diagnostics.operation_text(reader.id)
     assert reader.inspect(window=3601.0).request.window == ClosedDuration(
         secs=3601, nanos=0
     )
@@ -556,11 +575,13 @@ def test_run_observation_reader_outlives_joined_handle(
         handle = prepared.start()
         reader = handle.observations()
         assert reader is not None
-        assert reader.snapshot().id == reader.id
+        assert diagnostics.operation_text(
+            reader.snapshot().id
+        ) == diagnostics.operation_text(reader.id)
         result = handle.wait()
         assert result.usable
         origin = result.diagnostic_origin()
-        assert origin.run_id == result.run_id.to_hex()
+        assert origin.run_id == result.run_id
         assert origin.operation == result.invocation_evidence.operation
         assert origin.failure is None
         with pytest.raises(pse.InspectionError):
@@ -634,7 +655,11 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
         thread.start()
         try:
             assert waiting.wait(2)
-            assert session.snapshot().operation == reader.id
+            selected_operation = session.snapshot().operation
+            assert selected_operation is not None
+            assert diagnostics.operation_text(
+                selected_operation
+            ) == diagnostics.operation_text(reader.id)
             session.request_stop()
         finally:
             stopped = session.stop()
@@ -781,7 +806,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             assert comparison.baseline.run_id == invocation.run_id
             assert (
                 codec.decode_json(
-                    codec.encode_json(comparison), InvocationComparisonDocument
+                    codec.encode_json(comparison), InvocationComparisonDocumentOutput
                 )
                 == comparison
             )
@@ -825,7 +850,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             assert (
                 codec.decode_json(
                     invocation_view.column("document_json")[0].as_py(),
-                    InvocationEvidenceDocument,
+                    InvocationEvidenceDocumentOutput,
                 )
                 == invocation
             )
@@ -840,7 +865,8 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             escaped_run_column = invocation_view.column("run")
             del invocation_view
             gc.collect()
-            assert escaped_run_column[0].as_py() == invocation.run_id
+            assert invocation.run_id is not None
+            assert escaped_run_column[0].as_py() == invocation.run_id.to_hex()
             assert codec.encode_json(result.invocation_evidence) == invocation_before
             assert codec.encode_json(result.attempt_summary) == summary_before
             assert invocation.timing_unavailable is None

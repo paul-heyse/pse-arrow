@@ -112,20 +112,8 @@ def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
     # Rust retains threshold/budget validation; project the original authored fields.
     ModelingDiagnosticSettings.from_json(source)
     policy = codec.decode_json(source, ModelingDiagnosticPolicy)
-    return ModelingDiagnosticPolicyBody(
-        bound_violation=policy.bound_violation,
-        jacobian_large=policy.jacobian_large,
-        jacobian_small=policy.jacobian_small,
-        matrix=policy.matrix,
-        maximum_findings=policy.maximum_findings,
-        near_bound_absolute=policy.near_bound_absolute,
-        near_bound_relative=policy.near_bound_relative,
-        profile=policy.profile,
-        residual=policy.residual,
-        terms=policy.terms,
-        variable_large=policy.variable_large,
-        variable_small=policy.variable_small,
-        variable_zero=policy.variable_zero,
+    return msgspec.convert(
+        policy, type=ModelingDiagnosticPolicyBody, from_attributes=True
     )
 
 
@@ -385,9 +373,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "derivative_tolerance": args.derivative_tolerance,
         "diagnostics": None if args.diagnostics is None else str(args.diagnostics),
     }
-    values = codec.convert_document(
-        codec.document_builtins(defaults), dict[str, object]
-    )
+    values = codec.document_builtins(defaults)
+    if not isinstance(values, dict):
+        message = "conformance defaults must project to a field mapping"
+        raise TypeError(message)
     values.update({key: value for key, value in supplied.items() if value is not None})
     settings = codec.convert_document(values, RunSettings)
     summary = run_once(

@@ -195,8 +195,10 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     }
     settings = pse.SolveSettings(backend=NativeBackend.CLARABEL)
     prepared = runtime.prepare_conic(
-        codec.decode_json(codec.encode_json(codec.convert_document(request, pse.ConicRequest)),
-            pse.ConicRequest),
+        codec.decode_json(
+            codec.encode_json(codec.convert_document(request, pse.ConicRequest)),
+            pse.ConicRequest,
+        ),
         physical,
         settings,
     )

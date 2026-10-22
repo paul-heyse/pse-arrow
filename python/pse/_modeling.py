@@ -923,6 +923,7 @@ class ModelingPackage:
         covariance_source: RunResult | None = None,
     ) -> PreparedOperation:
         """Prepare an authored solve with optional compiler and expansion policy."""
+
         def bind(source: _NativeRunResult | None) -> PreparedOperation:
             return PreparedOperation(
                 self._handle.prepare_solve(
@@ -951,6 +952,7 @@ class ModelingPackage:
         Parameter and fixed-coordinate assignments replace values; free-coordinate
         assignments replace starts. The returned receipt retains parent and attribution.
         """
+
         def bind(source: _NativeRunResult | None) -> ModelingResult:
             return ModelingResult(
                 self._handle.solve_bound(
@@ -979,6 +981,7 @@ class ModelingPackage:
         The case uses its source fixture specifications and model starts. An explicit
         preparation replaces this package's compiler and expansion defaults.
         """
+
         def bind(source: _NativeRunResult | None) -> ModelingResult:
             return ModelingResult(
                 self._handle.solve_case(

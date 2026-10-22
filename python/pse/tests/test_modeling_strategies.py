@@ -98,7 +98,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
             case,
             pse.FlowSelectionDocument(
                 nodes=(selection.nodes[0], selection.nodes[0]),
-                connections=selection.connections
+                connections=selection.connections,
             ),
             settings,
         )

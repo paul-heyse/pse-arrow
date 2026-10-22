@@ -74,14 +74,14 @@ def test_original_analytic_run_survives_recording_analysis_and_relocated_pack(
             original_ids = original_rows.column("symbol_id").to_pylist()
             assert len(original_ids) == 1
             assert source_map.columns
-            assert original_ids[0].hex() in source_map.columns
+            assert original_ids[0] in source_map.columns
             original_invocation = result.invocation_evidence
             original_summary = result.attempt_summary
             assert original_summary.steps[0].work is not None
             assert original_summary.steps[0].work.evaluations is not None
             assert original_summary.steps[0].work.evaluations > 0
             context = result.review_context()
-            assert context.run_id == result.run_id.to_hex()
+            assert context.run_id == result.run_id
             assert context.operation == original_invocation.operation
             assert context.source_positions == (0,)
             native = [
@@ -95,7 +95,8 @@ def test_original_analytic_run_survives_recording_analysis_and_relocated_pack(
             )
             assert (
                 codec.decode_json(
-                    bytes(supplied_invocation.payload), d.InvocationEvidenceDocument
+                    bytes(supplied_invocation.payload),
+                    d.InvocationEvidenceDocumentOutput,
                 )
                 == original_invocation
             )
@@ -168,7 +169,7 @@ def test_original_analytic_run_survives_recording_analysis_and_relocated_pack(
         == 0
     )
     restored_analysis = codec.decode_json(
-        capsys.readouterr().out.encode(), d.AnalysisDocument
+        capsys.readouterr().out.encode(), d.AnalysisDocumentOutput
     )
     assert restored_analysis == analysis
     frozen_member = next(
@@ -183,7 +184,9 @@ def test_original_analytic_run_survives_recording_analysis_and_relocated_pack(
         if fact.codec == "modeling-source-map.v1"
     )
     assert bytes(retained_map.payload) == codec.encode_json(source_map)
-    assert frozen.invocations[0].attempts == original_summary
+    assert frozen.invocations[0].attempts == msgspec.convert(
+        original_summary, type=d.AttemptSummaryBodyOutput, from_attributes=True
+    )
 
 
 @pytest.mark.unit
@@ -254,7 +257,7 @@ def test_original_initialization_selects_context_without_changing_scientific_res
                 context = result.review_context()
                 run_id = result.run_id
                 assert run_id is not None
-                assert context.run_id == run_id.to_hex()
+                assert context.run_id == run_id
                 assert context.operation is not None
                 assert context.sources
                 assert not any(
@@ -268,12 +271,16 @@ def test_original_initialization_selects_context_without_changing_scientific_res
                 fields = codec.decode_json(
                     bytes(outcome.payload), dict[str, msgspec.Raw]
                 )
-                assert (
-                    codec.decode_json(
-                        bytes(fields["initialization"]), d.InitializationDocument
-                    )
-                    == original
+                initialization_body = msgspec.json.decode(
+                    bytes(fields["initialization"]), type=dict[str, object]
                 )
+                original_document = msgspec.json.decode(
+                    codec.encode_json(original), type=dict[str, object]
+                )
+                # The fact owns its nested body; the standalone envelope is separate.
+                version_field = d.InitializationDocument._pse_required_version_field
+                assert original_document.pop(version_field) == 1
+                assert initialization_body == original_document
                 receipt = recording.retain_context(context)
                 assert receipt is not None
                 acknowledgement = recording.acknowledgement

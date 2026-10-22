@@ -89,6 +89,32 @@ def coordinate_batch(
     return pa.RecordBatch.from_pylist(rows, schema=schema)
 
 
+def _coordinate_lists(
+    groups: Sequence[Sequence[Coordinate]], type_: pa.DataType
+) -> pa.ListArray:
+    """Build each original extension child before nesting, retaining registry fields."""
+    if not isinstance(type_, pa.ListType) or not isinstance(
+        type_.value_type, pa.StructType
+    ):
+        message = "physical coordinate groups require the declared list of structs"
+        raise TypeError(message)
+    rows = [_coordinate(*coordinate) for group in groups for coordinate in group]
+    struct = type_.value_type
+    values = pa.StructArray.from_arrays(
+        [
+            pa.array([row[field.name] for row in rows], type=field.type)
+            for field in struct
+        ],
+        type=struct,
+    )
+    offsets = [0]
+    for group in groups:
+        offsets.append(offsets[-1] + len(group))
+    return pa.ListArray.from_arrays(
+        pa.array(offsets, type=pa.int32()), values, type=type_
+    )
+
+
 def stage_batch(
     runtime: pse.Runtime, stages: Sequence[Sequence[Coordinate]]
 ) -> pa.RecordBatch:
@@ -96,13 +122,10 @@ def stage_batch(
     schema = pa.schema(
         runtime.physical_input_schema(PhysicalInputKind.INITIALIZATION_STAGES)
     )
-    return pa.RecordBatch.from_pylist(
+    return pa.RecordBatch.from_arrays(
         [
-            {
-                "stage": stage,
-                "values": [_coordinate(*coordinate) for coordinate in values],
-            }
-            for stage, values in enumerate(stages)
+            pa.array(range(len(stages)), type=schema.field("stage").type),
+            _coordinate_lists(stages, schema.field("values").type),
         ],
         schema=schema,
     )
@@ -116,13 +139,15 @@ def sample_batch(
     schema = pa.schema(
         runtime.physical_input_schema(PhysicalInputKind.DIAGNOSTIC_SAMPLES)
     )
-    return pa.RecordBatch.from_pylist(
+    return pa.RecordBatch.from_arrays(
         [
-            {
-                "sample_id": bytes(sample),
-                "values": [_coordinate(*coordinate) for coordinate in values],
-            }
-            for sample, values in samples
+            pa.array(
+                [bytes(sample) for sample, _values in samples],
+                type=schema.field("sample_id").type,
+            ),
+            _coordinate_lists(
+                [values for _sample, values in samples], schema.field("values").type
+            ),
         ],
         schema=schema,
     )

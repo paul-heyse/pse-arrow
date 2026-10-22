@@ -277,10 +277,13 @@ def observer_fit_probe(
                 continue
             snapshot = reader.snapshot()
             readers.append((reader, snapshot))
-            pending.extend(codec.convert_document(
-                codec.document_builtins(child.id),
-                d.OperationId,
-            ) for child in snapshot.children)
+            pending.extend(
+                codec.convert_document(
+                    codec.document_builtins(child.id),
+                    d.OperationId,
+                )
+                for child in snapshot.children
+            )
         if pending:
             limits.append(
                 "Selected related-operation traversal stopped at its 64-member bound."
@@ -386,10 +389,14 @@ def observer_fit_probe(
         else:
             evidence = d.FrozenEvidenceSetOutput(
                 checkpoints=(),
-                operations=tuple(codec.convert_document(
-                    codec.document_builtins(snapshot),
-                    d.OperationSnapshotBodyOutput,
-                ) for snapshot in snapshots),
+                operations=tuple(
+                    msgspec.convert(
+                        snapshot,
+                        type=d.OperationSnapshotBodyOutput,
+                        from_attributes=True,
+                    )
+                    for snapshot in snapshots
+                ),
                 contexts=(context,),
                 invocations=(invocation,),
                 detail_pages=tuple(detail_pages),

@@ -432,9 +432,8 @@ def test_explicit_diagnostic_work_keeps_origin_and_prehandle_failure(
         ),
         case_id=SemanticId.from_hex(case),
         settings=pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        diagnostics=codec.convert_document(
-            codec.document_builtins(policy),
-            d.ModelingDiagnosticPolicyBody,
+        diagnostics=msgspec.convert(
+            policy, type=d.ModelingDiagnosticPolicyBody, from_attributes=True
         ),
         origin=d.DiagnosticOriginBody(run_id=RunId(SemanticId.from_hex("cd" * 16))),
         allowance=d.ClosedDuration(secs=10, nanos=0),
@@ -443,7 +442,7 @@ def test_explicit_diagnostic_work_keeps_origin_and_prehandle_failure(
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
         result = runtime.diagnose_documents(request)
-        assert result.origin == request.origin
+        assert codec.encode_json(result.origin) == codec.encode_json(request.origin)
         assert result.failure is None
         assert result.run_id is not None
         assert result.complete
@@ -451,7 +450,7 @@ def test_explicit_diagnostic_work_keeps_origin_and_prehandle_failure(
         assert result.variable_nominals
         failed = runtime.diagnose_documents(replace(request, maximum_source_bytes=1))
         assert failed.operation != result.operation
-        assert failed.origin == request.origin
+        assert codec.encode_json(failed.origin) == codec.encode_json(request.origin)
         assert failed.failure is not None
         assert failed.run_id is None
         assert not failed.complete
@@ -561,10 +560,13 @@ def test_query_table_cli_writes_registry_typed_ipc_stream(
         tool_version="fixture 1.0",
         status="completed",
         exit_code=0,
-        columns=tuple(codec.convert_document(
-            codec.document_builtins(column),
-            d.ReviewQueryColumn,
-        ) for column in specification.columns),
+        columns=tuple(
+            codec.convert_document(
+                codec.document_builtins(column),
+                d.ReviewQueryColumn,
+            )
+            for column in specification.columns
+        ),
         covered_interval=None,
         output="rows.csv",
         output_prefix_bytes=(1 << 53) + 1,
@@ -661,12 +663,19 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
         while True:
             if observations.checkpoint.is_file():
                 image = diagnostics.read_checkpoint(observations.checkpoint)
-                if any(operation.id == reader.id for operation in image.operations):
+                if any(
+                    diagnostics.operation_text(operation.id)
+                    == diagnostics.operation_text(reader.id)
+                    for operation in image.operations
+                ):
                     break
             assert time.monotonic() < until, "joined operation was not published"
             time.sleep(0.02)
         original = next(
-            operation for operation in image.operations if operation.id == reader.id
+            operation
+            for operation in image.operations
+            if diagnostics.operation_text(operation.id)
+            == diagnostics.operation_text(reader.id)
         )
         source = tmp_path / "selected-live-checkpoint.json"
         source.write_bytes(codec.encode_json(image))
@@ -677,12 +686,18 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
     retained = diagnostics.read_handoff(handoff)
     assert retained.contexts
     assert retained.invocations
-    assert retained.invocations[0].operation == operation
+    retained_operation = retained.invocations[0].operation
+    assert retained_operation is not None
+    assert diagnostics.operation_text(retained_operation) == diagnostics.operation_text(
+        operation
+    )
     inspecting = d.FrozenInspectionRequest(
-        version=1, inspection=d.InspectionRequest(operation=codec.convert_document(
-            codec.document_builtins(operation),
-            d.OperationIdBody,
-        ))
+        version=1,
+        inspection=d.InspectionRequest(
+            operation=msgspec.convert(
+                operation, type=d.OperationIdBody, from_attributes=True
+            )
+        ),
     )
     inspect_path = tmp_path / "inspect-live.json"
     inspect_path.write_bytes(codec.encode_json(inspecting))
@@ -706,13 +721,17 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
         capsys.readouterr().out.encode(), d.FrozenInspectionDocument
     )
     assert inspected.inspection.operation is not None
-    assert inspected.inspection.operation.id == operation
+    assert diagnostics.operation_text(
+        inspected.inspection.operation.id
+    ) == diagnostics.operation_text(operation)
     assert inspected.inspection.operation.read_at == original.read_at
     request = codec.decode_json(
         codec.encode_json(
             {
                 "version": 2,
-                "operation": operation,
+                "operation": msgspec.convert(
+                    operation, type=d.OperationIdBody, from_attributes=True
+                ),
                 "baseline": None,
                 "question": "physical_attribution",
                 "numerical_history_policy": None,
@@ -738,7 +757,9 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
         )
         == 0
     )
-    joined = codec.decode_json(capsys.readouterr().out.encode(), d.AnalysisDocument)
+    joined = codec.decode_json(
+        capsys.readouterr().out.encode(), d.AnalysisDocumentOutput
+    )
     assert any(
         reference.member == "frozen" and reference.pointer.startswith("/contexts/")
         for question in joined.questions
@@ -780,7 +801,9 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
         )
         == 0
     )
-    offline = codec.decode_json(capsys.readouterr().out.encode(), d.AnalysisDocument)
+    offline = codec.decode_json(
+        capsys.readouterr().out.encode(), d.AnalysisDocumentOutput
+    )
     assert offline == diagnostics.analyze_evidence(retained, request)
 
 
@@ -910,7 +933,7 @@ def test_cli_handoff_exports_multiple_protected_scientific_selections(
         check=False,
     )
     assert command.returncode == 0, command.stderr.decode()
-    index = codec.decode_json(command.stdout, d.PackIndex)
+    index = codec.decode_json(command.stdout, d.PackIndexOutput)
     assert index.publication == "sealed"
     assert index.membership_complete
     assert index.self_contained

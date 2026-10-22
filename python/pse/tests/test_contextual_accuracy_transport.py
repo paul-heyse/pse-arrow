@@ -86,7 +86,9 @@ def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(
         parameter_scales=coordinate_batch(runtime),
         numerics=policy,
     )
-    assert settings.document.controls.numerics == policy
+    assert codec.document_builtins(
+        settings.document.controls.numerics
+    ) == codec.document_builtins(policy)
 
 
 @pytest.mark.unit
@@ -214,5 +216,7 @@ def test_contextual_accuracy_completion_preserves_estimated_violated_decision() 
         restored.accuracy_goals[0].accuracy_class
         == enums.NumericalAccuracyClass.ESTIMATED
     )
-    assert restored.accuracy_goals[0].dependencies == ("blake3:" + "06" * 32,)
+    assert restored.accuracy_goals[0].dependencies == (
+        ContentHash.from_prefixed("blake3:" + "06" * 32),
+    )
     assert codec.encode_json(restored) == encoded

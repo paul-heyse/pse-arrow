@@ -160,14 +160,10 @@ def test_native_compatibility_refuses_version_or_fingerprint_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with pytest.raises(ImportError, match="versions differ"):
-        _check_native_compatibility(
-            "incompatible", documents.SCHEMA_SET_FINGERPRINT
-        )
+        _check_native_compatibility("incompatible", documents.SCHEMA_SET_FINGERPRINT)
     monkeypatch.setattr(pse.contracts, "REGISTRY_FINGERPRINT", "incompatible")
     with pytest.raises(ImportError, match="registry differ"):
-        _check_native_compatibility(
-            pse.__version__, documents.SCHEMA_SET_FINGERPRINT
-        )
+        _check_native_compatibility(pse.__version__, documents.SCHEMA_SET_FINGERPRINT)
 
 
 @pytest.mark.unit

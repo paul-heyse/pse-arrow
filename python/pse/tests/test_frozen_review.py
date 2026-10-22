@@ -283,7 +283,9 @@ def test_optional_source_recording_retain_result_and_context_readback_relocates(
     assert len(restored.contexts) == 2
     assert restored.invocations[0] == invocation_before
     assert restored.contexts[0].run_id == invocation_before.run_id
-    assert restored.contexts[1] == context
+    assert codec.document_builtins(restored.contexts[1]) == codec.document_builtins(
+        context
+    )
     assert restored.invocations[0].attempts.native_attempts
     output = Path(request.detail.output)
     relocated = tmp_path / "relocated-recording"

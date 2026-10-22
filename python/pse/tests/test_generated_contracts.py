@@ -191,6 +191,7 @@ def test_canonical_block_index_refuses_nonfinite_coordinate_bounds() -> None:
         "columns": 1,
         "coordinate_min": None,
         "coordinate_max": None,
+        "statistics": None,
         "payload_bytes": 256,
         "payload_digest": "original-payload-digest",
         "interpretation": "original-field-contract",

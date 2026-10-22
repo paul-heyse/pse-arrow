@@ -693,9 +693,12 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
     assert diagnostic.stage == report.stage
     assert diagnostic.code == report.code
     assert diagnostic.class_ == report.boundary_class
-    assert diagnostic.locations == tuple(msgspec.convert(location,
-        type=documents.SourceLocationBodyOutput, from_attributes=True)
-        for location in report.source_locations)
+    assert diagnostic.locations == tuple(
+        msgspec.convert(
+            location, type=documents.SourceLocationBodyOutput, from_attributes=True
+        )
+        for location in report.source_locations
+    )
     assert tuple(source.to_hex() for source in diagnostic.sources) == report.source_ids
     assert diagnostic.observations == report.observations
     assert diagnostic.locations[0].path == "a"
@@ -718,8 +721,9 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         assert contract.indices == ()
     encoded = codec.encode_json(diagnostic)
     assert codec.decode_json(encoded, BoundaryDiagnosticOutput) == diagnostic
-    cause = msgspec.convert(diagnostic, type=documents.BoundaryDiagnosticBodyOutput,
-        from_attributes=True)
+    cause = msgspec.convert(
+        diagnostic, type=documents.BoundaryDiagnosticBodyOutput, from_attributes=True
+    )
     nested = msgspec.structs.replace(diagnostic, causes=(cause,))
     restored = codec.decode_json(codec.encode_json(nested), BoundaryDiagnosticOutput)
     assert restored == nested
@@ -825,8 +829,11 @@ def test_native_study_version_precedes_nested_current_decode(
     # Malformed current fields precede the header at the actual native boundary.
     historical = msgspec.json.encode({"points": "retired shape", "version": version})
     handle = package._handle
-    pattern = (rf"unsupported version {version} \(current: 8\)" if operation == "admit_study"
-        else "explicit readmission is required")
+    pattern = (
+        rf"unsupported version {version} \(current: 8\)"
+        if operation == "admit_study"
+        else "explicit readmission is required"
+    )
     if operation == "admit_study":
         with pytest.raises(pse.InspectionError, match=pattern):
             handle.admit_study(historical)
@@ -1282,8 +1289,11 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     variants = StudyVariants(
-        source=msgspec.convert(package.operation_source,
-            type=documents.OperationSourceBody, from_attributes=True),
+        source=msgspec.convert(
+            package.operation_source,
+            type=documents.OperationSourceBody,
+            from_attributes=True,
+        ),
         choices=(
             SourceChoice(
                 alternatives=(
@@ -1307,8 +1317,11 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     assert definition.points == ()
     assert definition.variants is not None
     retained = definition.variants.variants
-    assert retained.source == msgspec.convert(package.operation_source,
-        type=documents.OperationSourceBody, from_attributes=True)
+    assert retained.source == msgspec.convert(
+        package.operation_source,
+        type=documents.OperationSourceBody,
+        from_attributes=True,
+    )
     assert retained.selected[0].point.policy.key == 17
     local_parent = definition.modeling_revision
     assert local_parent == (package.canonical_revision or package.revision_id)
@@ -1337,8 +1350,11 @@ def test_local_lazy_study_executes_selected_occurrence_without_store(
         presolve=PresolvePolicyKind.OFF,
     )
     variants = StudyVariants(
-        source=msgspec.convert(package.operation_source,
-            type=documents.OperationSourceBody, from_attributes=True),
+        source=msgspec.convert(
+            package.operation_source,
+            type=documents.OperationSourceBody,
+            from_attributes=True,
+        ),
         choices=(
             SourceChoice(
                 alternatives=(

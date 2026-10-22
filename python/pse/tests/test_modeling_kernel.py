@@ -100,13 +100,16 @@ def test_conformance_runs_the_declared_reference_set(
     (package / "models/pure.pse").write_text(source)
     manifest = tmp_path / "conformance.toml"
     text = f"""
+version = 1
 [settings]
+version = 1
 memory_limit_bytes = {16 << 30}
 threads = 16
 math_jobs = 16
 maximum_checks = 32
 
 [[runs]]
+version = 1
 name = "tiny"
 package = "pure"
 physical = "{root / "tests/fixtures/packages/physical-primitives"}"
@@ -147,7 +150,7 @@ execution = "pure"
         ),
     ):
         manifest.write_text(invalid)
-        with pytest.raises((msgspec.ValidationError, ValueError)):
+        with pytest.raises((msgspec.ValidationError, pse.InspectionError)):
             conformance_main(arguments)
     with pytest.raises(SystemExit):
         conformance_main([*arguments, "--report", str(tmp_path / "one.arrow")])
@@ -195,11 +198,14 @@ def test_conformance_runs_only_selected_fixtures(
     manifest = tmp_path / "conformance.toml"
     manifest.write_text(
         f"""
+version = 1
 [settings]
+version = 1
 memory_limit_bytes = {16 << 30}
 maximum_checks = 32
 
 [[runs]]
+version = 1
 name = "tiny"
 package = "pure"
 physical = "{physical_root}"
@@ -254,14 +260,18 @@ def test_conformance_selects_one_manifest_run(
     physical_root = root / "tests/fixtures/packages/physical-primitives"
     manifest = tmp_path / "conformance.toml"
     manifest.write_text(
-        f"""[settings]
+        f"""version = 1
+[settings]
+version = 1
 memory_limit_bytes = {8 << 30}
 [[runs]]
+version = 1
 name = "first"
 package = "{physical_root}"
 physical = "{physical_root}"
 execution = "pure"
 [[runs]]
+version = 1
 name = "second"
 package = "{physical_root}"
 physical = "{physical_root}"

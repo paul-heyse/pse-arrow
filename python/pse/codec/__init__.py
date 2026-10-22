@@ -353,7 +353,8 @@ def _decode_identity(target: type, value: object) -> object:
             return ContentHash.from_prefixed(value)
         message = "content digest JSON must be blake3-prefixed text"
         raise ValueError(message)
-    raise NotImplementedError(f"unsupported document value {target!r}")
+    message = f"unsupported document value {target!r}"
+    raise TypeError(message)
 
 
 def _encode_identity(value: object) -> object:
@@ -361,7 +362,8 @@ def _encode_identity(value: object) -> object:
         return value.to_hex()
     if isinstance(value, ContentHash):
         return value.to_prefixed()
-    raise NotImplementedError(f"unsupported document value {type(value)!r}")
+    message = f"unsupported document value {type(value)!r}"
+    raise TypeError(message)
 
 
 def _structure_id(value: object, _cls: type[SemanticId]) -> SemanticId:

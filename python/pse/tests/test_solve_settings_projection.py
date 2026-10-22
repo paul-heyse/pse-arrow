@@ -315,7 +315,8 @@ def test_solve_settings_backend_projection(
     assert gradient.document.controls.sensitivity is DynamicSensitivity.ADJOINT
     # Native ingress revalidates records and requires their actual generated class.
     with pytest.raises(TypeError, match="DiffsolSettings"):
-        invalid_call(pse.SimulationSettings,
+        invalid_call(
+            pse.SimulationSettings,
             runtime=runtime,
             start=0.0,
             end=1.0,

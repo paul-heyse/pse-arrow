@@ -23,7 +23,7 @@ class HistoryBoundary:
     """Observe document transport without pretending to settle canonical effects."""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, bytes]] = []
+        self.calls: list[tuple[str, object]] = []
 
     def retain_history_obligation(self, document: bytes) -> None:
         self.calls.append(("retain", document))
@@ -34,7 +34,7 @@ class HistoryBoundary:
     def release_history(self, document: bytes) -> None:
         self.calls.append(("release_history", document))
 
-    def reclaim_history_page(self, document: bytes) -> HistoryReclamationPage:
+    def reclaim_history_page(self, document: HistoryOwner) -> HistoryReclamationPage:
         self.calls.append(("collect", document))
         return HistoryReclamationPage(complete=False, removed=64, compacted=0)
 
@@ -64,7 +64,7 @@ def test_history_adapters_keep_explicit_owner_and_obligation_documents(
         ("retain", codec.encode_json(obligation)),
         ("release_obligation", codec.encode_json(obligation)),
         ("release_history", codec.encode_json(owner)),
-        ("collect", codec.encode_json(owner)),
+        ("collect", owner),
     ]
 
 
