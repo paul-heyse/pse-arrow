@@ -930,12 +930,38 @@ mod native {
 
         #[test]
         fn single_thread_batch_stays_on_caller_with_preinitialized_host_pool() {
-            // Initialize an embedding-host global pool before entering the adapter.
-            // A host that already initialized it is equally valid.
-            let _ = rayon::ThreadPoolBuilder::new()
-                .num_threads(3)
-                .build_global();
-            assert!(rayon::current_num_threads() > 0);
+            const CHILD_MODE: &str = "PSE_POUNCE_POOL_CONTROL";
+            let Ok(mode) = std::env::var(CHILD_MODE) else {
+                // A libtest process may run other Rayon consumers first. Each control
+                // needs a fresh process so global initialization cannot be concealed.
+                for mode in ["fresh", "host"] {
+                    let output = std::process::Command::new(std::env::current_exe().unwrap())
+                        .args([
+                            "--exact",
+                            concat!(module_path!(), "::single_thread_batch_stays_on_caller_with_preinitialized_host_pool")
+                                .strip_prefix("pse_backend_native::")
+                                .unwrap(),
+                            "--nocapture",
+                        ])
+                        .env(CHILD_MODE, mode)
+                        .output()
+                        .unwrap();
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    assert!(
+                        output.status.success() && stdout.contains("test result: ok. 1 passed; 0 failed;"),
+                        "{mode} pool control did not execute exactly one passing test:\n{stdout}\n{}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+                return;
+            };
+            assert!(matches!(mode.as_str(), "fresh" | "host"));
+            if mode == "host" {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(3)
+                    .build_global()
+                    .unwrap();
+            }
             let caller = std::thread::current().id();
             let serial = crate::pounce::with_threads(1, 4 << 20, || {
                 Ok::<_, crate::ProblemError>(super::map_jobs(&[1, 2, 3], false, |value| {
@@ -956,6 +982,15 @@ mod native {
             })
             .unwrap();
             assert_eq!(parallel, serial);
+            if mode == "fresh" {
+                // The admitted serial and local-parallel routes must leave the
+                // embedding host free to initialize its own global pool later.
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(3)
+                    .build_global()
+                    .unwrap();
+            }
+            assert_eq!(rayon::current_num_threads(), 3);
         }
 
         #[test]

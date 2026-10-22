@@ -185,6 +185,47 @@ fn run(
         budget(1000),
     )
 }
+#[test]
+fn retained_kkt_envelope_refuses_after_successful_numeric_factorization() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    // Inactive rows add retained source identities and multipliers, while the
+    // numerical KKT matrix remains one scalar. This separates the final retained
+    // envelope from the earlier symbolic numeric-work estimate.
+    let rows = vec![(-10., 10.); 128];
+    let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &rows);
+    let normalization = Normalization::identity(1, rows.len());
+    let lambda = vec![0.; rows.len()];
+    let (_, factor) = run(&mut oracle, &[0.], &lambda, (&[0.], &[0.]), &normalization).unwrap();
+    let allowance = factor.bytes() - 1;
+    let matrix = &factor.matrix;
+    let symbolic = feral::symbolic::symbolic_factorize(matrix, &Default::default()).unwrap();
+    let held_matrix = (matrix.col_ptr.capacity() + matrix.row_idx.capacity()) * size_of::<usize>()
+        + matrix.values.capacity() * size_of::<f64>();
+    assert!(allowance >= held_matrix + symbolic.work_estimate().peak_bytes);
+    drop(factor);
+    let (candidate, observation) = at(&oracle, &[0.], &lambda, (&[0.], &[0.]));
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("retained-kkt-envelope");
+    let _entered = operation.context().enter();
+    let result = analyse(
+        &mut oracle,
+        &candidate,
+        &observation,
+        &normalization,
+        &tolerances(1, rows.len()),
+        Budget { bytes: allowance, ..budget(1000) },
+    );
+    assert!(matches!(&result, Err(Unavailable::Failed(cause)) if matches!(cause.as_ref(),
+        ProblemError::Limit { kind: crate::LimitKind::Memory, detail }
+            if detail == "KKT factor exceeds admitted storage allowance")), "{result:?}");
+    let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+    assert_eq!(snapshot.children.len(), 1);
+    let factor = hub.reader(snapshot.children[0].id).unwrap()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert!(factor.metrics.iter().any(|metric| metric.name == "factor.valid"
+        && matches!(metric.latest, Value::Boolean(true))), "numeric factorization completed before retained-envelope refusal");
+}
+
 /// The analysis of `½ xᵀ diag(q) x` over two variables and the inactive row `x₀ + x₁`, at
 /// the stationary point `x = 0` with zero multipliers.
 fn at_origin(q: [f64; 2], bounds: [(f64, f64); 2]) -> KktPoint {

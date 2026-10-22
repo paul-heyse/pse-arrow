@@ -254,6 +254,92 @@ mod tests {
         assert_eq!(settings.residual_scales[0].to_bits(), 19_f64.to_bits());
     }
     #[test]
+    fn map_seam_preserves_authorized_restart_budget_and_rejects_hidden_start_reuse() {
+        #[derive(Debug)]
+        struct AffineMap {
+            source: Polynomial,
+            calls: Arc<Mutex<Vec<f64>>>,
+        }
+        impl FixedPointOracle for AffineMap {
+            fn contract(&self) -> &OracleContract {
+                &self.source.c
+            }
+            fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+                self.source.matrix.symbolic()
+            }
+            fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+                self.calls.lock().unwrap().push(x[0]);
+                out[0] = 0.5 * x[0] + 0.5;
+                Ok(())
+            }
+            fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+                out[0] = x[0] - 1.;
+                Ok(())
+            }
+        }
+        let settings = Settings {
+            method: Method {
+                strategy: Strategy::FixedPoint,
+                ..Default::default()
+            },
+            variable_scales: vec![37.],
+            residual_scales: vec![19.],
+            step_tolerance: 1e-10,
+        };
+        let schedule = crate::kinsol::RestartSchedule {
+            starts: vec![vec![1.], vec![42.]],
+            iterations: 1,
+        };
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        for hidden_start in [false, true] {
+            calls.lock().unwrap().clear();
+            let controls = Controls {
+                iterations: 2,
+                history: 4,
+                start: if hidden_start {
+                    crate::solve::StartPolicy::PreviousAccepted
+                } else {
+                    crate::solve::StartPolicy::NoPriorStart
+                },
+                ..Default::default()
+            };
+            let mut source = Polynomial::new();
+            source.c.derivatives = pse_kernels::DerivativeOrder::Value;
+            let report = map(MapInput {
+                problem: super::super::Problem::FixedPoint {
+                    oracle: Box::new(AffineMap { source, calls: calls.clone() }),
+                    initial: &[0.],
+                    settings: &settings,
+                    restarts: Some(&schedule),
+                },
+                controls: &controls,
+                accuracy: &ResolvedAccuracy::verification(),
+                execution: execution(),
+                tolerances: &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                compatibility: stamp(Backend::Kinsol),
+            });
+            if hidden_start {
+                assert!(matches!(report, Err(ProblemError::Unsupported(_))));
+                assert!(calls.lock().unwrap().is_empty(), "no native evaluation before start admission");
+                continue;
+            }
+            let report = report.unwrap();
+            assert_eq!(report.metrics["recycle.native_attempts"], crate::solve::Metric::Integer(2));
+            assert!(report.evidence.work.iterations.unwrap() <= 2);
+            assert!(report.quality.as_ref().unwrap().feasible());
+            assert_eq!(report.candidate.unwrap().primal, vec![1.]);
+            assert!(report.warm_start.is_none());
+            let calls = calls.lock().unwrap();
+            assert_eq!(calls[0], 0.);
+            assert!(calls.contains(&1.), "the explicitly authorized restart was consumed");
+            assert!(!calls.contains(&42.), "accepted restart must not consume a successor start");
+        }
+    }
+    #[test]
     fn picard_executes_constant_splitting_without_requesting_original_jacobian_values() {
         #[derive(Debug)]
         struct ResidualOnly(Polynomial);
