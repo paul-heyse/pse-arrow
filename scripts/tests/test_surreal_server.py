@@ -4491,6 +4491,46 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertNotIn("study_module_qualification", selected)
             self.assertEqual(server.server_environment(selected, {"username": "user", "password": "secret"})["SURREAL_BUCKET_FOLDER_ALLOWLIST"], parents[0])
 
+    def test_long_hold_selection_is_explicit_and_does_not_relax_production_limits(self) -> None:
+        config = self.initialized()
+        config.update(accepting_writes=False, admission="quiesced")
+        server.write_json(self.state / "config.json", config)
+        builder = str(server.object_mapping(config["server"])["binary_sha256"])
+        receipt = fixture_module(self.root / "modules", builder, qualification=True, long_hold=True)
+        record = Path(str(receipt["artifact"])).parent / "module.json"
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "all_contexts_drained") as drained,
+            patch.object(server, "public_status", return_value={}),
+            patch.object(server, "active", return_value=False),
+        ):
+            with self.assertRaisesRegex(server.SupervisorError, "explicit long-hold"):
+                server.select_module_qualification(self.state, record)
+            self.assertNotIn("study_module_qualification", server.config_for(self.state))
+            server.select_module_qualification(self.state, record, long_hold=True)
+            selected = server.config_for(self.state)
+            environment = server.server_environment(selected, {"username": "user", "password": "secret"})
+            self.assertEqual(environment["SURREAL_SURREALISM_MAX_EXECUTION_TIME"], "6000")
+            self.assertEqual(server.object_mapping(server.study_module(selected)["limits"])["max_execution_time_ms"], 1000)
+            self.assertEqual(environment["SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS"], "4")
+            self.assertEqual(environment["SURREAL_SURREALISM_CACHE_SIZE"], "1")
+            self.assertEqual(environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB))
+            with self.assertRaisesRegex(server.SupervisorError, "explicit qualification receipt"):
+                server.select_module_qualification(self.state, None, long_hold=True)
+            server.select_module_qualification(self.state, None)
+            restored = server.config_for(self.state)
+            self.assertEqual(server.server_environment(restored, {"username": "user", "password": "secret"})["SURREAL_SURREALISM_MAX_EXECUTION_TIME"], "1000")
+            short = fixture_module(self.root / "modules", builder, qualification=True)
+            short_record = Path(str(short["artifact"])).parent / "module.json"
+            with self.assertRaisesRegex(server.SupervisorError, "explicit long-hold"):
+                server.select_module_qualification(self.state, short_record, long_hold=True)
+            self.assertEqual(drained.call_count, 4)
+
+    def test_long_hold_cli_is_restricted_to_explicit_qualification_selection(self) -> None:
+        arguments = server.parser().parse_args(["status", "--long-hold"])
+        with self.assertRaisesRegex(server.SupervisorError, "only available with module-qualification"):
+            server.dispatch(arguments)
+
     def test_grpc_readiness_proof_binds_invocation_generation_and_credentials(
         self,
     ) -> None:

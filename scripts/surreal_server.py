@@ -267,6 +267,7 @@ def publish_generation(
         ".python-version",
         "crates/pse-operations/src/generated/surreal-policy.json",
         "crates/pse-study-module/surrealism.toml",
+        "crates/pse-study-module/surrealism-qualification-long-hold.toml",
     ):
         sources.append(root / relative)
     entries = {str(path.relative_to(root)): file_digest(path) for path in sources}
@@ -5439,7 +5440,7 @@ def qualification_module(config: dict[str, object]) -> dict[str, object] | None:
     if value is None:
         return None
     try:
-        module = surrealism_module.verify(value, qualification=True)
+        module = surrealism_module.verify(value, qualification=True, long_hold=object_mapping(value).get("kind") == surrealism_module.LONG_HOLD_KIND)
     except (surrealism_module.ModuleError, OSError, ValueError) as error:
         raise SupervisorError("Qualification study module is mismatched: " + str(error)) from error
     if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(config["server"]).get("binary_sha256"):
@@ -5447,8 +5448,10 @@ def qualification_module(config: dict[str, object]) -> dict[str, object] | None:
     return module
 
 
-def select_module_qualification(state: Path, receipt_path: Path | None) -> dict[str, object]:
+def select_module_qualification(state: Path, receipt_path: Path | None, *, long_hold: bool = False) -> dict[str, object]:
     """Select/remove probe access only after the actual owned service and queries drain."""
+    if long_hold and receipt_path is None:
+        raise SupervisorError("Long-hold selection requires its explicit qualification receipt")
     with lifecycle_deadline(time.monotonic() + 30), lifecycle_reservation(state):
         config = config_for(state)
         private_offline_state(state, config)
@@ -5459,7 +5462,11 @@ def select_module_qualification(state: Path, receipt_path: Path | None) -> dict[
         if receipt_path is None:
             selected.pop("study_module_qualification", None)
         else:
-            selected["study_module_qualification"] = read_json(receipt_path, deadline=getattr(_STARTUP, "deadline", None))
+            receipt = read_json(receipt_path, deadline=getattr(_STARTUP, "deadline", None))
+            expected_kind = surrealism_module.LONG_HOLD_KIND if long_hold else surrealism_module.QUALIFICATION_KIND
+            if receipt.get("kind") != expected_kind:
+                raise SupervisorError("Qualification receipt differs from the explicit long-hold selection")
+            selected["study_module_qualification"] = receipt
             qualification_module(selected)
         selected["restart_qualified"] = False
         history = state / ".profile-history"
@@ -5497,6 +5504,9 @@ def server_environment(
     if qualification is not None:
         module_directories.append(str(Path(str(qualification["artifact"])).parent))
     runtime = module_runtime_allocation(allocation)
+    execution_ms = integer(object_mapping(module["limits"])["max_execution_time_ms"])
+    if qualification is not None:
+        execution_ms = max(execution_ms, integer(object_mapping(qualification["limits"])["max_execution_time_ms"]))
     # Inherited SURREAL_* settings cannot silently override the owned profile.
     environment = {
         key: value
@@ -5517,7 +5527,7 @@ def server_environment(
             "SURREAL_SURREALISM_CACHE_SIZE": str(runtime["cache_modules"]),
             "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS": str(runtime["max_controllers"]),
             "SURREAL_SURREALISM_MAX_MEMORY": str(runtime["max_memory_bytes"]),
-            "SURREAL_SURREALISM_MAX_EXECUTION_TIME": str(surrealism_module.LIMITS["max_execution_time_ms"]),
+            "SURREAL_SURREALISM_MAX_EXECUTION_TIME": str(execution_ms),
             "SURREAL_SURREALISM_MAX_KV_ENTRIES": "0",
             "SURREAL_SURREALISM_MAX_KV_VALUE_BYTES": "0",
             "SURREAL_SURREALISM_MAX_FS_BYTES": "0",
@@ -9236,6 +9246,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--destination", type=Path)
     result.add_argument("--source", type=Path)
     result.add_argument("--module-receipt", type=Path, help="Immutable qualification module receipt; omit to restore production-only module access")
+    result.add_argument("--long-hold", action="store_true", help="Explicitly select the separate long-hold module qualification receipt")
     result.add_argument("--initializer-command", nargs=argparse.REMAINDER)
     result.add_argument("--check-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-command", nargs=argparse.REMAINDER)
@@ -9261,6 +9272,8 @@ def dispatch(args: argparse.Namespace) -> int:
 
 
 def _dispatch(args: argparse.Namespace) -> int:
+    if args.long_hold and args.command != "module-qualification":
+        raise SupervisorError("Long-hold is only available with module-qualification")
     if args.qualification_native_entry is not None and args.command != "ensure-primary":
         raise SupervisorError(
             "Qualification control is only available with ensure-primary"
@@ -9268,7 +9281,7 @@ def _dispatch(args: argparse.Namespace) -> int:
     if args.command == "build-server":
         output = install(args.version, args.tool_root or default_tool_root())
     elif args.command == "module-qualification":
-        output = select_module_qualification(args.state.absolute(), args.module_receipt)
+        output = select_module_qualification(args.state.absolute(), args.module_receipt, long_hold=args.long_hold)
     elif args.command == "initialize":
         output = initialize(args.state.absolute(), args.initializer_command or [])
     elif args.command == "fresh-engine":
