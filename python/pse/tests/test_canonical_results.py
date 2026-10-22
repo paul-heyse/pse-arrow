@@ -427,11 +427,13 @@ def test_canonical_result_selection_and_progress_reopen(
     assert record["outcome"] == "succeeded"
     assert manifest["attempt"] == attempt
     history_owner = codec.decode_json(
-        json.dumps({"kind": "run", "key": run}).encode(), HistoryOwner
+        json.dumps({"document_version": 1, "kind": "run", "key": run}).encode(),
+        HistoryOwner,
     )
     audit = codec.decode_json(
         json.dumps(
             {
+                "document_version": 1,
                 "key": "python-history-audit",
                 "owner": {"kind": "run", "key": run},
                 "purpose": "audit",
