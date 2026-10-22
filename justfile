@@ -112,6 +112,13 @@ surreal command *args:
     "{{ py }}" scripts/surreal_server.py "$1" "${@:2}"
 
 [group('env')]
+[doc('Build the immutable pinned study module; --qualification selects a separately identified probe artifact')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+surreal-module *args:
+    "{{ py }}" -m scripts.surrealism_module "$@"
+
+[group('env')]
 [doc('Run pinned beta tooling in an explicitly registered namespace fixture')]
 [script("bash", "scripts/pse-env", "--native=", "--resource-class", "light", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
@@ -127,7 +134,7 @@ canonical-init state:
 [group('local')]
 [doc('Targeted canonical server supervisor mechanism controls')]
 surreal-test:
-    "{{ py }}" -m unittest scripts.tests.test_surreal_server scripts.tests.test_surreal_mcp scripts.tests.test_primary_observation -v
+    "{{ py }}" -m unittest scripts.tests.test_surreal_server scripts.tests.test_surreal_source scripts.tests.test_surrealism_module scripts.tests.test_surreal_mcp scripts.tests.test_primary_observation -v
 
 [group('local')]
 [doc('Disposable acknowledged-write, abrupt restart and offline backup/restore server control')]

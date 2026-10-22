@@ -1,0 +1,153 @@
+--- a/surrealism/types/src/err.rs
++++ b/surrealism/types/src/err.rs
+@@ -6,6 +6,9 @@
+ 
+ #[derive(thiserror::Error, Debug)]
+ pub enum SurrealismError {
++	#[cfg(feature = "host")]
++	#[error("Process-wide Surrealism controller capacity exceeded")]
++	ControllerCapacityExceeded,
+ 	#[cfg(feature = "host")]
+ 	#[error("WASM compilation failed: {0}")]
+ 	Compilation(wasmtime::Error),
+@@ -66,6 +69,8 @@
+ 			Self::UnsupportedAbi {
+ 				..
+ 			} => false,
++			#[cfg(feature = "host")]
++			Self::ControllerCapacityExceeded => false,
+ 			Self::IntConversion(_) => false,
+ 			Self::Other(_) => false,
+ 		}
+--- a/surrealism/runtime/src/runtime.rs
++++ b/surrealism/runtime/src/runtime.rs
+@@ -44,7 +44,7 @@
+ //! ```
+ 
+ use std::fmt;
+-use std::sync::Arc;
++use std::sync::{Arc, OnceLock};
+ use std::sync::atomic::Ordering;
+ use std::time::Duration;
+ 
+@@ -62,6 +62,60 @@
+ use crate::net_allow::{ResolvedNetAllow, resolve_allow_net};
+ use crate::package::{AttachedFs, SurrealismPackage};
+ use crate::store::StoreData;
++
++// Unlike a runtime's in-use semaphore, these permits follow physical Stores
++// through idle pooling and runtime-cache eviction. No permit is ever awaited:
++// saturation refuses before Store allocation, without another queue/deadlock.
++static GLOBAL_CONTROLLER_SLOTS: OnceLock<Result<Arc<Semaphore>, String>> = OnceLock::new();
++
++fn global_controller_limit(value: Option<&str>) -> Result<usize, String> {
++	let value = value.unwrap_or("8");
++	value.parse::<usize>().ok().filter(|value| *value > 0 && *value <= Semaphore::MAX_PERMITS)
++		.ok_or_else(|| "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS must be a finite positive semaphore capacity".to_owned())
++}
++
++fn acquire_global_controller_slot() -> SurrealismResult<tokio::sync::OwnedSemaphorePermit> {
++	let slots = GLOBAL_CONTROLLER_SLOTS.get_or_init(|| {
++		let configured = std::env::var("SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS")
++			.map(Some).or_else(|error| match error {
++				std::env::VarError::NotPresent => Ok(None),
++				_ => Err("Invalid Surrealism controller capacity encoding".to_owned()),
++			})?;
++		Ok(Arc::new(Semaphore::new(global_controller_limit(configured.as_deref())?)))
++	});
++	let slots = slots.as_ref().map_err(|error| SurrealismError::Other(anyhow::anyhow!(error.clone())))?;
++	try_global_controller_slot(slots)
++}
++
++fn try_global_controller_slot(slots: &Arc<Semaphore>) -> SurrealismResult<tokio::sync::OwnedSemaphorePermit> {
++	Arc::clone(slots).try_acquire_owned().map_err(|_| SurrealismError::ControllerCapacityExceeded)
++}
++
++#[cfg(test)]
++mod global_controller_tests {
++	use super::*;
++
++	#[test]
++	fn global_budget_is_fail_fast_and_follows_physical_ownership() {
++		let slots = Arc::new(Semaphore::new(1));
++		let physical = try_global_controller_slot(&slots).unwrap();
++		// An evicted runtime or idle pool is just another holder of this owned
++		// permit. Dropping a facade cannot restore capacity while it remains.
++		let retained = Some(physical);
++		assert!(matches!(try_global_controller_slot(&slots), Err(SurrealismError::ControllerCapacityExceeded)));
++		drop(retained);
++		assert!(try_global_controller_slot(&slots).is_ok());
++	}
++
++	#[test]
++	fn global_budget_refuses_invalid_or_unbounded_configuration() {
++		assert_eq!(global_controller_limit(None).unwrap(), 8);
++		assert_eq!(global_controller_limit(Some("16")).unwrap(), 16);
++		for value in ["0", "-1", "max", "18446744073709551615"] {
++			assert!(global_controller_limit(Some(value)).is_err());
++		}
++	}
++}
+ 
+ /// Compiled WASM runtime. Thread-safe, can be shared across threads via Arc.
+ /// Compiles WASM once, then each controller gets its own isolated Store/Instance.
+@@ -397,6 +451,7 @@
+ 		context: Box<dyn InvocationContext>,
+ 		controller_slot: tokio::sync::OwnedSemaphorePermit,
+ 	) -> SurrealismResult<Controller> {
++		let global_slot = acquire_global_controller_slot()?;
+ 		let t0 = Instant::now();
+ 
+ 		let fs_root = self.fs_dir.as_ref().map(|fs| fs.path());
+@@ -480,6 +535,7 @@
+ 			self.module_execution_time,
+ 			Arc::clone(self.engine_handle.epoch_counter()),
+ 			controller_slot,
++			global_slot,
+ 		))
+ 	}
+ }
+--- a/surrealism/runtime/src/controller.rs
++++ b/surrealism/runtime/src/controller.rs
+@@ -48,6 +48,8 @@
+ 	/// [`Runtime`](crate::runtime::Runtime)'s controller semaphore. While [`Some`], the permit
+ 	/// counts toward the concurrent-instance cap.
+ 	controller_slot: Option<OwnedSemaphorePermit>,
++	/// Retained even while idle; released only with this physical WASM Store.
++	_global_slot: OwnedSemaphorePermit,
+ }
+ 
+ impl fmt::Debug for Controller {
+@@ -70,6 +72,7 @@
+ 		module_execution_time: Option<Duration>,
+ 		epoch_counter: Arc<std::sync::atomic::AtomicU64>,
+ 		controller_slot: OwnedSemaphorePermit,
++		global_slot: OwnedSemaphorePermit,
+ 	) -> Self {
+ 		Self {
+ 			store,
+@@ -83,6 +86,7 @@
+ 			module_execution_time,
+ 			epoch_counter,
+ 			controller_slot: Some(controller_slot),
++			_global_slot: global_slot,
+ 		}
+ 	}
+ 
+--- a/surrealdb/core/src/legacy/expr/module.rs
++++ b/surrealdb/core/src/legacy/expr/module.rs
+@@ -222,7 +222,13 @@
+ 		#[cfg(feature = "http")]
+ 		client,
+ 	));
+-	let mut controller = runtime.acquire_controller(host).await?;
++	let mut controller = runtime.acquire_controller(host).await.map_err(|error| {
++		if matches!(error, surrealism_runtime::SurrealismError::ControllerCapacityExceeded) {
++			anyhow::Error::from(crate::exec::Error::Thrown("PSE_REFUSAL:surrealism_controller_capacity_exceeded".into()))
++		} else {
++			anyhow::Error::from(error)
++		}
++	})?;
+ 
+ 	let ctx_timeout = ctx.timeout();
+ 	let result = controller.invoke_with_timeout(sub.map(String::from), args, ctx_timeout).await;

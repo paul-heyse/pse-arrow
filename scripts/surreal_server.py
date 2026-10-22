@@ -56,6 +56,7 @@ from scripts import (
     payload_files,
     pse_env,
     surreal_source,
+    surrealism_module,
     test_resources,
 )
 
@@ -265,6 +266,7 @@ def publish_generation(
         "rust-toolchain.toml",
         ".python-version",
         "crates/pse-operations/src/generated/surreal-policy.json",
+        "crates/pse-study-module/surrealism.toml",
     ):
         sources.append(root / relative)
     entries = {str(path.relative_to(root)): file_digest(path) for path in sources}
@@ -1110,6 +1112,9 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
             raise SupervisorError(
                 "Server is not the admitted source-built MX generation"
             )
+        study_module(config)
+        qualification_module(config)
+        module_runtime_allocation(budget)
     if (
         config["max_message_bytes"] != MESSAGE_BYTES
         or config["schema_interpretation"] != config["interpretation"]
@@ -1357,7 +1362,12 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
     tool_root = args.tool_root
     if tool_root is None:
         tool_root = default_tool_root()
+    module_runtime_allocation(allocation)
     server = install(args.version, tool_root)
+    try:
+        module = surrealism_module.install(server, tool_root)
+    except (surrealism_module.ModuleError, OSError, ValueError) as error:
+        raise SupervisorError(str(error)) from error
     state = checked_directory(args.state, empty=True)
     with state_lock(state):
         if any(path.name != ".supervisor.lock" for path in state.iterdir()):
@@ -1370,6 +1380,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             "instance_id": str(uuid.uuid4()),
             "payload_incarnation": str(uuid.uuid4()),
             "server": server,
+            "study_module": module,
             "port": port,
             "namespace": "pse",
             "database": "canonical",
@@ -4078,6 +4089,8 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "credentials_file": str(state / "credentials.json"),
         "config_file": str(state / "config.json"),
         "server": config["server"],
+        "study_module": config.get("study_module"),
+        "study_module_qualification": config.get("study_module_qualification"),
         "admission": config["admission"],
         "interpretation": config["interpretation"],
         "resources": config["resources"],
@@ -4139,6 +4152,10 @@ def protocol_ready(
         and proof.get("binary_sha256")
         == object_mapping(config["server"]).get("binary_sha256")
         and proof.get("credentials_sha256") == file_digest(state / "credentials.json")
+        and proof.get("study_module_sha256") == study_module(config)["sha256"]
+        and proof.get("study_module_qualification_sha256") == (
+            None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"]
+        )
     )
 
 
@@ -4218,6 +4235,8 @@ def establish_protocol_readiness(
             "invocation": invocation,
             "binary_sha256": object_mapping(config["server"]).get("binary_sha256"),
             "credentials_sha256": file_digest(state / "credentials.json"),
+            "study_module_sha256": study_module(config)["sha256"],
+            "study_module_qualification_sha256": None if qualification_module(config) is None else object_mapping(config["study_module_qualification"])["sha256"],
         },
     )
 
@@ -5333,12 +5352,81 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
         )
 
 
+def study_module(config: dict[str, object]) -> dict[str, object]:
+    """Authenticate the exact immutable policy artifact selected by this service."""
+    try:
+        module = surrealism_module.verify(config.get("study_module"))
+    except (surrealism_module.ModuleError, OSError, ValueError) as error:
+        raise SupervisorError("Study module is absent or mismatched: " + str(error)) from error
+    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(config["server"]).get("binary_sha256"):
+        raise SupervisorError("Study module was not built by this exact admitted server")
+    return module
+
+
+def qualification_module(config: dict[str, object]) -> dict[str, object] | None:
+    """A separate explicit probe receipt never acquires production module authority."""
+    value = config.get("study_module_qualification")
+    if value is None:
+        return None
+    try:
+        module = surrealism_module.verify(value, qualification=True)
+    except (surrealism_module.ModuleError, OSError, ValueError) as error:
+        raise SupervisorError("Qualification study module is mismatched: " + str(error)) from error
+    if object_mapping(module["inputs"]).get("builder_sha256") != object_mapping(config["server"]).get("binary_sha256"):
+        raise SupervisorError("Qualification module builder differs from the selected server")
+    return module
+
+
+def select_module_qualification(state: Path, receipt_path: Path | None) -> dict[str, object]:
+    """Select/remove probe access only after the actual owned service and queries drain."""
+    with lifecycle_deadline(time.monotonic() + 30), lifecycle_reservation(state):
+        config = config_for(state)
+        private_offline_state(state, config)
+        if active(state) or config.get("accepting_writes") is not False:
+            raise SupervisorError("Qualification module selection requires stopped closed service admission")
+        all_contexts_drained(state)
+        selected = dict(config)
+        if receipt_path is None:
+            selected.pop("study_module_qualification", None)
+        else:
+            selected["study_module_qualification"] = read_json(receipt_path, deadline=getattr(_STARTUP, "deadline", None))
+            qualification_module(selected)
+        selected["restart_qualified"] = False
+        history = state / ".profile-history"
+        history.mkdir(mode=0o700, exist_ok=True)
+        write_json(history / (uuid.uuid4().hex + ".json"), config)
+        with state_lock(state):
+            write_json(state / "config.json", selected)
+        return public_status(state, selected)
+
+
+def module_runtime_allocation(allocation: dict[str, object]) -> dict[str, int]:
+    """Keep retained module linear memory within one eighth of the server budget.
+
+    Cache size bounds retained entries, not evicted in-flight runtime aliases.
+    Aggregate controller admission is independently selected below.
+    """
+    memory = integer(surrealism_module.LIMITS["max_memory_bytes"])
+    pool = integer(surrealism_module.LIMITS["max_pool_size"])
+    controllers = integer(allocation["server_memory_bytes"]) // 8 // memory
+    cache = min(4, controllers // pool)
+    if cache < 1:
+        raise SupervisorError("Server budget cannot admit one complete bounded study module pool")
+    return {"cache_modules": cache, "max_controllers": controllers, "max_memory_bytes": memory}
+
+
 def server_environment(
     config: dict[str, object], credentials: dict[str, object], *, bootstrap: bool = True
 ) -> dict[str, str]:
     allocation = config["resources"]
     if not isinstance(allocation, dict):
         raise SupervisorError("Invalid allocation")
+    module = study_module(config)
+    qualification = qualification_module(config)
+    module_directories = [str(Path(str(module["artifact"])).parent)]
+    if qualification is not None:
+        module_directories.append(str(Path(str(qualification["artifact"])).parent))
+    runtime = module_runtime_allocation(allocation)
     # Inherited SURREAL_* settings cannot silently override the owned profile.
     environment = {
         key: value
@@ -5354,6 +5442,16 @@ def server_environment(
                 allocation["grpc_max_attached_sessions"]
             ),
             "SURREAL_MEMORY_THRESHOLD": str(allocation["memory_threshold_bytes"]),
+            "SURREAL_CAPS_ALLOW_EXPERIMENTAL": "files,surrealism",
+            "SURREAL_BUCKET_FOLDER_ALLOWLIST": os.pathsep.join(module_directories),
+            "SURREAL_SURREALISM_CACHE_SIZE": str(runtime["cache_modules"]),
+            "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS": str(runtime["max_controllers"]),
+            "SURREAL_SURREALISM_MAX_MEMORY": str(runtime["max_memory_bytes"]),
+            "SURREAL_SURREALISM_MAX_EXECUTION_TIME": str(surrealism_module.LIMITS["max_execution_time_ms"]),
+            "SURREAL_SURREALISM_MAX_KV_ENTRIES": "0",
+            "SURREAL_SURREALISM_MAX_KV_VALUE_BYTES": "0",
+            "SURREAL_SURREALISM_MAX_FS_BYTES": "0",
+            "SURREAL_SURREALISM_LOG_LEVEL": "warn",
             "SURREAL_RUNTIME_WORKER_THREADS": "4",
             "TOKIO_WORKER_THREADS": "4",
             "RAYON_NUM_THREADS": "4",
@@ -5883,13 +5981,14 @@ def recover_file_owners(state: Path) -> dict[str, int]:
             state,
             config,
             "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
-            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation};",
+            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation,study_module_sha256:$marker.study_module_sha256};",
         )
         if (
             marker
             != {
                 "payload_incarnation": config["payload_incarnation"],
                 "interpretation": SUBSTRATE_INTERPRETATION,
+                "study_module_sha256": study_module(config)["sha256"],
             }
             or config["interpretation"] != SUBSTRATE_INTERPRETATION
         ):
@@ -6947,7 +7046,7 @@ def current_marker(
         config,
         credentials,
         "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "  # noqa: S608 -- Fixed policy interpretation is JSON quoted.
-        f"IF $marker=NONE OR $marker.interpretation!={json.dumps(SUBSTRATE_INTERPRETATION)} {{ THROW 'current interpretation unavailable'; }}; LET $value=true;",
+        f"IF $marker=NONE OR $marker.interpretation!={json.dumps(SUBSTRATE_INTERPRETATION)} OR $marker.study_module_sha256!={json.dumps(study_module(config)['sha256'])} {{ THROW 'current interpretation or study module unavailable'; }}; LET $value=true;",
     )
     if response.get("value") is not True:
         raise SupervisorError("Current interpretation was not acknowledged")
@@ -7595,6 +7694,10 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
                 if tool_root is None:
                     tool_root = default_tool_root()
                 server = install(None, tool_root)
+                try:
+                    module = surrealism_module.install(server, tool_root)
+                except (surrealism_module.ModuleError, OSError, ValueError) as error:
+                    raise SupervisorError(str(error)) from error
                 budget = object_mapping(old["resources"])
                 allocation = resources(
                     integer(budget["total_memory_bytes"]),
@@ -7625,6 +7728,7 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
                 target.update(
                     profile_version=3,
                     server=server,
+                    study_module=module,
                     resources=allocation,
                     endpoint=f"grpc://127.0.0.1:{old['port']}",
                     interpretation=SUBSTRATE_INTERPRETATION,
@@ -8407,7 +8511,7 @@ def validate_interpretation(
     ).decode()
     request = urllib.request.Request(
         f"http://127.0.0.1:{config['port']}/sql",
-        data=b"SELECT VALUE interpretation FROM canonical_interpretations:current;",
+        data=b"SELECT interpretation, study_module_sha256 FROM canonical_interpretations:current;",
         headers={
             "Authorization": f"Basic {token}",
             "Accept": "application/json",
@@ -8426,7 +8530,7 @@ def validate_interpretation(
         or len(result) != 1
         or not isinstance(result[0], dict)
         or result[0].get("status") != "OK"
-        or result[0].get("result") != [interpretation]
+        or result[0].get("result") != [{"interpretation": interpretation, "study_module_sha256": study_module(config)["sha256"]}]
     ):
         raise SupervisorError(
             "Canonical database interpretation was not validated; writes remain closed"
@@ -8456,6 +8560,8 @@ def recovery_generation(state: Path, config: dict[str, object]) -> str:
         for key in (
             "instance_id",
             "server",
+            "study_module",
+            "study_module_qualification",
             "service_supervisor",
             "resources",
             "namespace",
@@ -8953,6 +9059,7 @@ def parser() -> argparse.ArgumentParser:
         choices=[
             "setup",
             "build-server",
+            "module-qualification",
             "initialize",
             "fresh-engine",
             "readmit",
@@ -9054,6 +9161,7 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument("--destination", type=Path)
     result.add_argument("--source", type=Path)
+    result.add_argument("--module-receipt", type=Path, help="Immutable qualification module receipt; omit to restore production-only module access")
     result.add_argument("--initializer-command", nargs=argparse.REMAINDER)
     result.add_argument("--check-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-command", nargs=argparse.REMAINDER)
@@ -9085,6 +9193,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         )
     if args.command == "build-server":
         output = install(args.version, args.tool_root or default_tool_root())
+    elif args.command == "module-qualification":
+        output = select_module_qualification(args.state.absolute(), args.module_receipt)
     elif args.command == "initialize":
         output = initialize(args.state.absolute(), args.initializer_command or [])
     elif args.command == "fresh-engine":

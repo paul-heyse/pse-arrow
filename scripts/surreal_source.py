@@ -34,6 +34,9 @@ PATCHES = (
     "grpc-session-admission.patch",
     "grpc-status-details.patch",
     "surrealism-locked-build.patch",
+    "surrealism-build-features.patch",
+    "surrealism-global-controllers.patch",
+    "surrealism-memory-count.patch",
 )
 DISKANN_SHA256 = "3ead115d8a4f3917c1ae9c3db0aa4dd56251841864ef8637329969f8e5145dd3"
 FEATURES = "storage-mem,cli,mcp,surrealism"

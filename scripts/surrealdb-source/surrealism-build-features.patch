@@ -1,0 +1,63 @@
+--- a/surrealdb/server/src/cli/module/mod.rs
++++ b/surrealdb/server/src/cli/module/mod.rs
+@@ -89,6 +89,10 @@
+ 		#[arg(long)]
+ 		debug: bool,
+ 
++		/// Cargo features to enable (comma-separated or repeated)
++		#[arg(long, value_delimiter = ',')]
++		features: Vec<String>,
++
+ 		/// Output file path or filename
+ 		#[arg(short = 'o', long)]
+ 		out: Option<PathBuf>,
+@@ -135,8 +139,9 @@
+ 		ModuleCommand::Build {
+ 			debug,
+ 			out,
++			features,
+ 			path,
+-		} => build::init(path, out, debug).await,
++		} => build::init(path, out, debug, features).await,
+ 		ModuleCommand::Version => version::init().await,
+ 	}
+ }
+--- a/surrealdb/server/src/cli/module/build.rs
++++ b/surrealdb/server/src/cli/module/build.rs
+@@ -14,7 +14,7 @@
+ 
+ /// Build a Surrealism WASM module from a Rust project, optimize the binary,
+ /// and pack it into a `.surrealism` package file.
+-pub async fn init(path: Option<PathBuf>, out: Option<PathBuf>, debug: bool) -> Result<()> {
++pub async fn init(path: Option<PathBuf>, out: Option<PathBuf>, debug: bool, features: Vec<String>) -> Result<()> {
+ 	let path = match path {
+ 		Some(p) => p,
+ 		None => std::env::current_dir().prefix_err(|| "Failed to determine current directory")?,
+@@ -32,7 +32,7 @@
+ 	validate_sdk_version(&metadata)?;
+ 	let (package_name, source_wasm) = get_source_wasm(&metadata, &path, debug)?;
+ 
+-	build_wasm_module(&path, &package_name, debug)?;
++	build_wasm_module(&path, &package_name, debug, &features)?;
+ 
+ 	if !source_wasm.exists() {
+ 		anyhow::bail!("Expected WASM file not found: {}", source_wasm.display());
+@@ -188,7 +188,7 @@
+ }
+ 
+ /// Invoke `cargo build` targeting `wasm32-wasip2`.
+-fn build_wasm_module(path: &Path, package_name: &str, debug: bool) -> Result<()> {
++fn build_wasm_module(path: &Path, package_name: &str, debug: bool, features: &[String]) -> Result<()> {
+ 	super::wasm_target::ensure_cargo_config(path)?;
+ 
+ 	let target = super::wasm_target::TARGET;
+@@ -201,6 +201,9 @@
+ 
+ 	let mut cmd = Command::new("cargo");
+ 	cmd.args(["build", "--locked", "-p", package_name, "--target", target]);
++	if !features.is_empty() {
++		cmd.arg("--features").arg(features.join(","));
++	}
+ 	if !debug {
+ 		cmd.arg("--release");
+ 	}

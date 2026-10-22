@@ -1,0 +1,14 @@
+--- a/surrealism/runtime/src/runtime.rs
++++ b/surrealism/runtime/src/runtime.rs
+@@ -412,7 +412,10 @@
+ 		)?;
+ 		tracing::debug!(elapsed = ?t0.elapsed(), "new_controller: wasi_context::build");
+ 
+-		let mut limits_builder = StoreLimitsBuilder::new();
++		// One admitted Rust component has one unique linear memory. The
++		// controller budget times max_memory_bytes is therefore an aggregate
++		// linear-memory ceiling, not a per-memory estimate.
++		let mut limits_builder = StoreLimitsBuilder::new().memories(1);
+ 		if let Some(max_mem) = self.max_memory_bytes {
+ 			limits_builder = limits_builder.memory_size(max_mem);
+ 		}

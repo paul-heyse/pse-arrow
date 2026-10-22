@@ -27,6 +27,7 @@ from unittest.mock import MagicMock, call, patch
 from scripts import host_admission as host
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
+from scripts.tests.test_surrealism_module import fixture_module
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -1352,6 +1353,14 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
+        module_install = patch.object(
+            server.surrealism_module, "install",
+            side_effect=lambda selected, _tools: fixture_module(
+                self.root / "modules", str(selected["binary_sha256"])
+            ),
+        )
+        module_install.start()
+        self.addCleanup(module_install.stop)
         native_cache = patch.dict(
             os.environ,
             {
@@ -4414,6 +4423,74 @@ class SurrealSupervisorTests(unittest.TestCase):
         with patch.object(server, "listener_ready", return_value=True):
             self.assertFalse(server.ready(self.state, config))
 
+    def test_module_artifact_absence_or_tamper_closes_ordinary_admission(self) -> None:
+        config = self.initialized()
+        absent = dict(config)
+        absent.pop("study_module")
+        server.write_json(self.state / "config.json", absent)
+        with self.assertRaisesRegex(server.SupervisorError, "absent or mismatched"):
+            server.config_for(self.state)
+        server.write_json(self.state / "config.json", config)
+        artifact = Path(str(server.object_mapping(config["study_module"])["artifact"]))
+        artifact.chmod(0o600)
+        artifact.write_bytes(b"unadmitted replacement")
+        artifact.chmod(0o400)
+        with self.assertRaisesRegex(server.SupervisorError, "absent or mismatched"):
+            server.config_for(self.state)
+
+    def test_module_environment_uses_only_private_artifact_and_finite_server_budget(self) -> None:
+        config = self.initialized()
+        with patch.dict(os.environ, {
+            "SURREAL_CAPS_ALLOW_EXPERIMENTAL": "*",
+            "SURREAL_BUCKET_FOLDER_ALLOWLIST": "/",
+            "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS": "999999",
+        }):
+            environment = server.server_environment(config, {"username": "user", "password": "secret"})
+        self.assertEqual(environment["SURREAL_CAPS_ALLOW_EXPERIMENTAL"], "files,surrealism")
+        artifact = Path(str(server.study_module(config)["artifact"]))
+        self.assertEqual(environment["SURREAL_BUCKET_FOLDER_ALLOWLIST"], str(artifact.parent))
+        self.assertEqual(environment["SURREAL_SURREALISM_MAX_MEMORY"], str(64 * server.MIB))
+        self.assertEqual(environment["SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS"], "4")
+        self.assertEqual(environment["SURREAL_SURREALISM_CACHE_SIZE"], "1")
+        self.assertEqual(environment["SURREAL_SURREALISM_MAX_FS_BYTES"], "0")
+        self.assertEqual(environment["SURREAL_SURREALISM_MAX_KV_ENTRIES"], "0")
+        self.assertEqual(environment["SURREAL_SURREALISM_MAX_KV_VALUE_BYTES"], "0")
+        with self.assertRaisesRegex(server.SupervisorError, "complete bounded study module pool"):
+            server.module_runtime_allocation({"server_memory_bytes": 512 * server.MIB})
+
+    def test_qualification_module_selection_requires_offline_drain_and_restores_private_allowlist(self) -> None:
+        config = self.initialized()
+        config.update(accepting_writes=False, admission="quiesced")
+        server.write_json(self.state / "config.json", config)
+        qualification = fixture_module(
+            self.root / "modules", str(server.object_mapping(config["server"])["binary_sha256"]), qualification=True,
+        )
+        record = Path(str(qualification["artifact"])).parent / "module.json"
+        with (
+            patch.object(server, "private_offline_state") as offline,
+            patch.object(server, "all_contexts_drained") as drained,
+            patch.object(server, "public_status", return_value={}),
+            patch.object(server, "active", return_value=False),
+        ):
+            server.select_module_qualification(self.state, record)
+            selected = server.config_for(self.state)
+            self.assertEqual(selected["study_module_qualification"], qualification)
+            environment = server.server_environment(selected, {"username": "user", "password": "secret"})
+            parents = environment["SURREAL_BUCKET_FOLDER_ALLOWLIST"].split(os.pathsep)
+            self.assertEqual(parents, [str(Path(str(server.study_module(config)["artifact"])).parent), str(record.parent)])
+            offline.assert_called_once()
+            drained.assert_called_once()
+            with (
+                patch.object(server, "active", return_value=True),
+                self.assertRaisesRegex(server.SupervisorError, "stopped closed"),
+            ):
+                server.select_module_qualification(self.state, None)
+            self.assertIn("study_module_qualification", server.config_for(self.state))
+            server.select_module_qualification(self.state, None)
+            selected = server.config_for(self.state)
+            self.assertNotIn("study_module_qualification", selected)
+            self.assertEqual(server.server_environment(selected, {"username": "user", "password": "secret"})["SURREAL_BUCKET_FOLDER_ALLOWLIST"], parents[0])
+
     def test_grpc_readiness_proof_binds_invocation_generation_and_credentials(
         self,
     ) -> None:
@@ -4428,6 +4505,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "binary_sha256": server.object_mapping(config["server"])[
                     "binary_sha256"
                 ],
+                "study_module_sha256": server.study_module(config)["sha256"],
                 "credentials_sha256": server.file_digest(
                     self.state / "credentials.json"
                 ),
@@ -4439,6 +4517,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "invocation",
                 "binary_sha256",
                 "credentials_sha256",
+                "study_module_sha256",
             ):
                 with self.subTest(binding=key):
                     server.write_json(
