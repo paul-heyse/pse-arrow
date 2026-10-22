@@ -11,6 +11,7 @@ pub use typed_index_collections::{TiSlice, TiVec};
 pub(crate) mod construction;
 pub(crate) mod extent;
 mod framing;
+pub(crate) mod fragment;
 pub(crate) mod functions;
 #[path = "resolved/functions-constructed.rs"]
 mod functions_constructed;

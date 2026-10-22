@@ -432,6 +432,7 @@ impl crate::SpecializedModel {
     }
 }
 /// Coordinate maps are issued from exactly one canonical first-use walk.
+#[derive(Debug)]
 pub(super) struct Relocation {
     pub(super) symbols: BTreeMap<SymbolIx, SymbolIx>,
     pub(super) nodes: BTreeMap<NodeIx, NodeIx>,
@@ -476,28 +477,28 @@ impl Relocation {
     pub(super) fn function(&self, slot: FunctionIx) -> Result<FunctionIx> {
         required(&self.functions, &slot, "function")
     }
-    fn predicate(&self, slot: PredicateIx) -> Result<PredicateIx> {
+    pub(super) fn predicate(&self, slot: PredicateIx) -> Result<PredicateIx> {
         required(&self.predicates, &slot, "predicate")
     }
     fn binder(&self, slot: BinderIx) -> Result<BinderIx> {
         required(&self.binders, &slot, "binding")
     }
-    fn carrier(&self, slot: CarrierIx) -> Result<CarrierIx> {
+    pub(super) fn carrier(&self, slot: CarrierIx) -> Result<CarrierIx> {
         required(&self.carriers, &slot, "carrier")
     }
     fn group(&self, slot: GroupIx) -> Result<GroupIx> {
         required(&self.groups, &slot, "group")
     }
-    fn symbol(&self, slot: SymbolIx) -> Result<SymbolIx> {
+    pub(super) fn symbol(&self, slot: SymbolIx) -> Result<SymbolIx> {
         required(&self.symbols, &slot, "scalar")
     }
     fn evidence(&self, slot: EvidenceIx) -> Result<EvidenceIx> {
         required(&self.evidence, &slot, "evidence")
     }
-    fn nodes(&self, values: &[NodeIx]) -> Result<Vec<NodeIx>> {
+    pub(super) fn nodes(&self, values: &[NodeIx]) -> Result<Vec<NodeIx>> {
         values.iter().map(|slot| self.node(*slot)).collect()
     }
-    fn usage(&self, usage: &EvidenceUse) -> Result<EvidenceUse> {
+    pub(super) fn usage(&self, usage: &EvidenceUse) -> Result<EvidenceUse> {
         Ok(EvidenceUse {
             node: usage.node.clone(),
             predicates: usage
@@ -508,7 +509,7 @@ impl Relocation {
             inputs: self.nodes(&usage.inputs)?,
         })
     }
-    fn operation(&self, value: &Node) -> Result<Node> {
+    pub(super) fn operation(&self, value: &Node) -> Result<Node> {
         Ok(match value {
             Node::Number(number) => Node::Number(number.clone()),
             Node::Reference(reference) => Node::Reference(match reference {
@@ -606,7 +607,7 @@ impl Relocation {
             },
         })
     }
-    fn guard(&self, value: &ResolvedPredicate) -> Result<ResolvedPredicate> {
+    pub(super) fn guard(&self, value: &ResolvedPredicate) -> Result<ResolvedPredicate> {
         Ok(match value {
             ResolvedPredicate::Compare { op, lhs, rhs } => ResolvedPredicate::Compare {
                 op: *op,

@@ -68,14 +68,14 @@ pub(crate) struct ScalarSelection {
 /// so allocating a scalar cannot detach and copy a second shared symbol table on every insert.
 #[derive(Debug)]
 pub(crate) struct Construction {
-    arena: Arena,
+    pub(super) arena: Arena,
     // Construction-local lookup only. The owning Arcs remain in arena.functions until finish.
     // These addresses never enter a semantic frame or a published product.
-    functions: BTreeMap<usize, FunctionIx>,
+    pub(super) functions: BTreeMap<usize, FunctionIx>,
     allowance: usize,
-    used: usize,
-    admissions: BTreeMap<NodeIx, crate::expression::admission::PhysicalAdmission>,
-    literals: BTreeMap<NodeIx, Type>,
+    pub(super) used: usize,
+    pub(super) admissions: BTreeMap<NodeIx, crate::expression::admission::PhysicalAdmission>,
+    pub(super) literals: BTreeMap<NodeIx, Type>,
 }
 impl Construction {
     pub(crate) fn new(allowance: usize) -> Self {
@@ -100,7 +100,7 @@ impl Construction {
         }
         Ok(())
     }
-    fn reserve(&mut self, amount: usize) -> Result<()> {
+    pub(super) fn reserve(&mut self, amount: usize) -> Result<()> {
         let used = self
             .used
             .checked_add(amount)

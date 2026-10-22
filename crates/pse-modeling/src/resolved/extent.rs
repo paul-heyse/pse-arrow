@@ -55,6 +55,7 @@ fn node(value: &Node) -> usize {
             vector::<usize>(wrt.capacity()).saturating_add(vector::<NodeIx>(args.capacity()))
         }
         Node::Let { bindings, .. } => vector::<BinderIx>(bindings.capacity()),
+        Node::Sequence { prerequisites, .. } => vector::<NodeIx>(prerequisites.capacity()),
         _ => 0,
     }
 }
@@ -62,6 +63,14 @@ pub(super) fn syntax(value: &ResolvedSyntax) -> usize {
     total([
         size_of::<ResolvedSyntax>(),
         value.symbols.retained_bytes(),
+        arena(&value.arena),
+        vector::<NodeIx>(value.outputs.capacity()),
+        vector::<PredicateIx>(value.validity.capacity()),
+    ])
+}
+pub(super) fn arena(value: &Arena) -> usize {
+    total([
+        size_of::<Arena>(),
         vector::<Node>(value.nodes.capacity()),
         total(value.nodes.iter().map(node)),
         vector::<ResolvedPredicate>(value.predicates.capacity()),
@@ -94,8 +103,19 @@ pub(super) fn syntax(value: &ResolvedSyntax) -> usize {
                 })),
             ])
         })),
-        vector::<NodeIx>(value.outputs.capacity()),
-        vector::<PredicateIx>(value.validity.capacity()),
+        vector::<EvidenceUse>(value.evidence.capacity()),
+        total(value.evidence.iter().map(|evidence| total([
+            evidence.node.retained_bytes(),
+            vector::<NodeIx>(evidence.inputs.capacity()),
+            vector::<PredicateIx>(evidence.predicates.capacity()),
+        ]))),
+        value.member_ranges.len().saturating_mul(size_of::<(SymbolIx, MemberRange)>() + 96),
+        value.finite_folds.len().saturating_mul(size_of::<(NodeIx, FiniteFold)>() + 96),
+        total(value.finite_folds.values().map(|fold| total([
+            vector::<crate::specialize::Value>(fold.selected.len()),
+            total(fold.selected.iter().map(crate::specialize::Value::retained_bytes)),
+            ty(&fold.prototype),
+        ]))),
         value
             .node_sources
             .len()
