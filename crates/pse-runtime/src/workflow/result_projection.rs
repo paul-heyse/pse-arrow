@@ -85,6 +85,7 @@ pub(super) fn scalar_expression(
     Ok(predicate)
 }
 
+#[cfg(test)]
 fn evaluate_scalar_expression(
     state: &datafusion::execution::session_state::SessionState,
     expression: datafusion::logical_expr::Expr,
@@ -154,14 +155,6 @@ pub(super) fn scalar_selection_expression(
         return Ok(lit(false));
     }
     Ok(keys.and(values))
-}
-
-pub(super) fn scalar_selection_mask(
-    state: &datafusion::execution::session_state::SessionState,
-    table: &FieldCheckedBatch,
-    expression: datafusion::logical_expr::Expr,
-) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
-    evaluate_scalar_expression(state, expression, table.batch())
 }
 
 /// Ingest the sole admitted scientific IPC payload and its admitted batch statistics

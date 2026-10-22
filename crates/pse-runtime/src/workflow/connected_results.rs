@@ -328,9 +328,11 @@ impl SelectedResultReader {
                     consumed: false,
                     cancel,
                     output: reader.output.clone(),
+                    native_selection: reader.native_selection.clone(),
+                    page_pruning: None,
+                    pruning_position: 0,
                     indexes: BTreeMap::new(),
                     descriptors: BTreeMap::new(),
-                    descriptor_owner: None,
                     selected_batch: None,
                     metadata_owner: None,
                     _selection_owner: selection_owner,
@@ -477,9 +479,11 @@ struct ResultReader {
     consumed: bool,
     cancel: CancellationToken,
     output: Option<Arc<OutputFilter>>,
+    native_selection: Option<Arc<super::result_snapshot::NativeResultSelection>>,
+    page_pruning: Option<Arc<super::result_snapshot::PrunedSelection>>,
+    pruning_position: usize,
     indexes: BTreeMap<String, OutputRows>,
     descriptors: BTreeMap<String, pse_model::generated::runtime::canonical_result_batches::Row>,
-    descriptor_owner: Option<MemoryReservation>,
     selected_batch: Option<SelectedBatch>,
     // Drop all metadata-backed pages and indexes before their shared grant.
     metadata_owner: Option<MemoryReservation>,
@@ -507,9 +511,9 @@ impl ResultReader {
         self.pending = VecDeque::new();
         self.indexes = BTreeMap::new();
         self.descriptors = BTreeMap::new();
-        self.descriptor_owner = None;
         self.selected_batch = None;
         self.metadata_owner = None;
+        self.page_pruning = None;
         self.exhausted = true;
     }
 
@@ -772,7 +776,6 @@ impl ResultReader {
             self.indexes = BTreeMap::new();
             self.descriptors = BTreeMap::new();
             self.metadata_owner = None;
-            self.descriptor_owner = None;
             self.selected_batch = None;
             return Ok(None);
         }
@@ -821,6 +824,10 @@ impl ResultReader {
                 .and_then(|bytes| bytes.checked_add(key.capacity()))
                 .and_then(|bytes| bytes.checked_add(heap))
                 .ok_or_else(|| contract("result index extent"))?;
+        }
+        for (key, descriptor) in &self.descriptors {
+                bytes = bytes.checked_add(size_of_val(descriptor) + descriptor.heap_bytes() + key.capacity() + 128)
+                    .ok_or_else(|| contract("joined result descriptor extent"))?;
         }
         Ok(bytes)
     }
@@ -884,17 +891,16 @@ impl ResultReader {
                 self.descriptors = BTreeMap::new();
                 self.metadata_owner = None;
                 if self.exhausted {
-                    self.descriptor_owner = None;
                     self.selected_batch = None;
                     return Ok(None);
                 }
                 let owner = response_owner(
                     &self.runtime,
                     "canonical:result-metadata",
-                    if self.output.is_some() {
+                    if self.output.as_ref().is_some_and(|filter| filter.dense) {
                         MetadataResponse::OutputPage
                     } else {
-                        MetadataResponse::BlockPage
+                        MetadataResponse::JoinedBlockPage
                     },
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
@@ -920,12 +926,13 @@ impl ResultReader {
                                         filter.maximum,
                                     )
                                     .await?;
-                                self.exhausted = page.outputs.len() < 64;
-                                self.after = page
-                                    .outputs
-                                    .last()
-                                    .map(|output| output.start)
-                                    .or(self.after);
+                                self.exhausted = page.exhausted;
+                                self.after = page.next.or(self.after);
+                                for descriptor in page.batches {
+                                    if self.descriptors.insert(descriptor.key.clone(), descriptor).is_some() {
+                                        return Err(contract("duplicate dense batch descriptor"));
+                                    }
+                                }
                                 for output in page.outputs {
                                     if self
                                         .indexes
@@ -937,21 +944,21 @@ impl ResultReader {
                                 }
                                 page.blocks
                             } else {
-                                let page = self
-                                    .runtime
-                                    .canonical_store()?
-                                    .result_block_page(
-                                        &self.read,
-                                        &self.set,
-                                        &self.relation.to_string(),
-                                        "0",
-                                        self.start,
-                                        self.end,
-                                        self.after,
-                                    )
-                                    .await?;
-                                self.exhausted = page.len() < 64;
-                                self.after = page.last().map(|block| block.ordinal).or(self.after);
+                                let joined = self.runtime.canonical_store()?.result_joined_block_page(
+                                    &self.read, &self.set, &self.relation.to_string(), "0",
+                                    self.start, self.end, self.after,
+                                ).await?;
+                                self.exhausted = joined.exhausted;
+                                self.after = joined.next.or(self.after);
+                                if let Some(context) = pse_diagnostics::observation::current() {
+                                    context.count("canonical.result.joined_page_requests", "count", 1);
+                                }
+                                for descriptor in joined.batches {
+                                    if self.descriptors.insert(descriptor.key.clone(), descriptor).is_some() {
+                                        return Err(contract("duplicate joined batch descriptor"));
+                                    }
+                                }
+                                let page = joined.blocks;
                                 for block in &page {
                                     if self
                                         .indexes
@@ -970,60 +977,13 @@ impl ResultReader {
                     },
                 )
                 .await?;
-                self.descriptors.clear();
-                self.descriptor_owner = None;
-                if !page.is_empty() {
-                    let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                    let descriptor_response = response_owner(
-                        &self.runtime,
-                        "canonical:selected-result-descriptors",
-                        MetadataResponse::Page,
-                    )?;
-                    if let Some(context) = pse_diagnostics::observation::current() {
-                        context.count("canonical.result.descriptor_page_requests", "count", 1);
-                    }
-                    let descriptors = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((
-                            self.read.clone(),
-                            self.read_owner.clone(),
-                            descriptor_response.clone(),
-                        )),
-                        self.runtime
-                            .canonical_store()?
-                            .result_file_batch_descriptors(&self.read, &self.set, &ordinals),
-                    )
-                    .await?;
-                    if descriptors.len() != page.len() {
-                        return Err(contract("selected descriptor coverage differs"));
-                    }
-                    let mut bytes = 0usize;
-                    for (block, descriptor) in page.iter().zip(descriptors) {
-                        use pse_model::HeapUsage;
-                        if descriptor.key != block.batch || descriptor.ordinal != block.ordinal {
-                            return Err(contract("selected descriptor coordinate differs"));
-                        }
-                        bytes = bytes
-                            .checked_add(
-                                size_of_val(&descriptor)
-                                    + descriptor.heap_bytes()
-                                    + descriptor.key.capacity()
-                                    + 128,
-                            )
-                            .ok_or_else(|| contract("selected descriptor extent"))?;
-                        if self
-                            .descriptors
-                            .insert(descriptor.key.clone(), descriptor)
-                            .is_some()
-                        {
-                            return Err(contract("duplicate selected batch descriptor"));
-                        }
-                    }
-                    self.descriptor_owner = Some(retain_metadata(
-                        &self.runtime.shared.pool(),
-                        descriptor_response,
-                        bytes,
-                    )?);
-                }
+                self.page_pruning = self.native_selection.as_ref().map(|selection| {
+                    selection.prune_members(&self.runtime, page.len(), |index| {
+                        let block = page.get(index)?;
+                        Some((block, self.descriptors.get(&block.batch)?))
+                    })
+                }).transpose().map_err(pse_engine::EngineError::from)?.flatten();
+                self.pruning_position = 0;
                 self.pending = page.into();
                 self.metadata_owner = Some(retain_metadata(
                     &self.runtime.shared.pool(),
@@ -1048,31 +1008,10 @@ impl ResultReader {
                 .descriptors
                 .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected batch descriptor absent"))?;
-            let expression = self
-                .output
-                .as_ref()
-                .filter(|filter| !filter.dense)
-                .map(|filter| {
-                    super::result_projection::scalar_selection_expression(
-                        self.relation,
-                        filter.owner,
-                        &filter.partition,
-                        &filter.field,
-                        filter.minimum,
-                        filter.maximum,
-                        filter.missing,
-                    )
-                })
-                .transpose()?;
-            if let Some(expression) = &expression
-                && !super::result_snapshot::block_may_match(
-                    &self.runtime,
-                    self.relation,
-                    self.schema.clone(),
-                    &metadata,
-                    &descriptor,
-                    expression,
-                )?
+            let keep = self.page_pruning.as_ref()
+                .is_none_or(|selection| selection.keeps(self.pruning_position));
+            self.pruning_position += 1;
+            if !keep
             {
                 self.indexes.remove(&metadata.batch);
                 self.selected_batch = None;
@@ -1147,14 +1086,10 @@ impl ResultReader {
                     .map_err(pse_engine::EngineError::from)?;
                 let indices = match indexes {
                     OutputRows::Scalar => {
-                        let expression = expression.ok_or_else(|| {
-                            contract("original scalar selection expression absent")
-                        })?;
-                        let mask = super::result_projection::scalar_selection_mask(
-                            &self.runtime.bound_model().native_state(),
-                            &checked,
-                            expression,
-                        )?;
+                        let selection = self.native_selection.as_ref()
+                            .ok_or_else(|| contract("original scalar selection plan absent"))?;
+                        let mask = selection.mask(checked.batch())
+                            .map_err(pse_engine::EngineError::from)?;
                         let mut indices = Vec::with_capacity(checked.batch().num_rows());
                         for offset in 0..checked.batch().num_rows() {
                             use datafusion::arrow::array::Array;
@@ -1699,6 +1634,15 @@ impl Runtime {
                 schema.clone(),
             )?,
         };
+        let native_selection = output.as_ref().filter(|filter| !filter.dense).map(|filter| {
+            let expression = super::result_projection::scalar_selection_expression(
+                spec.id, filter.owner, &filter.partition, &filter.field,
+                filter.minimum, filter.maximum, filter.missing,
+            )?;
+            super::result_snapshot::NativeResultSelection::new(
+                self, spec.id, schema.clone(), &self.bound_model().native_state(), expression,
+            ).map_err(pse_engine::EngineError::from).map_err(WorkflowError::from)
+        }).transpose()?;
         let exhausted = start == end || snapshot.as_ref().is_some_and(|s| s.blocks().is_empty());
         Ok(ResultReader {
             observation: None,
@@ -1720,9 +1664,11 @@ impl Runtime {
             consumed: false,
             cancel,
             output,
+            native_selection,
+            page_pruning: None,
+            pruning_position: 0,
             indexes: BTreeMap::new(),
             descriptors: BTreeMap::new(),
-            descriptor_owner: None,
             selected_batch: None,
             _selection_owner: selection_owner,
         })

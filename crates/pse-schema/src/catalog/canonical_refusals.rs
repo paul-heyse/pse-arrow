@@ -159,6 +159,8 @@ refusals! {
     ExecutionImmutableDescriptorChanged: "execution_immutable_descriptor_changed" => (Identity, "execution immutable descriptor changed"),
     ExecutionImmutableOutputBlockIndexesChanged: "execution_immutable_output_block_indexes_changed" => (Identity, "execution immutable output block indexes changed"),
     ExecutionImmutableSeedDescriptorChanged: "execution_immutable_seed_descriptor_changed" => (Identity, "execution immutable seed descriptor changed"),
+    ResultsPageMemberUnavailable: "results_page_member_unavailable" => (Invariant, "joined result page member is missing or duplicated"),
+    ResultsPageMemberExtentExceeded: "results_page_member_extent_exceeded" => (Admission, "a complete joined result page member exceeds its response allowance"),
     ExecutionIndexMetadataExtentExceeded: "execution_index_metadata_extent_exceeded" => (Admission, "execution index metadata extent exceeded"),
     ExecutionIngestionAlreadyClosed: "execution_ingestion_already_closed" => (Invariant, "execution ingestion already closed"),
     ExecutionOperationIdentityReused: "execution_operation_identity_reused" => (Identity, "execution operation identity reused"),

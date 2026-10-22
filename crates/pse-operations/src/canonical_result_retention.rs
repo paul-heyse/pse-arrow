@@ -484,7 +484,9 @@ mod canonical_result_retention_server_unit {
                 coordinate_max: Some(ordinal as f64),
                 payload_bytes: payload.len() as u64,
                 payload_digest: result_payload_digest(&payload),
-                statistics: None,
+                // Deliberately opaque transport-only facts fill the legal blob
+                // bound. The scientific decoder conservatively treats them unknown.
+                statistics: Some(vec![0xff; pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES].into()),
                 interpretation: wire::INTERPRETATION.into(),
             };
             store
@@ -521,6 +523,20 @@ mod canonical_result_retention_server_unit {
             .read_results(&request.key, fence.attempt())
             .await
             .unwrap();
+        let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, None).await.unwrap();
+        assert!(!joined.exhausted);
+        assert!(!joined.blocks.is_empty() && joined.blocks.len() < 64,
+            "complete member bytes stop this legal page before the row ceiling");
+        assert_eq!(joined.blocks.len(), joined.batches.len());
+        let mut ordinals = joined.blocks.iter().map(|block|block.ordinal).collect::<Vec<_>>();
+        let mut next = joined.next;
+        loop {
+            let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, next).await.unwrap();
+            ordinals.extend(joined.blocks.iter().map(|block|block.ordinal));
+            next=joined.next.or(next);
+            if joined.exhausted { break; }
+        }
+        assert_eq!(ordinals, (0..65).collect::<Vec<_>>(), "resuming a short byte-limited page loses no member");
         let (first, retired) = tokio::join!(
             store.result_block_page(&read, &set, "temperature", "time", 0, 65, None),
             store.forget_run_results(&request.key)

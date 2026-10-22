@@ -654,6 +654,32 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     RETURN true;
 };
 
+// A page is a complete prefix of block/descriptor pairs. The CBOR allowance
+// reserves three quarters of the wire bound for native tagged values/envelopes;
+// the SDK also enforces its endpoint-shaped predecode limits before allocation.
+DEFINE FUNCTION fn::pse_execution_v1::result_block_page($rpc_expiry:int,$set:string,$output:string,$partition:string,$start:decimal,$end:decimal,$after:option<decimal>,$count:decimal) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $candidates = IF $after=NONE {
+        SELECT * FROM canonical_result_blocks WHERE result_set=$set AND output=$output AND partition=$partition AND ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT 65
+    } ELSE {
+        SELECT * FROM canonical_result_blocks WHERE result_set=$set AND output=$output AND partition=$partition AND ordinal>$after AND ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT 65
+    };
+    LET $page = $candidates.fold({blocks:[],batches:[],extent:512,stopped:false}, |$acc,$block| {
+        IF $acc.stopped { RETURN $acc; };
+        IF array::len($acc.blocks)=64 { RETURN {blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true}; };
+        LET $batch = SELECT * FROM ONLY type::record('canonical_result_batches',$block.batch);
+        IF $batch=NONE { THROW 'PSE_REFUSAL:results_page_member_unavailable'; };
+        LET $extent = $acc.extent + bytes::len(encoding::cbor::encode({block:$block,batch:$batch}));
+        IF $extent>4194304/4 {
+            IF array::len($acc.blocks)=0 { THROW 'PSE_REFUSAL:results_page_member_extent_exceeded'; };
+            RETURN {blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true};
+        };
+        RETURN {blocks:array::append($acc.blocks,$block),batches:array::append($acc.batches,$batch),extent:$extent,stopped:false};
+    });
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {blocks:$page.blocks,batches:$page.batches,next:array::last($page.blocks).ordinal,exhausted:!$page.stopped};
+};
+
 DEFINE FUNCTION fn::pse_execution_v1::lease($rpc_expiry: int, $expires_at: int) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $expires_at <= time::micros() { THROW 'PSE_REFUSAL:execution_attempt_lease_expired_before_commit'; };

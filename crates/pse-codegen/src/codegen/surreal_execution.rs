@@ -30,6 +30,59 @@ pub(super) fn append(ddl: &mut String) {
 }
 
 const FUNCTIONS: &str = r#"
+// A page is a complete prefix of block/descriptor pairs. The CBOR allowance
+// reserves three quarters of the wire bound for native tagged values/envelopes;
+// the SDK also enforces its endpoint-shaped predecode limits before allocation.
+DEFINE FUNCTION fn::pse_execution_v1::result_block_page($rpc_expiry:int,$set:string,$output:string,$partition:string,$start:decimal,$end:decimal,$after:option<decimal>,$count:decimal) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $candidates = IF $after=NONE {
+        SELECT * FROM canonical_result_blocks WHERE result_set=$set AND output=$output AND partition=$partition AND ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT 65
+    } ELSE {
+        SELECT * FROM canonical_result_blocks WHERE result_set=$set AND output=$output AND partition=$partition AND ordinal>$after AND ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT 65
+    };
+    LET $page = $candidates.fold({blocks:[],batches:[],extent:512,stopped:false}, |$acc,$block| {
+        IF $acc.stopped { RETURN $acc; };
+        IF array::len($acc.blocks)=64 { RETURN {blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true}; };
+        LET $batch = SELECT * FROM ONLY type::record('canonical_result_batches',$block.batch);
+        IF $batch=NONE { THROW 'PSE_REFUSAL:results_page_member_unavailable'; };
+        LET $extent = $acc.extent + bytes::len(encoding::cbor::encode({block:$block,batch:$batch}));
+        IF $extent>__MESSAGE_BYTES__/4 {
+            IF array::len($acc.blocks)=0 { THROW 'PSE_REFUSAL:results_page_member_extent_exceeded'; };
+            RETURN {blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true};
+        };
+        RETURN {blocks:array::append($acc.blocks,$block),batches:array::append($acc.batches,$batch),extent:$extent,stopped:false};
+    });
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {blocks:$page.blocks,batches:$page.batches,next:IF array::len($page.blocks)=0 { NULL } ELSE { array::last($page.blocks).ordinal },exhausted:!$page.stopped};
+};
+
+// Dense owner indexes keep their original source-coordinate cursor. All three
+// member kinds are returned together, with shared blocks/descriptors deduplicated.
+DEFINE FUNCTION fn::pse_execution_v1::result_output_page($rpc_expiry:int,$set:string,$output:string,$partition:string,$start:decimal,$end:decimal,$after:option<decimal>,$minimum:option<float>,$maximum:option<float>) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $candidates = IF $after!=NONE AND $after>=$start AND $after<$end {
+        SELECT * FROM canonical_result_block_outputs WHERE result_set=$set AND output=$output AND partition=$partition AND start>$after AND end>$start AND start<$end AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum) ORDER BY start LIMIT 65
+    } ELSE {
+        SELECT * FROM canonical_result_block_outputs WHERE result_set=$set AND output=$output AND partition=$partition AND end>$start AND start<$end AND ($after=NONE OR start>$after) AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum) ORDER BY start LIMIT 65
+    };
+    LET $page = $candidates.fold({indexes:[],blocks:[],batches:[],extent:512,stopped:false}, |$acc,$item| {
+        IF $acc.stopped { RETURN $acc; };
+        IF array::len($acc.indexes)=64 { RETURN {indexes:$acc.indexes,blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true}; };
+        LET $block = SELECT * FROM ONLY type::record('canonical_result_blocks',$item.batch);
+        LET $batch = SELECT * FROM ONLY type::record('canonical_result_batches',$item.batch);
+        IF $block=NONE OR $batch=NONE { THROW 'PSE_REFUSAL:results_page_member_unavailable'; };
+        LET $known = $item.batch IN $acc.blocks.key;
+        LET $extent = $acc.extent + bytes::len(encoding::cbor::encode($item)) + IF $known { 0 } ELSE { bytes::len(encoding::cbor::encode({block:$block,batch:$batch})) };
+        IF $extent>__MESSAGE_BYTES__/4 {
+            IF array::len($acc.indexes)=0 { THROW 'PSE_REFUSAL:results_page_member_extent_exceeded'; };
+            RETURN {indexes:$acc.indexes,blocks:$acc.blocks,batches:$acc.batches,extent:$acc.extent,stopped:true};
+        };
+        RETURN {indexes:array::append($acc.indexes,$item),blocks:IF $known { $acc.blocks } ELSE { array::append($acc.blocks,$block) },batches:IF $known { $acc.batches } ELSE { array::append($acc.batches,$batch) },extent:$extent,stopped:false};
+    });
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {indexes:$page.indexes,blocks:$page.blocks,batches:$page.batches,next:IF array::len($page.indexes)=0 { NULL } ELSE { array::last($page.indexes).start },exhausted:!$page.stopped};
+};
+
 DEFINE FUNCTION fn::pse_execution_v1::lease($rpc_expiry: int, $expires_at: int) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $expires_at <= time::micros() { THROW 'PSE_REFUSAL:execution_attempt_lease_expired_before_commit'; };

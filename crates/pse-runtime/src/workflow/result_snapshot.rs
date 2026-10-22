@@ -146,61 +146,22 @@ impl ResultSnapshot {
                 // Transfer its exact retained strings/rows before growing inventories.
                 let response = super::connected_results::response_owner(
                     runtime,
-                    "canonical:result-snapshot-page",
-                    MetadataResponse::BlockPage,
+                    "canonical:result-snapshot-joined-page",
+                    MetadataResponse::JoinedBlockPage,
                 )?;
                 if let Some(context) = pse_diagnostics::observation::current() {
-                    context.count("canonical.result.block_page_requests", "count", 1);
+                    context.count("canonical.result.joined_page_requests", "count", 1);
                 }
-                let page = pse_operations::canonical::response_ownership_scope(
+                let joined = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
-                    runtime.canonical_store()?.result_block_page(
-                        &read,
-                        set,
-                        &relation.to_string(),
-                        "0",
-                        start,
-                        end,
-                        after,
+                    runtime.canonical_store()?.result_joined_block_page(
+                        &read, set, &relation.to_string(), "0", start, end, after,
                     ),
-                )
-                .await?;
-                // The first page is retained while the descriptor RPC runs. Its
-                // own temporary allowance retires independently of the next RPC.
-                let page_bytes = page
-                    .capacity()
-                    .checked_mul(size_of::<Block>())
-                    .and_then(|bytes| {
-                        page.iter()
-                            .try_fold(bytes, |n, row| n.checked_add(row.heap_bytes()))
-                    })
-                    .ok_or_else(|| contract("snapshot page extent"))?;
-                let page_owner = super::connected_results::retain_metadata(
-                    &runtime.shared.pool(),
-                    response,
-                    page_bytes,
-                )?;
-                let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                let response = super::connected_results::response_owner(
-                    runtime,
-                    "canonical:result-snapshot-descriptors",
-                    MetadataResponse::Page,
-                )?;
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.count("canonical.result.descriptor_page_requests", "count", 1);
-                }
-                let descriptors = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), read_owner.clone(), response.clone())),
-                    runtime
-                        .canonical_store()?
-                        .result_file_batch_descriptors(&read, set, &ordinals),
-                )
-                .await?;
-                if page.len() != descriptors.len() {
-                    return Err(contract("snapshot descriptor coverage differs"));
-                }
-                let finished = page.len() < 64;
-                after = page.last().map(|block| block.ordinal);
+                ).await?;
+                let finished = joined.exhausted;
+                after = joined.next.or(after);
+                let page = joined.blocks;
+                let descriptors = joined.batches;
                 let bytes =
                     page.iter()
                         .zip(&descriptors)
@@ -241,7 +202,6 @@ impl ResultSnapshot {
                     }
                     blocks.push(block);
                 }
-                drop(page_owner);
                 drop(response);
                 if finished {
                     break;
@@ -753,12 +713,12 @@ impl FrozenSnapshot {
 }
 
 #[derive(Debug)]
-struct PrunedSelection {
+pub(super) struct PrunedSelection {
     keep: Vec<bool>,
     _owner: MemoryReservation,
 }
 impl PrunedSelection {
-    fn keeps(&self, index: usize) -> bool {
+    pub(super) fn keeps(&self, index: usize) -> bool {
         self.keep.get(index).copied().unwrap_or(true)
     }
 }
@@ -778,64 +738,78 @@ fn prepare_pruning(
         |index| snapshot.member(index),
     )
 }
-fn prepare_pruning_members<'a>(
-    runtime: &Runtime,
+/// One selection-local native plan, bound to its actual schema and session.
+/// The same physical expression supplies both conservative pruning and residuals.
+#[derive(Debug)]
+pub(super) struct NativeResultSelection {
     relation: pse_ids::SemanticId,
     schema: SchemaRef,
-    state: &SessionState,
-    filters: &[Expr],
-    count: usize,
-    member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
-) -> NativeResult<Option<Arc<PrunedSelection>>> {
-    use datafusion::common::{DFSchema, Statistics, pruning::PrunableStatistics, stats::Precision};
-    use datafusion_pruning::PruningPredicateBuilder;
-    if filters.is_empty()
-        || count == 0
-        || !(0..count)
-            .any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some()))
-    {
-        return Ok(None);
+    physical: Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+    pruning: Option<datafusion_pruning::PruningPredicate>,
+    _owner: MemoryReservation,
+}
+impl NativeResultSelection {
+    pub(super) fn new(
+        runtime: &Runtime,
+        relation: pse_ids::SemanticId,
+        schema: SchemaRef,
+        state: &SessionState,
+        expression: Expr,
+    ) -> NativeResult<Arc<Self>> {
+        use datafusion::common::DFSchema;
+        let owner = MemoryConsumer::new("canonical:result-selection-plan")
+            .register(&runtime.shared.pool());
+        // The registry predicate has bounded shape; retain the native expression,
+        // pruning rewrite and schema handles for the full selection lifetime.
+        owner.try_grow(64 * 1024 + schema.fields().len() * 512)?;
+        let native = DFSchema::try_from(schema.as_ref().clone())?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("canonical.result.physical_predicate_plans", "count", 1);
+        }
+        let physical = state.create_physical_expr(expression, &native)?;
+        let pruning = datafusion_pruning::PruningPredicateBuilder::new()
+            .with_file_schema(schema.clone())
+            .try_build(physical.clone())
+            .ok()
+            .filter(|predicate| !predicate.always_true());
+        Ok(Arc::new(Self { relation, schema, physical, pruning, _owner: owner }))
     }
-    let per_member = schema
-        .fields()
-        .len()
-        .checked_mul(512)
-        .and_then(|bytes| bytes.checked_add(2048));
-    let extent = per_member
-        .and_then(|bytes| count.checked_mul(bytes))
-        .and_then(|base| {
-            (0..count).try_fold(base, |bytes, index| {
-                let encoded = member(index)
-                    .and_then(|(block, _)| block.statistics.as_ref())
-                    .map_or(0, |bytes| bytes.len());
+
+    pub(super) fn mask(
+        &self,
+        batch: &datafusion::arrow::record_batch::RecordBatch,
+    ) -> NativeResult<datafusion::arrow::array::BooleanArray> {
+        if batch.schema().as_ref() != self.schema.as_ref() {
+            return Err(DataFusionError::Execution("selection native schema differs".into()));
+        }
+        let mask = self.physical.evaluate(batch)?.into_array(batch.num_rows())?;
+        mask.as_any()
+            .downcast_ref::<datafusion::arrow::array::BooleanArray>()
+            .cloned()
+            .ok_or_else(|| DataFusionError::Execution("scientific predicate is not Boolean".into()))
+    }
+
+    pub(super) fn prune_members<'a>(
+        &self,
+        runtime: &Runtime,
+        count: usize,
+        member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
+    ) -> NativeResult<Option<Arc<PrunedSelection>>> {
+        use datafusion::common::{Statistics, pruning::PrunableStatistics, stats::Precision};
+        let Some(predicate) = &self.pruning else { return Ok(None); };
+        if count == 0 || !(0..count).any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some())) {
+            return Ok(None);
+        }
+        let extent = self.schema.fields().len().checked_mul(512)
+            .and_then(|bytes| bytes.checked_add(2048))
+            .and_then(|bytes| count.checked_mul(bytes))
+            .and_then(|base| (0..count).try_fold(base, |bytes, index| {
+                let encoded = member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len());
                 bytes.checked_add(encoded.checked_mul(16)?)
-            })
-        })
-        .ok_or_else(|| {
-            DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
-        })?;
-    let owner =
-        MemoryConsumer::new("canonical:result-pruning-plan").register(&runtime.shared.pool());
-    owner.try_grow(extent)?;
-    let Some(expression) = filters
-        .iter()
-        .cloned()
-        .reduce(|left, right| left.and(right))
-    else {
-        return Ok(None);
-    };
-    let native = DFSchema::try_from(schema.as_ref().clone())?;
-    let physical = match state.create_physical_expr(expression, &native) {
-        Ok(expression) => expression,
-        Err(_) => return Ok(None),
-    };
-    let predicate = match PruningPredicateBuilder::new()
-        .with_file_schema(schema.clone())
-        .try_build(physical)
-    {
-        Ok(predicate) if !predicate.always_true() => predicate,
-        _ => return Ok(None),
-    };
+            }))
+            .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning metadata extent".into()))?;
+        let owner = MemoryConsumer::new("canonical:result-pruning-page").register(&runtime.shared.pool());
+        owner.try_grow(extent)?;
     let mut statistics = Vec::with_capacity(count);
     for index in 0..count {
         let exact = member(index).and_then(|(block, descriptor)| {
@@ -849,61 +823,55 @@ fn prepare_pruning_members<'a>(
             let facts = pse_relations::result_batch::recorded_statistics(
                 bytes.as_slice(),
                 runtime.registry(),
-                relation,
-                schema.as_ref(),
+                self.relation,
+                self.schema.as_ref(),
                 &binding,
             )?;
             (facts.num_rows == Precision::Exact(usize::try_from(block.rows).ok()?)).then_some(facts)
         });
         statistics.push(Arc::new(
-            exact.unwrap_or_else(|| Statistics::new_unknown(schema.as_ref())),
+            exact.unwrap_or_else(|| Statistics::new_unknown(self.schema.as_ref())),
         ));
     }
-    let statistics = PrunableStatistics::new(statistics, schema);
+    let statistics = PrunableStatistics::new(statistics, self.schema.clone());
     let keep = match predicate.prune(&statistics) {
         Ok(keep) if keep.len() == count => keep,
         _ => return Ok(None),
     };
     drop(statistics);
-    let retained = keep
-        .capacity()
-        .checked_add(size_of::<PrunedSelection>())
-        .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
-    if retained > owner.size() {
-        owner.try_grow(retained - owner.size())?;
+        let retained = keep.capacity().checked_add(size_of::<PrunedSelection>())
+            .ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
+        if retained > owner.size() { owner.try_grow(retained - owner.size())?; }
+        owner.shrink(owner.size() - retained);
+        Ok(Some(Arc::new(PrunedSelection { keep, _owner: owner })))
     }
-    owner.shrink(owner.size() - retained);
-    Ok(Some(Arc::new(PrunedSelection {
-        keep,
-        _owner: owner,
-    })))
+
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(super) fn block_may_match(
+        &self,
+        runtime: &Runtime,
+        block: &Block,
+        descriptor: &FileBatch,
+    ) -> NativeResult<bool> {
+        Ok(self.prune_members(runtime, 1, |_| Some((block, descriptor)))?
+            .is_none_or(|selection| selection.keeps(0)))
+    }
 }
 
-/// Share native metadata pruning with bounded typed scalar readers. Permission
-/// and physical integrity must still pass through the same protected decoder.
-pub(super) fn block_may_match(
+fn prepare_pruning_members<'a>(
     runtime: &Runtime,
     relation: pse_ids::SemanticId,
     schema: SchemaRef,
-    block: &Block,
-    descriptor: &FileBatch,
-    expression: &Expr,
-) -> Result<bool, WorkflowError> {
-    if block.statistics.is_none() {
-        return Ok(true);
-    }
-    let state = runtime.bound_model().native_state();
-    let selection = prepare_pruning_members(
-        runtime,
-        relation,
-        schema,
-        &state,
-        std::slice::from_ref(expression),
-        1,
-        |_| Some((block, descriptor)),
-    )
-    .map_err(pse_engine::EngineError::from)?;
-    Ok(selection.is_none_or(|selection| selection.keeps(0)))
+    state: &SessionState,
+    filters: &[Expr],
+    count: usize,
+    member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
+) -> NativeResult<Option<Arc<PrunedSelection>>> {
+    let Some(expression) = filters.iter().cloned().reduce(|left, right| left.and(right)) else {
+        return Ok(None);
+    };
+    let selection = NativeResultSelection::new(runtime, relation, schema, state, expression)?;
+    selection.prune_members(runtime, count, member)
 }
 
 #[derive(Debug)]

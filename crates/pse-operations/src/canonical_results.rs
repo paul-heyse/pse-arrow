@@ -428,9 +428,29 @@ impl ResultPayload {
     }
 }
 
+/// One protected, complete prefix of original blocks and exact closed members.
+/// Byte-limited short pages carry an explicit continuation and are not exhausted.
+#[derive(Clone, Debug)]
+pub struct JoinedResultBlockPage {
+    /// Ordered original scientific blocks.
+    pub blocks: Vec<BlockMetadata>,
+    /// Exact descriptors in the same order; no block may disappear in a join.
+    pub batches: Vec<ResultBatch>,
+    /// Last returned original ordinal, when the page is nonempty.
+    pub next: Option<u64>,
+    /// Whether the selected inventory has no later member.
+    pub exhausted: bool,
+}
+
 /// Narrow output indexes and their exact admitted original IPC block metadata.
 #[derive(Clone, Debug)]
 pub struct ResultOutputPage {
+    /// Exact closed descriptors, one per distinct returned block.
+    pub batches: Vec<ResultBatch>,
+    /// Last returned original dense-index start coordinate.
+    pub next: Option<u64>,
+    /// True only when no later matching index remains, including byte-limited pages.
+    pub exhausted: bool,
     /// Dense output coverage descriptors, without individual array elements.
     pub outputs: Vec<BlockOutput>,
     /// Existing original scientific blocks; each identity is manifest constrained.
@@ -511,6 +531,57 @@ fn validate_result_block_interpretation(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments, reason = "the decoder verifies every independent admitted selection premise")]
+fn decode_joined_result_page(
+    mut envelope: Object,
+    read: &ResultRead,
+    set: &ResultSetDescriptor,
+    output: &str,
+    partition: &str,
+    start: u64,
+    end: u64,
+    after: Option<u64>,
+) -> Result<JoinedResultBlockPage, CanonicalError> {
+    fn rows(value: Value) -> Result<Vec<Object>, CanonicalError> {
+        match value {
+            Value::Array(rows) if rows.len() <= PAGE => rows.into_iter().map(|row| match row {
+                Value::Object(row) => Ok(row),
+                _ => Err(invalid("joined result member shape")),
+            }).collect(),
+            _ => Err(CanonicalError::PayloadLimit),
+        }
+    }
+    let blocks = rows(canonical_codec::required(&mut envelope,"blocks")?)?.into_iter()
+        .map(wire::decode_canonical_result_blocks).collect::<Result<Vec<_>,_>>()?;
+    let batches = rows(canonical_codec::required(&mut envelope,"batches")?)?.into_iter()
+        .map(wire::decode_canonical_result_batches).collect::<Result<Vec<_>,_>>()?;
+    let next = match canonical_codec::required(&mut envelope,"next")? {
+        Value::None | Value::Null => None,
+        value => Some(canonical_codec::decode_uint(value)?),
+    };
+    let exhausted = canonical_codec::decode_boolean(canonical_codec::required(&mut envelope,"exhausted")?)?;
+    if !envelope.is_empty() || blocks.len()!=batches.len()
+        || next != blocks.last().map(|block|block.ordinal)
+        || (!exhausted && blocks.is_empty()) {
+        return Err(invalid("joined result page coverage or continuation differs"));
+    }
+    let mut previous=after;
+    for (block,batch) in blocks.iter().zip(&batches) {
+        validate_result_block(block,batch)?;
+        if previous.is_some_and(|ordinal|block.ordinal<=ordinal)
+            || block.key!=result_batch_key(&read.attempt.key,&set.key,block.ordinal)
+            || block.result_set!=set.key || block.ordinal>=set.batch_count
+            || block.output!=output || block.partition!=partition
+            || block.end<=start || block.start>=end
+            || block.interpretation!=read.run.interpretation
+            || batch.attempt!=read.attempt.key {
+            return Err(invalid("joined result page outside exact admitted selection"));
+        }
+        previous=Some(block.ordinal);
+    }
+    Ok(JoinedResultBlockPage {blocks,batches,next,exhausted})
+}
+
 impl CanonicalStore {
     /// Select a bounded output index page natively, before fetching any original
     /// scientific payload. Dense coordinate predicates select recorded time bounds.
@@ -546,26 +617,8 @@ impl CanonicalStore {
         {
             return Err(invalid("invalid output range/predicate"));
         }
-        let table = "canonical_result_block_outputs";
-        // SurrealDB 3.3 selects the first range on a compound index column.
-        // Resume from a cursor within the selected range; outside that window,
-        // keep the selected range first and apply the exact cursor as a residual.
-        let cursor_within_range = after.is_some_and(|cursor| cursor >= start && cursor < end);
-        let cursor = if cursor_within_range {
-            "start>$after AND "
-        } else {
-            ""
-        };
-        let residual_cursor = if after.is_some() && !cursor_within_range {
-            " AND start>$after"
-        } else {
-            ""
-        };
-        let bounds = "end>$start AND start<$end AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum)";
-        let order = "start";
-        let query = format!(
-            "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}{bounds}{residual_cursor} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nLET $pse_rpc_result = {{indexes:$indexes,blocks:$blocks}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
-        );
+        self.files.require_current()?;
+        let query = format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result=fn::pse_execution_v1::result_output_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$minimum,$maximum);\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;");
         let finite = |value: Option<f64>| {
             value
                 .map(|v| Value::Number(surrealdb::types::Number::Float(v)))
@@ -579,7 +632,7 @@ impl CanonicalStore {
                 || {
                     Ok(self
                         .db
-                        .query(query.clone())
+                        .metadata_query(crate::canonical::MetadataResponse::OutputPage, query.clone())
                         .bind(("problem", read.run.problem.clone()))
                         .bind(("revision", read.run.revision.clone()))
                         .bind((
@@ -623,22 +676,26 @@ impl CanonicalStore {
             .into_iter()
             .map(wire::decode_canonical_result_blocks)
             .collect::<Result<Vec<_>, _>>()?;
-        if !object.is_empty() || indexes.len() > PAGE || blocks.len() > PAGE {
-            return Err(CanonicalError::PayloadLimit);
+        let batches = rows(canonical_codec::required(&mut object, "batches")?)?.into_iter()
+            .map(wire::decode_canonical_result_batches).collect::<Result<Vec<_>,_>>()?;
+        let next = match canonical_codec::required(&mut object, "next")? {
+            Value::None | Value::Null => None,
+            value => Some(canonical_codec::decode_uint(value)?),
+        };
+        let exhausted = canonical_codec::decode_boolean(canonical_codec::required(&mut object, "exhausted")?)?;
+        if !object.is_empty() || indexes.len()>PAGE || blocks.len()>PAGE || batches.len()!=blocks.len()
+            || (!exhausted && indexes.is_empty()) {
+            return Err(invalid("joined output page extent or coverage differs"));
         }
-        for block in &blocks {
-            if block.result_set != set.key
-                || block.ordinal >= set.batch_count
-                || block.batch != result_batch_key(&read.attempt.key, &set.key, block.ordinal)
-                || block.key != block.batch
-            {
+        let mut identities=std::collections::BTreeSet::new();
+        for (block,batch) in blocks.iter().zip(&batches) {
+            validate_result_block(block,batch)?;
+            if block.result_set!=set.key || block.ordinal>=set.batch_count
+                || batch.attempt!=read.attempt.key || !identities.insert(block.key.clone()) {
                 return Err(invalid("output index block outside exact manifest"));
             }
         }
-        let mut page = ResultOutputPage {
-            outputs: Vec::new(),
-            blocks,
-        };
+        let mut page = ResultOutputPage { outputs: Vec::new(), blocks, batches, next, exhausted };
         let mut previous = after;
         for index in indexes {
             let item = wire::decode_canonical_result_block_outputs(index)?;
@@ -665,6 +722,10 @@ impl CanonicalStore {
                 return Err(invalid("output index outside exact recorded coverage"));
             }
             previous = Some(lower);
+        }
+        if page.next!=page.outputs.last().map(|item|item.start)
+            || page.blocks.iter().any(|block| !page.outputs.iter().any(|item|item.batch==block.key)) {
+            return Err(invalid("joined output page continuation or extra block differs"));
         }
         Ok(page)
             }).await
@@ -966,6 +1027,46 @@ impl CanonicalStore {
                 Ok(metadata)
             })
             .collect()
+            }).await
+        }).await
+    }
+
+    /// Read protected block coverage and its complete exact file descriptors in
+    /// one bounded native transaction. Physical opening still reauthenticates the
+    /// current file incarnation and placement under the same protection.
+    #[allow(clippy::too_many_arguments, reason = "selection, scientific coordinates and original ordinal independently constrain a protected page")]
+    pub async fn result_joined_block_page(
+        &self,
+        read: &ResultRead,
+        result_set: &str,
+        output: &str,
+        partition: &str,
+        start: u64,
+        end: u64,
+        after: Option<u64>,
+    ) -> Result<JoinedResultBlockPage, CanonicalError> {
+        let layout = crate::canonical::MetadataResponse::JoinedBlockPage;
+        crate::canonical::transport::metadata_scope(layout, async {
+            let activity = self.selection_activity(&read.owner.selection)?;
+            activity.scope(async {
+                self.files.require_current()?;
+                if !read.belongs_to(self) { return Err(invalid("result read belongs to another store")); }
+                let set = read.set(result_set)?;
+                identity(output)?;
+                identity(partition)?;
+                if start > end { return Err(CanonicalError::PayloadLimit); }
+                let query = format!("{PROTECTED_BEGIN}\nLET $rpc_result=fn::pse_execution_v1::result_block_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$count);\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;");
+                let mut response = self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_joined_block_page", || Ok(self.db.metadata_query(layout, query.clone())
+                    .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
+                    .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
+                    .bind(("protection",read.owner.selection.key().to_owned()))
+                    .bind(("result_set",set.key.clone())).bind(("output",output.to_owned())).bind(("partition",partition.to_owned()))
+                    .bind(("count",canonical_codec::encode_uint(set.batch_count)?)).bind(("start",canonical_codec::encode_uint(start)?))
+                    .bind(("end",canonical_codec::encode_uint(end)?)).bind(("after",after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(Value::None)))
+                )).await?;
+                let index = response.num_statements().saturating_sub(2);
+                let envelope = response.take::<Option<Object>>(index)?.ok_or_else(|| invalid("joined result page absent"))?;
+                decode_joined_result_page(envelope, read, set, output, partition, start, end, after)
             }).await
         }).await
     }
@@ -1552,6 +1653,39 @@ mod canonical_results_server_unit {
         .await
         .unwrap();
         let read = store.read_results("run", fence.attempt()).await.unwrap();
+        let joined = store.result_joined_block_page(&read, &set, "temperature", "time", 10, 20, None).await.unwrap();
+        assert_eq!(joined.blocks.len(), 1);
+        assert_eq!(joined.next, Some(1));
+        assert!(joined.exhausted);
+        let encoded = |blocks: &[BlockMetadata], batches: &[ResultBatch], next: Option<u64>, exhausted: bool| {
+            let mut envelope = Object::new();
+            envelope.insert("blocks", Value::Array(blocks.iter().map(|block| Value::Object(wire::encode_canonical_result_blocks(block).unwrap())).collect()));
+            envelope.insert("batches", Value::Array(batches.iter().map(|batch| Value::Object(wire::encode_canonical_result_batches(batch).unwrap())).collect()));
+            envelope.insert("next", next.map(canonical_codec::encode_uint).transpose().unwrap().unwrap_or(Value::None));
+            envelope.insert("exhausted", Value::Bool(exhausted));
+            envelope
+        };
+        let decode = |envelope| decode_joined_result_page(envelope, &read, read.set(&set).unwrap(), "temperature", "time", 10, 20, None);
+        assert!(decode(encoded(&joined.blocks, &[], Some(1), true)).is_err());
+        assert!(decode(encoded(&joined.blocks, &[joined.batches[0].clone(), joined.batches[0].clone()], Some(1), true)).is_err());
+        for changed in 0..5 {
+            let mut batches = joined.batches.clone();
+            match changed {
+                0 => batches[0].attempt = "foreign-attempt".into(),
+                1 => batches[0].result_set = "foreign-set".into(),
+                2 => batches[0].ordinal = 2,
+                3 => batches[0].digest = "0".repeat(64),
+                _ => batches[0].key = "foreign-member".into(),
+            }
+            assert!(decode(encoded(&joined.blocks, &batches, Some(1), true)).is_err());
+        }
+        let mut blocks = joined.blocks.clone();
+        blocks[0].interpretation = "foreign-interpretation".into();
+        assert!(decode(encoded(&blocks, &joined.batches, Some(1), true)).is_err());
+        assert!(decode(encoded(&joined.blocks, &joined.batches, None, false)).is_err());
+        assert!(decode(encoded(&[], &[], None, false)).is_err());
+        assert!(!decode(encoded(&joined.blocks, &joined.batches, Some(1), false)).unwrap().exhausted,
+            "a byte-limited short page remains resumable");
         let page = store
             .result_block_page(&read, &set, "temperature", "time", 10, 20, None)
             .await
