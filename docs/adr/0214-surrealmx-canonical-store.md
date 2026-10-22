@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-09]
 blueprint: [§3.3, §19.3, §20, §20.5, §20.6, §23.2]
 review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
-evidence: Tested — selected Plan49a native store, durability, gRPC, sixteen-lane and Python journeys on local Linux, 2026-10-21; exact commands and composite limits at Plan49 Outcome.
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: Actual integration cannot preserve required conflict, bounded response ownership or durable receipt semantics.

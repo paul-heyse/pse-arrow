@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-03, AP-04, AP-07, DP-09, PS-01, PS-07, PS-09, PS-10]
 blueprint: [§5.3, §7.1, §14.3, §14.3.2, §14.4, §16.2, §18.1, §18.8, §19.2, §19.3, §19.4, §19.8, §20.6, §21.1, §23.1]
 review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
-evidence: Proposed — operator accepted Plan49 RC01–RC21 and authorized remaining execution; package acceptance remains with Plan49.
+evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A selected mechanism cannot preserve original physical meaning, demanded derivatives, bounded ownership or durable effect permission.
