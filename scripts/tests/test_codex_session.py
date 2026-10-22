@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -14,6 +15,21 @@ from scripts import codex_session as session
 
 
 class CodexSessionTests(unittest.TestCase):
+    def test_missing_checkout_interpreter_disables_helpers_without_borrowing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(session, 'ROOT', Path(directory)), \
+             patch.object(session.shutil, 'which', return_value='/machine/tool'), \
+             patch.object(session.surreal_server, 'selected_service') as observe:
+            command, description = self.describe()
+            self.assertFalse(description['capabilities']['database']['available'])
+            self.assertFalse(description['capabilities']['rust']['available'])
+            self.assertFalse(description['capabilities']['python']['available'])
+            self.assertIn('.venv/bin/python is unavailable', description['capabilities']['database']['reason'])
+            self.assertIn('mcp_servers.pse-surreal.enabled=false', command)
+            observe.assert_not_called()
+            with self.assertRaisesRegex(ValueError, 'Required selected database'):
+                self.describe(require_database=True)
+
     def describe(self, **overrides: object) -> tuple[list[str], dict[str, object]]:
         arguments = dict(state=Path('/selected state'), database=True, rust=True,
                          require_database=False, require_rust=False, arguments=[])

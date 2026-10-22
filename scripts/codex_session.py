@@ -28,6 +28,8 @@ def session_description(
     if executable is None:
         raise ValueError("Codex is unavailable; prepare the workstation Codex installation")
     command = [executable, "-C", str(ROOT)]
+    interpreter = ROOT / ".venv/bin/python"
+    interpreter_available = interpreter.is_file()
     capabilities: dict[str, object] = {
         "rust": {"requested": rust, "attached": "not observed"},
         "database": {"requested": database, "attached": "not observed"},
@@ -35,11 +37,11 @@ def session_description(
     rust_available = False
     if rust:
         analyzer = shutil.which("rust-analyzer")
-        available = analyzer is not None and diagnostic_trace.binary_path("mcpls").is_file()
+        available = interpreter_available and analyzer is not None and diagnostic_trace.binary_path("mcpls").is_file()
         rust_available = available
         capabilities["rust"] = {
             "requested": True, "available": available, "attached": "not observed",
-            "repair": "install pinned mcpls and the pinned rustup rust-analyzer component",
+            "repair": "prepare checkout .venv, pinned mcpls and the pinned rustup rust-analyzer component",
             "coverage": "maintained LSP bridge includes references, implementations and call hierarchy; request readiness remains explicit",
         }
         if require_rust and not available:
@@ -48,7 +50,7 @@ def session_description(
                 "-c", 'mcp_servers.rust-analyzer.args=["-m","scripts.semantic_navigation","serve","--language","rust"]',
                 "-c", "mcp_servers.rust-analyzer.cwd=" + json.dumps(str(ROOT))]
     command += ["-c", "mcp_servers.rust-analyzer.enabled=" + str(rust_available).lower()]
-    python_available = python and diagnostic_trace.binary_path("mcpls").is_file() and (ROOT / ".venv/bin/pyrefly").is_file()
+    python_available = python and interpreter_available and diagnostic_trace.binary_path("mcpls").is_file() and (ROOT / ".venv/bin/pyrefly").is_file()
     capabilities["python"] = {"requested": python, "available": python_available, "attached": "not observed",
                               "repair": "explicitly install pinned mcpls and sync checkout Pyrefly; python -m scripts.semantic_navigation describe"}
     if require_python and not python_available:
@@ -64,6 +66,8 @@ def session_description(
         selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
         deadline = time.monotonic() + 8.0
         try:
+            if not interpreter_available:
+                raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
             selected = surreal_server.selected_service(selected_state, deadline)
             endpoint = f"http://127.0.0.1:{selected.port}/mcp"
             helper = shlex.join([
