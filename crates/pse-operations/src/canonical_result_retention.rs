@@ -538,13 +538,15 @@ mod canonical_result_retention_server_unit {
         }
         assert_eq!(ordinals, (0..65).collect::<Vec<_>>(), "resuming a short byte-limited page loses no member");
         let (first, retired) = tokio::join!(
-            store.result_block_page(&read, &set, "temperature", "time", 0, 65, None),
+            store.result_joined_block_page(&read, &set, "temperature", "time", 0, 65, None),
             store.forget_run_results(&request.key)
         );
         let first = first.unwrap();
-        assert_eq!(first.len(), 64);
+        assert!(!first.blocks.is_empty() && first.blocks.len() < 64);
+        assert!(!first.exhausted);
+        assert_eq!(first.next, first.blocks.last().map(|block| block.ordinal));
         assert!(retired.is_err());
-        let escaped = store.result_block(&read, first[0].clone()).await.unwrap();
+        let escaped = store.result_block(&read, first.blocks[0].clone()).await.unwrap();
         // Advance the source head and relinquish default history: the protected
         // read and resulting analysis must preserve this exact older source.
         store
@@ -627,22 +629,24 @@ mod canonical_result_retention_server_unit {
         assert!(analysis.unwrap().active);
         assert!(retired.is_err());
         let second = store
-            .result_block_page(
+            .result_joined_block_page(
                 &read,
                 &set,
                 "temperature",
                 "time",
                 0,
                 65,
-                Some(first.last().unwrap().ordinal),
+                first.next,
             )
             .await
             .unwrap();
-        assert_eq!(second.len(), 1);
-        assert_eq!(second[0].ordinal, 64);
+        assert_eq!(second.blocks.iter().map(|block| block.ordinal).collect::<Vec<_>>(),
+            (first.next.unwrap()+1..65).collect::<Vec<_>>());
+        assert_eq!(second.next, Some(64));
+        assert!(second.exhausted);
         assert_eq!(
             store
-                .result_block(&read, second[0].clone())
+                .result_block(&read, second.blocks.last().unwrap().clone())
                 .await
                 .unwrap()
                 .batch
@@ -652,10 +656,10 @@ mod canonical_result_retention_server_unit {
         );
         assert!(
             store
-                .result_block_page(&read, &set, "temperature", "time", 0, 65, Some(64))
+                .result_joined_block_page(&read, &set, "temperature", "time", 0, 65, Some(64))
                 .await
                 .unwrap()
-                .is_empty()
+                .blocks.is_empty()
         );
         drop(read);
         assert!(store.forget_run_results(&request.key).await.is_err());
