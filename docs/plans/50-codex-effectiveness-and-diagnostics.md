@@ -28,10 +28,10 @@ of source `79a8dbfc9`. Additional working inputs are the supplied untracked
 selected primary sources; its material additions are accounted below and in 50d/50e.
 These local inputs are orientation, not declarations of this custom build's capabilities.
 
-**Proposed:** the target, packages and acceptance below. Authoring this series does not
-authorize production implementation, tool installation or resumption of other plans. No
-product tests, builds, service changes or benefit measurements establish this target yet.
-Earlier review observations retain their named conditions. Core 3.4, Efficient Architecture
+The maintainer authorized the entire target for implementation on 2026-10-22. Package state
+and the checkpoint below distinguish implemented mechanisms from remaining acceptance;
+authoring evidence alone establishes neither. Earlier review observations retain their named
+conditions. Core 3.4, Efficient Architecture
 Heuristics 1.0, Process Simulator 1.5 and the repository binding guide the focused foundation
 assessment; this is not a new broad diagnostic audit or an enclosing-system certification.
 
@@ -185,10 +185,10 @@ remain implementation judgment within each companion's contracts.
 | F02 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F02) | Structured physical observation prerequisite and math/engine before-after explanations |
 | F03 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F03) | Supported frozen-context extraction through owned reconstruction/admission codecs |
 | F04 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F04) | Small local diagnostic/reproducer controls, coordinated with existing acceptance |
-| G01 | planned | [50g](50g-qualification-and-publication.md#G01) | Final actual consumer/contract/decision selection before composed qualification |
-| G02 | planned | [50g](50g-qualification-and-publication.md#G02) | Six representative composed workflows and negative cases |
-| G03 | planned | [50g](50g-qualification-and-publication.md#G03) | Relevant zero-target scope-end static/manual checks, failures repaired |
-| G04 | planned | [50g](50g-qualification-and-publication.md#G04) | Enduring documentation, source dispositions and bounded final Outcome |
+| G01 | in-progress | [50g](50g-qualification-and-publication.md#G01) | Final actual consumer/contract/decision selection before composed qualification |
+| G02 | in-progress | [50g](50g-qualification-and-publication.md#G02) | Six representative composed workflows and negative cases |
+| G03 | in-progress | [50g](50g-qualification-and-publication.md#G03) | Relevant zero-target scope-end static/manual checks, failures repaired |
+| G04 | in-progress | [50g](50g-qualification-and-publication.md#G04) | Enduring documentation, source dispositions and bounded final Outcome |
 
 ## Opportunity dispositions
 
@@ -229,13 +229,13 @@ Do not leave a failed feasibility check as an unowned promise to investigate lat
 | I01 | adopted; integration qualification open | B01 | Pinned mcpls 0.8.0 with checkout Pyrefly and pinned rust-analyzer; actual client resolved Python facade and Rust definition/reference/implementation requests | Replaces the selected session’s Rust-only bridge and supplies Python navigation without another type checker. Generated-boundary composed journey remains G02 work. |
 | I02 | no-adopt 0.6.3 | D03 | Exact LSP release 0.6.3 rejects actual engine-valid production and generated schema forms; a readiness-only workspace can appear falsely clean | Retain exact selected-engine parser and source/binding feedback. Revisit when the LSP handles this pinned parser’s production/schema forms; no second language authority. |
 | I03 | open | E02 | CPython perf/JIT and py-spy coverage on one real Python/Rust/native journey | Choose useful complementary captures; keep unsupported thread/symbol populations explicit |
-| I04 | open | E03 | Scheduling tracepoint permission, clock/thread association and useful summary | Unavailability can settle the inquiry but leaves the required workflow unfinished until a supported alternative or explicitly accepted scope change; CPU evidence is complementary |
+| I04 | adopted | E03 | Actual scheduler capture and selected PID/thread timehist succeeded with CAP_PERFMON on a private perf ELF and read-only selected tracefs metadata | Retain exact process/thread/clock scope and host-wide raw population. No global paranoid/kptr relaxation or writable tracing controls; reboot persistence remains untested. |
 | I05 | open | E04 | Actual executor cooperation, issued-request cancellation/lifetime and independent observation of a wedged runtime | Adopt bounded task dumps with target-side ownership through settlement; collector exit is not dump drain. Console remains optional for a demonstrated question |
-| I06 | open | E05 | Heaptrack/Memray actual allocator coverage and matching symbol requirements | Deliver supported attribution; reject exact operation-private peaks and unsupported allocator coverage |
+| I06 | adopted | E05 | Actual Heaptrack native allocations and pinned Memray 1.20.0 Python/new-thread/native captures plus decoding succeeded | Memray is an explicit separate dependency group/environment; native-only threads can lack Python frames. Disable ambient decoder debuginfod by default; opt-in retains its deadline and partial outcome. No exact operation-private peak claim. |
 | I07 | open | F03 | Which complete frozen representations reconstruct executable requests through existing codecs? | Deliver named supported extraction; missing executable/provider/source premises refuse, never guessed conversion |
-| I08 | selected; operator integration open | D06 | Owned actual gRPC request exported server executor to Surrealism parent/child spans; application Rust trace context was absent | Deliver explicit finite on-demand capture with that application-side correlation gap. No permanent telemetry stack. |
+| I08 | adopted | D06 | Actual finite operator capture exported server executor to Surrealism parent/child spans and restored baseline; application Rust trace context was absent | Explicit trace-capture owns temporary sink and admitted service restart/restore. Preserve the application-side correlation gap; no permanent telemetry stack. |
 | I09 | no additional index | B04 | Actual maintained mcpls symbol/reference queries plus bounded catalogue/source leads resolve the current TaskDumpTicket/Runtime owner and consumer question | Use native LSP and derived context; an extra indexed graph would duplicate current source reach without resolving dynamic PyO3 correspondence. Revisit a repeated diagnosed retrieval gap, not a periodic index campaign. |
-| I10 | open | E06 | Does rr support a compact actual FFI failure process tree on this host? | Integrate a direct recipe if useful; otherwise close as unsupported/no-adopt, never use it for parallel timing |
+| I10 | adopted | E06 | Actual Python→ctypes→native SIGSEGV recording, replay and GDB reverse-step succeeded with the pinned rr 5.10.0 portable runtime | Explicit rr-record/rr-replay actions retain the full bundle and trace identities. This is perturbing diagnostic execution, never parallel timing qualification. |
 | I11 | no additional deployment | D06 | Current canonical graph consumer uses actual production SQL and native plans; no diagnosed missing GQL behavior, engine defect or server-task question requires another deployment | Keep graph/Console/upstream harness as explicit future choices on a concrete unanswered question; no engine switch or whole upstream campaign. |
 | I12 | no-adopt | D06 | Actual native MCP database reads and structured owner commands cover the current operator consumers | No extra operations MCP or permanent telemetry platform. Revisit a repeated structured interaction gap that existing commands cannot serve. |
 

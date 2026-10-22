@@ -690,6 +690,87 @@ profiles unless independent scientific qualification supports a concrete change.
 
 ## Recorded analysis, cooperating recording and offline review
 
+### Explicit active diagnostics
+
+`just diagnostics active --help` describes the separate action interface. For example:
+
+```bash
+just diagnostics active python-snapshot --pid PID --start START --native --output fresh-stack
+just diagnostics active gdb-launch --output fresh-crash -- PROGRAM ARGUMENTS
+just diagnostics active heaptrack --output fresh-allocations -- PROGRAM ARGUMENTS
+just diagnostics active sched --perf-binary /usr/local/libexec/pse-arrow-perf/perf --output fresh-scheduling -- PROGRAM ARGUMENTS
+just diagnostics active read --output fresh-crash --tail 20
+```
+
+Arguments after `--` are literal argv. Every action creates a private, exclusive output
+directory with `action.json`, independent target and collector outcomes, tool identity,
+original artifacts and coverage. An operation ID supplies attribution; it does not authorize
+attachment. Live Python attachment additionally requires the exact PID/start identity and
+refuses an already stopped target. Cancellation stops owned helpers without signalling the
+attached target. An optional authentic invocation associates an action with the existing run
+reader; standalone actions require no invented invocation. Text retention and observation time
+are bounded; raw profiler artifacts are explicitly not subject to the text-byte bound.
+Decode/import failure leaves collection partial and preserves the original target outcome.
+
+GDB supports owned launch and digest-matched offline core inspection. It does not attach to a
+live arbitrary process. Optimized-out locals, absent symbols and missing native Python thread
+states remain coverage limits. Python `-X perf` can expose Python frames alongside native
+samples; `--jit` retains the actual CPython JIT dump and ELF files. A successful perf decoder
+without Python frame names remains partial coverage. Sampling, fault-handler output and
+scheduling intervals answer different questions. `sched` retains exact owned PID/start and
+thread intervals; its raw system scheduling capture may include other host processes. Runnable
+delay and blocked time do not identify a lock or I/O cause on their own.
+
+`just diagnostic-python-tools` installs pinned Memray in `.venv-diagnostics` without replacing
+the project extension. Select it with `--memray-python .venv-diagnostics/bin/python`.
+Heaptrack describes observed native allocation traffic; Memray supplies Python/native stack
+attribution where the interpreter and thread support it. Native-only threads may lack Python
+frames. Neither provides an exact operation-private peak from shared-process totals.
+`just diagnostic-tools rr` installs the complete pinned rr bundle, including its libraries;
+`rr-record` and `rr-replay` retain the trace identity and actual replay/reverse-step result.
+Recording changes execution and is unsuitable for a parallel timing claim.
+
+### Cooperative inspection of the actual executor
+
+`just py-sync-taskdump dev` builds the explicit diagnostic profile with `tokio_unstable` and
+Tokio's taskdump feature into **`.venv-diagnostic-taskdump`**. It installs a wheel containing
+the matching Python/contracts snapshot; it does not replace the ordinary editable extension.
+The ordinary build refuses this unsupported action explicitly. Rust consumers pass their
+actual multi-thread executor handle to `tooling::taskdump::request`; Python uses
+`Runtime.task_dump(TaskDumpRequest(...))` and `Runtime.task_dump_status()`.
+
+The request pauses cooperating executor workers and re-polls tasks. It is an active diagnostic
+with a process-local request and actual executor identity, not a passive snapshot or a recovery
+operation. The observer waits on an independent OS thread/condition variable with a finite
+allowance. A timed-out or interrupted observer leaves the issued request owned by the Runtime
+until settlement; another request is refused while it remains pending. `pending`, `completed`
+and `collector_failed` describe that request independently of scientific completion. Retained
+trace count/bytes may be truncated even though tracing visits the executor population.
+Blocked workers can prevent cooperation. LocalSet tasks, internal FuturesUnordered children
+and native threads can be absent; no task dump implies whole-process or whole-study coverage.
+
+### Preparation comparison and executable reproducer extraction
+
+Preparation observations retain exact generation-scoped Salsa labels and the producer's
+source/value/structural context. Unmapped events remain unmapped. Mathematical comparison
+uses actual output/coordinate census and finite original source sets. Engine observation
+codec v2 contains structured physical nodes and ordered edges from the actual metric traversal;
+rendered text is not parsed into authoritative topology. Correspondence uses unique compatible
+operator/schema/adjacency context, never matching local node ordinals across captures. Repeated
+contexts, dropped observations and incomplete captures withhold a complete unique comparison.
+These facts establish neither expression equivalence nor a performance winner.
+
+`just diagnostics extract-reproducer --request extraction.json --output new-command.json`
+transforms complete original text or supported frozen algebraic source/constructor codecs
+offline. `just diagnostics reproduce --request new-command.json --json` explicitly performs
+new reconstruction, admission and execution under a fresh operation and one inherited finite
+deadline. The original diagnostic, failure text, origin and selected strict predicate remain
+independent of the new result. Provider descriptors do not recreate executable factories;
+missing codecs, source, providers or schedule-dependent premises refuse explicitly. Exact
+typed code/stage/rule/source/validity/condition matches distinguish original failure from a
+related diagnostic. An unmatched incomplete diagnostic population cannot establish
+`not_reproduced`. Extraction never opens a store or silently runs the suggested command.
+
 `just diagnostics --help` distinguishes **READ**, **RECORD**, **EXPORT** and **NEW NUMERICAL
 WORK**. Existing `list`, live `inspect`, optional `capture`/`capture-launch` and `read-detail`
 retain their meanings. A source request passed to arbitrary argv does not make that executable
@@ -707,7 +788,7 @@ just diagnostics analyze relocated-pack --request analysis.json
 ```
 
 Inputs are the generated versioned documents in `pse.contracts.documents`, with JSON Schemas
-under `docs/generated/schema/`. `FrozenEvidenceSet` is **v2**. Inspection uses a
+under `docs/generated/schema/`. `FrozenEvidenceSet` is **v3**. Inspection uses a
 `FrozenInspectionRequest` v1 and its recorded endpoint by default; its explicit interval is on
 the source clock, never the reader clock. `AnalysisRequest` v2 selects the exact operation,
 optional baseline and source-clock window, finite source/statement limits and optional existing

@@ -62,6 +62,38 @@ manual qualification.
 
 ## Common conditions
 
+### Inspecting a product invocation
+
+`just result INVOCATION --kind product-test --json` reads the authentic invocation,
+frozen selection, report rows and terminal without rerunning tests. Add `--subject`,
+`--failures`, `--offset`/`--limit` or bounded `--tail` to focus output. Metadata-only reads
+do not hydrate payloads; explicit payload reads require a current registered evidence
+owner and temporary protection. Missing protection leaves that artifact unavailable.
+A completely reported failing run can be complete. A missing terminal, selected but
+unreported test or interrupted producer cannot become a pass through a JUnit file.
+Captured producer/composer identities are association facts; current liveness and owned
+drain remain unobserved unless their owner supplies them.
+
+`just activity` exposes current build/wait/admission observations without workload setup.
+Actual Cargo records identify compile/link/cache freshness; quiet CPU does not identify
+the owner of an artifact lock. `just context QUERY --json` projects declared commands and
+source owners; `just affected --json` previews selected Rust correctness commands and
+explicit Python/native/generator/dynamic omissions. Neither executes the suggested check.
+
+`just reference-run --state STATE --worker WORKER [--initializer INITIALIZER] -- COMMAND
+ARGUMENTS` composes setup, frozen initializer selection, admitted reference startup,
+initialization, literal workload, exact drain/stop and normal-service resume observations.
+Execution and cleanup are separate outcomes; a successful workload cannot hide failed
+teardown. The prebuilt initializer is copied before another Cargo feature build can
+replace its target alias. The existing scientific/reference allocation remains authoritative.
+
+Explicit `python -m scripts.test_resources abandon INVOCATION` inspects eligibility;
+`--apply` freezes membership before release. Authenticated drain, references and unknown
+effects retain their existing guards. Abandonment is a separate fence and does not fabricate
+a terminal record, ACK or scientific outcome. It cannot make protected evidence disposable.
+The proposed ADR-0174 records the selected distinction; acceptance of that ADR remains a
+separate decision.
+
 - Rust correctness routes activate and verify force-validation for each actual selected
   Arrow-consuming normal/build/test-dev closure, including host dependencies (ADR-0170).
   Pure closures select no unrelated relation targets. Bare commands have the same obligation.

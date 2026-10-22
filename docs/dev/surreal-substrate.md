@@ -11,6 +11,57 @@ remote deployment, returned physical disk space or physical power-loss survival.
 
 ## Setup and state ownership
 
+### Selected-service diagnostics
+
+`python -m scripts.surreal_diagnostics --help` exposes bounded selected-service observations.
+`metrics --state STATE --output snapshot.json` authenticates internally with the private root
+VIEWER account and retains the verified service identity. `compare-metrics BEFORE AFTER`
+requires compatible service identity and labels shared snapshots/deltas as shared. Anonymous
+absence, unavailable observation and a genuine zero are different states. Native MX gauges
+include active readers, pinned versions and reclamation-related populations; differences are
+not private attribution to the command executed between snapshots.
+
+The canonical tools expose the actual producer query, bound parameters, schema/index/module
+context and native plans:
+
+```bash
+scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation run -p xtask --bin xtask --no-default-features --features canonical-tools --locked -- canonical-query-inspect --state STATE --study KEY
+scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation run -p xtask --bin xtask --no-default-features --features canonical-tools --locked -- canonical-graph-inspect --state STATE --request request.json --explain
+```
+
+`--describe-only` avoids executing the readiness query; `--experiment` explicitly selects
+EXPLAIN ANALYZE and its real query work. Query descriptions preserve the actual production
+dispatcher and parameters. `check-query --state STATE --description description.json` uses
+the exact selected engine parser with source/binding feedback. CLI parser default capabilities
+can reject `mod::` despite the server supporting the admitted module. SurrealDB LSP 0.6.3 is
+not selected: its actual grammar loses valid production/generated schema context and can
+report a falsely clean reduced workspace. This does not invalidate engine-accepted SQL.
+
+Graph inspection returns bounded original directed edges, source/consumer roles, isolates,
+selected revision/generation and explicit continuation/truncation. Returned nodes are not a
+new canonical model. Native plan interpretation retains raw operator attributes, distinguishes
+downstream Filter from pushed predicates and reports absent observations as absent. A small
+ANALYZE control observed cached adjacency with two scanned edges; it did not establish folded
+block use or a strict native edge-scan cap. Decoded-row, output-byte and original-clock bounds
+do not imply a physical KV-work bound. Remaining physical scan qualification belongs to
+[Plan49g TOOL08](../plans/49g-contracts-maintenance-and-tooling.md#TOOL08).
+
+`log-config --state STATE` reads logging configuration. Explicit `--restart mcp-audit` or
+`--restart baseline` uses admitted quiesce/drain/start and refuses incompatible live ownership.
+`mcp-audit --state STATE` reads bounded safe audit metadata; query text, bindings and credentials
+are excluded. `trace-capture --state STATE --output FRESH -- COMMAND ARGUMENTS` explicitly
+starts a finite loopback telemetry sink, restarts the owned service with temporary export,
+runs literal argv, restores baseline logging/export and drains the sink. These are service
+mutations, not passive polling. Capture, workload, restoration and cleanup outcomes remain
+separate. Actual server executor→Surrealism parentage is available; application-originating
+Rust trace context is not established. No permanent telemetry deployment or additional
+operations MCP is required.
+
+Schema/query alternatives use disposable SurrealKit contexts under their existing resource
+owner. Actor-specific rehearsal checks independently read back state: a restricted empty
+CREATE response does not prove that a mutation occurred. Rehearsal does not alter the
+canonical database, and successful disposal does not qualify all production migrations.
+
 Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 

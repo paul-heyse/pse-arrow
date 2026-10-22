@@ -439,6 +439,24 @@ deliberately with `just --yes <recipe>`.
 
 ## Runtime capabilities
 
+### Focused command and source context
+
+Use `just context QUERY --json` for a bounded projection of actual Just declarations and
+source owners; `--owner`, `--scope`, `--changed`, `--offset` and `--limit` narrow it.
+`just context --symbol TYPE --json` adds catalogue/generator, Rust/PyO3, generated stub,
+facade and test leads. These are explicit source matches, not invented semantic edges
+across language boundaries. Refine them using the appropriate language server.
+`just affected --json` previews the exact selected force-validation command and its
+Python/native/generator/dynamic exclusions without executing a test.
+
+`just context --retrospective --hours 24 --json` explicitly inspects local Codex records
+for this checkout and the selected time window. It reads named date partitions with a
+ten-second/128 MiB bound and a one-MiB record ceiling, deduplicates inherited records and
+returns tool/error-class counts and source paths. It does not copy prompts, arguments,
+environments or raw outputs into a new index. An error-pattern count is an investigation
+lead, not a number of failed tests or a causal diagnosis. Partial/oversized input remains
+explicit. This work never runs during startup or ordinary activity polling.
+
 What a session loads costs context and processes, so optional capabilities are opt-in:
 
 - **Claude Code** — the project disables the synced plugins and claude.ai connectors unrelated
@@ -507,6 +525,30 @@ Other central skills are inactive historical references. Retained reports and ca
 keep their original evidence scope; they are not live catalog lookup services.
 
 ## Explicit host controls
+
+### Selected performance tooling on this workstation
+
+The explicitly configured perf executable is `/usr/local/libexec/pse-arrow-perf/perf`:
+the current kernel's real perf ELF, owned by root in a `root:paul` directory with mode
+`0750` and **CAP_PERFMON only**. `/usr/bin/perf` is a dispatcher script and cannot carry
+that file capability. Global `perf_event_paranoid` and `kptr_restrict` remain unchanged.
+Kernel upgrades require deliberately refreshing this executable and checking its version
+and digest; `--perf-binary` retains the selected tool identity in each action.
+
+This host's tracefs does not support POSIX ACLs. Its top directory has read/traverse access
+for group `paul`; selected scheduling event IDs/formats, trace headers and saved command names
+are group-readable. Tracing controls are not writable. Exact rules are in
+`/etc/tmpfiles.d/pse-arrow-perf.conf`; application with `systemd-tmpfiles --create` was tested,
+but reboot persistence is not established. These are explicit host changes, never automatic
+doctor/observer repairs. The [diagnostic guide](simulation-diagnostics.md#explicit-active-diagnostics)
+describes action effects and coverage; access does not itself establish useful capture.
+
+Optional tools are explicit installs: `just diagnostic-tools mcpls`, `just diagnostic-tools rr`
+and `just diagnostic-python-tools`. Passive context, run and activity readers install nothing.
+The separate cooperative taskdump Python environment is built with `just py-sync-taskdump`;
+select its interpreter explicitly and keep it separate from ordinary/native correctness
+extensions. Broad workstation sudo permission does not change these command effects or make
+root the owner of ordinary builds.
 
 The opt-in kernel and subprocess controls live in `scripts/tests/plan30_*_check.py`,
 separate from `just setup-test` discovery. Their environment switches and assertions are
