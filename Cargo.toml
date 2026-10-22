@@ -314,7 +314,7 @@ suitesparse_sys = { version = "=0.1.4", path = "vendor/suitesparse-sys", default
   "btf",
 ] }
 rpds = { version = "=1.2.1", default-features = false }
-salsa = { version = "=0.28.4", default-features = false, features = [
+salsa = { version = "=0.28.5", default-features = false, features = [
   "macros",
   "inventory",
   "salsa_unstable",

@@ -716,13 +716,13 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
             );
         }
         previous_by_shape[shape] = Some(known);
-        let before = workspace.retention_usage();
+        let before = { let s = workspace.observe_retention(); (s.entries, s.known_bytes) };
         let executed = events.lock().unwrap().len();
         let repeated = workspace
             .publish_modeling(source, PhysicalScope::default())
             .unwrap();
         assert!(Arc::ptr_eq(&revision, &repeated));
-        assert_eq!(workspace.retention_usage(), before);
+        assert_eq!({ let s = workspace.observe_retention(); (s.entries, s.known_bytes) }, before);
         assert_eq!(events.lock().unwrap().len(), executed);
         assert_eq!(
             workspace.generation(),
@@ -736,7 +736,7 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
     }
     // The pinned Salsa input ingredient reports inline fields, but supplies no
     // automatic heap callback for these declared Source inputs.
-    let report = <dyn Database>::memory_usage(&workspace.db);
+    let report = <dyn Database>::memory_usage(&mut workspace.db);
     let source = report
         .structs
         .iter()
@@ -744,7 +744,7 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
         .unwrap();
     assert!(source.size_of_fields() > 0);
     assert_eq!(source.heap_size_of_fields(), None);
-    assert!(workspace.retention_usage().1 >= workspace.granular.known_bytes(&workspace.db));
+    assert!({ let s = workspace.observe_retention(); (s.entries, s.known_bytes) }.1 >= workspace.granular.known_bytes(&workspace.db));
 }
 
 #[test]

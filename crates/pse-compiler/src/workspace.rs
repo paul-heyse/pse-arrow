@@ -1622,6 +1622,24 @@ fn observe_query_event(event: &salsa::Event, cache: &std::sync::Mutex<Option<Que
     }
 }
 
+/// Owned observation from a lane-exclusive maintenance boundary. Query evaluation can
+/// allocate within the same revision; `observation` identifies this exact census.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RetentionSnapshot {
+    /// Workspace generation observed, never semantic identity.
+    pub generation: usize,
+    /// Salsa input revision observed, never durable identity.
+    pub revision: salsa::Revision,
+    /// Monotonic observation number within this generation.
+    pub observation: u64,
+    /// Retained ingredient and owned-index entries.
+    pub entries: usize,
+    /// Known retained bytes, excluding unreported foreign library heaps.
+    pub known_bytes: usize,
+    /// Salsa metadata and inline bytes, excluding unreported foreign heaps.
+    pub metadata_bytes: usize,
+}
+
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
 pub struct CompilerWorkspace {
     events: Option<CompilerEvents>,
@@ -1631,6 +1649,7 @@ pub struct CompilerWorkspace {
     limits: WorkspaceLimits,
 
     generation: usize,
+    retention_snapshot: Option<RetentionSnapshot>,
     modeling: Option<modeling::State>,
     granular: modeling::granular::State,
     /// Package data document inputs by identity (ADR-0125), each set only when its bytes
@@ -1708,6 +1727,7 @@ impl CompilerWorkspace {
             limits,
 
             generation: 0,
+            retention_snapshot: None,
             modeling: None,
             granular: Default::default(),
             documents: BTreeMap::new(),
@@ -1729,6 +1749,7 @@ impl CompilerWorkspace {
         }
         *self = replacement;
         self.generation = generation;
+        self.retention_snapshot = None;
         self.db.cancel = worker_cancel;
         if cancelled {
             self.db.cancellation_token().cancel();
@@ -1797,7 +1818,7 @@ impl CompilerWorkspace {
             .max(self.limits.query_values);
         // The generation census includes the old resident memo values. Add the
         // incoming owned construction before any newly materialized memo is kept.
-        let working = self.retention_usage().1.saturating_add(bytes);
+        let working = self.observe_retention().known_bytes.saturating_add(bytes);
         if count > self.limits.retained_entries || working > self.limits.retained_bytes {
             self.trim_queries()?;
             return Err(CompileError::Limit("live root working set"));
@@ -1836,49 +1857,64 @@ impl CompilerWorkspace {
             };
         }
     }
-    fn retention_exceeded(&self) -> bool {
-        let (entries, bytes) = self.retention_usage();
-        entries > self.limits.retained_entries || bytes > self.limits.retained_bytes
+    fn retention_exceeded(&mut self) -> bool {
+        let observed = self.observe_retention();
+        observed.entries > self.limits.retained_entries
+            || observed.known_bytes > self.limits.retained_bytes
     }
-    /// Actual retained ingredients and known bytes, including every owned query-key payload.
-    /// Library heaps without Salsa heap callbacks remain outside this observation.
-    pub fn retention_usage(&self) -> (usize, usize) {
-        let report = <dyn Database>::memory_usage(&self.db);
+    /// Observe retention exclusively, outside every tracked query and before taking
+    /// a mutable modeling-state borrow. Salsa cancels and drains cloned readers;
+    /// this workspace never retains a sibling database handle during observation.
+    pub fn observe_retention(&mut self) -> RetentionSnapshot {
+        let report = <dyn Database>::memory_usage(&mut self.db);
         let live_entries = self.live_bodies.len().saturating_add(
             self.db
                 .live_retention
                 .lock()
                 .map_or(0, |live| live.bodies.len()),
         );
-        report.structs.iter().chain(report.queries.values()).fold(
-            (
-                self.granular.entries().saturating_add(live_entries),
-                self.granular
-                    .known_bytes(&self.db)
-                    .saturating_add(live_entries.saturating_mul(256)),
-            ),
-            |(entries, bytes), info| {
+        let (entries, known_bytes, metadata_bytes) = report
+            .structs.iter().chain(report.queries.values()).fold(
                 (
-                    entries.saturating_add(info.count()),
-                    bytes
-                        .saturating_add(info.size_of_metadata())
-                        .saturating_add(info.size_of_fields())
-                        .saturating_add(info.heap_size_of_fields().unwrap_or(0)),
-                )
-            },
-        )
+                    self.granular.entries().saturating_add(live_entries),
+                    self.granular.known_bytes(&self.db)
+                        .saturating_add(live_entries.saturating_mul(256)),
+                    0usize,
+                ),
+                |(entries, bytes, metadata), info| {
+                    let inline = info.size_of_metadata().saturating_add(info.size_of_fields());
+                    (
+                        entries.saturating_add(info.count()),
+                        bytes.saturating_add(inline)
+                            .saturating_add(info.heap_size_of_fields().unwrap_or(0)),
+                        metadata.saturating_add(inline),
+                    )
+                },
+            );
+        let observed = RetentionSnapshot {
+            generation: self.generation,
+            revision: salsa::plumbing::current_revision(&self.db),
+            observation: self.retention_snapshot.map_or(1, |prior| prior.observation.saturating_add(1)),
+            entries,
+            known_bytes,
+            metadata_bytes,
+        };
+        self.retention_snapshot = Some(observed);
+        observed
     }
-    /// Salsa-reported metadata/inline bytes, excluding unreported foreign allocations.
-    pub fn metadata_bytes(&self) -> usize {
-        let report = <dyn Database>::memory_usage(&self.db);
-        report
-            .structs
-            .iter()
-            .chain(report.queries.values())
-            .fold(0usize, |n, i| {
-                n.saturating_add(i.size_of_metadata())
-                    .saturating_add(i.size_of_fields())
-            })
+    /// Latest owned diagnostic observation. It can predate subsequent queries or
+    /// edits; admission always calls `observe_retention` instead of trusting it.
+    pub fn retention_snapshot(&self) -> Option<RetentionSnapshot> {
+        self.retention_snapshot
+    }
+    /// Latest observed ingredient/known-byte totals; no observation cancels readers
+    /// behind this read-only diagnostic. `None` means not yet observed.
+    pub fn retention_usage(&self) -> Option<(usize, usize)> {
+        self.retention_snapshot.map(|s| (s.entries, s.known_bytes))
+    }
+    /// Latest observed metadata bytes, never an implicit exclusive inspection.
+    pub fn metadata_bytes(&self) -> Option<usize> {
+        self.retention_snapshot.map(|s| s.metadata_bytes)
     }
     /// Current generation number for resource diagnostics, never semantic identity.
     pub fn generation(&self) -> usize {
