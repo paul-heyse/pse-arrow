@@ -415,11 +415,18 @@ fn canonical_maintenance(
         .build()?;
     let witness = executor.block_on(async {
         let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
-        let result = match settlement {
-            Some(path) => store.activate_definitions(path).await,
-            None if schemas.is_empty() => store.validate_definitions().await,
-            None => store.validate_definition_files(schemas).await,
-        };
+        let result = async {
+            if settlement.is_none() {
+                // Module installation belongs to this exact maintenance operation;
+                // its immutable hash joins the schema witness before activation.
+                store.install_study_module().await?;
+            }
+            match settlement {
+                Some(path) => store.activate_definitions(path).await,
+                None if schemas.is_empty() => store.validate_definitions().await,
+                None => store.validate_definition_files(schemas).await,
+            }
+        }.await;
         // This owner finishes both drivers even when validation refuses. A
         // successful body alone never establishes enclosing physical cleanup.
         let drained = store.disconnect().await;
