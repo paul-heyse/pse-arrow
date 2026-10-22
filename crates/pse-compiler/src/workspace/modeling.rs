@@ -543,6 +543,7 @@ impl CompilerWorkspace {
                 restored.publish_modeling_revision(prior)?;
             }
             restored.generation = generation;
+            restored.retention_snapshot = None;
             *self = restored;
         }
         candidate
@@ -654,6 +655,7 @@ impl CompilerWorkspace {
                 restored.publish_modeling_revision(prior)?;
             }
             restored.generation = generation;
+            restored.retention_snapshot = None;
             *self = restored;
         }
         result

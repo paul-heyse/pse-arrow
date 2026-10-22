@@ -1100,7 +1100,7 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         generation,
         0,
         "ordinary reference publication retains its generation; retained={:?}",
-        workspace.retention_usage()
+        { let s = workspace.observe_retention(); (s.entries, s.known_bytes) }
     );
     let prepare_reference = |workspace: &mut CompilerWorkspace| {
         workspace
@@ -1224,7 +1224,7 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
             &unrelated.admitted.bodies[key].math
         ));
     }
-    let (entries, bytes) = workspace.retention_usage();
+    let (entries, bytes) = { let s = workspace.observe_retention(); (s.entries, s.known_bytes) };
     assert!(entries <= workspace.limits.retained_entries, "{entries}");
     assert!(bytes <= workspace.limits.retained_bytes, "{bytes}");
 }
@@ -1282,7 +1282,7 @@ fn generation_bounds_survive_edit_deletion_and_root_switch_churn() {
         if n % 20 == 0 {
             escaped.push(product);
         }
-        let (entries, bytes) = workspace.retention_usage();
+        let (entries, bytes) = { let s = workspace.observe_retention(); (s.entries, s.known_bytes) };
         assert!(
             entries <= workspace.limits.retained_entries,
             "iteration {n}: {entries}"
@@ -1391,4 +1391,50 @@ fn receiving_model_refreshes_worker_error_locations_while_sharing_numerical_prog
             "the cached program must not retain the old source range"
         );
     }
+}
+
+#[test]
+fn retention_observation_is_exclusive_owned_and_explicitly_fresh() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+    ).unwrap();
+    assert_eq!(workspace.retention_snapshot(), None);
+    let first = workspace.observe_retention();
+    assert!(first.entries > 0);
+    assert!(first.metadata_bytes > 0);
+    workspace.db.synthetic_write(salsa::Durability::LOW);
+    // Read-only diagnostics expose the old observation rather than cancelling readers.
+    assert_eq!(workspace.retention_snapshot(), Some(first));
+    assert_eq!(workspace.retention_usage(), Some((first.entries, first.known_bytes)));
+    assert_eq!(workspace.metadata_bytes(), Some(first.metadata_bytes));
+    let next = workspace.observe_retention();
+    assert_ne!(next.revision, first.revision);
+    assert_eq!(next.observation, first.observation + 1);
+    assert_eq!(next.generation, workspace.generation());
+    // Admission refreshes even when diagnostics were already available.
+    workspace.admit_live_root(0, 0).unwrap();
+    assert!(workspace.retention_snapshot().unwrap().observation > next.observation);
+}
+
+#[test]
+fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+    ).unwrap();
+    let reader = workspace.db.clone();
+    let token = reader.cancellation_token();
+    let (ready, started) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        ready.send(()).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !token.is_cancelled() {
+            assert!(std::time::Instant::now() < deadline, "observation did not cancel reader");
+            std::thread::yield_now();
+        }
+        drop(reader);
+    });
+    started.recv().unwrap();
+    let observed = workspace.observe_retention();
+    worker.join().unwrap();
+    assert_eq!(workspace.retention_snapshot(), Some(observed));
 }
