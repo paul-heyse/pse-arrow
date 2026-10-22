@@ -344,21 +344,11 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
             .bind(("manifest",manifest.row().key.clone())).bind(("digest",manifest.row().digest.clone()))
             .bind(("completion",surrealdb::types::Bytes::from(vec![42])))
             .await.unwrap().check().unwrap();
-        let mut candidates = bounded_query(store.db.query("SELECT key FROM canonical_memberships WHERE problem=$problem AND to_sequence!=NONE LIMIT 1;")
-            .bind(("problem",old.problem.clone()))).await.unwrap();
-        let mut row = candidates.take::<Vec<Object>>(0).unwrap().remove(0);
-        let candidate =
-            canonical_codec::decode_string(canonical_codec::required(&mut row, "key").unwrap())
-                .unwrap();
         let collector = held(&options).await;
         let mut response = collector
-            .query(body(&RECLAIM.replace(
-                "/* DELETE_VERSION */",
-                crate::canonical_staging::DELETE_VERSION,
-            )))
+            .query("RETURN fn::pse_retention_v1::source_step($pse_rpc_expires_at,$problem);")
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", old.problem.clone()))
-            .bind(("candidate", candidate))
             .await
             .unwrap()
             .check()
@@ -399,7 +389,7 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
         .unwrap();
         // Rebuild every collector premise through the production path after a
         // definite SSI abort; a committed collector receives the same recheck.
-        let page = store.reclaim_page(&old.problem, "").await.unwrap();
+        let page = store.reclaim_source_page(&old.problem).await.unwrap();
         assert!(page.examined > 0);
         assert_eq!((page.memberships, page.versions), (0, 0));
         let pin = store.protect(old, Duration::from_secs(60)).await.unwrap();
@@ -567,12 +557,15 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
                 .edit("source", Some("second"), "third", &[edit("v2")])
                 .await
                 .unwrap();
-            store.forget_history(&old).await.unwrap();
-            let mut candidates=bounded_query(store.db.query("SELECT key FROM canonical_memberships WHERE problem=$problem AND to_sequence!=NONE LIMIT 1;").bind(("problem",old.problem.clone()))).await.unwrap();
-            let mut row = candidates.take::<Vec<Object>>(0).unwrap().remove(0);
-            let candidate =
-                canonical_codec::decode_string(canonical_codec::required(&mut row, "key").unwrap())
-                    .unwrap();
+            // Withdraw only the root so the held native transactions below,
+            // rather than foreground cleanup, determine the collector's commit.
+            bounded_query(store.db.query(DROP_ROOT)
+                .bind(("problem", old.problem.clone()))
+                .bind(("revision", old.key.clone()))
+                .bind(("root", format!("history:{}", old.key)))
+                .bind(("owner_kind", "history"))
+                .bind(("owner", old.key.clone())))
+                .await.unwrap();
             let creator = held(&options).await;
             let (key, _) = grant(&store, &old, 30_000_000).await;
             if pin {
@@ -604,13 +597,9 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
             }
             let collector = held(&options).await;
             collector
-                .query(body(&RECLAIM.replace(
-                    "/* DELETE_VERSION */",
-                    crate::canonical_staging::DELETE_VERSION,
-                )))
+                .query("RETURN fn::pse_retention_v1::source_step($pse_rpc_expires_at,$problem);")
                 .bind(("pse_rpc_expires_at", expiry()))
                 .bind(("problem", old.problem.clone()))
-                .bind(("candidate", candidate))
                 .await
                 .unwrap()
                 .check()
@@ -1275,16 +1264,11 @@ async fn exact_dispatched_source_renewal_and_expired_pin_reclaim_both_orders() {
             .edit("source", Some("second"), "third", &[edit("v2")])
             .await
             .unwrap();
-        store.forget_history(&revision).await.unwrap();
         let pin = store
             .protect(revision.clone(), Duration::from_secs(2))
             .await
             .unwrap();
-        let mut candidates=bounded_query(store.db.query("SELECT key FROM canonical_memberships WHERE problem=$problem AND to_sequence!=NONE LIMIT 1;").bind(("problem",revision.problem.clone()))).await.unwrap();
-        let mut row = candidates.take::<Vec<Object>>(0).unwrap().remove(0);
-        let candidate =
-            canonical_codec::decode_string(canonical_codec::required(&mut row, "key").unwrap())
-                .unwrap();
+        store.forget_history(&revision).await.unwrap();
         let renewal = held(&options).await;
         renewal
             .query(format!(
@@ -1311,13 +1295,9 @@ async fn exact_dispatched_source_renewal_and_expired_pin_reclaim_both_orders() {
         tokio::time::sleep(Duration::from_millis(2100)).await;
         let collector = held(&options).await;
         collector
-            .query(body(&RECLAIM.replace(
-                "/* DELETE_VERSION */",
-                crate::canonical_staging::DELETE_VERSION,
-            )))
+            .query("RETURN fn::pse_retention_v1::source_step($pse_rpc_expires_at,$problem);")
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", revision.problem.clone()))
-            .bind(("candidate", candidate))
             .await
             .unwrap()
             .check()

@@ -1955,32 +1955,7 @@ IF $lease.closed = false { UPDATE type::record('canonical_stages', $operation) S
 /// Shared physical deletion decision. Caller supplies its enclosing retention
 /// transaction and $version/$excluded_membership/$excluded_stage bindings. A named
 /// version guard fences newly associated stages even across different problems.
-pub(crate) const DELETE_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $version);
-SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $members = SELECT key FROM canonical_memberships WHERE version = $version AND ($excluded_membership = NONE OR key != $excluded_membership) LIMIT 1;
-LET $stages = SELECT key FROM canonical_staged_edits WHERE version = $version AND ($excluded_stage = NONE OR stage != $excluded_stage)
-    AND type::record('canonical_stages', stage).activated = false AND type::record('canonical_stages', stage).abandoned = false
-    AND type::record('canonical_stages', stage).expires_at > time::micros() LIMIT 1;
-LET $products = SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1;
-LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array::len($products) != 0 {
-    {version:false, blocks:0dec, edges:0dec, pending:false}
-} ELSE {
-    LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
-    UPDATE type::record('canonical_version_manifests', $version) SET closed = false;
-    LET $blocks = SELECT key FROM canonical_payload_blocks WHERE version = $version ORDER BY ordinal LIMIT 64;
-    LET $edges = SELECT key FROM canonical_edges WHERE source_version = $version ORDER BY ordinal LIMIT 64;
-    FOR $block IN $blocks { DELETE ONLY type::record('canonical_payload_blocks', $block.key) RETURN NONE; };
-    FOR $edge IN $edges { DELETE ONLY type::record('canonical_edges', $edge.key); };
-    LET $remaining_blocks = SELECT key FROM canonical_payload_blocks WHERE version = $version LIMIT 1;
-    LET $remaining_edges = SELECT key FROM canonical_edges WHERE source_version = $version LIMIT 1;
-    IF array::len($remaining_blocks) = 0 AND array::len($remaining_edges) = 0 {
-        DELETE ONLY type::record('canonical_version_manifests', $version);
-        {version:$manifest != NONE, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:false}
-    } ELSE {
-        {version:false, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:true}
-    };
-};
-UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
+pub(crate) const DELETE_VERSION: &str = "LET $deleted = fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at,$version,$excluded_membership,$excluded_stage);";
 
 /// One bounded abandoned/activated-stage cleanup call. Compact operation and
 /// version identity receipts survive completion of all child frontiers.

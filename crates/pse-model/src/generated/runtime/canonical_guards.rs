@@ -21,6 +21,8 @@ pub struct RuntimeCanonicalGuardsRow {
     pub r#artifact_creation_closed_through: Option<u64>,
     ///protection_closed_through
     pub r#protection_closed_through: Option<u64>,
+    ///source_reclaim_after
+    pub r#source_reclaim_after: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalGuardsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -38,6 +40,10 @@ impl crate::SemanticEq for RuntimeCanonicalGuardsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#protection_closed_through,
                 &other.r#protection_closed_through,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#source_reclaim_after,
+                &other.r#source_reclaim_after,
             )
     }
 }
@@ -62,6 +68,8 @@ impl crate::SemanticFrame for RuntimeCanonicalGuardsRow {
         crate::SemanticFrame::frame(&self.r#artifact_creation_closed_through, hash);
         hash.str(stringify!(r#protection_closed_through));
         crate::SemanticFrame::frame(&self.r#protection_closed_through, hash);
+        hash.str(stringify!(r#source_reclaim_after));
+        crate::SemanticFrame::frame(&self.r#source_reclaim_after, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalGuardsRow {
@@ -79,5 +87,6 @@ impl crate::HeapUsage for RuntimeCanonicalGuardsRow {
             .saturating_add(
                 crate::HeapUsage::heap_bytes(&self.r#protection_closed_through),
             )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_reclaim_after))
     }
 }

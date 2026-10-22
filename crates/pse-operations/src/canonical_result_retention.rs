@@ -5,7 +5,7 @@
 
 use crate::{
     canonical::transport::{original_deadline, within_clock},
-    canonical::{CanonicalError, CanonicalStore, protected_query},
+    canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_codec,
 };
 use surrealdb::types::Object;
@@ -35,13 +35,33 @@ fn identity(key: &str) -> Result<(), CanonicalError> {
 }
 
 impl CanonicalStore {
+    // Only fixed local queries select original source owners; no caller-supplied
+    // table/field or inferred result unit grants reclamation authority. Reading
+    // this hint is postcommit: unavailable detail defers GC, never the mutation.
+    async fn reclaim_result_source_after_commit(&self, key: &str, query: &'static str, deadline: tokio::time::Instant) {
+        crate::canonical_retention::postcommit_cleanup(deadline, "canonical_result_retention::postcommit_source_owner_deferred", async {
+        let problem = crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
+            let mut response = bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, query).bind(("key",key.to_owned()))).await?;
+            let row = response.take::<Option<Object>>(0)?;
+            row.map(|mut row| canonical_codec::decode_string(canonical_codec::required(&mut row,"problem")?).map_err(CanonicalError::from)).transpose()
+        }).await;
+        match problem {
+            Ok(Some(problem)) => self.reclaim_source_after_commit(&problem, deadline).await,
+            Ok(None) => {},
+            Err(error) => return Err(error),
+        }
+        Ok(())
+        }).await;
+    }
+
     /// Withdraw a terminal study's retention obligation without deleting its
     /// scientific occurrence and outcome receipts. Individual runs are retired
     /// explicitly, and protected readers and retained analyses still prevent it.
     pub async fn forget_study_results(&self, study: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+        let deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        within_clock(deadline, async {
             identity(study)?;
             self.ensure_writes()?;
             loop {
@@ -52,7 +72,9 @@ impl CanonicalStore {
                 if response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)? { break; }
             }
             Ok(())
-        }).await
+        }).await?;
+        self.reclaim_result_source_after_commit(study, "SELECT problem FROM ONLY type::record('canonical_studies',$key);", deadline).await;
+        Ok(())
             }).await
     }
     /// Retire an analysis and remove one bounded page of owned state.
@@ -61,6 +83,8 @@ impl CanonicalStore {
     pub async fn forget_analysis_results(&self, analysis: &str) -> Result<bool, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
+        let deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        let complete = within_clock(deadline, async {
         identity(analysis)?;
         self.ensure_writes()?;
         let mut response = protected_query("canonical_result_retention::forget_analysis_results", || {
@@ -71,9 +95,11 @@ impl CanonicalStore {
         let mut row = response
             .take::<Option<Object>>(index)?
             .ok_or(CanonicalError::IncompleteResponse)?;
-        Ok(canonical_codec::decode_boolean(canonical_codec::required(
-            &mut row, "complete",
-        )?)?)
+        let complete = canonical_codec::decode_boolean(canonical_codec::required(&mut row,"complete")?)?;
+        Ok(complete)
+        }).await?;
+        self.reclaim_result_source_after_commit(analysis, "SELECT primary_problem AS problem FROM ONLY type::record('canonical_analyses',$key);", deadline).await;
+        Ok(complete)
             }).await
     }
     /// Resolve an uncertain final acknowledgement using the original immutable intent.
@@ -103,11 +129,12 @@ impl CanonicalStore {
     /// and no live reader, retained study or analysis needs them. This atomically
     /// fences future claims/reads and releases every selected run source root.
     /// Repeating it resumes the same retirement after an uncertain acknowledgment.
-    pub async fn forget_run_results(&self, run: &str) -> Result<(), CanonicalError> {
+    pub async fn forget_run_results(&self, run: &str) -> Result<ResultReclamationPage, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
+        let deadline = original_deadline(crate::canonical::REQUEST_TIMEOUT);
         within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            deadline,
             async {
                 identity(run)?;
                 self.ensure_writes()?;
@@ -125,7 +152,11 @@ impl CanonicalStore {
                 }
             },
         )
-        .await
+        .await?;
+        self.reclaim_result_source_after_commit(run, "SELECT problem FROM ONLY type::record('canonical_runs',$key);", deadline).await;
+        Ok(crate::canonical_retention::postcommit_cleanup(deadline,
+            "canonical_result_retention::postcommit_result_page_deferred",
+            self.reclaim_result_page(run)).await)
             }).await
     }
     /// Reclaim at most one payload and 64 indexes of each supported class. A
@@ -287,15 +318,16 @@ mod canonical_result_retention_server_unit {
         assert_eq!(payload.batch.payload.as_slice(), [0, 17]);
         drop(payload);
         // The last returned buffer releases its admitted protection asynchronously.
-        let mut retired = false;
+        let mut retired = None;
         for _ in 0..32 {
-            if store.forget_run_results(&request.key).await.is_ok() {
-                retired = true;
+            if let Ok(page) = store.forget_run_results(&request.key).await {
+                retired = Some(page);
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(retired);
+        let retired = retired.expect("the drained reader permits retirement");
+        assert_eq!(retired.batches, 1, "retirement drives one foreground page");
         assert!(store.read_results(&request.key, &attempt).await.is_err());
         assert!(store.begin_run(&request).await.is_err());
         assert!(
@@ -318,7 +350,7 @@ mod canonical_result_retention_server_unit {
             1
         );
         // A reopened handle continues the recorded cleanup cursor without re-solving.
-        assert_eq!(cleanup(&store.clone(), &request.key).await, (2, 1));
+        assert_eq!(cleanup(&store.clone(), &request.key).await, (1, 1));
         assert!(
             store
                 .reclaim_result_page(&request.key)
@@ -592,7 +624,7 @@ mod canonical_result_retention_server_unit {
             .join_pending_releases()
             .await
             .unwrap();
-        store.forget_run_results(&request.key).await.unwrap();
+        let retired = store.forget_run_results(&request.key).await.unwrap();
         assert_eq!(
             artifact_read.block(0).await.unwrap().payload.as_slice(),
             &[0, 17]
@@ -613,8 +645,8 @@ mod canonical_result_retention_server_unit {
             assert!(!store.forget_analysis_results(&header.key).await.unwrap());
         }
 
-        store.forget_run_results(&request.key).await.unwrap();
-        let mut reclaimed = 0;
+        let continued = store.forget_run_results(&request.key).await.unwrap();
+        let mut reclaimed = retired.batches + continued.batches;
         for _ in 0..70 {
             let page = store.reclaim_result_page(&request.key).await.unwrap();
             reclaimed += page.batches;
@@ -656,6 +688,7 @@ mod canonical_result_retention_server_unit {
                 store.forget_run_results(&request.key)
             );
             assert!(!(read.is_ok() && retired.is_ok()));
+            let mut foreground = retired.ok();
             if let Ok(read) = read {
                 assert_eq!(
                     store
@@ -669,13 +702,17 @@ mod canonical_result_retention_server_unit {
                 );
                 drop(read);
                 for _ in 0..32 {
-                    if store.forget_run_results(&request.key).await.is_ok() {
+                    if let Ok(page) = store.forget_run_results(&request.key).await {
+                        foreground = Some(page);
                         break;
                     }
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 }
             }
-            assert_eq!(cleanup(&store, &request.key).await, (3, 1));
+            let foreground = foreground.expect("retirement follows the drained reader");
+            assert_eq!(foreground.batches, 1);
+            let rest = cleanup(&store, &request.key).await;
+            assert_eq!((foreground.batches + rest.0, foreground.sets + rest.1), (3, 1));
         }
         assert_eq!(store.database(), database);
         store.remove_isolated_fixture().await.unwrap();

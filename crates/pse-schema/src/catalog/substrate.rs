@@ -393,6 +393,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("analysis_creation_closed_through", uint()).optional(),
                 column("artifact_creation_closed_through", uint()).optional(),
                 column("protection_closed_through", uint()).optional(),
+                column("source_reclaim_after", text()).optional(),
             ],
             "Named conflict register; generation is separate from semantic eligibility.",
         ),

@@ -1545,7 +1545,8 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
+                let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
+                let revision = within_clock(deadline, async {
                     self.ensure_writes()?;
                     let stage = match self
                         .stage_edits(problem, expected, operation, edits)
@@ -1556,13 +1557,7 @@ impl CanonicalStore {
                         }
                         crate::canonical_staging::StageOutcome::Closed(stage) => stage,
                     };
-                    let result = match authority {
-                        Some(authority) => {
-                            self.activate_source_stage_authorized(&stage, Some(authority))
-                                .await
-                        }
-                        None => self.activate_source_stage(&stage).await,
-                    };
+                    let result = self.activate_source_stage_mutation(&stage, authority, deadline).await;
                     if authority.is_some()
                         && result
                             .as_ref()
@@ -1572,21 +1567,40 @@ impl CanonicalStore {
                     }
                     result
                 })
-                .await
+                .await?;
+                self.reclaim_source_after_commit(&revision.problem, deadline).await;
+                Ok(revision)
             })
             .await
     }
     /// Activate only the caller's closed source stage under its generation and head fences.
+    #[cfg(all(test, feature = "canonical-tests"))]
     pub(crate) async fn activate_source_stage(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
         self.activate_source_stage_authorized(stage, None).await
     }
+    #[cfg(all(test, feature = "canonical-tests"))]
     pub(crate) async fn activate_source_stage_authorized(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+    ) -> Result<Revision, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
+            let revision = self.activate_source_stage_mutation(stage, authority, deadline).await?;
+            self.reclaim_source_after_commit(&revision.problem, deadline).await;
+            Ok(revision)
+        }).await
+    }
+    // The enclosing edit owns its one postcommit page outside the mutation clock.
+    async fn activate_source_stage_mutation(
+        &self,
+        stage: &crate::canonical_staging::ClosedStage,
+        authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+        deadline: tokio::time::Instant,
     ) -> Result<Revision, CanonicalError> {
         let admission = authority
             .map(|authority| authority.encode())
@@ -1594,7 +1608,6 @@ impl CanonicalStore {
             .unwrap_or(Value::None);
         let activity = self.admit_activity()?;
         activity.scope(async {
-        let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
         within_clock(deadline, async {
         let mut attempt=0;
             loop {
@@ -1644,8 +1657,8 @@ impl CanonicalStore {
 
             }
             let revision = self.revision(&stage.operation).await?;
-            return revision
-                .ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()));
+            let revision = revision.ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()))?;
+            return Ok(revision);
         }
         }).await
             }).await
@@ -5267,7 +5280,7 @@ mod canonical_server_unit {
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
-                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None, artifact_creation_closed_through: None };
+                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None, artifact_creation_closed_through: None, source_reclaim_after: None };
                 let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.map_err(CanonicalError::from).and_then(checked)?;
                 let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);

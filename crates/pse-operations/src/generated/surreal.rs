@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v7";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "13cb6d63adeac6bdb080f9688580d1fef0fc7aa61b543c9f500758acf1707a2a";
+pub const SCHEMA_DIGEST: &str = "3aba016421cc6997c4fa59750819143f73d04118d0c9c3f157a08abf177b6b1a";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -1563,6 +1563,13 @@ pub fn encode_canonical_guards(
                 crate::canonical_codec::encode_uint(*value)?,
             );
     }
+    if let Some(value) = &row.r#source_reclaim_after {
+        object
+            .insert(
+                "source_reclaim_after",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -1599,6 +1606,10 @@ pub fn decode_canonical_guards(
         r#protection_closed_through: match object.remove("protection_closed_through") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_uint(value)?),
+        },
+        r#source_reclaim_after: match object.remove("source_reclaim_after") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
         },
     };
     if let Some(native_id) = native_id {

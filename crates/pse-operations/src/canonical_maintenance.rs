@@ -569,6 +569,73 @@ mod tests {
 
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
+    async fn generated_maintenance_pages_fence_generations_and_replay_exact_effects() {
+        use crate::canonical::RefusalCode;
+        let store = crate::testing::canonical_fixture_store().unwrap();
+        async fn call(store: &CanonicalStore, expression: &str) -> Result<Value, CanonicalError> {
+            let mut response = bounded_query(store.db.query(format!(
+                "BEGIN; RETURN {expression}; COMMIT;"
+            ))).await?;
+            let index = response.num_statements().saturating_sub(2);
+            response.take(index).map_err(Into::into)
+        }
+        let mut gate = bounded_query(store.db.query(
+            "RETURN canonical_file_admission:current.storage_incarnation;"
+        )).await.unwrap();
+        let incarnation = crate::canonical_codec::decode_string(gate.take::<Value>(0).unwrap()).unwrap();
+        let incarnation = serde_json::to_string(&incarnation).unwrap();
+        let claim = |generation: &str, previous: &str| format!(
+            "fn::pse_maintenance_v1::claim(time::micros()+30000000,'rotation',\
+            '{generation}','rebuilding',{incarnation},{incarnation},{previous})"
+        );
+        assert!(matches!(call(&store, &claim("g1", "NONE")).await,
+            Err(CanonicalError::Refused { code: RefusalCode::MaintenanceFrozenPlacementRequired, .. })));
+        bounded_query(store.db.query(
+            "BEGIN; UPDATE ONLY canonical_file_admission:current SET frozen=true,gc_frozen=true; \
+            FOR $key IN ['retention:maintenance-a','retention:maintenance-b','retention:maintenance-c'] { \
+                CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=0dec,incarnation=string::concat('original:',$key); \
+            }; COMMIT;"
+        )).await.unwrap();
+        let first_owner = call(&store, &claim("g1", "NONE")).await.unwrap();
+        assert!(matches!(call(&store, &claim("g2", "NONE")).await,
+            Err(CanonicalError::Refused { code: RefusalCode::MaintenanceGenerationChanged, .. })));
+        let page = |generation: &str, after: &str| format!(
+            "fn::pse_maintenance_v1::page(time::micros()+30000000,'rotation',\
+            '{generation}','rebuilding','rotate',{})", serde_json::to_string(after).unwrap()
+        );
+        let first_page = call(&store, &page("g1", "")).await.unwrap();
+        let inventory = "RETURN SELECT key,generation,incarnation FROM canonical_guards \
+            WHERE string::starts_with(key,'retention:maintenance-') ORDER BY key;";
+        let mut response = bounded_query(store.db.query(inventory)).await.unwrap();
+        let first_effect: Value = response.take(0).unwrap();
+        assert_eq!(call(&store, &page("g1", "")).await.unwrap(), first_page);
+        let previous = "{operation:'rotation',generation:'g1',phase:'rebuilding'}";
+        call(&store, &claim("g2", previous)).await.unwrap();
+        assert!(matches!(call(&store, &page("g1", "")).await,
+            Err(CanonicalError::Refused { code: RefusalCode::MaintenanceGenerationChanged, .. })));
+        assert_eq!(call(&store, &page("g2", "")).await.unwrap(), first_page);
+        assert!(matches!(call(&store, &page("g2", "unrelated-cursor")).await,
+            Err(CanonicalError::Refused { code: RefusalCode::MaintenanceOriginalInputsDiffer, .. })));
+        let mut response = bounded_query(store.db.query(inventory)).await.unwrap();
+        let replayed_effect: Value = response.take(0).unwrap();
+        assert_eq!(replayed_effect, first_effect, "lost acknowledgements cannot rotate authority twice");
+        let Value::Array(rows) = first_effect else { panic!("guard inventory must be an array") };
+        assert_eq!(rows.len(), 3);
+        for row in rows {
+            let Value::Object(mut row) = row else { panic!("guard row must be an object") };
+            let key = crate::canonical_codec::decode_string(row.remove("key").unwrap()).unwrap();
+            assert_eq!(crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(), 1);
+            assert_ne!(crate::canonical_codec::decode_string(row.remove("incarnation").unwrap()).unwrap(), format!("original:{key}"));
+        }
+        let Value::Object(mut expected) = first_owner else { panic!("maintenance owner must be an object") };
+        expected.insert("generation", "g2");
+        assert_eq!(Value::Object(expected), call(&store,
+            "fn::pse_maintenance_v1::current(time::micros()+30000000)").await.unwrap());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
     async fn native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events() {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = super::super::CanonicalOptions::from_state(Path::new(&state)).unwrap();

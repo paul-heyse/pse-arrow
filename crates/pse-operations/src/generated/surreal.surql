@@ -174,6 +174,7 @@ DEFINE FIELD incarnation ON canonical_guards TYPE option<string>;
 DEFINE FIELD analysis_creation_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD artifact_creation_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD protection_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD source_reclaim_after ON canonical_guards TYPE option<string>;
 DEFINE TABLE canonical_history_identities SCHEMAFULL;
 DEFINE FIELD key ON canonical_history_identities TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD category ON canonical_history_identities TYPE string;
@@ -2028,6 +2029,86 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET terminal = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
+};
+
+
+// One physical source-deletion decision shared by stage and membership cleanup.
+DEFINE FUNCTION fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at:int,$version:string,$excluded_membership:option<string>,$excluded_stage:option<string>) -> object {
+LET $version_guard = type::record('canonical_guards', 'version:' + $version);
+SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+LET $members = SELECT key FROM canonical_memberships WHERE version = $version AND ($excluded_membership = NONE OR key != $excluded_membership) LIMIT 1;
+LET $stages = SELECT key FROM canonical_staged_edits WHERE version = $version AND ($excluded_stage = NONE OR stage != $excluded_stage)
+    AND type::record('canonical_stages', stage).activated = false AND type::record('canonical_stages', stage).abandoned = false
+    AND type::record('canonical_stages', stage).expires_at > time::micros() LIMIT 1;
+LET $products = SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1;
+LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array::len($products) != 0 {
+    {version:false, blocks:0dec, edges:0dec, pending:false}
+} ELSE {
+    LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
+    UPDATE type::record('canonical_version_manifests', $version) SET closed = false;
+    LET $blocks = SELECT key FROM canonical_payload_blocks WHERE version = $version ORDER BY ordinal LIMIT 64;
+    LET $edges = SELECT key FROM canonical_edges WHERE source_version = $version ORDER BY ordinal LIMIT 64;
+    FOR $block IN $blocks { DELETE ONLY type::record('canonical_payload_blocks', $block.key) RETURN NONE; };
+    FOR $edge IN $edges { DELETE ONLY type::record('canonical_edges', $edge.key); };
+    LET $remaining_blocks = SELECT key FROM canonical_payload_blocks WHERE version = $version LIMIT 1;
+    LET $remaining_edges = SELECT key FROM canonical_edges WHERE source_version = $version LIMIT 1;
+    IF array::len($remaining_blocks) = 0 AND array::len($remaining_edges) = 0 {
+        DELETE ONLY type::record('canonical_version_manifests', $version);
+        {version:$manifest != NONE, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:false}
+    } ELSE {
+        {version:false, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:true}
+    };
+};
+UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;
+    RETURN $deleted;
+};
+
+// Cursor and the candidate's full fresh decision commit in the same native transaction.
+DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$problem:string) -> object {
+    fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
+    LET $guard = type::record('canonical_guards','retention:'+$problem);
+    LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
+    fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+    IF $position=NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
+    LET $after = $position.source_reclaim_after ?? '';
+    LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$after AND to_sequence!=NONE ORDER BY key LIMIT 1;
+    IF array::len($candidates)=0 {
+        UPDATE ONLY $guard SET source_reclaim_after=NONE,generation=generation+1dec;
+        RETURN {done:true,after:NONE,membership:false,version:false,edges:0dec,blocks:0dec,pending:false};
+    };
+    LET $candidate = $candidates[0].key;
+LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate) FOR UPDATE;
+LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_sequence = NONE {
+    {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
+} ELSE {
+    LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
+    IF $head = NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
+    LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
+    LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
+    FOR $pin_key IN $pin_page {
+        SELECT * FROM ONLY type::record('canonical_protections',$pin_key.key) FOR UPDATE;
+        IF $pin_key.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin_key.key) { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
+    };
+    LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin.key));
+    IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
+        {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
+    } ELSE IF array::len($pin_page)=64 {
+        {membership:false,version:false,edges:0dec,blocks:0dec,pending:true}
+    } ELSE {
+        UPSERT type::record('canonical_reclaimed_ranges', $candidate) SET key = $candidate, problem = $problem, from_sequence = $member.from_sequence, to_sequence = $member.to_sequence;
+        LET $version = $member.version;
+        LET $excluded_membership = $candidate;
+        LET $excluded_stage = NONE;
+        LET $deleted = fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at,$version,$excluded_membership,$excluded_stage);
+        IF $deleted.pending = false { DELETE ONLY type::record('canonical_memberships', $candidate); };
+        {membership:!$deleted.pending, version:$deleted.version, edges:$deleted.edges, blocks:$deleted.blocks, pending:$deleted.pending}
+    };
+};
+
+    LET $next = IF $result.pending { $after } ELSE { $candidate };
+    UPDATE ONLY $guard SET source_reclaim_after=$next,generation=generation+1dec;
+    fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+    RETURN object::extend($result,{done:false,after:$next});
 };
 
 // Settlement closes acquisition authority before deleting any per-grant row.

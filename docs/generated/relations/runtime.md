@@ -438,6 +438,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `analysis_creation_closed_through` | `UInt64` | true | `payload` | — | — |
 | `artifact_creation_closed_through` | `UInt64` | true | `payload` | — | — |
 | `protection_closed_through` | `UInt64` | true | `payload` | — | — |
+| `source_reclaim_after` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_history_identities`
 
