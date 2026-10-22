@@ -151,40 +151,40 @@ not a backlog to reopen. No changes to their historical outcomes are required.
 
 ## Package state
 
-All entries are proposed work. Package acceptance includes migrating actual consumers and
+The entire target is authorized for implementation. Current delivery and acceptance state is recorded below; package acceptance includes migrating actual consumers and
 deleting replaced paths/tests when the replacement is verified. Routine naming and file layout
 remain implementation judgment within each companion's contracts.
 
 | Package | Status | Owner | Required capability / completion |
 | --- | --- | --- | --- |
-| A01 | planned | [50a](50a-session-and-environment-integration.md#A01) | One-time machine activation preserves nested workload/compiler/native selections |
-| A02 | planned | [50a](50a-session-and-environment-integration.md#A02) | Explicit selected-store and Rust navigation session attachment; literal Codex overrides |
-| A03 | planned | [50a](50a-session-and-environment-integration.md#A03) | Configured/enabled/attached/readiness states and current operating guidance |
-| B01 | planned | [50b](50b-change-scoping-and-development-feedback.md#B01) | Rust and Python semantic navigation plus explicit cross-boundary impact leads |
-| B02 | planned | [50b](50b-change-scoping-and-development-feedback.md#B02) | Task-shaped command/context retrieval with selective output and native owners |
-| B03 | planned | [50b](50b-change-scoping-and-development-feedback.md#B03) | Actual compile/link/cache/lock/admission feedback without inferred lock ownership |
-| B04 | planned | [50b](50b-change-scoping-and-development-feedback.md#B04) | Bounded semantic-index/agent-knowledge decision with a concrete retrieval consumer |
-| C01 | planned | [50c](50c-execution-inspection-and-lifecycle.md#C01) | Shared invocation/subject/artifact projection on existing authorities |
-| C02 | planned | [50c](50c-execution-inspection-and-lifecycle.md#C02) | Read-only wait/owner/park explanations with producer-owned transient wait facts |
-| C03 | planned | [50c](50c-execution-inspection-and-lifecycle.md#C03) | Product-test reader over current selection/report/terminal/drain/resource evidence |
-| C04 | planned | [50c](50c-execution-inspection-and-lifecycle.md#C04) | One-owner reference workflow returns separate execution and teardown outcomes |
-| C05 | planned | [50c](50c-execution-inspection-and-lifecycle.md#C05) | Explicit abandonment/release under existing drain/reference/unknown-effect rules |
-| D01 | planned | [50d](50d-database-diagnostics-and-query-development.md#D01) | Production-owned readiness query/schema/index/plan inspection |
-| D02 | planned | [50d](50d-database-diagnostics-and-query-development.md#D02) | Authenticated identity-bound MX/server snapshots and honest comparisons |
-| D03 | planned | [50d](50d-database-diagnostics-and-query-development.md#D03) | Source-mapped exact-parser and compatible advisory LSP feedback |
-| D04 | planned | [50d](50d-database-diagnostics-and-query-development.md#D04) | Disposable query/index/schema rehearsal through existing SurrealKit owners |
-| D05 | planned | [50d](50d-database-diagnostics-and-query-development.md#D05) | Structured scoped logs and existing query-statistic retrieval, explicit restart effects |
-| D06 | planned | [50d](50d-database-diagnostics-and-query-development.md#D06) | Close optional telemetry/MCP/graph/engine-tool decisions with scoped outcomes |
-| E01 | planned | [50e](50e-native-and-python-diagnostics.md#E01) | Action-specific active-diagnostic subjects/results and direct tool capability checks |
-| E02 | planned | [50e](50e-native-and-python-diagnostics.md#E02) | Mixed-language stacks and actual-host crash/core inspection |
-| E03 | planned | [50e](50e-native-and-python-diagnostics.md#E03) | Scheduling capture plus owner/thread/clock interpretation |
-| E04 | planned | [50e](50e-native-and-python-diagnostics.md#E04) | Cooperative actual-executor task dump and independently observable noncompletion |
-| E05 | planned | [50e](50e-native-and-python-diagnostics.md#E05) | Selected Heaptrack/native allocation workflow and Memray coverage decision |
-| E06 | planned | [50e](50e-native-and-python-diagnostics.md#E06) | Concrete rr/deeper-counter feasibility and adopt/no-adopt disposition |
-| F01 | planned | [50f](50f-preparation-explanations-and-reproducers.md#F01) | Source/edit/query/product comparison with no invented invalidation cause |
-| F02 | planned | [50f](50f-preparation-explanations-and-reproducers.md#F02) | Structured physical observation prerequisite and math/engine before-after explanations |
-| F03 | planned | [50f](50f-preparation-explanations-and-reproducers.md#F03) | Supported frozen-context extraction through owned reconstruction/admission codecs |
-| F04 | planned | [50f](50f-preparation-explanations-and-reproducers.md#F04) | Small local diagnostic/reproducer controls, coordinated with existing acceptance |
+| A01 | in-progress | [50a](50a-session-and-environment-integration.md#A01) | One-time machine activation preserves nested workload/compiler/native selections |
+| A02 | in-progress | [50a](50a-session-and-environment-integration.md#A02) | Explicit selected-store and Rust navigation session attachment; literal Codex overrides |
+| A03 | in-progress | [50a](50a-session-and-environment-integration.md#A03) | Configured/enabled/attached/readiness states and current operating guidance |
+| B01 | in-progress | [50b](50b-change-scoping-and-development-feedback.md#B01) | Rust and Python semantic navigation plus explicit cross-boundary impact leads |
+| B02 | in-progress | [50b](50b-change-scoping-and-development-feedback.md#B02) | Task-shaped command/context retrieval with selective output and native owners |
+| B03 | in-progress | [50b](50b-change-scoping-and-development-feedback.md#B03) | Actual compile/link/cache/lock/admission feedback without inferred lock ownership |
+| B04 | decision selected | [50b](50b-change-scoping-and-development-feedback.md#B04) | Bounded semantic-index/agent-knowledge decision with a concrete retrieval consumer |
+| C01 | in-progress | [50c](50c-execution-inspection-and-lifecycle.md#C01) | Shared invocation/subject/artifact projection on existing authorities |
+| C02 | in-progress | [50c](50c-execution-inspection-and-lifecycle.md#C02) | Read-only wait/owner/park explanations with producer-owned transient wait facts |
+| C03 | in-progress | [50c](50c-execution-inspection-and-lifecycle.md#C03) | Product-test reader over current selection/report/terminal/drain/resource evidence |
+| C04 | in-progress | [50c](50c-execution-inspection-and-lifecycle.md#C04) | One-owner reference workflow returns separate execution and teardown outcomes |
+| C05 | in-progress | [50c](50c-execution-inspection-and-lifecycle.md#C05) | Explicit abandonment/release under existing drain/reference/unknown-effect rules |
+| D01 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D01) | Production-owned readiness query/schema/index/plan inspection |
+| D02 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D02) | Authenticated identity-bound MX/server snapshots and honest comparisons |
+| D03 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D03) | Source-mapped exact-parser and compatible advisory LSP feedback |
+| D04 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D04) | Disposable query/index/schema rehearsal through existing SurrealKit owners |
+| D05 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D05) | Structured scoped logs and existing query-statistic retrieval, explicit restart effects |
+| D06 | in-progress | [50d](50d-database-diagnostics-and-query-development.md#D06) | Close optional telemetry/MCP/graph/engine-tool decisions with scoped outcomes |
+| E01 | in-progress | [50e](50e-native-and-python-diagnostics.md#E01) | Action-specific active-diagnostic subjects/results and direct tool capability checks |
+| E02 | in-progress | [50e](50e-native-and-python-diagnostics.md#E02) | Mixed-language stacks and actual-host crash/core inspection |
+| E03 | in-progress | [50e](50e-native-and-python-diagnostics.md#E03) | Scheduling capture plus owner/thread/clock interpretation |
+| E04 | in-progress | [50e](50e-native-and-python-diagnostics.md#E04) | Cooperative actual-executor task dump and independently observable noncompletion |
+| E05 | in-progress | [50e](50e-native-and-python-diagnostics.md#E05) | Selected Heaptrack/native allocation workflow and Memray coverage decision |
+| E06 | in-progress | [50e](50e-native-and-python-diagnostics.md#E06) | Concrete rr/deeper-counter feasibility and adopt/no-adopt disposition |
+| F01 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F01) | Source/edit/query/product comparison with no invented invalidation cause |
+| F02 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F02) | Structured physical observation prerequisite and math/engine before-after explanations |
+| F03 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F03) | Supported frozen-context extraction through owned reconstruction/admission codecs |
+| F04 | in-progress | [50f](50f-preparation-explanations-and-reproducers.md#F04) | Small local diagnostic/reproducer controls, coordinated with existing acceptance |
 | G01 | planned | [50g](50g-qualification-and-publication.md#G01) | Final actual consumer/contract/decision selection before composed qualification |
 | G02 | planned | [50g](50g-qualification-and-publication.md#G02) | Six representative composed workflows and negative cases |
 | G03 | planned | [50g](50g-qualification-and-publication.md#G03) | Relevant zero-target scope-end static/manual checks, failures repaired |
@@ -226,18 +226,18 @@ Do not leave a failed feasibility check as an unowned promise to investigate lat
 
 | Inquiry | State | Owner | Question and evidence | Adoption / no-adoption consequence |
 | --- | --- | --- | --- | --- |
-| I01 | open | B01 | Existing maintained adapter for pinned Pyrefly LSP; actual generated-stub/facade/PyO3 journey | Integrate usable navigation; if a bridge is needed, use a maintained LSP client and narrow queries, not a new semantic authority |
-| I02 | open | D03 | Exact 3.3.4 parser versus selected LSP grammar/builtins on real queries | Adopt advisory checking with explicit gaps, or retain exact-parser feedback and explain unavailable semantic assistance |
+| I01 | adopted; integration qualification open | B01 | Pinned mcpls 0.8.0 with checkout Pyrefly and pinned rust-analyzer; actual client resolved Python facade and Rust definition/reference/implementation requests | Replaces the selected session’s Rust-only bridge and supplies Python navigation without another type checker. Generated-boundary composed journey remains G02 work. |
+| I02 | no-adopt 0.6.3 | D03 | Exact LSP release 0.6.3 rejects actual engine-valid production and generated schema forms; a readiness-only workspace can appear falsely clean | Retain exact selected-engine parser and source/binding feedback. Revisit when the LSP handles this pinned parser’s production/schema forms; no second language authority. |
 | I03 | open | E02 | CPython perf/JIT and py-spy coverage on one real Python/Rust/native journey | Choose useful complementary captures; keep unsupported thread/symbol populations explicit |
 | I04 | open | E03 | Scheduling tracepoint permission, clock/thread association and useful summary | Unavailability can settle the inquiry but leaves the required workflow unfinished until a supported alternative or explicitly accepted scope change; CPU evidence is complementary |
 | I05 | open | E04 | Actual executor cooperation, issued-request cancellation/lifetime and independent observation of a wedged runtime | Adopt bounded task dumps with target-side ownership through settlement; collector exit is not dump drain. Console remains optional for a demonstrated question |
 | I06 | open | E05 | Heaptrack/Memray actual allocator coverage and matching symbol requirements | Deliver supported attribution; reject exact operation-private peaks and unsupported allocator coverage |
 | I07 | open | F03 | Which complete frozen representations reconstruct executable requests through existing codecs? | Deliver named supported extraction; missing executable/provider/source premises refuse, never guessed conversion |
-| I08 | open | D06 | Does one owned cross-process capture yield useful OTLP correlation through gRPC/Surrealism? | Adopt useful scoped capture or record gaps/no-adopt; no automatic permanent stack |
-| I09 | open | B04 | Does semantic indexing/selective agent knowledge answer a concrete retrieval question beyond native routes? | Adopt a derived scoped mechanism only if useful; otherwise close with direct native retrieval |
+| I08 | selected; operator integration open | D06 | Owned actual gRPC request exported server executor to Surrealism parent/child spans; application Rust trace context was absent | Deliver explicit finite on-demand capture with that application-side correlation gap. No permanent telemetry stack. |
+| I09 | no additional index | B04 | Actual maintained mcpls symbol/reference queries plus bounded catalogue/source leads resolve the current TaskDumpTicket/Runtime owner and consumer question | Use native LSP and derived context; an extra indexed graph would duplicate current source reach without resolving dynamic PyO3 correspondence. Revisit a repeated diagnosed retrieval gap, not a periodic index campaign. |
 | I10 | open | E06 | Does rr support a compact actual FFI failure process tree on this host? | Integrate a direct recipe if useful; otherwise close as unsupported/no-adopt, never use it for parallel timing |
-| I11 | open | D06 | Do GQL/graph plans, server Console or upstream language harness add a useful current consumer? | Use only selected feature/transport/test scope; no engine switch or whole upstream campaign |
-| I12 | open | D06 | Is a new operations MCP or persistent telemetry platform warranted after owner commands exist? | Initially use direct commands/native MCP; explicit no-adopt is a complete outcome absent a demonstrated consumer |
+| I11 | no additional deployment | D06 | Current canonical graph consumer uses actual production SQL and native plans; no diagnosed missing GQL behavior, engine defect or server-task question requires another deployment | Keep graph/Console/upstream harness as explicit future choices on a concrete unanswered question; no engine switch or whole upstream campaign. |
+| I12 | no-adopt | D06 | Actual native MCP database reads and structured owner commands cover the current operator consumers | No extra operations MCP or permanent telemetry platform. Revisit a repeated structured interaction gap that existing commands cannot serve. |
 
 ### Additional overview leads and alternatives
 
@@ -306,7 +306,19 @@ recorded with exclusions; enduring operation/contract meaning is published throu
 An unavailable optional tool is an honest inquiry outcome, not permission to mark a required
 workflow delivered without its explicitly supported alternative or narrowed scope.
 
-Current checkpoint: the maintainer authorized all Plan50 scope on 2026-10-22. Environment/session, host lifecycle, database and preparation implementation are underway; composed acceptance and scope-end qualification remain open. The first
-executable work after authorization is A01 plus the independent C01/E01 contract slices and
-ready B/D/F source-owned work. Other active plans keep their own checkpoints. Authoring evidence
-and any later plan changes must not overwrite historical source-review judgments or old receipts.
+Current checkpoint: the maintainer authorized all Plan50 scope on 2026-10-22. Discrete
+commits deliver selected session attachment, native metrics, restricted query rehearsal,
+run/wait/build inspection, reference composition and missing-terminal abandonment. Maintained
+Rust/Pyrefly navigation now has actual client evidence. The explicit bounded retrospective route
+projects checkout/time-scoped diagnostic leads without copying raw prompts or environments.
+
+Database query/graph/log/trace consumers, structured preparation comparisons, supported executable
+reproduction and active host/executor diagnostics are being integrated and tested. The canonical
+graph slice consumes Plan49g TOOL08 without closing the remainder of that plan. Root VIEWER and
+disposable rehearsal controls retain their own conditions; they do not qualify all database work.
+The user’s cargo clean interrupted two active checks; those missing-output failures require reruns,
+not source repairs. Cold compile work is underway. Ordinary and diagnostic Python builds remain
+separate; the coherent ordinary editable extension must be restored before mixed-language journeys.
+Scheduler trace collection requires actual host permission; CPU evidence does not satisfy it.
+Composed acceptance, final generation, scope-end hygiene/manual checks and enduring publication
+remain open. No enclosing completion or quantitative effectiveness claim is made.

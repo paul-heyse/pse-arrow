@@ -9,7 +9,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from scripts import affected, document_lifecycle, document_metadata
+from scripts import affected, document_lifecycle, document_metadata, session_retrospective
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -100,6 +100,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scope", action="store_true")
     parser.add_argument("--changed", action="store_true")
     parser.add_argument("--symbol", help="bounded catalogue/native/facade/stub/test source leads")
+    parser.add_argument("--retrospective", action="store_true", help="explicit bounded checkout/time log observation")
+    parser.add_argument("--hours", type=float, default=24)
+    parser.add_argument("--sessions", type=Path, default=Path.home() / '.codex/sessions')
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--json", action="store_true")
@@ -109,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
                           changes=args.changed, offset=args.offset, limit=args.limit)
         if args.symbol:
             result['boundary_leads'] = boundary_leads(args.symbol, limit=args.limit)
+        if args.retrospective:
+            result['retrospective'] = session_retrospective.inspect(args.sessions, ROOT, hours=args.hours)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"context: unavailable: {error}\n")
     if args.json:
