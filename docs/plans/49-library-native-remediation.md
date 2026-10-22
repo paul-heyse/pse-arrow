@@ -242,6 +242,8 @@ overlap; counts are not a grand total. Earlier STO01–08 evidence retains its o
 | `python -m unittest scripts.tests.test_surrealism_module scripts.tests.test_surreal_server scripts.tests.test_host_admission` | 312 passed, zero failed; 32.2s. Packaging, source/profile binding, activation/deadlines/capacity and authenticated historical-launch settlement. |
 | `just py-sync-native-correctness`; `just py-unit` on document hooks, standalone wire, generated contracts/edit codec, `-n 0` and task-private basetemp | Extension/stub validation passed; 52 Python controls passed, zero failed, 1.04s. Initial global pytest-temp ownership error was environmental; private basetemp rerun and `just ready` passed without changing global temp ownership. |
 | `just native-python build/plan49-native-python-final-20261022 -m 'unit or component or integration' -n 0`, seven selected result/lifetime/review/reload/Arrow node IDs, private basetemp | 6 passed, 1 failed, 86.96s. The failed canonical-result fixture omitted required standalone document headers. After repair its exact integration node passed in `build/plan49-native-python-result-repair-20261022`, 74.32s. Composite acceptance is six unchanged passes plus one repaired pass, not a clean seven-test rerun. |
+| Force-validated `pse-canonical-recovery <selected-state> --seed-signal-results --signal-results-receipt <receipt>` | Passed. Only two one-row files are created; exact joined batch identity/statistics, consecutive ordinals, distinct file instances and page exhaustion are checked. Protection release and connection disconnect complete before return. Receipt `/tmp/plan49-seed-signal-results-repaired-20261022.json`; no recovery/crash/backup campaign runs. |
+| `python -m pse.tests.canonical_signal_control --state <selected-state> --fixture-receipt <two-file receipt> --exclusive-owned-instance 0a7d4aa4-fee0-429a-a95f-fa224a749dc7 --spill-directory build/plan49-final-signal-pull-spill`, actual installed force-validated native extension | Passed; `/tmp/plan49-final-signal-pull.json`. Actual stopped-server owned-response boundary, original KeyboardInterrupt/cause, reader discard, retained grant until resume, joined pull, exact ticket release/result collection and escaped one-row Arrow ownership. The owned server is resumed; no unrelated service is signaled. |
 
 Selected clients/native children drained through their actual owners. The three ordinary
 operations controls record runner-owned drain as unobserved; the later authenticated server
@@ -287,7 +289,9 @@ four import contracts have zero broken contracts, REUSE covers 11,775 files and 
 passes. Generator publication and final `just governance` pass include complete codegen
 comparison/family checks. Focused `just check-package pse-runtime --features pse-runtime/canonical-tests`
 also passes with zero warnings without native features, after matching two helper cfgs to
-their solver callers. Final global Ruff passes after the Python fixture correction. Documentation
+their solver callers. The repaired recovery fixture's exact `canonical-tools,canonical-tests`
+force-validated bin compile/build and all-target Clippy also pass with zero warnings/errors.
+Final global Ruff passes after the Python fixture correction. Documentation
 publication passes with 590 chapters; lifecycle validation passes with zero errors over 1,011
 scope items and five declared exclusions. `just turn-end` passes ADR index/formatting. The final
 feature powerset remains running at this checkpoint. Repaired leaf passes do not imply a fresh
@@ -311,6 +315,15 @@ settlement on both sides of commit. Duplicate fixture identities and missing Pyt
 headers were repaired without weakening production validation. Earlier failures remain failed
 attempts, including initial enclosing-clock initialization failures before normal initialization
 of the exact final target passed.
+
+The independent tooling feature matrix exposed a remaining signal-control fixture caller
+missed by the earlier source census, which omitted `xtask`. Four feature combinations failed
+with the same absent statistics field/retired API root cause. The fixture now admits actual
+batch facts and consumes the joined protected page, preserving its original distinct-file/
+ordinal assertions and adding exact identity/statistics/exhaustion checks. The expanded census
+includes `xtask` and finds no old public page callers. The exact compiled/Clippy graph, bounded
+CLI and current entered-pull SIGINT control pass; the full matrix records post-repair coverage
+separately. Earlier matrix failures are not relabeled successful.
 
 ### Deviations from the plan, deliberate
 

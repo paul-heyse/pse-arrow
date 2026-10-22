@@ -852,6 +852,9 @@ module and tampered read-only backend; authenticated initialization/stop/drain/r
 native predicate/pruning plan replace scalar locators, public legacy block paging and repeated
 physical planning. Full file/batch admission, conservative IEEE/null pruning, residual-before-limit,
 original coordinates, escaped Arrow ownership, protected retirement and durable reopen remain.
+The current two-file public entered-pull SIGINT control preserves the original exception/cause,
+retains response ownership while the owned server is paused, and releases the exact ticket and
+results after joined pull and server resumption.
 Direct resolved bodies, generated semantic handles, complete dependency indexes and query-owned
 local fragments replace rendered reconstruction. Final root scientific obligations remain.
 Salsa 0.28.5 exclusive nullable accounting plus shared-owner census supports finite 131,072-entry/
