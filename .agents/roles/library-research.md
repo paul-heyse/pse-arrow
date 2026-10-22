@@ -24,8 +24,10 @@ README; (2) the source of the active native-solver-libraries skill when explicit
 skills stay repository-independent: no repository names, paths, ADRs or design sections; one writer
 per skill; do not edit other skills or the store's own files unless assigned); (3) scratch outside
 the repository. Never edit production code, tests, design documents, ADRs, plans, STATUS, pins,
-configuration, generated paths or another worker's folder. Do not commit, push or run `just turn-end`
-or `just ready` unless assigned. List every file written in the return. A brief may narrow these
+configuration, generated paths or another worker's folder. The coordinator owns the shared index
+and regular discrete commits under AGENTS.md; hand off coherent evidence promptly. Do not
+independently commit, push or run `just turn-end` or `just ready` unless assigned.
+List every file written in the return. A brief may narrow these
 permissions, never widen them. Use existing probes as evidence within their original scope.
 
 For consequential absence claims, report the search coverage and unresolved alternatives. Surface
