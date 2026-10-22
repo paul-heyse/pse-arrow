@@ -304,7 +304,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | STO08 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: selected assembled durability/native/Python/interruption journeys, repaired hygiene, full Clippy/manual/feature checks and installed handoff; store Outcome and limits. |
 | RES01 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES02 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES03 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
+| RES03 | in-progress | [49b](49b-protected-results-and-selection.md) | Scalar locators and consumers retired on v8; selected canonical controls passed; assembled result acceptance remains with RES06/QUAL. |
 | RES04 | superseded | [49b](49b-protected-results-and-selection.md) | Maintainer waived existing-data preservation; no historical backfill is required |
 | RES05 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES06 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
@@ -427,7 +427,7 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I16 | resolved — retain admitted ownership and sizing | RES / RUN08 | Arrow claim tracks existing backing with an infallible reservation and replaces a shared per-buffer owner; it cannot replace fallible preflight or imported lease custody. Project HeapUsage and generated rows already account their actual structures; shared result facts retain one owner. | No additional pool or sizing crate. Revisit a concrete unsupported allocation/graph lifecycle with fallible admission, no double charge, last-alias custody and measured overhead; DataFusion structure sizing alone is not an admission proof. |
 | I17 | resolved — fresh sessions | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
 | I18 | resolved — fixed independent criteria | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon, independently of physical stationarity and covariance qualification. Five actual LM controls passed, including the original-policy comparison and cosine/stationarity disagreement; retained public result reopening also passed. | Keep exact profile/replay identity and effective work caps. Wider scientific and Python qualification remains RUN09/QUAL scope; no public tuning knobs or speed claim. |
-| I19 | open | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Generate each actual build catalogue/expected Python identity; identical catalogues share identity, unrelated feature bits do not change it. |
+| I19 | resolved — identical selected catalogues | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Actual default and linked-native force-validated extensions share the generated catalogue identity; future exported-shape variation must generate its actual identity. No all-feature-powerset claim. |
 | I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
 | I21 | resolved — retain hub and internal module | TOOL06 | Actual no-layer/current-hub/candidate-layer steady and fit results/covariance agree bitwise. Attributed spans reach the candidate, but the actual native.worker phase has no corresponding candidate span; bounded state drains on completion, future drop and panic. A separate tooling crate would currently require a runtime/catalogue dependency seam; no independent build benefit is established. | No Layer substrate or new crate adoption. Keep the current hub and corrected internal dependency boundary; no speed or overhead improvement is claimed. |
 | I22 | resolved — no additional adoption | RUN04 / MAT06 | Reached Simulation/Fit overlays are parameter-valued; typed point replacement does not define IC constraints, schedule topology or observation provenance. Existing IDAReInit/IDASensReInit and bounded neutral storage reuse are already consumed. Current structural scopes already serve their reached consumers. | Retain those paths. Revisit a named new input meaning or measured compatible setup burden, with separate identity/history decisions and fresh-contract reset controls. No universal bit equivalence or performance benefit is established. |
@@ -810,9 +810,14 @@ custody. The public source-reclamation continuation is part of the same compiled
 Full generation and the complete native Python compile passed. Twenty-one targeted
 native-local controls passed against the zero baseline, including document headers,
 parameter-valued simulation IC/trajectory/replay/schedule behavior, LM policy, submitted
-receipts and tear coordinate receipts. Installed-extension Python behavior and the actual
-default/full-native catalogue comparison remain open; these checks do not qualify every
-exported root or the assembled product.
+receipts and tear coordinate receipts. Actual default and linked-native force-validated
+extensions now build and generate their stubs, and their direction-qualified catalogue
+fingerprints agree. The installed linked-native extension passes 43 standalone-wire,
+private-edit, solve-settings and native-boundary units plus two physical-input units,
+against the zero-failure baseline. Initial failures exposed missing identity hooks in
+private edit conversion and stale root/body, input/output and optional-name fixture
+assumptions; those are corrected. These checks do not qualify every exported root,
+every feature combination or the assembled product.
 
 RUN09 implements fixed independent library-relative cost, step and cosine criteria,
 effective work caps, FitProfileV6 and ReplayDocument3. Five LM controls cover the actual
@@ -831,10 +836,23 @@ root/pin races. The combined nineteen-control selection initially had seventeen 
 and two fixture failures; the corrected pair then passed. One fixture incorrectly reused
 a unique guard incarnation; another expected withdrawal to restart the cursor instead
 of resuming the six-candidate tail after a protected 64-candidate page. Their corrected
-assertions preserve uniqueness and exact continuation, rather than changing production
-semantics. The actual protected-pruning pair passed, releasing the prerequisite for
-scalar locator retirement; that deletion and interpretation change are the next source
-cutover. Native protected-file maintenance phases and assembled qualification remain open.
+assertions preserve uniqueness and exact continuation. The actual protected-pruning pair
+released scalar locator retirement. Its relation, indexes, append/replay/collection
+machinery and callers are now deleted with complete generated substrate-v8 outputs.
+Fresh v8 state is initialized and authenticated startup passes. The v8 canonical
+selection initially passed 21 of 23 controls; both corrected lifetime controls then
+passed separately. One now includes the foreground retirement receipt in its exact
+one-batch total. The other checks actual charged buffer custody and unchanged scalar
+bits through packing, while allowing obsolete source-container metadata to retire.
+Selected scope includes provider pruning, historical manifests, retained arrays,
+protected reads/exports and append ACK ownership. Native protected-file maintenance
+phases and assembled qualification remain open.
+
+Supported initialization exposed ordinary managed command parents that could not hand
+work to native children. The command parent now authenticates its exact registered
+cgroup, invocation and inode before establishing foreground custody; it gains no native
+reuse authority. Seventeen targeted controls passed, including actual-kernel normal and
+original-deadline descendant drain. All owned test scopes and allocations were released.
 PRE04's direct production rewrite, exact attribution and compiler/portable consumers
 remain the larger open functional dependency; its temporary drafts are uncompiled and
 have not replaced the production path.
