@@ -94,6 +94,36 @@ pub(crate) fn referenced_relation<'a>(
 mod durability_unit {
     use super::*;
     #[test]
+    fn scientific_product_completeness_is_specific_to_the_admitted_family() {
+        let registry = crate::catalog::assemble().unwrap();
+        let member = |name: &str| registry.relation(name).unwrap().id;
+        let static_final = registry.artifact_profile("final-state-modeling").unwrap();
+        let transient_final = registry.artifact_profile("final-state-simulation").unwrap();
+        assert!(static_final.contains(&member("runtime.solve_variables")));
+        assert!(!static_final.contains(&member("runtime.trajectory_endpoints")));
+        assert!(transient_final.contains(&member("runtime.trajectory_endpoints")));
+        assert!(!transient_final.contains(&member("runtime.solve_variables")));
+        let modeled = registry
+            .artifact_profile("local-analysis-modeling")
+            .unwrap();
+        let fitted = registry.artifact_profile("local-analysis-fit").unwrap();
+        assert!(modeled.contains(&member("runtime.parametric_sensitivities")));
+        assert!(!modeled.contains(&member("runtime.fit_observations")));
+        assert!(fitted.contains(&member("runtime.fit_observations")));
+        assert!(!fitted.contains(&member("runtime.parametric_sensitivities")));
+        for profile in [static_final, transient_final, modeled, fitted] {
+            for name in [
+                "runtime.scientific_contexts",
+                "runtime.candidate_assessments",
+                "runtime.run_lineage",
+            ] {
+                assert!(profile.contains(&member(name)));
+            }
+        }
+        assert!(registry.artifact_profile("trajectory").is_none());
+    }
+
+    #[test]
     fn product_roots_do_not_select_all_stages_and_support_closes_idempotently() {
         let registry = crate::catalog::assemble().unwrap();
         let roots = registry.artifact_profile("source").unwrap();

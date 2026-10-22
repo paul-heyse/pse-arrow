@@ -2522,6 +2522,14 @@ class ScaleKind(StrEnum):
     DIFFERENCE = "difference"
 
 
+class ScientificArtifactFamily(StrEnum):
+    """The declared ScientificArtifactFamily enumeration."""
+
+    MODELING = "modeling"
+    SIMULATION = "simulation"
+    FIT = "fit"
+
+
 class ScientificArtifactKind(StrEnum):
     """The declared ScientificArtifactKind enumeration."""
 

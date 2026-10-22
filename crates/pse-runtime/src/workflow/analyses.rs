@@ -1454,7 +1454,7 @@ impl Runtime {
     /// construction out of the polling frame avoids moving its concrete RPC state
     /// through each surrounding ownership scope; the same read leases remain held.
     #[inline(never)]
-    fn select_result_analysis<'a>(
+    pub(super) fn select_result_analysis<'a>(
         &'a self,
         run: &'a str,
         attempt: &'a str,

@@ -2522,6 +2522,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `point` | `` | false |
 | `difference` | `` | false |
 
+## `ScientificArtifactFamily`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `modeling` | `` | false |
+| `simulation` | `` | false |
+| `fit` | `` | false |
+
 ## `ScientificArtifactKind`
 
 | Member | IDAES name | Deprecated |

@@ -13,6 +13,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "ScientificArtifactKind",
         ["final-state", "trajectory", "local-analysis"],
     );
+    enumeration(
+        builder,
+        "ScientificArtifactFamily",
+        ["modeling", "simulation", "fit"],
+    );
     enumeration(builder, "ArtifactOwnerKind", ["user", "project", "audit"]);
     enumeration(
         builder,

@@ -136,6 +136,14 @@ async fn publish(runtime: &Runtime, evidence: ResponseEvidence) -> FixtureResult
         )?,
         batch(runtime, vec![assessment])?,
         batch(runtime, vec![lineage])?,
+        batch::<pse_relations::generated::runtime::resolved_numerics::Row>(runtime, vec![])?,
+        batch::<pse_relations::generated::runtime::modeling_checks::Row>(runtime, vec![])?,
+        batch::<pse_relations::generated::runtime::modeling_reports::Row>(runtime, vec![])?,
+        batch::<pse_relations::generated::runtime::modeling_findings::Row>(runtime, vec![])?,
+        batch::<pse_relations::generated::runtime::modeling_trajectory_modes::Row>(
+            runtime,
+            vec![],
+        )?,
     ];
     let pool = runtime.shared.pool();
     let acks = super::super::durable::PublicationAcks::new(&pool);

@@ -10,7 +10,7 @@ pub struct ScientificRelation {
     /// Qualified name used at external relation boundaries.
     pub name: &'static str,
 }
-const REQUIRED_FINAL_STATE: [ScientificRelation; 11usize] = [
+const REQUIRED_FINAL_STATE_MODELING: [ScientificRelation; 9usize] = [
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
             9u8, 192u8, 7u8, 103u8, 252u8, 91u8, 227u8, 73u8, 254u8, 250u8, 142u8, 98u8,
@@ -25,6 +25,57 @@ const REQUIRED_FINAL_STATE: [ScientificRelation; 11usize] = [
         ]),
         name: "runtime.solve_variables",
     },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8, 223u8,
+            153u8, 229u8, 52u8, 130u8, 193u8,
+        ]),
+        name: "runtime.candidate_assessments",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            94u8, 229u8, 194u8, 28u8, 157u8, 162u8, 196u8, 140u8, 163u8, 26u8, 241u8,
+            142u8, 158u8, 115u8, 4u8, 54u8,
+        ]),
+        name: "runtime.modeling_findings",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            117u8, 94u8, 47u8, 185u8, 134u8, 56u8, 220u8, 238u8, 78u8, 164u8, 68u8,
+            254u8, 28u8, 182u8, 127u8, 198u8,
+        ]),
+        name: "runtime.scientific_contexts",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            141u8, 102u8, 42u8, 204u8, 117u8, 51u8, 211u8, 223u8, 19u8, 60u8, 2u8, 176u8,
+            191u8, 91u8, 213u8, 98u8,
+        ]),
+        name: "runtime.modeling_reports",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            166u8, 157u8, 234u8, 196u8, 148u8, 125u8, 22u8, 34u8, 31u8, 4u8, 81u8, 204u8,
+            122u8, 69u8, 187u8, 41u8,
+        ]),
+        name: "runtime.run_lineage",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            193u8, 53u8, 39u8, 35u8, 81u8, 204u8, 26u8, 37u8, 102u8, 249u8, 197u8, 121u8,
+            159u8, 235u8, 213u8, 8u8,
+        ]),
+        name: "runtime.modeling_checks",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8, 169u8,
+            226u8, 173u8, 43u8, 163u8,
+        ]),
+        name: "runtime.resolved_numerics",
+    },
+];
+const REQUIRED_FINAL_STATE_SIMULATION: [ScientificRelation; 9usize] = [
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
             37u8, 85u8, 88u8, 138u8, 192u8, 92u8, 104u8, 154u8, 29u8, 126u8, 106u8, 24u8,
@@ -89,7 +140,7 @@ const REQUIRED_FINAL_STATE: [ScientificRelation; 11usize] = [
         name: "runtime.resolved_numerics",
     },
 ];
-const REQUIRED_TRAJECTORY: [ScientificRelation; 13usize] = [
+const REQUIRED_TRAJECTORY_SIMULATION: [ScientificRelation; 13usize] = [
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
             37u8, 85u8, 88u8, 138u8, 192u8, 92u8, 104u8, 154u8, 29u8, 126u8, 106u8, 24u8,
@@ -182,7 +233,7 @@ const REQUIRED_TRAJECTORY: [ScientificRelation; 13usize] = [
         name: "runtime.response_sensitivities",
     },
 ];
-const REQUIRED_LOCAL_ANALYSIS: [ScientificRelation; 22usize] = [
+const REQUIRED_LOCAL_ANALYSIS_MODELING: [ScientificRelation; 15usize] = [
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
             9u8, 192u8, 7u8, 103u8, 252u8, 91u8, 227u8, 73u8, 254u8, 250u8, 142u8, 98u8,
@@ -199,24 +250,10 @@ const REQUIRED_LOCAL_ANALYSIS: [ScientificRelation; 22usize] = [
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
-            38u8, 238u8, 176u8, 153u8, 79u8, 7u8, 108u8, 167u8, 177u8, 103u8, 240u8,
-            139u8, 82u8, 196u8, 219u8, 180u8,
+            33u8, 93u8, 44u8, 54u8, 195u8, 92u8, 58u8, 227u8, 196u8, 12u8, 28u8, 255u8,
+            206u8, 54u8, 183u8, 147u8,
         ]),
-        name: "runtime.response_directions",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
-            68u8, 176u8, 56u8, 124u8, 206u8, 138u8, 85u8, 188u8, 92u8, 122u8, 1u8, 155u8,
-            100u8, 117u8, 138u8, 118u8,
-        ]),
-        name: "runtime.computation_runs",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
-            72u8, 80u8, 229u8, 187u8, 141u8, 59u8, 124u8, 11u8, 116u8, 112u8, 248u8,
-            108u8, 61u8, 88u8, 247u8, 71u8,
-        ]),
-        name: "runtime.fit_observations",
+        name: "runtime.solve_variables",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
@@ -252,6 +289,92 @@ const REQUIRED_LOCAL_ANALYSIS: [ScientificRelation; 22usize] = [
             134u8, 18u8, 113u8, 186u8, 123u8,
         ]),
         name: "runtime.parametric_sensitivities",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            133u8, 1u8, 112u8, 132u8, 219u8, 139u8, 70u8, 210u8, 81u8, 178u8, 59u8,
+            132u8, 172u8, 182u8, 116u8, 218u8,
+        ]),
+        name: "runtime.solve_metrics",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8, 157u8, 19u8,
+            95u8, 3u8, 57u8, 68u8,
+        ]),
+        name: "runtime.local_validity",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            141u8, 102u8, 42u8, 204u8, 117u8, 51u8, 211u8, 223u8, 19u8, 60u8, 2u8, 176u8,
+            191u8, 91u8, 213u8, 98u8,
+        ]),
+        name: "runtime.modeling_reports",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            156u8, 250u8, 14u8, 201u8, 248u8, 30u8, 115u8, 206u8, 244u8, 134u8, 120u8,
+            95u8, 97u8, 103u8, 158u8, 25u8,
+        ]),
+        name: "runtime.propagated_covariances",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            166u8, 157u8, 234u8, 196u8, 148u8, 125u8, 22u8, 34u8, 31u8, 4u8, 81u8, 204u8,
+            122u8, 69u8, 187u8, 41u8,
+        ]),
+        name: "runtime.run_lineage",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            193u8, 53u8, 39u8, 35u8, 81u8, 204u8, 26u8, 37u8, 102u8, 249u8, 197u8, 121u8,
+            159u8, 235u8, 213u8, 8u8,
+        ]),
+        name: "runtime.modeling_checks",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8, 169u8,
+            226u8, 173u8, 43u8, 163u8,
+        ]),
+        name: "runtime.resolved_numerics",
+    },
+];
+const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            38u8, 238u8, 176u8, 153u8, 79u8, 7u8, 108u8, 167u8, 177u8, 103u8, 240u8,
+            139u8, 82u8, 196u8, 219u8, 180u8,
+        ]),
+        name: "runtime.response_directions",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            68u8, 176u8, 56u8, 124u8, 206u8, 138u8, 85u8, 188u8, 92u8, 122u8, 1u8, 155u8,
+            100u8, 117u8, 138u8, 118u8,
+        ]),
+        name: "runtime.computation_runs",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            72u8, 80u8, 229u8, 187u8, 141u8, 59u8, 124u8, 11u8, 116u8, 112u8, 248u8,
+            108u8, 61u8, 88u8, 247u8, 71u8,
+        ]),
+        name: "runtime.fit_observations",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8, 223u8,
+            153u8, 229u8, 52u8, 130u8, 193u8,
+        ]),
+        name: "runtime.candidate_assessments",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
+            117u8, 94u8, 47u8, 185u8, 134u8, 56u8, 220u8, 238u8, 78u8, 164u8, 68u8,
+            254u8, 28u8, 182u8, 127u8, 198u8,
+        ]),
+        name: "runtime.scientific_contexts",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
@@ -340,11 +463,30 @@ const REQUIRED_LOCAL_ANALYSIS: [ScientificRelation; 22usize] = [
 ];
 impl super::enums::ScientificArtifactKind {
     /// Complete required membership, including selected empty relations.
-    pub const fn required_relations(self) -> &'static [ScientificRelation] {
-        match self {
-            Self::r#FinalState => &REQUIRED_FINAL_STATE,
-            Self::r#Trajectory => &REQUIRED_TRAJECTORY,
-            Self::r#LocalAnalysis => &REQUIRED_LOCAL_ANALYSIS,
+    pub const fn required_relations(
+        self,
+        family: super::enums::ScientificArtifactFamily,
+    ) -> Option<&'static [ScientificRelation]> {
+        match (self, family) {
+            (Self::r#FinalState, super::enums::ScientificArtifactFamily::r#Modeling) => {
+                Some(&REQUIRED_FINAL_STATE_MODELING)
+            }
+            (
+                Self::r#FinalState,
+                super::enums::ScientificArtifactFamily::r#Simulation,
+            ) => Some(&REQUIRED_FINAL_STATE_SIMULATION),
+            (
+                Self::r#Trajectory,
+                super::enums::ScientificArtifactFamily::r#Simulation,
+            ) => Some(&REQUIRED_TRAJECTORY_SIMULATION),
+            (
+                Self::r#LocalAnalysis,
+                super::enums::ScientificArtifactFamily::r#Modeling,
+            ) => Some(&REQUIRED_LOCAL_ANALYSIS_MODELING),
+            (Self::r#LocalAnalysis, super::enums::ScientificArtifactFamily::r#Fit) => {
+                Some(&REQUIRED_LOCAL_ANALYSIS_FIT)
+            }
+            _ => None,
         }
     }
 }

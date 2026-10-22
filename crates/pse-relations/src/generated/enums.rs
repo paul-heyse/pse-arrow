@@ -58,14 +58,15 @@ pub use pse_model::generated::r#enums::{
     Preconditioner, PresolvePass, PresolvePolicyKind, QuantityAdditionKind,
     QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
     RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, Relationship,
-    ReusePolicy, RowActivity, ScaleKind, ScientificArtifactKind, SensitivityCorrector,
-    Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
-    Stability, StateSign, StatementKind, StructuralScopeKind, StudyAvailability,
-    StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
-    StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
-    StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
-    SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind, TrajectoryTermination,
-    TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
+    ReusePolicy, RowActivity, ScaleKind, ScientificArtifactFamily,
+    ScientificArtifactKind, SensitivityCorrector, Severity, ShootingMethod,
+    SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
+    StatementKind, StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
+    StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState, StudyResultRole,
+    StudyRetryFailure, StudySeedNeed, StudySeedRole, StudySeedUnavailable,
+    StudyStartKind, StudyState, StudyUnavailableSeedPolicy, SubjectRule, TearMethod,
+    TearPolicy, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -5935,6 +5936,35 @@ impl crate::columnar::ArrowValue for ScaleKind {
                 field: stringify!(ScaleKind).to_owned(),
                 enumeration: stringify!(ScaleKind).to_owned(),
                 value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ScientificArtifactFamily {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ScientificArtifactFamily).to_owned(),
+                enumeration: stringify!(ScientificArtifactFamily).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
             })
     }
 }

@@ -21555,6 +21555,114 @@ impl crate::SemanticFrame for ScaleKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ScientificArtifactFamily {
+    ///modeling
+    #[serde(rename = "modeling")]
+    #[strum(serialize = "modeling")]
+    Modeling,
+    ///simulation
+    #[serde(rename = "simulation")]
+    #[strum(serialize = "simulation")]
+    Simulation,
+    ///fit
+    #[serde(rename = "fit")]
+    #[strum(serialize = "fit")]
+    Fit,
+}
+impl crate::SemanticEq for ScientificArtifactFamily {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ScientificArtifactFamily {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Modeling => 0usize,
+            Self::Simulation => 1usize,
+            Self::Fit => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Modeling => None,
+            Self::Simulation => None,
+            Self::Fit => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ScientificArtifactFamily {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ScientificArtifactFamily))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ScientificArtifactFamily)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["modeling", "simulation", "fit"] }
+        )
+    }
+}
+impl ScientificArtifactFamily {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ScientificArtifactFamily),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ScientificArtifactKind {
     ///final-state
     #[serde(rename = "final-state")]
@@ -24925,15 +25033,15 @@ macro_rules! for_each_registry_enum {
         PresolvePass, PresolvePolicyKind, QuantityAdditionKind, QuantityKindCategory,
         QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
         ReductionKind, ReferenceRule, ReferenceStateKind, Relationship, ReusePolicy,
-        RowActivity, ScaleKind, ScientificArtifactKind, SensitivityCorrector, Severity,
-        ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
-        Stability, StateSign, StatementKind, StructuralScopeKind, StudyAvailability,
-        StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
-        StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
-        StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
-        StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TearPolicy,
-        TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-        WeightNormalization, WithheldReason);
+        RowActivity, ScaleKind, ScientificArtifactFamily, ScientificArtifactKind,
+        SensitivityCorrector, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
+        SpralPivot, SpralScaling, Stability, StateSign, StatementKind,
+        StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
+        StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState,
+        StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
+        StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
+        SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind, TrajectoryTermination,
+        TrialPolicy, TruthValue, WeightNormalization, WithheldReason);
     };
 }
 impl crate::HeapUsage for AccuracyCriterionStatus {
@@ -26672,6 +26780,16 @@ impl crate::HeapUsage for RowActivity {
     }
 }
 impl crate::SemanticFrame for RowActivity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ScientificArtifactFamily {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ScientificArtifactFamily {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

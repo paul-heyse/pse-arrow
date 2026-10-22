@@ -118,6 +118,39 @@ pub(super) struct ScientificArtifactSelection {
     pub(super) kind: ScientificArtifactKind,
     pub(super) prepared: Vec<PreparedScientificMember>,
 }
+fn scientific_artifact_family(
+    prepared: &[PreparedScientificMember],
+) -> Result<pse_model::generated::enums::ScientificArtifactFamily, WorkflowError> {
+    let mut contexts = prepared
+        .iter()
+        .filter_map(|member| member.facts.as_ref())
+        .flat_map(|facts| facts.evidence.contexts.iter().map(|context| &context.row));
+    use pse_model::generated::enums::ScientificArtifactFamily;
+    let first = contexts
+        .next()
+        .ok_or_else(|| contract("scientific artifact has no admitted family context"))?;
+    let family = if first.time.is_some() {
+        ScientificArtifactFamily::Simulation
+    } else if first.fit_id.is_some() {
+        ScientificArtifactFamily::Fit
+    } else {
+        ScientificArtifactFamily::Modeling
+    };
+    if std::iter::once(first)
+        .chain(contexts)
+        .any(|context| match family {
+            ScientificArtifactFamily::Simulation => context.time.is_none(),
+            ScientificArtifactFamily::Fit => context.time.is_some() || context.fit_id.is_none(),
+            ScientificArtifactFamily::Modeling => {
+                context.time.is_some() || context.fit_id.is_some() || context.model_id.is_none()
+            }
+        })
+    {
+        return Err(contract("scientific artifact family contexts conflict"));
+    }
+    Ok(family)
+}
+
 pub(super) struct PromotedScientificArtifact {
     pub(super) artifact: ScientificArtifact,
     pub(super) protected: ProtectedScientificInput,
@@ -721,19 +754,13 @@ impl Runtime {
                     .try_grow(128 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let protected = self.select_scientific_input(run, attempt).await?;
+                let mut selection = self
+                    .select_result_analysis(run, attempt, &memory, &cancel)
+                    .await?;
+                selection.kind = kind;
                 let product = self
                     .promote_selected_scientific_artifact(
-                        ScientificArtifactSelection {
-                            protected,
-                            kind,
-                            prepared: Vec::new(),
-                        },
-                        owner_kind,
-                        owner,
-                        &cancel,
-                        &memory,
-                        false,
+                        selection, owner_kind, owner, &cancel, &memory, false,
                     )
                     .await?;
                 Ok(product.artifact)
@@ -772,7 +799,10 @@ impl Runtime {
             let revision = &protected.revision;
             let run = input.run().key.as_str();
             let attempt = input.attempt().key.as_str();
-            let required = kind.required_relations();
+            let family = scientific_artifact_family(&prepared)?;
+            let required = kind.required_relations(family).ok_or_else(|| {
+                contract("scientific artifact kind is unavailable for this family")
+            })?;
             let members = MemoryConsumer::new("canonical:scientific-artifact-member-files")
                 .register(&self.shared.pool());
             let mut copied = Vec::new();
@@ -1114,7 +1144,7 @@ mod tests {
             &physical.quantities,
             &physical.preconditions,
         );
-        let rows=pse_authoring::language::parse("package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; let area:Time=integral(i in t | x[i]/1{s}); annotation report area(\"integral\"); } }",pse_ids::SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+        let rows=pse_authoring::language::parse("package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; let area:Time=integral(i in t | x[i]/1{s}); annotation report area(\"integral\"); } }",pse_ids::SemanticId::from_bytes([71; 16]),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|row| row.name == "Root")
@@ -1300,7 +1330,7 @@ mod tests {
         let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=2; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==1{s}; let hit[i in t]:Time=x[i]-2{s}; } test stopped fixture { dof 0; route integrated; procedure integrate; endpoint fixed_horizon; integrate samples(0{s},0.25{s},0.75{s},2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s}); mode stop; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) terminal; } { child root:Root=Root(); } }";
         let rows = pse_authoring::language::parse(
             source,
-            pse_ids::SemanticId::NIL,
+            pse_ids::SemanticId::from_bytes([71; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         )

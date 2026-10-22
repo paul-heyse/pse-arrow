@@ -606,7 +606,7 @@ mod immutable_reuse_unit {
         );
         assert_eq!(
             registry.fingerprint().to_hex(),
-            "2c482b5299f5e1b14a163df2daa573789c8a11fd4358cd8e95bcdceceea2d3f2"
+            "3263ba92e3ed6d0aa63496a8023d52664b47ab53db02ece518210e8b6fe811ac"
         );
         // These unchanged reachable contracts retain their pre-B01 bytes from
         // ac2438a6c, independently of unrelated additions to the full catalogue.

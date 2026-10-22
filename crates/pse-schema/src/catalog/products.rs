@@ -61,52 +61,49 @@ pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
         "runtime.resolved_numerics".to_owned(),
         "runtime.modeling_checks".to_owned(),
         "runtime.modeling_reports".to_owned(),
-        "runtime.modeling_findings".to_owned(),
     ]);
-    for (kind, relations) in [
-        (
-            "final-state",
-            &[
-                "runtime.trajectory_endpoints",
-                "runtime.computation_runs",
-                "runtime.solve_variables",
-                "runtime.solve_runs",
-            ][..],
-        ),
-        (
-            "trajectory",
-            &[
-                "runtime.trajectory_endpoints",
-                "runtime.simulation_samples",
-                "runtime.simulation_events",
-                "runtime.modeling_trajectory_modes",
-                "runtime.response_sensitivities",
-                "runtime.computation_runs",
-            ][..],
-        ),
-        (
-            "local-analysis",
-            &[
-                "runtime.route_decisions",
-                "runtime.local_validity",
-                "runtime.parametric_sensitivities",
-                "runtime.response_sensitivities",
-                "runtime.reduced_hessians",
-                "runtime.parameter_covariances",
-                "runtime.parameter_intervals",
-                "runtime.profile_points",
-                "runtime.response_directions",
-                "runtime.propagated_covariances",
-                "runtime.fit_parameters",
-                "runtime.fit_observations",
-                "runtime.solve_runs",
-                "runtime.computation_runs",
-                "runtime.solve_metrics",
-            ][..],
-        ),
+    let modeling = [
+        "runtime.solve_variables",
+        "runtime.solve_runs",
+        "runtime.modeling_findings",
+        "runtime.route_decisions",
+        "runtime.local_validity",
+        "runtime.parametric_sensitivities",
+        "runtime.reduced_hessians",
+        "runtime.propagated_covariances",
+        "runtime.solve_metrics",
+    ];
+    let simulation = [
+        "runtime.trajectory_endpoints",
+        "runtime.computation_runs",
+        "runtime.modeling_findings",
+        "runtime.simulation_samples",
+        "runtime.simulation_events",
+        "runtime.modeling_trajectory_modes",
+        "runtime.response_sensitivities",
+    ];
+    let fit = [
+        "runtime.computation_runs",
+        "runtime.fit_parameters",
+        "runtime.fit_observations",
+        "runtime.local_validity",
+        "runtime.response_sensitivities",
+        "runtime.parameter_covariances",
+        "runtime.parameter_intervals",
+        "runtime.profile_points",
+        "runtime.response_directions",
+        "runtime.propagated_covariances",
+        "runtime.solve_metrics",
+    ];
+    for (kind, family, relations) in [
+        ("final-state", "modeling", &modeling[..3]),
+        ("final-state", "simulation", &simulation[..3]),
+        ("trajectory", "simulation", &simulation[..]),
+        ("local-analysis", "modeling", &modeling[..]),
+        ("local-analysis", "fit", &fit[..]),
     ] {
         let mut required = scientific.clone();
         required.extend(relations.iter().map(|name| (*name).to_owned()));
-        builder.declare_artifact_profile(kind, required);
+        builder.declare_artifact_profile(&format!("{kind}-{family}"), required);
     }
 }
