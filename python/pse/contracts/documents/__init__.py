@@ -9,18 +9,13 @@ types are the authority. Every enumeration is a registry vocabulary.
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar, Literal, TypeVar
+from typing import Annotated, ClassVar, Literal
 
 import msgspec
 
-from pse import codec
 from pse.contracts import enums, identities
 from pse.contracts import values as v
-
-_DocumentT = TypeVar("_DocumentT")
-
-def _document_default(value: object, target: type[_DocumentT]) -> _DocumentT:
-    return codec.convert_document(value, target)
+from pse.contracts.values import _convert_document as _document_default
 
 AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
 

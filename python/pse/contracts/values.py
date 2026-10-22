@@ -7,9 +7,10 @@ import builtins as b
 import math
 from collections.abc import Callable, Hashable, Mapping
 from datetime import UTC, datetime
-from typing import Never, Protocol, Self, runtime_checkable
+from typing import Never, Protocol, Self, TypeVar, runtime_checkable
 
 import attrs
+import msgspec
 
 from pse._build import (
     content_hash_from_prefixed,
@@ -57,6 +58,39 @@ class ContentHash(bytes):
 
     def to_prefixed(self) -> str:
         return content_hash_to_prefixed(self)
+
+
+_DocumentT = TypeVar("_DocumentT")
+
+
+def _decode_identity(target: type, value: object) -> object:
+    """Decode declared value identities without importing a boundary consumer."""
+    if target is SemanticId:
+        if isinstance(value, str):
+            return SemanticId.from_hex(value)
+        message = "semantic identity JSON must be hexadecimal text"
+        raise ValueError(message)
+    if target is ContentHash:
+        if isinstance(value, str):
+            return ContentHash.from_prefixed(value)
+        message = "content digest JSON must be blake3-prefixed text"
+        raise ValueError(message)
+    message = f"unsupported document value {target!r}"
+    raise TypeError(message)
+
+
+def _encode_identity(value: object) -> object:
+    if isinstance(value, SemanticId):
+        return value.to_hex()
+    if isinstance(value, ContentHash):
+        return value.to_prefixed()
+    message = f"unsupported document value {type(value)!r}"
+    raise TypeError(message)
+
+
+def _convert_document(value: object, target: type[_DocumentT]) -> _DocumentT:
+    """Internal typed-value construction shared by schema defaults and the codec."""
+    return msgspec.convert(value, type=target, dec_hook=_decode_identity)
 
 
 # These validators inspect only the value. Accept the unused callback context as
