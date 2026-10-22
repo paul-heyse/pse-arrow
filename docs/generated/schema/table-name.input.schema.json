@@ -8,6 +8,11 @@
       "description": "Literal catalog component.",
       "type": "string"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "schema": {
       "description": "Literal schema component.",
       "type": "string"
@@ -20,7 +25,8 @@
   "required": [
     "catalog",
     "schema",
-    "table"
+    "table",
+    "document_version"
   ],
   "title": "TableName",
   "type": "object"

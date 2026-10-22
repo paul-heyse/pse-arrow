@@ -145,7 +145,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -243,7 +243,7 @@
     "baseline": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OperationId"
+          "$ref": "#/$defs/OperationIdBody"
         },
         {
           "type": "null"
@@ -273,7 +273,7 @@
       "description": "Explicit existing numerical interpretation policy, never a convergence policy."
     },
     "operation": {
-      "$ref": "#/$defs/OperationId",
+      "$ref": "#/$defs/OperationIdBody",
       "description": "Exact selected original operation."
     },
     "question": {

@@ -2142,6 +2142,7 @@ mod canonical_connected_results_server_unit {
     )]
     use super::super::durable::PublicationAcks;
     use super::*;
+    use crate::workflow::PackScientificState;
     use datafusion::arrow::array::{Array, Float64Array};
     use pse_operations::canonical_execution::{
         RunRequest, TerminalClass, result_batch_key, result_payload_digest, result_set_key,
@@ -3257,7 +3258,7 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
         let selected_coordinates = selected_reader
-            .pack_selection(super::PackScientificState::Partial)
+            .pack_selection(PackScientificState::Partial)
             .unwrap();
         assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
         assert_eq!(
@@ -3369,7 +3370,7 @@ mod canonical_connected_results_server_unit {
             assert_eq!(declared.attempt, fence.attempt());
             assert_eq!(
                 declared.usability,
-                super::PackScientificState::Unknown
+                PackScientificState::Unknown
             );
         }
         pack.add_frozen(&evidence).unwrap();
@@ -3715,7 +3716,7 @@ mod canonical_connected_results_server_unit {
         // row coordinates, terminal lineage and scientific usability unchanged.
         use crate::tooling::review_pack::{
             PackAvailability, PackFormat, PackMemberRole, PackMemberSelection, PackPublication,
-            PackReader, PackScientificState, PackSelection, PackSession,
+            PackReader, PackSelection, PackSession,
         };
         let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
         let analysis_pool: Arc<dyn MemoryPool> =

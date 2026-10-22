@@ -76,7 +76,7 @@
         }
       ]
     },
-    "EffortPolicy": {
+    "EffortPolicyBody": {
       "additionalProperties": false,
       "description": "Opt-in adaptation from comparable native nonlinear iteration counts.",
       "properties": {
@@ -109,10 +109,15 @@
       "default": null,
       "description": "Optional discrete treatment."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "effort": {
       "anyOf": [
         {
-          "$ref": "#/$defs/EffortPolicy"
+          "$ref": "#/$defs/EffortPolicyBody"
         },
         {
           "type": "null"
@@ -190,6 +195,9 @@
       "description": "Optional wall-clock bound."
     }
   },
+  "required": [
+    "document_version"
+  ],
   "title": "InitializationOverrides",
   "type": "object"
 }

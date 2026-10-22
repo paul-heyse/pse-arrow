@@ -26,6 +26,11 @@
       "$ref": "#/$defs/StudyAvailability",
       "description": "Whole-study scientific availability."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "lifecycle": {
       "$ref": "#/$defs/StudyLifecycle",
       "description": "Whole-study operational state."
@@ -33,7 +38,8 @@
   },
   "required": [
     "availability",
-    "lifecycle"
+    "lifecycle",
+    "document_version"
   ],
   "title": "Conclusion",
   "type": "object"

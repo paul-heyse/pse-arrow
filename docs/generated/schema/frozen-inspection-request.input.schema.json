@@ -43,7 +43,7 @@
           "description": "Explicit selected analytical thresholds; absent means only common factual interpretations."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Exact operation selected by its diagnostic process instance and sequence."
         },
         "related_limit": {
@@ -143,7 +143,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {

@@ -263,6 +263,11 @@
       "$ref": "#/$defs/AdviceCohort",
       "description": "Exact admitted comparison premises."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "limits": {
       "$ref": "#/$defs/WorkLimitsOutput",
       "description": "Original allowances for applicability checking; advice never widens them."
@@ -299,7 +304,8 @@
     "ordered",
     "observations",
     "support",
-    "limits"
+    "limits",
+    "document_version"
   ],
   "title": "FrozenAdviceOutput",
   "type": "object"

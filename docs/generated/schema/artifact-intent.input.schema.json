@@ -40,6 +40,11 @@
       "description": "creation_request_digest",
       "type": "string"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "interpretation": {
       "description": "interpretation",
       "type": "string"
@@ -93,7 +98,8 @@
     "block_count",
     "payload_bytes",
     "active",
-    "retiring"
+    "retiring",
+    "document_version"
   ],
   "title": "ArtifactIntent",
   "type": "object"

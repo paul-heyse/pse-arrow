@@ -55,6 +55,7 @@
     "effect": "absent"
   },
   "cancelled_partial": {
+    "document_version": 1,
     "availability": "partial",
     "lifecycle": "cancelled"
   },
@@ -580,10 +581,12 @@
     "at": null
   },
   "partial": {
+    "document_version": 1,
     "availability": "partial",
     "lifecycle": "terminal"
   },
   "pre_result_refusal": {
+    "document_version": 1,
     "code": "workflow.input",
     "causes": [],
     "class": "invalid_model",

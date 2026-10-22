@@ -7814,6 +7814,23 @@ mod diagnostic_admission_tests {
     #[tokio::test]
     async fn simulation_parameter_points_recompute_initial_conditions_and_preserve_later_schedules() {
         use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
+        async fn execute_point(point: &ModelingSimulation, expected: [f64; 3], cancel: &crate::CancelSource) -> ModelingTrajectory {
+            // Ordinary authored differential ICs use the consumed Initial function.
+            // The supplemental original_initial_conditions vector belongs to
+            // composite conserved-inventory coordinates, absent from this model.
+            let initial = point.programs.iter().find(|program| program.function == Function::Initial).unwrap();
+            assert_eq!(initial.rows.len(), 1);
+            assert!(initial.constants.is_empty(), "the authored initial RHS remains a model function");
+            let result = point.run(cancel).await.unwrap();
+            assert!(result.accepted(), "{:?}", result.diagnostic());
+            assert_eq!(result.report().samples.len(), expected.len());
+            for (sample, (time, state)) in result.report().samples.iter().zip([0.0_f64, 0.5, 1.].into_iter().zip(expected)) {
+                assert_eq!(sample.time.to_bits(), time.to_bits());
+                assert_eq!(sample.state.len(), 1);
+                assert!((sample.state[0] - state).abs() < 1e-7, "t={time}: {:?} != {state}", sample.state);
+            }
+            result
+        }
         let runtime = super::super::super::tests::runtime();
         let mut context = super::super::super::tests::physical();
         context.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(
@@ -7838,7 +7855,10 @@ mod diagnostic_admission_tests {
         let package = runtime.modeling_package(rows, context).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
-        let execution = package.declared_execution(case, compiler, Default::default(), Default::default(), Limits::default(), &cancel).await.unwrap();
+        // The independent reference admits its value-binding path in the original
+        // structural request before changing that numerical value. A pruned path
+        // cannot be added by mutating a previously admitted descriptor.
+        let execution = package.declared_execution_with_demand(case, compiler, Default::default(), Default::default(), Limits::default(), vec!["root.u".into()], &cancel).await.unwrap();
         let overlay = |value, unit| PointOverlay { assignments: vec![BindingAssignment {
             target: BindingTarget::Path("root.u".into()), value: BindingQuantity {
                 magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(), quantity: quantity.as_id(), unit,
@@ -7852,35 +7872,40 @@ mod diagnostic_admission_tests {
         };
         let (converted, seed_need) = package.admit_operation_overlay(&operation, &overlay(300., percent_id.as_id()), &mut None, &cancel).await.unwrap();
         assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
-        let canonical_binding = package.admit_overlay(execution.model.compiled(), &overlay(3., canonical.as_id())).unwrap();
+        let (canonical_binding, _) = package.admit_operation_overlay(&operation, &overlay(3., canonical.as_id()), &mut None, &cancel).await.unwrap();
         assert_eq!(converted.identity(), canonical_binding.identity());
         let crate::workflow::PreparedStudyOperation::Simulation(first) = package.prepare_bound_operation(&operation, &converted, &cancel).await.unwrap() else { panic!("simulation point"); };
         let mut fresh_execution = execution;
         fresh_execution.analysis.case.values.insert("root.u".into(), 3.);
         let fresh = package.simulation_for_declared(&fresh_execution, None, &cancel).await.unwrap();
         assert_eq!(first.parameters(), fresh.parameters());
-        assert_eq!(first.modes[0].original_initial_conditions[0].expected, fresh.modes[0].original_initial_conditions[0].expected);
-        assert_eq!(first.modes[0].original_initial_conditions[0].expected, 3.);
-        let next_binding = package.admit_overlay(fresh_execution.model.compiled(), &overlay(5., canonical.as_id())).unwrap();
+        let first_result = execute_point(&first, [3., 4.5, 6.], &cancel).await;
+        let fresh_result = execute_point(&fresh, [3., 4.5, 6.], &cancel).await;
+        for (bound, reference) in first_result.report().samples.iter().zip(&fresh_result.report().samples) {
+            assert_eq!(bound.time.to_bits(), reference.time.to_bits());
+            assert!((bound.state[0] - reference.state[0]).abs() < 1e-9);
+        }
+        let (next_binding, _) = package.admit_operation_overlay(&operation, &overlay(5., canonical.as_id()), &mut None, &cancel).await.unwrap();
         let next = package.declared_simulation_bound(case, compiler, None, Limits::default(), Some(&next_binding), &cancel).await.unwrap();
         assert_eq!(next.parameters(), [5.]);
-        assert_eq!(next.modes[0].original_initial_conditions[0].expected, 5.);
+        execute_point(&next, [5., 7.5, 10.], &cancel).await;
         assert_eq!(first.parameters(), [3.]);
         let retry = package.declared_simulation_bound(case, compiler, None, Limits::default(), Some(&converted), &cancel).await.unwrap();
         assert_eq!(retry.identity(), first.identity());
         let document = first.original_inputs.as_ref().unwrap().document(0);
         assert_eq!(document.binding.as_ref(), Some(&converted));
-        assert_eq!(document.reconstruct(&package, &cancel).await.unwrap().identity(), first.identity());
-        let result = first.run(&cancel).await.unwrap();
-        assert!(result.accepted(), "{:?}", result.diagnostic());
-        assert!((result.report().samples.last().unwrap().state[0] - 6.).abs() < 1e-7);
-        let scheduled_execution = package.declared_execution(scheduled, compiler, Default::default(), Default::default(), Limits::default(), &cancel).await.unwrap();
-        let scheduled_binding = package.admit_overlay(scheduled_execution.model.compiled(), &overlay(300., percent_id.as_id())).unwrap();
+        let replayed = document.reconstruct(&package, &cancel).await.unwrap();
+        assert_eq!(replayed.identity(), first.identity());
+        execute_point(&replayed, [3., 4.5, 6.], &cancel).await;
+        execute_point(&retry, [3., 4.5, 6.], &cancel).await;
+        let scheduled_operation = crate::workflow::StudyOperation {
+            operation: crate::workflow::OperationRequest::Simulation(crate::workflow::SimulationOperation { case: scheduled, settings: None }),
+            ..operation
+        };
+        let (scheduled_binding, _) = package.admit_operation_overlay(&scheduled_operation, &overlay(300., percent_id.as_id()), &mut None, &cancel).await.unwrap();
         let scheduled_point = package.declared_simulation_bound(scheduled, compiler, None, Limits::default(), Some(&scheduled_binding), &cancel).await.unwrap();
         assert_eq!(scheduled_point.parameters(), [3., 7.]);
-        let result = scheduled_point.run(&cancel).await.unwrap();
-        assert!(result.accepted(), "{:?}", result.diagnostic());
-        assert!((result.report().samples.last().unwrap().state[0] - 8.).abs() < 1e-7);
+        execute_point(&scheduled_point, [3., 4.5, 8.], &cancel).await;
     }
 
 }

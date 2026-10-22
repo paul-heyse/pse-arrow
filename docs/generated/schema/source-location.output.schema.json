@@ -14,6 +14,11 @@
       ],
       "x-pse-identity": "SemanticId"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "end": {
       "description": "UTF-8 exclusive ending byte offset.",
       "format": "uint32",
@@ -87,7 +92,8 @@
     "path",
     "name",
     "start",
-    "end"
+    "end",
+    "document_version"
   ],
   "title": "SourceLocationOutput",
   "type": "object"

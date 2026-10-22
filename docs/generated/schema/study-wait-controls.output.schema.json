@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Observation timing while waiting for a study publication.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "poll_seconds": {
       "default": 0.5,
       "description": "Seconds between study state observations.",
@@ -22,7 +27,8 @@
   },
   "required": [
     "poll_seconds",
-    "timeout_seconds"
+    "timeout_seconds",
+    "document_version"
   ],
   "title": "StudyWaitControlsOutput",
   "type": "object"

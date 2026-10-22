@@ -24,7 +24,7 @@ use pse_model::{
     scalar,
     scalars::{Fraction, Tolerance},
 };
-pub use record::{AttemptRecord, NativeAttemptRecordDocument, SubmittedStartRecord};
+pub use record::{AttemptRecord, NativeAttemptRecordDocument, SubmittedStartRecord, SubmittedStartRef};
 #[cfg(any(feature = "kinsol", test))]
 pub(crate) use root_progress::{RootEvaluation, RootEvaluationLayout};
 use std::{
@@ -1599,7 +1599,8 @@ pub struct SeedOrigin {
 /// sign survives in real observations. Snapshot attribution is separate from content identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct WarmStartSnapshot {
+#[schemars(rename = "WarmStartSnapshot")]
+pub struct WarmStartSnapshot<Payload = WarmPayloadSnapshot> {
     /// Producing occurrence, when there is one.
     pub origin: Option<SeedOrigin>,
     /// Exact source coordinate compatibility.
@@ -1611,44 +1612,45 @@ pub struct WarmStartSnapshot {
     /// Registry backend spelling.
     pub backend: Backend,
     /// Complete portable seed data.
-    pub payload: WarmPayloadSnapshot,
+    pub payload: Payload,
 }
 /// Portable seed data with explicit numerical observations.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum WarmPayloadSnapshot {
+#[schemars(rename = "WarmPayloadSnapshot")]
+pub enum WarmPayloadSnapshot<Values = Vec<pse_model::diagnostic::Observation>, Working = WorkingSetSnapshot, Simplex = Basis> {
     /// Root-system source coordinates.
     Root {
         /// Source-coordinate primal values, including explicit special floats.
-        primal: Vec<pse_model::diagnostic::Observation>,
+        primal: Values,
     },
     /// NLP source coordinates and optional restart state.
     Nlp {
         /// Source-coordinate primal values.
-        primal: Vec<pse_model::diagnostic::Observation>,
+        primal: Values,
         /// Lower and upper bound duals in source order.
         bound_duals: Option<(
-            Vec<pse_model::diagnostic::Observation>,
-            Vec<pse_model::diagnostic::Observation>,
+            Values,
+            Values,
         )>,
         /// Constraint duals in source order.
-        row_duals: Option<Vec<pse_model::diagnostic::Observation>>,
+        row_duals: Option<Values>,
         /// Barrier parameter when supplied by the native owner.
         barrier: Option<pse_model::diagnostic::Observation>,
         /// Active-set state and its coordinate transformation.
-        working_set: Option<WorkingSetSnapshot>,
+        working_set: Option<Working>,
     },
     /// LP/QP source coordinates and native simplex status codes.
     Highs {
         /// Optional source-coordinate primal start.
-        primal: Option<Vec<pse_model::diagnostic::Observation>>,
+        primal: Option<Values>,
         /// Optional column and constraint dual starts.
         dual: Option<(
-            Vec<pse_model::diagnostic::Observation>,
-            Vec<pse_model::diagnostic::Observation>,
+            Values,
+            Values,
         )>,
         /// Optional simplex basis status codes.
-        basis: Option<Basis>,
+        basis: Option<Simplex>,
     },
 }
 /// Canonical named native bound and row activity vocabulary.
@@ -1656,20 +1658,22 @@ pub use pse_model::generated::enums::{BoundActivity, RowActivity};
 /// Typed active set with the transformation under which its indices are meaningful.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct WorkingSetSnapshot {
+#[schemars(rename = "WorkingSetSnapshot")]
+pub struct WorkingSetSnapshot<Activities = ActiveSetSnapshot> {
     /// Presolve coordinate transformation.
     pub transformation: ContentHash,
     /// Native activities when compiled with active-set support.
-    pub active: Option<ActiveSetSnapshot>,
+    pub active: Option<Activities>,
 }
 /// Native activity vectors in source order.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ActiveSetSnapshot {
+#[schemars(rename = "ActiveSetSnapshot")]
+pub struct ActiveSetSnapshot<Bounds = Vec<BoundActivity>, Rows = Vec<RowActivity>> {
     /// Native variable-bound statuses in source order.
-    pub bounds: Vec<BoundActivity>,
+    pub bounds: Bounds,
     /// Native constraint statuses in source order.
-    pub constraints: Vec<RowActivity>,
+    pub constraints: Rows,
 }
 
 impl WarmPayload {
@@ -1739,11 +1743,13 @@ impl WarmStart {
     }
     /// Owned semantic seed snapshot for result provenance; this is not native consumption evidence.
     pub fn snapshot(&self) -> WarmStartSnapshot {
-        let vector = |v: &[f64]| {
+        self.snapshot_with(|v| {
             v.iter()
                 .map(|v| pse_model::diagnostic::Observation::number(*v))
                 .collect::<Vec<_>>()
-        };
+        }, WorkingSet::snapshot, Clone::clone)
+    }
+    fn snapshot_with<'a, V, W, B>(&'a self, vector: impl Fn(&'a [f64]) -> V, working_snapshot: impl Fn(&'a WorkingSet) -> W, basis_snapshot: impl Fn(&'a Basis) -> B) -> WarmStartSnapshot<WarmPayloadSnapshot<V, W, B>> {
         let payload = match &self.payload {
             WarmPayload::Root(x) => WarmPayloadSnapshot::Root { primal: vector(x) },
             WarmPayload::Nlp {
@@ -1757,7 +1763,7 @@ impl WarmStart {
                 bound_duals: bounds.as_ref().map(|(l, u)| (vector(l), vector(u))),
                 row_duals: rows.as_ref().map(|r| vector(r)),
                 barrier: barrier.map(pse_model::diagnostic::Observation::number),
-                working_set: working.as_ref().map(WorkingSet::snapshot),
+                working_set: working.as_ref().map(&working_snapshot),
             },
             WarmPayload::Highs {
                 primal,
@@ -1766,7 +1772,7 @@ impl WarmStart {
             } => WarmPayloadSnapshot::Highs {
                 primal: primal.as_ref().map(|p| vector(p)),
                 dual: dual.as_ref().map(|(c, r)| (vector(c), vector(r))),
-                basis: basis.clone(),
+                basis: basis.as_ref().map(&basis_snapshot),
             },
         };
         WarmStartSnapshot {
@@ -1888,44 +1894,75 @@ impl WarmStart {
         Ok(())
     }
 }
+/// Lazy projection of native status codes into the registry-owned activity vocabulary.
+#[derive(Clone)]
+struct ActivityIter<'a, T> {
+    source: &'a WorkingSet,
+    index: usize,
+    length: usize,
+    get: fn(&WorkingSet, usize) -> T,
+}
+impl<T> Iterator for ActivityIter<'_, T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        if self.index == self.length { return None; }
+        let value = (self.get)(self.source, self.index);
+        self.index += 1;
+        Some(value)
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.length - self.index;
+        (remaining, Some(remaining))
+    }
+}
+impl<T: serde::Serialize + Clone> serde::Serialize for ActivityIter<'_, T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.clone())
+    }
+}
+#[cfg(feature = "pounce")]
+impl<'a> ActivityIter<'a, BoundActivity> {
+    fn bounds(source: &'a WorkingSet) -> Self {
+        Self { source, index: 0, length: source.active.bounds.len(), get: |source, index| {
+            use pounce_rs::sqp::BoundStatus;
+            match source.active.bounds[index] {
+                BoundStatus::Inactive => BoundActivity::Inactive,
+                BoundStatus::AtLower => BoundActivity::AtLower,
+                BoundStatus::AtUpper => BoundActivity::AtUpper,
+                BoundStatus::Fixed => BoundActivity::Fixed,
+            }
+        } }
+    }
+}
+#[cfg(feature = "pounce")]
+impl<'a> ActivityIter<'a, RowActivity> {
+    fn rows(source: &'a WorkingSet) -> Self {
+        Self { source, index: 0, length: source.active.constraints.len(), get: |source, index| {
+            use pounce_rs::sqp::ConsStatus;
+            match source.active.constraints[index] {
+                ConsStatus::Inactive => RowActivity::Inactive,
+                ConsStatus::AtLower => RowActivity::AtLower,
+                ConsStatus::AtUpper => RowActivity::AtUpper,
+                ConsStatus::Equality => RowActivity::Equality,
+            }
+        } }
+    }
+}
 impl WorkingSet {
     /// Owned provenance of this working set: every bound and row status by its snake_case
     /// name, never Rust `Debug` text (F30).
     fn snapshot(&self) -> WorkingSetSnapshot {
+        self.snapshot_with(|values| values.collect(), |values| values.collect())
+    }
+    fn snapshot_with<'a, B, R>(&'a self, bounds: impl FnOnce(ActivityIter<'a, BoundActivity>) -> B, rows: impl FnOnce(ActivityIter<'a, RowActivity>) -> R) -> WorkingSetSnapshot<ActiveSetSnapshot<B, R>> {
         #[cfg(feature = "pounce")]
-        let active = {
-            use pounce_rs::sqp::{BoundStatus, ConsStatus};
-            Some(ActiveSetSnapshot {
-                bounds: self
-                    .active
-                    .bounds
-                    .iter()
-                    .map(|s| match s {
-                        BoundStatus::Inactive => BoundActivity::Inactive,
-                        BoundStatus::AtLower => BoundActivity::AtLower,
-                        BoundStatus::AtUpper => BoundActivity::AtUpper,
-                        BoundStatus::Fixed => BoundActivity::Fixed,
-                    })
-                    .collect(),
-                constraints: self
-                    .active
-                    .constraints
-                    .iter()
-                    .map(|s| match s {
-                        ConsStatus::Inactive => RowActivity::Inactive,
-                        ConsStatus::AtLower => RowActivity::AtLower,
-                        ConsStatus::AtUpper => RowActivity::AtUpper,
-                        ConsStatus::Equality => RowActivity::Equality,
-                    })
-                    .collect(),
-            })
-        };
+        let active = Some(ActiveSetSnapshot {
+            bounds: bounds(ActivityIter::bounds(self)),
+            constraints: rows(ActivityIter::rows(self)),
+        });
         #[cfg(not(feature = "pounce"))]
-        let active = None;
-        WorkingSetSnapshot {
-            transformation: self.transformation,
-            active,
-        }
+        let active = { let _ = (bounds, rows); None };
+        WorkingSetSnapshot { transformation: self.transformation, active }
     }
 }
 /// What became of a submitted working set at the presolve boundary: it reaches the native
@@ -2027,19 +2064,9 @@ impl StartReceipt {
             }
         }
     }
-    /// Owned JSON provenance of this receipt, shared by publication and the Python surface.
-    pub fn snapshot(&self) -> serde_json::Value {
-        serde_json::json!({
-            "previous_attempt": self.previous_attempt,
-            "seed": self.seed.as_ref().map(WarmStart::snapshot),
-            "sparse_seed": self.sparse_seed.as_ref().map(|s| s
-                .iter()
-                .map(|(id, v)| (id.to_hex(), *v))
-                .collect::<BTreeMap<_, _>>()),
-            "transformations": self.transformations,
-            "submitted": self.submitted,
-        })
-    }
+    /// Borrowed complete provenance; source report custody is retained through serialization.
+    pub fn snapshot(&self) -> SubmittedStartRef<'_> { SubmittedStartRef(self) }
+
 }
 /// Registry-owned certificate vocabularies: what a ray proves, the native accuracy it was
 /// found at, and the cone-form coordinate each ray entry multiplies (Plan 22 I11).

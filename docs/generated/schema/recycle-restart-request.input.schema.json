@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Authorized replacement starts and a bounded native iteration slice.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "iterations": {
       "description": "Positive per-attempt slice within the original aggregate native iteration cap.",
       "format": "uint32",
@@ -27,7 +32,8 @@
   },
   "required": [
     "starts",
-    "iterations"
+    "iterations",
+    "document_version"
   ],
   "title": "RecycleRestartRequest",
   "type": "object"

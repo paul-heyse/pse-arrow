@@ -653,7 +653,7 @@ impl RunResult {
             RunDurability::Durable(record) => Some(record.attempt_id),
         };
         let owner = self.attempt_summary()?;
-        Ok(crate::invocation::InvocationEvidence { document: InvocationEvidenceDocument { version: 2, run_id: self.run_id, attempt_id, operation, family: family.into(),
+        Ok(crate::invocation::InvocationEvidence { document: InvocationEvidenceDocument { version: Default::default(), run_id: self.run_id, attempt_id, operation, family: family.into(),
             clock_scope: "wall seconds from invocation establishment before dispatch; earlier preparation excluded".into(),
             timing_unavailable: self.invocation_timing_unavailable,
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),

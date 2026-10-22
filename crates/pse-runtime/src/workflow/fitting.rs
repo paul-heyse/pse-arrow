@@ -9,6 +9,8 @@ pub use documents::{FitExecutionDocument, FitPreparationDocument, FitProfileDocu
 mod modeling;
 mod oracle;
 mod preparation;
+mod residual_policy;
+pub use residual_policy::{ResidualLmCriteria, ResidualLmStopping};
 mod profile;
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
 pub use modeling::FitDeclarations;
@@ -156,6 +158,8 @@ impl FitResidualTermination {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitResidualReport {
+    /// Actual algorithm criteria and finite allowances; absent for fixed evaluation.
+    pub stopping: Option<ResidualLmStopping>,
     /// Literal library termination category and detail.
     pub termination: FitResidualTermination,
     /// Actual residual callback count.
@@ -389,6 +393,8 @@ pub(crate) struct FitProblem {
     pub(crate) tolerances: native::quality::Tolerances,
     /// Stopping budgets resolved from the fit's numerical policy (F20).
     pub(crate) accuracy: native::solve::ResolvedAccuracy,
+    /// Fixed algorithm policy, separately identified from physical stationarity.
+    pub(crate) residual_lm_criteria: ResidualLmCriteria,
     pub(crate) bytes: usize,
     contract: OracleContract,
     layout: Arc<sparse::Layout>,

@@ -61,6 +61,7 @@ pub use analyses::{AnalysisControls, AnalysisDirection, AnalysisHandle};
 mod retention;
 pub use retention::{
     HistoryObligation, HistoryOwner, HistoryPurpose, HistoryReclamationPage, ResultReclamationPage,
+    SourceReclamationPage,
 };
 mod diagnostic_operation;
 pub use diagnostic_operation::{DiagnosticOperation, DiagnosticOrigin};
@@ -175,7 +176,7 @@ pub use fitting::{
     FitExecutionDocument, FitOptimizer, FitPreparationDocument, FitProfile, FitProfileDocument,
     FitReport, FitResidualReport, FitResidualTermination, FitRoute, FitRule, FitUncertainty,
     FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls,
-    ProfileFailure, ProfilePoint, ProfileWorkerFailure,
+    ProfileFailure, ProfilePoint, ProfileWorkerFailure, ResidualLmCriteria, ResidualLmStopping,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{

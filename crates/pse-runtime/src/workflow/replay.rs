@@ -421,7 +421,7 @@ pub struct ReplayCoverage {
 #[serde(deny_unknown_fields)]
 pub struct ReplayDocument {
     /// Explicit current document version.
-    pub version: pse_model::document::Version<2>,
+    pub version: pse_model::document::Version<3>,
     /// Historical source execution; a numerical rerun always gets another identity.
     pub source_run: RunId,
     /// Exact original independent-sequence failure policy.
@@ -2279,7 +2279,7 @@ mod tests {
             .unwrap();
         let replay = stopped.replay();
         let document = replay.document_with_limit(128 << 20).unwrap();
-        assert_eq!(serde_json::to_value(&document).unwrap()["version"], 2);
+        assert_eq!(serde_json::to_value(&document).unwrap()["version"], 3);
         assert!(document.continue_independent);
         assert!(
             document.native_attempts.is_empty(),
@@ -2969,6 +2969,7 @@ impl OriginalFitInputs {
         compiler: pse_compiler::workspace::Profile,
         limits: pse_modeling::Limits,
         binding: Option<&super::AdmittedBinding>,
+        residual_lm_criteria: super::ResidualLmCriteria,
     ) -> Result<Arc<Self>, WorkflowError> {
         let extent = size_of::<Self>().saturating_add(encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8))
             .saturating_add(1024)
@@ -2985,6 +2986,7 @@ impl OriginalFitInputs {
         Ok(Arc::new(Self {
             document: ReplayFitConstructor {
                 optimizer: profile.optimizer,
+                residual_lm_criteria,
                 source: 0,
                 id,
                 preparation: super::PreparationSettings { compiler, limits },
@@ -3012,6 +3014,8 @@ impl OriginalFitInputs {
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayFitConstructor {
+    /// Exact original residual algorithm policy, independent of physical stationarity.
+    pub residual_lm_criteria: super::ResidualLmCriteria,
     /// Requested fitting method, preserved before contextual resolution.
     pub optimizer: super::fitting::FitOptimizer,
     /// Source closure index.
@@ -3046,6 +3050,9 @@ impl ReplayFitConstructor {
         package: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedFit, WorkflowError> {
+        if self.residual_lm_criteria != super::ResidualLmCriteria::current() {
+            return Err(contract("recorded residual LM criteria are unsupported by this build"));
+        }
         package
             .prepare_fit_bound(
                 self.id,

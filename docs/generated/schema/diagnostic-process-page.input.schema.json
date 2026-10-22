@@ -39,7 +39,7 @@
         "locator": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProcessLocator"
+              "$ref": "#/$defs/ProcessLocatorBody"
             },
             {
               "type": "null"
@@ -84,7 +84,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -137,7 +137,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "kind": {
@@ -178,7 +178,7 @@
       ],
       "type": "object"
     },
-    "ProcessLocator": {
+    "ProcessLocatorBody": {
       "additionalProperties": false,
       "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
       "properties": {

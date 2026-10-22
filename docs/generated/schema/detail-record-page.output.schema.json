@@ -21,7 +21,7 @@
       ],
       "type": "object"
     },
-    "CoherentRecordOutput": {
+    "CoherentRecordBodyOutput": {
       "additionalProperties": false,
       "description": "All members belong to the same source event; a read never assembles a mixed row.",
       "properties": {
@@ -125,7 +125,7 @@
       ],
       "type": "string"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -182,7 +182,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {
@@ -498,7 +498,7 @@
     "records": {
       "description": "Whole original source records, never reconstructed metric tuples.",
       "items": {
-        "$ref": "#/$defs/CoherentRecordOutput"
+        "$ref": "#/$defs/CoherentRecordBodyOutput"
       },
       "type": "array"
     },

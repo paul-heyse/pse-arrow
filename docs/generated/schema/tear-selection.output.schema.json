@@ -27,6 +27,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "method": {
       "description": "Native method and evidence description.",
       "type": "string"
@@ -46,7 +51,8 @@
     "connections",
     "order",
     "cost",
-    "method"
+    "method",
+    "document_version"
   ],
   "title": "TearSelectionDocument",
   "type": "object"

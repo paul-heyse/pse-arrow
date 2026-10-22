@@ -210,7 +210,7 @@
       ],
       "type": "object"
     },
-    "PreparationSettingsOutput": {
+    "PreparationSettingsBodyOutput": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -408,7 +408,7 @@
     "preparation": {
       "anyOf": [
         {
-          "$ref": "#/$defs/PreparationSettingsOutput"
+          "$ref": "#/$defs/PreparationSettingsBodyOutput"
         },
         {
           "type": "null"

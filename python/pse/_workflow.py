@@ -53,6 +53,7 @@ from pse.contracts.documents import (
     RunControls,
     SolveSettings,
     SourceSettlement,
+    SourceReclamationPage,
     StudyDefinition,
     StudyRunControls,
 )
@@ -246,6 +247,10 @@ class Runtime:
         """Retire a terminal run and reclaim one bounded page of scientific data."""
         return self._handle.reclaim_run_results(run)
 
+    def reclaim_source_page(self, problem: str) -> SourceReclamationPage:
+        """Continue bounded source cleanup from its stored cursor; repeat until after is None."""
+        return self._handle.reclaim_source_page(problem)
+
     def latest_results(
         self,
         problem: str,
@@ -428,7 +433,16 @@ class Runtime:
     def capability_for(
         self, backend: NativeBackend, *, settings: BackendSettings | None = None
     ) -> SolverCapability:
-        """Inspect the linked adapter's actual support for the selected settings."""
+        """Inspect the linked adapter's actual support for the selected settings.
+
+        A profile embedded in ``SolveSettings.settings`` is a domain body. Select
+        its current standalone interpretation explicitly before passing it here::
+
+            selected = codec.convert_document(
+                codec.document_builtins(solve_settings.settings), BackendSettings
+            )
+            runtime.capability_for(backend, settings=selected)
+        """
         return self._handle.capability_for(backend, settings=settings)
 
     def clear_program_cache(self) -> None:

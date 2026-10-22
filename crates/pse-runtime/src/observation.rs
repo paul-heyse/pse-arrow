@@ -92,6 +92,8 @@ pse_diagnostics::impl_diagnostic! {
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
+type CheckpointVersion = pse_model::document::Version<4>;
+
 /// One immutable process publication, never a scientific result or native restart state.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -99,7 +101,7 @@ pub struct ProcessCheckpoint {
     /// Explicit compact-output admission, expiry and pressure losses.
     pub summaries: pse_diagnostics::observation::SummaryCoverage,
     /// Format version of this diagnostic-only representation.
-    pub version: u32,
+    pub version: CheckpointVersion,
     /// Unique process-instance locator; PID alone is never its identity.
     pub process: String,
     /// Monotonic publication sequence within this process instance.
@@ -433,7 +435,7 @@ impl Diagnostics {
         });
         let mut image = ProcessCheckpoint {
             summaries: page.summaries,
-            version: 4,
+            version: Default::default(),
             process: self.process.clone(),
             sequence: self.sequence.fetch_add(1, Ordering::Relaxed),
             published_unix_micros: unix_micros(),
@@ -690,22 +692,13 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
     }
     #[derive(Deserialize)]
     struct Header {
-        version: u32,
+        #[serde(rename = "version")]
+        _version: CheckpointVersion,
     }
-    let header: Header = serde_json::from_slice(&bytes)
-        .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if header.version != 4 {
-        return Err(ObservationError::Format(
-            "unsupported diagnostic checkpoint version".into(),
-        ));
-    }
+    let _: Header = serde_json::from_slice(&bytes)
+        .map_err(|error| ObservationError::Format(format!("diagnostic checkpoint version: {error}")))?;
     let image: ProcessCheckpoint = serde_json::from_slice(&bytes)
         .map_err(|error| ObservationError::Format(error.to_string()))?;
-    if image.version != 4 {
-        return Err(ObservationError::Format(
-            "unsupported diagnostic checkpoint version".into(),
-        ));
-    }
     if image.operations.iter().any(|operation| {
         format!(
             "{:016x}-{:016x}",
@@ -834,6 +827,29 @@ pub(crate) fn native_execution_scope() -> Option<ThreadScope> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn checkpoint_actual_published_wire_keeps_fixed_version_and_refuses_old_headers() {
+        use crate::boundary_documents::BoundaryDocument;
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        owner.publish().unwrap();
+        let path = owner.checkpoint_path();
+        let image = read_checkpoint(&path).unwrap();
+        let original: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(original["version"], 4);
+        assert!(original.get("document_version").is_none());
+        assert_eq!(ProcessCheckpoint::WIRE, crate::boundary_documents::Wire::Native);
+        let projected: serde_json::Value = serde_json::from_slice(&ProcessCheckpoint::WIRE.to_vec(&image).unwrap()).unwrap();
+        assert_eq!(projected, original);
+        let schema = schemars::schema_for!(ProcessCheckpoint).to_value();
+        assert_eq!(schema["properties"]["version"]["const"], 4);
+        for bytes in [br#"{"version":3,"operations":"wrong current shape"}"#.as_slice(), br#"{"version":4,"version":4}"#.as_slice()] {
+            std::fs::write(&path, bytes).unwrap();
+            let error = read_checkpoint(&path).unwrap_err().to_string();
+            assert!(error.contains("version"), "{error}");
+        }
+    }
+
     #[test]
     fn compact_summary_export_precedes_inner_history_and_preserves_active_identity() {
         let directory = tempfile::tempdir().unwrap();

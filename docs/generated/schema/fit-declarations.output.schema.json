@@ -252,6 +252,11 @@
   "additionalProperties": false,
   "description": "Registry-owned experiment and parameter selection intent; measurements belong to typed records.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "fits": {
       "description": "Declared fits with their parameters, experiments and observation selections.",
       "items": {
@@ -261,7 +266,8 @@
     }
   },
   "required": [
-    "fits"
+    "fits",
+    "document_version"
   ],
   "title": "FitDeclarationsOutput",
   "type": "object"

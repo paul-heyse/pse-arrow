@@ -686,7 +686,7 @@
       ],
       "type": "object"
     },
-    "BackendSettingsOutput": {
+    "BackendSettingsBodyOutput": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -1447,7 +1447,7 @@
         }
       ]
     },
-    "BlockSolveOverrideOutput": {
+    "BlockSolveOverrideBodyOutput": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -1478,7 +1478,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -1653,14 +1653,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequestOutput": {
+    "CompositionRequestBodyOutput": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdviceOutput"
+              "$ref": "#/$defs/FrozenAdviceBodyOutput"
             },
             {
               "type": "null"
@@ -2004,7 +2004,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdviceOutput": {
+    "FrozenAdviceBodyOutput": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -3201,7 +3201,7 @@
       ],
       "type": "object"
     },
-    "RecycleRestartRequest": {
+    "RecycleRestartRequestBody": {
       "additionalProperties": false,
       "description": "Authorized replacement starts and a bounded native iteration slice.",
       "properties": {
@@ -3456,7 +3456,7 @@
           "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverrideOutput"
+              "$ref": "#/$defs/BlockSolveOverrideBodyOutput"
             }
           },
           "propertyNames": {
@@ -3475,7 +3475,7 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequestOutput",
+          "$ref": "#/$defs/CompositionRequestBodyOutput",
           "default": {
             "branch": {
               "connected": null,
@@ -3600,7 +3600,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -3820,6 +3820,11 @@
       "$ref": "#/$defs/Fraction",
       "description": "Native fixed-point damping in (0,1]."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "orthogonalization": {
       "anyOf": [
         {
@@ -3834,7 +3839,7 @@
     "restarts": {
       "anyOf": [
         {
-          "$ref": "#/$defs/RecycleRestartRequest"
+          "$ref": "#/$defs/RecycleRestartRequestBody"
         },
         {
           "type": "null"
@@ -3865,7 +3870,8 @@
     "units",
     "anderson_delay",
     "anderson",
-    "damping"
+    "damping",
+    "document_version"
   ],
   "title": "RecycleRequestOutput",
   "type": "object"

@@ -99,7 +99,7 @@ fn invocation(id: OperationId, run: u8) -> InvocationEvidenceDocument {
     let mut attempts = crate::workflow::AttemptSummary::empty_for_test(run_id);
     attempts.requested_steps = 1;
     InvocationEvidenceDocument {
-        version: 2,
+        version: Default::default(),
         run_id,
         attempt_id: None,
         operation: Some(id),
@@ -1208,7 +1208,8 @@ fn cancellation_during_preparation_releases_reservation_before_validation() {
     let (mut set, request) = fixture();
     // This otherwise invalid member makes validation order observable.
     let mut invocation = invocation(request.operation, 1);
-    invocation.version = 99;
+    invocation.run_id = pse_model::generated::identities::RunId::from_bytes([99; 16]);
+    assert!(invocation.validate().is_err());
     set.invocations.push(invocation);
     let cancel = pse_columnar::CancellationToken::new();
     let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(CancelDuringPreparation {

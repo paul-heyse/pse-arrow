@@ -660,7 +660,7 @@
       ],
       "type": "object"
     },
-    "BackendSettings": {
+    "BackendSettingsBody": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -1345,7 +1345,7 @@
         }
       ]
     },
-    "BlockSolveOverride": {
+    "BlockSolveOverrideBody": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -1376,7 +1376,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettings"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -1442,14 +1442,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequest": {
+    "CompositionRequestBody": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdvice"
+              "$ref": "#/$defs/FrozenAdviceBody"
             },
             {
               "type": "null"
@@ -1787,7 +1787,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdvice": {
+    "FrozenAdviceBody": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -2818,7 +2818,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -3409,7 +3409,7 @@
           "description": "Stable original structural block overrides, including their complete controls.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverride"
+              "$ref": "#/$defs/BlockSolveOverrideBody"
             }
           },
           "type": "object"
@@ -3421,7 +3421,7 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequest",
+          "$ref": "#/$defs/CompositionRequestBody",
           "description": "Complete original composition, frozen advice, branch and finite work limits."
         },
         "controls": {
@@ -3496,7 +3496,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettings"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -3657,7 +3657,7 @@
       ],
       "type": "object"
     },
-    "ReviewContextRequest": {
+    "ReviewContextRequestBody": {
       "additionalProperties": false,
       "description": "Exact explanatory selection, independent of executable replay eligibility.",
       "properties": {
@@ -4182,7 +4182,7 @@
     "operation": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OperationId"
+          "$ref": "#/$defs/OperationIdBody"
         },
         {
           "type": "null"
@@ -4200,7 +4200,7 @@
       "x-pse-identity": "RunId"
     },
     "selection": {
-      "$ref": "#/$defs/ReviewContextRequest",
+      "$ref": "#/$defs/ReviewContextRequestBody",
       "description": "Exact selection and its finite allocation."
     },
     "solver_settings": {

@@ -431,7 +431,7 @@ def test_explicit_diagnostic_work_keeps_origin_and_prehandle_failure(
         case_id=case,
         settings=pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         diagnostics=policy,
-        origin=d.DiagnosticOrigin(run_id="cd" * 16),
+        origin=d.DiagnosticOriginBody(run_id="cd" * 16),
         allowance=d.ClosedDuration(secs=10, nanos=0),
         maximum_source_bytes=4 << 20,
     )

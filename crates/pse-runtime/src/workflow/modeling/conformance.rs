@@ -4089,7 +4089,7 @@ mod tests {
    annotation start x(0.5); annotation start y(0.5);}
  test near fixture {dof 0; route steady; procedure solve; EXPECTED} {child root:D=D(); expect root.x==1 tolerance 1e-4;}
  }"#;
-        let thresholds: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
+        let thresholds: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
             "../../../../../packages/reference/diagnostics/idaes-2.13.json"
         ))
         .unwrap();

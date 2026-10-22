@@ -940,7 +940,7 @@
       ],
       "type": "object"
     },
-    "BackendSettingsOutput": {
+    "BackendSettingsBodyOutput": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -1701,7 +1701,7 @@
         }
       ]
     },
-    "BlockSolveOverrideOutput": {
+    "BlockSolveOverrideBodyOutput": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -1732,7 +1732,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -1749,7 +1749,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnosticOutput": {
+    "BoundaryDiagnosticBodyOutput": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -1765,7 +1765,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
           },
           "type": "array"
         },
@@ -1781,7 +1781,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationOutput"
+            "$ref": "#/$defs/SourceLocationBodyOutput"
           },
           "type": "array"
         },
@@ -1916,14 +1916,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequestOutput": {
+    "CompositionRequestBodyOutput": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdviceOutput"
+              "$ref": "#/$defs/FrozenAdviceBodyOutput"
             },
             {
               "type": "null"
@@ -2302,7 +2302,7 @@
           "x-pse-identity": "SemanticId"
         },
         "diagnostics": {
-          "$ref": "#/$defs/ModelingDiagnosticPolicy",
+          "$ref": "#/$defs/ModelingDiagnosticPolicyBody",
           "description": "Existing operation-specific point/matrix/term diagnostic controls."
         },
         "maximum_source_bytes": {
@@ -2324,7 +2324,7 @@
         "origin": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DiagnosticOriginOutput"
+              "$ref": "#/$defs/DiagnosticOriginBodyOutput"
             },
             {
               "type": "null"
@@ -2371,7 +2371,7 @@
       ],
       "type": "string"
     },
-    "DiagnosticOriginOutput": {
+    "DiagnosticOriginBodyOutput": {
       "additionalProperties": false,
       "description": "Optional link to retained original evidence; never authority to use a scientific result.",
       "properties": {
@@ -2387,7 +2387,7 @@
         "failure": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnosticOutput"
+              "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
             },
             {
               "type": "null"
@@ -2407,7 +2407,7 @@
         "operation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/OperationId"
+              "$ref": "#/$defs/OperationIdBody"
             },
             {
               "type": "null"
@@ -2888,7 +2888,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdviceOutput": {
+    "FrozenAdviceBodyOutput": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -3496,7 +3496,7 @@
       ],
       "type": "string"
     },
-    "ModelingDiagnosticPolicy": {
+    "ModelingDiagnosticPolicyBody": {
       "additionalProperties": false,
       "description": "Explicit thresholds and budgets; the caller selects the named knowledge profile.",
       "properties": {
@@ -4151,7 +4151,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -4783,7 +4783,7 @@
           "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverrideOutput"
+              "$ref": "#/$defs/BlockSolveOverrideBodyOutput"
             }
           },
           "propertyNames": {
@@ -4802,7 +4802,7 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequestOutput",
+          "$ref": "#/$defs/CompositionRequestBodyOutput",
           "default": {
             "branch": {
               "connected": null,
@@ -4927,7 +4927,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -4961,7 +4961,7 @@
       ],
       "type": "object"
     },
-    "SourceLocationOutput": {
+    "SourceLocationBodyOutput": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {

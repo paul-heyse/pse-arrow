@@ -291,7 +291,7 @@ fn evidence_invocation_and_failed_capture_keep_independent_readiness_and_raw_lin
     use pse_model::generated::identities::RunId;
     let run_id = RunId::from_bytes([73; 16]);
     let invocation = InvocationEvidenceDocument {
-        version: 2,
+        version: Default::default(),
         run_id,
         attempt_id: None,
         operation: None,

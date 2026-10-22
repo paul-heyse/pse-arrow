@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Exact source/context required when reconstructing an operation from stored bundles.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "physical_context": {
       "description": "Complete admitted physical context identity.",
       "pattern": "^blake3:[0-9a-fA-F]{64}$",
@@ -19,7 +24,8 @@
   },
   "required": [
     "revision",
-    "physical_context"
+    "physical_context",
+    "document_version"
   ],
   "title": "OperationSource",
   "type": "object"

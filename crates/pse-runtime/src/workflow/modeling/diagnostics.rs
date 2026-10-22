@@ -1399,7 +1399,7 @@ mod tests {
         );
         assert!(prepared.model.case.compiled().coefficients.is_none());
         let values = prepared.model.values.clone();
-        let policy: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
+        let policy: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
             "../../../../../packages/reference/diagnostics/idaes-2.13.json"
         ))
         .unwrap();
@@ -1507,7 +1507,7 @@ mod tests {
             .unwrap();
         assert!(prepared.model.values.scalars.is_empty());
         let key = prepared.model.case.compiled().plan.structure().key();
-        let policy: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
+        let policy: ModelingDiagnosticPolicy = <ModelingDiagnosticPolicy as crate::boundary_documents::BoundaryDocument>::WIRE.from_slice(include_bytes!(
             "../../../../../packages/reference/diagnostics/idaes-2.13.json"
         ))
         .unwrap();

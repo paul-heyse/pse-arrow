@@ -25,6 +25,11 @@
       "minimum": 0,
       "type": "integer"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "entries": {
       "description": "Retained entry count (expired entries may await native TTL removal).",
       "format": "uint",
@@ -104,7 +109,8 @@
     "entries",
     "hits",
     "misses",
-    "bypasses"
+    "bypasses",
+    "document_version"
   ],
   "title": "CacheReport",
   "type": "object"

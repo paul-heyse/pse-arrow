@@ -25,6 +25,11 @@
       "$ref": "#/$defs/ReviewAttemptSelection",
       "description": "Current occurrence assignments or retained retry history."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_members": {
       "description": "Maximum selected members; 1 through 4096.",
       "format": "uint",
@@ -34,7 +39,8 @@
   },
   "required": [
     "attempts",
-    "maximum_members"
+    "maximum_members",
+    "document_version"
   ],
   "title": "ReviewInventoryRequest",
   "type": "object"

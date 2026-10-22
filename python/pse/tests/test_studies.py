@@ -14,6 +14,7 @@ import pytest
 from scripts import thermodynamic_campaign
 
 import pse
+from pse.contracts import documents
 from pse import codec
 from pse.contracts.documents import (
     BoundaryDiagnostic,
@@ -1280,7 +1281,7 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
         choices=(
             SourceChoice(
                 alternatives=(
-                    SourceDelta(parent=package.revision_id, removals=("0" * 32,)),
+                    documents.SourceDeltaBody(parent=package.revision_id, removals=("0" * 32,)),
                 )
             ),
         ),
@@ -1330,8 +1331,8 @@ def test_local_lazy_study_executes_selected_occurrence_without_store(
         choices=(
             SourceChoice(
                 alternatives=(
-                    SourceDelta(parent=package.revision_id),
-                    SourceDelta(parent=package.revision_id, removals=("0" * 32,)),
+                    documents.SourceDeltaBody(parent=package.revision_id),
+                    documents.SourceDeltaBody(parent=package.revision_id, removals=("0" * 32,)),
                 )
             ),
         ),

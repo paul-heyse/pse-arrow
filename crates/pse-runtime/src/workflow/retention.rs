@@ -9,8 +9,24 @@ pub use pse_operations::canonical_history::{
     HistoryObligation, HistoryOwner, HistoryPurpose, HistoryReclamationPage,
 };
 pub use pse_operations::canonical_result_retention::ResultReclamationPage;
+pub use pse_operations::canonical_retention::ReclamationPage as SourceReclamationPage;
 
 impl Runtime {
+    /// Continue one bounded source cleanup page using the canonical continuation.
+    /// Protected readers and retained selections remain independent owners. Repeat
+    /// until `after` is absent to finish this pass; no client supplies a cursor.
+    pub async fn reclaim_source_page(
+        &self,
+        problem: &str,
+        cancel: &CancellationToken,
+    ) -> Result<SourceReclamationPage, WorkflowError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            Ok(self.operations()?.store().reclaim_source_page(problem).await?)
+        }).await
+    }
+
     /// Retain exact audit or unsettled-effect detail independently from payloads.
     pub async fn retain_history_obligation(
         &self,
@@ -119,9 +135,7 @@ impl Runtime {
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let operations = self.operations()?;
-                operations.store().forget_run_results(run).await?;
-                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                Ok(operations.store().reclaim_result_page(run).await?)
+                Ok(operations.store().forget_run_results(run).await?)
             })
             .await
     }

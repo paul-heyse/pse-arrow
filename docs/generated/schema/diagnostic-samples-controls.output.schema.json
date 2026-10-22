@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Native limits for supplied diagnostic points.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_samples": {
       "default": 128,
       "description": "Maximum supplied diagnostic samples.",
@@ -20,7 +25,8 @@
   },
   "required": [
     "maximum_samples",
-    "time_limit"
+    "time_limit",
+    "document_version"
   ],
   "title": "DiagnosticSamplesControlsOutput",
   "type": "object"

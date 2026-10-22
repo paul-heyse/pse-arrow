@@ -50,7 +50,7 @@
       ],
       "type": "object"
     },
-    "AdmittedBinding": {
+    "AdmittedBindingBody": {
       "additionalProperties": false,
       "description": "Immutable selected-revision binding; attribution is excluded from content identity.",
       "properties": {
@@ -5341,7 +5341,7 @@
       ],
       "type": "object"
     },
-    "BackendSettings": {
+    "BackendSettingsBody": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -6116,7 +6116,7 @@
         }
       ]
     },
-    "BlockSolveOverride": {
+    "BlockSolveOverrideBody": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -6147,7 +6147,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettings"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -6269,14 +6269,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequest": {
+    "CompositionRequestBody": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdvice"
+              "$ref": "#/$defs/FrozenAdviceBody"
             },
             {
               "type": "null"
@@ -7380,7 +7380,7 @@
         "uncertainty": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FitUncertainty"
+              "$ref": "#/$defs/FitUncertaintyBody"
             },
             {
               "type": "null"
@@ -7395,7 +7395,7 @@
       ],
       "type": "object"
     },
-    "FitUncertainty": {
+    "FitUncertaintyBody": {
       "additionalProperties": false,
       "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
       "properties": {
@@ -7432,7 +7432,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdvice": {
+    "FrozenAdviceBody": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -8611,7 +8611,7 @@
       ],
       "type": "object"
     },
-    "LazyStudyDefinition": {
+    "LazyStudyDefinitionBody": {
       "additionalProperties": false,
       "description": "Frozen lazy input and its common output demand, retained once per study.",
       "properties": {
@@ -10127,7 +10127,7 @@
         }
       ]
     },
-    "OperationSource": {
+    "OperationSourceBody": {
       "additionalProperties": false,
       "description": "Exact source/context required when reconstructing an operation from stored bundles.",
       "properties": {
@@ -10500,7 +10500,7 @@
       ],
       "type": "string"
     },
-    "PreparationSettings": {
+    "PreparationSettingsBody": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -10989,7 +10989,7 @@
           "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverride"
+              "$ref": "#/$defs/BlockSolveOverrideBody"
             }
           },
           "propertyNames": {
@@ -11008,7 +11008,7 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequest",
+          "$ref": "#/$defs/CompositionRequestBody",
           "default": {
             "branch": {
               "connected": null,
@@ -11133,7 +11133,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettings"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -11161,7 +11161,7 @@
         "alternatives": {
           "description": "Ordered alternatives; ordering is part of ordinal reconstruction.",
           "items": {
-            "$ref": "#/$defs/SourceDelta"
+            "$ref": "#/$defs/SourceDeltaBody"
           },
           "type": "array"
         }
@@ -11171,7 +11171,7 @@
       ],
       "type": "object"
     },
-    "SourceDelta": {
+    "SourceDeltaBody": {
       "additionalProperties": false,
       "description": "An atomic source edit against one exact locally admitted receiver. Omission retains\ninherited objects; deletion must be named explicitly.",
       "properties": {
@@ -11626,11 +11626,11 @@
           "description": "Explicit occurrence detail retained independently of original completion."
         },
         "preparation": {
-          "$ref": "#/$defs/PreparationSettings",
+          "$ref": "#/$defs/PreparationSettingsBody",
           "description": "Complete preparation controls using existing owners' remote projections."
         },
         "source": {
-          "$ref": "#/$defs/OperationSource",
+          "$ref": "#/$defs/OperationSourceBody",
           "description": "Exact source/context reconstruction precondition."
         },
         "version": {
@@ -11709,7 +11709,7 @@
           "description": "Occurrence identity and explicit dependency/start policy."
         },
         "preparation": {
-          "$ref": "#/$defs/PreparationSettings",
+          "$ref": "#/$defs/PreparationSettingsBody",
           "description": "Existing preparation controls, serialized without a second default authority."
         }
       },
@@ -11721,12 +11721,12 @@
       ],
       "type": "object"
     },
-    "StudyPointDefinition": {
+    "StudyPointDefinitionBody": {
       "additionalProperties": false,
       "description": "One point of a study's definition.",
       "properties": {
         "binding": {
-          "$ref": "#/$defs/AdmittedBinding",
+          "$ref": "#/$defs/AdmittedBindingBody",
           "description": "Canonical physically admitted member assignments; original paths are attribution."
         },
         "binding_hash": {
@@ -11829,7 +11829,7 @@
           "type": "array"
         },
         "source": {
-          "$ref": "#/$defs/OperationSource",
+          "$ref": "#/$defs/OperationSourceBody",
           "description": "Complete admitted base source and physical identity."
         },
         "version": {
@@ -12065,14 +12065,14 @@
     "points": {
       "description": "The explicit admitted points, in index order.",
       "items": {
-        "$ref": "#/$defs/StudyPointDefinition"
+        "$ref": "#/$defs/StudyPointDefinitionBody"
       },
       "type": "array"
     },
     "variants": {
       "anyOf": [
         {
-          "$ref": "#/$defs/LazyStudyDefinition"
+          "$ref": "#/$defs/LazyStudyDefinitionBody"
         },
         {
           "type": "null"

@@ -332,6 +332,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "execution": {
       "$ref": "#/$defs/InspectionExecution",
       "description": "Selected route and procedure before execution."
@@ -363,7 +368,8 @@
     "instances",
     "members",
     "ports",
-    "connections"
+    "connections",
+    "document_version"
   ],
   "title": "ModelingInspection",
   "type": "object"

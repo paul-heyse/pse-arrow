@@ -8,6 +8,11 @@
       "description": "A concluded study cannot revoke admitted history.",
       "type": "boolean"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "generation": {
       "description": "Current native cancellation generation.",
       "format": "uint64",
@@ -24,7 +29,8 @@
   "required": [
     "study_id",
     "generation",
-    "already_concluded"
+    "already_concluded",
+    "document_version"
   ],
   "title": "StudyCancel",
   "type": "object"

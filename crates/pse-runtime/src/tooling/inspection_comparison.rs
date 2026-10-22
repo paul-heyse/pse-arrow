@@ -277,7 +277,7 @@ fn source_valid(builder: &mut Builder, doc: &InvocationEvidenceDocument) -> bool
         return true;
     };
     builder.add(StatementKind::Limitation,"invocation.source_identity_unavailable",format!("The supplied joined document is unsupported or internally inconsistent: {error}. No joined work or elapsed interpretation is established from this source."),
-        vec![counted(doc,"/version",Value::Count(u64::from(doc.version)),true),counted(doc,"/run_id",source_text(doc.run_id),true),
+        vec![counted(doc,"/version",Value::Count(u64::from(doc.version())),true),counted(doc,"/run_id",source_text(doc.run_id),true),
             counted(doc,"/attempts/run_id",source_text(doc.attempts.run_id),true)],vec![NextObservation::InspectRelated]);
     false
 }
@@ -1059,7 +1059,7 @@ mod tests {
             })),
         });
         InvocationEvidenceDocument {
-            version: 2,
+            version: Default::default(),
             run_id,
             attempt_id: None,
             operation: None,
@@ -1115,13 +1115,13 @@ mod tests {
             .unwrap()
     }
     #[test]
-    fn invocation_comparison_refuses_the_old_supervisor_only_version() {
-        let mut old = fixture(1, 10, 8.);
-        old.version = 1;
-        let new = fixture(2, 10, 8.);
-        let result = compare_invocations(&old, &new, ComparisonPolicy::default());
-        assert!(has(&result, "invocation.source_identity_unavailable"));
-        assert!(!has(&result, "comparison.supervisor_endpoint"));
+    fn invocation_comparison_refuses_the_old_supervisor_only_wire_before_interpretation() {
+        let source = fixture(1, 10, 8.);
+        let mut old = serde_json::to_value(source).unwrap();
+        old["version"] = 1.into();
+        let bytes = serde_json::to_vec(&old).unwrap();
+        assert!(crate::tooling::frozen_inspection::decode_document::<InvocationEvidenceDocument, 2>(&bytes).is_err());
+        assert!(serde_json::from_slice::<InvocationEvidenceDocument>(&bytes).is_err());
     }
     #[test]
     fn invocation_comparison_distinguishes_recorded_more_work_from_descriptive_unit_ratio() {
@@ -1614,6 +1614,10 @@ mod tests {
             pse_model::diagnostic::Observation::number(f64::INFINITY),
         );
         let encoded = serde_json::to_vec(&source).unwrap();
+        let schema = schemars::schema_for!(InvocationEvidenceDocument).to_value();
+        assert_eq!(schema["properties"]["version"]["const"], 2);
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&encoded).unwrap()["version"], 2);
+        assert!(serde_json::from_slice::<serde_json::Value>(&encoded).unwrap().get("document_version").is_none());
         let expected = explain_invocation(&source, ComparisonPolicy::default());
         drop(source);
         let dir = tempfile::tempdir().unwrap();
@@ -1627,8 +1631,8 @@ mod tests {
         );
         let compared = compare_invocations(&decoded, &decoded, ComparisonPolicy::default());
         assert!(!compared.statements.is_empty());
-        let mut invalid = decoded;
-        invalid.version = 99;
+        let mut invalid = serde_json::to_value(decoded).unwrap();
+        invalid["version"] = 99.into();
         std::fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
         assert!(crate::tooling::frozen_inspection::read_invocation(&path).is_err());
     }

@@ -16,6 +16,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts import documents
 from pse import codec, diagnostics
 from pse.contracts.documents import (
     CaptureBudget,
@@ -78,7 +79,7 @@ def test_rust_owned_inspection_fixture_preserves_exact_observations_and_outcome(
     assert snapshot is not None
     assert snapshot.id == document.request.operation
     assert (
-        diagnostics.operation_text(snapshot.id) == "00000000000000010000000000000002:3"
+        diagnostics.operation_text(codec.convert_document(codec.document_builtins(snapshot.id), documents.OperationId)) == "00000000000000010000000000000002:3"
     )
     assert snapshot.outcome == OperationOutcome.CANCELLED
     assert snapshot.finished_at is not None
@@ -298,7 +299,7 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
         )
         request = InspectionRequest(
             version=2,
-            operation=reader.id,
+            operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
             related_limit=32,
@@ -442,7 +443,7 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
     checkpoint.write_bytes(codec.encode_json(image))
     reused = CheckpointIdentity(
         process=image.process,
-        locator=ProcessLocator(pid=locator.pid, start_ticks=78, executable=None),
+        locator=documents.ProcessLocatorBody(pid=locator.pid, start_ticks=78, executable=None),
     )
     with pytest.raises(pse.InspectionError, match="identity mismatch"):
         diagnostics.read_checkpoint(checkpoint, expected=reused)
@@ -547,7 +548,7 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
     try:
         request = InspectionRequest(
             version=2,
-            operation=reader.id,
+            operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
             related_limit=16,
@@ -571,7 +572,7 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
             CaptureRequest(
                 version=1,
                 checkpoint=str(observations.checkpoint),
-                operation=reader.id,
+                operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
                 kind=CaptureKind.TIMELINE,
                 output=str(tmp_path / "capture"),
                 duration=ClosedDuration(secs=10, nanos=0),
@@ -840,7 +841,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             for ordinal, field in enumerate(record.values, 1):
                 assert view.column("operation")[
                     row
-                ].as_py() == diagnostics.operation_text(record.producer.operation)
+                ].as_py() == diagnostics.operation_text(codec.convert_document(codec.document_builtins(record.producer.operation), documents.OperationId))
                 assert view.column("producer")[row].as_py() == record.producer.sequence
                 assert view.column("event_sequence")[row].as_py() == record.sequence
                 assert (

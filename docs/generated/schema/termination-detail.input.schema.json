@@ -263,7 +263,7 @@
       ],
       "type": "string"
     },
-    "BoundaryDiagnostic": {
+    "BoundaryDiagnosticBody": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -279,7 +279,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnostic"
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
           },
           "type": "array"
         },
@@ -295,7 +295,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocation"
+            "$ref": "#/$defs/SourceLocationBody"
           },
           "type": "array"
         },
@@ -1129,7 +1129,7 @@
         "diagnostic": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnostic"
+              "$ref": "#/$defs/BoundaryDiagnosticBody"
             },
             {
               "type": "null"
@@ -1204,7 +1204,7 @@
       ],
       "type": "object"
     },
-    "SourceLocation": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1447,7 +1447,7 @@
           "description": "The run failed with an error, or cancellation stopped it.",
           "properties": {
             "diagnostic": {
-              "$ref": "#/$defs/BoundaryDiagnostic",
+              "$ref": "#/$defs/BoundaryDiagnosticBody",
               "description": "The error's message."
             },
             "kind": {
@@ -1466,7 +1466,7 @@
           "description": "Infrastructure failed the try; authored point policy decides whether retry is permitted.",
           "properties": {
             "diagnostic": {
-              "$ref": "#/$defs/BoundaryDiagnostic",
+              "$ref": "#/$defs/BoundaryDiagnosticBody",
               "description": "Preserved original typed cause and observations."
             },
             "kind": {
@@ -1494,7 +1494,7 @@
             "diagnostics": {
               "description": "Original scientific diagnostic envelopes, retained without rendered-string reconstruction.",
               "items": {
-                "$ref": "#/$defs/BoundaryDiagnostic"
+                "$ref": "#/$defs/BoundaryDiagnosticBody"
               },
               "type": "array"
             },

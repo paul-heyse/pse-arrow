@@ -404,7 +404,7 @@ fn interior_point_warm_profile_recorded() {
         receipt.transformations
     );
     assert!(
-        receipt.snapshot()["transformations"]
+        serde_json::to_value(receipt.snapshot()).unwrap()["transformations"]
             .to_string()
             .contains("interior_restart")
     );

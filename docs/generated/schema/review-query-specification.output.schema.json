@@ -40,6 +40,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "limitations": {
       "description": "Limits applying even to successful output.",
       "items": {
@@ -62,7 +67,8 @@
     "sql",
     "columns",
     "query_version",
-    "limitations"
+    "limitations",
+    "document_version"
   ],
   "title": "ReviewQuerySpecificationOutput",
   "type": "object"

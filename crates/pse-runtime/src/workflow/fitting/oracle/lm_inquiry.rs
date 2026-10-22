@@ -33,7 +33,7 @@ async fn fit_covariance_owned_result_reconciles_decoded_content_and_refuses_tamp
             0 => altered.values[0] = pse_model::scalars::FiniteBound::try_new(2.0).unwrap(),
             1 => altered.parameters.swap(0, 1),
             2 => altered.parameter_quantities.swap(0, 1),
-            3 => altered.parameter_units[0] = pse_ids::SemanticId::from_bytes([99; 16]),
+            3 => altered.parameter_units[0] = SemanticId::from_bytes([99; 16]),
             4 => altered.scales[0] = pse_model::scalars::FiniteBound::try_new(3.0).unwrap(),
             5 => altered.origin = crate::math::settings::CovarianceOrigin::QualifiedFit {
                 run_id: pse_model::generated::identities::RunId::from_bytes([99; 16]), record: None,
@@ -45,7 +45,7 @@ async fn fit_covariance_owned_result_reconciles_decoded_content_and_refuses_tamp
         // This fixture's parameters may share the same quantity; force an actual
         // change instead of mistaking equal physical contracts for a new input.
         if field == 2 {
-            altered.parameter_quantities[0] = pse_ids::SemanticId::from_bytes([98; 16]);
+            altered.parameter_quantities[0] = SemanticId::from_bytes([98; 16]);
         }
         assert!(result.reconcile_parameter_covariance(&mut altered).is_err(), "field {field}");
     }
@@ -283,6 +283,18 @@ struct QuadraticWitness {
     gradient: [f64; 2],
 }
 fn quadratic_witness(kind: &str, p: &FitProblem, x: &[f64], objective: f64) -> QuadraticWitness {
+    if kind == "cosine-gap" {
+        // This deliberately different authored model has two independent observed
+        // parameters and two large constant residuals; its gradient is not the
+        // intercept/slope gradient used by the other fixtures.
+        let difference = [x[0] - regression::Y[0], x[1] - regression::Y[1]];
+        let gradient = [difference[0] / regression::SIGMA[0].powi(2), difference[1] / regression::SIGMA[1].powi(2)];
+        let gap = 0.5 * (difference[0].powi(2) / regression::SIGMA[0].powi(2) + difference[1].powi(2) / regression::SIGMA[1].powi(2));
+        let best = 0.5 * (2..4).map(|i| ((1e16 - regression::Y[i]) / regression::SIGMA[i]).powi(2)).sum::<f64>();
+        let scaled = gradient.iter().zip(&p.normalization.variables).map(|(g, scale)| (g * scale / p.normalization.objective).abs()).fold(0., f64::max);
+        assert!((objective - best - gap).abs() <= 1e-7 * objective.abs().max(1.));
+        return QuadraticWitness { best, gap, scaled, gradient };
+    }
     let columns: Vec<_> = (1..=4)
         .map(|i| {
             if kind == "near-collinear" {
@@ -1156,6 +1168,7 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
         .native_status
         .clone();
     let termination = serde_json::to_string(&literal.termination).unwrap();
+    let stopping = literal.stopping.unwrap();
     let (run, attempt) = (
         handle.canonical_run_key().unwrap().to_owned(),
         handle.canonical_attempt_key().unwrap().to_owned(),
@@ -1228,20 +1241,25 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     assert!(!metrics.iter().any(|row| row.namespace == "native"
         && row.name == "backend"
         && row.text.as_deref() == Some("ipopt")));
-}
-
-/// Independent algorithm criteria; none is the original scaled-gradient publication budget.
-fn proposed_stopping() -> LevenbergMarquardt<f64> {
-    let relative_cost_change = 30. * f64::EPSILON;
-    let relative_step = 30. * f64::EPSILON;
-    let column_residual_cosine = 30. * f64::EPSILON;
-    LevenbergMarquardt::new().with_ftol(relative_cost_change)
-        .with_xtol(relative_step).with_gtol(column_residual_cosine)
+    for (name, value) in [
+        ("relative_cost_change", stopping.criteria.relative_cost_change()),
+        ("relative_step", stopping.criteria.relative_step()),
+        ("column_residual_cosine", stopping.criteria.column_residual_cosine()),
+    ] {
+        assert!(metrics.iter().any(|row| row.namespace == "residual_lm" && row.name == name && row.real.map(f64::to_bits) == Some(value.to_bits())));
+    }
+    for (name, value) in [
+        ("criteria_version", i64::from(stopping.criteria.version())),
+        ("parameter_update_limit", i64::try_from(stopping.parameter_update_limit).unwrap()),
+        ("residual_evaluation_limit", i64::try_from(stopping.residual_evaluation_limit).unwrap()),
+    ] {
+        assert!(metrics.iter().any(|row| row.namespace == "residual_lm" && row.name == name && row.integer == Some(value)));
+    }
 }
 
 #[tokio::test]
 async fn fitting_lm_independent_stopping_preserves_original_qualification_and_covariance() {
-    for (kind, scales) in [("linear", [1.,2.]), ("linear", [0.001,1000.]), ("near-collinear", [1.,2.]), ("domain", [1.,2.])] {
+    for (kind, scales) in [("linear", [1.,2.]), ("linear", [0.001,1000.]), ("near-collinear", [1.,2.]), ("domain", [1.,2.]), ("cosine-gap", [1.,2.])] {
         let seed = fixture(kind, scales).await.unwrap();
         let prepared = production_profile(&seed, seed.problem.profile.clone()).await.unwrap();
         let problem = prepared.problem.clone();
@@ -1250,7 +1268,7 @@ async fn fitting_lm_independent_stopping_preserves_original_qualification_and_co
             let execution = Execution::new(flag, &problem.profile.solver.controls);
             let mut baseline_qualified = false;
             let mut baseline_covariance = false;
-            for (candidate, stopping) in [(false, None), (true, Some(proposed_stopping()))] {
+            for (candidate, stopping) in [(false, ResidualLmCriteria::inquiry_baseline(problem.accuracy.stationarity)), (true, ResidualLmCriteria::current())] {
                 let report = problem.execute_profile_with_lm(&problem.profile.solver, FitRoute::ResidualLm,
                     execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None, stopping)?;
                 let residual = report.residual.as_ref().unwrap();
@@ -1285,7 +1303,7 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
     service.job_scoped(1, problem.bytes + MATRIX_ALLOWANCE, Default::default(), None, move |flag| {
         let execution = Execution::new(flag, &problem.profile.solver.controls);
         let report = problem.execute_profile_with_lm(&problem.profile.solver, FitRoute::ResidualLm,
-            execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None, Some(proposed_stopping()))?;
+            execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None, ResidualLmCriteria::current())?;
         let residual = report.residual.as_ref().unwrap();
         assert!(residual.failure.is_none());
         assert_eq!(residual.termination, FitResidualTermination::Orthogonal);
@@ -1294,4 +1312,86 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
         assert!(report.covariance.as_ref().unwrap().values.is_err());
         Ok(())
     }).await.unwrap();
+}
+
+
+#[tokio::test]
+async fn fitting_lm_current_policy_limits_and_cancellation_remain_typed() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let mut profile = seed.problem.profile.clone();
+    profile.solver.controls.iterations = 1;
+    let prepared = production_profile(&seed, profile).await.unwrap();
+    let problem = prepared.problem.clone();
+    let service = problem.runtime.native().clone();
+    service.job_scoped(1, problem.bytes + MATRIX_ALLOWANCE, Default::default(), None, move |flag| {
+        let execution = Execution::new(flag, &problem.profile.solver.controls);
+        let report = problem.execute_profile(&problem.profile.solver, FitRoute::ResidualLm,
+            execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None)?;
+        let residual = report.residual.as_ref().unwrap();
+        let stopping = residual.stopping.unwrap();
+        assert_eq!(stopping.criteria, ResidualLmCriteria::current());
+        assert_eq!(stopping.parameter_update_limit, 1);
+        assert_eq!(stopping.residual_evaluation_limit, problem.initial.len() + 1);
+        assert!(residual.parameter_updates <= stopping.parameter_update_limit);
+        assert!(residual.residual_evaluations <= stopping.residual_evaluation_limit);
+        assert!(matches!(residual.failure.as_ref().map(ProfileFailure::cause), Some(ProblemError::Limit { kind: native::LimitKind::Work, .. })));
+        let cancelled = Execution::new(Default::default(), &problem.profile.solver.controls);
+        cancelled.cancellation_control().cancel();
+        assert!(matches!(residual::solve(&problem, cancelled, &problem.initial, None, None), Err(ProblemError::Cancelled)));
+        Ok(())
+    }).await.unwrap();
+}
+
+#[tokio::test]
+async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&seed, seed.problem.profile.clone()).await.unwrap();
+    let current = ResidualLmCriteria::current();
+    let constructor = prepared.original_inputs.document(0);
+    assert_eq!(constructor.residual_lm_criteria, current);
+    let serialized = serde_json::to_value(&constructor).unwrap();
+    assert_eq!(serialized["residual_lm_criteria"]["version"], 1);
+    assert_eq!(serialized["residual_lm_criteria"]["relative_cost_change"], current.relative_cost_change());
+    assert_eq!(serialized["residual_lm_criteria"]["relative_step"], current.relative_step());
+    assert_eq!(serialized["residual_lm_criteria"]["column_residual_cosine"], current.column_residual_cosine());
+    let schema = schemars::schema_for!(crate::workflow::ReplayFitConstructor).to_value();
+    assert!(schema["required"].as_array().unwrap().iter().any(|name| name == "residual_lm_criteria"));
+    assert_eq!(prepared.problem.profile_key, preparation::profile_key(&prepared.problem.profile, current).unwrap());
+    let baseline = ResidualLmCriteria::inquiry_baseline(prepared.problem.accuracy.stationarity);
+    assert_ne!(prepared.problem.profile_key, preparation::profile_key(&prepared.problem.profile, baseline).unwrap());
+    let replayed = constructor.reconstruct(&prepared.source, &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(replayed.identity(), prepared.identity());
+    assert_eq!(replayed.problem.residual_lm_criteria, current);
+    let mut unsupported = constructor;
+    unsupported.residual_lm_criteria = baseline;
+    assert!(unsupported.reconstruct(&prepared.source, &crate::CancelSource::new()).await.is_err());
+}
+
+#[tokio::test]
+async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let mut profile = seed.problem.profile.clone();
+    profile.uncertainty = Some(FitUncertainty { level: Fraction::try_new(0.95).unwrap(), profile: Some(Default::default()), predictions: false });
+    let prepared = production_profile(&seed, profile).await.unwrap();
+    let updates = prepared.problem.profile.solver.controls.iterations as usize;
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    let report = regression::report(&result);
+    let estimate = report.residual.as_ref().unwrap().stopping.unwrap();
+    assert_eq!(estimate.criteria, ResidualLmCriteria::current());
+    assert_eq!(estimate.parameter_update_limit, updates);
+    assert_eq!(estimate.residual_evaluation_limit, updates * (prepared.problem.initial.len() + 1));
+    for chain in report.profiles.as_ref().unwrap().as_ref().unwrap() {
+        assert!(!chain.points.is_empty());
+        for point in &chain.points {
+            let residual = point.residual.as_ref().unwrap();
+            let stopping = residual.stopping.unwrap();
+            assert_eq!(stopping.criteria, estimate.criteria);
+            assert_eq!(stopping.parameter_update_limit, updates);
+            assert_eq!(stopping.residual_evaluation_limit, updates * prepared.problem.initial.len());
+            assert!(residual.parameter_updates <= stopping.parameter_update_limit);
+            assert!(residual.residual_evaluations <= stopping.residual_evaluation_limit);
+        }
+    }
+    let FitExecutionDocument::ResidualLm { report: execution } = report.execution_document() else { panic!("actual residual method"); };
+    assert_eq!(execution.stopping, Some(estimate));
 }

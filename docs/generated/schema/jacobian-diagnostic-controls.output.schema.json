@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Local Jacobian diagnostic work, independent of nonlinear feasibility.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_attempts": {
       "default": 64,
       "description": "Maximum native search attempts.",
@@ -61,7 +66,8 @@
     "multiplier_bound",
     "tolerance",
     "rank_relative",
-    "maximum_nodes"
+    "maximum_nodes",
+    "document_version"
   ],
   "title": "JacobianDiagnosticControlsOutput",
   "type": "object"

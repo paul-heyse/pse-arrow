@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Native limits for retained knowledge inspection.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_bytes": {
       "default": 67108864,
       "description": "Maximum retained document bytes.",
@@ -19,6 +24,9 @@
       "type": "integer"
     }
   },
+  "required": [
+    "document_version"
+  ],
   "title": "KnowledgeControls",
   "type": "object"
 }

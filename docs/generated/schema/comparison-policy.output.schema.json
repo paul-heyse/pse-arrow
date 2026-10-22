@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Response bounds, not a scientific or performance acceptance policy.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "source_items": {
       "description": "Source steps, products, decisions and intervals inspected per collection;\neffective ceiling is 64. Omitted source items remain explicit.",
       "format": "uint",
@@ -19,7 +24,8 @@
   },
   "required": [
     "statements",
-    "source_items"
+    "source_items",
+    "document_version"
   ],
   "title": "ComparisonPolicy",
   "type": "object"

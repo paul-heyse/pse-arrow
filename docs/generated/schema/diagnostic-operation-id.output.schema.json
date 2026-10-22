@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Process instance plus local sequence; never a semantic or cache identity.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "process_instance": {
       "description": "Process-local instance locator; not a semantic identity or attestation.",
       "items": {
@@ -24,7 +29,8 @@
   },
   "required": [
     "process_instance",
-    "sequence"
+    "sequence",
+    "document_version"
   ],
   "title": "OperationId",
   "type": "object"

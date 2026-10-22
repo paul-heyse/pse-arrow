@@ -168,6 +168,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "identity": {
       "description": "Versioned flow projection fingerprint; full physical-context equality remains separate.",
       "pattern": "^blake3:[0-9a-fA-F]{64}$",
@@ -186,7 +191,8 @@
     "identity",
     "nodes",
     "connections",
-    "decisions"
+    "decisions",
+    "document_version"
   ],
   "title": "FlowGraphDocument",
   "type": "object"

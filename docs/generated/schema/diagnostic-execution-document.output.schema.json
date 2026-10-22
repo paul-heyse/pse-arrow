@@ -255,7 +255,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnosticOutput": {
+    "BoundaryDiagnosticBodyOutput": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -271,7 +271,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
           },
           "type": "array"
         },
@@ -287,7 +287,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationOutput"
+            "$ref": "#/$defs/SourceLocationBodyOutput"
           },
           "type": "array"
         },
@@ -574,7 +574,7 @@
       ],
       "type": "string"
     },
-    "DiagnosticOriginOutput": {
+    "DiagnosticOriginBodyOutput": {
       "additionalProperties": false,
       "description": "Optional link to retained original evidence; never authority to use a scientific result.",
       "properties": {
@@ -590,7 +590,7 @@
         "failure": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnosticOutput"
+              "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
             },
             {
               "type": "null"
@@ -610,7 +610,7 @@
         "operation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/OperationId"
+              "$ref": "#/$defs/OperationIdBody"
             },
             {
               "type": "null"
@@ -1128,7 +1128,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -1192,7 +1192,7 @@
       ],
       "type": "object"
     },
-    "SourceLocationOutput": {
+    "SourceLocationBodyOutput": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1362,7 +1362,7 @@
     "failure": {
       "anyOf": [
         {
-          "$ref": "#/$defs/BoundaryDiagnosticOutput"
+          "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
         },
         {
           "type": "null"
@@ -1373,18 +1373,18 @@
     "findings": {
       "description": "Existing diagnostic findings in original coordinates where available.",
       "items": {
-        "$ref": "#/$defs/BoundaryDiagnosticOutput"
+        "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
       },
       "type": "array"
     },
     "operation": {
-      "$ref": "#/$defs/OperationId",
+      "$ref": "#/$defs/OperationIdBody",
       "description": "Actual new diagnostic operation established before source admission."
     },
     "origin": {
       "anyOf": [
         {
-          "$ref": "#/$defs/DiagnosticOriginOutput"
+          "$ref": "#/$defs/DiagnosticOriginBodyOutput"
         },
         {
           "type": "null"

@@ -63,7 +63,7 @@ fn flow_selection(
     allowance: usize,
 ) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
     let document: pse_runtime::math::flows::FlowSelectionDocument =
-        documents::decode(py, "flow selection", bytes, allowance / 4)?;
+        documents::decode_document(py, "flow selection", bytes, allowance / 4)?;
     pse_runtime::math::flows::ModelingFlowSelection::try_from(document)
         .map_err(|error| errors::diagnostic(py, &pse_runtime::math::MathRuntimeError::from(error)))
 }
@@ -226,7 +226,7 @@ impl NativeModelingPackage {
             .map(|origin| origin.problem.clone())
     }
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
-        let edit: native::DeclarationEdit = documents::decode(
+        let edit: native::DeclarationEdit = documents::decode_document(
             py,
             "declaration edit",
             source,
@@ -246,7 +246,7 @@ impl NativeModelingPackage {
         })
     }
     fn with_delta(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
-        let delta: native::SourceDelta = documents::decode(
+        let delta: native::SourceDelta = documents::decode_document(
             py,
             "source delta",
             source,
@@ -291,7 +291,7 @@ impl NativeModelingPackage {
         if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
             return Err(invalid(py, "fit source extent"));
         }
-        let data: native::FitDeclarations = documents::decode(
+        let data: native::FitDeclarations = documents::decode_document(
             py,
             "operation",
             source,
@@ -347,7 +347,7 @@ impl NativeModelingPackage {
         let root = declaration(case_id);
         let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
-        let policy: native::ModelingNonlinearPolicy = documents::decode(py, "nonlinear explanation", policy, self.owner.shared.budget().math.workspace_bytes)?;
+        let policy: native::ModelingNonlinearPolicy = documents::decode_document(py, "nonlinear explanation", policy, self.owner.shared.budget().math.workspace_bytes)?;
         let inner = blocking(py, &self.owner,
             self.inner.explain_case_request(root, &preparation, settings, policy, &cancel), || cancel.cancel())?;
         Ok(NativeModelingNonlinearExplanation { inner: Arc::new(inner) })
@@ -510,7 +510,7 @@ impl NativeModelingPackage {
     }
     /// Admit local scientific intent without publication prerequisites.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<NativeLocalStudy> {
-        let request = documents::decode_versioned::<native::StudyRequest, 7>(
+        let request = documents::decode_document::<native::StudyRequest>(
             py,
             "operation",
             request,
@@ -595,7 +595,7 @@ impl NativeModelingPackage {
             let root = declaration(case_id);
             let preparation = native::PreparationSettings::with_limits(self.limits);
             let selection = flow_selection(py, selection, self.owner.shared.budget().math.workspace_bytes)?;
-            let request: native::RecycleRequest = documents::decode(py, "recycle", request, self.owner.shared.budget().math.workspace_bytes / 4)?;
+            let request: native::RecycleRequest = documents::decode_document(py, "recycle", request, self.owner.shared.budget().math.workspace_bytes / 4)?;
             let cancel = CancelSource::new();
             let inner = blocking(py, &self.owner,
                 self.inner.prepare_recycle_request(root, &preparation, settings, selection, request, &cancel), || cancel.cancel())?;
@@ -925,12 +925,12 @@ impl ModelingDiagnosticSettings {
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
         let policy: native::ModelingDiagnosticPolicy =
-            documents::decode(py, "diagnostic profile", source.as_bytes(), 1 << 20)?;
+            documents::decode_document(py, "diagnostic profile", source.as_bytes(), 1 << 20)?;
         policy.validate().map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self { policy })
     }
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
-        String::from_utf8(documents::encode(py, &self.policy)?)
+        String::from_utf8(<native::ModelingDiagnosticPolicy as documents::DocumentType>::WIRE.to_vec(&self.policy).map_err(|error| invalid(py, error.to_string()))?)
             .map_err(|error| invalid(py, error.to_string()))
     }
 }

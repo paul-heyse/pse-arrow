@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "executable": {
       "description": "Current executable path for display/symbol discovery, not a content proof.",
       "type": [
@@ -30,7 +35,8 @@
   "required": [
     "pid",
     "start_ticks",
-    "executable"
+    "executable",
+    "document_version"
   ],
   "title": "ProcessLocatorOutput",
   "type": "object"

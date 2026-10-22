@@ -135,7 +135,7 @@
         }
       ]
     },
-    "ReviewContextRequest": {
+    "ReviewContextRequestBody": {
       "additionalProperties": false,
       "description": "Exact explanatory selection, independent of executable replay eligibility.",
       "properties": {
@@ -176,7 +176,7 @@
       "description": "Additional selected descriptive output; absent means no handoff retention.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ReviewContextRequest",
+          "$ref": "#/$defs/ReviewContextRequestBody",
           "description": "Existing callback-free descriptive selection."
         },
         "maximum_bytes": {

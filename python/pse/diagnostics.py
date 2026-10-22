@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Self, TypeVar
 
 import attrs
 import pyarrow as pa
+from msgspec import convert
 from msgspec.structs import replace
 
 import pse
@@ -85,6 +86,7 @@ from pse.contracts.documents import (
     LaunchCaptureRequest,
     NumericalHistoryPolicy,
     OperationId,
+    OperationIdBody,
     OperationPage,
     OperationSnapshot,
     PackExportRequest,
@@ -442,7 +444,7 @@ def _duration(seconds: float) -> ClosedDuration:
 
 
 def _render_inspection(document: InspectionDocument) -> None:
-    print(f"operation {operation_text(document.request.operation)}")
+    print(f"operation {operation_text(codec.convert_document(codec.document_builtins(document.request.operation), OperationId))}")
     operation = document.operation
     if operation is not None:
         print(f"  kind={operation.kind} outcome={operation.outcome}")
@@ -501,7 +503,7 @@ def _render_inspection(document: InspectionDocument) -> None:
                 print(f"  current={codec.encode_json(producer.current).decode()}")
     for related in document.related:
         print(
-            f"related {operation_text(related.id)} kind={related.kind} "
+            f"related {operation_text(codec.convert_document(codec.document_builtins(related.id), OperationId))} kind={related.kind} "
             f"outcome={related.outcome}"
         )
         for phase in related.phases:
@@ -593,7 +595,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         print(f"  unavailable {process.failure}")
                     for operation in process.operations:
                         print(
-                            f"  {operation_text(operation.id)} {operation.kind} "
+                            f"  {operation_text(codec.convert_document(codec.document_builtins(operation.id), OperationId))} {operation.kind} "
                             f"outcome={operation.outcome}"
                         )
                 if page.next is not None:
@@ -635,7 +637,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.checkpoint,
                 InspectionRequest(
                     version=2,
-                    operation=selected,
+                    operation=convert(selected, type=OperationIdBody, from_attributes=True),
                     window=_duration(args.window),
                     include_related=not args.no_related,
                     related_limit=args.related_limit,
@@ -658,7 +660,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         request = CaptureRequest(
             version=1,
             checkpoint=str(args.checkpoint),
-            operation=selected,
+            operation=convert(selected, type=OperationIdBody, from_attributes=True),
             kind=CaptureKind.CPU if args.kind == "cpu" else CaptureKind.TIMELINE,
             output=str(args.output),
             duration=_duration(args.duration),

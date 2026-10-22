@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Limits and selection for pure document conformance, with no solver work.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "fixtures": {
       "default": null,
       "description": "Explicit fixture occurrences, or the package selection when omitted.",
@@ -35,7 +40,8 @@
   "required": [
     "maximum_fixtures",
     "maximum_checks",
-    "fixtures"
+    "fixtures",
+    "document_version"
   ],
   "title": "PureConformanceControlsOutput",
   "type": "object"

@@ -220,7 +220,7 @@ impl ModelingPackage {
                     .prepare_fit_problem_bound(id, profile, compiler, limits, binding, pending, cancel)
                     .await?;
                 original_profile.simulations = problem.profile.simulations.clone();
-                let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(self, id, &original_profile, compiler, limits, binding)?;
+                let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(self, id, &original_profile, compiler, limits, binding, problem.residual_lm_criteria)?;
                 if !problem.initial.is_empty() && problem.profile.optimizer != FitOptimizer::NativeNlp {
                     if oracle::residual::eligible(&problem) {
                         return Ok(PreparedFit { original_inputs, source: self.clone(),

@@ -431,6 +431,22 @@ impl RunResult {
                     .await?;
                 }
                 if let Some(residual) = &r.residual {
+                    if let Some(stopping) = residual.stopping {
+                        metric("residual_lm", "criteria_version", Metric::Integer(i64::from(stopping.criteria.version()))).await?;
+                        for (name, value) in [
+                            ("relative_cost_change", stopping.criteria.relative_cost_change()),
+                            ("relative_step", stopping.criteria.relative_step()),
+                            ("column_residual_cosine", stopping.criteria.column_residual_cosine()),
+                        ] {
+                            metric("residual_lm", name, Metric::Real(value)).await?;
+                        }
+                        for (name, value) in [
+                            ("parameter_update_limit", stopping.parameter_update_limit),
+                            ("residual_evaluation_limit", stopping.residual_evaluation_limit),
+                        ] {
+                            metric("residual_lm", name, Metric::Integer(i64::try_from(value).map_err(|_| contract("LM recorded work limit exceeds integer transport"))?)).await?;
+                        }
+                    }
                     metric(
                         "residual_lm",
                         "termination",

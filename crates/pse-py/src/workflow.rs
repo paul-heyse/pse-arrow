@@ -776,7 +776,7 @@ impl NativeRuntime {
         if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "cone request exceeds workspace allowance"));
         }
-        let request = documents::decode::<native::ConicRequest>(
+        let request = documents::decode_document::<native::ConicRequest>(
             py,
             "cone request",
             request,
@@ -1166,7 +1166,7 @@ impl NativeRuntime {
     ) -> PyResult<NativeAnalysis> {
         let connection_stop = CancelSource::new();
         let controls: native::AnalysisControls =
-            documents::decode(py, "analysis controls", controls, 128 * 1024)?;
+            documents::decode_document(py, "analysis controls", controls, 128 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
         Ok(NativeAnalysis {
@@ -1188,7 +1188,7 @@ impl NativeRuntime {
     fn retain_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
         let connection_stop = CancelSource::new();
         let obligation: native::HistoryObligation =
-            documents::decode(py, "history obligation", obligation, 128 * 1024)?;
+            documents::decode_document(py, "history obligation", obligation, 128 * 1024)?;
         blocking(
             py,
             &self.owner,
@@ -1201,7 +1201,7 @@ impl NativeRuntime {
     fn release_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
         let connection_stop = CancelSource::new();
         let obligation: native::HistoryObligation =
-            documents::decode(py, "history obligation", obligation, 128 * 1024)?;
+            documents::decode_document(py, "history obligation", obligation, 128 * 1024)?;
         blocking(
             py,
             &self.owner,
@@ -1213,7 +1213,7 @@ impl NativeRuntime {
     }
     fn release_history(&self, py: Python<'_>, owner: &[u8]) -> PyResult<()> {
         let connection_stop = CancelSource::new();
-        let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
+        let owner: native::HistoryOwner = documents::decode_document(py, "history owner", owner, 32 * 1024)?;
         blocking(
             py,
             &self.owner,
@@ -1262,6 +1262,23 @@ impl NativeRuntime {
             }),
             || connection_stop.cancel(),
         )
+    }
+    fn reclaim_source_page(&self, py: Python<'_>, problem: &str) -> PyResult<documents::DocumentValue<native::SourceReclamationPage>> {
+        let connection_stop = CancelSource::new();
+        let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
+        let page = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move {
+                recording.reclaim_source_page(problem, &operation_cancel).await
+            }),
+            || {
+                connection_stop.cancel();
+                cancel.cancel();
+            },
+        )?;
+        Ok(documents::DocumentValue(page))
     }
     fn reclaim_run_results(&self, py: Python<'_>, run: &str) -> PyResult<documents::DocumentValue<native::ResultReclamationPage>> {
         let connection_stop = CancelSource::new();
@@ -2437,7 +2454,7 @@ impl NativePreparedOperation {
             ));
         };
         let controls: native::AnalysisControls =
-            documents::decode(py, "analysis controls", controls, 128 * 1024)?;
+            documents::decode_document(py, "analysis controls", controls, 128 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
         Ok(NativeAnalysis {
             inner: blocking_analysis(

@@ -105,6 +105,11 @@
       "type": "string",
       "x-pse-identity": "ContentHash"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "entries": {
       "additionalProperties": false,
       "description": "Entries in member identity order.",
@@ -130,7 +135,8 @@
   "required": [
     "revision",
     "context",
-    "entries"
+    "entries",
+    "document_version"
   ],
   "title": "AdmittedBinding",
   "type": "object"

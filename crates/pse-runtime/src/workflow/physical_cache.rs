@@ -1180,7 +1180,7 @@ mod physical_admission_cache_unit {
         }
         let page = operations
             .store()
-            .reclaim_page(&revision.problem, "")
+            .reclaim_source_page(&revision.problem)
             .await
             .unwrap();
         assert!(page.memberships > 0);

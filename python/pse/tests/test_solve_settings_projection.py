@@ -115,7 +115,7 @@ def attempt_of(result: pse.ModelingResult) -> pse.NativeAttempt:
 @pytest.mark.unit
 def test_backend_settings_typed() -> None:
     """Each backend's settings are a generated document type (Plan 22 X13)."""
-    typed: dict[NativeBackend, pse.BackendSettings] = {
+    typed: dict[NativeBackend, documents.BackendSettingsBody] = {
         NativeBackend.HIGHS: pse.HighsSettings(method=HighsMethod.SIMPLEX),
         NativeBackend.CLARABEL: pse.ClarabelSettings(
             mode=ClarabelMode.REUSABLE_DATA, max_step_fraction=0.9
@@ -141,25 +141,26 @@ def test_backend_settings_typed() -> None:
         # field is present with the default the Rust type states.
         encoded = msgspec.to_builtins(settings)
         assert encoded["backend"] == backend.value
-        decoded = msgspec.json.decode(
-            msgspec.json.encode(settings), type=pse.BackendSettings
-        )
-        assert decoded == settings
+        assert codec.decode_json(codec.encode_json(settings), documents.BackendSettingsBody) == settings
+        current = codec.convert_document(codec.document_builtins(settings), pse.BackendSettings)
+        decoded = codec.decode_json(codec.encode_json(current), pse.BackendSettings)
+        assert decoded == current
+        assert codec.document_builtins(decoded)["document_version"] == 1
         # Each field of each document type is typed: no field is `Any` or untyped.
         for field in msgspec.structs.fields(type(settings)):
             assert field.type is not object, (backend, field.name)
     # The generated types refuse what their schema refuses, before anything is native.
     with pytest.raises(msgspec.ValidationError, match="unknown field"):
-        msgspec.json.decode(
-            b'{"backend": "highs", "methd": "simplex"}', type=pse.BackendSettings
+        codec.decode_json(
+            b'{"document_version":1,"backend": "highs", "methd": "simplex"}', pse.BackendSettings
         )
     with pytest.raises(msgspec.ValidationError):
-        msgspec.json.decode(b'{"backend": "gurobi"}', type=pse.BackendSettings)
+        codec.decode_json(b'{"document_version":1,"backend": "gurobi"}', pse.BackendSettings)
     with pytest.raises(
         msgspec.ValidationError, match=r"Expected `float` >= 0\.0|> 0\.0"
     ):
-        msgspec.json.decode(
-            b'{"backend": "ipopt", "bound_push": -1.0}', type=pse.BackendSettings
+        codec.decode_json(
+            b'{"document_version":1,"backend": "ipopt", "bound_push": -1.0}', pse.BackendSettings
         )
 
 
@@ -409,6 +410,7 @@ def test_solve_settings_backend_projection(
         "unit_id": identity(10).to_hex(),
     }
     request: dict[str, object] = {
+        "document_version": 1,
         "variables": [{"symbol_id": identity(201).to_hex(), **port}],
         "rows": [{"symbol_id": identity(202).to_hex(), **port}],
         "objective_port": {"symbol_id": identity(0).to_hex(), **port},

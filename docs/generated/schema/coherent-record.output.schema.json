@@ -29,7 +29,7 @@
       ],
       "type": "string"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -62,7 +62,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {
@@ -310,6 +310,11 @@
         "null"
       ]
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "family": {
       "description": "Versioned source family; native families retain different field meanings.",
       "type": "string"
@@ -372,7 +377,8 @@
     "phase",
     "coordinates",
     "norm",
-    "values"
+    "values",
+    "document_version"
   ],
   "title": "CoherentRecordOutput",
   "type": "object"

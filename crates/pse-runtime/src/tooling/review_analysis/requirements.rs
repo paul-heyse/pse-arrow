@@ -658,7 +658,7 @@ mod tests {
         use crate::invocation::{InvocationEndpoints, InvocationOutcome};
         let run_id = pse_model::generated::identities::RunId::from_bytes([14; 16]);
         crate::invocation::InvocationEvidenceDocument {
-            version: 2,
+            version: Default::default(),
             run_id,
             attempt_id: None,
             operation: Some(id()),

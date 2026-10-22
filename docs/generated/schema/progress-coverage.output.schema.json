@@ -177,13 +177,19 @@
       "additionalProperties": false,
       "description": "Historical or recovered executions did not retain original counters.",
       "properties": {
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
         "kind": {
           "const": "unknown",
           "type": "string"
         }
       },
       "required": [
-        "kind"
+        "kind",
+        "document_version"
       ],
       "type": "object"
     },
@@ -195,6 +201,11 @@
           "description": "Events in batches with actual canonical append acknowledgments.",
           "format": "uint64",
           "minimum": 0,
+          "type": "integer"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
           "type": "integer"
         },
         "dropped_before_queue": {
@@ -237,10 +248,21 @@
         "dropped_before_queue",
         "acknowledged",
         "unacknowledged",
-        "writer"
+        "writer",
+        "document_version"
       ],
       "type": "object"
     }
+  ],
+  "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "document_version"
   ],
   "title": "ProgressCoverage"
 }

@@ -21,7 +21,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "kind": {
@@ -84,7 +84,7 @@
       ],
       "type": "object"
     },
-    "CoherentRecordOutput": {
+    "CoherentRecordBodyOutput": {
       "additionalProperties": false,
       "description": "All members belong to the same source event; a read never assembles a mixed row.",
       "properties": {
@@ -527,7 +527,7 @@
       ],
       "type": "string"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -722,7 +722,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {
@@ -794,7 +794,7 @@
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CoherentRecordOutput"
+              "$ref": "#/$defs/CoherentRecordBodyOutput"
             },
             {
               "type": "null"
@@ -809,7 +809,7 @@
         "recent": {
           "description": "Bounded whole records intersecting the requested interval.",
           "items": {
-            "$ref": "#/$defs/CoherentRecordOutput"
+            "$ref": "#/$defs/CoherentRecordBodyOutput"
           },
           "type": "array"
         }
@@ -1165,6 +1165,11 @@
       "description": "Detail events were displaced or updates were lost; aggregate coverage is separate.",
       "type": "boolean"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "finished_at": {
       "anyOf": [
         {
@@ -1177,7 +1182,7 @@
       "description": "Actual owner completion time, when known."
     },
     "id": {
-      "$ref": "#/$defs/OperationId",
+      "$ref": "#/$defs/OperationIdBody",
       "description": "Diagnostic identity of the associated operation."
     },
     "interval_end": {
@@ -1295,7 +1300,8 @@
     "phases",
     "children",
     "sources",
-    "detail"
+    "detail",
+    "document_version"
   ],
   "title": "OperationSnapshotOutput",
   "type": "object"

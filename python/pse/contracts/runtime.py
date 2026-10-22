@@ -443,9 +443,10 @@ class RuntimeCanonicalGuardsRow:
     analysis_creation_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     artifact_creation_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     protection_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    source_reclaim_after: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.incarnation), v.optional_key(v.scalar_key)(self.analysis_creation_closed_through), v.optional_key(v.scalar_key)(self.artifact_creation_closed_through), v.optional_key(v.scalar_key)(self.protection_closed_through),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.incarnation), v.optional_key(v.scalar_key)(self.analysis_creation_closed_through), v.optional_key(v.scalar_key)(self.artifact_creation_closed_through), v.optional_key(v.scalar_key)(self.protection_closed_through), v.optional_key(v.scalar_key)(self.source_reclaim_after),))
 
 
 @attrs.frozen(kw_only=True)

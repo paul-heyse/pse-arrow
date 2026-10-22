@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Bounded in-process study execution.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_points": {
       "default": 1024,
       "description": "Maximum points the local execution may admit.",
@@ -13,7 +18,8 @@
     }
   },
   "required": [
-    "maximum_points"
+    "maximum_points",
+    "document_version"
   ],
   "title": "StudyRunControlsOutput",
   "type": "object"

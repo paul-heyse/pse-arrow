@@ -869,7 +869,13 @@ pub(super) async fn push_native_metrics(
             "start",
             "request",
             start_snapshot_extent(start)?,
-            || Ok(Metric::Text(start.snapshot().to_string())),
+            || {
+                use crate::boundary_documents::BoundaryDocument;
+                let bytes = <pse_backend_native::solve::SubmittedStartRecord as BoundaryDocument>::WIRE.to_vec(&start.snapshot())
+                    .map_err(|error| contract(format!("submitted start encoding: {error}")))?;
+                String::from_utf8(bytes).map(Metric::Text)
+                    .map_err(|error| contract(format!("submitted start UTF-8: {error}")))
+            },
         )
         .await?;
     }

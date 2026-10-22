@@ -249,6 +249,93 @@
       ],
       "type": "object"
     },
+    "BoundaryDiagnosticBody": {
+      "additionalProperties": false,
+      "description": "Stable structured cause shared by Rust and the public error projection.",
+      "properties": {
+        "applicability": {
+          "default": [],
+          "description": "Complete scientific evidence on demanded paths, including refused claims.",
+          "items": {
+            "$ref": "#/$defs/ApplicabilityObservation"
+          },
+          "type": "array"
+        },
+        "causes": {
+          "default": [],
+          "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
+          "items": {
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
+          },
+          "type": "array"
+        },
+        "class": {
+          "$ref": "#/$defs/NativeBoundaryClass",
+          "description": "Machine-readable disposition; callers never parse the message."
+        },
+        "code": {
+          "$ref": "#/$defs/DiagnosticCode",
+          "description": "Detailed semantic identity, authoritative over every coarse projection."
+        },
+        "locations": {
+          "default": [],
+          "description": "Available source locations. Empty means unattributed, not a guessed source.",
+          "items": {
+            "$ref": "#/$defs/SourceLocationBody"
+          },
+          "type": "array"
+        },
+        "observations": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Observation"
+          },
+          "description": "Values observed while checking the contract.",
+          "type": "object"
+        },
+        "rule": {
+          "$ref": "#/$defs/DiagnosticRule",
+          "description": "The violated named contract, not a replacement for source identities."
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity",
+          "default": "error",
+          "description": "Error, warning or information; a warning never makes a model invalid."
+        },
+        "sources": {
+          "description": "All affected authored identities, in deterministic order.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "stage": {
+          "$ref": "#/$defs/DiagnosticStage",
+          "description": "Operation boundary, such as selected admission or provider registration."
+        },
+        "validity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValidityLineage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The lineage of a rejected authored validity predicate; absent on every other finding."
+        }
+      },
+      "required": [
+        "code",
+        "class",
+        "stage",
+        "sources",
+        "rule",
+        "observations"
+      ],
+      "type": "object"
+    },
     "DiagnosticCode": {
       "enum": [
         "authoring.parse",
@@ -996,7 +1083,7 @@
       ],
       "type": "object"
     },
-    "SourceLocation": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1157,7 +1244,7 @@
       "default": [],
       "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
       "items": {
-        "$ref": "#"
+        "$ref": "#/$defs/BoundaryDiagnosticBody"
       },
       "type": "array"
     },
@@ -1169,11 +1256,16 @@
       "$ref": "#/$defs/DiagnosticCode",
       "description": "Detailed semantic identity, authoritative over every coarse projection."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "locations": {
       "default": [],
       "description": "Available source locations. Empty means unattributed, not a guessed source.",
       "items": {
-        "$ref": "#/$defs/SourceLocation"
+        "$ref": "#/$defs/SourceLocationBody"
       },
       "type": "array"
     },
@@ -1224,7 +1316,8 @@
     "stage",
     "sources",
     "rule",
-    "observations"
+    "observations",
+    "document_version"
   ],
   "title": "BoundaryDiagnostic",
   "type": "object"

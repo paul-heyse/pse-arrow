@@ -60,7 +60,7 @@ FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
-HistoryPurpose = Literal["audit", "unsettled"]
+HistoryPurposeBody = Literal["audit", "unsettled"]
 
 IdasInitialStep = Literal["configured", "automatic"]
 
@@ -208,6 +208,24 @@ class AdjointSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class AdmittedBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable selected-revision binding; attribution is excluded from content identity."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Physical interpretation context.
+    context: v.ContentHash
+    #: Entries in member identity order.
+    entries: dict[v.SemanticId, AdmittedBindingEntry]
+    #: Exact revision that admitted member identity and role.
+    revision: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.mapping_key(v.scalar_key, v.record_key)(self.entries), v.scalar_key(self.revision),))
+
+
+class AdmittedBindingBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable selected-revision binding; attribution is excluded from content identity."""
+
     #: Physical interpretation context.
     context: v.ContentHash
     #: Entries in member identity order.
@@ -333,13 +351,17 @@ class AnalysisControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     bounded method graph. Roots are exact semantic names from that method's nodes.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Traverse contributors or dependents, preserving distinct edge meanings.
     direction: AnalysisDirection
     #: Exact selected semantic object names.
     roots: tuple[str, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.direction), v.sequence_key(v.scalar_key)(self.roots),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.direction), v.sequence_key(v.scalar_key)(self.roots),))
 
 
 class AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -452,13 +474,13 @@ class AnalysisRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Current request contract; unsupported versions refuse at decode.
     version: Literal[2] = 2
     #: Optional exact baseline, never selected by name or a current pointer.
-    baseline: OperationId | None = None
+    baseline: OperationIdBody | None = None
     #: Exact supplied inventory indices; empty uses exact operation/run/attempt associations.
     inventory_members: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = msgspec.field(default_factory=tuple)
     #: Explicit existing numerical interpretation policy, never a convergence policy.
     numerical_history_policy: NumericalHistoryPolicy | None = None
     #: Exact selected original operation.
-    operation: OperationId
+    operation: OperationIdBody
     #: One bounded question; absent selects all ten.
     question: AnalysisQuestion | None = None
     #: Unique source records/scalars inspected, capped at 4096.
@@ -480,13 +502,13 @@ class AnalysisRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Current request contract; unsupported versions refuse at decode.
     version: Literal[2] = 2
     #: Optional exact baseline, never selected by name or a current pointer.
-    baseline: OperationId | None
+    baseline: OperationIdBody | None
     #: Exact supplied inventory indices; empty uses exact operation/run/attempt associations.
     inventory_members: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = msgspec.field(default_factory=tuple)
     #: Explicit existing numerical interpretation policy, never a convergence policy.
     numerical_history_policy: NumericalHistoryPolicyOutput | None
     #: Exact selected original operation.
-    operation: OperationId
+    operation: OperationIdBody
     #: One bounded question; absent selects all ten.
     question: AnalysisQuestion | None = None
     #: Unique source records/scalars inspected, capped at 4096.
@@ -510,7 +532,7 @@ class AnalysisSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Actual lower bound, absent for unknown coverage.
     interval_start: ClosedDuration | None = None
     #: Exact selected original operation.
-    operation: OperationId
+    operation: OperationIdBody
     #: Original process-clock identity; equal numeric timestamps do not align other clocks.
     process_clock: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0)], ...], msgspec.Meta(min_length=2, max_length=2)]
     #: Direct, independently selected, or unknown source coverage.
@@ -530,7 +552,7 @@ class AnalysisSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Actual lower bound, absent for unknown coverage.
     interval_start: ClosedDuration | None
     #: Exact selected original operation.
-    operation: OperationId
+    operation: OperationIdBody
     #: Original process-clock identity; equal numeric timestamps do not align other clocks.
     process_clock: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0)], ...], msgspec.Meta(min_length=2, max_length=2)]
     #: Direct, independently selected, or unknown source coverage.
@@ -873,6 +895,10 @@ class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class ArtifactIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: active
     active: bool
     #: block_count
@@ -903,7 +929,7 @@ class ArtifactIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     revision: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.block_count), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.payload_bytes), v.scalar_key(self.primary_authority), v.scalar_key(self.primary_problem), v.sequence_key(v.scalar_key)(self.provenance), v.scalar_key(self.retiring), v.scalar_key(self.revision),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.active), v.scalar_key(self.block_count), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.payload_bytes), v.scalar_key(self.primary_authority), v.scalar_key(self.primary_problem), v.sequence_key(v.scalar_key)(self.provenance), v.scalar_key(self.retiring), v.scalar_key(self.revision),))
 
 
 class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1173,6 +1199,36 @@ class AttemptStepSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_field
 class AttemptSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded automatic summary. Partial evidence and truncation are explicit."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Actual terminal failure when retained.
+    failure: AttemptFailureSummary | None = None
+    #: Shared compact native records, bounded by the requested event capacity.
+    native_attempts: tuple[ReplayNativeAttempt, ...]
+    #: Actual producer availability; integration does not invent adapter records.
+    native_record_coverage: ReplayNativeRecordCoverage
+    #: Compact native records omitted by the requested bound.
+    omitted_native_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Steps omitted by the requested bound.
+    omitted_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Full original requested step count.
+    requested_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original execution identity.
+    run_id: identities.RunId
+    #: Retained bounded original steps.
+    steps: tuple[AttemptStepSummary, ...]
+    #: These are original recorded reports; a partial trajectory is never a full horizon.
+    usable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_record_coverage), v.scalar_key(self.omitted_native_attempts), v.scalar_key(self.omitted_steps), v.scalar_key(self.requested_steps), v.scalar_key(self.run_id), v.sequence_key(v.record_key)(self.steps), v.scalar_key(self.usable),))
+
+
+class AttemptSummaryBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded automatic summary. Partial evidence and truncation are explicit."""
+
     #: Actual terminal failure when retained.
     failure: AttemptFailureSummary | None = None
     #: Shared compact native records, bounded by the requested event capacity.
@@ -1196,7 +1252,7 @@ class AttemptSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_record_coverage), v.scalar_key(self.omitted_native_attempts), v.scalar_key(self.omitted_steps), v.scalar_key(self.requested_steps), v.scalar_key(self.run_id), v.sequence_key(v.record_key)(self.steps), v.scalar_key(self.usable),))
 
 
-class AttemptSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class AttemptSummaryBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded automatic summary. Partial evidence and truncation are explicit."""
 
     #: Actual terminal failure when retained.
@@ -1220,6 +1276,36 @@ class AttemptSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_record_coverage), v.scalar_key(self.omitted_native_attempts), v.scalar_key(self.omitted_steps), v.scalar_key(self.requested_steps), v.scalar_key(self.run_id), v.sequence_key(v.record_key)(self.steps), v.scalar_key(self.usable),))
+
+
+class AttemptSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded automatic summary. Partial evidence and truncation are explicit."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Actual terminal failure when retained.
+    failure: AttemptFailureSummary | None
+    #: Shared compact native records, bounded by the requested event capacity.
+    native_attempts: tuple[ReplayNativeAttemptOutput, ...]
+    #: Actual producer availability; integration does not invent adapter records.
+    native_record_coverage: ReplayNativeRecordCoverage
+    #: Compact native records omitted by the requested bound.
+    omitted_native_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Steps omitted by the requested bound.
+    omitted_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Full original requested step count.
+    requested_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original execution identity.
+    run_id: identities.RunId
+    #: Retained bounded original steps.
+    steps: tuple[AttemptStepSummaryOutput, ...]
+    #: These are original recorded reports; a partial trajectory is never a full horizon.
+    usable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_record_coverage), v.scalar_key(self.omitted_native_attempts), v.scalar_key(self.omitted_steps), v.scalar_key(self.requested_steps), v.scalar_key(self.run_id), v.sequence_key(v.record_key)(self.steps), v.scalar_key(self.usable),))
 
 
 class AuthoredAccuracyGoalsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4595,12 +4681,48 @@ class BlockSolveOverride(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     Physical numerical meaning, intent, branch permission and authored start stay inherited.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Explicit eligible backend; omission uses contextual Auto selection.
     backend: enums.NativeBackend | None = None
     #: Optional finite controls within the original aggregate allowance.
     controls: SolveControls | None = None
     #: Typed settings admitted against this actual block.
-    settings: BackendSettings | None = None
+    settings: BackendSettingsBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
+
+
+class BlockSolveOverrideBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native realization and finite work controls of one compiler-issued block.
+    Physical numerical meaning, intent, branch permission and authored start stay inherited.
+    """
+
+    #: Explicit eligible backend; omission uses contextual Auto selection.
+    backend: enums.NativeBackend | None = None
+    #: Optional finite controls within the original aggregate allowance.
+    controls: SolveControls | None = None
+    #: Typed settings admitted against this actual block.
+    settings: BackendSettingsBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
+
+
+class BlockSolveOverrideBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native realization and finite work controls of one compiler-issued block.
+    Physical numerical meaning, intent, branch permission and authored start stay inherited.
+    """
+
+    #: Explicit eligible backend; omission uses contextual Auto selection.
+    backend: enums.NativeBackend | None = None
+    #: Optional finite controls within the original aggregate allowance.
+    controls: SolveControlsOutput | None = None
+    #: Typed settings admitted against this actual block.
+    settings: BackendSettingsBodyOutput | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
@@ -4611,30 +4733,68 @@ class BlockSolveOverrideOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     Physical numerical meaning, intent, branch permission and authored start stay inherited.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Explicit eligible backend; omission uses contextual Auto selection.
     backend: enums.NativeBackend | None = None
     #: Optional finite controls within the original aggregate allowance.
     controls: SolveControlsOutput | None = None
     #: Typed settings admitted against this actual block.
-    settings: BackendSettingsOutput | None = None
+    settings: BackendSettingsBodyOutput | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
 
 
 class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Stable structured cause shared by Rust and the public error projection."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Complete scientific evidence on demanded paths, including refused claims.
     applicability: tuple[ApplicabilityObservation, ...] = msgspec.field(default_factory=tuple)
     #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
-    causes: tuple[BoundaryDiagnostic, ...] = msgspec.field(default_factory=tuple)
+    causes: tuple[BoundaryDiagnosticBody, ...] = msgspec.field(default_factory=tuple)
     #: Machine-readable disposition; callers never parse the message.
     class_: enums.NativeBoundaryClass = msgspec.field(name="class")
     #: Detailed semantic identity, authoritative over every coarse projection.
     code: enums.DiagnosticCode
     #: Available source locations. Empty means unattributed, not a guessed source.
-    locations: tuple[SourceLocation, ...] = msgspec.field(default_factory=tuple)
+    locations: tuple[SourceLocationBody, ...] = msgspec.field(default_factory=tuple)
+    #: Values observed while checking the contract.
+    observations: dict[str, Observation]
+    #: The violated named contract, not a replacement for source identities.
+    rule: enums.DiagnosticRule
+    #: Error, warning or information; a warning never makes a model invalid.
+    severity: enums.DiagnosticSeverity = enums.DiagnosticSeverity.ERROR
+    #: All affected authored identities, in deterministic order.
+    sources: tuple[v.SemanticId, ...]
+    #: Operation boundary, such as selected admission or provider registration.
+    stage: enums.DiagnosticStage
+    #: The lineage of a rejected authored validity predicate; absent on every other finding.
+    validity: ValidityLineage | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class BoundaryDiagnosticBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Stable structured cause shared by Rust and the public error projection."""
+
+    #: Complete scientific evidence on demanded paths, including refused claims.
+    applicability: tuple[ApplicabilityObservation, ...] = msgspec.field(default_factory=tuple)
+    #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
+    causes: tuple[BoundaryDiagnosticBody, ...] = msgspec.field(default_factory=tuple)
+    #: Machine-readable disposition; callers never parse the message.
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: Detailed semantic identity, authoritative over every coarse projection.
+    code: enums.DiagnosticCode
+    #: Available source locations. Empty means unattributed, not a guessed source.
+    locations: tuple[SourceLocationBody, ...] = msgspec.field(default_factory=tuple)
     #: Values observed while checking the contract.
     observations: dict[str, Observation]
     #: The violated named contract, not a replacement for source identities.
@@ -4652,19 +4812,19 @@ class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
 
 
-class BoundaryDiagnosticOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class BoundaryDiagnosticBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Stable structured cause shared by Rust and the public error projection."""
 
     #: Complete scientific evidence on demanded paths, including refused claims.
     applicability: tuple[ApplicabilityObservationOutput, ...] = msgspec.field(default_factory=tuple)
     #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
-    causes: tuple[BoundaryDiagnosticOutput, ...] = msgspec.field(default_factory=tuple)
+    causes: tuple[BoundaryDiagnosticBodyOutput, ...] = msgspec.field(default_factory=tuple)
     #: Machine-readable disposition; callers never parse the message.
     class_: enums.NativeBoundaryClass = msgspec.field(name="class")
     #: Detailed semantic identity, authoritative over every coarse projection.
     code: enums.DiagnosticCode
     #: Available source locations. Empty means unattributed, not a guessed source.
-    locations: tuple[SourceLocationOutput, ...] = msgspec.field(default_factory=tuple)
+    locations: tuple[SourceLocationBodyOutput, ...] = msgspec.field(default_factory=tuple)
     #: Values observed while checking the contract.
     observations: dict[str, Observation]
     #: The violated named contract, not a replacement for source identities.
@@ -4680,6 +4840,40 @@ class BoundaryDiagnosticOutput(msgspec.Struct, frozen=True, forbid_unknown_field
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class BoundaryDiagnosticOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Stable structured cause shared by Rust and the public error projection."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete scientific evidence on demanded paths, including refused claims.
+    applicability: tuple[ApplicabilityObservationOutput, ...] = msgspec.field(default_factory=tuple)
+    #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
+    causes: tuple[BoundaryDiagnosticBodyOutput, ...] = msgspec.field(default_factory=tuple)
+    #: Machine-readable disposition; callers never parse the message.
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: Detailed semantic identity, authoritative over every coarse projection.
+    code: enums.DiagnosticCode
+    #: Available source locations. Empty means unattributed, not a guessed source.
+    locations: tuple[SourceLocationBodyOutput, ...] = msgspec.field(default_factory=tuple)
+    #: Values observed while checking the contract.
+    observations: dict[str, Observation]
+    #: The violated named contract, not a replacement for source identities.
+    rule: enums.DiagnosticRule
+    #: Error, warning or information; a warning never makes a model invalid.
+    severity: enums.DiagnosticSeverity = enums.DiagnosticSeverity.ERROR
+    #: All affected authored identities, in deterministic order.
+    sources: tuple[v.SemanticId, ...]
+    #: Operation boundary, such as selected admission or provider registration.
+    stage: enums.DiagnosticStage
+    #: The lineage of a rejected authored validity predicate; absent on every other finding.
+    validity: ValidityLineageOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
 
 
 class BranchPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4709,6 +4903,10 @@ class BranchPolicyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Build provenance of the compiled product, projected without recomputing its identity."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Workspace and wheel version.
     version: str
     #: Captured Cargo lockfile checksum; empty when no lockfile is embedded.
@@ -4725,7 +4923,7 @@ class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
     uv_lock_sha256: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.cargo_lock_sha256), v.scalar_key(self.git_sha), v.scalar_key(self.lockfile_hash), v.scalar_key(self.profile), v.scalar_key(self.rustc_version), v.scalar_key(self.uv_lock_sha256),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.version), v.scalar_key(self.cargo_lock_sha256), v.scalar_key(self.git_sha), v.scalar_key(self.lockfile_hash), v.scalar_key(self.profile), v.scalar_key(self.rustc_version), v.scalar_key(self.uv_lock_sha256),))
 
 
 class BuildObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4741,6 +4939,44 @@ class BuildObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
 
 class CacheReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Cheap aggregate observations without cloning the cached inventory."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Currently admitted replay/decode loads under the shared deployment gate.
+    active_loads: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Explicit admission refusals, distinct from native eviction.
+    bypasses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pool-reserved capacity, including key/node allowance.
+    capacity_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained entry count (expired entries may await native TTL removal).
+    entries: Annotated[int, msgspec.Meta(ge=0)]
+    #: Upstream eviction totals are not exposed by `DefaultCache`.
+    evictions: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Successful native lookups.
+    hits: Annotated[int, msgspec.Meta(ge=0)]
+    #: Reserved transient replay/decode staging; native allocator peaks are separate.
+    inflight_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: All live value owners, including values evicted while readers retain them.
+    live_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Unsuccessful native lookups.
+    misses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native cache name.
+    name: str
+    #: Reader-owned bytes are unavailable for native file cache value types.
+    pinned_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Configured admission ceiling, distinct from a pool capacity reservation.
+    policy_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native retained entry extent; excludes upstream reader Arc clones.
+    retained_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
+
+
+class CacheReportBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Cheap aggregate observations without cloning the cached inventory."""
 
     #: Currently admitted replay/decode loads under the shared deployment gate.
@@ -4774,7 +5010,7 @@ class CacheReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
 
 
-class CacheReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class CacheReportBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Cheap aggregate observations without cloning the cached inventory."""
 
     #: Currently admitted replay/decode loads under the shared deployment gate.
@@ -4806,6 +5042,44 @@ class CacheReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
+
+
+class CacheReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Cheap aggregate observations without cloning the cached inventory."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Currently admitted replay/decode loads under the shared deployment gate.
+    active_loads: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Explicit admission refusals, distinct from native eviction.
+    bypasses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pool-reserved capacity, including key/node allowance.
+    capacity_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained entry count (expired entries may await native TTL removal).
+    entries: Annotated[int, msgspec.Meta(ge=0)]
+    #: Upstream eviction totals are not exposed by `DefaultCache`.
+    evictions: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Successful native lookups.
+    hits: Annotated[int, msgspec.Meta(ge=0)]
+    #: Reserved transient replay/decode staging; native allocator peaks are separate.
+    inflight_bytes: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: All live value owners, including values evicted while readers retain them.
+    live_bytes: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Unsuccessful native lookups.
+    misses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native cache name.
+    name: str
+    #: Reader-owned bytes are unavailable for native file cache value types.
+    pinned_bytes: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Configured admission ceiling, distinct from a pool capacity reservation.
+    policy_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native retained entry extent; excludes upstream reader Arc clones.
+    retained_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
 
 
 class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4844,7 +5118,7 @@ class CaptureDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Explicitly selected mechanism.
     kind: enums.CaptureKind
     #: Exact launched command process; absent for checkpoint-based attachment.
-    launch_process: ProcessLocator | None = None
+    launch_process: ProcessLocatorBody | None = None
     #: Explicit bounded-loss and unavailable-clock facts.
     loss: CaptureLoss
     #: Actual elapsed collection interval from exporter start (no retrospective CPU samples).
@@ -4852,11 +5126,11 @@ class CaptureDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Intervals actually begun without an observed actual end, including interrupted ones.
     open_intervals: Annotated[int, msgspec.Meta(ge=0)]
     #: Selected root diagnostic operation, absent for a process launch without one.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Retained raw and projected files, including readable prefix boundaries.
     outputs: tuple[CaptureOutput, ...]
     #: Actual published operation relationships; an empty list means not observed.
-    related_operations: tuple[OperationId, ...]
+    related_operations: tuple[OperationIdBody, ...]
     #: Requested attachment duration.
     requested_duration: ClosedDuration
     #: Exporter lifecycle only.
@@ -4882,7 +5156,7 @@ class CaptureDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Explicitly selected mechanism.
     kind: enums.CaptureKind
     #: Exact launched command process; absent for checkpoint-based attachment.
-    launch_process: ProcessLocatorOutput | None
+    launch_process: ProcessLocatorBodyOutput | None
     #: Explicit bounded-loss and unavailable-clock facts.
     loss: CaptureLoss
     #: Actual elapsed collection interval from exporter start (no retrospective CPU samples).
@@ -4890,11 +5164,11 @@ class CaptureDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Intervals actually begun without an observed actual end, including interrupted ones.
     open_intervals: Annotated[int, msgspec.Meta(ge=0)]
     #: Selected root diagnostic operation, absent for a process launch without one.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Retained raw and projected files, including readable prefix boundaries.
     outputs: tuple[CaptureOutput, ...]
     #: Actual published operation relationships; an empty list means not observed.
-    related_operations: tuple[OperationId, ...]
+    related_operations: tuple[OperationIdBody, ...]
     #: Requested attachment duration.
     requested_duration: ClosedDuration
     #: Exporter lifecycle only.
@@ -4966,7 +5240,7 @@ class CaptureRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Optional evidence requested by the caller.
     kind: enums.CaptureKind
     #: Selected root diagnostic operation, not a numerical result identity.
-    operation: OperationId
+    operation: OperationIdBody
     #: New directory reserved exclusively for this capture; existing paths are refused.
     output: str
 
@@ -4990,7 +5264,7 @@ class CaptureRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Optional evidence requested by the caller.
     kind: enums.CaptureKind
     #: Selected root diagnostic operation, not a numerical result identity.
-    operation: OperationId
+    operation: OperationIdBody
     #: New directory reserved exclusively for this capture; existing paths are refused.
     output: str
 
@@ -5024,7 +5298,7 @@ class CaptureTarget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Target also had operations outside the selected graph; samples are inclusive.
     concurrent_operations: bool
     #: OS attachment identity copied from its owner.
-    locator: ProcessLocator
+    locator: ProcessLocatorBody
     #: Diagnostic process instance, scoped independently from OS PID reuse.
     process: str
     #: Last published actual native thread IDs for the selected operation set.
@@ -5046,7 +5320,7 @@ class CaptureTargetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Target also had operations outside the selected graph; samples are inclusive.
     concurrent_operations: bool
     #: OS attachment identity copied from its owner.
-    locator: ProcessLocatorOutput
+    locator: ProcessLocatorBodyOutput
     #: Diagnostic process instance, scoped independently from OS PID reuse.
     process: str
     #: Last published actual native thread IDs for the selected operation set.
@@ -5179,8 +5453,36 @@ class CausalUnitRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 class CheckpointIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact diagnostic association supplied by the registered receiver, never stop authority."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Actual process/start association recorded by the runtime.
-    locator: ProcessLocator
+    locator: ProcessLocatorBody
+    #: Diagnostic process instance, independent of PID reuse.
+    process: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.locator), v.scalar_key(self.process),))
+
+
+class CheckpointIdentityBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact diagnostic association supplied by the registered receiver, never stop authority."""
+
+    #: Actual process/start association recorded by the runtime.
+    locator: ProcessLocatorBody
+    #: Diagnostic process instance, independent of PID reuse.
+    process: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.locator), v.scalar_key(self.process),))
+
+
+class CheckpointIdentityBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact diagnostic association supplied by the registered receiver, never stop authority."""
+
+    #: Actual process/start association recorded by the runtime.
+    locator: ProcessLocatorBodyOutput
     #: Diagnostic process instance, independent of PID reuse.
     process: str
 
@@ -5191,13 +5493,17 @@ class CheckpointIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class CheckpointIdentityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact diagnostic association supplied by the registered receiver, never stop authority."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Actual process/start association recorded by the runtime.
-    locator: ProcessLocatorOutput
+    locator: ProcessLocatorBodyOutput
     #: Diagnostic process instance, independent of PID reuse.
     process: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.locator), v.scalar_key(self.process),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.locator), v.scalar_key(self.process),))
 
 
 class ChildSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5208,7 +5514,7 @@ class ChildSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None = None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
     #: Bounded producer-supplied operation or phase description.
     kind: str
     #: Actual time this relationship was first observed in the parent clock.
@@ -5232,7 +5538,7 @@ class ChildSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
     #: Bounded producer-supplied operation or phase description.
     kind: str
     #: Actual time this relationship was first observed in the parent clock.
@@ -5319,6 +5625,160 @@ class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.chordal_decomposition_compact), v.scalar_key(self.chordal_decomposition_complete_dual), v.scalar_key(self.chordal_decomposition_enable), v.scalar_key(self.chordal_decomposition_merge_method), v.scalar_key(self.direct), v.scalar_key(self.dynamic_regularization_delta), v.scalar_key(self.dynamic_regularization_enable), v.scalar_key(self.dynamic_regularization_eps), v.scalar_key(self.equilibrate_max_iter), v.scalar_key(self.equilibrate_max_scaling), v.scalar_key(self.equilibrate_min_scaling), v.scalar_key(self.input_sparse_dropzeros), v.scalar_key(self.iterative_refinement_abstol), v.scalar_key(self.iterative_refinement_enable), v.scalar_key(self.iterative_refinement_max_iter), v.scalar_key(self.iterative_refinement_reltol), v.scalar_key(self.iterative_refinement_stop_ratio), v.scalar_key(self.linesearch_backtrack_step), v.scalar_key(self.max_step_fraction), v.scalar_key(self.min_switch_step_length), v.scalar_key(self.min_terminate_step_length), v.scalar_key(self.mode), v.scalar_key(self.presolve_enable), v.scalar_key(self.reduced_tol_infeas_abs), v.scalar_key(self.reduced_tol_infeas_rel), v.scalar_key(self.reduced_tol_ktratio), v.scalar_key(self.static_regularization_constant), v.scalar_key(self.static_regularization_enable), v.scalar_key(self.static_regularization_proportional), v.scalar_key(self.tol_infeas_abs), v.scalar_key(self.tol_infeas_rel), v.scalar_key(self.tol_ktratio),))
+
+
+class ClarabelSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="clarabel"):
+    """The pse-owned Clarabel settings: mode and every admitted native control."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Compact the decomposed problem.
+    chordal_decomposition_compact: bool = True
+    #: Complete the dual of decomposed PSD cones.
+    chordal_decomposition_complete_dual: bool = True
+    #: Chordal decomposition of PSD cones; `ReusableData` disables it. Without the SDP
+    #: profile only the chordal defaults are admitted.
+    chordal_decomposition_enable: bool = True
+    #: Clique merging.
+    chordal_decomposition_merge_method: enums.ClarabelMergeMethod = enums.ClarabelMergeMethod.CLIQUE_GRAPH
+    #: KKT direct solver; only MKL Pardiso admits more than one thread.
+    direct: enums.ClarabelDirect = enums.ClarabelDirect.QDLDL
+    #: Dynamic regularization shift.
+    dynamic_regularization_delta: float = 2e-7
+    #: Dynamic KKT regularization.
+    dynamic_regularization_enable: bool = True
+    #: Dynamic regularization threshold.
+    dynamic_regularization_eps: float = 1e-13
+    #: Equilibration iterations.
+    equilibrate_max_iter: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Maximum equilibration scaling.
+    equilibrate_max_scaling: float = 10000.0
+    #: Minimum equilibration scaling.
+    equilibrate_min_scaling: float = 0.0001
+    #: Drop explicit input zeros; `ReusableData` disables it.
+    input_sparse_dropzeros: bool = False
+    #: Refinement absolute tolerance.
+    iterative_refinement_abstol: float = 1e-12
+    #: KKT iterative refinement.
+    iterative_refinement_enable: bool = True
+    #: Refinement iterations.
+    iterative_refinement_max_iter: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Refinement relative tolerance.
+    iterative_refinement_reltol: float = 1e-13
+    #: Refinement stall ratio.
+    iterative_refinement_stop_ratio: float = 5.0
+    #: Line-search backtracking factor.
+    linesearch_backtrack_step: float = 0.8
+    #: Maximum interior step fraction.
+    max_step_fraction: float = 0.99
+    #: Minimum step length before switching to symmetric scaling.
+    min_switch_step_length: float = 0.1
+    #: Minimum step length before termination.
+    min_terminate_step_length: float = 0.0001
+    #: Preprocessing or data-update mode.
+    mode: enums.ClarabelMode = enums.ClarabelMode.SINGLE_SOLVE
+    #: Native presolve; `ReusableData` disables it.
+    presolve_enable: bool = True
+    #: Reduced absolute infeasibility tolerance.
+    reduced_tol_infeas_abs: float = 5e-12
+    #: Reduced relative infeasibility tolerance.
+    reduced_tol_infeas_rel: float = 0.00005
+    #: Reduced KKT ratio tolerance.
+    reduced_tol_ktratio: float = 0.0001
+    #: Constant static regularization.
+    static_regularization_constant: float = 1e-8
+    #: Static KKT regularization.
+    static_regularization_enable: bool = True
+    #: Proportional static regularization.
+    static_regularization_proportional: float = 4.930380657631324e-32
+    #: Absolute infeasibility tolerance.
+    tol_infeas_abs: float = 1e-8
+    #: Relative infeasibility tolerance.
+    tol_infeas_rel: float = 1e-8
+    #: KKT ratio tolerance.
+    tol_ktratio: float = 1e-6
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.chordal_decomposition_compact), v.scalar_key(self.chordal_decomposition_complete_dual), v.scalar_key(self.chordal_decomposition_enable), v.scalar_key(self.chordal_decomposition_merge_method), v.scalar_key(self.direct), v.scalar_key(self.dynamic_regularization_delta), v.scalar_key(self.dynamic_regularization_enable), v.scalar_key(self.dynamic_regularization_eps), v.scalar_key(self.equilibrate_max_iter), v.scalar_key(self.equilibrate_max_scaling), v.scalar_key(self.equilibrate_min_scaling), v.scalar_key(self.input_sparse_dropzeros), v.scalar_key(self.iterative_refinement_abstol), v.scalar_key(self.iterative_refinement_enable), v.scalar_key(self.iterative_refinement_max_iter), v.scalar_key(self.iterative_refinement_reltol), v.scalar_key(self.iterative_refinement_stop_ratio), v.scalar_key(self.linesearch_backtrack_step), v.scalar_key(self.max_step_fraction), v.scalar_key(self.min_switch_step_length), v.scalar_key(self.min_terminate_step_length), v.scalar_key(self.mode), v.scalar_key(self.presolve_enable), v.scalar_key(self.reduced_tol_infeas_abs), v.scalar_key(self.reduced_tol_infeas_rel), v.scalar_key(self.reduced_tol_ktratio), v.scalar_key(self.static_regularization_constant), v.scalar_key(self.static_regularization_enable), v.scalar_key(self.static_regularization_proportional), v.scalar_key(self.tol_infeas_abs), v.scalar_key(self.tol_infeas_rel), v.scalar_key(self.tol_ktratio),))
+
+
+class ClarabelSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="clarabel"):
+    """The pse-owned Clarabel settings: mode and every admitted native control."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Compact the decomposed problem.
+    chordal_decomposition_compact: bool = True
+    #: Complete the dual of decomposed PSD cones.
+    chordal_decomposition_complete_dual: bool = True
+    #: Chordal decomposition of PSD cones; `ReusableData` disables it. Without the SDP
+    #: profile only the chordal defaults are admitted.
+    chordal_decomposition_enable: bool = True
+    #: Clique merging.
+    chordal_decomposition_merge_method: enums.ClarabelMergeMethod = enums.ClarabelMergeMethod.CLIQUE_GRAPH
+    #: KKT direct solver; only MKL Pardiso admits more than one thread.
+    direct: enums.ClarabelDirect = enums.ClarabelDirect.QDLDL
+    #: Dynamic regularization shift.
+    dynamic_regularization_delta: float = 2e-7
+    #: Dynamic KKT regularization.
+    dynamic_regularization_enable: bool = True
+    #: Dynamic regularization threshold.
+    dynamic_regularization_eps: float = 1e-13
+    #: Equilibration iterations.
+    equilibrate_max_iter: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Maximum equilibration scaling.
+    equilibrate_max_scaling: float = 10000.0
+    #: Minimum equilibration scaling.
+    equilibrate_min_scaling: float = 0.0001
+    #: Drop explicit input zeros; `ReusableData` disables it.
+    input_sparse_dropzeros: bool = False
+    #: Refinement absolute tolerance.
+    iterative_refinement_abstol: float = 1e-12
+    #: KKT iterative refinement.
+    iterative_refinement_enable: bool = True
+    #: Refinement iterations.
+    iterative_refinement_max_iter: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Refinement relative tolerance.
+    iterative_refinement_reltol: float = 1e-13
+    #: Refinement stall ratio.
+    iterative_refinement_stop_ratio: float = 5.0
+    #: Line-search backtracking factor.
+    linesearch_backtrack_step: float = 0.8
+    #: Maximum interior step fraction.
+    max_step_fraction: float = 0.99
+    #: Minimum step length before switching to symmetric scaling.
+    min_switch_step_length: float = 0.1
+    #: Minimum step length before termination.
+    min_terminate_step_length: float = 0.0001
+    #: Preprocessing or data-update mode.
+    mode: enums.ClarabelMode = enums.ClarabelMode.SINGLE_SOLVE
+    #: Native presolve; `ReusableData` disables it.
+    presolve_enable: bool = True
+    #: Reduced absolute infeasibility tolerance.
+    reduced_tol_infeas_abs: float = 5e-12
+    #: Reduced relative infeasibility tolerance.
+    reduced_tol_infeas_rel: float = 0.00005
+    #: Reduced KKT ratio tolerance.
+    reduced_tol_ktratio: float = 0.0001
+    #: Constant static regularization.
+    static_regularization_constant: float = 1e-8
+    #: Static KKT regularization.
+    static_regularization_enable: bool = True
+    #: Proportional static regularization.
+    static_regularization_proportional: float = 4.930380657631324e-32
+    #: Absolute infeasibility tolerance.
+    tol_infeas_abs: float = 1e-8
+    #: Relative infeasibility tolerance.
+    tol_infeas_rel: float = 1e-8
+    #: KKT ratio tolerance.
+    tol_ktratio: float = 1e-6
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.chordal_decomposition_compact), v.scalar_key(self.chordal_decomposition_complete_dual), v.scalar_key(self.chordal_decomposition_enable), v.scalar_key(self.chordal_decomposition_merge_method), v.scalar_key(self.direct), v.scalar_key(self.dynamic_regularization_delta), v.scalar_key(self.dynamic_regularization_enable), v.scalar_key(self.dynamic_regularization_eps), v.scalar_key(self.equilibrate_max_iter), v.scalar_key(self.equilibrate_max_scaling), v.scalar_key(self.equilibrate_min_scaling), v.scalar_key(self.input_sparse_dropzeros), v.scalar_key(self.iterative_refinement_abstol), v.scalar_key(self.iterative_refinement_enable), v.scalar_key(self.iterative_refinement_max_iter), v.scalar_key(self.iterative_refinement_reltol), v.scalar_key(self.iterative_refinement_stop_ratio), v.scalar_key(self.linesearch_backtrack_step), v.scalar_key(self.max_step_fraction), v.scalar_key(self.min_switch_step_length), v.scalar_key(self.min_terminate_step_length), v.scalar_key(self.mode), v.scalar_key(self.presolve_enable), v.scalar_key(self.reduced_tol_infeas_abs), v.scalar_key(self.reduced_tol_infeas_rel), v.scalar_key(self.reduced_tol_ktratio), v.scalar_key(self.static_regularization_constant), v.scalar_key(self.static_regularization_enable), v.scalar_key(self.static_regularization_proportional), v.scalar_key(self.tol_infeas_abs), v.scalar_key(self.tol_infeas_rel), v.scalar_key(self.tol_ktratio),))
 
 
 class ClarabelSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="clarabel"):
@@ -5421,6 +5881,38 @@ class ClosedDuration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 class CoherentRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """All members belong to the same source event; a read never assembles a mixed row."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Source coordinate convention, absent when not established.
+    coordinates: str | None = None
+    #: Versioned source family; native families retain different field meanings.
+    family: str
+    #: Sequence within this exact source family; absent after counter/admission failure.
+    family_sequence: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Source reset/attempt generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Source norm convention, absent when not established.
+    norm: str | None = None
+    #: Actual producer event time on this operation's process clock.
+    observed_at: ClosedDuration
+    #: Actual native/workflow phase.
+    phase: str
+    #: Performing producer and enclosing operation.
+    producer: ProducerId
+    #: Source sequence assigned before lossy fan-out.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete bounded tuple; large scientific payloads use their existing owner.
+    values: tuple[RecordField, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.optional_key(v.scalar_key)(self.family_sequence), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.record_key(self.observed_at), v.scalar_key(self.phase), v.record_key(self.producer), v.scalar_key(self.sequence), v.sequence_key(v.record_key)(self.values),))
+
+
+class CoherentRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """All members belong to the same source event; a read never assembles a mixed row."""
+
     #: Source coordinate convention, absent when not established.
     coordinates: str | None = None
     #: Versioned source family; native families retain different field meanings.
@@ -5446,7 +5938,7 @@ class CoherentRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.optional_key(v.scalar_key)(self.family_sequence), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.record_key(self.observed_at), v.scalar_key(self.phase), v.record_key(self.producer), v.scalar_key(self.sequence), v.sequence_key(v.record_key)(self.values),))
 
 
-class CoherentRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class CoherentRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """All members belong to the same source event; a read never assembles a mixed row."""
 
     #: Source coordinate convention, absent when not established.
@@ -5474,7 +5966,56 @@ class CoherentRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.optional_key(v.scalar_key)(self.family_sequence), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.record_key(self.observed_at), v.scalar_key(self.phase), v.record_key(self.producer), v.scalar_key(self.sequence), v.sequence_key(v.record_key)(self.values),))
 
 
+class CoherentRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """All members belong to the same source event; a read never assembles a mixed row."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Source coordinate convention, absent when not established.
+    coordinates: str | None
+    #: Versioned source family; native families retain different field meanings.
+    family: str
+    #: Sequence within this exact source family; absent after counter/admission failure.
+    family_sequence: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Source reset/attempt generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Source norm convention, absent when not established.
+    norm: str | None
+    #: Actual producer event time on this operation's process clock.
+    observed_at: ClosedDuration
+    #: Actual native/workflow phase.
+    phase: str
+    #: Performing producer and enclosing operation.
+    producer: ProducerId
+    #: Source sequence assigned before lossy fan-out.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete bounded tuple; large scientific payloads use their existing owner.
+    values: tuple[RecordFieldOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.optional_key(v.scalar_key)(self.family_sequence), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.record_key(self.observed_at), v.scalar_key(self.phase), v.record_key(self.producer), v.scalar_key(self.sequence), v.sequence_key(v.record_key)(self.values),))
+
+
 class ComparisonPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Response bounds, not a scientific or performance acceptance policy."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Source steps, products, decisions and intervals inspected per collection;
+    #: effective ceiling is 64. Omitted source items remain explicit.
+    source_items: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum returned statements; effective ceiling is 256.
+    statements: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.source_items), v.scalar_key(self.statements),))
+
+
+class ComparisonPolicyBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Response bounds, not a scientific or performance acceptance policy."""
 
     #: Source steps, products, decisions and intervals inspected per collection;
@@ -5501,7 +6042,7 @@ class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     #: Dynamic or fitting outcome, with candidate evidence separate from qualification.
     computation: RuntimeComputationRunsRow | None = None
     #: Source-attributed final errors and unavailable fit diagnostics.
-    diagnostics: tuple[BoundaryDiagnostic, ...]
+    diagnostics: tuple[BoundaryDiagnosticBody, ...]
     #: Complete request lineage, independent of this execution's unique identity.
     lineage: tuple[RuntimeRunLineageRow, ...]
     #: Algebraic outcomes, including requested steps that were not attempted.
@@ -5525,7 +6066,7 @@ class CompletionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Dynamic or fitting outcome, with candidate evidence separate from qualification.
     computation: RuntimeComputationRunsRowOutput | None
     #: Source-attributed final errors and unavailable fit diagnostics.
-    diagnostics: tuple[BoundaryDiagnosticOutput, ...]
+    diagnostics: tuple[BoundaryDiagnosticBodyOutput, ...]
     #: Complete request lineage, independent of this execution's unique identity.
     lineage: tuple[RuntimeRunLineageRowOutput, ...]
     #: Algebraic outcomes, including requested steps that were not attempted.
@@ -5538,8 +6079,30 @@ class CompletionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Hard caller constraints retained by automatic and explicitly declared composition."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Full frozen descriptive body; absent leaves the complete baseline policy.
-    advice: FrozenAdvice | None = None
+    advice: FrozenAdviceBody | None = None
+    #: Original root-selection contract.
+    branch: BranchPolicy
+    #: Additional finite counters; absent retains the admitted caller controls.
+    limits: WorkLimits | None = None
+    #: Automatic resolution or explicit declaration binding.
+    policy: enums.NumericalCompositionPolicy
+    #: Permitted later start origins. Empty grants no replacement origin.
+    recovery: tuple[enums.NumericalStartOrigin, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.advice), v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
+
+
+class CompositionRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Hard caller constraints retained by automatic and explicitly declared composition."""
+
+    #: Full frozen descriptive body; absent leaves the complete baseline policy.
+    advice: FrozenAdviceBody | None = None
     #: Original root-selection contract.
     branch: BranchPolicy
     #: Additional finite counters; absent retains the admitted caller controls.
@@ -5553,11 +6116,11 @@ class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.optional_key(v.record_key)(self.advice), v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
 
 
-class CompositionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class CompositionRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Hard caller constraints retained by automatic and explicitly declared composition."""
 
     #: Full frozen descriptive body; absent leaves the complete baseline policy.
-    advice: FrozenAdviceOutput | None = None
+    advice: FrozenAdviceBodyOutput | None = None
     #: Original root-selection contract.
     branch: BranchPolicyOutput
     #: Additional finite counters; absent retains the admitted caller controls.
@@ -5571,16 +6134,42 @@ class CompositionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_field
         return (type(self), (v.optional_key(v.record_key)(self.advice), v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
 
 
+class CompositionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Hard caller constraints retained by automatic and explicitly declared composition."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Full frozen descriptive body; absent leaves the complete baseline policy.
+    advice: FrozenAdviceBodyOutput | None = None
+    #: Original root-selection contract.
+    branch: BranchPolicyOutput
+    #: Additional finite counters; absent retains the admitted caller controls.
+    limits: WorkLimitsOutput | None
+    #: Automatic resolution or explicit declaration binding.
+    policy: enums.NumericalCompositionPolicy
+    #: Permitted later start origins. Empty grants no replacement origin.
+    recovery: tuple[enums.NumericalStartOrigin, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.advice), v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
+
+
 class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared conclusion of the current facts, not a fabricated result table."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Whole-study scientific availability.
     availability: enums.StudyAvailability
     #: Whole-study operational state.
     lifecycle: enums.StudyLifecycle
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.availability), v.scalar_key(self.lifecycle),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.availability), v.scalar_key(self.lifecycle),))
 
 
 class ConeExponential(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="exponential"):
@@ -5659,6 +6248,10 @@ class ConeZero(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
 class ConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Source-owned conformance limits and selected fixtures."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum derivative comparison cells.
     derivative_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
     #: Finite-difference comparison step.
@@ -5666,7 +6259,7 @@ class ConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Derivative comparison tolerance.
     derivative_tolerance: float = 0.0001
     #: Optional native diagnostic policy.
-    diagnostics: ModelingDiagnosticPolicy | None = None
+    diagnostics: ModelingDiagnosticPolicyBody | None = None
     #: Explicit fixture occurrences, or the package selection when omitted.
     fixtures: tuple[identities.DeclarationId, ...] | None = None
     #: Maximum conformance checks performed.
@@ -5675,12 +6268,16 @@ class ConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivative_cells), v.scalar_key(self.derivative_step), v.scalar_key(self.derivative_tolerance), v.optional_key(v.record_key)(self.diagnostics), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.derivative_cells), v.scalar_key(self.derivative_step), v.scalar_key(self.derivative_tolerance), v.optional_key(v.record_key)(self.diagnostics), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
 class ConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Source-owned conformance limits and selected fixtures."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum derivative comparison cells.
     derivative_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
     #: Finite-difference comparison step.
@@ -5688,7 +6285,7 @@ class ConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Derivative comparison tolerance.
     derivative_tolerance: float = 0.0001
     #: Optional native diagnostic policy.
-    diagnostics: ModelingDiagnosticPolicy | None = None
+    diagnostics: ModelingDiagnosticPolicyBody | None = None
     #: Explicit fixture occurrences, or the package selection when omitted.
     fixtures: tuple[identities.DeclarationId, ...] | None = None
     #: Maximum conformance checks performed.
@@ -5697,7 +6294,7 @@ class ConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivative_cells), v.scalar_key(self.derivative_step), v.scalar_key(self.derivative_tolerance), v.optional_key(v.record_key)(self.diagnostics), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.derivative_cells), v.scalar_key(self.derivative_step), v.scalar_key(self.derivative_tolerance), v.optional_key(v.record_key)(self.diagnostics), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
 class ConformanceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5779,6 +6376,10 @@ class ConformanceRunOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 class ConicRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit continuous cone analysis. The request declares geometry; it is never inferred from NLP rows."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Cone blocks in the pse-owned vocabulary, mapped to the library only by its adapter.
     cones: tuple[Cone, ...]
     #: A in Ax+s=b.
@@ -5799,7 +6400,7 @@ class ConicRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     variables: tuple[AnalysisPort, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.cones), v.record_key(self.constraints), v.sequence_key(v.scalar_key)(self.objective), v.scalar_key(self.objective_constant), v.record_key(self.objective_port), v.record_key(self.quadratic), v.sequence_key(v.scalar_key)(self.rhs), v.sequence_key(v.record_key)(self.rows), v.sequence_key(v.record_key)(self.variables),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.cones), v.record_key(self.constraints), v.sequence_key(v.scalar_key)(self.objective), v.scalar_key(self.objective_constant), v.record_key(self.objective_port), v.record_key(self.quadratic), v.sequence_key(v.scalar_key)(self.rhs), v.sequence_key(v.record_key)(self.rows), v.sequence_key(v.record_key)(self.variables),))
 
 
 class ConnectedPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5860,7 +6461,7 @@ class CopiedExecutionObservations(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Retained actual executions and preparations, in original collector order.
     observations: tuple[CopiedPlanObservation, ...]
     #: Operation active when that session was established; absent is unknown lineage.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Policy on the actual original session; absent in older copied documents.
     policy: CopiedObservationPolicy | None = None
 
@@ -5876,7 +6477,7 @@ class CopiedExecutionObservationsOutput(msgspec.Struct, frozen=True, forbid_unkn
     #: Retained actual executions and preparations, in original collector order.
     observations: tuple[CopiedPlanObservationOutput, ...]
     #: Operation active when that session was established; absent is unknown lineage.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Policy on the actual original session; absent in older copied documents.
     policy: CopiedObservationPolicy | None = None
 
@@ -5934,7 +6535,7 @@ class CopiedPlanObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Bounded logical graph; empty under Contract/Off or failed capture.
     logical_plan: str
     #: Actual enclosing operation captured at assembly, absent outside an observation scope.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Bounded physical graph, absent before physical planning.
     physical_plan: str | None = None
     #: Actual original capture policy.
@@ -5956,7 +6557,7 @@ class CopiedPlanObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Bounded logical graph; empty under Contract/Off or failed capture.
     logical_plan: str
     #: Actual enclosing operation captured at assembly, absent outside an observation scope.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Bounded physical graph, absent before physical planning.
     physical_plan: str | None
     #: Actual original capture policy.
@@ -6111,41 +6712,57 @@ class Coverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
 class DeclarationEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored declarations submitted for contextual revision admission."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declarations from the selected authored revision.
     declarations: tuple[AuthoredModelingDeclarationsRow, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations),))
 
 
 class DeclarationEditOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored declarations submitted for contextual revision admission."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declarations from the selected authored revision.
     declarations: tuple[AuthoredModelingDeclarationsRowOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations),))
 
 
 class DeclarationInventory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Declarations retained by the selected revision."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declarations from the selected authored revision.
     declarations: tuple[AuthoredModelingDeclarationsRow, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations),))
 
 
 class DeclarationInventoryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Declarations retained by the selected revision."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declarations from the selected authored revision.
     declarations: tuple[AuthoredModelingDeclarationsRowOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations),))
 
 
 class DependencyOrdering(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ordering"):
@@ -6310,7 +6927,7 @@ class DetailRecordPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Producer declarations encountered on this page; IDs link earlier declarations.
     producers: tuple[ProducerDescriptor, ...]
     #: Whole original source records, never reconstructed metric tuples.
-    records: tuple[CoherentRecord, ...]
+    records: tuple[CoherentRecordBody, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.activations), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.partial), v.sequence_key(v.record_key)(self.producers), v.sequence_key(v.record_key)(self.records),))
@@ -6332,7 +6949,7 @@ class DetailRecordPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
     #: Producer declarations encountered on this page; IDs link earlier declarations.
     producers: tuple[ProducerDescriptor, ...]
     #: Whole original source records, never reconstructed metric tuples.
-    records: tuple[CoherentRecordOutput, ...]
+    records: tuple[CoherentRecordBodyOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.activations), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.partial), v.sequence_key(v.record_key)(self.producers), v.sequence_key(v.record_key)(self.records),))
@@ -6413,16 +7030,56 @@ class DetailSourceActivation(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class DiagnosticAnnotationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One original query annotation, including every grouped note and help."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original ordered help suggestions.
-    helps: tuple[DiagnosticNoteDocument, ...]
+    helps: tuple[DiagnosticNoteDocumentBody, ...]
     #: Canonical error or warning severity of the native annotation.
     kind: enums.DiagnosticSeverity
     #: Original native annotation message.
     message: str
     #: Original ordered notes.
-    notes: tuple[DiagnosticNoteDocument, ...]
+    notes: tuple[DiagnosticNoteDocumentBody, ...]
     #: Original annotation span when supplied.
-    span: DiagnosticSpanDocument | None = None
+    span: DiagnosticSpanDocumentBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticAnnotationDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original query annotation, including every grouped note and help."""
+
+    #: Original ordered help suggestions.
+    helps: tuple[DiagnosticNoteDocumentBody, ...]
+    #: Canonical error or warning severity of the native annotation.
+    kind: enums.DiagnosticSeverity
+    #: Original native annotation message.
+    message: str
+    #: Original ordered notes.
+    notes: tuple[DiagnosticNoteDocumentBody, ...]
+    #: Original annotation span when supplied.
+    span: DiagnosticSpanDocumentBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticAnnotationDocumentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original query annotation, including every grouped note and help."""
+
+    #: Original ordered help suggestions.
+    helps: tuple[DiagnosticNoteDocumentBodyOutput, ...]
+    #: Canonical error or warning severity of the native annotation.
+    kind: enums.DiagnosticSeverity
+    #: Original native annotation message.
+    message: str
+    #: Original ordered notes.
+    notes: tuple[DiagnosticNoteDocumentBodyOutput, ...]
+    #: Original annotation span when supplied.
+    span: DiagnosticSpanDocumentBody | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
@@ -6431,29 +7088,37 @@ class DiagnosticAnnotationDocument(msgspec.Struct, frozen=True, forbid_unknown_f
 class DiagnosticAnnotationDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One original query annotation, including every grouped note and help."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original ordered help suggestions.
-    helps: tuple[DiagnosticNoteDocumentOutput, ...]
+    helps: tuple[DiagnosticNoteDocumentBodyOutput, ...]
     #: Canonical error or warning severity of the native annotation.
     kind: enums.DiagnosticSeverity
     #: Original native annotation message.
     message: str
     #: Original ordered notes.
-    notes: tuple[DiagnosticNoteDocumentOutput, ...]
+    notes: tuple[DiagnosticNoteDocumentBodyOutput, ...]
     #: Original annotation span when supplied.
-    span: DiagnosticSpanDocument | None
+    span: DiagnosticSpanDocumentBody | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
 
 
 class DiagnosticCauseDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One retained original message in an error's source chain."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original source message, with no reclassification.
     message: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.message),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.message),))
 
 
 class DiagnosticCommandRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6491,33 +7156,41 @@ class DiagnosticCommandRequestOutput(msgspec.Struct, frozen=True, forbid_unknown
 class DiagnosticContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed native leaf and its ordered execution contexts."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: The authoritative typed leaf code.
     code: enums.DiagnosticCode
     #: Ordered native execution wrappers.
     contexts: tuple[str, ...]
     #: Original grouped query annotations.
-    diagnostics: tuple[DiagnosticAnnotationDocument, ...]
+    diagnostics: tuple[DiagnosticAnnotationDocumentBody, ...]
     #: Original leaf message.
     message: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
 
 
 class DiagnosticContextDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed native leaf and its ordered execution contexts."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: The authoritative typed leaf code.
     code: enums.DiagnosticCode
     #: Ordered native execution wrappers.
     contexts: tuple[str, ...]
     #: Original grouped query annotations.
-    diagnostics: tuple[DiagnosticAnnotationDocumentOutput, ...]
+    diagnostics: tuple[DiagnosticAnnotationDocumentBodyOutput, ...]
     #: Original leaf message.
     message: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
 
 
 class DiagnosticExecutionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6532,13 +7205,13 @@ class DiagnosticExecutionDocument(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Every requested point/matrix/term analysis completed within its own budgets.
     complete: bool
     #: Failure before or during diagnostic work; not erased by an empty finding list.
-    failure: BoundaryDiagnostic | None = None
+    failure: BoundaryDiagnosticBody | None = None
     #: Existing diagnostic findings in original coordinates where available.
-    findings: tuple[BoundaryDiagnostic, ...]
+    findings: tuple[BoundaryDiagnosticBody, ...]
     #: Actual new diagnostic operation established before source admission.
-    operation: OperationId
+    operation: OperationIdBody
     #: Original attribution, never replaced by this operation's outcome.
-    origin: DiagnosticOrigin | None = None
+    origin: DiagnosticOriginBody | None = None
     #: Actual original row coordinates and physical nominals.
     row_nominals: tuple[tuple[v.SemanticId, float], ...]
     #: Existing diagnostic run identity, absent on pre-handle failure.
@@ -6564,13 +7237,13 @@ class DiagnosticExecutionDocumentOutput(msgspec.Struct, frozen=True, forbid_unkn
     #: Every requested point/matrix/term analysis completed within its own budgets.
     complete: bool
     #: Failure before or during diagnostic work; not erased by an empty finding list.
-    failure: BoundaryDiagnosticOutput | None
+    failure: BoundaryDiagnosticBodyOutput | None
     #: Existing diagnostic findings in original coordinates where available.
-    findings: tuple[BoundaryDiagnosticOutput, ...]
+    findings: tuple[BoundaryDiagnosticBodyOutput, ...]
     #: Actual new diagnostic operation established before source admission.
-    operation: OperationId
+    operation: OperationIdBody
     #: Original attribution, never replaced by this operation's outcome.
-    origin: DiagnosticOriginOutput | None
+    origin: DiagnosticOriginBodyOutput | None
     #: Actual original row coordinates and physical nominals.
     row_nominals: tuple[tuple[v.SemanticId, float], ...]
     #: Existing diagnostic run identity, absent on pre-handle failure.
@@ -6596,13 +7269,13 @@ class DiagnosticExecutionRequest(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Exact declared case.
     case_id: v.SemanticId
     #: Existing operation-specific point/matrix/term diagnostic controls.
-    diagnostics: ModelingDiagnosticPolicy
+    diagnostics: ModelingDiagnosticPolicyBody
     #: Finite encoded original-source extent.
     maximum_source_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit original authored model packages.
     model_documents: tuple[dict[str, str], ...]
     #: Original retained failure/attempt link, independent of new success.
-    origin: DiagnosticOrigin | None = None
+    origin: DiagnosticOriginBody | None = None
     #: Explicit original physical source documents, keyed by declared filename.
     physical_documents: dict[str, str]
     #: Existing solve policy; no diagnostic accuracy override is introduced.
@@ -6624,13 +7297,13 @@ class DiagnosticExecutionRequestOutput(msgspec.Struct, frozen=True, forbid_unkno
     #: Exact declared case.
     case_id: v.SemanticId
     #: Existing operation-specific point/matrix/term diagnostic controls.
-    diagnostics: ModelingDiagnosticPolicy
+    diagnostics: ModelingDiagnosticPolicyBody
     #: Finite encoded original-source extent.
     maximum_source_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit original authored model packages.
     model_documents: tuple[dict[str, str], ...]
     #: Original retained failure/attempt link, independent of new success.
-    origin: DiagnosticOriginOutput | None
+    origin: DiagnosticOriginBodyOutput | None
     #: Explicit original physical source documents, keyed by declared filename.
     physical_documents: dict[str, str]
     #: Existing solve policy; no diagnostic accuracy override is introduced.
@@ -6643,34 +7316,70 @@ class DiagnosticExecutionRequestOutput(msgspec.Struct, frozen=True, forbid_unkno
 class DiagnosticListRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Discovery request; only matching page images are decoded, never scientific store members."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Exclusive checkpoint filename cursor; not a durable catalogue generation.
     after: str | None = None
     #: Requested page size, default 16 and effective ceiling 32.
     limit: Annotated[int, msgspec.Meta(ge=0)] = 16
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.after), v.scalar_key(self.limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.after), v.scalar_key(self.limit),))
 
 
 class DiagnosticListRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Discovery request; only matching page images are decoded, never scientific store members."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Exclusive checkpoint filename cursor; not a durable catalogue generation.
     after: str | None
     #: Requested page size, default 16 and effective ceiling 32.
     limit: Annotated[int, msgspec.Meta(ge=0)] = 16
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.after), v.scalar_key(self.limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.after), v.scalar_key(self.limit),))
 
 
 class DiagnosticNoteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One native query note or help, retaining its optional span."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original native text.
     message: str
     #: Original query source span when supplied.
-    span: DiagnosticSpanDocument | None = None
+    span: DiagnosticSpanDocumentBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticNoteDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One native query note or help, retaining its optional span."""
+
+    #: Original native text.
+    message: str
+    #: Original query source span when supplied.
+    span: DiagnosticSpanDocumentBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticNoteDocumentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One native query note or help, retaining its optional span."""
+
+    #: Original native text.
+    message: str
+    #: Original query source span when supplied.
+    span: DiagnosticSpanDocumentBody | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
@@ -6679,26 +7388,54 @@ class DiagnosticNoteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class DiagnosticNoteDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One native query note or help, retaining its optional span."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original native text.
     message: str
     #: Original query source span when supplied.
-    span: DiagnosticSpanDocument | None
+    span: DiagnosticSpanDocumentBody | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
 
 
 class DiagnosticOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Optional link to retained original evidence; never authority to use a scientific result."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original durable attempt, absent for ephemeral execution.
     attempt_id: identities.AttemptId | None = None
     #: Retained original failure or scientific refusal; never reevaluated.
-    failure: BoundaryDiagnostic | None = None
+    failure: BoundaryDiagnosticBody | None = None
     #: Original zero-based native attempt ordinal.
     native_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Original published diagnostic operation, when observation was enabled.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
+    #: Original retained run identity.
+    run_id: identities.RunId
+    #: Original requested step, when one is selected.
+    step: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.native_attempt), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.step),))
+
+
+class DiagnosticOriginBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Optional link to retained original evidence; never authority to use a scientific result."""
+
+    #: Original durable attempt, absent for ephemeral execution.
+    attempt_id: identities.AttemptId | None = None
+    #: Retained original failure or scientific refusal; never reevaluated.
+    failure: BoundaryDiagnosticBody | None = None
+    #: Original zero-based native attempt ordinal.
+    native_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original published diagnostic operation, when observation was enabled.
+    operation: OperationIdBody | None = None
     #: Original retained run identity.
     run_id: identities.RunId
     #: Original requested step, when one is selected.
@@ -6708,17 +7445,17 @@ class DiagnosticOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.native_attempt), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.step),))
 
 
-class DiagnosticOriginOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class DiagnosticOriginBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Optional link to retained original evidence; never authority to use a scientific result."""
 
     #: Original durable attempt, absent for ephemeral execution.
     attempt_id: identities.AttemptId | None
     #: Retained original failure or scientific refusal; never reevaluated.
-    failure: BoundaryDiagnosticOutput | None
+    failure: BoundaryDiagnosticBodyOutput | None
     #: Original zero-based native attempt ordinal.
     native_attempt: Annotated[int, msgspec.Meta(ge=0)] | None
     #: Original published diagnostic operation, when observation was enabled.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Original retained run identity.
     run_id: identities.RunId
     #: Original requested step, when one is selected.
@@ -6726,6 +7463,30 @@ class DiagnosticOriginOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.native_attempt), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.step),))
+
+
+class DiagnosticOriginOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Optional link to retained original evidence; never authority to use a scientific result."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original durable attempt, absent for ephemeral execution.
+    attempt_id: identities.AttemptId | None
+    #: Retained original failure or scientific refusal; never reevaluated.
+    failure: BoundaryDiagnosticBodyOutput | None
+    #: Original zero-based native attempt ordinal.
+    native_attempt: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original published diagnostic operation, when observation was enabled.
+    operation: OperationIdBody | None
+    #: Original retained run identity.
+    run_id: identities.RunId
+    #: Original requested step, when one is selected.
+    step: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.native_attempt), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.run_id), v.optional_key(v.scalar_key)(self.step),))
 
 
 class DiagnosticProcessPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6768,7 +7529,7 @@ class DiagnosticProcessSummary(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Optional decode/access error, independent of simulation success.
     failure: str | None = None
     #: Actual operational locator, if readable.
-    locator: ProcessLocator | None = None
+    locator: ProcessLocatorBody | None = None
     #: Bounded available operation catalogue from this image.
     operations: tuple[OperationSummary, ...]
     #: Image omitted observations or registry collection was curtailed.
@@ -6790,7 +7551,7 @@ class DiagnosticProcessSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown
     #: Optional decode/access error, independent of simulation success.
     failure: str | None
     #: Actual operational locator, if readable.
-    locator: ProcessLocatorOutput | None
+    locator: ProcessLocatorBodyOutput | None
     #: Bounded available operation catalogue from this image.
     operations: tuple[OperationSummaryOutput, ...]
     #: Image omitted observations or registry collection was curtailed.
@@ -6825,28 +7586,56 @@ class DiagnosticRuntimeSettings(msgspec.Struct, frozen=True, forbid_unknown_fiel
 class DiagnosticSamplesControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native limits for supplied diagnostic points."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum supplied diagnostic samples.
     maximum_samples: Annotated[int, msgspec.Meta(ge=0)] = 128
     #: Wall-clock allowance in seconds.
     time_limit: float = 60.0
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_samples), v.scalar_key(self.time_limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_samples), v.scalar_key(self.time_limit),))
 
 
 class DiagnosticSamplesControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native limits for supplied diagnostic points."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum supplied diagnostic samples.
     maximum_samples: Annotated[int, msgspec.Meta(ge=0)] = 128
     #: Wall-clock allowance in seconds.
     time_limit: float = 60.0
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_samples), v.scalar_key(self.time_limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_samples), v.scalar_key(self.time_limit),))
 
 
 class DiagnosticSpanDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Query source coordinates under the native engine's line and column convention."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Ending source column.
+    end_column: Annotated[int, msgspec.Meta(ge=0)]
+    #: Ending source line.
+    end_line: Annotated[int, msgspec.Meta(ge=0)]
+    #: Starting source column.
+    start_column: Annotated[int, msgspec.Meta(ge=0)]
+    #: Starting source line.
+    start_line: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.end_column), v.scalar_key(self.end_line), v.scalar_key(self.start_column), v.scalar_key(self.start_line),))
+
+
+class DiagnosticSpanDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Query source coordinates under the native engine's line and column convention."""
 
     #: Ending source column.
@@ -7018,6 +7807,20 @@ class DurationSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class EffortPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Opt-in adaptation from comparable native nonlinear iteration counts."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Desired iterations at the next qualified continuation endpoint.
+    target_iterations: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.target_iterations),))
+
+
+class EffortPolicyBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Opt-in adaptation from comparable native nonlinear iteration counts."""
+
     #: Desired iterations at the next qualified continuation endpoint.
     target_iterations: Annotated[int, msgspec.Meta(ge=0)]
 
@@ -7028,29 +7831,37 @@ class EffortPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 class EligibilityDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An adapter's retained contextual representation assessment."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Backend assessed by the native routing owner.
     backend: enums.NativeBackend
     #: Whether no ineligibility reasons were retained.
     eligible: bool
     #: Every retained applicable typed reason.
-    reasons: tuple[IneligibleDocument, ...]
+    reasons: tuple[IneligibleDocumentBody, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.eligible), v.sequence_key(v.record_key)(self.reasons),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.backend), v.scalar_key(self.eligible), v.sequence_key(v.record_key)(self.reasons),))
 
 
 class EligibilityDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An adapter's retained contextual representation assessment."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Backend assessed by the native routing owner.
     backend: enums.NativeBackend
     #: Whether no ineligibility reasons were retained.
     eligible: bool
     #: Every retained applicable typed reason.
-    reasons: tuple[IneligibleDocumentOutput, ...]
+    reasons: tuple[IneligibleDocumentBodyOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.eligible), v.sequence_key(v.record_key)(self.reasons),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.backend), v.scalar_key(self.eligible), v.sequence_key(v.record_key)(self.reasons),))
 
 
 class EndpointRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7228,7 +8039,7 @@ class EvidenceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Actual checkpoint time; absence never means now.
     observed_at: ClosedDuration | None = None
     #: Actual diagnostic operation, including its process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Evidence has loss, reset or bounded temporal/detail resolution.
     partial: bool
     #: Exact performing producer, when the fact is producer-scoped.
@@ -7252,7 +8063,7 @@ class EvidenceRefOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Actual checkpoint time; absence never means now.
     observed_at: ClosedDuration | None
     #: Actual diagnostic operation, including its process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Evidence has loss, reset or bounded temporal/detail resolution.
     partial: bool
     #: Exact performing producer, when the fact is producer-scoped.
@@ -7280,7 +8091,7 @@ class ExplanatoryRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=
     #: Actual supplied-fact availability.
     status: RequirementStatus
     #: Exact original operation, never a current-run alias.
-    subject: OperationId
+    subject: OperationIdBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.fact), v.optional_key(v.scalar_key)(self.missing_reason), v.scalar_key(self.question), v.sequence_key(v.record_key)(self.sources), v.scalar_key(self.status), v.record_key(self.subject),))
@@ -7300,7 +8111,7 @@ class ExplanatoryRequirementOutput(msgspec.Struct, frozen=True, forbid_unknown_f
     #: Actual supplied-fact availability.
     status: RequirementStatus
     #: Exact original operation, never a current-run alias.
-    subject: OperationId
+    subject: OperationIdBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.fact), v.optional_key(v.scalar_key)(self.missing_reason), v.scalar_key(self.question), v.sequence_key(v.record_key)(self.sources), v.scalar_key(self.status), v.record_key(self.subject),))
@@ -7409,33 +8220,50 @@ class FitCovarianceRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Registry-owned experiment and parameter selection intent; measurements belong to typed records."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declared fits with their parameters, experiments and observation selections.
     fits: tuple[AuthoredFitCasesRow, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.fits),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.fits),))
 
 
 class FitDeclarationsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Registry-owned experiment and parameter selection intent; measurements belong to typed records."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declared fits with their parameters, experiments and observation selections.
     fits: tuple[AuthoredFitCasesRowOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.fits),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.fits),))
 
 
 class FitExecutionDocumentEvaluation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="evaluation"):
     """No optimizer ran because every original coordinate was fixed."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
+        return (type(self), (v.scalar_key(self.document_version),))
 
 
 class FitExecutionDocumentNativeNlp(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="native_nlp"):
     """Class-specific native NLP, preserving its original backend report."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Actual backend.
     backend: enums.NativeBackend
     #: Independent original qualification.
@@ -7446,17 +8274,21 @@ class FitExecutionDocumentNativeNlp(msgspec.Struct, frozen=True, forbid_unknown_
     termination: enums.NativeTermination
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.qualification), v.scalar_key(self.status), v.scalar_key(self.termination),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.backend), v.scalar_key(self.qualification), v.scalar_key(self.status), v.scalar_key(self.termination),))
 
 
 class FitExecutionDocumentResidualLm(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="residual_lm"):
     """Library-owned residual LM, with original typed failure and exact observed work."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Literal residual-native evidence, never an invented NLP report.
     report: FitResidualReport
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.report),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.report),))
 
 
 class FitOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7501,7 +8333,7 @@ class FitPreparationDocumentForPhysicalSimulationRequest(msgspec.Struct, frozen=
     #: Canonical solve settings; their own owner admits cross-field rules.
     solver: SolveSettings
     #: Optional fit uncertainty request.
-    uncertainty: FitUncertainty | None = None
+    uncertainty: FitUncertaintyBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
@@ -7525,7 +8357,7 @@ class FitPreparationDocumentForPhysicalSimulationRequestOutput(msgspec.Struct, f
     #: Canonical solve settings; their own owner admits cross-field rules.
     solver: SolveSettingsOutput
     #: Optional fit uncertainty request.
-    uncertainty: FitUncertaintyOutput | None = None
+    uncertainty: FitUncertaintyBodyOutput | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
@@ -7534,30 +8366,43 @@ class FitPreparationDocumentForPhysicalSimulationRequestOutput(msgspec.Struct, f
 class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="available"):
     """Every chain, including worker failures and its actual parallelism."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Every retained chain, including distinct worker failures.
     chains: tuple[ProfileChain, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.chains),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.chains),))
 
 
 class FitProfileDocumentNotRequested(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="not_requested"):
     """No profile request was made."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
+        return (type(self), (v.scalar_key(self.document_version),))
 
 
 class FitProfileDocumentWithheld(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="withheld"):
     """The native reason and retained diagnostic explanation."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Retained explanation of the refusal.
     detail: str
     #: Canonical native reason for withholding.
     reason: enums.WithheldReason
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.detail), v.scalar_key(self.reason),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.detail), v.scalar_key(self.reason),))
 
 
 class FitResidualReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7575,11 +8420,13 @@ class FitResidualReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     residual_evaluations: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum normalized original gradient component from the independent final point.
     stationarity: float | None
+    #: Actual algorithm criteria and finite allowances; absent for fixed evaluation.
+    stopping: ResidualLmStopping | None
     #: Literal library termination category and detail.
     termination: FitResidualTermination
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.failure), v.scalar_key(self.jacobian_evaluations), v.scalar_key(self.parameter_updates), v.scalar_key(self.qualification), v.scalar_key(self.residual_evaluations), v.optional_key(v.scalar_key)(self.stationarity), v.record_key(self.termination),))
+        return (type(self), (v.optional_key(v.record_key)(self.failure), v.scalar_key(self.jacobian_evaluations), v.scalar_key(self.parameter_updates), v.scalar_key(self.qualification), v.scalar_key(self.residual_evaluations), v.optional_key(v.scalar_key)(self.stationarity), v.optional_key(v.record_key)(self.stopping), v.record_key(self.termination),))
 
 
 class FitResidualTerminationConverged(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="converged"):
@@ -7667,6 +8514,29 @@ class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     parameters derives (ADR-0118 item 8; Plan 22 S3).
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: The confidence level of the intervals, below one.
+    level: Fraction
+    #: Also propagate the covariance to the included observations' predictions,
+    #: `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    #: squared is bounded by the profile's `max_cells`.
+    predictions: bool = False
+    #: Also derive profile-likelihood intervals under these controls; absent derives Wald
+    #: intervals alone.
+    profile: ProfileControls | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.level), v.scalar_key(self.predictions), v.optional_key(v.record_key)(self.profile),))
+
+
+class FitUncertaintyBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a fit derives from its estimate beyond the covariance, which every fit with free
+    parameters derives (ADR-0118 item 8; Plan 22 S3).
+    """
+
     #: The confidence level of the intervals, below one.
     level: Fraction
     #: Also propagate the covariance to the included observations' predictions,
@@ -7681,7 +8551,7 @@ class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.scalar_key(self.level), v.scalar_key(self.predictions), v.optional_key(v.record_key)(self.profile),))
 
 
-class FitUncertaintyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class FitUncertaintyBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """What a fit derives from its estimate beyond the covariance, which every fit with free
     parameters derives (ADR-0118 item 8; Plan 22 S3).
     """
@@ -7698,6 +8568,29 @@ class FitUncertaintyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.level), v.scalar_key(self.predictions), v.optional_key(v.record_key)(self.profile),))
+
+
+class FitUncertaintyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a fit derives from its estimate beyond the covariance, which every fit with free
+    parameters derives (ADR-0118 item 8; Plan 22 S3).
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: The confidence level of the intervals, below one.
+    level: Fraction
+    #: Also propagate the covariance to the included observations' predictions,
+    #: `Σ_y = R·Σ_θ·Rᵀ` over the fit's response derivatives (Plan 22 S4); their count
+    #: squared is bounded by the profile's `max_cells`.
+    predictions: bool = False
+    #: Also derive profile-likelihood intervals under these controls; absent derives Wald
+    #: intervals alone.
+    profile: ProfileControlsOutput | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.level), v.scalar_key(self.predictions), v.optional_key(v.record_key)(self.profile),))
 
 
 class FlowConnectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7751,6 +8644,10 @@ class FlowEdgeDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class FlowGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Public immutable projection of the selected, physically admitted flow graph."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected authored connections.
     connections: tuple[FlowEdgeDocument, ...]
     #: Grouped tear decisions.
@@ -7761,7 +8658,7 @@ class FlowGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     nodes: tuple[FlowNodeDocument, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.record_key)(self.decisions), v.scalar_key(self.identity), v.sequence_key(v.record_key)(self.nodes),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.record_key)(self.decisions), v.scalar_key(self.identity), v.sequence_key(v.record_key)(self.nodes),))
 
 
 class FlowNodeDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7793,16 +8690,46 @@ class FlowPortDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class FlowSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Decoded flow selection. Identity membership and physical closure are admitted by `flow_graph`."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: One decision for every selected connection occurrence.
     connections: tuple[FlowConnectionDocument, ...]
     #: Explicit selected instances; repeated identities refuse before set construction.
     nodes: tuple[identities.InstanceId, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.scalar_key)(self.nodes),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.scalar_key)(self.nodes),))
 
 
 class FrozenAdvice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full immutable body retained with effective settings, including all excluded outcomes."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete original candidate order.
+    baseline: tuple[v.ContentHash, ...]
+    #: Exact admitted comparison premises.
+    cohort: AdviceCohort
+    #: Original allowances for applicability checking; advice never widens them.
+    limits: WorkLimits
+    #: One declared descriptive metric.
+    metric: AdviceMetric
+    #: Actual retained observations, including exclusions.
+    observations: tuple[AdviceObservation, ...]
+    #: Actual frozen candidate order.
+    ordered: tuple[v.ContentHash, ...]
+    #: Support established by the retained comparison.
+    support: AdviceSupport
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
+
+
+class FrozenAdviceBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Full immutable body retained with effective settings, including all excluded outcomes."""
 
     #: Complete original candidate order.
@@ -7824,7 +8751,7 @@ class FrozenAdvice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
 
 
-class FrozenAdviceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class FrozenAdviceBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Full immutable body retained with effective settings, including all excluded outcomes."""
 
     #: Complete original candidate order.
@@ -7844,6 +8771,32 @@ class FrozenAdviceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
+
+
+class FrozenAdviceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full immutable body retained with effective settings, including all excluded outcomes."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete original candidate order.
+    baseline: tuple[v.ContentHash, ...]
+    #: Exact admitted comparison premises.
+    cohort: AdviceCohort
+    #: Original allowances for applicability checking; advice never widens them.
+    limits: WorkLimitsOutput
+    #: One declared descriptive metric.
+    metric: AdviceMetric
+    #: Actual retained observations, including exclusions.
+    observations: tuple[AdviceObservationOutput, ...]
+    #: Actual frozen candidate order.
+    ordered: tuple[v.ContentHash, ...]
+    #: Support established by the retained comparison.
+    support: AdviceSupport
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
 
 
 class FrozenEvidenceSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7870,11 +8823,11 @@ class FrozenEvidenceSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Saved invocation facts; no native or allocation owners can be reconstructed.
     invocations: tuple[InvocationEvidenceDocument, ...] = msgspec.field(default_factory=tuple)
     #: Exact copied operation members supplied independently of a whole process image.
-    operations: tuple[OperationSnapshot, ...] = msgspec.field(default_factory=tuple)
+    operations: tuple[OperationSnapshotBody, ...] = msgspec.field(default_factory=tuple)
     #: Contextual optional query outputs; raw members remain independent.
     query_results: tuple[ReviewQueryDocument, ...] = msgspec.field(default_factory=tuple)
     #: Exact copied coherent source records, retaining their own clock and event identity.
-    records: tuple[CoherentRecord, ...] = msgspec.field(default_factory=tuple)
+    records: tuple[CoherentRecordBody, ...] = msgspec.field(default_factory=tuple)
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.captures), v.sequence_key(v.record_key)(self.checkpoints), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.detail_pages), v.sequence_key(v.record_key)(self.details), v.sequence_key(v.record_key)(self.engine_observations), v.sequence_key(v.record_key)(self.inventories), v.sequence_key(v.record_key)(self.invocations), v.sequence_key(v.record_key)(self.operations), v.sequence_key(v.record_key)(self.query_results), v.sequence_key(v.record_key)(self.records),))
@@ -7904,11 +8857,11 @@ class FrozenEvidenceSetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Saved invocation facts; no native or allocation owners can be reconstructed.
     invocations: tuple[InvocationEvidenceDocumentOutput, ...] = msgspec.field(default_factory=tuple)
     #: Exact copied operation members supplied independently of a whole process image.
-    operations: tuple[OperationSnapshotOutput, ...] = msgspec.field(default_factory=tuple)
+    operations: tuple[OperationSnapshotBodyOutput, ...] = msgspec.field(default_factory=tuple)
     #: Contextual optional query outputs; raw members remain independent.
     query_results: tuple[ReviewQueryDocumentOutput, ...] = msgspec.field(default_factory=tuple)
     #: Exact copied coherent source records, retaining their own clock and event identity.
-    records: tuple[CoherentRecordOutput, ...] = msgspec.field(default_factory=tuple)
+    records: tuple[CoherentRecordBodyOutput, ...] = msgspec.field(default_factory=tuple)
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.captures), v.sequence_key(v.record_key)(self.checkpoints), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.detail_pages), v.sequence_key(v.record_key)(self.details), v.sequence_key(v.record_key)(self.engine_observations), v.sequence_key(v.record_key)(self.inventories), v.sequence_key(v.record_key)(self.invocations), v.sequence_key(v.record_key)(self.operations), v.sequence_key(v.record_key)(self.query_results), v.sequence_key(v.record_key)(self.records),))
@@ -8092,6 +9045,50 @@ class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         return (type(self), (v.record_key(self.diagnostics), v.scalar_key(self.method), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_start),))
 
 
+class HighsSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="highs"):
+    """HiGHS method, opt-in diagnostics and partial MIP start."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Opt-in native work, separate from the original candidate except the
+    #: fixed-commitment LP, which prices it.
+    diagnostics: HighsDiagnostics = msgspec.field(default_factory=lambda: _document_default({"basis_inverse": None, "cut_pool": False, "fixed_lp": False, "iis": False, "presolve": False, "ranging": False, "rays": False, "relaxation": None}, HighsDiagnostics))
+    #: Eligible LP algorithm; mixed models retain native class routing.
+    method: enums.HighsMethod = enums.HighsMethod.CHOOSE
+    #: MIP node budget, separate from the iteration budget (F10). `None` leaves the native
+    #: default (no node limit), so the time limit alone bounds the search.
+    nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Partial source-attributed MIP start, with unspecified coordinates absent.
+    sparse_start: dict[v.SemanticId, float] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.diagnostics), v.scalar_key(self.method), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_start),))
+
+
+class HighsSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="highs"):
+    """HiGHS method, opt-in diagnostics and partial MIP start."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Opt-in native work, separate from the original candidate except the
+    #: fixed-commitment LP, which prices it.
+    diagnostics: HighsDiagnosticsOutput = msgspec.field(default_factory=lambda: _document_default({"basis_inverse": None, "cut_pool": False, "fixed_lp": False, "iis": False, "presolve": False, "ranging": False, "rays": False, "relaxation": None}, HighsDiagnosticsOutput))
+    #: Eligible LP algorithm; mixed models retain native class routing.
+    method: enums.HighsMethod = enums.HighsMethod.CHOOSE
+    #: MIP node budget, separate from the iteration budget (F10). `None` leaves the native
+    #: default (no node limit), so the time limit alone bounds the search.
+    nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Partial source-attributed MIP start, with unspecified coordinates absent.
+    sparse_start: dict[v.SemanticId, float] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.diagnostics), v.scalar_key(self.method), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_start),))
+
+
 class HighsSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="highs"):
     """HiGHS method, opt-in diagnostics and partial MIP start."""
 
@@ -8113,20 +9110,24 @@ class HighsSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class HistoryObligation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Independent exact ownership, not a timeout or a reference inferred from age."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Explicit caller attribution, preserved and checked on release.
     attribution: str
     #: Immutable obligation identity; equality includes all fields.
     key: str
     #: Original owner whose detail must remain available.
-    owner: HistoryOwner
+    owner: HistoryOwnerBody
     #: Scientific audit or unresolved effect.
-    purpose: HistoryPurpose
+    purpose: HistoryPurposeBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attribution), v.scalar_key(self.key), v.record_key(self.owner), v.scalar_key(self.purpose),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attribution), v.scalar_key(self.key), v.record_key(self.owner), v.scalar_key(self.purpose),))
 
 
-class HistoryOwnerRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="run"):
+class HistoryOwnerBodyRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="run"):
     """A semantic execution and its attempt/operation detail."""
 
     key: str
@@ -8135,7 +9136,7 @@ class HistoryOwnerRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.scalar_key(self.key),))
 
 
-class HistoryOwnerStudy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study"):
+class HistoryOwnerBodyStudy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study"):
     """A study's occurrence, policy, observation and coordination detail."""
 
     key: str
@@ -8144,9 +9145,54 @@ class HistoryOwnerStudy(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.key),))
 
 
+class HistoryOwnerRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="run"):
+    """A semantic execution and its attempt/operation detail."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.key),))
+
+
+class HistoryOwnerStudy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study"):
+    """A study's occurrence, policy, observation and coordination detail."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.key),))
+
+
+class HistoryPurpose(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual wire owner for a non-object exported value, such as a unit enum."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Required standalone encoding version.
+    document_version: Literal[1] = 1
+    #: The actual scalar or collection owner, retaining its original encoding.
+    value: HistoryPurposeBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.value),))
+
+
 class HistoryReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One restartable bounded page. Permanent identity/owner locators survive completion."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Operation receipts reduced to truthful settled attribution in this page.
     compacted: Annotated[int, msgspec.Meta(ge=0)]
     #: No releasable detail remains for this exact owner.
@@ -8155,7 +9201,7 @@ class HistoryReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=
     removed: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.compacted), v.scalar_key(self.complete), v.scalar_key(self.removed),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.compacted), v.scalar_key(self.complete), v.scalar_key(self.removed),))
 
 
 class HorizonBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8509,6 +9555,30 @@ class IncumbentDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 class IneligibleDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One reason retained by the native eligibility owner, with its exact typed detail."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Canonical native reason code.
+    code: enums.NativeIneligibility
+    #: Required derivative order, with value, first and second encoded as 0, 1 and 2.
+    derivative_order: Annotated[int, msgspec.Meta(ge=0, le=255)] | None = None
+    #: Constraint forms outside this adapter's capability.
+    forms: tuple[enums.NativeConstraintForm, ...]
+    #: Classes established by the prepared facts and requested intent.
+    problem_classes: tuple[enums.NativeProblemClass, ...]
+    #: Structural requirements this adapter or method cannot honour.
+    requirements: tuple[enums.ModelingStructuralRequirement, ...]
+    #: Whether shifted one-sided sign constraints were representable.
+    sign_bounds: bool | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.derivative_order), v.sequence_key(v.scalar_key)(self.forms), v.sequence_key(v.scalar_key)(self.problem_classes), v.sequence_key(v.scalar_key)(self.requirements), v.optional_key(v.scalar_key)(self.sign_bounds),))
+
+
+class IneligibleDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One reason retained by the native eligibility owner, with its exact typed detail."""
+
     #: Canonical native reason code.
     code: enums.NativeIneligibility
     #: Required derivative order, with value, first and second encoded as 0, 1 and 2.
@@ -8526,7 +9596,7 @@ class IneligibleDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.derivative_order), v.sequence_key(v.scalar_key)(self.forms), v.sequence_key(v.scalar_key)(self.problem_classes), v.sequence_key(v.scalar_key)(self.requirements), v.optional_key(v.scalar_key)(self.sign_bounds),))
 
 
-class IneligibleDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class IneligibleDocumentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One reason retained by the native eligibility owner, with its exact typed detail."""
 
     #: Canonical native reason code.
@@ -8546,9 +9616,37 @@ class IneligibleDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_field
         return (type(self), (v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.derivative_order), v.sequence_key(v.scalar_key)(self.forms), v.sequence_key(v.scalar_key)(self.problem_classes), v.sequence_key(v.scalar_key)(self.requirements), v.optional_key(v.scalar_key)(self.sign_bounds),))
 
 
+class IneligibleDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One reason retained by the native eligibility owner, with its exact typed detail."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Canonical native reason code.
+    code: enums.NativeIneligibility
+    #: Required derivative order, with value, first and second encoded as 0, 1 and 2.
+    derivative_order: Annotated[int, msgspec.Meta(ge=0, le=255)] | None
+    #: Constraint forms outside this adapter's capability.
+    forms: tuple[enums.NativeConstraintForm, ...]
+    #: Classes established by the prepared facts and requested intent.
+    problem_classes: tuple[enums.NativeProblemClass, ...]
+    #: Structural requirements this adapter or method cannot honour.
+    requirements: tuple[enums.ModelingStructuralRequirement, ...]
+    #: Whether shifted one-sided sign constraints were representable.
+    sign_bounds: bool | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.derivative_order), v.sequence_key(v.scalar_key)(self.forms), v.sequence_key(v.scalar_key)(self.problem_classes), v.sequence_key(v.scalar_key)(self.requirements), v.optional_key(v.scalar_key)(self.sign_bounds),))
+
+
 class InitializationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable temporary-stage evidence from initialization, without changing specification bindings."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Whether initialization was cancelled.
     cancelled: bool
     #: Number of completed temporary stages.
@@ -8563,16 +9661,20 @@ class InitializationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
     stages: tuple[InitializationStageDocument, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cancelled), v.scalar_key(self.completed_stages), v.mapping_key(v.scalar_key, v.scalar_key)(self.original), v.scalar_key(self.original_bindings_restored), v.mapping_key(v.scalar_key, v.scalar_key)(self.solved_unknowns), v.sequence_key(v.record_key)(self.stages),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.cancelled), v.scalar_key(self.completed_stages), v.mapping_key(v.scalar_key, v.scalar_key)(self.original), v.scalar_key(self.original_bindings_restored), v.mapping_key(v.scalar_key, v.scalar_key)(self.solved_unknowns), v.sequence_key(v.record_key)(self.stages),))
 
 
 class InitializationOverrides(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Optional explicit initialization choices. Rust owns every omitted value."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Optional discrete treatment.
     discrete: DiscreteInitialization | None = None
     #: Optional continuation effort target; absent preserves the declared step rule.
-    effort: EffortPolicy | None = None
+    effort: EffortPolicyBody | None = None
     #: Optional growth factor.
     growth: float | None = None
     #: Optional homotopy enablement.
@@ -8589,16 +9691,20 @@ class InitializationOverrides(msgspec.Struct, frozen=True, forbid_unknown_fields
     time_limit: ClosedDuration | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.discrete), v.optional_key(v.record_key)(self.effort), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.discrete), v.optional_key(v.record_key)(self.effort), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
 
 
 class InitializationOverridesOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Optional explicit initialization choices. Rust owns every omitted value."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Optional discrete treatment.
     discrete: DiscreteInitialization | None = None
     #: Optional continuation effort target; absent preserves the declared step rule.
-    effort: EffortPolicy | None = None
+    effort: EffortPolicyBody | None = None
     #: Optional growth factor.
     growth: float | None = None
     #: Optional homotopy enablement.
@@ -8615,7 +9721,7 @@ class InitializationOverridesOutput(msgspec.Struct, frozen=True, forbid_unknown_
     time_limit: ClosedDuration | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.discrete), v.optional_key(v.record_key)(self.effort), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.discrete), v.optional_key(v.record_key)(self.effort), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
 
 
 class InitializationStageDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8676,9 +9782,9 @@ class InspectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Statements or requested children omitted by response bounds.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact selected operation, absent when unavailable/evicted rather than invented complete.
-    operation: OperationSnapshot | None = None
+    operation: OperationSnapshotBody | None = None
     #: Bounded directly related observations, with their independent clocks and outcomes.
-    related: tuple[OperationSnapshot, ...]
+    related: tuple[OperationSnapshotBody, ...]
     #: Original bounded read request.
     request: InspectionRequest
     #: Established explanations, hypotheses and their source-linked next observations.
@@ -8700,9 +9806,9 @@ class InspectionDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Statements or requested children omitted by response bounds.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact selected operation, absent when unavailable/evicted rather than invented complete.
-    operation: OperationSnapshotOutput | None
+    operation: OperationSnapshotBodyOutput | None
     #: Bounded directly related observations, with their independent clocks and outcomes.
-    related: tuple[OperationSnapshotOutput, ...]
+    related: tuple[OperationSnapshotBodyOutput, ...]
     #: Original bounded read request.
     request: InspectionRequestOutput
     #: Established explanations, hypotheses and their source-linked next observations.
@@ -8876,7 +9982,7 @@ class InspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Explicit selected analytical thresholds; absent means only common factual interpretations.
     numerical_history_policy: NumericalHistoryPolicy | None = None
     #: Exact operation selected by its diagnostic process instance and sequence.
-    operation: OperationId
+    operation: OperationIdBody
     #: Maximum directly related snapshots; effective ceiling is 32.
     related_limit: Annotated[int, msgspec.Meta(ge=0)] = 16
     #: Requested recent interval, clamped to observed operation lifetime.
@@ -8898,7 +10004,7 @@ class InspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Explicit selected analytical thresholds; absent means only common factual interpretations.
     numerical_history_policy: NumericalHistoryPolicyOutput | None = None
     #: Exact operation selected by its diagnostic process instance and sequence.
-    operation: OperationId
+    operation: OperationIdBody
     #: Maximum directly related snapshots; effective ceiling is 32.
     related_limit: Annotated[int, msgspec.Meta(ge=0)] = 16
     #: Requested recent interval, clamped to observed operation lifetime.
@@ -8920,7 +10026,7 @@ class InspectionTransport(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Required operation or relationship was absent/curtailed/stale in transport.
     partial: bool
     #: Actual process attachment locator, if supplied by the source.
-    process: ProcessLocator | None = None
+    process: ProcessLocatorBody | None = None
     #: Optional publisher timestamp; it is not native fact freshness.
     published_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
@@ -8940,7 +10046,7 @@ class InspectionTransportOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Required operation or relationship was absent/curtailed/stale in transport.
     partial: bool
     #: Actual process attachment locator, if supplied by the source.
-    process: ProcessLocatorOutput | None
+    process: ProcessLocatorBodyOutput | None
     #: Optional publisher timestamp; it is not native fact freshness.
     published_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None
 
@@ -9185,7 +10291,7 @@ class InvocationComparisonDocument(msgspec.Struct, frozen=True, forbid_unknown_f
     #: Source or response bounds/loss prevent complete interpretation.
     partial: bool
     #: Effective bounded response policy.
-    policy: ComparisonPolicy
+    policy: ComparisonPolicyBody
     #: Explicit policy name; descriptive comparisons do not change science.
     policy_name: str
     #: Interpretation algorithm version.
@@ -9215,7 +10321,7 @@ class InvocationComparisonDocumentOutput(msgspec.Struct, frozen=True, forbid_unk
     #: Source or response bounds/loss prevent complete interpretation.
     partial: bool
     #: Effective bounded response policy.
-    policy: ComparisonPolicy
+    policy: ComparisonPolicyBody
     #: Explicit policy name; descriptive comparisons do not change science.
     policy_name: str
     #: Interpretation algorithm version.
@@ -9294,13 +10400,15 @@ class InvocationEndpointsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 class InvocationEvidenceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One actual execution. Attempt evidence retains its existing charging and settings authority."""
 
+    _pse_required_version: ClassVar[int] = 2
+
     #: Encoding contract version.
-    version: Annotated[int, msgspec.Meta(ge=0)]
+    version: Literal[2] = 2
     #: Durable attempt when registered; ephemeral invocations have none.
     attempt_id: identities.AttemptId | None = None
     #: Existing retained attempt evidence: starts, reuse, configuration, work and coverage.
     #: Its native/strategy observations overlap and must not be added together.
-    attempts: AttemptSummary
+    attempts: AttemptSummaryBody
     #: Exact canonical native attempt locator.
     canonical_attempt: str | None = None
     #: Exact canonical locators when registration/publication acknowledged them.
@@ -9318,11 +10426,11 @@ class InvocationEvidenceDocument(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Requested per-step product sets beyond the same bounded attempt-summary prefix.
     omitted_product_steps: Annotated[int, msgspec.Meta(ge=0)]
     #: Diagnostic operation carrying this invocation, if observation was admitted.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Actual joined invocation outcome; scientific permission remains separate.
     outcome: InvocationOutcome
     #: Preparations performed in this task-local scope, if the owner established that scope.
-    preparations: PreparationCounts | None = None
+    preparations: PreparationCountsBody | None = None
     #: Actual requested products and their independent availability.
     products: tuple[InvocationProduct, ...]
     #: Original execution identity.
@@ -9337,13 +10445,15 @@ class InvocationEvidenceDocument(msgspec.Struct, frozen=True, forbid_unknown_fie
 class InvocationEvidenceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One actual execution. Attempt evidence retains its existing charging and settings authority."""
 
+    _pse_required_version: ClassVar[int] = 2
+
     #: Encoding contract version.
-    version: Annotated[int, msgspec.Meta(ge=0)]
+    version: Literal[2] = 2
     #: Durable attempt when registered; ephemeral invocations have none.
     attempt_id: identities.AttemptId | None
     #: Existing retained attempt evidence: starts, reuse, configuration, work and coverage.
     #: Its native/strategy observations overlap and must not be added together.
-    attempts: AttemptSummaryOutput
+    attempts: AttemptSummaryBodyOutput
     #: Exact canonical native attempt locator.
     canonical_attempt: str | None
     #: Exact canonical locators when registration/publication acknowledged them.
@@ -9361,11 +10471,11 @@ class InvocationEvidenceDocumentOutput(msgspec.Struct, frozen=True, forbid_unkno
     #: Requested per-step product sets beyond the same bounded attempt-summary prefix.
     omitted_product_steps: Annotated[int, msgspec.Meta(ge=0)]
     #: Diagnostic operation carrying this invocation, if observation was admitted.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Actual joined invocation outcome; scientific permission remains separate.
     outcome: InvocationOutcome
     #: Preparations performed in this task-local scope, if the owner established that scope.
-    preparations: PreparationCounts | None
+    preparations: PreparationCountsBody | None
     #: Actual requested products and their independent availability.
     products: tuple[InvocationProductOutput, ...]
     #: Original execution identity.
@@ -9479,7 +10589,7 @@ class InvocationReference(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Durable attempt, only when registered.
     attempt_id: identities.AttemptId | None = None
     #: Actual admitted diagnostic operation.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Original execution identity.
     run_id: identities.RunId
 
@@ -9493,7 +10603,7 @@ class InvocationReferenceOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Durable attempt, only when registered.
     attempt_id: identities.AttemptId | None
     #: Actual admitted diagnostic operation.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Original execution identity.
     run_id: identities.RunId
 
@@ -9566,6 +10676,52 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         return (type(self), (v.scalar_key(self.bound_frac), v.scalar_key(self.bound_push), v.record_key(self.linear), v.scalar_key(self.mu_strategy), v.record_key(self.restart),))
 
 
+class IpoptSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="ipopt"):
+    """Ipopt linear solver with its parameters, barrier strategy and initial-point push."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Minimum relative distance of a cold initial point from its bounds (`bound_frac`);
+    #: admission refuses more than one half, Ipopt's registered range.
+    bound_frac: Fraction = 0.01
+    #: Minimum absolute distance of a cold initial point from its bounds (`bound_push`).
+    bound_push: Tolerance = 0.01
+    #: Symmetric-indefinite factorization of the KKT systems.
+    linear: IpoptLinear = msgspec.field(default_factory=lambda: _document_default({"kind": "mumps", "maximum_pivot_tolerance": 0.1, "memory_percent": 1000, "ordering": "metis", "permuting_scaling": 7, "pivot_tolerance": 1e-6}, IpoptLinear))
+    #: Barrier-parameter update strategy (`mu_strategy`).
+    mu_strategy: enums.MuStrategy = enums.MuStrategy.MONOTONE
+    #: Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
+    restart: WarmRestart = msgspec.field(default_factory=lambda: _document_default({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, WarmRestart))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.bound_frac), v.scalar_key(self.bound_push), v.record_key(self.linear), v.scalar_key(self.mu_strategy), v.record_key(self.restart),))
+
+
+class IpoptSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="ipopt"):
+    """Ipopt linear solver with its parameters, barrier strategy and initial-point push."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Minimum relative distance of a cold initial point from its bounds (`bound_frac`);
+    #: admission refuses more than one half, Ipopt's registered range.
+    bound_frac: Fraction = 0.01
+    #: Minimum absolute distance of a cold initial point from its bounds (`bound_push`).
+    bound_push: Tolerance = 0.01
+    #: Symmetric-indefinite factorization of the KKT systems.
+    linear: IpoptLinear = msgspec.field(default_factory=lambda: _document_default({"kind": "mumps", "maximum_pivot_tolerance": 0.1, "memory_percent": 1000, "ordering": "metis", "permuting_scaling": 7, "pivot_tolerance": 1e-6}, IpoptLinear))
+    #: Barrier-parameter update strategy (`mu_strategy`).
+    mu_strategy: enums.MuStrategy = enums.MuStrategy.MONOTONE
+    #: Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
+    restart: WarmRestartOutput = msgspec.field(default_factory=lambda: _document_default({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, WarmRestartOutput))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.bound_frac), v.scalar_key(self.bound_push), v.record_key(self.linear), v.scalar_key(self.mu_strategy), v.record_key(self.restart),))
+
+
 class IpoptSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="ipopt"):
     """Ipopt linear solver with its parameters, barrier strategy and initial-point push."""
 
@@ -9588,6 +10744,10 @@ class IpoptSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Local Jacobian diagnostic work, independent of nonlinear feasibility."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum native search attempts.
     maximum_attempts: Annotated[int, msgspec.Meta(ge=0)] = 64
     #: Maximum retained matrix entries.
@@ -9604,12 +10764,16 @@ class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fie
     tolerance: float = 1e-7
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
 
 
 class JacobianDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Local Jacobian diagnostic work, independent of nonlinear feasibility."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum native search attempts.
     maximum_attempts: Annotated[int, msgspec.Meta(ge=0)] = 64
     #: Maximum retained matrix entries.
@@ -9626,7 +10790,7 @@ class JacobianDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unkno
     tolerance: float = 1e-7
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
 
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
@@ -9746,6 +10910,76 @@ class KinsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.record_key(self.eta), v.record_key(self.linear), v.optional_key(v.scalar_key)(self.max_newton_step), v.scalar_key(self.orthogonalization), v.scalar_key(self.preconditioner), v.scalar_key(self.setup_interval), v.scalar_key(self.strategy),))
 
 
+class KinsolSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="kinsol"):
+    """KINSOL method controls; scales and the step tolerance derive from policy."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Native Anderson history for Picard/fixed point; zero disables acceleration.
+    anderson: Annotated[int, msgspec.Meta(ge=0)] = 0
+    #: Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.
+    anderson_delay: Annotated[int, msgspec.Meta(ge=0)] = 0
+    #: Picard/fixed-point damping in (0,1]; Newton and line search require one.
+    damping: Fraction = 1.0
+    #: Inexact-Newton forcing term; Krylov routes only.
+    eta: KinsolEta = msgspec.field(default_factory=lambda: _document_default({"kind": "choice1"}, KinsolEta))
+    #: Native linear solver for equation/Picard profiles; fixed point requires the default.
+    linear: KinsolLinear = msgspec.field(default_factory=lambda: _document_default({"kind": "klu"}, KinsolLinear))
+    #: Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
+    #: because KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's
+    #: `1000 * ||D_u u_0||`.
+    max_newton_step: float | None = None
+    #: Anderson QR orthogonalization; Anderson acceleration only.
+    orthogonalization: enums.KinsolOrthogonalization = enums.KinsolOrthogonalization.MODIFIED_GRAM_SCHMIDT
+    #: Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);
+    #: KINSOL preconditions on the right.
+    preconditioner: enums.Preconditioner = enums.Preconditioner.NONE
+    #: Maximum nonlinear iterations between linear setups; fixed point requires the default.
+    setup_interval: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Nonlinear strategy.
+    strategy: enums.KinsolStrategy = enums.KinsolStrategy.LINE_SEARCH
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.record_key(self.eta), v.record_key(self.linear), v.optional_key(v.scalar_key)(self.max_newton_step), v.scalar_key(self.orthogonalization), v.scalar_key(self.preconditioner), v.scalar_key(self.setup_interval), v.scalar_key(self.strategy),))
+
+
+class KinsolSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="kinsol"):
+    """KINSOL method controls; scales and the step tolerance derive from policy."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Native Anderson history for Picard/fixed point; zero disables acceleration.
+    anderson: Annotated[int, msgspec.Meta(ge=0)] = 0
+    #: Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.
+    anderson_delay: Annotated[int, msgspec.Meta(ge=0)] = 0
+    #: Picard/fixed-point damping in (0,1]; Newton and line search require one.
+    damping: Fraction = 1.0
+    #: Inexact-Newton forcing term; Krylov routes only.
+    eta: KinsolEta = msgspec.field(default_factory=lambda: _document_default({"kind": "choice1"}, KinsolEta))
+    #: Native linear solver for equation/Picard profiles; fixed point requires the default.
+    linear: KinsolLinear = msgspec.field(default_factory=lambda: _document_default({"kind": "klu"}, KinsolLinear))
+    #: Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
+    #: because KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's
+    #: `1000 * ||D_u u_0||`.
+    max_newton_step: float | None = None
+    #: Anderson QR orthogonalization; Anderson acceleration only.
+    orthogonalization: enums.KinsolOrthogonalization = enums.KinsolOrthogonalization.MODIFIED_GRAM_SCHMIDT
+    #: Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);
+    #: KINSOL preconditions on the right.
+    preconditioner: enums.Preconditioner = enums.Preconditioner.NONE
+    #: Maximum nonlinear iterations between linear setups; fixed point requires the default.
+    setup_interval: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Nonlinear strategy.
+    strategy: enums.KinsolStrategy = enums.KinsolStrategy.LINE_SEARCH
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.record_key(self.eta), v.record_key(self.linear), v.optional_key(v.scalar_key)(self.max_newton_step), v.scalar_key(self.orthogonalization), v.scalar_key(self.preconditioner), v.scalar_key(self.setup_interval), v.scalar_key(self.strategy),))
+
+
 class KinsolSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="kinsol"):
     """KINSOL method controls; scales and the step tolerance derive from policy."""
 
@@ -9792,25 +11026,33 @@ class KktTolerances(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native limits for retained knowledge inspection."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum retained document bytes.
     maximum_bytes: Annotated[int, msgspec.Meta(ge=0)] = 67108864
     #: Maximum inspected scalar cells.
     maximum_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
 
 
 class KnowledgeControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native limits for retained knowledge inspection."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum retained document bytes.
     maximum_bytes: Annotated[int, msgspec.Meta(ge=0)] = 67108864
     #: Maximum inspected scalar cells.
     maximum_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
 
 
 class LaunchCaptureRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9864,6 +11106,22 @@ class LaunchCaptureRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 class LazyStudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Frozen lazy input and its common output demand, retained once per study."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original completion/detail demand.
+    output: StudyOutputDemand
+    #: Bounded immutable reconstructible science.
+    variants: StudyVariantsOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.output), v.record_key(self.variants),))
+
+
+class LazyStudyDefinitionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Frozen lazy input and its common output demand, retained once per study."""
+
     #: Original completion/detail demand.
     output: StudyOutputDemand
     #: Bounded immutable reconstructible science.
@@ -9873,7 +11131,7 @@ class LazyStudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.record_key(self.output), v.record_key(self.variants),))
 
 
-class LazyStudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class LazyStudyDefinitionBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Frozen lazy input and its common output demand, retained once per study."""
 
     #: Original completion/detail demand.
@@ -9934,6 +11192,10 @@ class LimitsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 class LinearDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Source-coordinate declarations for bounded affine-model diagnostics."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Request native irreducible infeasibility evidence.
     iis: bool = False
     #: Complete lower-bound penalties keyed by source coordinate.
@@ -9952,12 +11214,16 @@ class LinearDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_field
     upper_penalties: dict[v.SemanticId, float] | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
 
 
 class LinearDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Source-coordinate declarations for bounded affine-model diagnostics."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Request native irreducible infeasibility evidence.
     iis: bool = False
     #: Complete lower-bound penalties keyed by source coordinate.
@@ -9976,7 +11242,7 @@ class LinearDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unknown
     upper_penalties: dict[v.SemanticId, float] | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
 
 
 class ManagedDetailOwner(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9987,7 +11253,7 @@ class ManagedDetailOwner(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Bounded actual collector refusal cause.
     error: str | None = None
     #: Actual admitted process/operation locator, including the process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual receiving OS process.
     pid: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit child collector admission refusal; absent for an admitted collector.
@@ -10007,7 +11273,7 @@ class ManagedDetailOwnerOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Bounded actual collector refusal cause.
     error: str | None
     #: Actual admitted process/operation locator, including the process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual receiving OS process.
     pid: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit child collector admission refusal; absent for an admitted collector.
@@ -10607,6 +11873,44 @@ class ModelingCompletenessOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 class ModelingDiagnosticPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit thresholds and budgets; the caller selects the named knowledge profile."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Bound violation above which a value is outside its bound.
+    bound_violation: float
+    #: Normalized Jacobian magnitude above which an entry, row or column is large.
+    jacobian_large: float
+    #: Normalized Jacobian magnitude below which a nonzero entry, row or column is small.
+    jacobian_small: float
+    #: Dense matrix analysis budgets and tolerances.
+    matrix: MatrixPolicy
+    #: Finding budget; further findings leave the report incomplete.
+    maximum_findings: Annotated[int, msgspec.Meta(ge=0)]
+    #: Absolute part of the near-bound distance.
+    near_bound_absolute: float
+    #: Relative part of the near-bound distance, times the larger of the bound and nominal.
+    near_bound_relative: float
+    #: Name of the knowledge profile these thresholds come from.
+    profile: str
+    #: Row residual, relative to the row nominal, above which it is large.
+    residual: float
+    #: Equation term analysis budgets and tolerances.
+    terms: TermPolicy
+    #: Normalized magnitude above which a value is large.
+    variable_large: float
+    #: Normalized magnitude below which a nonzero value is small.
+    variable_small: float
+    #: Normalized magnitude at or below which a value counts as zero.
+    variable_zero: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.bound_violation), v.scalar_key(self.jacobian_large), v.scalar_key(self.jacobian_small), v.record_key(self.matrix), v.scalar_key(self.maximum_findings), v.scalar_key(self.near_bound_absolute), v.scalar_key(self.near_bound_relative), v.scalar_key(self.profile), v.scalar_key(self.residual), v.record_key(self.terms), v.scalar_key(self.variable_large), v.scalar_key(self.variable_small), v.scalar_key(self.variable_zero),))
+
+
+class ModelingDiagnosticPolicyBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit thresholds and budgets; the caller selects the named knowledge profile."""
+
     #: Bound violation above which a value is outside its bound.
     bound_violation: float
     #: Normalized Jacobian magnitude above which an entry, row or column is large.
@@ -10689,6 +11993,10 @@ class ModelingEnvelopeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class ModelingInspection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Nonexecuting observation of the selected model."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected authored connections.
     connections: tuple[InspectionConnection, ...]
     #: Selected route and procedure before execution.
@@ -10701,12 +12009,16 @@ class ModelingInspection(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     ports: tuple[InspectionPort, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
 
 
 class ModelingInspectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Nonexecuting observation of the selected model."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected authored connections.
     connections: tuple[InspectionConnectionOutput, ...]
     #: Selected route and procedure before execution.
@@ -10719,7 +12031,7 @@ class ModelingInspectionOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     ports: tuple[InspectionPortOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
 
 
 class ModelingIntegerRange(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10795,6 +12107,10 @@ class ModelingNonlinearPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields
     attempt.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Attempt budget of the deletion filter.
     maximum_attempts: Annotated[int, msgspec.Meta(ge=0)]
     #: Positive physical nominal of every outer equation, by equation id.
@@ -10805,7 +12121,7 @@ class ModelingNonlinearPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields
     time_limit: ClosedDuration
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_attempts), v.mapping_key(v.scalar_key, v.scalar_key)(self.nominals), v.scalar_key(self.penalty_tolerance), v.record_key(self.time_limit),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_attempts), v.mapping_key(v.scalar_key, v.scalar_key)(self.nominals), v.scalar_key(self.penalty_tolerance), v.record_key(self.time_limit),))
 
 
 class ModelingProvenance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10988,7 +12304,7 @@ class NativeAttemptRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Complete original row correspondence recorded by the adapter's report.
     rows: tuple[v.SemanticId, ...]
     #: Actual submitted source-coordinate start and transformations.
-    start: SubmittedStartRecord | None = None
+    start: SubmittedStartRecordBody | None = None
     #: Whether the adapter submitted a start, even if no complete source receipt exists.
     start_submitted: bool
     #: Actual native status and the adapter's conservative interpretation.
@@ -11026,7 +12342,7 @@ class NativeAttemptRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Complete original row correspondence recorded by the adapter's report.
     rows: tuple[v.SemanticId, ...]
     #: Actual submitted source-coordinate start and transformations.
-    start: SubmittedStartRecordOutput | None
+    start: SubmittedStartRecordBodyOutput | None
     #: Whether the adapter submitted a start, even if no complete source receipt exists.
     start_submitted: bool
     #: Actual native status and the adapter's conservative interpretation.
@@ -11731,6 +13047,22 @@ class OperationContractOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 class OperationId(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Process instance plus local sequence; never a semantic or cache identity."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Process-local instance locator; not a semantic identity or attestation.
+    process_instance: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0)], ...], msgspec.Meta(min_length=2, max_length=2)]
+    #: Unique local operation sequence.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.process_instance), v.scalar_key(self.sequence),))
+
+
+class OperationIdBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Process instance plus local sequence; never a semantic or cache identity."""
+
     #: Process-local instance locator; not a semantic identity or attestation.
     process_instance: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0)], ...], msgspec.Meta(min_length=2, max_length=2)]
     #: Unique local operation sequence.
@@ -11743,6 +13075,10 @@ class OperationId(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 class OperationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded catalogue pagination with separate collection coverage."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Independent availability, freshness and loss facts.
     coverage: Coverage
     #: Next current-catalogue offset, when more entries are present.
@@ -11753,12 +13089,16 @@ class OperationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     summaries: SummaryCoverage
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations), v.record_key(self.summaries),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations), v.record_key(self.summaries),))
 
 
 class OperationPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded catalogue pagination with separate collection coverage."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Independent availability, freshness and loss facts.
     coverage: Coverage
     #: Next current-catalogue offset, when more entries are present.
@@ -11769,7 +13109,7 @@ class OperationPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     summaries: SummaryCoverage
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations), v.record_key(self.summaries),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.coverage), v.optional_key(v.scalar_key)(self.next_offset), v.sequence_key(v.record_key)(self.operations), v.record_key(self.summaries),))
 
 
 class OperationRequestDeclaredCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declared_case"):
@@ -11847,6 +13187,10 @@ class OperationRequestSimulation(msgspec.Struct, frozen=True, forbid_unknown_fie
 class OperationSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A bounded independent read. Overlapping child times must not be added as exclusive time."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Bounded linked-operation summaries, with explicit unavailable attribution.
     children: tuple[ChildSnapshot, ...]
     #: Independent availability, freshness and loss facts.
@@ -11858,7 +13202,57 @@ class OperationSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None = None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
+    #: End of that lifetime intersection; may equal its start.
+    interval_end: ClosedDuration
+    #: Requested observations exceed retention or have update loss.
+    interval_partial: bool
+    #: Start of the requested interval intersected with operation lifetime.
+    interval_start: ClosedDuration
+    #: Bounded producer-supplied operation or phase description.
+    kind: str
+    #: Bounded producer-owned facts; child facts are never summed implicitly.
+    metrics: tuple[MetricSnapshot, ...]
+    #: Actual monotonic producer timestamp of the latest published observation.
+    observed_at: ClosedDuration | None = None
+    #: Explicit owner terminal explanation, or none while active or unavailable.
+    outcome: enums.OperationOutcome | None = None
+    #: Independently active phase scopes at the last retained checkpoint.
+    phases: tuple[Phase, ...]
+    #: Explicit producers with atomic current and independently retained recent records.
+    producers: tuple[ProducerSnapshot, ...]
+    #: Monotonic time at which this read was requested.
+    read_at: ClosedDuration
+    #: Caller-requested lookback, anchored at read time.
+    requested_interval: ClosedDuration
+    #: Bounded copied source references.
+    sources: tuple[SourceRef, ...]
+    #: Owner-selected freshness threshold; passive transport cannot replace this policy.
+    stale_after: ClosedDuration
+    #: Actual monotonic start time.
+    started_at: ClosedDuration
+    #: Producer-declared responsibility and finite copied-output lifetime.
+    summary: SummaryPublication | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.sequence_key(v.record_key)(self.producers), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
+
+
+class OperationSnapshotBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded independent read. Overlapping child times must not be added as exclusive time."""
+
+    #: Bounded linked-operation summaries, with explicit unavailable attribution.
+    children: tuple[ChildSnapshot, ...]
+    #: Independent availability, freshness and loss facts.
+    coverage: Coverage
+    #: Bounded actual-time detail prefix within the requested interval.
+    detail: tuple[DetailEvent, ...]
+    #: Detail events were displaced or updates were lost; aggregate coverage is separate.
+    detail_partial: bool
+    #: Actual owner completion time, when known.
+    finished_at: ClosedDuration | None = None
+    #: Diagnostic identity of the associated operation.
+    id: OperationIdBody
     #: End of that lifetime intersection; may equal its start.
     interval_end: ClosedDuration
     #: Requested observations exceed retention or have update loss.
@@ -11894,7 +13288,7 @@ class OperationSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.sequence_key(v.record_key)(self.producers), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
 
 
-class OperationSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class OperationSnapshotBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A bounded independent read. Overlapping child times must not be added as exclusive time."""
 
     #: Bounded linked-operation summaries, with explicit unavailable attribution.
@@ -11908,7 +13302,7 @@ class OperationSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
     #: End of that lifetime intersection; may equal its start.
     interval_end: ClosedDuration
     #: Requested observations exceed retention or have update loss.
@@ -11944,7 +13338,77 @@ class OperationSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.sequence_key(v.record_key)(self.producers), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
 
 
+class OperationSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded independent read. Overlapping child times must not be added as exclusive time."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Bounded linked-operation summaries, with explicit unavailable attribution.
+    children: tuple[ChildSnapshotOutput, ...]
+    #: Independent availability, freshness and loss facts.
+    coverage: Coverage
+    #: Bounded actual-time detail prefix within the requested interval.
+    detail: tuple[DetailEventOutput, ...]
+    #: Detail events were displaced or updates were lost; aggregate coverage is separate.
+    detail_partial: bool
+    #: Actual owner completion time, when known.
+    finished_at: ClosedDuration | None
+    #: Diagnostic identity of the associated operation.
+    id: OperationIdBody
+    #: End of that lifetime intersection; may equal its start.
+    interval_end: ClosedDuration
+    #: Requested observations exceed retention or have update loss.
+    interval_partial: bool
+    #: Start of the requested interval intersected with operation lifetime.
+    interval_start: ClosedDuration
+    #: Bounded producer-supplied operation or phase description.
+    kind: str
+    #: Bounded producer-owned facts; child facts are never summed implicitly.
+    metrics: tuple[MetricSnapshotOutput, ...]
+    #: Actual monotonic producer timestamp of the latest published observation.
+    observed_at: ClosedDuration | None
+    #: Explicit owner terminal explanation, or none while active or unavailable.
+    outcome: enums.OperationOutcome | None
+    #: Independently active phase scopes at the last retained checkpoint.
+    phases: tuple[Phase, ...]
+    #: Explicit producers with atomic current and independently retained recent records.
+    producers: tuple[ProducerSnapshotOutput, ...]
+    #: Monotonic time at which this read was requested.
+    read_at: ClosedDuration
+    #: Caller-requested lookback, anchored at read time.
+    requested_interval: ClosedDuration
+    #: Bounded copied source references.
+    sources: tuple[SourceRef, ...]
+    #: Owner-selected freshness threshold; passive transport cannot replace this policy.
+    stale_after: ClosedDuration
+    #: Actual monotonic start time.
+    started_at: ClosedDuration
+    #: Producer-declared responsibility and finite copied-output lifetime.
+    summary: SummaryPublicationOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.children), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.detail), v.scalar_key(self.detail_partial), v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.record_key(self.interval_end), v.scalar_key(self.interval_partial), v.record_key(self.interval_start), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.metrics), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.scalar_key)(self.outcome), v.sequence_key(v.record_key)(self.phases), v.sequence_key(v.record_key)(self.producers), v.record_key(self.read_at), v.record_key(self.requested_interval), v.sequence_key(v.record_key)(self.sources), v.record_key(self.stale_after), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
+
+
 class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source/context required when reconstructing an operation from stored bundles."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete admitted physical context identity.
+    physical_context: v.ContentHash
+    #: Immutable modeling revision, including included scientific data.
+    revision: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+
+
+class OperationSourceBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact source/context required when reconstructing an operation from stored bundles."""
 
     #: Complete admitted physical context identity.
@@ -11962,7 +13426,7 @@ class OperationSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None = None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
     #: Bounded producer-supplied operation or phase description.
     kind: str
     #: Explicit owner terminal explanation, or none while active or unavailable.
@@ -11982,7 +13446,7 @@ class OperationSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
     #: Actual owner completion time, when known.
     finished_at: ClosedDuration | None
     #: Diagnostic identity of the associated operation.
-    id: OperationId
+    id: OperationIdBody
     #: Bounded producer-supplied operation or phase description.
     kind: str
     #: Explicit owner terminal explanation, or none while active or unavailable.
@@ -12522,6 +13986,54 @@ class PetscSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
 
 
+class PetscSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
+    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Selected native KSP method.
+    linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
+    #: Selected native nonlinear method.
+    method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
+    #: Selected native PC method.
+    preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
+    #: Required precisely for the pseudo-transient profile.
+    pseudo: PseudoTime | None = None
+    #: Required precisely for nonlinear additive Schwarz.
+    schwarz: Schwarz | None = None
+    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    trust: TrustRegion = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegion))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+
+
+class PetscSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
+    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Selected native KSP method.
+    linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
+    #: Selected native nonlinear method.
+    method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
+    #: Selected native PC method.
+    preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
+    #: Required precisely for the pseudo-transient profile.
+    pseudo: PseudoTimeOutput | None = None
+    #: Required precisely for nonlinear additive Schwarz.
+    schwarz: SchwarzOutput | None = None
+    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    trust: TrustRegionOutput = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegionOutput))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+
+
 class PetscSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
     """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
 
@@ -12678,7 +14190,7 @@ class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Present for a durable attempt; ephemeral tries still retain their ordered history.
     attempt_id: identities.AttemptId | None = None
     #: Original detailed diagnostic, including admission failures without result tables.
-    diagnostic: BoundaryDiagnostic | None = None
+    diagnostic: BoundaryDiagnosticBody | None = None
     #: Knowledge of effects for this try.
     effect: enums.StudyEffectState
     #: Actual try lifecycle; absent when no operational attempt was made.
@@ -12698,7 +14210,7 @@ class PointAttemptOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Present for a durable attempt; ephemeral tries still retain their ordered history.
     attempt_id: identities.AttemptId | None
     #: Original detailed diagnostic, including admission failures without result tables.
-    diagnostic: BoundaryDiagnosticOutput | None
+    diagnostic: BoundaryDiagnosticBodyOutput | None
     #: Knowledge of effects for this try.
     effect: enums.StudyEffectState
     #: Actual try lifecycle; absent when no operational attempt was made.
@@ -12715,10 +14227,36 @@ class PointAttemptOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared outcome projection consumed by both executors and the durable store."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Every actual try, including failed admission and retry attempts.
     attempts: tuple[PointAttemptOutcome, ...]
     #: Detailed latest refusal/failure, without fabricating a scientific result.
-    diagnostic: BoundaryDiagnostic | None = None
+    diagnostic: BoundaryDiagnosticBody | None = None
+    #: Latest publication/effect knowledge.
+    effect: enums.StudyEffectState
+    #: Requested occurrence, independent of preparation/binding content.
+    key: OccurrenceKey
+    #: Operational point state, independent of scientific availability.
+    lifecycle: enums.StudyPointState
+    #: Latest operation-owned scientific permission.
+    scientific: ScientificFacts
+    #: Latest actual start provenance.
+    start: StartProvenance | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.attempts), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
+
+
+class PointOutcomeBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared outcome projection consumed by both executors and the durable store."""
+
+    #: Every actual try, including failed admission and retry attempts.
+    attempts: tuple[PointAttemptOutcome, ...]
+    #: Detailed latest refusal/failure, without fabricating a scientific result.
+    diagnostic: BoundaryDiagnosticBody | None = None
     #: Latest publication/effect knowledge.
     effect: enums.StudyEffectState
     #: Requested occurrence, independent of preparation/binding content.
@@ -12734,13 +14272,13 @@ class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.sequence_key(v.record_key)(self.attempts), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
 
 
-class PointOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class PointOutcomeBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared outcome projection consumed by both executors and the durable store."""
 
     #: Every actual try, including failed admission and retry attempts.
     attempts: tuple[PointAttemptOutcomeOutput, ...]
     #: Detailed latest refusal/failure, without fabricating a scientific result.
-    diagnostic: BoundaryDiagnosticOutput | None
+    diagnostic: BoundaryDiagnosticBodyOutput | None
     #: Latest publication/effect knowledge.
     effect: enums.StudyEffectState
     #: Requested occurrence, independent of preparation/binding content.
@@ -12754,6 +14292,32 @@ class PointOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.attempts), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
+
+
+class PointOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared outcome projection consumed by both executors and the durable store."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Every actual try, including failed admission and retry attempts.
+    attempts: tuple[PointAttemptOutcomeOutput, ...]
+    #: Detailed latest refusal/failure, without fabricating a scientific result.
+    diagnostic: BoundaryDiagnosticBodyOutput | None
+    #: Latest publication/effect knowledge.
+    effect: enums.StudyEffectState
+    #: Requested occurrence, independent of preparation/binding content.
+    key: OccurrenceKey
+    #: Operational point state, independent of scientific availability.
+    lifecycle: enums.StudyPointState
+    #: Latest operation-owned scientific permission.
+    scientific: ScientificFactsOutput
+    #: Latest actual start provenance.
+    start: StartProvenance | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.attempts), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
 
 
 class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -12848,7 +14412,7 @@ class PointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Exact assigned native attempt, when claimed.
     attempt: str | None = None
     #: Retained scientific outcome, when observed.
-    outcome: PointOutcome | None = None
+    outcome: PointOutcomeBody | None = None
     #: Authored occurrence identity.
     point_index: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact canonical occurrence execution.
@@ -12868,7 +14432,7 @@ class PointStatusOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Exact assigned native attempt, when claimed.
     attempt: str | None
     #: Retained scientific outcome, when observed.
-    outcome: PointOutcomeOutput | None
+    outcome: PointOutcomeBodyOutput | None
     #: Authored occurrence identity.
     point_index: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact canonical occurrence execution.
@@ -12898,6 +14462,50 @@ class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.crossover), v.scalar_key(self.equilibrate), v.record_key(self.linear), v.scalar_key(self.self_dual),))
+
+
+class PounceConvexSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
+    """The POUNCE-convex interior-point method's choices and FERAL configuration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Cross over from the interior-point solution to a vertex of a linear program.
+    crossover: bool = False
+    #: Ruiz-equilibrate the data before the solve.
+    equilibrate: bool = True
+    #: Native linear settings. A batch factors each instance serially: its parallelism is
+    #: across instances.
+    linear: FeralSettings = msgspec.field(default_factory=lambda: _document_default({"bounded_storage_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, FeralSettings))
+    #: Solve through the homogeneous self-dual embedding, which detects primal and dual
+    #: infeasibility from the iterates, instead of the direct infeasible-start method.
+    self_dual: bool = True
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.crossover), v.scalar_key(self.equilibrate), v.record_key(self.linear), v.scalar_key(self.self_dual),))
+
+
+class PounceConvexSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
+    """The POUNCE-convex interior-point method's choices and FERAL configuration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Cross over from the interior-point solution to a vertex of a linear program.
+    crossover: bool = False
+    #: Ruiz-equilibrate the data before the solve.
+    equilibrate: bool = True
+    #: Native linear settings. A batch factors each instance serially: its parallelism is
+    #: across instances.
+    linear: FeralSettingsOutput = msgspec.field(default_factory=lambda: _document_default({"bounded_storage_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, FeralSettingsOutput))
+    #: Solve through the homogeneous self-dual embedding, which detects primal and dual
+    #: infeasibility from the iterates, instead of the direct infeasible-start method.
+    self_dual: bool = True
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.crossover), v.scalar_key(self.equilibrate), v.record_key(self.linear), v.scalar_key(self.self_dual),))
 
 
 class PounceConvexSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
@@ -12936,6 +14544,50 @@ class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.record_key(self.finite_difference), v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.partitioned), v.record_key(self.restart),))
 
 
+class PounceSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
+    """POUNCE method and complete native FERAL configuration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Library-owned finite-difference curvature settings.
+    finite_difference: FiniteDifferenceSettings = msgspec.field(default_factory=lambda: _document_default({"coloring": "cpr", "pattern": "declared", "reuse_tolerance": 0.0}, FiniteDifferenceSettings))
+    #: Native linear settings.
+    linear: FeralSettings = msgspec.field(default_factory=lambda: _document_default({"bounded_storage_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, FeralSettings))
+    #: NLP method.
+    method: enums.PounceMethod = enums.PounceMethod.INTERIOR_POINT
+    #: Library-owned partitioned curvature settings.
+    partitioned: PartitionedSettings = msgspec.field(default_factory=lambda: _document_default({"block_size": 64, "curvature_cap": None, "elements": "per_constraint", "max_element": 64, "update_type": None}, PartitionedSettings))
+    #: Interior-point restart of a submitted primal-dual seed (L-N3).
+    restart: WarmRestart = msgspec.field(default_factory=lambda: _document_default({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, WarmRestart))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.finite_difference), v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.partitioned), v.record_key(self.restart),))
+
+
+class PounceSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
+    """POUNCE method and complete native FERAL configuration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Library-owned finite-difference curvature settings.
+    finite_difference: FiniteDifferenceSettingsOutput = msgspec.field(default_factory=lambda: _document_default({"coloring": "cpr", "pattern": "declared", "reuse_tolerance": 0.0}, FiniteDifferenceSettingsOutput))
+    #: Native linear settings.
+    linear: FeralSettingsOutput = msgspec.field(default_factory=lambda: _document_default({"bounded_storage_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, FeralSettingsOutput))
+    #: NLP method.
+    method: enums.PounceMethod = enums.PounceMethod.INTERIOR_POINT
+    #: Library-owned partitioned curvature settings.
+    partitioned: PartitionedSettingsOutput = msgspec.field(default_factory=lambda: _document_default({"block_size": 64, "curvature_cap": None, "elements": "per_constraint", "max_element": 64, "update_type": None}, PartitionedSettingsOutput))
+    #: Interior-point restart of a submitted primal-dual seed (L-N3).
+    restart: WarmRestartOutput = msgspec.field(default_factory=lambda: _document_default({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, WarmRestartOutput))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.finite_difference), v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.partitioned), v.record_key(self.restart),))
+
+
 class PounceSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
     """POUNCE method and complete native FERAL configuration."""
 
@@ -12959,6 +14611,29 @@ class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     as a study (A6).
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Value-independent observation programs compiled.
+    observations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Value rebinds that rebuilt value-dependent products because a consumed value changed.
+    rebuilt: Annotated[int, msgspec.Meta(ge=0)]
+    #: Value rebinds that shared every product because no consumed value changed.
+    shared: Annotated[int, msgspec.Meta(ge=0)]
+    #: Structural solver-view preparations: a case plan, structural analysis and artifact
+    #: requests built from a bound structure.
+    views: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.observations), v.scalar_key(self.rebuilt), v.scalar_key(self.shared), v.scalar_key(self.views),))
+
+
+class PreparationCountsBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Structural preparations and value rebinds: of a math service, or of one operation such
+    as a study (A6).
+    """
+
     #: Value-independent observation programs compiled.
     observations: Annotated[int, msgspec.Meta(ge=0)]
     #: Value rebinds that rebuilt value-dependent products because a consumed value changed.
@@ -12976,6 +14651,22 @@ class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serialization of the existing compiler/expansion controls, with no second defaults."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Existing evaluator profile, encoded through its complete remote projection.
+    compiler: StudyCompilerProfile
+    #: Existing expansion admission limits.
+    limits: Limits
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.compiler), v.record_key(self.limits),))
+
+
+class PreparationSettingsBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serialization of the existing compiler/expansion controls, with no second defaults."""
+
     #: Existing evaluator profile, encoded through its complete remote projection.
     compiler: StudyCompilerProfile
     #: Existing expansion admission limits.
@@ -12985,7 +14676,7 @@ class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.record_key(self.compiler), v.record_key(self.limits),))
 
 
-class PreparationSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class PreparationSettingsBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serialization of the existing compiler/expansion controls, with no second defaults."""
 
     #: Existing evaluator profile, encoded through its complete remote projection.
@@ -12995,6 +14686,22 @@ class PreparationSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.compiler), v.record_key(self.limits),))
+
+
+class PreparationSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serialization of the existing compiler/expansion controls, with no second defaults."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Existing evaluator profile, encoded through its complete remote projection.
+    compiler: StudyCompilerProfile
+    #: Existing expansion admission limits.
+    limits: LimitsOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.compiler), v.record_key(self.limits),))
 
 
 class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13012,18 +14719,20 @@ class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fie
 class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
+    _pse_required_version: ClassVar[int] = 4
+
     #: Format version of this diagnostic-only representation.
-    version: Annotated[int, msgspec.Meta(ge=0)]
+    version: Literal[4] = 4
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None = None
     #: Actual operational attachment locator, not build provenance.
-    locator: ProcessLocator
+    locator: ProcessLocatorBody
     #: Operations omitted from this bounded external image.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Current/cumulative/recent facts, including their own scopes and coverage.
-    operations: tuple[OperationSnapshot, ...]
+    operations: tuple[OperationSnapshotBody, ...]
     #: A parent diagnostic operation, when this process was explicitly dispatched by it.
-    parent: OperationId | None = None
+    parent: OperationIdBody | None = None
     #: Unique process-instance locator; PID alone is never its identity.
     process: str
     #: Publication wall timestamp, distinct from each producer's checkpoint time.
@@ -13048,18 +14757,20 @@ class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
+    _pse_required_version: ClassVar[int] = 4
+
     #: Format version of this diagnostic-only representation.
-    version: Annotated[int, msgspec.Meta(ge=0)]
+    version: Literal[4] = 4
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None
     #: Actual operational attachment locator, not build provenance.
-    locator: ProcessLocatorOutput
+    locator: ProcessLocatorBodyOutput
     #: Operations omitted from this bounded external image.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Current/cumulative/recent facts, including their own scopes and coverage.
-    operations: tuple[OperationSnapshotOutput, ...]
+    operations: tuple[OperationSnapshotBodyOutput, ...]
     #: A parent diagnostic operation, when this process was explicitly dispatched by it.
-    parent: OperationId | None
+    parent: OperationIdBody | None
     #: Unique process-instance locator; PID alone is never its identity.
     process: str
     #: Publication wall timestamp, distinct from each producer's checkpoint time.
@@ -13084,6 +14795,24 @@ class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 class ProcessLocator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual process locator. PID reuse must be checked before attaching an optional sampler."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Current executable path for display/symbol discovery, not a content proof.
+    executable: str | None = None
+    #: Actual operating-system process ID.
+    pid: Annotated[int, msgspec.Meta(ge=0)]
+    #: Linux process start ticks; absence does not authorize attachment.
+    start_ticks: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.executable), v.scalar_key(self.pid), v.optional_key(v.scalar_key)(self.start_ticks),))
+
+
+class ProcessLocatorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual process locator. PID reuse must be checked before attaching an optional sampler."""
+
     #: Current executable path for display/symbol discovery, not a content proof.
     executable: str | None = None
     #: Actual operating-system process ID.
@@ -13095,7 +14824,7 @@ class ProcessLocator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.scalar_key)(self.executable), v.scalar_key(self.pid), v.optional_key(v.scalar_key)(self.start_ticks),))
 
 
-class ProcessLocatorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class ProcessLocatorBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual process locator. PID reuse must be checked before attaching an optional sampler."""
 
     #: Current executable path for display/symbol discovery, not a content proof.
@@ -13107,6 +14836,24 @@ class ProcessLocatorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.executable), v.scalar_key(self.pid), v.optional_key(v.scalar_key)(self.start_ticks),))
+
+
+class ProcessLocatorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual process locator. PID reuse must be checked before attaching an optional sampler."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Current executable path for display/symbol discovery, not a content proof.
+    executable: str | None
+    #: Actual operating-system process ID.
+    pid: Annotated[int, msgspec.Meta(ge=0)]
+    #: Linux process start ticks; absence does not authorize attachment.
+    start_ticks: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.executable), v.scalar_key(self.pid), v.optional_key(v.scalar_key)(self.start_ticks),))
 
 
 class ProcessResources(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13159,7 +14906,7 @@ class ProducerId(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     """A performing instance, not a scientific or cache identity."""
 
     #: Actual enclosing diagnostic operation.
-    operation: OperationId
+    operation: OperationIdBody
     #: Unique performing instance within this process.
     sequence: Annotated[int, msgspec.Meta(ge=0)]
 
@@ -13173,11 +14920,11 @@ class ProducerSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Independent source-record coverage.
     coverage: RecordCoverage
     #: Latest admitted compact checkpoint, even when history is zero.
-    current: CoherentRecord | None = None
+    current: CoherentRecordBody | None = None
     #: Actual declaration.
     descriptor: ProducerDescriptor
     #: Bounded whole records intersecting the requested interval.
-    recent: tuple[CoherentRecord, ...]
+    recent: tuple[CoherentRecordBody, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.coverage), v.optional_key(v.record_key)(self.current), v.record_key(self.descriptor), v.sequence_key(v.record_key)(self.recent),))
@@ -13189,11 +14936,11 @@ class ProducerSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
     #: Independent source-record coverage.
     coverage: RecordCoverage
     #: Latest admitted compact checkpoint, even when history is zero.
-    current: CoherentRecordOutput | None
+    current: CoherentRecordBodyOutput | None
     #: Actual declaration.
     descriptor: ProducerDescriptor
     #: Bounded whole records intersecting the requested interval.
-    recent: tuple[CoherentRecordOutput, ...]
+    recent: tuple[CoherentRecordBodyOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.coverage), v.optional_key(v.record_key)(self.current), v.record_key(self.descriptor), v.sequence_key(v.record_key)(self.recent),))
@@ -13329,13 +15076,13 @@ class ProfileFailure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Complete scientific evidence on demanded paths, including refused claims.
     applicability: tuple[ApplicabilityObservationOutput, ...] = msgspec.field(default_factory=tuple)
     #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
-    causes: tuple[BoundaryDiagnosticOutput, ...] = msgspec.field(default_factory=tuple)
+    causes: tuple[BoundaryDiagnosticBodyOutput, ...] = msgspec.field(default_factory=tuple)
     #: Machine-readable disposition; callers never parse the message.
     class_: enums.NativeBoundaryClass = msgspec.field(name="class")
     #: Detailed semantic identity, authoritative over every coarse projection.
     code: enums.DiagnosticCode
     #: Available source locations. Empty means unattributed, not a guessed source.
-    locations: tuple[SourceLocationOutput, ...] = msgspec.field(default_factory=tuple)
+    locations: tuple[SourceLocationBodyOutput, ...] = msgspec.field(default_factory=tuple)
     #: Values observed while checking the contract.
     observations: dict[str, Observation]
     #: The violated named contract, not a replacement for source identities.
@@ -13473,6 +15220,10 @@ class ProgressCheckpointDocumentOutput(msgspec.Struct, frozen=True, forbid_unkno
 class ProgressCoverageSampled(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sampled"):
     """Finite sampling counters retained by the original execution owner."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Events in batches with actual canonical append acknowledgments.
     acknowledged: Annotated[int, msgspec.Meta(ge=0)]
     #: Observations rejected before queue admission.
@@ -13487,14 +15238,19 @@ class ProgressCoverageSampled(msgspec.Struct, frozen=True, forbid_unknown_fields
     writer: ProgressWriterOutcome
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.acknowledged), v.scalar_key(self.dropped_before_queue), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.unacknowledged), v.record_key(self.writer),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.acknowledged), v.scalar_key(self.dropped_before_queue), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.unacknowledged), v.record_key(self.writer),))
 
 
 class ProgressCoverageUnknown(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unknown"):
     """Historical or recovered executions did not retain original counters."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
+        return (type(self), (v.scalar_key(self.document_version),))
 
 
 class ProgressEventDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13761,6 +15517,10 @@ class PseudoTimeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Limits and selection for pure document conformance, with no solver work."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Explicit fixture occurrences, or the package selection when omitted.
     fixtures: tuple[identities.DeclarationId, ...] | None = None
     #: Maximum conformance checks performed.
@@ -13769,12 +15529,16 @@ class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields
     maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
 class PureConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Limits and selection for pure document conformance, with no solver work."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Explicit fixture occurrences, or the package selection when omitted.
     fixtures: tuple[identities.DeclarationId, ...] | None = None
     #: Maximum conformance checks performed.
@@ -13783,7 +15547,7 @@ class PureConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_
     maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
 class QueryInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13998,6 +15762,10 @@ class ReceiverCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     This observation grants no service-stop or allocation-release authority.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Optional diagnostics availability, independent of scientific readiness.
     available: bool
     #: Exact canonical association admitted by readiness.
@@ -14007,7 +15775,7 @@ class ReceiverCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Receiver's explicit observation selection.
     enabled: bool
     #: Actual runtime diagnostic process/start identity.
-    identity: CheckpointIdentity
+    identity: CheckpointIdentityBody
     #: Existing receiver registration nonce.
     nonce: str
     #: Exact selected receiver state whose readiness consumed this association.
@@ -14016,7 +15784,7 @@ class ReceiverCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     writer_failure: str | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.available), v.scalar_key(self.canonical_database), v.scalar_key(self.checkpoint), v.scalar_key(self.enabled), v.record_key(self.identity), v.scalar_key(self.nonce), v.scalar_key(self.receiver_state), v.optional_key(v.scalar_key)(self.writer_failure),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.available), v.scalar_key(self.canonical_database), v.scalar_key(self.checkpoint), v.scalar_key(self.enabled), v.record_key(self.identity), v.scalar_key(self.nonce), v.scalar_key(self.receiver_state), v.optional_key(v.scalar_key)(self.writer_failure),))
 
 
 class ReceiverCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14024,6 +15792,10 @@ class ReceiverCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     This observation grants no service-stop or allocation-release authority.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Optional diagnostics availability, independent of scientific readiness.
     available: bool
     #: Exact canonical association admitted by readiness.
@@ -14033,7 +15805,7 @@ class ReceiverCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Receiver's explicit observation selection.
     enabled: bool
     #: Actual runtime diagnostic process/start identity.
-    identity: CheckpointIdentityOutput
+    identity: CheckpointIdentityBodyOutput
     #: Existing receiver registration nonce.
     nonce: str
     #: Exact selected receiver state whose readiness consumed this association.
@@ -14042,7 +15814,7 @@ class ReceiverCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     writer_failure: str | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.available), v.scalar_key(self.canonical_database), v.scalar_key(self.checkpoint), v.scalar_key(self.enabled), v.record_key(self.identity), v.scalar_key(self.nonce), v.scalar_key(self.receiver_state), v.optional_key(v.scalar_key)(self.writer_failure),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.available), v.scalar_key(self.canonical_database), v.scalar_key(self.checkpoint), v.scalar_key(self.enabled), v.record_key(self.identity), v.scalar_key(self.nonce), v.scalar_key(self.receiver_state), v.optional_key(v.scalar_key)(self.writer_failure),))
 
 
 class ReconstructionAccuracy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14143,6 +15915,10 @@ class RecordedWindowRecorded(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Concrete tear witness and causal directions; native KINSOL owns all recycle iteration."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Native Anderson history; zero means unaccelerated fixed point.
     anderson: Annotated[int, msgspec.Meta(ge=0)]
     #: Native Anderson delay; zero keeps the existing default.
@@ -14153,14 +15929,14 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Gram-Schmidt; a selected value requires nonzero Anderson history.
     orthogonalization: enums.KinsolOrthogonalization | None = None
     #: Explicit finite screened restarts; omission never restarts.
-    restarts: RecycleRestartRequest | None = None
+    restarts: RecycleRestartRequestBody | None = None
     #: Exact selected tear decision groups, obtainable through select_tears.
     tears: tuple[v.SemanticId, ...]
     #: Complete admitted causal unit inventory.
     units: tuple[CausalUnitRequest, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.scalar_key)(self.orthogonalization), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.scalar_key)(self.orthogonalization), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.tears)
@@ -14169,6 +15945,10 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 class RecycleRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Concrete tear witness and causal directions; native KINSOL owns all recycle iteration."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Native Anderson history; zero means unaccelerated fixed point.
     anderson: Annotated[int, msgspec.Meta(ge=0)]
     #: Native Anderson delay; zero keeps the existing default.
@@ -14179,20 +15959,36 @@ class RecycleRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Gram-Schmidt; a selected value requires nonzero Anderson history.
     orthogonalization: enums.KinsolOrthogonalization | None = None
     #: Explicit finite screened restarts; omission never restarts.
-    restarts: RecycleRestartRequest | None = None
+    restarts: RecycleRestartRequestBody | None = None
     #: Exact selected tear decision groups, obtainable through select_tears.
     tears: tuple[v.SemanticId, ...]
     #: Complete admitted causal unit inventory.
     units: tuple[CausalUnitRequestOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.scalar_key)(self.orthogonalization), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.scalar_key)(self.orthogonalization), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.tears)
 
 
 class RecycleRestartRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authorized replacement starts and a bounded native iteration slice."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Positive per-attempt slice within the original aggregate native iteration cap.
+    iterations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact physical tear coordinates for each authorized candidate, keyed by identity.
+    starts: tuple[dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.iterations), v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.starts),))
+
+
+class RecycleRestartRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authorized replacement starts and a bounded native iteration slice."""
 
     #: Positive per-attempt slice within the original aggregate native iteration cap.
@@ -14259,13 +16055,13 @@ class ReplayCaseConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Explicit continuation parameters in exact original bits.
     parameters: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
     #: Actual compiler controls and original expansion limits.
-    preparation: PreparationSettingsOutput
+    preparation: PreparationSettingsBodyOutput
     #: Full original-only profile graph; opaque products explicitly require producer rebind.
     prepared_graph: ReplayPreparedGraph | None
     #: Exact requested screened input; restoring requires fresh producer screening.
     requested_screened_start: ReplayScreenedStart | None
     #: Exact explicit input requested after constructor admission, even before dispatch.
-    requested_start: WarmStartSnapshotOutput | None
+    requested_start: WarmStartSnapshotBodyOutput | None
     #: Original selected authored definition.
     root: identities.DeclarationId
     #: Explicit predecessor starts in exact original bits.
@@ -14356,10 +16152,10 @@ class ReplayDecisions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Complete export of available scientific premises. Compiled products/factories remain in-process capabilities."""
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
     #: Explicit current document version.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Exact required binary build.
     build: v.ContentHash
     #: Original portable case constructors, retaining all supplied structural and numerical inputs.
@@ -14405,7 +16201,7 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     """Portable fit constructor. Exact fit/experiment declarations are in its source objects."""
 
     #: Original global parameter values, admitted before fitting and experiment preparation.
-    binding: AdmittedBinding | None = None
+    binding: AdmittedBindingBody | None = None
     #: Original derivative evidence policy.
     derivatives: enums.FitDerivatives
     #: Finite independent experiment lanes.
@@ -14417,9 +16213,11 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Requested fitting method, preserved before contextual resolution.
     optimizer: FitOptimizer
     #: Original compiler and expansion controls.
-    preparation: PreparationSettingsOutput
+    preparation: PreparationSettingsBodyOutput
     #: Original response rank cutoff.
     rank_tolerance: float
+    #: Exact original residual algorithm policy, independent of physical stationarity.
+    residual_lm_criteria: ResidualLmCriteria
     #: Complete original integration controls by experiment identity.
     simulations: dict[identities.InstanceId, IntegrationControlsForArray_of_double]
     #: Complete original native/scientific policy.
@@ -14427,10 +16225,10 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Source closure index.
     source: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete requested uncertainty/propagation controls.
-    uncertainty: FitUncertaintyOutput | None
+    uncertainty: FitUncertaintyBodyOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.binding), v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.optional_key(v.record_key)(self.binding), v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.record_key(self.residual_lm_criteria), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class ReplayForwardSelectionPhysicalAxes(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical_axes"):
@@ -14618,7 +16416,7 @@ class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Full requested screened proposal; fresh screening is an independent premise.
     requested_screened_start: ReplayScreenedStart | None
     #: Full requested explicit start before dispatch.
-    requested_start: WarmStartSnapshotOutput | None
+    requested_start: WarmStartSnapshotBodyOutput | None
     #: Exact ordered declared product inventory.
     rungs: tuple[ReplayPreparedProduct, ...]
     #: Actual build/runtime observation of this profile's admission.
@@ -14772,7 +16570,7 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     """Portable original integrated constructor; all methods still enter the existing supervisor."""
 
     #: Original physical point binding; values are reconstructed before fresh IC preparation.
-    binding: AdmittedBinding | None = None
+    binding: AdmittedBindingBody | None = None
     #: Full structural arguments, facts and demand.
     bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     #: Full original case values/fixed-state overrides.
@@ -14786,7 +16584,7 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Original requested partial order.
     order: Annotated[int, msgspec.Meta(ge=0, le=255)]
     #: Original compiler and specialization allowances.
-    preparation: PreparationSettingsOutput
+    preparation: PreparationSettingsBodyOutput
     #: Full native dynamic settings, horizon, start, sensitivities and allowance.
     profile: IntegrationControlsForArray_of_double
     #: Explicit provisional quadrature demands.
@@ -14810,11 +16608,11 @@ class ReplaySolverSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Explicit native selection; absent means Auto.
     backend: enums.NativeBackend | None = None
     #: Stable original structural block overrides, including their complete controls.
-    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverride]
+    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverrideBody]
     #: Original explicitly admitted independent block width.
     block_workers: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete original composition, frozen advice, branch and finite work limits.
-    composition: CompositionRequest
+    composition: CompositionRequestBody
     #: Original finite controls, including wall allowance, options, starts and reuse.
     controls: SolveControls
     #: Optional absolute convexity assessment budget.
@@ -14836,7 +16634,7 @@ class ReplaySolverSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Original requested physical sensitivities and propagation inputs.
     sensitivity: SensitivityRequest | None = None
     #: Full materialized backend settings.
-    settings: BackendSettings | None = None
+    settings: BackendSettingsBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
@@ -14851,11 +16649,11 @@ class ReplaySolverSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Explicit native selection; absent means Auto.
     backend: enums.NativeBackend | None
     #: Stable original structural block overrides, including their complete controls.
-    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverrideOutput]
+    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverrideBodyOutput]
     #: Original explicitly admitted independent block width.
     block_workers: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete original composition, frozen advice, branch and finite work limits.
-    composition: CompositionRequestOutput
+    composition: CompositionRequestBodyOutput
     #: Original finite controls, including wall allowance, options, starts and reuse.
     controls: SolveControlsOutput
     #: Optional absolute convexity assessment budget.
@@ -14877,7 +16675,7 @@ class ReplaySolverSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Original requested physical sensitivities and propagation inputs.
     sensitivity: SensitivityRequestOutput | None
     #: Full materialized backend settings.
-    settings: BackendSettingsOutput | None
+    settings: BackendSettingsBodyOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
@@ -14944,6 +16742,40 @@ class ReplayVariableState(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.optional_key(v.scalar_key)(self.fixed), v.record_key(self.lower), v.record_key(self.upper),))
 
 
+class ResidualLmCriteria(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact algorithm stopping criteria used by residual LM.
+    These relative/cosine values do not represent original physical stationarity.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Encoding of these distinct algorithm criteria.
+    version: Literal[1] = 1
+    #: Maximum normalized residual/Jacobian-column cosine (gtol).
+    column_residual_cosine: float
+    #: Actual and predicted relative objective-reduction threshold (ftol).
+    relative_cost_change: float
+    #: Relative consecutive-iterate threshold (xtol).
+    relative_step: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.column_residual_cosine), v.scalar_key(self.relative_cost_change), v.scalar_key(self.relative_step),))
+
+
+class ResidualLmStopping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual algorithm criteria and finite allowances for one executed LM invocation."""
+
+    #: The actual distinct algorithm stopping criteria.
+    criteria: ResidualLmCriteria
+    #: Conservative maximum accepted parameter-update calls.
+    parameter_update_limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum residual callback calls, checked before evaluating the original model.
+    residual_evaluation_limit: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.criteria), v.scalar_key(self.parameter_update_limit), v.scalar_key(self.residual_evaluation_limit),))
+
+
 class ResourceConsumer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A current native memory consumer and its accounted reservation."""
 
@@ -14959,8 +16791,12 @@ class ResourceConsumer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class ResourceReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Pool counters do not claim global allocator coverage."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Native retained capacities and hits, without cloning cached values.
-    caches: tuple[CacheReport, ...]
+    caches: tuple[CacheReportBody, ...]
     #: Configured finite accounted limit.
     limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum accounted claims since this shared runtime was created.
@@ -14973,14 +16809,18 @@ class ResourceReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     top_consumers: tuple[ResourceConsumer, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.caches), v.scalar_key(self.limit_bytes), v.scalar_key(self.pool_peak_bytes), v.scalar_key(self.pool_reserved_now), v.optional_key(v.scalar_key)(self.process_peak_rss_bytes), v.sequence_key(v.record_key)(self.top_consumers),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.caches), v.scalar_key(self.limit_bytes), v.scalar_key(self.pool_peak_bytes), v.scalar_key(self.pool_reserved_now), v.optional_key(v.scalar_key)(self.process_peak_rss_bytes), v.sequence_key(v.record_key)(self.top_consumers),))
 
 
 class ResourceReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Pool counters do not claim global allocator coverage."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Native retained capacities and hits, without cloning cached values.
-    caches: tuple[CacheReportOutput, ...]
+    caches: tuple[CacheReportBodyOutput, ...]
     #: Configured finite accounted limit.
     limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum accounted claims since this shared runtime was created.
@@ -14993,7 +16833,7 @@ class ResourceReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     top_consumers: tuple[ResourceConsumer, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.caches), v.scalar_key(self.limit_bytes), v.scalar_key(self.pool_peak_bytes), v.scalar_key(self.pool_reserved_now), v.optional_key(v.scalar_key)(self.process_peak_rss_bytes), v.sequence_key(v.record_key)(self.top_consumers),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.caches), v.scalar_key(self.limit_bytes), v.scalar_key(self.pool_peak_bytes), v.scalar_key(self.pool_reserved_now), v.optional_key(v.scalar_key)(self.process_peak_rss_bytes), v.sequence_key(v.record_key)(self.top_consumers),))
 
 
 class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed"):
@@ -15019,6 +16859,10 @@ class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One bounded cleanup operation after explicit run retirement."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original scientific IPC or seed blocks removed in this operation.
     batches: Annotated[int, msgspec.Meta(ge=0)]
     #: All result payloads have been reclaimed; immutable lifecycle receipts remain.
@@ -15029,7 +16873,7 @@ class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     sets: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.batches), v.scalar_key(self.complete), v.scalar_key(self.indexes), v.scalar_key(self.sets),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.batches), v.scalar_key(self.complete), v.scalar_key(self.indexes), v.scalar_key(self.sets),))
 
 
 class ReviewContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15048,11 +16892,11 @@ class ReviewContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Original earlier failure, when present.
     failure: str | None = None
     #: Original operation, including operations which failed before a run existed.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Original execution identity; absent for a pre-handle failure.
     run_id: identities.RunId | None = None
     #: Exact selection and its finite allocation.
-    selection: ReviewContextRequest
+    selection: ReviewContextRequestBody
     #: Actual materialized settings, in selected original step order.
     solver_settings: tuple[ReplaySolverSettings, ...]
     #: Exact original source slots corresponding to sources; selected subsets never renumber constructor references.
@@ -15082,11 +16926,11 @@ class ReviewContextDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Original earlier failure, when present.
     failure: str | None
     #: Original operation, including operations which failed before a run existed.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Original execution identity; absent for a pre-handle failure.
     run_id: identities.RunId | None
     #: Exact selection and its finite allocation.
-    selection: ReviewContextRequest
+    selection: ReviewContextRequestBody
     #: Actual materialized settings, in selected original step order.
     solver_settings: tuple[ReplaySolverSettingsOutput, ...]
     #: Exact original source slots corresponding to sources; selected subsets never renumber constructor references.
@@ -15115,6 +16959,26 @@ class ReviewContextFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
 
 class ReviewContextRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact explanatory selection, independent of executable replay eligibility."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Include retained native records; never run a native query to fill gaps.
+    include_native_records: bool
+    #: Include actual authored and physical input bytes.
+    include_sources: bool
+    #: Finite allocation for the complete selected document, up to 256 MiB.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Empty means all retained original steps; otherwise exact zero-based steps.
+    steps: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.include_native_records), v.scalar_key(self.include_sources), v.scalar_key(self.maximum_bytes), v.sequence_key(v.scalar_key)(self.steps),))
+
+
+class ReviewContextRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact explanatory selection, independent of executable replay eligibility."""
 
     #: Include retained native records; never run a native query to fill gaps.
@@ -15240,7 +17104,7 @@ class ReviewHandoffMember(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Exact acknowledged durable locators, absent for ephemeral work.
     canonical_run: str | None = None
     #: Original invocation operation when one exists.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Receipt-relative contained file, never an original source path.
     path: str
     #: Original semantic run, absent before run establishment.
@@ -15260,7 +17124,7 @@ class ReviewHandoffMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Exact acknowledged durable locators, absent for ephemeral work.
     canonical_run: str | None
     #: Original invocation operation when one exists.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Receipt-relative contained file, never an original source path.
     path: str
     #: Original semantic run, absent before run establishment.
@@ -15282,7 +17146,7 @@ class ReviewHandoffReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Only fully finalized contained members.
     members: tuple[ReviewHandoffMember, ...]
     #: Cooperating construction owner, not necessarily the joined invocation.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual independently selected descriptive output.
     request: ReviewHandoffRequest
     #: Independent handoff completion state.
@@ -15304,7 +17168,7 @@ class ReviewHandoffReceiptOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Only fully finalized contained members.
     members: tuple[ReviewHandoffMemberOutput, ...]
     #: Cooperating construction owner, not necessarily the joined invocation.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual independently selected descriptive output.
     request: ReviewHandoffRequest
     #: Independent handoff completion state.
@@ -15318,7 +17182,7 @@ class ReviewHandoffRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     """Additional selected descriptive output; absent means no handoff retention."""
 
     #: Existing callback-free descriptive selection.
-    context: ReviewContextRequest
+    context: ReviewContextRequestBody
     #: Finite total serialized member allowance, independent of detail output.
     maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Finite number of immutable supplied evidence documents.
@@ -15366,7 +17230,7 @@ class ReviewInventoryMember(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Original occurrence ordinal when this is study membership.
     occurrence: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Exact diagnostic operation, including pre-handle failures.
-    operation: OperationId | None = None
+    operation: OperationIdBody | None = None
     #: Actual original outcome, including failure/cancellation when retained.
     outcome: str | None = None
     #: Actual recorded readable prefix/fence. Canonical attempts use close-generation here,
@@ -15399,7 +17263,7 @@ class ReviewInventoryMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Original occurrence ordinal when this is study membership.
     occurrence: Annotated[int, msgspec.Meta(ge=0)] | None
     #: Exact diagnostic operation, including pre-handle failures.
-    operation: OperationId | None
+    operation: OperationIdBody | None
     #: Actual original outcome, including failure/cancellation when retained.
     outcome: str | None
     #: Actual recorded readable prefix/fence. Canonical attempts use close-generation here,
@@ -15469,13 +17333,17 @@ class ReviewInventoryPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 class ReviewInventoryRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite selected review scope; public pages read only the resulting immutable selection."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Current occurrence assignments or retained retry history.
     attempts: ReviewAttemptSelection
     #: Maximum selected members; 1 through 4096.
     maximum_members: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attempts), v.scalar_key(self.maximum_members),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempts), v.scalar_key(self.maximum_members),))
 
 
 class ReviewInventorySelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15785,6 +17653,10 @@ class ReviewQueryRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_field
 class ReviewQuerySpecification(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One declared query and its schema. Data values never define a schema."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declared result schema.
     columns: tuple[ReviewQueryColumn, ...]
     #: Limits applying even to successful output.
@@ -15795,12 +17667,16 @@ class ReviewQuerySpecification(msgspec.Struct, frozen=True, forbid_unknown_field
     sql: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.query_version), v.scalar_key(self.sql),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.query_version), v.scalar_key(self.sql),))
 
 
 class ReviewQuerySpecificationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One declared query and its schema. Data values never define a schema."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Declared result schema.
     columns: tuple[ReviewQueryColumnOutput, ...]
     #: Limits applying even to successful output.
@@ -15811,12 +17687,16 @@ class ReviewQuerySpecificationOutput(msgspec.Struct, frozen=True, forbid_unknown
     sql: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.query_version), v.scalar_key(self.sql),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.query_version), v.scalar_key(self.sql),))
 
 
 class ReviewScientificCoordinates(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Retained scientific coordinates before executable preparation identity predicates."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original admitted binding codec when retained.
     binding: Bytes | None = None
     #: Original authored case.
@@ -15857,12 +17737,16 @@ class ReviewScientificCoordinates(msgspec.Struct, frozen=True, forbid_unknown_fi
     time: ScientificArtifactCoordinate | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
 
 
 class ReviewScientificCoordinatesOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Retained scientific coordinates before executable preparation identity predicates."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Original admitted binding codec when retained.
     binding: Bytes | None
     #: Original authored case.
@@ -15903,7 +17787,7 @@ class ReviewScientificCoordinatesOutput(msgspec.Struct, frozen=True, forbid_unkn
     time: ScientificArtifactCoordinate | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
 
 
 class ReviewScientificSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16037,45 +17921,61 @@ class ReviewTableRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class RouteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A selected native backend, or direct evaluation without free coordinates."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected backend; absent for direct constant evaluation.
     backend: enums.NativeBackend | None = None
     #: Whether the selected model is evaluated directly.
     constant: bool
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.constant),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.constant),))
 
 
 class RouteDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A selected native backend, or direct evaluation without free coordinates."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected backend; absent for direct constant evaluation.
     backend: enums.NativeBackend | None
     #: Whether the selected model is evaluated directly.
     constant: bool
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.constant),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.constant),))
 
 
 class RunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The failure policy for a finite sequence of admitted modeling operations."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Continue independent operations after one operation fails.
     continue_independent: bool = False
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.continue_independent),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.continue_independent),))
 
 
 class RunControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The failure policy for a finite sequence of admitted modeling operations."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Continue independent operations after one operation fails.
     continue_independent: bool = False
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.continue_independent),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.continue_independent),))
 
 
 class RunSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16122,7 +18022,7 @@ class RunSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Shared accounted execution-memory capacity.
     memory_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete preparation controls supersede the optional expansion overrides.
-    preparation: PreparationSettings | None = None
+    preparation: PreparationSettingsBody | None = None
     #: Conformance's supported presolve choice.
     presolve: enums.ConformancePresolve = enums.ConformancePresolve.AUTO
     #: Shared execution threads.
@@ -16178,7 +18078,7 @@ class RunSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Shared accounted execution-memory capacity.
     memory_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete preparation controls supersede the optional expansion overrides.
-    preparation: PreparationSettingsOutput | None
+    preparation: PreparationSettingsBodyOutput | None
     #: Conformance's supported presolve choice.
     presolve: enums.ConformancePresolve = enums.ConformancePresolve.AUTO
     #: Shared execution threads.
@@ -16952,6 +18852,70 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
 
 
+class ScipSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
+    """SCIP's nested Ipopt linear solver, seed and node budget."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
+    #: without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    #: finders do not support exact solving) or concurrency.
+    exact: bool = False
+    #: After a proof of infeasibility, compute an irreducible infeasible subsystem of the
+    #: true exported program (`SCIPgenerateIIS`).
+    iis: bool = False
+    #: Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
+    #: Ipopt, so the same type the Ipopt adapter's settings select.
+    nlp_linear_solver: enums.IpoptLinearSolver = enums.IpoptLinearSolver.MUMPS
+    #: Total branch-and-bound node budget including restarts (`limits/totalnodes`);
+    #: absent leaves the deadline as the only budget.
+    nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Number of ranked stored solutions reported beside the candidate (0: none).
+    pool: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
+    #: Retain the native search tree across a finite MIP sequence whose constraint system
+    #: is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
+    reoptimize: bool = False
+    #: Random seed shift (`randomization/randomseedshift`), recorded with the result.
+    seed: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
+
+
+class ScipSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
+    """SCIP's nested Ipopt linear solver, seed and node budget."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
+    #: without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    #: finders do not support exact solving) or concurrency.
+    exact: bool = False
+    #: After a proof of infeasibility, compute an irreducible infeasible subsystem of the
+    #: true exported program (`SCIPgenerateIIS`).
+    iis: bool = False
+    #: Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
+    #: Ipopt, so the same type the Ipopt adapter's settings select.
+    nlp_linear_solver: enums.IpoptLinearSolver = enums.IpoptLinearSolver.MUMPS
+    #: Total branch-and-bound node budget including restarts (`limits/totalnodes`);
+    #: absent leaves the deadline as the only budget.
+    nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Number of ranked stored solutions reported beside the candidate (0: none).
+    pool: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
+    #: Retain the native search tree across a finite MIP sequence whose constraint system
+    #: is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
+    reoptimize: bool = False
+    #: Random seed shift (`randomization/randomseedshift`), recorded with the result.
+    seed: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
+
+
 class ScipSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
     """SCIP's nested Ipopt linear solver, seed and node budget."""
 
@@ -17316,11 +19280,11 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Compiler stable block identities and admitted native realization overrides.
     #: Validated against the actual compiler scope even when direct execution wins;
     #: applied only if the governing policy selects the block mechanism.
-    block_overrides: dict[v.ContentHash, BlockSolveOverride] = msgspec.field(default_factory=dict)
+    block_overrides: dict[v.ContentHash, BlockSolveOverrideBody] = msgspec.field(default_factory=dict)
     #: Maximum independent ready blocks; actual capacity is admitted by the existing owner.
     block_workers: Annotated[int, msgspec.Meta(ge=0)] = 1
     #: Requested composition; omission chooses automatic resolution without replacement starts.
-    composition: CompositionRequest = msgspec.field(default_factory=lambda: _document_default({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, CompositionRequest))
+    composition: CompositionRequestBody = msgspec.field(default_factory=lambda: _document_default({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, CompositionRequestBody))
     #: Shared finite attempt controls.
     controls: SolveControls = msgspec.field(default_factory=lambda: _document_default({"hessian": "auto", "history": 256, "iterations": 3000, "options": {}, "reuse": "allow_rebuild", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, SolveControls))
     #: Absolute eigenvalue budget of a numerical convexity assessment; with the relative
@@ -17345,7 +19309,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: one keeps its identity.
     sensitivity: SensitivityRequest | None = None
     #: Typed settings of one backend; absent is the routed backend's native defaults.
-    settings: BackendSettings | None = None
+    settings: BackendSettingsBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
@@ -17368,11 +19332,11 @@ class SolveSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Compiler stable block identities and admitted native realization overrides.
     #: Validated against the actual compiler scope even when direct execution wins;
     #: applied only if the governing policy selects the block mechanism.
-    block_overrides: dict[v.ContentHash, BlockSolveOverrideOutput] = msgspec.field(default_factory=dict)
+    block_overrides: dict[v.ContentHash, BlockSolveOverrideBodyOutput] = msgspec.field(default_factory=dict)
     #: Maximum independent ready blocks; actual capacity is admitted by the existing owner.
     block_workers: Annotated[int, msgspec.Meta(ge=0)] = 1
     #: Requested composition; omission chooses automatic resolution without replacement starts.
-    composition: CompositionRequestOutput = msgspec.field(default_factory=lambda: _document_default({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, CompositionRequestOutput))
+    composition: CompositionRequestBodyOutput = msgspec.field(default_factory=lambda: _document_default({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, CompositionRequestBodyOutput))
     #: Shared finite attempt controls.
     controls: SolveControlsOutput = msgspec.field(default_factory=lambda: _document_default({"hessian": "auto", "history": 256, "iterations": 3000, "options": {}, "reuse": "allow_rebuild", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, SolveControlsOutput))
     #: Absolute eigenvalue budget of a numerical convexity assessment; with the relative
@@ -17397,7 +19361,7 @@ class SolveSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: one keeps its identity.
     sensitivity: SensitivityRequestOutput | None = None
     #: Typed settings of one backend; absent is the routed backend's native defaults.
-    settings: BackendSettingsOutput | None = None
+    settings: BackendSettingsBodyOutput | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
@@ -17409,6 +19373,10 @@ class SolveSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class SolverAdviceInputs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual owner-issued premises for optional descriptive advice over equivalent convex choices."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Advice-independent operation identities in baseline order.
     candidates: tuple[v.ContentHash, ...]
     #: Complete problem/profile/branch/accuracy/exposure comparison premises.
@@ -17417,12 +19385,16 @@ class SolverAdviceInputs(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     limits: WorkLimits
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
 
 
 class SolverAdviceInputsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual owner-issued premises for optional descriptive advice over equivalent convex choices."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Advice-independent operation identities in baseline order.
     candidates: tuple[v.ContentHash, ...]
     #: Complete problem/profile/branch/accuracy/exposure comparison premises.
@@ -17431,12 +19403,16 @@ class SolverAdviceInputsOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     limits: WorkLimitsOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
 
 
 class SolverCapability(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: automatic_classes
     automatic_classes: tuple[enums.NativeProblemClass, ...]
     #: backend
@@ -17477,7 +19453,7 @@ class SolverCapability(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     warm: enums.NativeWarmCapability
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.automatic_classes), v.scalar_key(self.backend), v.scalar_key(self.batch), v.scalar_key(self.cancellation), v.scalar_key(self.certifies), v.sequence_key(v.scalar_key)(self.classes), v.scalar_key(self.derivatives), v.scalar_key(self.diagnostics), v.scalar_key(self.general_bounds), v.sequence_key(v.scalar_key)(self.lexicographic_classes), v.scalar_key(self.lexicographic_degradation), v.sequence_key(v.scalar_key)(self.native_forms), v.scalar_key(self.parallel), v.sequence_key(v.scalar_key)(self.requirements), v.scalar_key(self.reuse), v.scalar_key(self.sensitivities), v.scalar_key(self.sign_bounds), v.scalar_key(self.structural_policy), v.scalar_key(self.warm),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.automatic_classes), v.scalar_key(self.backend), v.scalar_key(self.batch), v.scalar_key(self.cancellation), v.scalar_key(self.certifies), v.sequence_key(v.scalar_key)(self.classes), v.scalar_key(self.derivatives), v.scalar_key(self.diagnostics), v.scalar_key(self.general_bounds), v.sequence_key(v.scalar_key)(self.lexicographic_classes), v.scalar_key(self.lexicographic_degradation), v.sequence_key(v.scalar_key)(self.native_forms), v.scalar_key(self.parallel), v.sequence_key(v.scalar_key)(self.requirements), v.scalar_key(self.reuse), v.scalar_key(self.sensitivities), v.scalar_key(self.sign_bounds), v.scalar_key(self.structural_policy), v.scalar_key(self.warm),))
 
 
 class SourceAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17512,7 +19488,7 @@ class SourceChoice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """A finite structural dimension. Alternatives are edits against the one admitted base."""
 
     #: Ordered alternatives; ordering is part of ordinal reconstruction.
-    alternatives: tuple[SourceDelta, ...]
+    alternatives: tuple[SourceDeltaBody, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.alternatives),))
@@ -17522,7 +19498,7 @@ class SourceChoiceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     """A finite structural dimension. Alternatives are edits against the one admitted base."""
 
     #: Ordered alternatives; ordering is part of ordinal reconstruction.
-    alternatives: tuple[SourceDeltaOutput, ...]
+    alternatives: tuple[SourceDeltaBodyOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.alternatives),))
@@ -17567,6 +19543,32 @@ class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     inherited objects; deletion must be named explicitly.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: New declarations, appended in this order after retained parent rows.
+    additions: tuple[AuthoredModelingDeclarationsRow, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit document ownership changes, including their data payloads.
+    documents: SourceDocumentDelta = msgspec.field(default_factory=lambda: _document_default({"additions": [], "removals": [], "replacements": []}, SourceDocumentDelta))
+    #: Explicit fit ownership changes; omitted fits remain inherited.
+    fits: SourceFitDelta = msgspec.field(default_factory=lambda: _document_default({"additions": [], "removals": [], "replacements": []}, SourceFitDelta))
+    #: Exact revision_id of the receiver; actual publication separately checks its canonical origin.
+    parent: str
+    #: Existing declarations explicitly removed.
+    removals: tuple[identities.DeclarationId, ...] = msgspec.field(default_factory=tuple)
+    #: Existing declarations replaced in their original ordered positions.
+    replacements: tuple[AuthoredModelingDeclarationsRow, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
+class SourceDeltaBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An atomic source edit against one exact locally admitted receiver. Omission retains
+    inherited objects; deletion must be named explicitly.
+    """
+
     #: New declarations, appended in this order after retained parent rows.
     additions: tuple[AuthoredModelingDeclarationsRow, ...] = msgspec.field(default_factory=tuple)
     #: Explicit document ownership changes, including their data payloads.
@@ -17584,7 +19586,7 @@ class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
 
 
-class SourceDeltaOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class SourceDeltaBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An atomic source edit against one exact locally admitted receiver. Omission retains
     inherited objects; deletion must be named explicitly.
     """
@@ -17604,6 +19606,32 @@ class SourceDeltaOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
+class SourceDeltaOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An atomic source edit against one exact locally admitted receiver. Omission retains
+    inherited objects; deletion must be named explicitly.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: New declarations, appended in this order after retained parent rows.
+    additions: tuple[AuthoredModelingDeclarationsRowOutput, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit document ownership changes, including their data payloads.
+    documents: SourceDocumentDeltaOutput = msgspec.field(default_factory=lambda: _document_default({"additions": [], "removals": [], "replacements": []}, SourceDocumentDeltaOutput))
+    #: Explicit fit ownership changes; omitted fits remain inherited.
+    fits: SourceFitDeltaOutput = msgspec.field(default_factory=lambda: _document_default({"additions": [], "removals": [], "replacements": []}, SourceFitDeltaOutput))
+    #: Exact revision_id of the receiver; actual publication separately checks its canonical origin.
+    parent: str
+    #: Existing declarations explicitly removed.
+    removals: tuple[identities.DeclarationId, ...] = msgspec.field(default_factory=tuple)
+    #: Existing declarations replaced in their original ordered positions.
+    replacements: tuple[AuthoredModelingDeclarationsRowOutput, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
 
 
 class SourceDemandDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17743,6 +19771,36 @@ class SourceInstanceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored location attached by the owner that has the source map."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Actual parser document identity; absence cannot qualify byte offsets.
+    document: v.SemanticId | None = None
+    #: UTF-8 exclusive ending byte offset.
+    end: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional authored display name.
+    name: str | None = None
+    #: Original position within that occurrence role.
+    occurrence_position: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Compiler-supplied occurrence role, independent of a display name.
+    occurrence_role: str | None = None
+    #: Definition or document path, never a backend-local node identifier.
+    path: str
+    #: Immutable source interpretation context; absence is explicitly unattributed.
+    revision: v.ContentHash | None = None
+    #: Original semantic occurrence or instance identity.
+    source: v.SemanticId
+    #: UTF-8 starting byte offset, when supplied by the parser/compiler.
+    start: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.occurrence_position), v.optional_key(v.scalar_key)(self.occurrence_role), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+
+
+class SourceLocationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authored location attached by the owner that has the source map."""
+
     #: Actual parser document identity; absence cannot qualify byte offsets.
     document: v.SemanticId | None = None
     #: UTF-8 exclusive ending byte offset.
@@ -17766,7 +19824,7 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.occurrence_position), v.optional_key(v.scalar_key)(self.occurrence_role), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
 
 
-class SourceLocationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class SourceLocationBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored location attached by the owner that has the source map."""
 
     #: Actual parser document identity; absence cannot qualify byte offsets.
@@ -17792,6 +19850,36 @@ class SourceLocationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.occurrence_position), v.optional_key(v.scalar_key)(self.occurrence_role), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
 
 
+class SourceLocationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authored location attached by the owner that has the source map."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Actual parser document identity; absence cannot qualify byte offsets.
+    document: v.SemanticId | None = None
+    #: UTF-8 exclusive ending byte offset.
+    end: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Optional authored display name.
+    name: str | None
+    #: Original position within that occurrence role.
+    occurrence_position: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Compiler-supplied occurrence role, independent of a display name.
+    occurrence_role: str | None = None
+    #: Definition or document path, never a backend-local node identifier.
+    path: str
+    #: Immutable source interpretation context; absence is explicitly unattributed.
+    revision: v.ContentHash | None = None
+    #: Original semantic occurrence or instance identity.
+    source: v.SemanticId
+    #: UTF-8 starting byte offset, when supplied by the parser/compiler.
+    start: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.document), v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.occurrence_position), v.optional_key(v.scalar_key)(self.occurrence_role), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+
+
 class SourceMemberDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original instantiated member ownership; a display path never becomes executable identity."""
 
@@ -17808,6 +19896,34 @@ class SourceMemberDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.scalar_key(self.declaration), v.scalar_key(self.instance), v.scalar_key(self.member), v.scalar_key(self.path),))
 
 
+class SourceReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded reclamation page. The canonical owner retains its continuation;
+    `after` observes that frontier and absence completes the current pass.
+    Edge-heavy versions keep their candidate at the cursor until its bounded edge
+    pages have been removed, so a caller does not lose the orphan frontier.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Observed canonical frontier; no caller supplies or resets this cursor.
+    after: str | None
+    #: Exact payload transport blocks removed.
+    blocks: Annotated[int, msgspec.Meta(ge=0)]
+    #: Structural edges removed in bounded pages.
+    edges: Annotated[int, msgspec.Meta(ge=0)]
+    #: Candidate intervals whose fresh retention decisions were examined.
+    examined: Annotated[int, msgspec.Meta(ge=0)]
+    #: Unreachable membership intervals removed.
+    memberships: Annotated[int, msgspec.Meta(ge=0)]
+    #: Immutable versions removed after their last membership and edge disappeared.
+    versions: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.after), v.scalar_key(self.blocks), v.scalar_key(self.edges), v.scalar_key(self.examined), v.scalar_key(self.memberships), v.scalar_key(self.versions),))
+
+
 class SourceRecordingAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual receiver and admitted selection. Never a terminal coverage or science outcome."""
 
@@ -17822,7 +19938,7 @@ class SourceRecordingAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown
     #: Exact per-family capability admission, independent from event activation.
     families: tuple[SourceRecordingFamilyAcknowledgement, ...]
     #: Actual operation including the receiving process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual receiving OS process, separate from its instance locator.
     pid: Annotated[int, msgspec.Meta(ge=0)]
     #: Independent optional context-handoff admission and receipt location.
@@ -17850,7 +19966,7 @@ class SourceRecordingAcknowledgementOutput(msgspec.Struct, frozen=True, forbid_u
     #: Exact per-family capability admission, independent from event activation.
     families: tuple[SourceRecordingFamilyAcknowledgement, ...]
     #: Actual operation including the receiving process instance.
-    operation: OperationId
+    operation: OperationIdBody
     #: Actual receiving OS process, separate from its instance locator.
     pid: Annotated[int, msgspec.Meta(ge=0)]
     #: Independent optional context-handoff admission and receipt location.
@@ -18043,6 +20159,10 @@ class SourceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
 class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Receipt observation for one original operation, without retrying any mutation."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Actual acknowledgement when observed. Absence remains unproved: it does
     #: not establish that publication was never issued or cannot still complete.
     acknowledgement: SourceAcknowledgement | None = None
@@ -18052,12 +20172,16 @@ class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     problem: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
 
 
 class SourceSettlementOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Receipt observation for one original operation, without retrying any mutation."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Actual acknowledgement when observed. Absence remains unproved: it does
     #: not establish that publication was never issued or cannot still complete.
     acknowledgement: SourceAcknowledgementOutput | None
@@ -18067,7 +20191,7 @@ class SourceSettlementOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
     problem: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
 
 
 class SourceSlotDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18342,6 +20466,10 @@ class StatementOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit cancellation receipt; native process drain remains the worker's obligation."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: A concluded study cannot revoke admitted history.
     already_concluded: bool
     #: Current native cancellation generation.
@@ -18350,7 +20478,7 @@ class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     study_id: identities.StudyId
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.already_concluded), v.scalar_key(self.generation), v.scalar_key(self.study_id),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.already_concluded), v.scalar_key(self.generation), v.scalar_key(self.study_id),))
 
 
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18381,9 +20509,9 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: The source bundle of the physical package.
     physical: PhysicalSource
     #: The explicit admitted points, in index order.
-    points: tuple[StudyPointDefinition, ...]
+    points: tuple[StudyPointDefinitionBody, ...]
     #: Lazy science retained once; when present explicit admitted points are empty.
-    variants: LazyStudyDefinition | None = None
+    variants: LazyStudyDefinitionBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
@@ -18403,9 +20531,9 @@ class StudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: The source bundle of the physical package.
     physical: PhysicalSource
     #: The explicit admitted points, in index order.
-    points: tuple[StudyPointDefinitionOutput, ...]
+    points: tuple[StudyPointDefinitionBodyOutput, ...]
     #: Lazy science retained once; when present explicit admitted points are empty.
-    variants: LazyStudyDefinitionOutput | None
+    variants: LazyStudyDefinitionBodyOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
@@ -18535,9 +20663,9 @@ class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Explicit occurrence detail retained independently of original completion.
     output: StudyOutputDemand
     #: Complete preparation controls using existing owners' remote projections.
-    preparation: PreparationSettings
+    preparation: PreparationSettingsBody
     #: Exact source/context reconstruction precondition.
-    source: OperationSource
+    source: OperationSourceBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.output), v.record_key(self.preparation), v.record_key(self.source),))
@@ -18557,9 +20685,9 @@ class StudyOperationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Explicit occurrence detail retained independently of original completion.
     output: StudyOutputDemand
     #: Complete preparation controls using existing owners' remote projections.
-    preparation: PreparationSettingsOutput
+    preparation: PreparationSettingsBodyOutput
     #: Exact source/context reconstruction precondition.
-    source: OperationSource
+    source: OperationSourceBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.output), v.record_key(self.preparation), v.record_key(self.source),))
@@ -18594,7 +20722,7 @@ class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     #: Occurrence identity and explicit dependency/start policy.
     policy: StudyPointPolicy
     #: Existing preparation controls, serialized without a second default authority.
-    preparation: PreparationSettings
+    preparation: PreparationSettingsBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.operation), v.record_key(self.overlay), v.record_key(self.policy), v.record_key(self.preparation),))
@@ -18603,8 +20731,28 @@ class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One point of a study's definition."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Canonical physically admitted member assignments; original paths are attribution.
-    binding: AdmittedBinding
+    binding: AdmittedBindingBody
+    #: The hash of the point's value bindings.
+    binding_hash: v.ContentHash
+    #: Reconstructable admitted descriptor of one existing operation.
+    operation: StudyOperationOutput
+    #: Shared occurrence/dependency/start policy.
+    policy: PointPolicyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.binding), v.scalar_key(self.binding_hash), v.record_key(self.operation), v.record_key(self.policy),))
+
+
+class StudyPointDefinitionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One point of a study's definition."""
+
+    #: Canonical physically admitted member assignments; original paths are attribution.
+    binding: AdmittedBindingBody
     #: The hash of the point's value bindings.
     binding_hash: v.ContentHash
     #: Reconstructable admitted descriptor of one existing operation.
@@ -18616,11 +20764,11 @@ class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.record_key(self.binding), v.scalar_key(self.binding_hash), v.record_key(self.operation), v.record_key(self.policy),))
 
 
-class StudyPointDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class StudyPointDefinitionBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One point of a study's definition."""
 
     #: Canonical physically admitted member assignments; original paths are attribution.
-    binding: AdmittedBinding
+    binding: AdmittedBindingBody
     #: The hash of the point's value bindings.
     binding_hash: v.ContentHash
     #: Reconstructable admitted descriptor of one existing operation.
@@ -18642,7 +20790,7 @@ class StudyPointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Occurrence identity and explicit dependency/start policy.
     policy: StudyPointPolicyOutput
     #: Existing preparation controls, serialized without a second default authority.
-    preparation: PreparationSettingsOutput
+    preparation: PreparationSettingsBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.operation), v.record_key(self.overlay), v.record_key(self.policy), v.record_key(self.preparation),))
@@ -18715,6 +20863,10 @@ class StudyRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class StudyResults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Canonical parent result and exact occurrence results, available after restart."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Admitted parent summary attempt.
     attempt: str
     #: Occurrence identity, execution and optional native attempt.
@@ -18723,32 +20875,44 @@ class StudyResults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     run: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attempt), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key, v.optional_key(v.scalar_key),)))(self.points), v.scalar_key(self.run),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key, v.optional_key(v.scalar_key),)))(self.points), v.scalar_key(self.run),))
 
 
 class StudyRunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded in-process study execution."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum points the local execution may admit.
     maximum_points: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_points),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_points),))
 
 
 class StudyRunControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded in-process study execution."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Maximum points the local execution may admit.
     maximum_points: Annotated[int, msgspec.Meta(ge=0)] = 1024
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.maximum_points),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_points),))
 
 
 class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Study metadata and explicit user-requested point summary; no native reports or source bundle."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Persistent study cancellation authority.
     cancelled: bool
     #: Explicitly requested compact occurrence observations.
@@ -18763,12 +20927,16 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     study_id: identities.StudyId
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
 
 
 class StudyStatusOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Study metadata and explicit user-requested point summary; no native reports or source bundle."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Persistent study cancellation authority.
     cancelled: bool
     #: Explicitly requested compact occurrence observations.
@@ -18783,7 +20951,7 @@ class StudyStatusOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     study_id: identities.StudyId
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
 
 
 class StudyVariants(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18798,7 +20966,7 @@ class StudyVariants(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Explicit selected ordinals in original visible occurrence order.
     selected: tuple[SelectedStudyVariant, ...]
     #: Complete admitted base source and physical identity.
-    source: OperationSource
+    source: OperationSourceBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.choices), v.sequence_key(v.record_key)(self.selected), v.record_key(self.source),))
@@ -18816,7 +20984,7 @@ class StudyVariantsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Explicit selected ordinals in original visible occurrence order.
     selected: tuple[SelectedStudyVariantOutput, ...]
     #: Complete admitted base source and physical identity.
-    source: OperationSource
+    source: OperationSourceBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.choices), v.sequence_key(v.record_key)(self.selected), v.record_key(self.source),))
@@ -18825,34 +20993,64 @@ class StudyVariantsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class StudyWaitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Observation timing while waiting for a study publication."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Seconds between study state observations.
     poll_seconds: float = 0.5
     #: Optional seconds after which observation stops with a typed refusal.
     timeout_seconds: float | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
 
 
 class StudyWaitControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Observation timing while waiting for a study publication."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Seconds between study state observations.
     poll_seconds: float = 0.5
     #: Optional seconds after which observation stops with a typed refusal.
     timeout_seconds: float | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
 
 
 class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual submitted source-coordinate seed, distinct from an output or native checkpoint."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original predecessor attempt selection.
+    previous_attempt: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Full actual source-coordinate seed with explicit nonfinite observations.
+    seed: WarmStartSnapshotBodyOutput | None
+    #: Full partial coordinate start, retaining exact IEEE bits including signed zero.
+    sparse_seed: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]] | None
+    #: Actual API submission; native internal use remains separately observed.
+    submitted: bool
+    #: Complete transformations actually applied before API submission.
+    transformations: tuple[SeedTransformationOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.previous_attempt), v.optional_key(v.record_key)(self.seed), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_seed), v.scalar_key(self.submitted), v.sequence_key(v.record_key)(self.transformations),))
+
+
+class SubmittedStartRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual submitted source-coordinate seed, distinct from an output or native checkpoint."""
+
     #: Original predecessor attempt selection.
     previous_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Full actual source-coordinate seed with explicit nonfinite observations.
-    seed: WarmStartSnapshot | None = None
+    seed: WarmStartSnapshotBody | None = None
     #: Full partial coordinate start, retaining exact IEEE bits including signed zero.
     sparse_seed: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]] | None = None
     #: Actual API submission; native internal use remains separately observed.
@@ -18864,13 +21062,13 @@ class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.optional_key(v.scalar_key)(self.previous_attempt), v.optional_key(v.record_key)(self.seed), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_seed), v.scalar_key(self.submitted), v.sequence_key(v.record_key)(self.transformations),))
 
 
-class SubmittedStartRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class SubmittedStartRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual submitted source-coordinate seed, distinct from an output or native checkpoint."""
 
     #: Original predecessor attempt selection.
     previous_attempt: Annotated[int, msgspec.Meta(ge=0)] | None
     #: Full actual source-coordinate seed with explicit nonfinite observations.
-    seed: WarmStartSnapshotOutput | None
+    seed: WarmStartSnapshotBodyOutput | None
     #: Full partial coordinate start, retaining exact IEEE bits including signed zero.
     sparse_seed: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]] | None
     #: Actual API submission; native internal use remains separately observed.
@@ -18923,6 +21121,10 @@ class SummaryPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_field
 class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A literal native table reference, without SQL normalization."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Literal catalog component.
     catalog: str
     #: Literal schema component.
@@ -18931,7 +21133,7 @@ class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
     table: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.catalog), v.scalar_key(self.schema), v.scalar_key(self.table),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.catalog), v.scalar_key(self.schema), v.scalar_key(self.table),))
 
 
 class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18957,6 +21159,10 @@ class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 class TearSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Available independently verified tear evidence; absence remains separate from native attempts."""
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
     #: Selected authored connections.
     connections: tuple[v.SemanticId, ...]
     #: Native tear objective cost.
@@ -18969,7 +21175,7 @@ class TearSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     order: tuple[v.SemanticId, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.connections), v.scalar_key(self.cost), v.sequence_key(v.scalar_key)(self.decisions), v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.order),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.scalar_key)(self.connections), v.scalar_key(self.cost), v.sequence_key(v.scalar_key)(self.decisions), v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.order),))
 
 
 class TermPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18998,7 +21204,7 @@ class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: The use of each requested candidate, in request order.
     candidate_use: tuple[enums.CandidateUse, ...]
     #: Original scientific diagnostic envelopes, retained without rendered-string reconstruction.
-    diagnostics: tuple[BoundaryDiagnostic, ...]
+    diagnostics: tuple[BoundaryDiagnosticBody, ...]
     #: Every requested candidate is a result.
     usable: bool
 
@@ -19010,7 +21216,7 @@ class TerminationCauseError(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     """The run failed with an error, or cancellation stopped it."""
 
     #: The error's message.
-    diagnostic: BoundaryDiagnostic
+    diagnostic: BoundaryDiagnosticBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.diagnostic),))
@@ -19020,7 +21226,7 @@ class TerminationCauseInfrastructure(msgspec.Struct, frozen=True, forbid_unknown
     """Infrastructure failed the try; authored point policy decides whether retry is permitted."""
 
     #: Preserved original typed cause and observations.
-    diagnostic: BoundaryDiagnostic
+    diagnostic: BoundaryDiagnosticBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.diagnostic),))
@@ -19032,7 +21238,7 @@ class TerminationCauseOutputAssessment(msgspec.Struct, frozen=True, forbid_unkno
     #: The use of each requested candidate, in request order.
     candidate_use: tuple[enums.CandidateUse, ...]
     #: Original scientific diagnostic envelopes, retained without rendered-string reconstruction.
-    diagnostics: tuple[BoundaryDiagnosticOutput, ...]
+    diagnostics: tuple[BoundaryDiagnosticBodyOutput, ...]
     #: Every requested candidate is a result.
     usable: bool
 
@@ -19044,7 +21250,7 @@ class TerminationCauseOutputError(msgspec.Struct, frozen=True, forbid_unknown_fi
     """The run failed with an error, or cancellation stopped it."""
 
     #: The error's message.
-    diagnostic: BoundaryDiagnosticOutput
+    diagnostic: BoundaryDiagnosticBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.diagnostic),))
@@ -19054,7 +21260,7 @@ class TerminationCauseOutputInfrastructure(msgspec.Struct, frozen=True, forbid_u
     """Infrastructure failed the try; authored point policy decides whether retry is permitted."""
 
     #: Preserved original typed cause and observations.
-    diagnostic: BoundaryDiagnosticOutput
+    diagnostic: BoundaryDiagnosticBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.diagnostic),))
@@ -19112,7 +21318,7 @@ class ThreadExecution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Actual return/drain from this scope, not scientific acceptance.
     finished_at: ClosedDuration | None = None
     #: Actual diagnostic operation executing in this scope.
-    operation: OperationId
+    operation: OperationIdBody
     #: OS thread start identity; missing means thread-specific attachment is unavailable.
     start_ticks: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Actual scope entry on the process observation clock.
@@ -19130,7 +21336,7 @@ class ThreadExecutionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Actual return/drain from this scope, not scientific acceptance.
     finished_at: ClosedDuration | None
     #: Actual diagnostic operation executing in this scope.
-    operation: OperationId
+    operation: OperationIdBody
     #: OS thread start identity; missing means thread-specific attachment is unavailable.
     start_ticks: Annotated[int, msgspec.Meta(ge=0)] | None
     #: Actual scope entry on the process observation clock.
@@ -19182,6 +21388,42 @@ class UnoSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.limited_memory), v.scalar_key(self.method), v.scalar_key(self.trust_radius),))
+
+
+class UnoSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="uno"):
+    """First-order Uno filter trust-region SQP or SLP."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Positive L-BFGS history for SQP; exactly zero for SLP.
+    limited_memory: Annotated[int, msgspec.Meta(ge=0)] = 6
+    #: SQP uses an L-BFGS Hessian; SLP consumes no Hessian history.
+    method: enums.NativeUnoMethod = enums.NativeUnoMethod.SQP
+    #: Initial native trust radius, in normalized coordinates.
+    trust_radius: float = 10.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limited_memory), v.scalar_key(self.method), v.scalar_key(self.trust_radius),))
+
+
+class UnoSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="uno"):
+    """First-order Uno filter trust-region SQP or SLP."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Positive L-BFGS history for SQP; exactly zero for SLP.
+    limited_memory: Annotated[int, msgspec.Meta(ge=0)] = 6
+    #: SQP uses an L-BFGS Hessian; SLP consumes no Hessian history.
+    method: enums.NativeUnoMethod = enums.NativeUnoMethod.SQP
+    #: Initial native trust radius, in normalized coordinates.
+    trust_radius: float = 10.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limited_memory), v.scalar_key(self.method), v.scalar_key(self.trust_radius),))
 
 
 class UnoSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="uno"):
@@ -19481,6 +21723,32 @@ class WarmStartSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     sign survives in real observations. Snapshot attribution is separate from content identity.
     """
 
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Registry backend spelling.
+    backend: enums.NativeBackend
+    #: Numeric input content compatibility.
+    data: v.ContentHash
+    #: Exact source coordinate compatibility.
+    layout: v.ContentHash
+    #: Producing occurrence, when there is one.
+    origin: SeedOrigin | None = None
+    #: Complete portable seed data.
+    payload: WarmPayloadSnapshot
+    #: Effective native profile compatibility.
+    profile: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.backend), v.scalar_key(self.data), v.scalar_key(self.layout), v.optional_key(v.record_key)(self.origin), v.record_key(self.payload), v.scalar_key(self.profile),))
+
+
+class WarmStartSnapshotBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
+    sign survives in real observations. Snapshot attribution is separate from content identity.
+    """
+
     #: Registry backend spelling.
     backend: enums.NativeBackend
     #: Numeric input content compatibility.
@@ -19498,7 +21766,7 @@ class WarmStartSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.data), v.scalar_key(self.layout), v.optional_key(v.record_key)(self.origin), v.record_key(self.payload), v.scalar_key(self.profile),))
 
 
-class WarmStartSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+class WarmStartSnapshotBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
     sign survives in real observations. Snapshot attribution is separate from content identity.
     """
@@ -19518,6 +21786,32 @@ class WarmStartSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.data), v.scalar_key(self.layout), v.optional_key(v.record_key)(self.origin), v.record_key(self.payload), v.scalar_key(self.profile),))
+
+
+class WarmStartSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
+    sign survives in real observations. Snapshot attribution is separate from content identity.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Registry backend spelling.
+    backend: enums.NativeBackend
+    #: Numeric input content compatibility.
+    data: v.ContentHash
+    #: Exact source coordinate compatibility.
+    layout: v.ContentHash
+    #: Producing occurrence, when there is one.
+    origin: SeedOriginOutput | None
+    #: Complete portable seed data.
+    payload: WarmPayloadSnapshotOutput
+    #: Effective native profile compatibility.
+    profile: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.backend), v.scalar_key(self.data), v.scalar_key(self.layout), v.optional_key(v.record_key)(self.origin), v.record_key(self.payload), v.scalar_key(self.profile),))
 
 
 class WindowInputConstant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constant"):
@@ -19726,9 +22020,13 @@ AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
 
 ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
 
-BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
+BackendSettings = IpoptSettingsDocument | PounceSettingsDocument | KinsolSettingsDocument | HighsSettingsDocument | ClarabelSettingsDocument | ScipSettingsDocument | PounceConvexSettingsDocument | UnoSettingsDocument | PetscSettingsDocument
 
-BackendSettingsOutput = IpoptSettingsOutput | PounceSettingsOutput | KinsolSettingsOutput | HighsSettingsOutput | ClarabelSettingsOutput | ScipSettingsOutput | PounceConvexSettingsOutput | UnoSettingsOutput | PetscSettingsOutput
+BackendSettingsBody = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
+
+BackendSettingsBodyOutput = IpoptSettingsOutput | PounceSettingsOutput | KinsolSettingsOutput | HighsSettingsOutput | ClarabelSettingsOutput | ScipSettingsOutput | PounceConvexSettingsOutput | UnoSettingsOutput | PetscSettingsOutput
+
+BackendSettingsOutput = IpoptSettingsDocumentOutput | PounceSettingsDocumentOutput | KinsolSettingsDocumentOutput | HighsSettingsDocumentOutput | ClarabelSettingsDocumentOutput | ScipSettingsDocumentOutput | PounceConvexSettingsDocumentOutput | UnoSettingsDocumentOutput | PetscSettingsDocumentOutput
 
 BindingTarget = BindingTargetPath | BindingTargetMember
 
@@ -19755,6 +22053,8 @@ FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailabl
 FitResidualTermination = FitResidualTerminationUser | FitResidualTerminationNumerical | FitResidualTerminationFixedEvaluation | FitResidualTerminationResidualsZero | FitResidualTerminationOrthogonal | FitResidualTerminationConverged | FitResidualTerminationNoImprovementPossible | FitResidualTerminationEvaluationLimit | FitResidualTerminationInvalid
 
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
+
+HistoryOwnerBody = HistoryOwnerBodyRun | HistoryOwnerBodyStudy
 
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
 
@@ -19844,6 +22144,7 @@ __all__ = [
     "AdjointSettings",
     "AdjointSettingsOutput",
     "AdmittedBinding",
+    "AdmittedBindingBody",
     "AdmittedBindingEntry",
     "AdmittedHorizonValues",
     "AdviceCohort",
@@ -19900,6 +22201,8 @@ __all__ = [
     "AttemptStepSummary",
     "AttemptStepSummaryOutput",
     "AttemptSummary",
+    "AttemptSummaryBody",
+    "AttemptSummaryBodyOutput",
     "AttemptSummaryOutput",
     "AuthoredAccuracyGoalsRow",
     "AuthoredAccuracyGoalsRowOutput",
@@ -20084,6 +22387,8 @@ __all__ = [
     "AuthoredNumericalRequirementsRow",
     "AuthoredNumericalRequirementsRowOutput",
     "BackendSettings",
+    "BackendSettingsBody",
+    "BackendSettingsBodyOutput",
     "BackendSettingsOutput",
     "Basis",
     "BindingAssignment",
@@ -20092,8 +22397,12 @@ __all__ = [
     "BindingTargetMember",
     "BindingTargetPath",
     "BlockSolveOverride",
+    "BlockSolveOverrideBody",
+    "BlockSolveOverrideBodyOutput",
     "BlockSolveOverrideOutput",
     "BoundaryDiagnostic",
+    "BoundaryDiagnosticBody",
+    "BoundaryDiagnosticBodyOutput",
     "BoundaryDiagnosticOutput",
     "BranchPolicy",
     "BranchPolicyOutput",
@@ -20101,6 +22410,8 @@ __all__ = [
     "BuildObservation",
     "Bytes",
     "CacheReport",
+    "CacheReportBody",
+    "CacheReportBodyOutput",
     "CacheReportOutput",
     "CaptureBudget",
     "CaptureBudgetOutput",
@@ -20124,19 +22435,28 @@ __all__ = [
     "CausalUnitRequest",
     "CausalUnitRequestOutput",
     "CheckpointIdentity",
+    "CheckpointIdentityBody",
+    "CheckpointIdentityBodyOutput",
     "CheckpointIdentityOutput",
     "ChildSnapshot",
     "ChildSnapshotOutput",
     "ClarabelSettings",
+    "ClarabelSettingsDocument",
+    "ClarabelSettingsDocumentOutput",
     "ClarabelSettingsOutput",
     "ClockMapping",
     "ClosedDuration",
     "CoherentRecord",
+    "CoherentRecordBody",
+    "CoherentRecordBodyOutput",
     "CoherentRecordOutput",
     "ComparisonPolicy",
+    "ComparisonPolicyBody",
     "Completion",
     "CompletionOutput",
     "CompositionRequest",
+    "CompositionRequestBody",
+    "CompositionRequestBodyOutput",
     "CompositionRequestOutput",
     "Conclusion",
     "Cone",
@@ -20199,6 +22519,8 @@ __all__ = [
     "DetailRequirement",
     "DetailSourceActivation",
     "DiagnosticAnnotationDocument",
+    "DiagnosticAnnotationDocumentBody",
+    "DiagnosticAnnotationDocumentBodyOutput",
     "DiagnosticAnnotationDocumentOutput",
     "DiagnosticCauseDocument",
     "DiagnosticCommandRequest",
@@ -20212,8 +22534,12 @@ __all__ = [
     "DiagnosticListRequest",
     "DiagnosticListRequestOutput",
     "DiagnosticNoteDocument",
+    "DiagnosticNoteDocumentBody",
+    "DiagnosticNoteDocumentBodyOutput",
     "DiagnosticNoteDocumentOutput",
     "DiagnosticOrigin",
+    "DiagnosticOriginBody",
+    "DiagnosticOriginBodyOutput",
     "DiagnosticOriginOutput",
     "DiagnosticProcessPage",
     "DiagnosticProcessPageOutput",
@@ -20223,6 +22549,7 @@ __all__ = [
     "DiagnosticSamplesControls",
     "DiagnosticSamplesControlsOutput",
     "DiagnosticSpanDocument",
+    "DiagnosticSpanDocumentBody",
     "DiffsolInitialConditionOptions",
     "DiffsolOdeSolverOptions",
     "DiffsolOdeSolverOptionsOutput",
@@ -20235,6 +22562,7 @@ __all__ = [
     "DurationSummary",
     "DurationSummaryOutput",
     "EffortPolicy",
+    "EffortPolicyBody",
     "EligibilityDocument",
     "EligibilityDocumentOutput",
     "EndpointRequirement",
@@ -20287,6 +22615,8 @@ __all__ = [
     "FitResidualTerminationResidualsZero",
     "FitResidualTerminationUser",
     "FitUncertainty",
+    "FitUncertaintyBody",
+    "FitUncertaintyBodyOutput",
     "FitUncertaintyOutput",
     "FlowConnectionDocument",
     "FlowDecisionDocument",
@@ -20297,6 +22627,8 @@ __all__ = [
     "FlowSelectionDocument",
     "Fraction",
     "FrozenAdvice",
+    "FrozenAdviceBody",
+    "FrozenAdviceBodyOutput",
     "FrozenAdviceOutput",
     "FrozenEvidenceSet",
     "FrozenEvidenceSetOutput",
@@ -20309,12 +22641,18 @@ __all__ = [
     "HighsPenalties",
     "HighsPenaltiesOutput",
     "HighsSettings",
+    "HighsSettingsDocument",
+    "HighsSettingsDocumentOutput",
     "HighsSettingsOutput",
     "HistoryObligation",
     "HistoryOwner",
+    "HistoryOwnerBody",
+    "HistoryOwnerBodyRun",
+    "HistoryOwnerBodyStudy",
     "HistoryOwnerRun",
     "HistoryOwnerStudy",
     "HistoryPurpose",
+    "HistoryPurposeBody",
     "HistoryReclamationPage",
     "HorizonBinding",
     "HorizonInputDocument",
@@ -20344,6 +22682,8 @@ __all__ = [
     "IncumbentDocument",
     "IncumbentDocumentOutput",
     "IneligibleDocument",
+    "IneligibleDocumentBody",
+    "IneligibleDocumentBodyOutput",
     "IneligibleDocumentOutput",
     "InitializationDocument",
     "InitializationOverrides",
@@ -20392,6 +22732,8 @@ __all__ = [
     "IpoptLinearPardisomkl",
     "IpoptLinearSpral",
     "IpoptSettings",
+    "IpoptSettingsDocument",
+    "IpoptSettingsDocumentOutput",
     "IpoptSettingsOutput",
     "JacobianDiagnosticControls",
     "JacobianDiagnosticControlsOutput",
@@ -20407,6 +22749,8 @@ __all__ = [
     "KinsolLinearSpgmr",
     "KinsolLinearSptfqmr",
     "KinsolSettings",
+    "KinsolSettingsDocument",
+    "KinsolSettingsDocumentOutput",
     "KinsolSettingsOutput",
     "KktTolerances",
     "KnowledgeControls",
@@ -20414,7 +22758,8 @@ __all__ = [
     "LaunchCaptureRequest",
     "LaunchCaptureRequestOutput",
     "LazyStudyDefinition",
-    "LazyStudyDefinitionOutput",
+    "LazyStudyDefinitionBody",
+    "LazyStudyDefinitionBodyOutput",
     "LeasePolicy",
     "Limits",
     "LimitsOutput",
@@ -20460,6 +22805,7 @@ __all__ = [
     "ModelingCompleteness",
     "ModelingCompletenessOutput",
     "ModelingDiagnosticPolicy",
+    "ModelingDiagnosticPolicyBody",
     "ModelingEnvelope",
     "ModelingEnvelopeGuard",
     "ModelingEnvelopeOutput",
@@ -20526,6 +22872,7 @@ __all__ = [
     "OperationContract",
     "OperationContractOutput",
     "OperationId",
+    "OperationIdBody",
     "OperationPage",
     "OperationPageOutput",
     "OperationRequest",
@@ -20539,8 +22886,11 @@ __all__ = [
     "OperationRequestOutputSimulation",
     "OperationRequestSimulation",
     "OperationSnapshot",
+    "OperationSnapshotBody",
+    "OperationSnapshotBodyOutput",
     "OperationSnapshotOutput",
     "OperationSource",
+    "OperationSourceBody",
     "OperationSummary",
     "OperationSummaryOutput",
     "Optimization",
@@ -20577,6 +22927,8 @@ __all__ = [
     "PartitionedSettings",
     "PartitionedSettingsOutput",
     "PetscSettings",
+    "PetscSettingsDocument",
+    "PetscSettingsDocumentOutput",
     "PetscSettingsOutput",
     "Phase",
     "PhaseTransition",
@@ -20590,6 +22942,8 @@ __all__ = [
     "PointAttemptOutcome",
     "PointAttemptOutcomeOutput",
     "PointOutcome",
+    "PointOutcomeBody",
+    "PointOutcomeBodyOutput",
     "PointOutcomeOutput",
     "PointOverlay",
     "PointOverlayOutput",
@@ -20600,16 +22954,25 @@ __all__ = [
     "PointStatusOutput",
     "PositiveCount",
     "PounceConvexSettings",
+    "PounceConvexSettingsDocument",
+    "PounceConvexSettingsDocumentOutput",
     "PounceConvexSettingsOutput",
     "PounceSettings",
+    "PounceSettingsDocument",
+    "PounceSettingsDocumentOutput",
     "PounceSettingsOutput",
     "PreparationCounts",
+    "PreparationCountsBody",
     "PreparationSettings",
+    "PreparationSettingsBody",
+    "PreparationSettingsBodyOutput",
     "PreparationSettingsOutput",
     "PresolveSeedTransformation",
     "ProcessCheckpoint",
     "ProcessCheckpointOutput",
     "ProcessLocator",
+    "ProcessLocatorBody",
+    "ProcessLocatorBodyOutput",
     "ProcessLocatorOutput",
     "ProcessResources",
     "ProcessResourcesOutput",
@@ -20695,6 +23058,7 @@ __all__ = [
     "RecycleRequest",
     "RecycleRequestOutput",
     "RecycleRestartRequest",
+    "RecycleRestartRequestBody",
     "RefinementLimits",
     "ReplayBoundOverride",
     "ReplayBoundOverrideKeep",
@@ -20740,6 +23104,8 @@ __all__ = [
     "ReplayVariableState",
     "RequiredFact",
     "RequirementStatus",
+    "ResidualLmCriteria",
+    "ResidualLmStopping",
     "ResourceConsumer",
     "ResourceReport",
     "ResourceReportOutput",
@@ -20752,6 +23118,7 @@ __all__ = [
     "ReviewContextDocumentOutput",
     "ReviewContextFact",
     "ReviewContextRequest",
+    "ReviewContextRequestBody",
     "ReviewContextUnavailable",
     "ReviewContextUnavailableOutput",
     "ReviewExportDeployment",
@@ -20823,6 +23190,8 @@ __all__ = [
     "ScientificFacts",
     "ScientificFactsOutput",
     "ScipSettings",
+    "ScipSettingsDocument",
+    "ScipSettingsDocumentOutput",
     "ScipSettingsOutput",
     "SeedOrigin",
     "SeedOriginOutput",
@@ -20861,6 +23230,8 @@ __all__ = [
     "SourceContributionTargetObjective",
     "SourceContributionTargetRow",
     "SourceDelta",
+    "SourceDeltaBody",
+    "SourceDeltaBodyOutput",
     "SourceDeltaOutput",
     "SourceDemandDocument",
     "SourceDocumentDelta",
@@ -20871,9 +23242,12 @@ __all__ = [
     "SourceFitDeltaOutput",
     "SourceInstanceDocument",
     "SourceLocation",
+    "SourceLocationBody",
+    "SourceLocationBodyOutput",
     "SourceLocationOutput",
     "SourceMapScope",
     "SourceMemberDocument",
+    "SourceReclamationPage",
     "SourceRecordingAcknowledgement",
     "SourceRecordingAcknowledgementOutput",
     "SourceRecordingFamilyAcknowledgement",
@@ -20933,7 +23307,8 @@ __all__ = [
     "StudyOutputDemandFull",
     "StudyPoint",
     "StudyPointDefinition",
-    "StudyPointDefinitionOutput",
+    "StudyPointDefinitionBody",
+    "StudyPointDefinitionBodyOutput",
     "StudyPointOutput",
     "StudyPointPolicy",
     "StudyPointPolicyOutput",
@@ -20949,7 +23324,8 @@ __all__ = [
     "StudyWaitControls",
     "StudyWaitControlsOutput",
     "SubmittedStartRecord",
-    "SubmittedStartRecordOutput",
+    "SubmittedStartRecordBody",
+    "SubmittedStartRecordBodyOutput",
     "SummaryCoverage",
     "SummaryPublication",
     "SummaryPublicationOutput",
@@ -20973,6 +23349,8 @@ __all__ = [
     "TrustRegion",
     "TrustRegionOutput",
     "UnoSettings",
+    "UnoSettingsDocument",
+    "UnoSettingsDocumentOutput",
     "UnoSettingsOutput",
     "ValidityLineage",
     "ValidityLineageOutput",
@@ -20997,6 +23375,8 @@ __all__ = [
     "WarmRestart",
     "WarmRestartOutput",
     "WarmStartSnapshot",
+    "WarmStartSnapshotBody",
+    "WarmStartSnapshotBodyOutput",
     "WarmStartSnapshotOutput",
     "WindowInput",
     "WindowInputConstant",
@@ -21014,4 +23394,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:6378b4c73b172534504288d498361c5bca0be17dfc3902ac69167e7814a2be63"
+SCHEMA_SET_FINGERPRINT = "blake3:3e9a6ea37901ef2e7d553295c11e172ee5d3d4834f8f8af543cc9194e1b47055"

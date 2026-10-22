@@ -14,6 +14,11 @@
       "description": "All result payloads have been reclaimed; immutable lifecycle receipts remain.",
       "type": "boolean"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "indexes": {
       "description": "Derived scalar/output indexes or seed descriptors removed.",
       "format": "uint64",
@@ -31,7 +36,8 @@
     "complete",
     "batches",
     "indexes",
-    "sets"
+    "sets",
+    "document_version"
   ],
   "title": "ResultReclamationPage",
   "type": "object"

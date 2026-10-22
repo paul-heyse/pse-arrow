@@ -21,7 +21,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "kind": {
@@ -110,7 +110,7 @@
       ],
       "type": "object"
     },
-    "CoherentRecord": {
+    "CoherentRecordBody": {
       "additionalProperties": false,
       "description": "All members belong to the same source event; a read never assembles a mixed row.",
       "properties": {
@@ -538,7 +538,7 @@
       ],
       "type": "string"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -575,7 +575,7 @@
       ],
       "type": "string"
     },
-    "OperationSnapshot": {
+    "OperationSnapshotBody": {
       "additionalProperties": false,
       "description": "A bounded independent read. Overlapping child times must not be added as exclusive time.",
       "properties": {
@@ -613,7 +613,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "interval_end": {
@@ -859,7 +859,7 @@
       ],
       "type": "object"
     },
-    "ProcessLocator": {
+    "ProcessLocatorBody": {
       "additionalProperties": false,
       "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
       "properties": {
@@ -963,7 +963,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {
@@ -1035,7 +1035,7 @@
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CoherentRecord"
+              "$ref": "#/$defs/CoherentRecordBody"
             },
             {
               "type": "null"
@@ -1050,7 +1050,7 @@
         "recent": {
           "description": "Bounded whole records intersecting the requested interval.",
           "items": {
-            "$ref": "#/$defs/CoherentRecord"
+            "$ref": "#/$defs/CoherentRecordBody"
           },
           "type": "array"
         }
@@ -1273,7 +1273,7 @@
           "description": "Actual return/drain from this scope, not scientific acceptance."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual diagnostic operation executing in this scope."
         },
         "start_ticks": {
@@ -1469,7 +1469,7 @@
       "description": "Mapping to the same-host monotonic clock, with bounded read uncertainty."
     },
     "locator": {
-      "$ref": "#/$defs/ProcessLocator",
+      "$ref": "#/$defs/ProcessLocatorBody",
       "description": "Actual operational attachment locator, not build provenance."
     },
     "omitted": {
@@ -1481,14 +1481,14 @@
     "operations": {
       "description": "Current/cumulative/recent facts, including their own scopes and coverage.",
       "items": {
-        "$ref": "#/$defs/OperationSnapshot"
+        "$ref": "#/$defs/OperationSnapshotBody"
       },
       "type": "array"
     },
     "parent": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OperationId"
+          "$ref": "#/$defs/OperationIdBody"
         },
         {
           "type": "null"
@@ -1536,9 +1536,9 @@
       "type": "boolean"
     },
     "version": {
+      "const": 4,
+      "default": 4,
       "description": "Format version of this diagnostic-only representation.",
-      "format": "uint32",
-      "minimum": 0,
       "type": "integer"
     }
   },

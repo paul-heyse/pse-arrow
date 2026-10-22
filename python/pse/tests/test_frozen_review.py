@@ -44,7 +44,7 @@ def test_frozen_review_public_ingress_is_recorded_and_relocatable(
             system_cpu_ticks=None,
         ),
         parent=None,
-        locator=documents.ProcessLocator(
+        locator=documents.ProcessLocatorBody(
             pid=(1 << 32) - 1, start_ticks=None, executable=None
         ),
         clock=None,
@@ -229,7 +229,7 @@ def test_optional_source_recording_retain_result_and_context_readback_relocates(
                 run_id=None,
                 attempt_id=None,
                 operation=acknowledgement.operation,
-                selection=documents.ReviewContextRequest(
+                selection=documents.ReviewContextRequestBody(
                     steps=(),
                     include_sources=True,
                     include_native_records=True,

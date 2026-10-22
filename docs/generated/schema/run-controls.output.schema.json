@@ -8,10 +8,16 @@
       "default": false,
       "description": "Continue independent operations after one operation fails.",
       "type": "boolean"
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     }
   },
   "required": [
-    "continue_independent"
+    "continue_independent",
+    "document_version"
   ],
   "title": "RunControlsOutput",
   "type": "object"

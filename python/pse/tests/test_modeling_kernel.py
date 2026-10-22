@@ -709,6 +709,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         physical(runtime),
     )
     policy = {
+        "document_version": 1,
         "profile": "synthetic",
         "maximum_findings": 50,
         "near_bound_absolute": 1e-4,
@@ -747,7 +748,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert report.origin is None, (
         "standalone diagnostics cannot invent an originating run"
     )
-    original_failure = documents.BoundaryDiagnostic(
+    original_failure = documents.BoundaryDiagnosticBody(
         class_=NativeBoundaryClass.NUMERICAL,
         code=DiagnosticCode.NATIVE_NUMERICAL,
         rule=DiagnosticRule.NATIVE_NUMERICAL,
@@ -773,7 +774,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         settings,
         origin=origin,
     )
-    assert missing.origin == origin, (
+    assert codec.encode_json(missing.origin) == codec.encode_json(origin), (
         "incomplete analysis preserves supplied original context"
     )
     assert missing.statistics()["missing_values"] == 2
@@ -787,18 +788,18 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         sample_batch(runtime, [(identity(233), [(missing_columns[0], 1.0, "Scalar"), (missing_columns[1], -1.0, "Scalar")])]),
         origin=origin,
     )
-    assert supplied.origin == origin
+    assert codec.encode_json(supplied.origin) == codec.encode_json(origin)
     supplied_report = supplied.result(0)
     assert supplied_report is not None
     assert supplied_report.complete
     supplied_origin = supplied_report.origin
-    assert supplied_origin == origin
+    assert codec.encode_json(supplied_origin) == codec.encode_json(origin)
     assert supplied_origin is not None
-    assert supplied_origin.failure == original_failure
+    assert codec.encode_json(supplied_origin.failure) == codec.encode_json(original_failure)
     exported_origin = pa.table(supplied_report.table()).to_pylist()[0]["origin_json"]
-    assert codec.decode_json(exported_origin, documents.DiagnosticOrigin) == origin
+    assert codec.encode_json(codec.decode_json(exported_origin, documents.DiagnosticOriginBody)) == codec.encode_json(msgspec.convert(origin, type=documents.DiagnosticOriginBody, from_attributes=True))
     sample_origin = pa.table(supplied.table()).to_pylist()[0]["origin_json"]
-    assert codec.decode_json(sample_origin, documents.DiagnosticOrigin) == origin
+    assert codec.encode_json(codec.decode_json(sample_origin, documents.DiagnosticOriginBody)) == codec.encode_json(msgspec.convert(origin, type=documents.DiagnosticOriginBody, from_attributes=True))
     with pytest.raises(pse.InspectionError, match="missing case value"):
         package.solve_case(
             declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -1281,6 +1282,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
         codec.decode_json(
             codec.encode_json(
                 {
+                    "document_version": 1,
                     "nominals": {row.to_hex(): 1.0 for row in rows},
                     "penalty_tolerance": 1e-6,
                     "maximum_attempts": 4,
@@ -1302,6 +1304,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
         codec.decode_json(
             codec.encode_json(
                 {
+                    "document_version": 1,
                     "nominals": {row.to_hex(): 1.0 for row in rows},
                     "penalty_tolerance": 1e-6,
                     "maximum_attempts": 1,

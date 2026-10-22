@@ -263,7 +263,7 @@
       ],
       "type": "string"
     },
-    "BoundaryDiagnostic": {
+    "BoundaryDiagnosticBody": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -279,7 +279,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnostic"
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
           },
           "type": "array"
         },
@@ -295,7 +295,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocation"
+            "$ref": "#/$defs/SourceLocationBody"
           },
           "type": "array"
         },
@@ -1129,7 +1129,7 @@
         "diagnostic": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnostic"
+              "$ref": "#/$defs/BoundaryDiagnosticBody"
             },
             {
               "type": "null"
@@ -1174,7 +1174,7 @@
       ],
       "type": "object"
     },
-    "PointOutcome": {
+    "PointOutcomeBody": {
       "additionalProperties": false,
       "description": "Shared outcome projection consumed by both executors and the durable store.",
       "properties": {
@@ -1188,7 +1188,7 @@
         "diagnostic": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnostic"
+              "$ref": "#/$defs/BoundaryDiagnosticBody"
             },
             {
               "type": "null"
@@ -1247,7 +1247,7 @@
         "outcome": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PointOutcome"
+              "$ref": "#/$defs/PointOutcomeBody"
             },
             {
               "type": "null"
@@ -1312,7 +1312,7 @@
       ],
       "type": "object"
     },
-    "SourceLocation": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1626,6 +1626,11 @@
       "description": "Persistent study cancellation authority.",
       "type": "boolean"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "points": {
       "description": "Explicitly requested compact occurrence observations.",
       "items": {
@@ -1660,7 +1665,8 @@
     "state",
     "run",
     "cancelled",
-    "points"
+    "points",
+    "document_version"
   ],
   "title": "StudyStatus",
   "type": "object"

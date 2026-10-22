@@ -8,6 +8,11 @@
       "description": "Admitted parent summary attempt.",
       "type": "string"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "points": {
       "description": "Occurrence identity, execution and optional native attempt.",
       "items": {
@@ -41,7 +46,8 @@
   "required": [
     "run",
     "attempt",
-    "points"
+    "points",
+    "document_version"
   ],
   "title": "StudyResults",
   "type": "object"

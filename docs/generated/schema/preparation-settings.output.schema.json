@@ -214,6 +214,11 @@
       "$ref": "#/$defs/StudyCompilerProfile",
       "description": "Existing evaluator profile, encoded through its complete remote projection."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "limits": {
       "$ref": "#/$defs/LimitsOutput",
       "description": "Existing expansion admission limits."
@@ -221,7 +226,8 @@
   },
   "required": [
     "compiler",
-    "limits"
+    "limits",
+    "document_version"
   ],
   "title": "PreparationSettingsOutput",
   "type": "object"

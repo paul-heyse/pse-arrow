@@ -34,11 +34,9 @@ class HistoryBoundary:
     def release_history(self, document: bytes) -> None:
         self.calls.append(("release_history", document))
 
-    def reclaim_history_page(self, document: bytes) -> bytes:
+    def reclaim_history_page(self, document: bytes) -> HistoryReclamationPage:
         self.calls.append(("collect", document))
-        return codec.encode_json(
-            HistoryReclamationPage(complete=False, removed=64, compacted=0)
-        )
+        return HistoryReclamationPage(complete=False, removed=64, compacted=0)
 
 
 @pytest.mark.unit
@@ -46,12 +44,11 @@ class HistoryBoundary:
 def test_history_adapters_keep_explicit_owner_and_obligation_documents(
     kind: str,
 ) -> None:
-    owner = codec.decode_json(
-        b'{"kind":"' + kind.encode() + b'","key":"original-owner"}', HistoryOwner
-    )
+    owner_body = b'{"kind":"' + kind.encode() + b'","key":"original-owner"}'
+    owner = codec.decode_json(b'{"document_version":1,' + owner_body[1:], HistoryOwner)
     obligation = codec.decode_json(
-        b'{"key":"audit-1","owner":'
-        + codec.encode_json(owner)
+        b'{"document_version":1,"key":"audit-1","owner":'
+        + owner_body
         + b',"purpose":"audit","attribution":"scientific investigation"}',
         HistoryObligation,
     )
@@ -75,8 +72,8 @@ def test_history_adapters_keep_explicit_owner_and_obligation_documents(
 @pytest.mark.parametrize(
     "document",
     [
-        b'{"kind":"run","key":"owner","extra":true}',
-        b'{"kind":"other","key":"owner"}',
+        b'{"document_version":1,"kind":"run","key":"owner","extra":true}',
+        b'{"document_version":1,"kind":"other","key":"owner"}',
     ],
 )
 def test_generated_history_owner_refuses_unknown_fields_and_variants(

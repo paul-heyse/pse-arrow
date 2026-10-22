@@ -252,7 +252,7 @@
       ],
       "type": "object"
     },
-    "FrozenAdviceOutput": {
+    "FrozenAdviceBodyOutput": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -400,7 +400,7 @@
     "advice": {
       "anyOf": [
         {
-          "$ref": "#/$defs/FrozenAdviceOutput"
+          "$ref": "#/$defs/FrozenAdviceBodyOutput"
         },
         {
           "type": "null"
@@ -411,6 +411,11 @@
     "branch": {
       "$ref": "#/$defs/BranchPolicyOutput",
       "description": "Original root-selection contract."
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     },
     "limits": {
       "anyOf": [
@@ -439,7 +444,8 @@
     "policy",
     "branch",
     "limits",
-    "recovery"
+    "recovery",
+    "document_version"
   ],
   "title": "CompositionRequestOutput",
   "type": "object"

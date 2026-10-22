@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Structural preparations and value rebinds: of a math service, or of one operation such\nas a study (A6).",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "observations": {
       "description": "Value-independent observation programs compiled.",
       "format": "uint",
@@ -33,7 +38,8 @@
     "views",
     "observations",
     "rebuilt",
-    "shared"
+    "shared",
+    "document_version"
   ],
   "title": "PreparationCounts",
   "type": "object"

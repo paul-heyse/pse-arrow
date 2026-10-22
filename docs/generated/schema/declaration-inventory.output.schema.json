@@ -5755,10 +5755,16 @@
         "$ref": "#/$defs/AuthoredModelingDeclarationsRowOutput"
       },
       "type": "array"
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     }
   },
   "required": [
-    "declarations"
+    "declarations",
+    "document_version"
   ],
   "title": "DeclarationInventoryOutput",
   "type": "object"

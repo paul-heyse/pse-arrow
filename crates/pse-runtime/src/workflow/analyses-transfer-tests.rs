@@ -880,7 +880,7 @@ async fn canonical_recorded_result_growth_covers_full_selected_absent_creation_a
                 .promote_scientific_artifact(
                     &run,
                     &attempt,
-                    super::super::artifacts::ScientificArtifactKind::Trajectory,
+                    ScientificArtifactKind::Trajectory,
                     "audit",
                     "recorded-large-coverage",
                     CancellationToken::new(),

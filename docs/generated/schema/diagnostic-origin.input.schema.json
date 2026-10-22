@@ -249,7 +249,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnostic": {
+    "BoundaryDiagnosticBody": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -265,7 +265,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnostic"
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
           },
           "type": "array"
         },
@@ -281,7 +281,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocation"
+            "$ref": "#/$defs/SourceLocationBody"
           },
           "type": "array"
         },
@@ -1047,7 +1047,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -1111,7 +1111,7 @@
       ],
       "type": "object"
     },
-    "SourceLocation": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1269,10 +1269,15 @@
       ],
       "x-pse-identity": "AttemptId"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "failure": {
       "anyOf": [
         {
-          "$ref": "#/$defs/BoundaryDiagnostic"
+          "$ref": "#/$defs/BoundaryDiagnosticBody"
         },
         {
           "type": "null"
@@ -1292,7 +1297,7 @@
     "operation": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OperationId"
+          "$ref": "#/$defs/OperationIdBody"
         },
         {
           "type": "null"
@@ -1317,7 +1322,8 @@
     }
   },
   "required": [
-    "run_id"
+    "run_id",
+    "document_version"
   ],
   "title": "DiagnosticOrigin",
   "type": "object"

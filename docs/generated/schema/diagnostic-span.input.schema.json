@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Query source coordinates under the native engine's line and column convention.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "end_column": {
       "description": "Ending source column.",
       "format": "uint64",
@@ -33,7 +38,8 @@
     "start_line",
     "start_column",
     "end_line",
-    "end_column"
+    "end_column",
+    "document_version"
   ],
   "title": "DiagnosticSpanDocument",
   "type": "object"

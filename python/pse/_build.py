@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 
 from pse import _native, contracts
 
+_check_document_header = _native.check_document_header
+
 if TYPE_CHECKING:
     from pse.contracts.documents import BuildInfo
 

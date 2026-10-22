@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Opt-in adaptation from comparable native nonlinear iteration counts.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "target_iterations": {
       "description": "Desired iterations at the next qualified continuation endpoint.",
       "format": "uint32",
@@ -12,7 +17,8 @@
     }
   },
   "required": [
-    "target_iterations"
+    "target_iterations",
+    "document_version"
   ],
   "title": "EffortPolicy",
   "type": "object"

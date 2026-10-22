@@ -34,12 +34,36 @@ impl<T: schemars::JsonSchema, const N: u32> schemars::JsonSchema for Versioned<T
         // wire owner's streaming deserializer preserves that policy instead.
         let mut schema = T::json_schema(generator);
         let header = <Version<N> as schemars::JsonSchema>::json_schema(generator).to_value();
-        add_header(schema.ensure_object(), &header, false);
+        add_header(schema.ensure_object(), &header, false, generator.definitions(), &mut std::collections::BTreeSet::new());
         schema
     }
 }
 
-fn add_header(object: &mut serde_json::Map<String, serde_json::Value>, header: &serde_json::Value, alternative: bool) {
+fn add_header(object: &mut serde_json::Map<String, serde_json::Value>, header: &serde_json::Value, alternative: bool,
+    definitions: &serde_json::Map<String, serde_json::Value>, active: &mut std::collections::BTreeSet<String>,
+) {
+    // A composition alternative may reference a strict object. Inline that actual
+    // schema only here, so its own closure sees the new envelope header. Nested
+    // properties keep their unchanged domain-body references.
+    if let Some(reference) = object.get("$ref").and_then(serde_json::Value::as_str)
+        .and_then(|value| value.strip_prefix("#/$defs/")).map(|value| value.replace("~1", "/").replace("~0", "~"))
+        && active.insert(reference.clone())
+    {
+        if let Some(serde_json::Value::Object(referenced)) = definitions.get(&reference) {
+            let siblings = std::mem::replace(object, referenced.clone());
+            object.extend(siblings.into_iter().filter(|(key, _)| key != "$ref"));
+        }
+        // Recursive properties are intentionally not followed; composition cycles
+        // remain explicit references for the generator's closed schema admission.
+        add_header_contents(object, header, alternative, definitions, active);
+        active.remove(&reference);
+        return;
+    }
+    add_header_contents(object, header, alternative, definitions, active);
+}
+fn add_header_contents(object: &mut serde_json::Map<String, serde_json::Value>, header: &serde_json::Value, alternative: bool,
+    definitions: &serde_json::Map<String, serde_json::Value>, active: &mut std::collections::BTreeSet<String>,
+) {
     if alternative && let Some(serde_json::Value::String(title)) = object.get_mut("title") {
         title.push_str("Document");
     }
@@ -47,7 +71,7 @@ fn add_header(object: &mut serde_json::Map<String, serde_json::Value>, header: &
         if let Some(serde_json::Value::Array(variants)) = object.get_mut(keyword) {
             for variant in variants {
                 if let Some(variant) = variant.as_object_mut() {
-                    add_header(variant, header, true);
+                    add_header(variant, header, true, definitions, active);
                 }
             }
         }
@@ -146,12 +170,40 @@ impl<T, const N: u32> VersionedValue<T, N> {
 /// # Errors
 /// A missing, duplicate, malformed or unsupported header is refused.
 pub fn check_header<const N: u32>(bytes: &[u8]) -> Result<(), serde_json::Error> {
-    #[derive(serde::Deserialize)]
-    struct Header<const N: u32> {
-        #[serde(rename = "document_version")]
-        _version: Version<N>,
+    check_required_header(bytes, "document_version", N)
+}
+
+/// Validate one actual owner-declared required header directly on the original bytes.
+/// Duplicate keys are refused before any body or Python value conversion.
+///
+/// # Errors
+/// The document is malformed or its required interpretation is missing/unsupported.
+pub fn check_required_header(bytes: &[u8], field: &'static str, expected: u32) -> Result<(), serde_json::Error> {
+    struct Header { field: &'static str, expected: u32 }
+    impl<'de> Visitor<'de> for Header {
+        type Value = ();
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(formatter, "an object with required {} {}", self.field, self.expected)
+        }
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+            let mut seen = false;
+            while let Some(key) = map.next_key::<String>()? {
+                if key == self.field {
+                    if seen { return Err(A::Error::duplicate_field(self.field)); }
+                    seen = true;
+                    let version = map.next_value::<u32>()?;
+                    if version != self.expected {
+                        return Err(A::Error::custom(format!("unsupported {} {version} (current: {})", self.field, self.expected)));
+                    }
+                } else { let _: serde::de::IgnoredAny = map.next_value()?; }
+            }
+            if !seen { return Err(A::Error::missing_field(self.field)); }
+            Ok(())
+        }
     }
-    serde_json::from_slice::<Header<N>>(bytes).map(|_| ())
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    serde::de::Deserializer::deserialize_map(&mut deserializer, Header { field, expected })?;
+    deserializer.end()
 }
 
 /// The actual standalone encoding selected once by the boundary catalogue.
@@ -203,6 +255,59 @@ impl Wire {
 mod tests {
     use super::*;
 
+    #[test]
+    fn standalone_required_headers_refuse_original_duplicate_keys_before_body() {
+        for field in ["version", "document_version"] {
+            for (first, second) in [("1", "1"), ("1", "2"), ("2", "1")] {
+                let bytes = format!("{{\"{field}\":{first},\"body\":{{\"version\":4}},\"{field}\":{second}}}");
+                assert!(check_required_header(bytes.as_bytes(), field, 1).is_err());
+            }
+            assert!(check_required_header(format!("{{\"{field}\":1,\"nested\":{{\"{field}\":2}}}}").as_bytes(), field, 1).is_ok());
+            assert!(check_required_header(format!("{{\"nested\":{{\"{field}\":1}}}}").as_bytes(), field, 1).is_err());
+            for value in ["true", "1.0", "-1", "null", "\"1\""] {
+                assert!(check_required_header(format!("{{\"{field}\":{value}}}").as_bytes(), field, 1).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn standalone_registered_tagged_owner_preserves_schema_closure_and_nested_body() {
+        use crate::boundary_documents::BoundaryDocument;
+        use pse_operations::canonical_history::{HistoryObligation, HistoryOwner, HistoryPurpose};
+        let value = HistoryOwner::Run("original-owner".into());
+        let bytes = HistoryOwner::WIRE.to_vec(&value).unwrap();
+        assert_eq!(HistoryOwner::WIRE.from_slice::<HistoryOwner>(&bytes).unwrap(), value);
+        let roots = crate::boundary_documents::schemas();
+        let root = roots.iter().find(|root| root.slug == "history-owner" && root.direction == crate::boundary_documents::Direction::Input).unwrap();
+        let wire: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let branch = root.schema["oneOf"].as_array().unwrap().iter().find(|branch| branch["properties"]["kind"]["const"] == "run").unwrap();
+        assert_eq!(branch["additionalProperties"], false);
+        for key in wire.as_object().unwrap().keys() { assert!(branch["properties"].get(key).is_some(), "{key}"); }
+        for key in branch["required"].as_array().unwrap() { assert!(wire.get(key.as_str().unwrap()).is_some()); }
+        let nested = HistoryObligation { key: "obligation".into(), owner: value, purpose: HistoryPurpose::Audit, attribution: "caller".into() };
+        let encoded: serde_json::Value = serde_json::from_slice(&HistoryObligation::WIRE.to_vec(&nested).unwrap()).unwrap();
+        assert_eq!(encoded["document_version"], 1);
+        assert!(encoded["owner"].get("document_version").is_none());
+        assert_eq!(encoded["purpose"], "audit");
+        assert!(root.version.is_some());
+    }
+
+    #[test]
+    fn standalone_referenced_registered_alternative_retains_its_own_closure() {
+        let mut schema = schemars::schema_for!(pse_operations::canonical_history::HistoryOwner).to_value();
+        let actual = schema["oneOf"].as_array_mut().unwrap().remove(0);
+        let definitions = serde_json::Map::from_iter([("ActualHistoryAlternative".into(), actual)]);
+        let mut reference = serde_json::json!({"$ref":"#/$defs/ActualHistoryAlternative"}).as_object().unwrap().clone();
+        let header = schemars::schema_for!(Version<1>).to_value();
+        add_header(&mut reference, &header, true, &definitions, &mut std::collections::BTreeSet::new());
+        assert!(reference.get("$ref").is_none());
+        assert_eq!(reference["additionalProperties"], false);
+        assert_eq!(reference["properties"]["document_version"]["const"], 1);
+        assert!(reference["required"].as_array().unwrap().iter().any(|field| field == "document_version"));
+        let expected = &definitions["ActualHistoryAlternative"]["properties"];
+        for (key, value) in expected.as_object().unwrap() { assert_eq!(&reference["properties"][key], value); }
+    }
+
     #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(deny_unknown_fields)]
     struct Strict {
@@ -238,7 +343,8 @@ mod tests {
     #[test]
     fn standalone_wrapper_checks_header_before_body_and_preserves_version_named_members() {
         let error = read::<Versioned<Strict, 1>>(br#"{"value":"historical shape","document_version":2}"#).unwrap_err();
-        assert!(error.to_string().contains("unknown document version 2"));
+        assert!(error.to_string().contains("unsupported document_version 2"));
+        assert!(!error.to_string().contains("historical shape"));
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
         #[serde(deny_unknown_fields)]
         struct Build { version: String }

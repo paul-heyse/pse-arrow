@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Exact explanatory selection, independent of executable replay eligibility.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "include_native_records": {
       "description": "Include retained native records; never run a native query to fill gaps.",
       "type": "boolean"
@@ -32,7 +37,8 @@
     "steps",
     "include_sources",
     "include_native_records",
-    "maximum_bytes"
+    "maximum_bytes",
+    "document_version"
   ],
   "title": "ReviewContextRequest",
   "type": "object"

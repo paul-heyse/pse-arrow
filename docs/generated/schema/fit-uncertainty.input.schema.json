@@ -47,6 +47,11 @@
   "additionalProperties": false,
   "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "level": {
       "$ref": "#/$defs/Fraction",
       "description": "The confidence level of the intervals, below one."
@@ -69,7 +74,8 @@
     }
   },
   "required": [
-    "level"
+    "level",
+    "document_version"
   ],
   "title": "FitUncertainty",
   "type": "object"

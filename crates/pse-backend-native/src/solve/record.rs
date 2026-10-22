@@ -8,19 +8,54 @@ use std::mem::{align_of, size_of};
 /// Actual submitted source-coordinate seed, distinct from an output or native checkpoint.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct SubmittedStartRecord {
+#[schemars(rename = "SubmittedStartRecord")]
+pub struct SubmittedStartRecord<Seed = WarmStartSnapshot, Sparse = BTreeMap<SemanticId, u64>, Transformations = Vec<SeedTransformation>> {
     /// Original predecessor attempt selection.
     pub previous_attempt: Option<usize>,
     /// Full actual source-coordinate seed with explicit nonfinite observations.
-    pub seed: Option<WarmStartSnapshot>,
+    pub seed: Option<Seed>,
     /// Full partial coordinate start, retaining exact IEEE bits including signed zero.
     #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, u64>>")]
-    pub sparse_seed: Option<BTreeMap<SemanticId, u64>>,
+    pub sparse_seed: Option<Sparse>,
     /// Complete transformations actually applied before API submission.
-    pub transformations: Vec<SeedTransformation>,
+    pub transformations: Transformations,
     /// Actual API submission; native internal use remains separately observed.
     pub submitted: bool,
 }
+/// Serialization projection borrowing the original receipt and its admitted report storage.
+/// No numeric vector, sparse map or transformation is cloned by this projection.
+#[derive(Debug)]
+pub struct SubmittedStartRef<'a>(pub(super) &'a StartReceipt);
+impl serde::Serialize for SubmittedStartRef<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let start = self.0;
+        let document = SubmittedStartRecord {
+            previous_attempt: start.previous_attempt,
+            seed: start.seed.as_ref().map(|seed| seed.snapshot_with(
+                ObservationValues,
+                |working| working.snapshot_with(|values| values, |values| values),
+                |basis| basis,
+            )),
+            sparse_seed: start.sparse_seed.as_ref().map(SparseBits),
+            transformations: start.transformations.as_slice(),
+            submitted: start.submitted,
+        };
+        serde::Serialize::serialize(&document, serializer)
+    }
+}
+struct ObservationValues<'a>(&'a [f64]);
+impl serde::Serialize for ObservationValues<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.0.iter().map(|value| Observation::number(*value)))
+    }
+}
+struct SparseBits<'a>(&'a BTreeMap<SemanticId, f64>);
+impl serde::Serialize for SparseBits<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_map(self.0.iter().map(|(id, value)| (id, value.to_bits())))
+    }
+}
+
 /// Native-owned compact attempt record; scientific workflow position belongs to its caller.
 /// No factor, actor, oracle, candidate or complete SolveReport is retained here.
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -369,7 +404,15 @@ mod tests {
             .native_defaults
             .insert("nan".into(), OptionValue::Real(f64::NAN));
         let record = AttemptRecord::capture(&report, Arc::new(())).unwrap();
+        let borrowed = serde_json::to_vec(&report.start_receipt.as_ref().unwrap().snapshot()).unwrap();
         let start = record.start.as_ref().unwrap();
+        assert_eq!(borrowed, serde_json::to_vec(start).unwrap());
+        let roundtrip: SubmittedStartRecord = serde_json::from_slice(&borrowed).unwrap();
+        assert_eq!(roundtrip.previous_attempt, start.previous_attempt);
+        assert_eq!(roundtrip.sparse_seed, start.sparse_seed);
+        assert_eq!(roundtrip.transformations, start.transformations);
+        assert_eq!(roundtrip.submitted, start.submitted);
+        assert_eq!(serde_json::to_vec(&roundtrip).unwrap(), borrowed);
         assert_eq!(start.previous_attempt, Some(3));
         assert_eq!(
             start.sparse_seed.as_ref().unwrap()[&SemanticId::NIL],
@@ -403,6 +446,31 @@ mod tests {
         assert!(json.get("_owner").is_none());
         let schema = serde_json::to_value(schemars::schema_for!(AttemptRecord)).unwrap();
         assert_eq!(schema["additionalProperties"], false);
+    }
+    #[test]
+    fn borrowed_submitted_start_serializes_under_actual_report_custody() {
+        let owner = Arc::new(());
+        let weak = Arc::downgrade(&owner);
+        let mut report = report().with_owner(owner);
+        report.start_receipt = Some(StartReceipt {
+            previous_attempt: Some(9),
+            seed: Some(WarmStart { origin: None, compatibility: crate::solver_tests::stamp(Backend::Kinsol), payload: WarmPayload::Root(vec![-0.0, f64::INFINITY]) }),
+            sparse_seed: Some(BTreeMap::from([(SemanticId::NIL, -0.0)])),
+            transformations: vec![], submitted: true,
+        });
+        let original = Arc::new(report);
+        let retained = original.clone();
+        drop(original);
+        assert!(weak.upgrade().is_some());
+        let json = serde_json::to_vec(&retained.start_receipt.as_ref().unwrap().snapshot()).unwrap();
+        let decoded: SubmittedStartRecord = serde_json::from_slice(&json).unwrap();
+        assert_eq!(decoded.previous_attempt, Some(9));
+        assert_eq!(decoded.sparse_seed.as_ref().unwrap()[&SemanticId::NIL], (-0.0_f64).to_bits());
+        assert!(decoded.submitted);
+        let WarmPayloadSnapshot::Root { primal } = decoded.seed.unwrap().payload else { panic!("root seed"); };
+        assert_eq!(serde_json::to_value(&primal[1]).unwrap()["value"], "positive_infinity");
+        drop(retained);
+        assert!(weak.upgrade().is_none());
     }
     #[test]
     fn attempt_record_extent_includes_basis_only_seed_and_all_variable_payloads_before_capture() {

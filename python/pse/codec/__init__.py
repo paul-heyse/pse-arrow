@@ -189,15 +189,25 @@ def _has_required_version(info: msgspec.inspect.Type, seen: set[int]) -> bool:
 def _check_version_headers(
     value: object, info: msgspec.inspect.Type, path: str
 ) -> None:
-    """Check supplied schema-required headers before constructor defaults apply."""
+    """Check required headers on original JSON slices or TOML parser values."""
+    original = value if isinstance(value, msgspec.Raw) else None
+    if original is not None:
+        value = msgspec.json.decode(
+            original,
+            type=dict[str, msgspec.Raw] | list[msgspec.Raw] | str | int | float | bool | None,
+        )
     if isinstance(info, msgspec.inspect.Metadata):
-        _check_version_headers(value, info.type, path)
+        _check_version_headers(original if original is not None else value, info.type, path)
     elif isinstance(info, msgspec.inspect.UnionType):
         for alternative in info.types:
-            _check_version_headers(value, alternative, path)
+            _check_version_headers(original if original is not None else value, alternative, path)
     elif isinstance(info, msgspec.inspect.StructType) and isinstance(value, dict):
-        if info.tag_field is not None and value.get(info.tag_field) != info.tag:
-            return
+        if info.tag_field is not None:
+            tag = value.get(info.tag_field)
+            if isinstance(tag, msgspec.Raw):
+                tag = msgspec.json.decode(tag, type=object)
+            if tag != info.tag:
+                return
         expected = getattr(info.cls, "_pse_required_version", None)
         if expected is not None:
             field = getattr(info.cls, "_pse_required_version_field", "version")
@@ -205,6 +215,8 @@ def _check_version_headers(
                 message = f"Missing required document version - at `{path}.{field}`"
                 raise msgspec.ValidationError(message)
             version = value[field]
+            if isinstance(version, msgspec.Raw):
+                version = msgspec.json.decode(version, type=object)
             if (
                 not isinstance(version, int)
                 or isinstance(version, bool)
@@ -215,6 +227,14 @@ def _check_version_headers(
                     f"- at `{path}.{field}`"
                 )
                 raise msgspec.ValidationError(message)
+            if original is not None:
+                from pse._build import _check_document_header
+
+                try:
+                    _check_document_header(bytes(original), field, expected)
+                except ValueError as error:
+                    message = f"{error} - at `{path}.{field}`"
+                    raise msgspec.ValidationError(message) from error
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(
@@ -260,7 +280,7 @@ def decode_json(data: bytes | str, type: type[T]) -> T:
     """
     info = msgspec.inspect.type_info(type)
     if _has_required_version(info, set()):
-        raw: object = msgspec.json.decode(data, type=object)
+        raw = msgspec.Raw(data.encode() if isinstance(data, str) else data)
         _check_version_headers(raw, info, "$")
     return msgspec.json.decode(data, type=type, dec_hook=_decode_identity)
 

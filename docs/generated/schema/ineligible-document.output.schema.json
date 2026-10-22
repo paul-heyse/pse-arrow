@@ -74,6 +74,11 @@
         "null"
       ]
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "forms": {
       "description": "Constraint forms outside this adapter's capability.",
       "items": {
@@ -109,7 +114,8 @@
     "derivative_order",
     "sign_bounds",
     "forms",
-    "requirements"
+    "requirements",
+    "document_version"
   ],
   "title": "IneligibleDocumentOutput",
   "type": "object"

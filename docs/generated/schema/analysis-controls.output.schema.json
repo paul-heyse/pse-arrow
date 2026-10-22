@@ -25,6 +25,11 @@
       "$ref": "#/$defs/AnalysisDirection",
       "description": "Traverse contributors or dependents, preserving distinct edge meanings."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "roots": {
       "description": "Exact selected semantic object names.",
       "items": {
@@ -35,7 +40,8 @@
   },
   "required": [
     "roots",
-    "direction"
+    "direction",
+    "document_version"
   ],
   "title": "AnalysisControls",
   "type": "object"

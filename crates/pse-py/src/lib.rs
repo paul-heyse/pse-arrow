@@ -84,6 +84,7 @@ mod _native {
     #[pymodule_export]
     use super::{
         build_info, compiled_features, boundary_schema_fingerprint, admit_conformance_manifest,
+        documents::check_document_header,
         diagnostics::{
             NativeCaptureSession, NativeDetailSession, NativeDiagnostics, NativeLaunchedCommand,
             NativeOperationObservations, diagnostic_analyze, diagnostic_capture,

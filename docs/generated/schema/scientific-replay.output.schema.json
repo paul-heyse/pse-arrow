@@ -111,7 +111,7 @@
       ],
       "type": "object"
     },
-    "AdmittedBinding": {
+    "AdmittedBindingBody": {
       "additionalProperties": false,
       "description": "Immutable selected-revision binding; attribution is excluded from content identity.",
       "properties": {
@@ -1026,7 +1026,7 @@
       ],
       "type": "object"
     },
-    "BackendSettingsOutput": {
+    "BackendSettingsBodyOutput": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -1857,7 +1857,7 @@
         }
       ]
     },
-    "BlockSolveOverrideOutput": {
+    "BlockSolveOverrideBodyOutput": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -1888,7 +1888,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -2033,14 +2033,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequestOutput": {
+    "CompositionRequestBodyOutput": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdviceOutput"
+              "$ref": "#/$defs/FrozenAdviceBodyOutput"
             },
             {
               "type": "null"
@@ -2725,7 +2725,7 @@
         }
       ]
     },
-    "FitUncertaintyOutput": {
+    "FitUncertaintyBodyOutput": {
       "additionalProperties": false,
       "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
       "properties": {
@@ -2763,7 +2763,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdviceOutput": {
+    "FrozenAdviceBodyOutput": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -4035,7 +4035,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SubmittedStartRecordOutput"
+              "$ref": "#/$defs/SubmittedStartRecordBodyOutput"
             },
             {
               "type": "null"
@@ -5540,7 +5540,7 @@
       ],
       "type": "string"
     },
-    "PreparationSettingsOutput": {
+    "PreparationSettingsBodyOutput": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -6319,7 +6319,7 @@
           "type": "object"
         },
         "preparation": {
-          "$ref": "#/$defs/PreparationSettingsOutput",
+          "$ref": "#/$defs/PreparationSettingsBodyOutput",
           "description": "Actual compiler controls and original expansion limits."
         },
         "prepared_graph": {
@@ -6347,7 +6347,7 @@
         "requested_start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
             },
             {
               "type": "null"
@@ -6576,7 +6576,7 @@
         "binding": {
           "anyOf": [
             {
-              "$ref": "#/$defs/AdmittedBinding"
+              "$ref": "#/$defs/AdmittedBindingBody"
             },
             {
               "type": "null"
@@ -6609,13 +6609,17 @@
           "description": "Requested fitting method, preserved before contextual resolution."
         },
         "preparation": {
-          "$ref": "#/$defs/PreparationSettingsOutput",
+          "$ref": "#/$defs/PreparationSettingsBodyOutput",
           "description": "Original compiler and expansion controls."
         },
         "rank_tolerance": {
           "description": "Original response rank cutoff.",
           "format": "double",
           "type": "number"
+        },
+        "residual_lm_criteria": {
+          "$ref": "#/$defs/ResidualLmCriteria",
+          "description": "Exact original residual algorithm policy, independent of physical stationarity."
         },
         "simulations": {
           "additionalProperties": false,
@@ -6645,7 +6649,7 @@
         "uncertainty": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FitUncertaintyOutput"
+              "$ref": "#/$defs/FitUncertaintyBodyOutput"
             },
             {
               "type": "null"
@@ -6655,6 +6659,7 @@
         }
       },
       "required": [
+        "residual_lm_criteria",
         "optimizer",
         "source",
         "id",
@@ -7210,7 +7215,7 @@
         "requested_start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
             },
             {
               "type": "null"
@@ -7703,7 +7708,7 @@
         "binding": {
           "anyOf": [
             {
-              "$ref": "#/$defs/AdmittedBinding"
+              "$ref": "#/$defs/AdmittedBindingBody"
             },
             {
               "type": "null"
@@ -7760,7 +7765,7 @@
           "type": "integer"
         },
         "preparation": {
-          "$ref": "#/$defs/PreparationSettingsOutput",
+          "$ref": "#/$defs/PreparationSettingsBodyOutput",
           "description": "Original compiler and specialization allowances."
         },
         "profile": {
@@ -7825,7 +7830,7 @@
           "description": "Stable original structural block overrides, including their complete controls.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverrideOutput"
+              "$ref": "#/$defs/BlockSolveOverrideBodyOutput"
             }
           },
           "type": "object"
@@ -7837,7 +7842,7 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequestOutput",
+          "$ref": "#/$defs/CompositionRequestBodyOutput",
           "description": "Complete original composition, frozen advice, branch and finite work limits."
         },
         "controls": {
@@ -7912,7 +7917,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsOutput"
+              "$ref": "#/$defs/BackendSettingsBodyOutput"
             },
             {
               "type": "null"
@@ -8086,6 +8091,40 @@
         "fixed",
         "lower",
         "upper"
+      ],
+      "type": "object"
+    },
+    "ResidualLmCriteria": {
+      "additionalProperties": false,
+      "description": "Exact algorithm stopping criteria used by residual LM.\nThese relative/cosine values do not represent original physical stationarity.",
+      "properties": {
+        "column_residual_cosine": {
+          "description": "Maximum normalized residual/Jacobian-column cosine (gtol).",
+          "format": "double",
+          "type": "number"
+        },
+        "relative_cost_change": {
+          "description": "Actual and predicted relative objective-reduction threshold (ftol).",
+          "format": "double",
+          "type": "number"
+        },
+        "relative_step": {
+          "description": "Relative consecutive-iterate threshold (xtol).",
+          "format": "double",
+          "type": "number"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "description": "Encoding of these distinct algorithm criteria.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "relative_cost_change",
+        "relative_step",
+        "column_residual_cosine"
       ],
       "type": "object"
     },
@@ -9127,7 +9166,7 @@
         }
       ]
     },
-    "SubmittedStartRecordOutput": {
+    "SubmittedStartRecordBodyOutput": {
       "additionalProperties": false,
       "description": "Actual submitted source-coordinate seed, distinct from an output or native checkpoint.",
       "properties": {
@@ -9143,7 +9182,7 @@
         "seed": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
             },
             {
               "type": "null"
@@ -9500,7 +9539,7 @@
       ],
       "type": "object"
     },
-    "WarmStartSnapshotOutput": {
+    "WarmStartSnapshotBodyOutput": {
       "additionalProperties": false,
       "description": "Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's\nsign survives in real observations. Snapshot attribution is separate from content identity.",
       "properties": {
@@ -9929,8 +9968,8 @@
       "type": "array"
     },
     "version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "description": "Explicit current document version.",
       "type": "integer"
     }

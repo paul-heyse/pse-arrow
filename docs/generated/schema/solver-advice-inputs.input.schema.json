@@ -115,6 +115,11 @@
       "$ref": "#/$defs/AdviceCohort",
       "description": "Complete problem/profile/branch/accuracy/exposure comparison premises."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "limits": {
       "$ref": "#/$defs/WorkLimits",
       "description": "Original finite allowances; advice cannot replace these."
@@ -123,7 +128,8 @@
   "required": [
     "cohort",
     "candidates",
-    "limits"
+    "limits",
+    "document_version"
   ],
   "title": "SolverAdviceInputs",
   "type": "object"

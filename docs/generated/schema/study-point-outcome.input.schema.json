@@ -263,7 +263,7 @@
       ],
       "type": "string"
     },
-    "BoundaryDiagnostic": {
+    "BoundaryDiagnosticBody": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -279,7 +279,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnostic"
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
           },
           "type": "array"
         },
@@ -295,7 +295,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocation"
+            "$ref": "#/$defs/SourceLocationBody"
           },
           "type": "array"
         },
@@ -1129,7 +1129,7 @@
         "diagnostic": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BoundaryDiagnostic"
+              "$ref": "#/$defs/BoundaryDiagnosticBody"
             },
             {
               "type": "null"
@@ -1204,7 +1204,7 @@
       ],
       "type": "object"
     },
-    "SourceLocation": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1517,13 +1517,18 @@
     "diagnostic": {
       "anyOf": [
         {
-          "$ref": "#/$defs/BoundaryDiagnostic"
+          "$ref": "#/$defs/BoundaryDiagnosticBody"
         },
         {
           "type": "null"
         }
       ],
       "description": "Detailed latest refusal/failure, without fabricating a scientific result."
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     },
     "effect": {
       "$ref": "#/$defs/StudyEffectState",
@@ -1558,7 +1563,8 @@
     "lifecycle",
     "scientific",
     "effect",
-    "attempts"
+    "attempts",
+    "document_version"
   ],
   "title": "PointOutcome",
   "type": "object"

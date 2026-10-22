@@ -21,7 +21,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "kind": {
@@ -84,7 +84,7 @@
       ],
       "type": "object"
     },
-    "CoherentRecordOutput": {
+    "CoherentRecordBodyOutput": {
       "additionalProperties": false,
       "description": "All members belong to the same source event; a read never assembles a mixed row.",
       "properties": {
@@ -405,7 +405,7 @@
           "description": "Actual checkpoint time; absence never means now."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual diagnostic operation, including its process instance."
         },
         "partial": {
@@ -498,7 +498,7 @@
         "operation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/OperationSnapshotOutput"
+              "$ref": "#/$defs/OperationSnapshotBodyOutput"
             },
             {
               "type": "null"
@@ -509,7 +509,7 @@
         "related": {
           "description": "Bounded directly related observations, with their independent clocks and outcomes.",
           "items": {
-            "$ref": "#/$defs/OperationSnapshotOutput"
+            "$ref": "#/$defs/OperationSnapshotBodyOutput"
           },
           "type": "array"
         },
@@ -568,7 +568,7 @@
           "description": "Explicit selected analytical thresholds; absent means only common factual interpretations."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Exact operation selected by its diagnostic process instance and sequence."
         },
         "related_limit": {
@@ -637,7 +637,7 @@
         "process": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProcessLocatorOutput"
+              "$ref": "#/$defs/ProcessLocatorBodyOutput"
             },
             {
               "type": "null"
@@ -904,7 +904,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -941,7 +941,7 @@
       ],
       "type": "string"
     },
-    "OperationSnapshotOutput": {
+    "OperationSnapshotBodyOutput": {
       "additionalProperties": false,
       "description": "A bounded independent read. Overlapping child times must not be added as exclusive time.",
       "properties": {
@@ -979,7 +979,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "interval_end": {
@@ -1230,7 +1230,7 @@
       ],
       "type": "object"
     },
-    "ProcessLocatorOutput": {
+    "ProcessLocatorBodyOutput": {
       "additionalProperties": false,
       "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
       "properties": {
@@ -1293,7 +1293,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {
@@ -1365,7 +1365,7 @@
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CoherentRecordOutput"
+              "$ref": "#/$defs/CoherentRecordBodyOutput"
             },
             {
               "type": "null"
@@ -1380,7 +1380,7 @@
         "recent": {
           "description": "Bounded whole records intersecting the requested interval.",
           "items": {
-            "$ref": "#/$defs/CoherentRecordOutput"
+            "$ref": "#/$defs/CoherentRecordBodyOutput"
           },
           "type": "array"
         }

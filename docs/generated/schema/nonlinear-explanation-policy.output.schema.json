@@ -26,6 +26,11 @@
   "additionalProperties": false,
   "description": "Explicit physical row nominals weight the dimensionless ell-1 violation that classifies each\nattempt.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "maximum_attempts": {
       "description": "Attempt budget of the deletion filter.",
       "format": "uint",
@@ -57,7 +62,8 @@
     "nominals",
     "penalty_tolerance",
     "maximum_attempts",
-    "time_limit"
+    "time_limit",
+    "document_version"
   ],
   "title": "ModelingNonlinearPolicy",
   "type": "object"

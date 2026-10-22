@@ -8,6 +8,11 @@
       "description": "Captured Cargo lockfile checksum; empty when no lockfile is embedded.",
       "type": "string"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "git_sha": {
       "description": "Captured Git commit; empty when the implementation does not embed outer context.",
       "type": "string"
@@ -40,7 +45,8 @@
     "git_sha",
     "lockfile_hash",
     "cargo_lock_sha256",
-    "uv_lock_sha256"
+    "uv_lock_sha256",
+    "document_version"
   ],
   "title": "BuildInfo",
   "type": "object"

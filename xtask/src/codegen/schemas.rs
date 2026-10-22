@@ -19,17 +19,17 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
     };
     use std::collections::BTreeMap;
 
-    fn encoded<T: serde::Serialize + serde::de::DeserializeOwned>(
+    fn encoded<T: serde::Serialize + serde::de::DeserializeOwned + pse_runtime::boundary_documents::BoundaryDocument>(
         value: &T,
     ) -> anyhow::Result<serde_json::Value> {
-        let bytes = serde_json::to_vec(value)?;
-        let retained: T = serde_json::from_slice(&bytes)?;
+        let bytes = T::WIRE.to_vec(value)?;
+        let retained: T = T::WIRE.from_slice(&bytes)?;
         let original = serde_json::to_value(value)?;
         anyhow::ensure!(
             serde_json::to_value(retained)? == original,
             "owner document changed on round trip"
         );
-        Ok(original)
+        Ok(serde_json::from_slice(&bytes)?)
     }
     let refusal = WorkflowError::Input("selected binding refused before dispatch".into())
         .boundary_diagnostic();

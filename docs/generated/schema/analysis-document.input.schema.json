@@ -109,7 +109,7 @@
         "baseline": {
           "anyOf": [
             {
-              "$ref": "#/$defs/OperationId"
+              "$ref": "#/$defs/OperationIdBody"
             },
             {
               "type": "null"
@@ -139,7 +139,7 @@
           "description": "Explicit existing numerical interpretation policy, never a convergence policy."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Exact selected original operation."
         },
         "question": {
@@ -219,7 +219,7 @@
           "description": "Actual lower bound, absent for unknown coverage."
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Exact selected original operation."
         },
         "process_clock": {
@@ -397,7 +397,7 @@
           "description": "Actual supplied-fact availability."
         },
         "subject": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Exact original operation, never a current-run alias."
         }
       },
@@ -498,7 +498,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -531,7 +531,7 @@
       "description": "A performing instance, not a scientific or cache identity.",
       "properties": {
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual enclosing diagnostic operation."
         },
         "sequence": {

@@ -994,6 +994,11 @@
           "default": 0.01,
           "description": "Minimum absolute distance of a cold initial point from its bounds (`bound_push`)."
         },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
         "linear": {
           "$ref": "#/$defs/IpoptLinear",
           "default": {
@@ -1027,9 +1032,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "IpoptSettings",
+      "title": "IpoptSettingsDocument",
       "type": "object"
     },
     {
@@ -1039,6 +1045,11 @@
         "backend": {
           "const": "pounce",
           "type": "string"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "finite_difference": {
           "$ref": "#/$defs/FiniteDifferenceSettings",
@@ -1102,9 +1113,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "PounceSettings",
+      "title": "PounceSettingsDocument",
       "type": "object"
     },
     {
@@ -1133,6 +1145,11 @@
           "$ref": "#/$defs/Fraction",
           "default": 1.0,
           "description": "Picard/fixed-point damping in (0,1]; Newton and line search require one."
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "eta": {
           "$ref": "#/$defs/KinsolEta",
@@ -1181,9 +1198,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "KinsolSettings",
+      "title": "KinsolSettingsDocument",
       "type": "object"
     },
     {
@@ -1207,6 +1225,11 @@
             "relaxation": null
           },
           "description": "Opt-in native work, separate from the original candidate except the\nfixed-commitment LP, which prices it."
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "method": {
           "$ref": "#/$defs/HighsMethod",
@@ -1245,9 +1268,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "HighsSettings",
+      "title": "HighsSettingsDocument",
       "type": "object"
     },
     {
@@ -1282,6 +1306,11 @@
           "$ref": "#/$defs/ClarabelDirect",
           "default": "qdldl",
           "description": "KKT direct solver; only MKL Pardiso admits more than one thread."
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "dynamic_regularization_delta": {
           "default": 2e-7,
@@ -1443,9 +1472,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "ClarabelSettings",
+      "title": "ClarabelSettingsDocument",
       "type": "object"
     },
     {
@@ -1455,6 +1485,11 @@
         "backend": {
           "const": "scip",
           "type": "string"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "exact": {
           "default": false,
@@ -1504,9 +1539,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "ScipSettings",
+      "title": "ScipSettingsDocument",
       "type": "object"
     },
     {
@@ -1521,6 +1557,11 @@
           "default": false,
           "description": "Cross over from the interior-point solution to a vertex of a linear program.",
           "type": "boolean"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "equilibrate": {
           "default": true,
@@ -1555,9 +1596,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "PounceConvexSettings",
+      "title": "PounceConvexSettingsDocument",
       "type": "object"
     },
     {
@@ -1567,6 +1609,11 @@
         "backend": {
           "const": "uno",
           "type": "string"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "limited_memory": {
           "default": 6,
@@ -1588,9 +1635,10 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "UnoSettings",
+      "title": "UnoSettingsDocument",
       "type": "object"
     },
     {
@@ -1600,6 +1648,11 @@
         "backend": {
           "const": "petsc",
           "type": "string"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "linear": {
           "$ref": "#/$defs/NativePetscLinear",
@@ -1651,11 +1704,22 @@
         }
       },
       "required": [
-        "backend"
+        "backend",
+        "document_version"
       ],
-      "title": "PetscSettings",
+      "title": "PetscSettingsDocument",
       "type": "object"
     }
+  ],
+  "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "document_version"
   ],
   "title": "BackendSettings"
 }

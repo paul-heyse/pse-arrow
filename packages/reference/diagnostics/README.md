@@ -1,6 +1,7 @@
 # Diagnostic threshold profiles
 
 `idaes-2.13.json` is explicit settings data for `ModelingDiagnosticSettings.from_json`.
+Its required `document_version: 1` selects the standalone settings interpretation.
 It is portable JSON, independently editable, and is not selected automatically or imported
 as a modeling declaration package. Pass its contents to the settings constructor and pass
 the resulting settings to the modeling package's diagnostic operation.

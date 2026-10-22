@@ -255,7 +255,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnosticOutput": {
+    "BoundaryDiagnosticBodyOutput": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -271,7 +271,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
           },
           "type": "array"
         },
@@ -287,7 +287,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationOutput"
+            "$ref": "#/$defs/SourceLocationBodyOutput"
           },
           "type": "array"
         },
@@ -825,12 +825,24 @@
             "null"
           ]
         },
+        "stopping": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResidualLmStopping"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual algorithm criteria and finite allowances; absent for fixed evaluation."
+        },
         "termination": {
           "$ref": "#/$defs/FitResidualTermination",
           "description": "Literal library termination category and detail."
         }
       },
       "required": [
+        "stopping",
         "termination",
         "residual_evaluations",
         "jacobian_evaluations",
@@ -1479,7 +1491,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
           },
           "type": "array"
         },
@@ -1495,7 +1507,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationOutput"
+            "$ref": "#/$defs/SourceLocationBodyOutput"
           },
           "type": "array"
         },
@@ -1715,7 +1727,69 @@
         }
       ]
     },
-    "SourceLocationOutput": {
+    "ResidualLmCriteria": {
+      "additionalProperties": false,
+      "description": "Exact algorithm stopping criteria used by residual LM.\nThese relative/cosine values do not represent original physical stationarity.",
+      "properties": {
+        "column_residual_cosine": {
+          "description": "Maximum normalized residual/Jacobian-column cosine (gtol).",
+          "format": "double",
+          "type": "number"
+        },
+        "relative_cost_change": {
+          "description": "Actual and predicted relative objective-reduction threshold (ftol).",
+          "format": "double",
+          "type": "number"
+        },
+        "relative_step": {
+          "description": "Relative consecutive-iterate threshold (xtol).",
+          "format": "double",
+          "type": "number"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "description": "Encoding of these distinct algorithm criteria.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "relative_cost_change",
+        "relative_step",
+        "column_residual_cosine"
+      ],
+      "type": "object"
+    },
+    "ResidualLmStopping": {
+      "additionalProperties": false,
+      "description": "Actual algorithm criteria and finite allowances for one executed LM invocation.",
+      "properties": {
+        "criteria": {
+          "$ref": "#/$defs/ResidualLmCriteria",
+          "description": "The actual distinct algorithm stopping criteria."
+        },
+        "parameter_update_limit": {
+          "description": "Conservative maximum accepted parameter-update calls.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "residual_evaluation_limit": {
+          "description": "Maximum residual callback calls, checked before evaluating the original model.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "criteria",
+        "parameter_update_limit",
+        "residual_evaluation_limit"
+      ],
+      "type": "object"
+    },
+    "SourceLocationBodyOutput": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -1898,13 +1972,19 @@
       "additionalProperties": false,
       "description": "No profile request was made.",
       "properties": {
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
         "status": {
           "const": "not_requested",
           "type": "string"
         }
       },
       "required": [
-        "status"
+        "status",
+        "document_version"
       ],
       "type": "object"
     },
@@ -1919,6 +1999,11 @@
           },
           "type": "array"
         },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
         "status": {
           "const": "available",
           "type": "string"
@@ -1926,7 +2011,8 @@
       },
       "required": [
         "status",
-        "chains"
+        "chains",
+        "document_version"
       ],
       "type": "object"
     },
@@ -1937,6 +2023,11 @@
         "detail": {
           "description": "Retained explanation of the refusal.",
           "type": "string"
+        },
+        "document_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
         },
         "reason": {
           "$ref": "#/$defs/WithheldReason",
@@ -1950,10 +2041,21 @@
       "required": [
         "status",
         "reason",
-        "detail"
+        "detail",
+        "document_version"
       ],
       "type": "object"
     }
+  ],
+  "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "document_version"
   ],
   "title": "FitProfileDocument"
 }

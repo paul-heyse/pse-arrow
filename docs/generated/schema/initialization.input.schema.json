@@ -61,6 +61,11 @@
       "minimum": 0,
       "type": "integer"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "original": {
       "additionalProperties": false,
       "description": "Original specification values.",
@@ -101,7 +106,8 @@
     "completed_stages",
     "original_bindings_restored",
     "cancelled",
-    "stages"
+    "stages",
+    "document_version"
   ],
   "title": "InitializationDocument",
   "type": "object"

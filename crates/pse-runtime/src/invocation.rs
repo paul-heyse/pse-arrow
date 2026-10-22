@@ -9,6 +9,8 @@ use std::{
     time::Instant,
 };
 
+type InvocationVersion = pse_model::document::Version<2>;
+
 /// A boundary's observed outcome, independent of scientific product permission.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -75,7 +77,7 @@ pub struct InvocationEndpoints {
 #[serde(deny_unknown_fields)]
 pub struct InvocationEvidenceDocument {
     /// Encoding contract version.
-    pub version: u32,
+    pub version: InvocationVersion,
     /// Original execution identity.
     pub run_id: RunId,
     /// Durable attempt when registered; ephemeral invocations have none.
@@ -111,10 +113,12 @@ pub struct InvocationEvidenceDocument {
     pub attempts: Arc<crate::workflow::AttemptSummaryDocument>,
 }
 impl InvocationEvidenceDocument {
+    /// Actual fixed version of this original joined-evidence encoding.
+    pub const fn version(&self) -> u32 { InvocationVersion::NUMBER }
     /// Validate factual coordinates before matching saved evidence; no native admission occurs.
     pub fn validate(&self) -> Result<(), crate::observation::ObservationError> {
         let invalid = |message: &str| crate::observation::ObservationError::Format(message.into());
-        if self.version != 2 || self.run_id != self.attempts.run_id {
+        if self.run_id != self.attempts.run_id {
             return Err(invalid("unsupported or inconsistent invocation identity"));
         }
         let mut steps = std::collections::BTreeSet::new();

@@ -562,6 +562,11 @@
       "type": "string",
       "x-pse-identity": "ContentHash"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "layout": {
       "description": "Exact source coordinate compatibility.",
       "pattern": "^blake3:[0-9a-fA-F]{64}$",
@@ -596,7 +601,8 @@
     "profile",
     "data",
     "backend",
-    "payload"
+    "payload",
+    "document_version"
   ],
   "title": "WarmStartSnapshotOutput",
   "type": "object"

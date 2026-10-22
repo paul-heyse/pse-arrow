@@ -191,7 +191,7 @@ impl FrozenEvidenceSet {
         let mut processes = BTreeSet::new();
         let mut operations = BTreeSet::new();
         for image in &self.checkpoints {
-            if image.version != 4 || !processes.insert(&image.process) {
+            if !processes.insert(&image.process) {
                 return Err(format("unsupported or duplicate checkpoint identity"));
             }
             for operation in &image.operations {

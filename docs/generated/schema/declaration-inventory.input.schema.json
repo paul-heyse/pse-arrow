@@ -5592,10 +5592,16 @@
         "$ref": "#/$defs/AuthoredModelingDeclarationsRow"
       },
       "type": "array"
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     }
   },
   "required": [
-    "declarations"
+    "declarations",
+    "document_version"
   ],
   "title": "DeclarationInventory",
   "type": "object"

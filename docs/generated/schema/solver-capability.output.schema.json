@@ -134,6 +134,11 @@
       "description": "diagnostics",
       "type": "string"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "general_bounds": {
       "description": "general_bounds",
       "type": "boolean"
@@ -207,7 +212,8 @@
     "requirements",
     "lexicographic_classes",
     "batch",
-    "sensitivities"
+    "sensitivities",
+    "document_version"
   ],
   "title": "SolverCapability",
   "type": "object"

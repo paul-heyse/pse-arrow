@@ -60,9 +60,21 @@ def _encode(
             message = f"Expected generated {row_type.__name__} row"
             raise TypeError(message)
         plain_rows.append(_converters.rows.unstructure(row))
-    plain = {field: plain_rows}
+    plain: dict[str, object] = {field: plain_rows}
+    info = msgspec.inspect.type_info(document_type)
+    # This is a fresh current document constructed from typed authored rows, not
+    # a serialized document read. Use the actual generated constructor default
+    # for its root header; supplied nested headers still undergo admission below.
+    if isinstance(info, msgspec.inspect.StructType):
+        header = getattr(document_type, "_pse_required_version_field", "version")
+        for member in info.fields:
+            if member.encode_name == header:
+                if member.default is msgspec.NODEFAULT:
+                    message = "generated current document header has no constructor default"
+                    raise TypeError(message)
+                plain[header] = member.default
     _check_finite(plain, "$")
-    _check_version_headers(plain, msgspec.inspect.type_info(document_type), "$")
+    _check_version_headers(plain, info, "$")
     return encode_json(msgspec.convert(plain, type=document_type, strict=True))
 
 

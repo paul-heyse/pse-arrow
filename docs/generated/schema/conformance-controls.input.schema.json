@@ -48,7 +48,7 @@
       ],
       "type": "object"
     },
-    "ModelingDiagnosticPolicy": {
+    "ModelingDiagnosticPolicyBody": {
       "additionalProperties": false,
       "description": "Explicit thresholds and budgets; the caller selects the named knowledge profile.",
       "properties": {
@@ -208,7 +208,7 @@
     "diagnostics": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ModelingDiagnosticPolicy"
+          "$ref": "#/$defs/ModelingDiagnosticPolicyBody"
         },
         {
           "type": "null"
@@ -216,6 +216,11 @@
       ],
       "default": null,
       "description": "Optional native diagnostic policy."
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     },
     "fixtures": {
       "default": null,
@@ -245,6 +250,9 @@
       "type": "integer"
     }
   },
+  "required": [
+    "document_version"
+  ],
   "title": "ConformanceControls",
   "type": "object"
 }

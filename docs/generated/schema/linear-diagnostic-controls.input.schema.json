@@ -4,6 +4,11 @@
   "additionalProperties": false,
   "description": "Source-coordinate declarations for bounded affine-model diagnostics.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "iis": {
       "default": false,
       "description": "Request native irreducible infeasibility evidence.",
@@ -111,6 +116,9 @@
       ]
     }
   },
+  "required": [
+    "document_version"
+  ],
   "title": "LinearDiagnosticControls",
   "type": "object"
 }

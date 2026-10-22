@@ -76,7 +76,7 @@ impl Counts {
         Arc::new(Self { prefix: Mutex::new(Vec::with_capacity(CLOSED_PREFIX)), ..Self::default() })
     }
     fn admit(&self) -> bool {
-        if self.active.fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < ACTIVE_SPANS).then_some(active + 1)).is_err() {
+        if self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < ACTIVE_SPANS).then_some(active + 1)).is_err() {
             self.refused.fetch_add(1, Ordering::Relaxed);
             return false;
         }

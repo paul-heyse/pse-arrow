@@ -44,6 +44,33 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(
     serde_json::from_slice(bytes)
         .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
 }
+/// Decode a registered standalone owner using its catalogue-selected actual envelope.
+pub(crate) fn decode_document<T: serde::de::DeserializeOwned + DocumentType>(
+    py: Python<'_>, operation: &str, bytes: &[u8], allowance: usize,
+) -> PyResult<T> {
+    if bytes.len() > allowance { return Err(crate::workflow::invalid(py, format!("{operation} document extent"))); }
+    if let Some(version) = T::VERSION {
+        let field = match T::WIRE {
+            pse_runtime::boundary_documents::Wire::Native => "version",
+            pse_runtime::boundary_documents::Wire::FlatV1 | pse_runtime::boundary_documents::Wire::ValueV1 => "document_version",
+        };
+        pse_runtime::boundary_documents::check_required_header(bytes, field, version)
+            .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))?;
+    }
+    T::WIRE.from_slice(bytes).map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+}
+
+/// Shared native header admission for Python's original JSON slices.
+#[pyfunction]
+pub(crate) fn check_document_header(bytes: &[u8], field: &str, expected: u32) -> PyResult<()> {
+    let field = match field {
+        "version" => "version", "document_version" => "document_version",
+        _ => return Err(pyo3::exceptions::PyValueError::new_err("unknown document version header")),
+    };
+    pse_runtime::boundary_documents::check_required_header(bytes, field, expected)
+        .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))
+}
+
 /// Admit interpretation before decoding nested current document fields.
 pub(crate) fn decode_versioned<T: serde::de::DeserializeOwned, const N: u32>(
     py: Python<'_>,
@@ -84,13 +111,8 @@ pub(crate) fn study_definition(
     pse_runtime::workflow::StudyDefinition::readmission(document)
         .map_err(|error| crate::inspection::errors::diagnostic(py, &error))
 }
-/// Project an owned result document; no adapter-owned JSON shape is introduced.
-pub(crate) fn encode<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Vec<u8>> {
-    serde_json::to_vec(value).map_err(|error| crate::workflow::invalid(py, error.to_string()))
-}
-
 /// Omission is resolved by the Rust operation's default implementation.
-pub(crate) fn controls<T: serde::de::DeserializeOwned + Default>(
+pub(crate) fn controls<T: serde::de::DeserializeOwned + Default + DocumentType>(
     py: Python<'_>,
     operation: &str,
     bytes: Option<&[u8]>,
@@ -98,7 +120,7 @@ pub(crate) fn controls<T: serde::de::DeserializeOwned + Default>(
 ) -> PyResult<T> {
     bytes.map_or_else(
         || Ok(T::default()),
-        |bytes| decode(py, operation, bytes, allowance),
+        |bytes| decode_document(py, operation, bytes, allowance),
     )
 }
 
@@ -110,7 +132,7 @@ pub(crate) trait DocumentType {
     const OUTPUT_NAME: &'static str;
     const DISTINCT_DIRECTIONS: bool;
     const VERSION: Option<u32>;
-    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+    const WIRE: pse_runtime::boundary_documents::Wire;
 }
 #[path = "generated/documents.rs"]
 mod catalogue;
@@ -133,6 +155,7 @@ projection!(pse_runtime::invocation::InvocationEvidence => pse_runtime::invocati
 projection!(pse_runtime::workflow::AttemptSummary => pse_runtime::workflow::AttemptSummaryDocument);
 projection!(pse_runtime::tooling::review_analysis::Analysis => pse_runtime::tooling::review_analysis::AnalysisDocument);
 projection!(crate::workflow::StoredCompletionDocument => pse_runtime::workflow::Completion);
+projection!(pse_backend_native::solve::SubmittedStartRef<'_> => pse_backend_native::solve::SubmittedStartRecord);
 
 impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
     const INPUT_NAME: &'static str = T::INPUT_NAME;
@@ -193,15 +216,7 @@ impl<T: serde::de::DeserializeOwned + DocumentType> FromPyObject<'_, '_> for Doc
             .call_method1("encode_json", (value,))?;
         let bytes = encoded.cast::<PyBytes>()?;
         let bytes = bytes.as_bytes();
-        if let Some(version) = T::VERSION {
-            #[derive(serde::Deserialize)]
-            struct Header { version: u32 }
-            let header: Header = decode(py, T::INPUT_NAME, bytes, 1 << 20)?;
-            if header.version != version {
-                return Err(crate::workflow::invalid(py, format!("unsupported {} version {}", T::INPUT_NAME, header.version)));
-            }
-        }
-        decode(py, T::INPUT_NAME, bytes, 1 << 20).map(Self)
+        decode_document(py, T::INPUT_NAME, bytes, 1 << 20).map(Self)
     }
 }
 
@@ -230,26 +245,8 @@ impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
         if bytes.len() > pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES {
             return Err(crate::workflow::invalid(py, "recorded document extent"));
         }
-        #[derive(serde::Deserialize)]
-        struct Header {
-            version: u32,
-        }
-        let header: Header = decode(
-            py,
-            T::INPUT_NAME,
-            bytes,
-            pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
-        )?;
-        if Some(header.version) != T::VERSION {
-            return Err(crate::workflow::invalid(
-                py,
-                format!("unsupported {} version {}", T::INPUT_NAME, header.version),
-            ));
-        }
-        let document: T = decode(
-            py,
-            T::INPUT_NAME,
-            bytes,
+        let document: T = decode_document(
+            py, T::INPUT_NAME, bytes,
             pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
         )?;
         document

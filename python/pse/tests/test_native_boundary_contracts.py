@@ -213,14 +213,14 @@ def test_named_report_types_have_no_legacy_tuple_surface() -> None:
 def test_owned_flow_document_is_a_shape_not_native_domain_admission() -> None:
     # Native admission rejects duplicate occurrences and negative costs.
     document = codec.decode_json(
-        b'{"nodes":[],"connections":[{"connection":"01010101010101010101010101010101","group":"02020202020202020202020202020202","cost":-1.0,"policy":"mandatory"}]}',
+        b'{"document_version":1,"nodes":[],"connections":[{"connection":"01010101010101010101010101010101","group":"02020202020202020202020202020202","cost":-1.0,"policy":"mandatory"}]}',
         documents.FlowSelectionDocument,
     )
     assert document.connections[0].policy is TearPolicy.MANDATORY
     assert document.connections[0].cost == -1.0
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"nodes":[],"connections":[],"inference":true}',
+            b'{"document_version":1,"nodes":[],"connections":[],"inference":true}',
             documents.FlowSelectionDocument,
         )
     with pytest.raises(msgspec.ValidationError):
@@ -233,7 +233,7 @@ def test_owned_flow_document_is_a_shape_not_native_domain_admission() -> None:
 @pytest.mark.unit
 def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -> None:
     document = codec.decode_json(
-        b'{"status":"available","chains":[{"worker_failure":{"kind":"sched'
+        b'{"document_version":1,"status":"available","chains":[{"worker_failure":{"kind":"sched'
         b'uling","detail":"pool unavailable"},"scheduling_failures":[],"ac'
         b'tual_parallelism":0,"parameter":"0707070707070707070707070707070'
         b'7","end":"lower","estimate":2.0,"bound":{"value":null,"outcome":'
@@ -249,7 +249,7 @@ def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -
     assert document.chains[0].bound.value is None
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"status":"not_requested","chains":[]}', documents.FitProfileDocument
+            b'{"document_version":1,"status":"not_requested","chains":[]}', documents.FitProfileDocument
         )
 
 
@@ -266,6 +266,7 @@ def test_strategy_document_constructor_and_decoder_refuse_duplicate_selected_ids
         codec.decode_json(
             codec.encode_json(
                 {
+                    "document_version": 1,
                     "tears": [identity, identity],
                     "units": [],
                     "anderson": 0,

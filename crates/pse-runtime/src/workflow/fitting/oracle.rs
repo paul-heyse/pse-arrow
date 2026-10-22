@@ -1034,14 +1034,14 @@ impl FitProblem {
         workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        self.execute_profile_with_lm(solver, route, scope, progress, workers, admission, None)
+        self.execute_profile_with_lm(solver, route, scope, progress, workers, admission, self.residual_lm_criteria)
     }
     /// Keep inquiry policy variation inside the actual native lifetime and scientific finish owner.
     pub(super) fn execute_profile_with_lm(
         self: &Arc<Self>, solver: &SolverProfile, route: FitRoute,
         scope: pse_kernels::ExecutionScope, progress: Arc<native::solve::Progress>, workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-        stopping: Option<levenberg_marquardt::LevenbergMarquardt<f64>>,
+        stopping: ResidualLmCriteria,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let operation = pse_diagnostics::observation::current().map(|parent| {
             parent.child(
@@ -1096,7 +1096,7 @@ impl FitProblem {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-        stopping: Option<levenberg_marquardt::LevenbergMarquardt<f64>>,
+        stopping: ResidualLmCriteria,
     ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
         let mut execution = Execution::within(
             scope.cancellation_control().clone(),
@@ -1122,10 +1122,7 @@ impl FitProblem {
             oracle.objective(&[])?;
             (None, None, Some(vec![]))
         } else if route == FitRoute::ResidualLm {
-            let (report, candidate) = match stopping {
-                Some(method) => residual::solve_using(self, execution.clone(), &self.initial, None, scratch.clone(), method),
-                None => residual::solve(self, execution.clone(), &self.initial, None, scratch.clone()),
-            }?;
+            let (report, candidate) = residual::solve_using(self, execution.clone(), &self.initial, None, scratch.clone(), stopping)?;
             (None, Some(report), Some(candidate))
         } else {
             let oracle = FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;
@@ -3124,7 +3121,7 @@ mod tests {
         assert!(report.wald.as_ref().unwrap().is_ok());
         assert!(!result.usable() && !report.estimate_qualified());
         let document = result.invocation_evidence().unwrap();
-        assert_eq!(document.version, 2);
+        assert_eq!(serde_json::to_value(&document).unwrap()["version"], 2);
         assert!(document.timing_unavailable.is_none());
         assert!(
             document

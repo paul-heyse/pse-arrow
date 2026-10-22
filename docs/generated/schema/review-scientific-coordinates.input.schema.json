@@ -82,6 +82,11 @@
       "$ref": "#/$defs/Bytes",
       "description": "Existing scientific-coordinate configuration codec, copied from retained inputs."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "fit_id": {
       "description": "Original fit identity.",
       "pattern": "^[0-9a-fA-F]{32}$",
@@ -217,7 +222,8 @@
     "outputs",
     "integrals",
     "mode_names",
-    "mode_identities"
+    "mode_identities",
+    "document_version"
   ],
   "title": "ReviewScientificCoordinates",
   "type": "object"

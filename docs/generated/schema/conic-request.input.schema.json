@@ -252,6 +252,11 @@
       "$ref": "#/$defs/SparseMatrix",
       "description": "A in Ax+s=b."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "objective": {
       "description": "Objective coefficients.",
       "items": {
@@ -305,7 +310,8 @@
     "constraints",
     "rhs",
     "cones",
-    "objective_constant"
+    "objective_constant",
+    "document_version"
   ],
   "title": "ConicRequest",
   "type": "object"

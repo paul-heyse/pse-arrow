@@ -6129,6 +6129,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "documents": {
       "$ref": "#/$defs/SourceDocumentDeltaOutput",
       "default": {
@@ -6176,7 +6181,8 @@
     "replacements",
     "removals",
     "documents",
-    "fits"
+    "fits",
+    "document_version"
   ],
   "title": "SourceDeltaOutput",
   "type": "object"

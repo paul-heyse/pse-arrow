@@ -142,7 +142,7 @@
         }
       ]
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -170,7 +170,7 @@
       ],
       "type": "object"
     },
-    "ReviewContextRequest": {
+    "ReviewContextRequestBody": {
       "additionalProperties": false,
       "description": "Exact explanatory selection, independent of executable replay eligibility.",
       "properties": {
@@ -243,7 +243,7 @@
       "description": "Additional selected descriptive output; absent means no handoff retention.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ReviewContextRequest",
+          "$ref": "#/$defs/ReviewContextRequestBody",
           "description": "Existing callback-free descriptive selection."
         },
         "maximum_bytes": {
@@ -289,7 +289,7 @@
           "type": "array"
         },
         "operation": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Actual operation including the receiving process instance."
         },
         "pid": {

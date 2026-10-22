@@ -11,6 +11,11 @@
         "null"
       ]
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "limit": {
       "default": 16,
       "description": "Requested page size, default 16 and effective ceiling 32.",
@@ -19,6 +24,9 @@
       "type": "integer"
     }
   },
+  "required": [
+    "document_version"
+  ],
   "title": "DiagnosticListRequest",
   "type": "object"
 }

@@ -369,7 +369,15 @@ mod tests {
             assert!(runtime.snapshot_initialization_stages(reader(batch(&runtime, rows))).is_err());
         }
         let nonfinite = ScientificCoordinateValue { value: QuantityValue { value: f64::NAN, ..point.value }, ..point };
-        let input = batch(&runtime, [diagnostic_samples::Row { sample_id: SemanticId::NIL, values: vec![nonfinite] }]);
+        // An external Arrow producer can submit structurally valid, nonfinite
+        // values. Encode without the checked RowBuilder::finish so the receiving
+        // snapshot's actual field admission is the boundary under test.
+        let schema = runtime.physical_input_schema(PhysicalInputKind::DiagnosticSamples).unwrap();
+        let mut columns = schema.fields().iter().map(|field|
+            datafusion::arrow::array::builder::make_builder(field.data_type(), 1)
+        ).collect::<Vec<_>>();
+        diagnostic_samples::Row { sample_id: SemanticId::NIL, values: vec![nonfinite] }.append_columns(&mut columns).unwrap();
+        let input = RecordBatch::try_new(schema, columns.iter_mut().map(|column| column.finish()).collect()).unwrap();
         assert!(runtime.snapshot_diagnostic_samples(reader(input)).is_err());
     }
     #[test]

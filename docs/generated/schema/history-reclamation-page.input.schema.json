@@ -14,6 +14,11 @@
       "description": "No releasable detail remains for this exact owner.",
       "type": "boolean"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "removed": {
       "description": "Detail records removed in this page.",
       "format": "uint64",
@@ -24,7 +29,8 @@
   "required": [
     "complete",
     "removed",
-    "compacted"
+    "compacted",
+    "document_version"
   ],
   "title": "HistoryReclamationPage",
   "type": "object"

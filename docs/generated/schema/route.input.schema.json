@@ -36,10 +36,16 @@
     "constant": {
       "description": "Whether the selected model is evaluated directly.",
       "type": "boolean"
+    },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
     }
   },
   "required": [
-    "constant"
+    "constant",
+    "document_version"
   ],
   "title": "RouteDocument",
   "type": "object"

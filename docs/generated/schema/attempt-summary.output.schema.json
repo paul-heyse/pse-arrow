@@ -905,7 +905,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SubmittedStartRecordOutput"
+              "$ref": "#/$defs/SubmittedStartRecordBodyOutput"
             },
             {
               "type": "null"
@@ -2364,7 +2364,7 @@
         }
       ]
     },
-    "SubmittedStartRecordOutput": {
+    "SubmittedStartRecordBodyOutput": {
       "additionalProperties": false,
       "description": "Actual submitted source-coordinate seed, distinct from an output or native checkpoint.",
       "properties": {
@@ -2380,7 +2380,7 @@
         "seed": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
             },
             {
               "type": "null"
@@ -2651,7 +2651,7 @@
       ],
       "type": "object"
     },
-    "WarmStartSnapshotOutput": {
+    "WarmStartSnapshotBodyOutput": {
       "additionalProperties": false,
       "description": "Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's\nsign survives in real observations. Snapshot attribution is separate from content identity.",
       "properties": {
@@ -2893,6 +2893,11 @@
   "additionalProperties": false,
   "description": "Bounded automatic summary. Partial evidence and truncation are explicit.",
   "properties": {
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "failure": {
       "anyOf": [
         {
@@ -2960,7 +2965,8 @@
     "native_record_coverage",
     "omitted_steps",
     "failure",
-    "usable"
+    "usable",
+    "document_version"
   ],
   "title": "AttemptSummaryOutput",
   "type": "object"

@@ -474,7 +474,7 @@ impl NativeAttempt {
             .map(|inner| NativeStart { inner })
     }
     /// Actual input seed receipt, distinct from available output starts.
-    fn start_receipt(&self) -> Option<documents::DocumentValue<pse_backend_native::solve::WarmStartSnapshot>> {
+    fn start_receipt(&self) -> Option<documents::DocumentValue<pse_backend_native::solve::SubmittedStartRef<'_>>> {
         self.inner.start_receipt.as_ref().map(|start| documents::DocumentValue(start.snapshot()))
     }
 }

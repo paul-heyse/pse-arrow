@@ -101,12 +101,13 @@ def _row(
     return codec.document_rows([document], authored.AuthoredModelingDeclarationsRow)[0]
 
 
-def _old(rows: tuple[object, ...], field: str, document_type: type) -> bytes:
+def _reference(rows: tuple[object, ...], field: str, document_type: type) -> bytes:
     converter = codec.converter()
     converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
     converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
     plain = {field: tuple(converter.unstructure(row) for row in rows)}
-    return codec.encode_json(codec.decode_json(codec.encode_json(plain), document_type))
+    current = codec.convert_document(plain, document_type)
+    return codec.encode_json(codec.decode_json(codec.encode_json(current), document_type))
 
 
 @pytest.mark.unit
@@ -126,7 +127,7 @@ def test_every_declaration_arm_retains_strict_transport_bytes() -> None:
         rows.append(_row(field.encode_name, arm))
     assert len(rows) > 40
     for values in ((), tuple(rows), tuple(rows * 3)):
-        assert _generated.encode_declarations(values) == _old(
+        assert _generated.encode_declarations(values) == _reference(
             values, "declarations", documents.DeclarationEdit
         )
 
@@ -170,7 +171,7 @@ def _fit() -> authored.AuthoredFitCasesRow:
 def test_nested_fits_preserve_identities_enums_and_signed_zero() -> None:
     for rows in ((), (_fit(),), (_fit(),) * 128):
         encoded = _generated.encode_fits(rows)
-        assert encoded == _old(rows, "fits", documents.FitDeclarations)
+        assert encoded == _reference(rows, "fits", documents.FitDeclarations)
         if rows:
             assert b'"value":-0.0' in encoded
 

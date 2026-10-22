@@ -352,7 +352,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnosticOutput": {
+    "BoundaryDiagnosticBodyOutput": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -368,7 +368,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
           },
           "type": "array"
         },
@@ -384,7 +384,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationOutput"
+            "$ref": "#/$defs/SourceLocationBodyOutput"
           },
           "type": "array"
         },
@@ -2407,7 +2407,7 @@
       ],
       "type": "object"
     },
-    "SourceLocationOutput": {
+    "SourceLocationBodyOutput": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -2606,7 +2606,7 @@
     "diagnostics": {
       "description": "Source-attributed final errors and unavailable fit diagnostics.",
       "items": {
-        "$ref": "#/$defs/BoundaryDiagnosticOutput"
+        "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
       },
       "type": "array"
     },

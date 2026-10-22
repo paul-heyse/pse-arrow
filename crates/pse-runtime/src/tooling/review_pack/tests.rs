@@ -1092,7 +1092,7 @@ use crate::observation_detail::{DetailRecordPage};
             partial: false,
         });
         set.invocations.push(InvocationEvidenceDocument {
-            version: 2,
+            version: Default::default(),
             run_id: run,
             attempt_id: None,
             operation: Some(operation),

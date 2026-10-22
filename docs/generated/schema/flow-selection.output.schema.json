@@ -55,6 +55,11 @@
       },
       "type": "array"
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "nodes": {
       "description": "Explicit selected instances; repeated identities refuse before set construction.",
       "items": {
@@ -67,7 +72,8 @@
   },
   "required": [
     "nodes",
-    "connections"
+    "connections",
+    "document_version"
   ],
   "title": "FlowSelectionDocument",
   "type": "object"

@@ -45,6 +45,11 @@
       ],
       "description": "Actual acknowledgement when observed. Absence remains unproved: it does\nnot establish that publication was never issued or cannot still complete."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "operation": {
       "description": "Original operation identity, never replaced with a fresh issue.",
       "type": "string"
@@ -56,7 +61,8 @@
   },
   "required": [
     "problem",
-    "operation"
+    "operation",
+    "document_version"
   ],
   "title": "SourceSettlement",
   "type": "object"

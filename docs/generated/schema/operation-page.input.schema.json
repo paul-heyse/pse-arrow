@@ -86,7 +86,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -139,7 +139,7 @@
           "description": "Actual owner completion time, when known."
         },
         "id": {
-          "$ref": "#/$defs/OperationId",
+          "$ref": "#/$defs/OperationIdBody",
           "description": "Diagnostic identity of the associated operation."
         },
         "kind": {
@@ -244,6 +244,11 @@
       "$ref": "#/$defs/Coverage",
       "description": "Independent availability, freshness and loss facts."
     },
+    "document_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
     "next_offset": {
       "description": "Next current-catalogue offset, when more entries are present.",
       "format": "uint",
@@ -268,7 +273,8 @@
   "required": [
     "summaries",
     "operations",
-    "coverage"
+    "coverage",
+    "document_version"
   ],
   "title": "OperationPage",
   "type": "object"

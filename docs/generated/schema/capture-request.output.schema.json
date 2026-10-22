@@ -53,7 +53,7 @@
       ],
       "type": "object"
     },
-    "OperationId": {
+    "OperationIdBody": {
       "additionalProperties": false,
       "description": "Process instance plus local sequence; never a semantic or cache identity.",
       "properties": {
@@ -111,7 +111,7 @@
       "description": "Optional evidence requested by the caller."
     },
     "operation": {
-      "$ref": "#/$defs/OperationId",
+      "$ref": "#/$defs/OperationIdBody",
       "description": "Selected root diagnostic operation, not a numerical result identity."
     },
     "output": {
