@@ -197,7 +197,9 @@ mod surrealism_qualification {
         for committed_before_recovery in [false,true] {
             let study=if committed_before_recovery {"cancel-after-commit"} else {"cancel-before-fence"};
             let run=format!("{study}-parent");
-            store.create_study(study,&request(&revision,&run),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
+            let mut point=occurrence(&revision,0,vec![]);
+            point.run=request(&revision,&format!("{study}-point-run"));
+            store.create_study(study,&request(&revision,&run),&[],&[point],&||false).await.unwrap();
             let cursor=store.readiness_cursor(study).await.unwrap();
             let coordinates=readiness_coordinates(&store,study,&cursor,"verify",None).unwrap();
             let operation=format!("qualification-cancel:{}",uuid::Uuid::new_v4());
