@@ -1062,6 +1062,16 @@ cause indefinite waiting. Original accepted seeds retain layout/profile/data com
 permission and lineage, with bounded chunk coverage and accounted decoding. Reuse selects
 the exact compatible scientific occurrence rather than a stage prefix or newest timestamp.
 
+> Decision: [ADR-0214](../../adr/0214-surrealmx-canonical-store.md) (proposed;
+> maintainer-selected RC22). A pinned SDK/ABI and content-addressed immutable Surrealism
+> artifact join the schema activation identity. Install the read-only module from a
+> restricted local bucket before activation, and refuse a missing or mismatched artifact.
+> Finite scope, controller, linear-memory and strict execution-time limits apply. The
+> module has no arbitrary SQL, network, scripting or KV capability. Trap or timeout aborts
+> the enclosing transaction; an uncertain reply retains the exact native operation intent
+> and receipt reconciliation under its original deadline. Replace external scientific-scope
+> transfer and stale-decision application after the in-transaction controls qualify.
+
 **Studies and workers.** Immutable occurrence descriptors retain authored point policy,
 source bindings and starts. Discovery reads bounded truthful summaries. The shared Rust
 study policy consumes the candidate and actual immediate predecessor facts; only ready

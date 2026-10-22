@@ -850,6 +850,14 @@ owner receives numerical coordinates. Their operation-owned destination paths ar
 by that owner and checked against the persisted canonical member identities; replay does not
 convert the admitted values again.
 
+> Decision: [ADR-0214](../../adr/0214-surrealmx-canonical-store.md) (proposed;
+> maintainer-selected RC22, 2026-10-22). Readiness acquires one complete bounded scope,
+> invokes the same Rust policy through the read-only `pse-study-module` Surrealism export,
+> and applies hints/cursors inside one SurrealDB transaction. Native claims and execution
+> keep their existing policy consumer and authoritative revalidation. The module owns no
+> scientific, lifecycle or pooled persistent state. Plan49a owns production cutover and
+> assembled qualification; selecting this target does not claim those controls have passed.
+
 **One pure policy.** `pse-model::study` owns the semantic facts; `pse-model::study_policy`
 consumes them without database, artifact or native solver effects. Ordering edges wait for a
 terminal predecessor, including failure. Usable-result edges require E's aggregate scientific
