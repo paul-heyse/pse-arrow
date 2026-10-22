@@ -16,13 +16,13 @@ pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
     let mut declarations = Vec::new();
     let mut arms = Vec::new();
     for kind in &kinds.members {
-        let variant = super::types::ident(&super::types::pascal(&kind.name));
+        let variant = super::types::ident(&super::types::pascal(kind.name));
         for family in &families.members {
             let profile_name = format!("{}-{}", kind.name, family.name);
             let Some(profile) = reg.artifact_profile(&profile_name) else {
                 continue;
             };
-            let family_variant = super::types::ident(&super::types::pascal(&family.name));
+            let family_variant = super::types::ident(&super::types::pascal(family.name));
             let constant = format_ident!(
                 "REQUIRED_{}",
                 profile_name.replace('-', "_").to_ascii_uppercase()
