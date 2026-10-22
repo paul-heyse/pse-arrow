@@ -98,9 +98,11 @@ Runtime owns reusable operation request structs, preparation controls, validated
 admission and declared-procedure dispatch. Hosts adapt their transport into those meanings.
 A host request superset wraps shared requests plus host-only operations, with a typed projection
 into the study-admitted set. An unsupported projection fails before durable effects. This leaves
-`StudyOperation` study-owned and preserves its current `Version<7>` shape. If Shooting is later
-selected for studies, change the version and specify replay/regeneration explicitly; never add
-a serialized Shooting variant as a side effect of removing a Python enum.
+`StudyOperation` study-owned and preserves its admitted operation membership. Physical typed
+requests advance StudyOperation/StudyRequest to `Version<8>` and stored definitions to 12;
+the maintainer's fresh-data selection removes old readers rather than reinterpreting Version7.
+If Shooting is later selected for studies, change the version and specify replay/regeneration
+explicitly; never add a serialized Shooting variant as a side effect of removing a Python enum.
 
 The runtime preparation entry consumes source/context, explicit `PreparationSettings`, operation
 and admitted value bindings. It composes declared execution once, returning the operation-specific
@@ -310,7 +312,7 @@ and static/manual checks once the functional scope is implemented.
 |---|---|
 | RUN01/RUN02 stop and lifetime | Caller stop mid-horizon returns cancellation with a partial prefix; inherited deadline returns typed TimeLimit; child drop leaves caller/sibling live; a blocked native destructor retains compute/lane/view charge until joined. |
 | Durable supervision | Caller disconnect leaves durable work running; explicit fenced cancel stops it; worker stop drains all 16 shared lanes; simultaneous processes cannot seal another attempt; no return drops active lanes. |
-| RUN03 request semantics | Equivalent host/study requests produce equivalent admitted preparation; host-only Shooting projection refuses before effects; Version<7> documents retain shape; wrong request/report pairing is unrepresentable. |
+| RUN03 request semantics | Equivalent host/study requests produce equivalent admitted preparation; host-only Shooting projection refuses before effects; Version8 physical requests and stored definition12 are explicit with no historical reader; wrong request/report pairing is unrepresentable. |
 | Admission and deployment | Malformed documents and invalid counts/lease relations fail at the semantic constructor; external ingress is revalidated; both hosts exercise the same deployment sequence with per-host assertion. |
 | RUN04 scientific binding | Unit-converted Fit/Simulation parameter points equal independently prepared fresh points; parameter changes requiring new DAE ICs recompute them; retry/lane order cannot leak a preceding point's start. |
 | RUN05 ownership | Table-driven mode cases exercise annotation differences and view promotion at the compiler owner; predicted-start/fallback tests need explicit policy facts without Runtime/native startup. |

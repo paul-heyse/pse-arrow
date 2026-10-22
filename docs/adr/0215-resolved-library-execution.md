@@ -6,7 +6,7 @@ date: 2026-10-21
 deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-07, DP-09, PS-01, PS-07, PS-09, PS-10]
-blueprint: [§5.3, §7.1, §14.3, §14.3.2, §14.4, §16.2, §18.1, §18.8, §19.2, §19.3, §19.8, §20.6, §21.1, §23.1]
+blueprint: [§5.3, §7.1, §14.3, §14.3.2, §14.4, §16.2, §18.1, §18.8, §19.2, §19.3, §19.4, §19.8, §20.6, §21.1, §23.1]
 review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
 evidence: Proposed — operator accepted Plan49 RC01–RC21 and authorized remaining execution; package acceptance remains with Plan49.
 supersedes: []
@@ -66,18 +66,25 @@ reached owner and demonstrated semantic/ownership fit; no universal speedup is a
   pure study-start policy have one semantic owner and every relevant consumer migrates.
 - One supervisor pairs native dispatch/finish and owns inherited cancellation, progress,
   completion and join. Shared runtime request/admission/deployment replaces host interpretation.
-  StudyOperation Version7 membership stays unchanged; parameter Fit/Simulation points use explicit
-  starts and fresh IC/history. Explicit strategies retain their nondurable lifecycle exception.
+  StudyOperation retains its admitted operation membership and excludes host-only Shooting.
+  Physical request encoding advances StudyOperation/StudyRequest to Version8 and the stored
+  definition to 12; regenerated data replaces prior encodings. Parameter Fit/Simulation points
+  use explicit starts and fresh IC/history. Explicit strategies retain their nondurable lifecycle exception.
 - Native settings determine capability, map/recovery execution and separately admitted rungs.
   Preserve original residual/scaling/start permission, Uno SQP-LBFGS and its four declared
   numerical hunks; code5 is Numerical. FERAL pre-admission supplements post-factor enforcement.
   Partial allocator hooks retain complete envelopes; actual retained workers join before release.
+- Residual LM records separate library-relative cost, step and column/residual cosine
+  criteria, each fixed at 30 times f64 epsilon. Original-space stationarity and covariance
+  permission remain independent; profile/replay versions identify this changed policy.
 - Exact admitted batch statistics and registry keys/fields replace scalar locators. DataFusion
   conservative pruning and residual-before-limit preserve original coordinates and full protected
   decode. Generated guarded functions own domain maintenance; privileged install/restore/activation
   remain a separate phase.
 - Registry vocabularies/identity metadata and one direction-qualified document catalogue supply
-  Rust/Python contracts and actual compiled schema identity. Keyed physical Arrow ingress gets
+  Rust/Python contracts and actual compiled schema identity. Standalone unversioned roots
+  receive a required versioned wire owner while nested domain values retain their meaning;
+  root versions are checked before current body decoding. Keyed physical Arrow ingress gets
   operation-local membership/unit admission and immutable custody through native drain. Signed,
   precise physical time remains distinct from wall-clock budgets.
 - Qualified fit covariance requires authoritative complete content/validity; external origin stays

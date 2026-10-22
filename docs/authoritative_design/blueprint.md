@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 241
+revision: 242
 date: 2026-10-21
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 242 | 2026-10-21 | Refine proposed ADR-0215 target with versioned physical study requests, required standalone document wire versions and independent residual-LM criteria/profile/replay identity (§19.3/§19.4/§21.1). | Maintainer-authorized full Plan49 hard pivot; PSE_DESIGN_EDIT=1; no assembled acceptance claimed. |
 | 241 | 2026-10-21 | Proposed ADR-0215 records remaining Plan49 resolved/library execution, runtime/native, result, Python/covariance and tooling contracts plus selected canonicalizer retirement before implementation. | Maintainer-authorized 49b–49h execution and I24; .design-edit records authorization; implementation and qualification remain Plan49 packages. |
 | 240 | 2026-10-21 | Publish selected Plan49a canonical-store implementation and composed durability/native/Python/interruption acceptance with explicit limits (§24.2). | Maintainer-authorized STO08 publication; PSE_DESIGN_EDIT=1; exact composite results and limits at Plan49 Outcome, proposed ADR-0214 unchanged. |
 | 239 | 2026-10-21 | Proposed ADR-0214 selects persistent MX1.0/SurrealDB3.3.4, SSI, bounded gRPC, generated lifecycle/refusals and fresh activation (§3.3/§20/§20.5/§20.6/§23.2). | Maintainer-authorized full Plan49a hard pivot; PSE_DESIGN_EDIT=1; implementation/qualification remain STO01–STO08. |

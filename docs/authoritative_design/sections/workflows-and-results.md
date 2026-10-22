@@ -774,7 +774,12 @@ obligations does not release another owner's content or require producer payload
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
-One runtime request/preparation/admission/deployment owner and typed dispatch/finish pairing serve immediate and durable hosts. StudyOperation Version7 membership stays unchanged; host-only Shooting refuses projection before effects. Parameter Fit/Simulation points bind values with explicit starts and fresh consistent IC/history.
+One runtime request/preparation/admission/deployment owner and typed dispatch/finish pairing
+serve immediate and durable hosts. StudyOperation retains its admitted operation membership;
+host-only Shooting refuses projection before effects. Physical request encoding advances
+StudyOperation/StudyRequest to Version8 and the stored definition to 12, with regeneration
+rather than historical reinterpretation. Parameter Fit/Simulation points bind values with
+explicit starts and fresh consistent IC/history.
 
 > Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; Plan48 F06 target).
 
@@ -933,6 +938,15 @@ missing historical policy or scientific facts are not invented. Native execution
 ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
 ### 19.4 Parameter estimation
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Residual LM uses three explicit library-relative algorithm criteria: relative cost, relative
+step and column/residual cosine, each fixed at 30 times f64 epsilon. Original-space physical
+stationarity, rank and covariance qualification remain separate gates. The exact criteria
+and effective work caps are recorded; FitProfileV6 and scientific ReplayDocument Version3
+identify the changed policy rather than reinterpret previous defaults. These values are
+not public tuning inputs and establish no speed claim.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
@@ -1373,7 +1387,14 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
-Strict registry enums/identity metadata and one direction-qualified document catalogue supply generated types, typed returns and actual compiled fingerprint checks. Keyed physical Arrow inputs resolve through selected coordinate contracts and QuantityRegistry, establish immutable custody through drain, and retain signed precise physical time separately from wall-clock budgets.
+Strict registry enums/identity metadata and one direction-qualified document catalogue
+supply generated types, typed returns and actual compiled fingerprint checks. Standalone
+unversioned roots receive required versioned wire owners; nested domain values retain
+their encoding and owner-declared version fields retain their meaning. Check the root
+version before current body decoding, including duplicate-header refusal. Keyed physical
+Arrow inputs resolve through selected coordinate contracts and QuantityRegistry, establish
+immutable custody through drain, and retain signed precise physical time separately from
+wall-clock budgets.
 
 > Decision: ADR-0192 (proposed): Plan43a coherent diagnostic and invocation document changes migrate their Rust, generated Python and CLI consumers together; diagnostic locators and selected-detail coverage grant no scientific or publication permission.
 
