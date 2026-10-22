@@ -6,7 +6,7 @@ date: 2026-10-21
 deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-09]
-blueprint: [§3.3, §20, §20.5, §20.6, §23.2]
+blueprint: [§3.3, §19.3, §20, §20.5, §20.6, §23.2]
 review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
 evidence: Tested — selected Plan49a native store, durability, gRPC, sixteen-lane and Python journeys on local Linux, 2026-10-21; exact commands and composite limits at Plan49 Outcome.
 supersedes: []
@@ -24,11 +24,12 @@ scenarios: [PSE-S04, PSE-S05, PSE-S07]
 The integrated review/audit motivate generated lifecycle, typed refusals and native
 record/graph access. The maintainer accepted Plan49 RC01–RC21, authorized all Plan49a
 and selected fresh regeneration of all existing data. This supplements ADR-0164;
-implementation authorization does not change either record's proposed status.
+implementation authorization does not change either record's proposed status. On
+2026-10-22 the maintainer explicitly selected RC22: same-source Surrealism study policy.
 
 ## Scope
 
-Amend blueprint §3.3, §20, §20.5, §20.6 and §23.2 for the engine, transport, physical
+Amend blueprint §3.3, §19.3, §20, §20.5, §20.6 and §23.2 for the engine, transport, physical
 lifecycle and refusal contracts. Other Plan49 work retains its existing owner.
 
 ## Drivers
@@ -45,6 +46,25 @@ integration within existing owners. This accepts resident-memory, source-build a
 obligations; performance improvement remains unmeasured.
 
 ## Outcome
+
+Execute readiness policy inside the generated SurrealDB transaction through a pinned,
+read-only Surrealism module. The new `pse-study-module` boundary crate consumes the existing
+pure `pse-model::study_policy` source; native claim/execution callers consume that same
+source. No second SQL policy or persistent module state is introduced. Acquire one bounded,
+deduplicated complete scope, compute decisions and write hints/cursors atomically. Claims
+still validate authoritative facts; readiness grants no execution permission.
+
+Pin the SDK/ABI and immutable module artifact hash with schema activation. The supervised
+server enables the required module/file features and admits only the private immutable
+artifact directory through a read-only bucket. Install and verify the module before schema
+activation; missing or mismatched artifacts fail closed. Explicit finite controller, memory,
+execution-time and scope limits apply; deny arbitrary SQL, network, scripting and module KV.
+Trap, timeout and malformed returns abort the enclosing transaction. Uncertain RPCs retain
+an exact durable operation identity and receipt reconciliation under the original deadline;
+module failure is never evidence of absent effects. Retire the external scientific-scope
+transfer and stale-decision apply protocol when the replacement controls pass. Preserve
+only the smaller native intent/settlement owner needed for uncertainty, rather than a
+parallel production execution path.
 
 Build pinned SurrealDB3.3.4 with exact MX1.0.0 and source/patch/resolution/binary provenance.
 First integrate the version under explicit SI with necessary owned-value conversions;
@@ -93,7 +113,13 @@ sixteen actual native owners, independent caller/worker continuation, new-data r
 Python result/study/interruption consumers. Exact commands, initial failures and affected
 reruns, static results and limits belong to the [Plan49 Outcome](../plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
 No performance, hardware power-loss or whole-product qualification is inferred.
-Status remains proposed until the decision-PR route changes it.
+**Interface-checked, RC22, 2026-10-22:** the tagged 3.3.4 module executor composes a read-only
+export with the current transaction and query timeout; SDK 0.6.4 supports the selected WASI
+boundary. The focused I26 assessment in Plan49a supplies the architectural argument and
+required native/module equivalence, rollback, resource, activation and uncertainty controls.
+RC22 is selected; module implementation and assembled qualification remain open. No speed
+or memory improvement is claimed. Status remains proposed until the decision-PR route
+changes it.
 
 ## Pros and cons
 
@@ -111,3 +137,5 @@ maintained narrow upstream patch and explicit resident/RPC capacity obligations.
 - 2026-10-21 — proposed before dependent implementation; maintainer-selected full execution
   and fresh-data hard pivot recorded without formal ADR acceptance.
 - 2026-10-21 — implementation and selected test evidence recorded; formal status unchanged.
+- 2026-10-22 — maintainer selected RC22; same-source bounded Surrealism readiness and its
+  boundary crate recorded before dependent implementation; formal status unchanged.

@@ -474,8 +474,9 @@ Consume existing registry declarations, native graph/record access and generated
 receipt machinery. Migrate runtime worker discovery, rotating recovery and outgoing readiness
 notification consumers in the same coherent change. Remove the replaced per-point acquisition/
 repair loop only after the new controls preserve both cursor orders and stale-false recovery.
-Native work stays outside short database transactions. Source policy in a Surrealism module
-is a separate I26/RC22 decision, not a prerequisite or a second production implementation.
+Native work stays outside short database transactions. RC22 is selected as of 2026-10-22: move the same Rust policy inside this transaction through
+Surrealism, then retire external scope/apply coordination once replacement controls pass.
+Native numerical execution remains outside short database transactions.
 
 Targeted acceptance: a shared predecessor deduplicates without losing each candidate's exact
 premises; an oversized candidate refuses; a changing candidate leaves independent progress;
@@ -511,13 +512,14 @@ measured speed claim or permission to skip module qualification. The pure policy
 Rust dependency closure provides a plausible shared-source extraction boundary; experimental
 status alone is not a rejection reason.
 
-STO09's batched native-policy composition remains the authorized production realization for
-this execution. The maintainer selected investigation followed by a subsequent explicit
-feature decision. RC22 therefore remains unselected: no module, capability or alternate
-production route is installed by this inquiry. The concrete activation and acceptance
-contract below makes a later selection reviewable without requiring a benchmark failure.
+**Selected, 2026-10-22:** the maintainer explicitly selected Surrealism under RC22.
+Proposed ADR-0214 records the deployment/execution change and `pse-study-module` boundary
+crate before dependent edits. The batched external-policy implementation is an intermediate
+state; the production target is one bounded module invocation inside native scope/apply.
+Keep exact native operation intent/settlement for uncertain replies, while deleting external
+scientific-snapshot transfer and stale-decision restoration when proven replaced.
 
-A concrete adoption proposal would have the following contract:
+The selected adoption has the following contract:
 
 - Extract the existing policy and its typed DTO dependency closure into one shared pure
   source owner, consumed by native callers and a pinned `wasm32-wasip2` export. Do not fork
@@ -539,7 +541,6 @@ Independent acceptance would compare native/module decisions over the existing d
 retry, seed, cancellation and Unknown-effect cases, then exercise rollback of sibling writes,
 trap/timeout, controller saturation, restart, activation mismatch and lost acknowledgements
 on the actual selected server. None was run for this inquiry. The named adoption consumer is
-STO09 readiness itself; no benchmark failure is required to consider it. A subsequent explicit
-RC22/GOV02 selection would authorize shared-source extraction, a bounded module prototype,
+STO09 readiness itself; no benchmark failure is required to consider it. RC22/GOV02 selection now authorizes shared-source integration, bounded module implementation,
 qualification and production cutover under this contract. Latency or memory advantages would
 still need measurement before being reported.
