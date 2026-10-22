@@ -421,7 +421,8 @@ impl<'a> BodyBuilder<'a> {
             source,
         })
     }
-    /// Bind a retained complete input contract, without repeating physical operation inference.
+    /// Bind a retained complete scalar input contract without registry lookup or inference.
+    /// Indexed inputs must first be selected into actual scalar ports by their source owner.
     pub fn input_admitted(
         &mut self,
         slot: usize,
@@ -432,13 +433,10 @@ impl<'a> BodyBuilder<'a> {
         if !self.physical_only && slot >= self.inputs {
             return Err(MathError::Contract("input slot out of range".into()));
         }
-        let mut key = self
-            .registry
-            .quantity_type(quantity.require_named()?)?
-            .key
-            .clone();
-        key.shape.clear();
-        let scalar = self.registry.resolve_key(&key)?;
+        if !quantity.axes().is_empty() || !quantity.indices().is_empty() {
+            return Err(MathError::Contract("admitted numerical input requires its source-issued scalar contract".into()));
+        }
+        let scalar=quantity.require_named()?;
         if !self.physical_only {
             if self.input_quantities[slot].is_some_and(|previous| previous != scalar) {
                 return Err(MathError::Contract(
@@ -1459,9 +1457,12 @@ impl<'a> BodyBuilder<'a> {
             self.checker,
             self.formula_authority.as_ref(),
         )?;
-        self.finite_reduce_admitted(kind, prototype, terms, admission, source)
+        let terms = terms.iter().map(|term| self.contract_boundary(term.clone(), prototype))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.finite_reduce_admitted(kind, prototype, &terms, admission, source)
     }
     /// Enumerated reduction consumes the independently checked prototype operation.
+    /// Every term must already carry the exact prepared prototype contract.
     pub fn finite_reduce_admitted(
         &mut self,
         kind: pse_quantity::ReductionKind,
@@ -1491,7 +1492,10 @@ impl<'a> BodyBuilder<'a> {
                         "finite reduction cell retains free indices".into(),
                     ));
                 }
-                self.contract_boundary(term.clone(), prototype)
+                if term.quantity != *prototype {
+                    return Err(MathError::Contract("finite reduction term differs from its admitted prototype contract".into()));
+                }
+                Ok(term.clone())
             })
             .collect::<Result<Vec<_>, _>>()?;
         let atom = if self.physical_only {
