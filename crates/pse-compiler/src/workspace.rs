@@ -101,7 +101,9 @@ impl Default for WorkspaceLimits {
             entries: 4096,
             input_bytes: 2 << 30,
             retained_entries: 131_072,
-            retained_bytes: 1 << 30,
+            // Keep complete typed source fragments and their backdating owners
+            // resident across reference-model publication under a finite bound.
+            retained_bytes: 2 << 30,
             query_values: 256,
             granular_query_values: 4096,
         }
