@@ -1560,3 +1560,26 @@ fn expectation_literals_retain_original_quantity_context_in_separate_regions() {
         .is_err()
     );
 }
+
+#[test]
+fn accounting_inquiry_retains_declared_contract_until_real_sum_is_finished() {
+    use crate::resolved::{RegionOutput,RegionRequest};
+    let text="package p {test Root {accumulate ledger:Scalar accounting tolerance 0.001; contribute ledger role inflow=2; expect ledger == 2 tolerance 0.001;}}";
+    let model=run(text,"p.Root",Bindings::default()).unwrap();
+    let (registry,_)=physical();
+    let facts=pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+    let scope=PhysicalScope::default();
+    let context=TypeContext {admissions:None,formula_authority:None,quantities:&registry,preconditions:&facts,scope:&scope};
+    let closure=model.closures.values().next().unwrap();
+    let member=&model.symbols[&closure.id];
+    assert!(member.definition.is_some(),"the final member owns its real contribution sum");
+    let test=model.expectations.values().next().unwrap();
+    let request=RegionRequest {outputs:&[RegionOutput::Value(test.roots.actual)],validity:&[]};
+    let region=model.prepare_region(request,&context).unwrap();
+    let selected=region.bindings.iter().find(|binding|binding.actual==closure.id).unwrap();
+    assert!(region.syntax.symbols.at(selected.local).unwrap().definition.is_some());
+    assert!(!region.inputs.contains(&selected.local),"an accounting sum never becomes a free coordinate");
+    let mut missing=model.clone();
+    missing.resolved.symbols.get_mut(&closure.id).unwrap().definition=None;
+    assert!(missing.prepare_region(request,&context).is_err(),"final support still refuses an absent numerical definition");
+}

@@ -145,6 +145,7 @@ impl PhysicalSupport {
         authority: Option<&crate::PhysicalOperation>,
         owner: DeclarationId,
         expected: Option<&Type>,
+        pending_members: &BTreeMap<SymbolIx,Type>,
     ) -> Result<InferredView> {
         let context = crate::TypeContext {
             admissions: None,
@@ -159,6 +160,7 @@ impl PhysicalSupport {
             body_authority: authority,
             owner,
             literal_contracts: literals,
+            pending_members: Some(pending_members),
             nodes: BTreeMap::new(),
             order: Vec::new(),
             active: std::collections::BTreeSet::new(),
@@ -226,6 +228,7 @@ impl PhysicalSupport {
                 body_authority: operation,
                 owner: at,
                 literal_contracts: literals,
+                pending_members: None,
                 nodes: BTreeMap::new(),
                 order: Vec::new(),
                 active: std::collections::BTreeSet::new(),
@@ -869,6 +872,7 @@ fn retained_inputs(
         body_authority: None,
         owner: SemanticId::NIL.into(),
         literal_contracts: &literals,
+        pending_members: None,
         nodes: BTreeMap::new(),
         order: Vec::new(),
         active: std::collections::BTreeSet::new(),
@@ -1021,6 +1025,7 @@ fn prepare_outputs(
                 body_authority: None,
                 owner: SemanticId::NIL.into(),
                 literal_contracts: literals,
+                pending_members: None,
                 nodes: BTreeMap::new(),
                 order: Vec::new(),
                 active: std::collections::BTreeSet::new(),
@@ -1104,6 +1109,8 @@ struct Producer<'a> {
     body_authority: Option<&'a crate::PhysicalOperation>,
     owner: DeclarationId,
     literal_contracts: &'a BTreeMap<NodeIx, Type>,
+    // Available only during private construction-time type inquiry, never published support.
+    pending_members: Option<&'a BTreeMap<SymbolIx,Type>>,
     nodes: BTreeMap<NodeIx, NodeSupport>,
     order: Vec<NodeIx>,
     active: std::collections::BTreeSet<NodeIx>,
@@ -1371,7 +1378,7 @@ impl Producer<'_> {
                     .apply(number.value)
                     .map_err(|error| invalid(at, error.to_string()))?;
                 let quantity = Scheme::from_contract(operation.result.clone());
-                let ty = match explicit
+                let inferred_ty = match explicit
                     .or(expected)
                     .and_then(Type::physical_refinement)
                     .filter(|refinement| {
@@ -1383,6 +1390,10 @@ impl Producer<'_> {
                     },
                     None => Type::Quantity(quantity),
                 };
+                // The literal admission above consumes the exact retained source
+                // contract. Preserve that issued spelling as well: rebuilding a
+                // scheme from its resolved contract loses its nominal expression.
+                let ty = self.literal_contracts.get(&slot).cloned().unwrap_or(inferred_ty);
                 Ok(NodeSupport {
                     ty,
                     contract: operation.result.clone(),
@@ -1399,10 +1410,12 @@ impl Producer<'_> {
                     .symbols
                     .at(*symbol_slot)
                     .ok_or_else(|| invalid(at, "resolved physical symbol absent"))?;
-                if symbol.local_role() == LocalRole::Member && symbol.definition.is_none() {
+                if symbol.local_role() == LocalRole::Member && symbol.definition.is_none()
+                    && !self.pending_members.is_some_and(|pending|pending.get(symbol_slot)==Some(&symbol.ty))
+                {
                     return Err(invalid(
                         at,
-                        "required resolved numerical member definition is absent",
+                        format!("required resolved numerical member definition is absent: {} ({:?})", symbol.lineage.path, symbol.lineage.declaration),
                     ));
                 }
                 if symbol.local_role() != LocalRole::Member && symbol.definition.is_some() {
@@ -1967,6 +1980,8 @@ impl PhysicalEvidence {
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingResolvedBodyV1);
         hash.str("captured-physical-premises");
         premises.frame(&mut hash);
+        let (registry, facts) = premises.context();
+        hash.hash(&pse_quantity::physical_identity::identity(registry, facts));
         Self {
             identity: hash.finish_hash(),
             live: Some(premises),

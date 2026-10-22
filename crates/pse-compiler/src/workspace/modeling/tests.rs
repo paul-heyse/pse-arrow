@@ -454,7 +454,14 @@ fn kernel_queries_reuse_math_across_values_unrelated_edits_and_clean_rebuild() {
         .unwrap();
     let values = admit(&mut workspace, root);
     assert!(events.load(Ordering::Relaxed) > executed);
-    assert!(Arc::ptr_eq(&original, &values));
+    assert_eq!(original.case.key(), values.case.key());
+    assert_eq!(original.inputs, values.inputs);
+    assert_eq!(original.outputs, values.outputs);
+    assert_eq!(original.bodies.len(), values.bodies.len());
+    for (key, body) in &original.bodies {
+        assert!(Arc::ptr_eq(body.math(), values.bodies[key].math()),
+            "a case parameter default is outside reusable numerical construction");
+    }
     let other = rows
         .iter()
         .find(|r| r.name == "Other")
@@ -1106,7 +1113,18 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
             Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
-    assert_eq!(prepared.model.functions.len(), 4); // two selected methods and two apply specializations
+    let equations = prepared.admitted.outputs.iter().filter_map(|output| match output {
+        ModelingOutput::Equation { id, .. } => Some(*id), _ => None,
+    }).collect::<BTreeSet<_>>();
+    let instances = prepared.admitted.case.instances().iter().filter(|instance| equations.contains(&instance.instance)).collect::<Vec<_>>();
+    assert_eq!(instances.len(), 3);
+    let population = instances.iter().fold(BTreeMap::new(), |mut population, instance| {
+        assert_eq!(instance.slots.len(), 1);
+        *population.entry(instance.body).or_insert(0usize) += 1;
+        population
+    });
+    assert_eq!(population.values().copied().collect::<BTreeSet<_>>(), BTreeSet::from([1,2]),
+        "the two double selections share one exact numerical body, while triple is distinct");
     let body = prepared.admitted;
     let cancel = Cancellation::new(false);
     let artifact = fixture(
@@ -1161,20 +1179,30 @@ fn ref_calls_dispatch_one_body_per_concrete_kind() {
         )
         .unwrap();
     let id = |name: &str| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
-    let bodies = |name: &str| {
-        prepared
-            .model
-            .functions
-            .values()
-            .filter(|f| f.id == id(name))
-            .count()
-    };
-    // One specialization per resolved function, shared by the rows of its kind.
-    assert_eq!(
-        [bodies("double"), bodies("triple"), bodies("quadruple")],
-        [1, 1, 1]
-    );
-    assert_eq!(prepared.model.functions.len(), 3);
+    let mut functions = BTreeMap::<DeclarationId,BTreeSet<ContentHash>>::new();
+    let mut pending = prepared.model.equation_roots.values().flat_map(|relation| [relation.lhs,relation.rhs]).collect::<Vec<_>>();
+    let syntax = prepared.model.resolved.select(std::mem::take(&mut pending), vec![]);
+    let mut graphs = vec![syntax];
+    while let Some(syntax) = graphs.pop() {
+        for slot in syntax.canonical_layout().unwrap().functions {
+            let function = &syntax.functions[slot];
+            if functions.entry(function.declaration).or_default().insert(function.identity) {
+                graphs.push(function.product.syntax.clone());
+            }
+        }
+    }
+    assert_eq!([functions[&id("double")].len(),functions[&id("triple")].len(),functions[&id("quadruple")].len()],[1,1,1],
+        "only reached resolved products count; source inspection may also retain generic templates");
+    let equations = prepared.admitted.outputs.iter().filter_map(|output| match output {
+        ModelingOutput::Equation { id, .. } => Some(*id), _ => None,
+    }).collect::<BTreeSet<_>>();
+    let instances=prepared.admitted.case.instances().iter().filter(|instance| equations.contains(&instance.instance)).collect::<Vec<_>>();
+    assert_eq!(instances.len(),4);
+    let mut population=BTreeMap::new();
+    for instance in instances {assert_eq!(instance.slots.len(),1);*population.entry(instance.body).or_insert(0usize)+=1;}
+    assert_eq!(population.len(),3);
+    assert_eq!(population.values().sum::<usize>(),4);
+    assert_eq!(population.values().filter(|count| **count==2).count(),1);
     let body = prepared.admitted;
     let cancel = Cancellation::new(false);
     let artifact = fixture(
@@ -1423,43 +1451,68 @@ fn kernel_repeated_consumers_share_one_library_body_and_local_gathers() {
 
 #[test]
 fn kernel_collocation_preserves_equations_continuity_and_quadrature() {
-    for scheme in ["radau", "legendre"] {
+    use pse_modeling::derived::Relationship;
+    for (scheme, sites) in [("radau",1usize),("legendre",1),("radau",2),("legendre",2)] {
+        let (entities, equations) = if sites == 1 {
+            ("", "var x[i in t]: Scalar; eq ode[i in t]: d(x[i])/di == 0; eq initial: x[0] == 3; let area: Scalar = integral(i in t | x[i]); eq output: area == 6;")
+        } else {
+            ("entity kind site {} entity site a {} entity site b {} set sites: Set<site>={a,b};",
+             "var x[i in t,j in sites]: Scalar; eq ode[i in t,j in sites]: d(x[i,j])/di == 0; eq initial[j in sites]: x[0,j] == 3; let area[j in sites]: Scalar=integral(i in t | x[i,j]); eq output[j in sites]: area[j] == 6;")
+        };
         let text = format!(
-            "package p {{ collocation radau alpha(1) beta(0) right(true); collocation legendre alpha(0) beta(0) right(false); def Root {{ domain t: Scalar from 0 to 2; discretize mesh on t using {scheme}(elements = 2, order = 3); var x[i in t]: Scalar; eq ode[i in t]: d(x[i])/di == 0; eq initial: x[0] == 3; let area: Scalar = integral(i in t | x[i]); eq output: area == 6; }} }}"
+            "package p {{ {entities} collocation radau alpha(1) beta(0) right(true); collocation legendre alpha(0) beta(0) right(false); def Root {{ domain t: Scalar from 0 to 2; discretize mesh on t using {scheme}(elements = 2, order = 3); {equations} }} }}"
         );
-        let (mut workspace, _, _, root) = setup(&text);
-        let admitted = admit(&mut workspace, root);
+        let (mut workspace, rows, _, root) = setup(&text);
+        let prepared = workspace.prepare_modeling_cancellable(
+            root, InstanceId::from_id(SemanticId::NIL), Bindings::default(), Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        ).unwrap();
+        let model = &prepared.model;
+        let admitted = &prepared.admitted;
+        let declared = |name| rows.iter().find(|row| row.name == name).unwrap().declaration_id;
+        let continuity = model.derivations.iter().filter_map(|(relationship,id)| match relationship {
+            Relationship::ContinuityRow {family,element} => Some((*id,*family,*element)),
+            _ => None,
+        }).collect::<Vec<_>>();
+        let continuity_ids = continuity.iter().map(|(id,_,_)| *id).collect::<BTreeSet<_>>();
+        assert_eq!(continuity_ids.len(),if scheme=="legendre" {2*sites} else {0});
+        let families = continuity.iter().fold(BTreeMap::<SemanticId,BTreeSet<u64>>::new(),|mut families,(_,family,element)| {
+            assert!(families.entry(*family).or_default().insert(*element),"one row per actual family/element");
+            families
+        });
+        assert_eq!(families.len(),if scheme=="legendre" {sites} else {0},
+            "active mesh coordinates share one family; independent exterior sites remain distinct");
+        assert!(families.values().all(|elements| *elements==BTreeSet::from([0,1])));
+        let ode = model.equations.iter().filter(|row|
+            row.lineage.declaration==declared("ode") && !continuity_ids.contains(&row.id)
+        ).map(|row| row.id).collect::<BTreeSet<_>>();
+        assert_eq!(ode.len(),6*sites,"one original ODE row per collocation point and exterior site");
+        let equation_ids = admitted.outputs.iter().filter_map(|output| match output {
+            ModelingOutput::Equation {id,..} => Some(*id), _ => None,
+        }).collect::<BTreeSet<_>>();
+        assert!(ode.is_subset(&equation_ids));
+        assert!(continuity_ids.is_subset(&equation_ids));
+        for name in ["initial","output"] {
+            let original = model.equations.iter().filter(|row| row.lineage.declaration==declared(name))
+                .map(|row| row.id).collect::<BTreeSet<_>>();
+            assert_eq!(original.len(),sites);
+            assert!(original.is_subset(&equation_ids));
+        }
+        assert_eq!(equation_ids.len(),(if scheme=="radau" {8} else {10})*sites);
+        assert_eq!(model.meshes.len(),1);
+        let mesh=model.meshes.values().next().unwrap();
+        assert_eq!(mesh.points.iter().map(pse_modeling::specialize::Value::identity).collect::<BTreeSet<_>>().len(),mesh.points.len());
+        assert_eq!(model.symbols.values().filter(|symbol| symbol.lineage.declaration==declared("x")).count(),mesh.points.len()*sites,
+            "every actual mesh/site scalar retains its independent source coordinate");
         let cancel = Cancellation::new(false);
-        let f = fixture(
-            &admitted,
-            workspace.inputs.quantities.clone(),
-            DerivativeOrder::Second,
-            &cancel,
-        )
-        .unwrap();
-        let values = f
-            .worker()
-            .evaluate(
-                &vec![3.; admitted.inputs.len()],
-                DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
-                &cancel,
-            )
-            .unwrap()
-            .values;
-        for (output, value) in admitted.outputs.iter().zip(values) {
-            if matches!(output, ModelingOutput::Equation { .. }) {
-                assert!(value.abs() < 1e-10, "{scheme}: {output:?} = {value}");
+        let f = fixture(admitted,workspace.inputs.quantities.clone(),DerivativeOrder::Second,&cancel).unwrap();
+        let values = f.worker().evaluate(&vec![3.; admitted.inputs.len()],DerivativeOrder::Second,
+            &mut pse_kernels::ProviderBindings::new(),&cancel).unwrap().values;
+        for (output,value) in admitted.outputs.iter().zip(values) {
+            if matches!(output,ModelingOutput::Equation {..}) {
+                assert!(value.abs()<1e-10,"{scheme}/{sites}: {output:?} = {value}");
             }
         }
-        assert_eq!(
-            admitted
-                .outputs
-                .iter()
-                .filter(|o| matches!(o, ModelingOutput::Equation { .. }))
-                .count(),
-            if scheme == "radau" { 8 } else { 10 }
-        );
     }
 }
 
@@ -2736,6 +2789,9 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     #[derive(Debug)]
     struct Vector;
     impl Provider for Vector {
+        fn supports(&self, demand: &ProviderDemand) -> bool {
+            matches!(demand, ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. })
+        }
         fn fill(
             &mut self,
             x: &[f64],
@@ -2753,25 +2809,22 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
                 jacobian: vec![],
                 hessians: vec![],
             };
+            let columns = match &r.demand {
+                ProviderDemand::CompleteJets => vec![0, 1],
+                ProviderDemand::SelectedColumns { columns } => columns.clone(),
+                _ => return Err(ProviderError::Contract("vector derivative product".into())),
+            };
             for i in &r.outputs {
-                out.values.push(if *i == 0 {
-                    x[0] * x[0] + x[1]
-                } else {
-                    x[0] * x[1]
-                });
+                out.values.push(if *i == 0 { x[0] * x[0] + x[1] } else { x[0] * x[1] });
                 if r.order >= DerivativeOrder::First {
-                    out.jacobian.extend(if *i == 0 {
-                        [2.0 * x[0], 1.0]
-                    } else {
-                        [x[1], x[0]]
-                    });
+                    let gradient = if *i == 0 { [2.0 * x[0], 1.0] } else { [x[1], x[0]] };
+                    out.jacobian.extend(columns.iter().map(|column| gradient[*column]));
                 }
                 if r.order >= DerivativeOrder::Second {
-                    out.hessians.extend(if *i == 0 {
-                        [2.0, 0.0, 0.0, 0.0]
-                    } else {
-                        [0.0, 1.0, 1.0, 0.0]
-                    });
+                    let hessian = if *i == 0 { [[2.0,0.0],[0.0,0.0]] } else { [[0.0,1.0],[1.0,0.0]] };
+                    for row in &columns {
+                        out.hessians.extend(columns.iter().map(|column| hessian[*row][*column]));
+                    }
                 }
             }
             output.copy_from(&out)

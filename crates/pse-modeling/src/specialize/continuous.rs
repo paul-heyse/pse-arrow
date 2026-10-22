@@ -536,7 +536,18 @@ impl Engine<'_, '_> {
             }
         }
         hash.id(&at.as_id()).id(&mesh_id);
-        self.frame_current_roots(&[baseline.root], &mut hash)?;
+        // One continuity family spans the active mesh coordinate. Construct its
+        // actual typed body at one mesh point using the same coordinate/replica
+        // substitution as the stencil. Other bindings and fixed point references
+        // retain their original identities.
+        let family = self.shifted(
+            RewriteContext { instance, env, chain },
+            body,
+            &name,
+            &points[0],
+            replica.as_ref(),
+        )?;
+        self.frame_current_roots(&[family.root], &mut hash)?;
         for (coordinate, value) in env {
             if coordinate != &name
                 && let Value::Coordinate { id, .. } = value

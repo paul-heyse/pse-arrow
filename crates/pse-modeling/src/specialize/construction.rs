@@ -496,7 +496,11 @@ impl Engine<'_, '_> {
         {
             return Err(invalid(
                 at,
-                "original field has an incompatible physical type",
+                if actual.physical_refinement().is_some_and(|refinement| matches!(refinement, crate::PhysicalRefinement::Transfer { .. })) {
+                    "directed transfer cannot acquire a second contribution sign or change its boundary orientation"
+                } else {
+                    "original field has an incompatible physical type"
+                },
             ));
         }
         let value = self.with_original_expression(at, role, position, &original, |engine| {
@@ -711,6 +715,16 @@ impl Engine<'_, '_> {
             .functions
             .get(&owner)
             .and_then(|function| function.physical_operation.as_ref());
+        // Accounting/observation declarations exist before descendants contribute.
+        // This inquiry may use only their exact declared boundary until finish emits
+        // the real sum; no admitted region or function support receives this permission.
+        let pending_members=self.current_symbols().iter().filter_map(|(id,symbol)| {
+            let closure=self.model.closures.get(id)?;
+            (symbol.definition.is_none() && symbol.role==Kind::Let
+                && matches!(closure.mode,Mode::Accounting|Mode::Observation)
+                && closure.ty==symbol.ty && closure.lineage==symbol.lineage)
+                .then(||self.current_symbols().slot(*id).map(|slot|(slot,symbol.ty.clone())))?
+        }).collect::<BTreeMap<_,_>>();
         crate::resolved::PhysicalSupport::infer_view(
             view,
             self.c,
@@ -718,6 +732,7 @@ impl Engine<'_, '_> {
             authority,
             owner,
             expected,
+            &pending_members,
         )
     }
     pub(super) fn current_symbols(&self) -> &Symbols {

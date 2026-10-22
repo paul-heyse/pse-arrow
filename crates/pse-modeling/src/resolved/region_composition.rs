@@ -329,7 +329,7 @@ impl SelectedRegion {
                 } else {
                     declarations.insert(actual, clean_symbol(source, actual));
                 }
-                let local = if source.local_role() != LocalRole::Member {
+                let local = if source.definition.is_none() && source.local_role() != LocalRole::Member {
                     *input_slots.get(&actual).ok_or_else(|| {
                         invalid(
                             actual,

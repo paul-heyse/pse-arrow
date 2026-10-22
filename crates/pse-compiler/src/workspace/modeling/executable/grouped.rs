@@ -358,6 +358,7 @@ pub(super) struct PlannedModeling {
     outputs: Vec<ModelingOutput>,
     term_outputs: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
     pub(super) implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    provider_lookups: BTreeMap<String, ProviderCall>,
     instances: Vec<PlannedInstance>,
     variables: Vec<Variable>,
     parameters: Vec<Port>,
@@ -421,6 +422,12 @@ impl PlannedModeling {
                 .values()
                 .map(|supplier| supplier.retained_bytes())
                 .sum::<usize>()
+            + self.provider_lookups.iter().map(|(name, provider)|
+                name.capacity() + size_of::<(String, ProviderCall)>() + 128
+                    + provider.descriptor.spec().shapes.retained_bytes()
+                    + size_of_val(provider.descriptor.spec().inputs.as_slice())
+                    + size_of_val(provider.descriptor.spec().outputs.as_slice())
+            ).sum::<usize>()
             + self
                 .instances
                 .iter()
@@ -474,6 +481,7 @@ pub(super) fn plan(
     supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<PlannedModeling> {
     let (implicit, direct_providers) = implicit::admit(db, inventory, p, supplied)?;
+    let mut provider_lookups = BTreeMap::new();
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
     let mut ports = BTreeMap::new();
@@ -638,9 +646,11 @@ pub(super) fn plan(
         }
         let region = implicit::resolve_region(&p.model, region, &implicit, &context)?;
         let mut lookup = |name: &str| {
-            provider(db, inventory, name.to_owned()).ok_or_else(|| {
+            let selected = provider(db, inventory, name.to_owned()).ok_or_else(|| {
                 MathError::Contract(format!("unregistered external implementation {name}"))
-            })
+            })?;
+            provider_lookups.insert(name.to_owned(), selected.clone());
+            Ok(selected)
         };
         let selected_providers = crate::typed_math::prepare_selected_providers(
             &region.syntax,
@@ -786,6 +796,7 @@ pub(super) fn plan(
             .collect(),
         term_outputs,
         implicit,
+        provider_lookups,
         instances,
         variables,
         parameters,
@@ -802,6 +813,20 @@ pub(super) fn complete(
     inventory: Inventory,
     planned: PlannedModeling,
 ) -> Result<Arc<AdmittedModeling>> {
+    for (name, selected) in &planned.provider_lookups {
+        if provider(db, inventory, name.clone()).as_ref() != Some(selected) {
+            return Err(MathError::Contract("planned source provider registration changed before body admission".into()).into());
+        }
+    }
+    // Recheck source selectors captured by each already-admitted implicit body.
+    // These receiving premises stay outside reusable numerical body identity.
+    for supplier in planned.implicit.values() {
+        for (name, selected) in supplier.provider_lookups() {
+            if provider(db, inventory, name.clone()).as_ref() != Some(selected) {
+                return Err(MathError::Contract("planned implicit provider registration changed before body admission".into()).into());
+            }
+        }
+    }
     let mut bodies = BTreeMap::new();
     let mut instances = Vec::with_capacity(planned.instances.len());
     for instance in planned.instances {
@@ -1171,12 +1196,8 @@ mod dependency_tests {
             instances[0].checked_sources.keys().collect::<Vec<_>>(),
             instances[1].checked_sources.keys().collect::<Vec<_>>()
         );
-        assert!(instances[0].checked_sources.values().all(|actual| {
-            !instances[1]
-                .checked_sources
-                .values()
-                .any(|other| other == actual)
-        }));
+        assert_eq!(instances[0].checked_sources, instances[1].checked_sources,
+            "two instances of the same declaration retain the actual shared annotation owners");
         let cancellation = pse_diagnostics::Cancellation::default();
         let plan = admitted
             .plan(
@@ -1537,13 +1558,9 @@ mod dependency_tests {
                 .collect::<BTreeSet<_>>();
             assert!(members.contains(&member("shared")));
             assert_eq!(members.len(), 2);
-            assert!(
-                region
-                    .bindings
-                    .iter()
-                    .all(|binding| binding.actual != member("unused")),
-                "unused invalid local has no selected binding"
-            );
+            assert!(projected.model.symbols.values().all(|symbol|
+                !symbol.lineage.path.ends_with(".unused")),
+                "unused invalid local has no producer-issued scalar or selected binding");
             actual_members.push(members);
         }
         assert!(actual_members.iter().any(
