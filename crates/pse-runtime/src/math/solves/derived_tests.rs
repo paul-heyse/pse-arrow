@@ -330,8 +330,13 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     assert!(strong.allowance > 0.0);
     assert!(!weak_point.accuracy.satisfies(&strong));
     let before = reconstruction.selection().observed_point_cells();
-    let strong_point =
-        ReconstructionOracle::point(&mut reconstruction, &input, &strong, limits).unwrap();
+    let strong_point = ReconstructionOracle::point(&mut reconstruction, &input, &strong, limits)
+        .unwrap_or_else(|error| {
+            panic!(
+                "strong point: {error:?}; weak accuracy={:?}; demanded allowance={}",
+                weak_point.accuracy, strong.allowance
+            )
+        });
     assert!(strong_point.accuracy.satisfies(&strong));
     assert_eq!(strong_point.accuracy.class, AccuracyClass::Certified);
     assert!(reconstruction.selection().observed_point_cells() > before);

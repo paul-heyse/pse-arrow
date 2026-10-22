@@ -194,12 +194,14 @@ async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
     // Original Value and demanded derivative programs coexist. Their distinct
     // coordinate sets can retain six scalar constructors at 256 MiB of foreign
     // allowance each, before workspace/stack/attempt storage. The 1 GiB workspace
-    // also admits the source candidate before either derivative projection. This
-    // is an admission envelope, not a measured resident-memory estimate.
+    // also admits the source candidate before either derivative projection.
+    // Guarded construction may use the full 16 GiB opaque worker envelope; the
+    // 24 GiB pool prepays that entry plus source workspaces and native allowances.
+    // These are admission envelopes, not measured resident-memory estimates.
     let (package, root, runtime) = package_with_runtime(
         "package p { def Root { param size:Power=1{W}; var x:Scalar; var y:Scalar; var on:Indicator in binary; annotation bounds x(0,2); annotation bounds y(0,1); annotation start x(1); annotation start y(1); annotation start on(1{1}); eq link:size*y==size*on; eq floor:x>=y; let cost:Scalar=x*x-3*y; annotation objective cost(minimize); } }",
         fixture::runtime_on(
-            4usize << 30,
+            24usize << 30,
             crate::math::MathPolicy {
                 worker_bytes: 16usize << 30,
                 workspace_bytes: 1 << 30,

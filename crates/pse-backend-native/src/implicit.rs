@@ -23,6 +23,36 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Kinsol;
 
+// The child provider has an explicit requested root precision. KINSOL's native
+// roundoff stagnation default is independent of residual convergence, and can
+// stop before a tighter requested child solve can produce its next proposal.
+// Keep that default unless the requested dimensionless precision is tighter.
+// SUNDIALS kinsol.c/KINCreate uses unit_roundoff^(2/3) for the zero sentinel.
+fn inner_precision(
+    options: &Options,
+    source_id: pse_ids::SemanticId,
+) -> Result<(f64, f64), MathError> {
+    let relative = options
+        .variable_tolerance
+        .iter()
+        .zip(&options.variable_nominals)
+        .map(|(tolerance, nominal)| tolerance / nominal)
+        .fold(f64::INFINITY, f64::min);
+    if !relative.is_finite() || relative <= 0.0 {
+        return Err(MathError::Domain {
+            source_id,
+            requirement: "inner normalized root precision must be representable and positive",
+        });
+    }
+    let native_default = f64::EPSILON.powf(2.0 / 3.0);
+    let step = if relative < native_default {
+        relative
+    } else {
+        0.0
+    };
+    Ok((relative, step))
+}
+
 /// Lower cooperative native time stops before the generic provider error boundary.
 fn native_failure(error: ProblemError, source_id: pse_ids::SemanticId) -> MathError {
     if crate::callback::classify(&error)
@@ -324,7 +354,7 @@ impl InnerSolver for Kinsol {
         settings == "native.kinsol.v1"
     }
     fn identity(&self) -> pse_ids::ContentHash {
-        pse_math::implicit::solver_identity("sundials.kinsol.v1")
+        pse_math::implicit::solver_identity("sundials.kinsol.v2")
     }
 
     fn worker(&self) -> Box<dyn InnerWorker> {
@@ -358,16 +388,9 @@ impl InnerWorker for Kinsol {
             };
             // The normalized feasibility budget of the unknowns (tolerance over nominal), as
             // `ResolvedAccuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
-            let accuracy = ResolvedAccuracy::from_policy(
-                &Default::default(),
-                options
-                    .variable_tolerance
-                    .iter()
-                    .zip(&options.variable_nominals)
-                    .map(|(t, n)| t / n)
-                    .fold(f64::INFINITY, f64::min),
-            )
-            .map_err(map)?;
+            let (relative_precision, step_tolerance) = inner_precision(options, problem.id)?;
+            let accuracy = ResolvedAccuracy::from_policy(&Default::default(), relative_precision)
+                .map_err(map)?;
             // One-sided bounds are exact (KINSOL shifts them to sign constraints); a two-sided
             // interval keeps only its sign information, and `Problem::verify` rechecks it.
             let contract = OracleContract {
@@ -422,7 +445,7 @@ impl InnerWorker for Kinsol {
                 rows: options.residual_tolerance.clone(),
                 integrality: f64::EPSILON,
             };
-            let settings = kinsol::Settings::from_policy(
+            let mut settings = kinsol::Settings::from_policy(
                 kinsol::Method {
                     setup_interval: 1,
                     ..kinsol::Method::default()
@@ -434,6 +457,7 @@ impl InnerWorker for Kinsol {
                 ),
                 accuracy.feasibility,
             );
+            settings.step_tolerance = step_tolerance;
             let compatibility = Compatibility {
                 layout: problem.identity,
                 profile: problem.identity,
@@ -1314,6 +1338,42 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn inner_precision_preserves_native_default_and_refuses_unrepresentable_goal() {
+        let cancel = pse_diagnostics::Cancellation::default();
+        let problem = Arc::new(problem_order(101, false, DerivativeOrder::First).unwrap());
+        problem
+            .prepare_complete(
+                DerivativeOrder::First,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap();
+        let options = options();
+        assert_eq!(inner_precision(&options, problem.id).unwrap(), (1e-8, 0.0));
+        let mut tight = options.clone();
+        tight.variable_tolerance.fill(1e-16);
+        tight.residual_tolerance.fill(1e-16);
+        assert_eq!(inner_precision(&tight, problem.id).unwrap(), (1e-16, 1e-16));
+        let root = Kinsol
+            .solve(problem.clone(), &[3.], &tight, &cancel)
+            .unwrap();
+        problem
+            .verify(&[3.], &root, &tight, &cancel.flag())
+            .unwrap();
+        assert_eq!(root, [3., 3.]);
+
+        // Each declared input is finite and positive, but their normalized goal
+        // underflows. It must refuse before zero could select the native default.
+        tight.variable_tolerance.fill(f64::MIN_POSITIVE);
+        tight.variable_nominals.fill(f64::MAX);
+        let error = Kinsol
+            .solve(problem.clone(), &[3.], &tight, &cancel)
+            .unwrap_err();
+        assert!(matches!(error, MathError::Domain { source_id, requirement }
+            if source_id == problem.id
+                && requirement == "inner normalized root precision must be representable and positive"));
+    }
+
     #[test]
     fn structural_failure_keeps_rows_and_columns() {
         let cancel = pse_diagnostics::Cancellation::default();

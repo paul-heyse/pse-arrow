@@ -1909,9 +1909,11 @@ impl SupplierTopology {
         let roots = selected
             .iter()
             .map(|id| {
-                topology.nodes.get(id).copied().ok_or_else(|| {
-                    CompileError::Missing("selected implicit descriptor".into())
-                })
+                topology
+                    .nodes
+                    .get(id)
+                    .copied()
+                    .ok_or_else(|| CompileError::Missing("selected implicit descriptor".into()))
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(topology

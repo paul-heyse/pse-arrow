@@ -336,7 +336,7 @@ tokio::task_local! {
     static DECLARED_ADMISSION_OBSERVER: Box<dyn Fn() + Send + Sync>;
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(all(test, any(feature = "canonical-tests", feature = "native-solvers")))]
 pub(in crate::workflow) async fn counted_declared_admissions<T>(
     work: impl Future<Output = T>,
 ) -> (T, usize) {

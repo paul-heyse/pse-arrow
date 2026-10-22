@@ -490,11 +490,7 @@ pub(super) fn plan(
     // Supplied descriptors also retain promoted systems for later reconstruction.
     // Only this projection's selected systems and demanded nested providers
     // replace exterior scalar references.
-    let selected = p
-        .implicit
-        .iter()
-        .map(|selected| selected.id)
-        .collect();
+    let selected = p.implicit.iter().map(|selected| selected.id).collect();
     let selected = implicit::SupplierTopology::selected_dependencies(&implicit, &selected)?;
     let selected_implicit = selected
         .iter()
@@ -669,13 +665,8 @@ pub(super) fn plan(
             });
             continue;
         }
-        let region = implicit::resolve_region(
-            &p.model,
-            region,
-            &selected_implicit,
-            &independent,
-            &context,
-        )?;
+        let region =
+            implicit::resolve_region(&p.model, region, &selected_implicit, &independent, &context)?;
         let mut lookup = |name: &str| {
             let selected = provider(db, inventory, name.to_owned()).ok_or_else(|| {
                 MathError::Contract(format!("unregistered external implementation {name}"))
@@ -999,10 +990,18 @@ mod dependency_tests {
                 .id
         };
         let (x, y, z) = (symbol(".x"), symbol(".a.y"), symbol(".b.z"));
-        let free = original.admitted.case.free_variables().collect::<BTreeSet<_>>();
+        let free = original
+            .admitted
+            .case
+            .free_variables()
+            .collect::<BTreeSet<_>>();
         assert_eq!(free, BTreeSet::from([x, y, z]));
         assert_eq!(
-            prepared.admitted.case.free_variables().collect::<BTreeSet<_>>(),
+            prepared
+                .admitted
+                .case
+                .free_variables()
+                .collect::<BTreeSet<_>>(),
             BTreeSet::from([x]),
         );
         assert_eq!(original.admitted.implicit.len(), 2);
@@ -1033,7 +1032,9 @@ mod dependency_tests {
                         .slots
                         .iter()
                         .enumerate()
-                        .filter_map(|(slot, binding)| free.contains(&binding.source()).then_some(slot))
+                        .filter_map(|(slot, binding)| {
+                            free.contains(&binding.source()).then_some(slot)
+                        })
                         .collect::<Vec<_>>();
                     let support = body
                         .math
@@ -1082,7 +1083,11 @@ mod dependency_tests {
             .unwrap()
             .id;
         assert_eq!(
-            original.admitted.case.free_variables().collect::<BTreeSet<_>>(),
+            original
+                .admitted
+                .case
+                .free_variables()
+                .collect::<BTreeSet<_>>(),
             BTreeSet::from([z]),
         );
         let (child, descriptor) = prepared
@@ -1099,7 +1104,13 @@ mod dependency_tests {
             .find(|supplier| supplier.selection.restriction.is_some())
             .unwrap();
         assert_eq!(
-            outer.descriptor.spec().inputs.iter().map(|port| port.id).collect::<Vec<_>>(),
+            outer
+                .descriptor
+                .spec()
+                .inputs
+                .iter()
+                .map(|port| port.id)
+                .collect::<Vec<_>>(),
             vec![z],
         );
         let body = &outer.residuals[0].body.math;

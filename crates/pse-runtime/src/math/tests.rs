@@ -660,7 +660,8 @@ async fn nested_provider_analysis_admits_known_source_below_default_workspace_ca
     assert_eq!(service.cpu.available_permits(), service.cores);
 
     // A fresh operation can still construct and retain the same source after
-    // both refusals; its returned registration owns only the factory extent.
+    // both refusals. Its returned registration retains its factory and the
+    // separately owned compiled programs even after ordinary cache eviction.
     let registrations = service
         .modeling_inner_providers(
             vec![input.clone()],
@@ -675,15 +676,61 @@ async fn nested_provider_analysis_admits_known_source_below_default_workspace_ca
     let factory = registrations[&key]
         .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
         .unwrap();
-    assert_eq!(
-        service.pool.reserved() - baseline,
-        factory.retained_bytes().unwrap()
-    );
+    assert!(service.pool.reserved() - baseline >= factory.retained_bytes().unwrap());
+    let pse_math::implicit::ImplicitFactory::Root(numerical) = factory.factory() else {
+        panic!("the authored single residual remains a root factory");
+    };
+    let programs = [
+        Arc::downgrade(numerical.bodies.source.compiled()),
+        Arc::downgrade(numerical.bodies.unknown.compiled()),
+    ];
+    service.clear_program_cache();
+    assert!(programs.iter().all(|program| program.strong_count() > 0));
+    assert!(service.pool.reserved() - baseline >= factory.retained_bytes().unwrap());
+    let registration = registrations[&key].clone();
+    let provider_cancel = Cancellation::default();
+    let operation_cancel = provider_cancel.clone();
+    service
+        .job(1, 0, operation_cancel, move |_| {
+            use pse_kernels::ProviderFactory;
+            let factory = registration
+                .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+                .unwrap();
+            let scope = pse_kernels::ExecutionScope::new(provider_cancel.clone(), None);
+            let mut worker = factory.create_scoped(scope).unwrap();
+            let request = worker
+                .prepare(pse_kernels::ProviderRequest::all(
+                    registration.spec(),
+                    pse_kernels::DerivativeOrder::First,
+                ))
+                .unwrap();
+            let context = pse_kernels::EvaluationContext {
+                cancelled: &provider_cancel,
+                max_result_bytes: 1 << 20,
+            };
+            request.check_context(&context).unwrap();
+            let mut buffer = pse_kernels::ProviderBuffer::new(&request);
+            let completed = buffer
+                .fill(
+                    &mut worker,
+                    &[2.],
+                    &request,
+                    pse_kernels::ProviderRuntime::default(),
+                    &context,
+                )
+                .unwrap();
+            assert!((completed.values[0] - 3.).abs() <= 1e-9);
+            assert!((completed.jacobian[0] - 1.).abs() <= 1e-9);
+            Ok(())
+        })
+        .await
+        .unwrap();
     assert_eq!(
         registrations[&key].spec().derivatives,
         pse_kernels::DerivativeOrder::First
     );
     drop(registrations);
+    assert!(programs.iter().all(|program| program.upgrade().is_none()));
     assert_eq!(service.pool.reserved(), baseline);
     let cancelled = crate::CancelSource::new();
     cancelled.cancel();
@@ -715,8 +762,11 @@ async fn nested_provider_analysis_admits_known_source_below_default_workspace_ca
 #[tokio::test]
 async fn nested_preparation_admits_small_sources_with_generous_worker_capacity() {
     use crate::workflow::tests as fixture;
+    // Authored hints/bounds can require opaque construction. Its finite 16 GiB
+    // worker grant plus stack, foreign/session allowances and retained source
+    // workspaces must fit the deployment pool before numerical work can start.
     let runtime = fixture::runtime_on(
-        256 << 20,
+        24usize << 30,
         MathPolicy {
             worker_bytes: 16usize << 30,
             workspace_bytes: 16 << 20,
