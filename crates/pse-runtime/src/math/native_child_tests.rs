@@ -205,7 +205,7 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
         source.bindings
     );
     let scope = ExecutionScope::new(Cancellation::default(), None);
-    let error = source
+    let native_interval_error = source
         .problem(&scope)
         .unwrap()
         .evaluate_unknown(
@@ -215,16 +215,56 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
             scope.cancellation(),
         )
         .unwrap_err();
+    assert!(matches!(
+        native_interval_error,
+        pse_math::MathError::Domain { source_id, requirement }
+            if source_id == source.rows[0]
+                && requirement == "implicit unknown outside its declared interval"
+    ));
+    // A wider native search interval lets this trial reach the unchanged authored
+    // range guard, whose error must retain the actual receiving source maps.
+    let unknowns = [Unknown {
+        id: source.unknowns[0].id,
+        lower: -1.0,
+        upper: 12.0,
+    }];
+    let error = compile_problem(
+        (&source.body, &source.bindings),
+        &unknowns,
+        &source.rows,
+        source.parameters.len(),
+        source.evaluation,
+        source.max_entries,
+        &scope,
+    )
+    .unwrap()
+    .evaluate_unknown(
+        &source.parameters,
+        &[11.0],
+        DerivativeOrder::First,
+        scope.cancellation(),
+    )
+    .unwrap_err();
     let pse_math::MathError::Instance {
         instance,
         checked_members,
         checked_sources,
         occurrences,
-        ..
+        cause,
     } = error
     else {
         panic!("native child original range failure lacks its actual receiving context");
     };
+    let pse_math::MathError::Validity(lineage) = cause.as_ref() else {
+        panic!("native child authored range lost its validity lineage: {cause:?}");
+    };
+    assert_eq!(
+        lineage.layer,
+        pse_model::generated::enums::ModelingValidityLayer::Closure
+    );
+    assert!(checked_sources.contains_key(&lineage.source));
+    assert_eq!(lineage.members.len(), 1);
+    assert_eq!(checked_members[&lineage.members[0]], source.unknowns[0].id);
     assert_eq!(instance, source.bindings.instance());
     assert_eq!(&checked_members, source.bindings.checked_members());
     assert_eq!(&checked_sources, source.bindings.checked_sources());
