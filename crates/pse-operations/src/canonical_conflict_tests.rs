@@ -665,10 +665,9 @@ async fn exact_protection_absent_settlement_both_orders_and_replay() {
             .take::<Option<Object>>(response.num_statements() - 1)
             .unwrap()
             .unwrap();
-        let key = canonical_codec::decode_string(
-            canonical_codec::required(&mut issued, "key").unwrap(),
-        )
-        .unwrap();
+        let key =
+            canonical_codec::decode_string(canonical_codec::required(&mut issued, "key").unwrap())
+                .unwrap();
         let deadline = canonical_codec::decode_int(
             canonical_codec::required(&mut issued, "deadline").unwrap(),
         )
