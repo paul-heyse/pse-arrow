@@ -27,7 +27,14 @@ import msgspec.toml
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 from pse._build import _check_document_header
-from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
+from pse.contracts.values import (
+    FIELD_NAME_METADATA,
+    ContentHash,
+    SemanticId,
+    _convert_document,
+    _decode_identity,
+    _encode_identity,
+)
 from pse.governance import check_class
 
 __all__ = [
@@ -296,7 +303,7 @@ def decode_json(data: bytes | str, type: type[T]) -> T:
 
 def convert_document(value: object, type: type[T]) -> T:
     """Construct generated schema defaults through the same admitted value hooks."""
-    return msgspec.convert(value, type=type, dec_hook=_decode_identity)
+    return _convert_document(value, type)
 
 
 def decode_toml(data: bytes | str, type: type[T]) -> T:
@@ -339,31 +346,6 @@ def encode_json(obj: object) -> bytes:
         The encoded document, as bytes.
     """
     return msgspec.json.encode(obj, enc_hook=_encode_identity)
-
-
-def _decode_identity(target: type, value: object) -> object:
-    """Decode retained value classes; NewType aliases supply static roles only."""
-    if target is SemanticId:
-        if isinstance(value, str):
-            return SemanticId.from_hex(value)
-        message = "semantic identity JSON must be hexadecimal text"
-        raise ValueError(message)
-    if target is ContentHash:
-        if isinstance(value, str):
-            return ContentHash.from_prefixed(value)
-        message = "content digest JSON must be blake3-prefixed text"
-        raise ValueError(message)
-    message = f"unsupported document value {target!r}"
-    raise TypeError(message)
-
-
-def _encode_identity(value: object) -> object:
-    if isinstance(value, SemanticId):
-        return value.to_hex()
-    if isinstance(value, ContentHash):
-        return value.to_prefixed()
-    message = f"unsupported document value {type(value)!r}"
-    raise TypeError(message)
 
 
 def _structure_id(value: object, _cls: type[SemanticId]) -> SemanticId:
