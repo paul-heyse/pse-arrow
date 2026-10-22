@@ -98,24 +98,12 @@ pub(crate) fn callable<T>(
             ))
         && let Some(solver) = source.solver
     {
-        let settings = match &solver.backend {
-            pse_backend_native::execution::BackendSettings::Default => {
-                pse_backend_native::settings::pounce::Settings::default()
-            }
-            pse_backend_native::execution::BackendSettings::Pounce(settings) => settings.clone(),
-            _ => {
-                return Err(
-                    ProblemError::Contract("callable POUNCE settings differ".into()).into(),
-                );
-            }
-        };
-        declaration.limits.attempts = u64::try_from(
-            1 + pse_backend_native::pounce::second_opinion_capacity(
-                &solver.controls,
-                &settings,
-                false,
-            ),
-        )
+        let capacity = pse_backend_native::execution::adapter(Backend::Pounce).recovery_capacity(
+            &solver.controls,
+            &solver.backend,
+            pse_backend_native::execution::RecoveryPermission::default(),
+        )?.checked_add(1).ok_or_else(|| ProblemError::memory("callable profile catalog extent"))?;
+        declaration.limits.attempts = u64::try_from(capacity)
         .map_err(|_| ProblemError::memory("callable profile catalog extent"))?;
     }
     let admission = TaskAdmission::new_for(declaration.limits, scope.clone(), service, false);

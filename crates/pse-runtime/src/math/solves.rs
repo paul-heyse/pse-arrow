@@ -706,17 +706,16 @@ impl PreparedSolve {
             .checked_add(self.automatic_backend_alternatives().len())
             .ok_or_else(|| ProblemError::memory("automatic backend catalog extent"))?;
         #[cfg(feature = "solver-pounce")]
-        let count = if let Some((profile, settings)) = self.pounce_recovery_baseline()? {
+        let count = if let Some(profile) = self.pounce_recovery_baseline()? {
             count
                 .checked_add(
-                    native::pounce::second_opinion_capacity(
+                    execution::adapter(Backend::Pounce).recovery_capacity(
                         &profile.controls,
-                        &settings,
-                        self.profile
-                            .composition
-                            .recovery
-                            .contains(&pse_model::strategy::StartOrigin::Auxiliary),
-                    )
+                        &profile.backend,
+                        execution::RecoveryPermission {
+                            replacement_start: self.profile.composition.recovery.contains(&pse_model::strategy::StartOrigin::Auxiliary),
+                        },
+                    )?
                     .checked_mul(2)
                     .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?,
                 )

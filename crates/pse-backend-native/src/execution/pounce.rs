@@ -35,12 +35,41 @@ static CAPABILITY: Capability = Capability {
     cancellation: "TNLP intermediate/evaluation checkpoints",
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
 };
+#[cfg(feature = "pounce")]
+fn recovery_settings(controls: &crate::solve::Controls, settings: &BackendSettings) -> Result<crate::settings::pounce::Settings, ProblemError> {
+    let settings = match settings {
+        BackendSettings::Default => crate::settings::pounce::Settings::default(),
+        BackendSettings::Pounce(settings) => settings.clone(),
+        _ => return Err(super::foreign(Backend::Pounce)),
+    };
+    controls.validate()?;
+    settings.restart.validate()?;
+    settings.curvature_options(controls.hessian)?;
+    Ok(settings)
+}
 impl BackendExecution for Pounce {
     fn backend(&self) -> Backend {
         Backend::Pounce
     }
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
+    }
+    fn recovery_capacity(
+        &self,
+        controls: &crate::solve::Controls,
+        settings: &BackendSettings,
+        permission: super::RecoveryPermission,
+    ) -> Result<usize, ProblemError> {
+        #[cfg(feature = "pounce")]
+        {
+            let settings = recovery_settings(controls, settings)?;
+            Ok(crate::pounce::second_opinion_capacity(controls, &settings, permission.replacement_start))
+        }
+        #[cfg(not(feature = "pounce"))]
+        {
+            let _ = (controls, settings, permission);
+            Err(super::unlinked(Backend::Pounce))
+        }
     }
     fn recovery_profiles(
         &self,
@@ -51,14 +80,7 @@ impl BackendExecution for Pounce {
     ) -> Result<Vec<super::RecoveryProfile>, ProblemError> {
         #[cfg(feature = "pounce")]
         {
-            let settings = match settings {
-                BackendSettings::Default => crate::settings::pounce::Settings::default(),
-                BackendSettings::Pounce(settings) => settings.clone(),
-                _ => return Err(super::foreign(Backend::Pounce)),
-            };
-            controls.validate()?;
-            settings.restart.validate()?;
-            settings.curvature_options(controls.hessian)?;
+            let settings = recovery_settings(controls, settings)?;
             if report.backend != Backend::Pounce {
                 return Err(ProblemError::Contract("recovery observation belongs to another backend".into()));
             }
@@ -246,5 +268,27 @@ impl BackendExecution for Pounce {
             }
             Err(super::unlinked(Backend::Pounce))
         }
+    }
+}
+
+#[cfg(all(test, feature = "pounce"))]
+mod recovery_capacity_tests {
+    use super::*;
+
+    #[test]
+    fn recovery_capacity_consumes_admitted_settings_and_explicit_start_permission() {
+        let controls = crate::solve::Controls::default();
+        let settings = crate::settings::pounce::Settings::default();
+        for replacement_start in [false, true] {
+            let permission = crate::execution::RecoveryPermission { replacement_start };
+            let expected = crate::pounce::second_opinion_capacity(&controls, &settings, replacement_start);
+            assert_eq!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Pounce(settings.clone()), permission).unwrap(), expected);
+            assert_eq!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Default, permission).unwrap(), expected);
+        }
+        let permission = crate::execution::RecoveryPermission::default();
+        assert!(ADAPTER.recovery_capacity(&controls, &BackendSettings::Highs(crate::settings::highs::Settings::default()), permission).is_err());
+        let mut invalid = controls.clone(); invalid.threads = 0;
+        assert!(ADAPTER.recovery_capacity(&invalid, &BackendSettings::Default, permission).is_err());
+        assert_eq!(crate::execution::adapter(Backend::Highs).recovery_capacity(&controls, &BackendSettings::Default, permission).unwrap(), 0);
     }
 }

@@ -622,6 +622,20 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         }
         Ok(*self.capability())
     }
+    /// Bound the complete recovery catalog before observing a native trajectory.
+    /// Each later candidate still needs its own ordinary admission and qualification.
+    /// # Errors
+    /// Foreign settings or invalid controls for this adapter.
+    fn recovery_capacity(
+        &self,
+        controls: &Controls,
+        settings: &BackendSettings,
+        _permission: RecoveryPermission,
+    ) -> Result<usize, ProblemError> {
+        self.capability_for(settings)?;
+        controls.validate()?;
+        Ok(0)
+    }
     /// Lower bounded native recovery descriptions; the caller admits every returned
     /// candidate independently and qualifies it in original coordinates.
     /// # Errors
