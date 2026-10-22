@@ -9,6 +9,7 @@ import contextlib
 import io
 import json
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,6 +24,23 @@ class WorkspaceContextTests(unittest.TestCase):
         self.assertEqual([item["name"] for item in result], ["result"])
         self.assertEqual(result[0]["parameters"][0]["default"], "literal $HOME")
         self.assertNotIn("body", result[0])
+
+    def test_boundary_leads_include_native_owner_and_preserve_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalogue = root / 'crates/pse-runtime/src/boundary_documents.rs'
+            catalogue.parent.mkdir(parents=True)
+            catalogue.write_text('(SelectedRequest, owner, "selected", Both, Native),\n')
+            generated = root / 'python/pse/contracts/selected.py'
+            generated.parent.mkdir(parents=True)
+            generated.write_text('class SelectedRequest: ...\n')
+            result = workspace_context.boundary_leads('SelectedRequest', root=root)
+            self.assertEqual(len(result['items']), 2)
+            self.assertEqual(result['items'][0]['meaning'], 'catalogue declaration')
+            self.assertIn('generator', result['items'][1]['edit_owner'])
+            self.assertTrue(workspace_context.boundary_leads('SelectedRequest', root=root, limit=1)['truncated'])
+            with self.assertRaises(ValueError):
+                workspace_context.boundary_leads('x; shell', root=root)
 
     def test_structured_affected_keeps_reach_and_explicit_omissions(self) -> None:
         roots = {"owner": Path("crates/owner"), "consumer": Path("crates/consumer")}

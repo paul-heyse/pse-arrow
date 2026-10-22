@@ -6,3 +6,10 @@ version = "58.2"
 url = "https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip"
 sha256 = "32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9"
 member = "trace_processor_shell"
+
+[mcpls]
+version = "0.8.0"
+url = "https://github.com/bug-ops/mcpls/releases/download/v0.8.0/mcpls-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "6a20da55cb07276c1cba1a93b739cc5b47c4297979fd2de4271fa4d6f793e450"
+member = "mcpls"
+archive = "tar.gz"

@@ -14,6 +14,45 @@ from scripts import affected, document_lifecycle, document_metadata
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def boundary_leads(symbol: str, *, root: Path = ROOT, limit: int = 40) -> dict:
+    """Bounded text leads across the real catalogue, generators and consumers.
+
+    These are source matches, not inferred calls or cross-language semantic edges.
+    Native LSP requests can refine each language's references independently.
+    """
+    if not symbol or len(symbol) > 160 or not symbol.replace('_', '').isalnum():
+        raise ValueError('symbol must be a simple source identifier of at most 160 characters')
+    catalogue = root / 'crates/pse-runtime/src/boundary_documents.rs'
+    paths = [catalogue]
+    for directory in ('crates/pse-py/src', 'python/pse', 'crates/pse-runtime/src', 'xtask/src'):
+        paths.extend(sorted((root / directory).rglob('*')))
+    seen: set[Path] = set()
+    items = []
+    remaining = 64 << 20
+    truncated = False
+    for path in paths:
+        if path in seen or path.suffix not in {'.rs', '.py', '.pyi'} or not path.is_file() or path.is_symlink():
+            continue
+        seen.add(path)
+        size = path.stat().st_size
+        if size > 4 << 20 or size > remaining:
+            truncated = True
+            continue
+        remaining -= size
+        with path.open(encoding='utf-8') as source:
+            for number, line in enumerate(source, 1):
+                if symbol in line:
+                    relative = str(path.relative_to(root))
+                    items.append({'source': relative, 'line': number, 'excerpt': line.strip()[:400],
+                                  'meaning': 'catalogue declaration' if path == catalogue else 'text reference; inspect native semantic owner',
+                                  'edit_owner': 'crates/pse-runtime/src/boundary_documents.rs and its generator' if '/generated/' in relative or relative.endswith('_native.pyi') or '/contracts/' in relative else relative})
+                    if len(items) == limit:
+                        return {'symbol': symbol, 'items': items, 'truncated': True,
+                                'coverage': 'bounded source leads; dynamic consumers and semantic correspondence remain unresolved'}
+    return {'symbol': symbol, 'items': items, 'truncated': truncated,
+            'coverage': 'catalogue, PyO3, Python/stubs, runtime and xtask text leads; no claimed dynamic or whole-workspace call graph'}
+
+
 def recipe_context(recipes: dict, query: str) -> list[dict]:
     words = query.casefold().split()
     result = []
@@ -60,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--owner")
     parser.add_argument("--scope", action="store_true")
     parser.add_argument("--changed", action="store_true")
+    parser.add_argument("--symbol", help="bounded catalogue/native/facade/stub/test source leads")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--json", action="store_true")
@@ -67,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = describe(args.query, owner=args.owner, scope=args.scope or bool(args.owner),
                           changes=args.changed, offset=args.offset, limit=args.limit)
+        if args.symbol:
+            result['boundary_leads'] = boundary_leads(args.symbol, limit=args.limit)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"context: unavailable: {error}\n")
     if args.json:

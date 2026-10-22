@@ -13,7 +13,7 @@ import sys
 import time
 from pathlib import Path
 
-from scripts import pse_env, surreal_server
+from scripts import diagnostic_trace, pse_env, surreal_server
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def session_description(
     *, state: Path | None, database: bool, rust: bool,
     require_database: bool, require_rust: bool, arguments: list[str],
+    python: bool = True, require_python: bool = False,
 ) -> tuple[list[str], dict[str, object]]:
     """Observe existing capabilities only; never start, build or reconcile anything."""
     executable = shutil.which("codex")
@@ -33,18 +34,32 @@ def session_description(
     }
     rust_available = False
     if rust:
-        analyzer = shutil.which("rust-analyzer-mcp")
-        available = analyzer is not None
+        analyzer = shutil.which("rust-analyzer")
+        available = analyzer is not None and diagnostic_trace.binary_path("mcpls").is_file()
         rust_available = available
         capabilities["rust"] = {
             "requested": True, "available": available, "attached": "not observed",
-            "repair": "prepare the configured rust-analyzer-mcp executable",
+            "repair": "install pinned mcpls and the pinned rustup rust-analyzer component",
+            "coverage": "maintained LSP bridge includes references, implementations and call hierarchy; request readiness remains explicit",
         }
         if require_rust and not available:
-            raise ValueError("Required rust-analyzer-mcp executable is unavailable")
-        if available:
-            command += ["-c", "mcp_servers.rust-analyzer.command=" + json.dumps(analyzer)]
+            raise ValueError("Required rust-analyzer navigation is unavailable")
+    command += ["-c", "mcp_servers.rust-analyzer.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
+                "-c", 'mcp_servers.rust-analyzer.args=["-m","scripts.semantic_navigation","serve","--language","rust"]',
+                "-c", "mcp_servers.rust-analyzer.cwd=" + json.dumps(str(ROOT))]
     command += ["-c", "mcp_servers.rust-analyzer.enabled=" + str(rust_available).lower()]
+    python_available = python and diagnostic_trace.binary_path("mcpls").is_file() and (ROOT / ".venv/bin/pyrefly").is_file()
+    capabilities["python"] = {"requested": python, "available": python_available, "attached": "not observed",
+                              "repair": "explicitly install pinned mcpls and sync checkout Pyrefly; python -m scripts.semantic_navigation describe"}
+    if require_python and not python_available:
+        raise ValueError("Required Pyrefly navigation is unavailable")
+    command += ["-c", "mcp_servers.pse-python.enabled=" + str(python_available).lower()]
+    # Codex validates a transport even for a disabled declaration.
+    command += ["-c", "mcp_servers.pse-python.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
+                    "-c", 'mcp_servers.pse-python.args=["-m","scripts.semantic_navigation","serve"]',
+                    "-c", "mcp_servers.pse-python.cwd=" + json.dumps(str(ROOT)),
+                "-c", "mcp_servers.pse-python.required=" + str(require_python).lower()]
+
     if database:
         selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
         deadline = time.monotonic() + 8.0
@@ -88,19 +103,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state", type=Path)
     parser.add_argument("--without-database", action="store_true")
     parser.add_argument("--without-rust", action="store_true")
+    parser.add_argument("--without-python", action="store_true")
+    parser.add_argument("--require-python", action="store_true")
     parser.add_argument("--require-database", action="store_true")
     parser.add_argument("--require-rust", action="store_true")
     parser.add_argument("--explain", action="store_true")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("arguments", nargs=argparse.REMAINDER, help="literal Codex arguments after --")
     args = parser.parse_args(argv)
-    if (args.require_database and args.without_database) or (args.require_rust and args.without_rust):
+    if (args.require_database and args.without_database) or (args.require_rust and args.without_rust) or (args.require_python and args.without_python):
         parser.error("a required capability cannot also be disabled")
     trailing = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
     try:
         command, description = session_description(
             state=args.state, database=not args.without_database, rust=not args.without_rust,
             require_database=args.require_database, require_rust=args.require_rust, arguments=trailing,
+            python=not args.without_python, require_python=args.require_python,
         )
     except (OSError, ValueError) as error:
         print(f"codex-session: {error}", file=sys.stderr)

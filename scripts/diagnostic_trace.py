@@ -14,6 +14,7 @@ import hashlib
 import os
 import shutil
 import tempfile
+import tarfile
 import tomllib
 import urllib.parse
 import urllib.request
@@ -23,26 +24,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def tool_spec() -> dict[str, str]:
+def tool_spec(name: str = "trace-processor") -> dict[str, str]:
     with (ROOT / ".config/diagnostic-tools.toml").open("rb") as source:
-        return tomllib.load(source)["trace-processor"]
+        return tomllib.load(source)[name]
 
 
-def binary_path() -> Path:
-    spec = tool_spec()
+def binary_path(name: str = "trace-processor") -> Path:
+    spec = tool_spec(name)
     base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    return base / "pse/tools/perfetto" / spec["version"] / "trace_processor_shell"
+    return base / "pse/tools" / ("perfetto" if name == "trace-processor" else name) / spec["version"] / spec["member"]
 
 
-def install() -> Path:
+def install(name: str = "trace-processor") -> Path:
     """Install only the declared binary from a bounded authenticated release archive."""
-    target = binary_path()
+    target = binary_path(name)
     if target.is_file():
         return target
-    spec = tool_spec()
+    spec = tool_spec(name)
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".install-", dir=target.parent) as scratch:
-        archive = Path(scratch) / "release.zip"
+        archive = Path(scratch) / "release.archive"
         digest = hashlib.sha256()
         size = 0
         if urllib.parse.urlsplit(spec["url"]).scheme != "https":
@@ -65,28 +66,33 @@ def install() -> Path:
                 output.write(chunk)
         if digest.hexdigest() != spec["sha256"]:
             raise ValueError("Trace Processor release archive checksum differs")
-        with zipfile.ZipFile(archive) as bundle:
-            members = [
-                info
-                for info in bundle.infolist()
-                if Path(info.filename).name == spec["member"]
-            ]
-            if len(members) != 1 or members[0].file_size > 256 << 20:
+        staged = Path(scratch) / "tool"
+        if spec.get("archive") == "tar.gz":
+            with tarfile.open(archive, "r:gz") as bundle:
+                members = [item for item in bundle.getmembers() if Path(item.name).name == spec["member"]]
+                if len(members) != 1 or not members[0].isfile() or members[0].size > 256 << 20:
+                    raise ValueError("tool binary member missing, ambiguous or oversized")
+                source = bundle.extractfile(members[0])
+                if source is None:
+                    raise ValueError("tool binary member unavailable")
+                with source, staged.open("xb") as output:
+                    shutil.copyfileobj(source, output, 1 << 20)
+        else:
+            with zipfile.ZipFile(archive) as bundle:
+                members = [info for info in bundle.infolist() if Path(info.filename).name == spec["member"]]
+                if len(members) != 1 or members[0].file_size > 256 << 20:
+                    raise ValueError("tool binary member missing, ambiguous or oversized")
+                with bundle.open(members[0]) as source, staged.open("xb") as output:
+                    shutil.copyfileobj(source, output, 1 << 20)
+        staged.chmod(0o755)
+        # A racing install may already have completed. Never replace another tool.
+        try:
+            os.link(staged, target)
+        except FileExistsError:
+            if staged.read_bytes() != target.read_bytes():
                 raise ValueError(
-                    "Trace Processor binary member missing, ambiguous or oversized"
-                )
-            staged = Path(scratch) / "tool"
-            with bundle.open(members[0]) as source, staged.open("xb") as output:
-                shutil.copyfileobj(source, output, 1 << 20)
-            staged.chmod(0o755)
-            # A racing install may already have completed. Never replace another tool.
-            try:
-                os.link(staged, target)
-            except FileExistsError:
-                if staged.read_bytes() != target.read_bytes():
-                    raise ValueError(
-                        "An incompatible tool already occupies the selected installation path"
-                    ) from None
+                    "An incompatible tool already occupies the selected installation path"
+                ) from None
     return target
 
 
@@ -143,7 +149,7 @@ def query(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("install")
+    commands.add_parser("install").add_argument("tool", nargs="?", choices=("trace-processor", "mcpls"), default="trace-processor")
     inspect = commands.add_parser("query")
     inspect.add_argument("trace", type=Path)
     inspect.add_argument("question", choices=("timeline", "numerical", "coverage"))
@@ -159,7 +165,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "install":
-            print(install())
+            print(install(args.tool))
             return 0
         return query(
             args.trace,
@@ -170,7 +176,7 @@ def main() -> int:
             args.binary,
             request_file=args.request,
         )
-    except (OSError, ValueError, zipfile.BadZipFile) as error:
+    except (OSError, ValueError, zipfile.BadZipFile, tarfile.TarError) as error:
         parser.exit(1, f"diagnostic trace unavailable: {error}\n")
 
 

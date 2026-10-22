@@ -471,9 +471,9 @@ matched. Do not launch `surreal mcp` on the persistent files: that opens another
 For an explicitly selected session, `just codex-session [--state STATE] -- CODEX_ARGS`
 observes the existing service and supplies the validated endpoint and pinned checkout header
 helper to Codex. This fixed launcher bypasses workload admission and starts no database.
-Rust navigation and database inspection are requested by default; `--without-rust` and
-`--without-database` opt out. An unavailable optional capability is reported and disabled;
-`--require-rust` or `--require-database` makes it a prerequisite. `--explain --json` reports
+Rust/Python navigation and database inspection are requested by default; `--without-rust`,
+`--without-python` and `--without-database` opt out. An unavailable optional capability is
+reported and disabled; `--require-rust`, `--require-python` or `--require-database` makes it a prerequisite. `--explain --json` reports
 nonsecret selection/readiness, never attachment or credentials. Explicit trailing Codex overrides
 remain last and can change the preset; actual attachment is established by client interaction.
 
@@ -481,7 +481,21 @@ For scientific meaning use the typed APIs and exact identifiers described in
 [the substrate guide](surreal-substrate.md#typed-scientific-inspection), rather than
 interpreting raw rows as a qualified scientific result.
 
-**Semantic navigation, when text search is not enough.** rust-analyzer (Claude's LSP plugin,
+**Semantic navigation, when text search is not enough.** The selected Codex session uses
+pinned mcpls 0.8.0, a maintained LSP bridge, with the pinned rustup rust-analyzer and checkout
+`.venv/bin/pyrefly lsp`. Install the bridge explicitly with `just diagnostic-tools mcpls`;
+attachment never installs it. `python -m scripts.semantic_navigation describe --language python`
+reports availability without starting an LSP. The explicit temporary configuration selects the
+checkout and `.pyi` coverage. Rust configuration derives from `rust-analyzer.toml`; automatic
+checks are disabled for navigation, while explicit correctness recipes remain unchanged.
+The bridge adds implementation and call-hierarchy queries absent from rust-analyzer-mcp 0.4.0.
+Readiness and missing capabilities belong to the real request, not an executable-presence check.
+mcpls positions are **one-based**; rust-analyzer-mcp's direct tool positions are zero-based.
+Neither server crosses the PyO3 boundary semantically. `just context --symbol TYPE --json`
+returns bounded catalogue, generator, Rust, stub, facade and test text leads with explicit
+coverage and truncation; inspect each language's native references to refine those leads.
+
+ rust-analyzer (Claude's LSP plugin,
 or the Codex MCP server when enabled) answers callers, implementations and type resolution
 across the workspace; `rust-analyzer.toml` gives it the force-validate feature and its own
 target directory, so it never waits on an agent's build lock. Context7 serves current library
