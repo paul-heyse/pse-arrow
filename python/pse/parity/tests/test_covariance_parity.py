@@ -148,9 +148,16 @@ def pse_estimate(
         authored.prepare_fit(
             FitId(identity(158)),
             codec.decode_json(
-                codec.encode_json({"version": 1, "settings": {
-                    "solver": pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
-                }}),
+                codec.encode_json(
+                    {
+                        "version": 1,
+                        "settings": {
+                            "solver": pse.SolveSettings(
+                                intent=NativeSolveIntent.OPTIMIZE
+                            ),
+                        },
+                    }
+                ),
                 pse.PhysicalFitRequest,
             ),
         )

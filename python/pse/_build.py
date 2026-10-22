@@ -111,7 +111,7 @@ def native_version() -> str:
     return _native.__version__
 
 
-def _check_native_compatibility(package_version: str) -> None:
+def _check_native_compatibility(package_version: str, schema_fingerprint: str) -> None:
     """Check the compiled version and generated declaration identity without a scan."""
     if package_version != native_version():
         message = "pse package and native extension versions differ; run just py-sync"
@@ -122,10 +122,11 @@ def _check_native_compatibility(package_version: str) -> None:
             "regenerate and run just py-sync"
         )
         raise ImportError(message)
-    from pse.contracts import documents
-
-    if _native.boundary_schema_fingerprint() != documents.SCHEMA_SET_FINGERPRINT:
-        message = "pse document catalogue and native extension differ; regenerate and run just py-sync"
+    if _native.boundary_schema_fingerprint() != schema_fingerprint:
+        message = (
+            "pse document catalogue and native extension differ; "
+            "regenerate and run just py-sync"
+        )
         raise ImportError(message)
 
 

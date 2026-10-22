@@ -63,48 +63,57 @@ from pse._diagnostic_launch import record_launch as launch
 from pse._diagnostic_query import run_query
 from pse.contracts.documents import (
     AnalysisDocument,
+    AnalysisDocumentOutput,
     AnalysisRequest,
     CaptureBudget,
     CaptureDocument,
+    CaptureDocumentOutput,
     CaptureRequest,
     CheckpointIdentity,
     ClosedDuration,
     ComparisonPolicy,
-    DetailDocument,
-    DetailRecordPage,
+    DetailDocumentOutput,
+    DetailRecordPageOutput,
     DetailRequest,
     DiagnosticCommandRequest,
     DiagnosticListRequest,
-    DiagnosticProcessPage,
+    DiagnosticProcessPageOutput,
     FrozenEvidenceSet,
-    FrozenInspectionDocument,
+    FrozenEvidenceSetOutput,
+    FrozenInspectionDocumentOutput,
     FrozenInspectionRequest,
     InspectionDocument,
+    InspectionDocumentOutput,
     InspectionRequest,
-    InvocationComparisonDocument,
+    InvocationComparisonDocumentOutput,
     InvocationEvidenceDocument,
+    InvocationEvidenceDocumentOutput,
     LaunchCaptureRequest,
     NumericalHistoryPolicy,
     OperationId,
     OperationIdBody,
-    OperationPage,
-    OperationSnapshot,
+    OperationPageOutput,
+    OperationSnapshotOutput,
     PackExportRequest,
-    PackIndex,
+    PackIndexOutput,
     ProcessCheckpoint,
-    ProcessLocator,
+    ProcessCheckpointOutput,
+    ProcessLocatorOutput,
     ReviewContextDocument,
+    ReviewContextDocumentOutput,
     ReviewExportDeployment,
-    ReviewHandoffReceipt,
-    ReviewInventoryPage,
+    ReviewHandoffReceiptOutput,
+    ReviewInventoryPageOutput,
     ReviewInventoryRequest,
     ReviewInventorySelection,
-    ReviewQueryDocument,
+    ReviewInventorySelectionOutput,
+    ReviewQueryDocumentOutput,
     ReviewQueryRequest,
+    ReviewQueryRequestOutput,
     ReviewTableDocument,
     ReviewTableRequest,
-    SourceRecordingAcknowledgement,
-    SourceRecordingLaunchDocument,
+    SourceRecordingAcknowledgementOutput,
+    SourceRecordingLaunchDocumentOutput,
     SourceRecordingLaunchRequest,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
@@ -127,11 +136,11 @@ class OperationObservations:
         """Process instance and sequence, independent from scientific identity."""
         return self._handle.id
 
-    def snapshot(self, *, window: float = 60.0) -> OperationSnapshot:
+    def snapshot(self, *, window: float = 60.0) -> OperationSnapshotOutput:
         """Read copied facts for the requested preceding seconds."""
         return self._handle.snapshot(window)
 
-    def inspect(self, *, window: float = 60.0) -> InspectionDocument:
+    def inspect(self, *, window: float = 60.0) -> InspectionDocumentOutput:
         """Explain copied facts; unavailable related owners remain explicit."""
         return self._handle.inspect(window)
 
@@ -147,7 +156,7 @@ class Diagnostics:
         """Exact publisher checkpoint locator; reading does not publish it."""
         return Path(self._handle.checkpoint)
 
-    def list(self, *, offset: int = 0, limit: int = 16) -> OperationPage:
+    def list(self, *, offset: int = 0, limit: int = 16) -> OperationPageOutput:
         """Read a bounded page of known preparation, execution and terminal work."""
         return self._handle.list(offset=offset, limit=limit)
 
@@ -156,7 +165,7 @@ class Diagnostics:
         reader = self._handle.reader(operation)
         return None if reader is None else OperationObservations(reader)
 
-    def inspect(self, request: InspectionRequest) -> InspectionDocument:
+    def inspect(self, request: InspectionRequest) -> InspectionDocumentOutput:
         """Read the Rust-owned interpretation without invoking occupied owners."""
         return self._handle.inspect(request)
 
@@ -178,7 +187,7 @@ class CaptureSession:
 
     _handle: _NativeCaptureSession
 
-    def snapshot(self) -> CaptureDocument:
+    def snapshot(self) -> CaptureDocumentOutput:
         """Observe current capture status, losses and flushed readable prefixes."""
         return self._handle.snapshot()
 
@@ -186,11 +195,11 @@ class CaptureSession:
         """Request exporter stop without waiting or cancelling the target."""
         self._handle.request_stop()
 
-    def wait(self) -> CaptureDocument:
+    def wait(self) -> CaptureDocumentOutput:
         """Release Python execution while waiting and joining capture workers."""
         return self._handle.wait()
 
-    def stop(self) -> CaptureDocument:
+    def stop(self) -> CaptureDocumentOutput:
         """Stop and join only this capture, retaining its output files."""
         return self._handle.stop()
 
@@ -219,7 +228,7 @@ class LaunchedCommand:
     _handle: _NativeLaunchedCommand
 
     @property
-    def locator(self) -> ProcessLocator:
+    def locator(self) -> ProcessLocatorOutput:
         """Exact process/start identity captured before scientific exec."""
         return self._handle.locator
 
@@ -277,29 +286,29 @@ class DetailedCollection:
     _handle: _NativeDetailSession
 
     @property
-    def acknowledgement(self) -> SourceRecordingAcknowledgement | None:
+    def acknowledgement(self) -> SourceRecordingAcknowledgementOutput | None:
         """Actual cooperating admission, independent of terminal family coverage."""
         return self._handle.acknowledgement
 
-    def retain_result(self, result: RunResult) -> ReviewHandoffReceipt | None:
+    def retain_result(self, result: RunResult) -> ReviewHandoffReceiptOutput | None:
         """Publish requested joined context with failure separate from science."""
         return self._handle.retain_result(result._handle)  # noqa: SLF001 -- same native boundary
 
     def retain_context(
-        self, context: ReviewContextDocument
-    ) -> ReviewHandoffReceipt | None:
+        self, context: ReviewContextDocument | ReviewContextDocumentOutput
+    ) -> ReviewHandoffReceiptOutput | None:
         """Publish retained pre-handle facts; never reconstruct or run science."""
         return self._handle.retain_context(context)
 
-    def snapshot(self) -> DetailDocument:
+    def snapshot(self) -> DetailDocumentOutput:
         """Read coverage independently from scientific completion."""
         return self._handle.snapshot()
 
-    def finish(self) -> DetailDocument:
+    def finish(self) -> DetailDocumentOutput:
         """End the caller-owned interval and join only its writer."""
         return self._handle.finish()
 
-    def stop(self) -> DetailDocument:
+    def stop(self) -> DetailDocumentOutput:
         """Stop without asserting complete interval coverage."""
         return self._handle.stop()
 
@@ -325,7 +334,9 @@ class DetailedCollection:
             self.stop()
 
 
-def read_detail(path: str | Path, *, maximum_bytes: int = 256 << 20) -> DetailDocument:
+def read_detail(
+    path: str | Path, *, maximum_bytes: int = 256 << 20
+) -> DetailDocumentOutput:
     """Read a finite versioned manifest; an unterminated prefix stays incomplete."""
     return _diagnostic_read_detail(Path(path), maximum_bytes)
 
@@ -349,7 +360,7 @@ def detail_arrow(
 
 
 def capture_arrow(
-    document: CaptureDocument, *, memory_bytes: int = 16 << 20
+    document: CaptureDocument | CaptureDocumentOutput, *, memory_bytes: int = 16 << 20
 ) -> pa.RecordBatch:
     """Link the original optional capture document to its exact operation."""
     return pa.record_batch(_diagnostic_capture_arrow(document, memory_bytes))
@@ -361,7 +372,7 @@ def detail_records(
     offset: int = 0,
     limit: int = 128,
     maximum_bytes: int = 16 << 20,
-) -> DetailRecordPage:
+) -> DetailRecordPageOutput:
     """Read original coherent records using the returned byte cursor."""
     return _diagnostic_detail_records(Path(path), offset, limit, maximum_bytes)
 
@@ -371,8 +382,12 @@ def operation_id(text: str) -> OperationId:
     return _diagnostic_operation_id(text)
 
 
-def operation_text(operation: OperationId) -> str:
+def operation_text(operation: OperationId | OperationIdBody) -> str:
     """Render the diagnostic locator using its Rust owner."""
+    if isinstance(operation, OperationIdBody):
+        operation = OperationId(
+            process_instance=operation.process_instance, sequence=operation.sequence
+        )
     return _diagnostic_operation_text(operation)
 
 
@@ -380,7 +395,7 @@ def list_processes(
     request: DiagnosticListRequest | None = None,
     *,
     directory: str | Path | None = None,
-) -> DiagnosticProcessPage:
+) -> DiagnosticProcessPageOutput:
     """Read one bounded process page; initialize neither runtime nor storage."""
     if request is None:
         request = DiagnosticListRequest(after=None, limit=16)
@@ -389,21 +404,24 @@ def list_processes(
 
 def inspect_checkpoint(
     checkpoint: str | Path, request: InspectionRequest
-) -> InspectionDocument:
+) -> InspectionDocumentOutput:
     """Explain an exact published prefix through the same Rust inspection owner."""
     return _diagnostic_inspect(Path(checkpoint), request)
 
 
 def read_checkpoint(
     checkpoint: str | Path, *, expected: CheckpointIdentity | None = None
-) -> ProcessCheckpoint:
+) -> ProcessCheckpointOutput:
     """Decode one bounded prefix and validate its exact registered association."""
     return _diagnostic_read_checkpoint(Path(checkpoint), expected)
 
 
 def inspect_image(
-    image: ProcessCheckpoint, request: InspectionRequest, *, checkpoint: str | Path
-) -> InspectionDocument:
+    image: ProcessCheckpoint | ProcessCheckpointOutput,
+    request: InspectionRequest,
+    *,
+    checkpoint: str | Path,
+) -> InspectionDocumentOutput:
     """Inspect the already validated image, avoiding a second path read."""
     return _diagnostic_inspect_image(Path(checkpoint), image, request)
 
@@ -443,8 +461,8 @@ def _duration(seconds: float) -> ClosedDuration:
     return ClosedDuration(secs=secs, nanos=nanos)
 
 
-def _render_inspection(document: InspectionDocument) -> None:
-    print(f"operation {operation_text(codec.convert_document(codec.document_builtins(document.request.operation), OperationId))}")
+def _render_inspection(document: InspectionDocument | InspectionDocumentOutput) -> None:
+    print(f"operation {operation_text(document.request.operation)}")
     operation = document.operation
     if operation is not None:
         print(f"  kind={operation.kind} outcome={operation.outcome}")
@@ -503,7 +521,7 @@ def _render_inspection(document: InspectionDocument) -> None:
                 print(f"  current={codec.encode_json(producer.current).decode()}")
     for related in document.related:
         print(
-            f"related {operation_text(codec.convert_document(codec.document_builtins(related.id), OperationId))} kind={related.kind} "
+            f"related {operation_text(related.id)} kind={related.kind} "
             f"outcome={related.outcome}"
         )
         for phase in related.phases:
@@ -595,7 +613,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         print(f"  unavailable {process.failure}")
                     for operation in process.operations:
                         print(
-                            f"  {operation_text(codec.convert_document(codec.document_builtins(operation.id), OperationId))} {operation.kind} "
+                            f"  {operation_text(operation.id)} {operation.kind} "
                             f"outcome={operation.outcome}"
                         )
                 if page.next is not None:
@@ -637,7 +655,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.checkpoint,
                 InspectionRequest(
                     version=2,
-                    operation=convert(selected, type=OperationIdBody, from_attributes=True),
+                    operation=convert(
+                        selected, type=OperationIdBody, from_attributes=True
+                    ),
                     window=_duration(args.window),
                     include_related=not args.no_related,
                     related_limit=args.related_limit,
@@ -679,57 +699,63 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def inspect_frozen(
-    evidence: FrozenEvidenceSet, request: FrozenInspectionRequest
-) -> FrozenInspectionDocument:
+    evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
+    request: FrozenInspectionRequest,
+) -> FrozenInspectionDocumentOutput:
     """Interpret only supplied immutable members at recorded source time."""
     return _diagnostic_inspect_frozen(evidence, request)
 
 
-def read_evidence(path: str | Path) -> FrozenEvidenceSet:
+def read_evidence(path: str | Path) -> FrozenEvidenceSetOutput:
     """Admit a bounded saved set; embedded paths never authorize lookup."""
     return _diagnostic_read_evidence(Path(path))
 
 
-def read_invocation(path: str | Path) -> InvocationEvidenceDocument:
+def read_invocation(path: str | Path) -> InvocationEvidenceDocumentOutput:
     """Read descriptive invocation facts without a live result handle."""
     return _diagnostic_read_invocation(Path(path))
 
 
-def read_context(path: str | Path) -> ReviewContextDocument:
+def read_context(path: str | Path) -> ReviewContextDocumentOutput:
     """Read original descriptive context without Replay admission."""
     return _diagnostic_read_context(Path(path))
 
 
 def explain_invocation(
-    source: InvocationEvidenceDocument, *, policy: ComparisonPolicy | None = None
-) -> InvocationComparisonDocument:
+    source: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
+    *,
+    policy: ComparisonPolicy | None = None,
+) -> InvocationComparisonDocumentOutput:
     """Explain saved facts using the same pure owner as live invocation readback."""
     return _diagnostic_explain_invocation(source, policy)
 
 
 def compare_invocations(
-    left: InvocationEvidenceDocument,
-    right: InvocationEvidenceDocument,
+    left: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
+    right: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
     *,
     policy: ComparisonPolicy | None = None,
-) -> InvocationComparisonDocument:
+) -> InvocationComparisonDocumentOutput:
     """Compare supplied facts without rerunning science or choosing a winner."""
     return _diagnostic_compare_invocations(left, right, policy)
 
 
 def inventory_page(
-    selection: ReviewInventorySelection, *, offset: int = 0, limit: int = 64
-) -> ReviewInventoryPage:
+    selection: ReviewInventorySelection | ReviewInventorySelectionOutput,
+    *,
+    offset: int = 0,
+    limit: int = 64,
+) -> ReviewInventoryPageOutput:
     """Page an immutable selection without consulting current occurrence pointers."""
     return _diagnostic_inventory_page(selection, offset, limit)
 
 
 def inventory_from_evidence(
-    evidence: FrozenEvidenceSet,
+    evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
     request: ReviewInventoryRequest,
     *,
     scope: str = "supplied.operations",
-) -> ReviewInventorySelection:
+) -> ReviewInventorySelectionOutput:
     """Project actual copied operation/producer relationships without live discovery."""
     return _diagnostic_inventory_from_evidence(evidence, request, scope)
 
@@ -908,11 +934,13 @@ def _read_review_request(path: Path, kind: type[_Request]) -> _Request:
 
 def _subject(
     path: Path, *, source: str = "recorded", handoff: Path | None = None
-) -> FrozenEvidenceSet:
+) -> FrozenEvidenceSetOutput:
     if source == "handoff":
         evidence = read_handoff(path)
     elif source == "live":
-        evidence = FrozenEvidenceSet(version=2, checkpoints=(read_checkpoint(path),))
+        evidence = FrozenEvidenceSetOutput(
+            version=2, checkpoints=(read_checkpoint(path),)
+        )
     else:
         evidence = (
             _diagnostic_pack_evidence(path)
@@ -950,52 +978,55 @@ def _subject(
 
 
 def analyze_evidence(
-    evidence: FrozenEvidenceSet,
+    evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
     request: AnalysisRequest,
     *,
     memory_bytes: int = 64 << 20,
-) -> AnalysisDocument:
+) -> AnalysisDocumentOutput:
     """Interpret immutable facts under one cancellable finite working allocation."""
     return _diagnostic_analyze(evidence, request, memory_bytes=memory_bytes)
 
 
-def read_handoff(path: str | Path) -> FrozenEvidenceSet:
+def read_handoff(path: str | Path) -> FrozenEvidenceSetOutput:
     """Read an explicit receipt's finalized contained context members."""
     return _diagnostic_read_handoff(Path(path))
 
 
 def export_review_pack(
     destination: str | Path,
-    evidence: FrozenEvidenceSet,
-    analysis: AnalysisDocument,
+    evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
+    analysis: AnalysisDocument | AnalysisDocumentOutput,
     request: PackExportRequest,
-) -> PackIndex:
+) -> PackIndexOutput:
     """Publish selected facts and prefixes from explicit original input paths."""
     return _diagnostic_export_pack(Path(destination), evidence, analysis, request)
 
 
-def review_pack(directory: str | Path) -> PackIndex:
+def review_pack(directory: str | Path) -> PackIndexOutput:
     """Validate an indexed local directory without following original paths."""
     return _diagnostic_review_pack(Path(directory))
 
 
 def review_arrow(
-    evidence: FrozenEvidenceSet, request: ReviewTableRequest
+    evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput, request: ReviewTableRequest
 ) -> pa.RecordBatch:
     """Select one registry table and retain its finite buffer ownership."""
     return pa.record_batch(_diagnostic_review_arrow(evidence, request))
 
 
 def query_trace(
-    request: ReviewQueryRequest, trace: Path, output: Path, binary: Path
-) -> ReviewQueryDocument:
+    request: ReviewQueryRequest | ReviewQueryRequestOutput,
+    trace: Path,
+    output: Path,
+    binary: Path,
+) -> ReviewQueryDocumentOutput:
     """Run a declared optional query, retaining failure prefixes and context."""
     return run_query(request, trace, output, binary)
 
 
 def record_launch(
     request: SourceRecordingLaunchRequest,
-) -> SourceRecordingLaunchDocument:
+) -> SourceRecordingLaunchDocumentOutput:
     """Own one literal command and report actual cooperating-source acknowledgement."""
     return launch(request)
 

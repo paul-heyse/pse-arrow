@@ -54,6 +54,7 @@ from scripts import (
     host_admission,
     native_operation,
     payload_files,
+    pse_env,
     surreal_source,
     test_resources,
 )
@@ -1915,10 +1916,10 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
     group = group_for_slice(host_admission.allocation_slice(owner))
     if owner.profile.unbounded:
         if allocation == reference_resources():
-            raise SupervisorError("Reference execution requires its finite isolated allocation")
-        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
-
-        require_unbounded_slice(host_admission.allocation_slice(owner))
+            raise SupervisorError(
+                "Reference execution requires its finite isolated allocation"
+            )
+        pse_env.require_unbounded_slice(host_admission.allocation_slice(owner))
         total = None
     else:
         total = int((group / "memory.max").read_text().strip())
@@ -2565,7 +2566,12 @@ def primary_unit(state: Path) -> str:
 
 
 def observer_scope_command(
-    state: Path, allocation: dict[str, object], unit: str, command: list[str], *, unbounded: bool = False
+    state: Path,
+    allocation: dict[str, object],
+    unit: str,
+    command: list[str],
+    *,
+    unbounded: bool = False,
 ) -> list[str]:
     execution = allocation.get("execution")
     if not isinstance(execution, dict) or not command:
@@ -2574,13 +2580,24 @@ def observer_scope_command(
         )
     if unbounded:
         owner = inherit_host_owner()
-        if owner is None or not owner.profile.unbounded or allocation != execution_resources("exclusive-observer"):
-            raise SupervisorError("Unbounded observer requires its admitted ordinary build owner")
-        from scripts.pse_env import current_memory_ceiling, require_unbounded_slice  # noqa: PLC0415 -- placement owner
+        if (
+            owner is None
+            or not owner.profile.unbounded
+            or allocation != execution_resources("exclusive-observer")
+        ):
+            raise SupervisorError(
+                "Unbounded observer requires its admitted ordinary build owner"
+            )
+        from scripts.pse_env import (  # noqa: PLC0415 -- placement owner
+            current_memory_ceiling,
+            require_unbounded_slice,
+        )
 
         require_unbounded_slice(host_admission.allocation_slice(owner))
         if current_memory_ceiling() is not None:
-            raise SupervisorError("Ordinary build observer has a finite originating role cap")
+            raise SupervisorError(
+                "Ordinary build observer has a finite originating role cap"
+            )
     return [
         "systemd-run",
         "--user",
@@ -2591,7 +2608,14 @@ def observer_scope_command(
         "--expand-environment=no",
         f"--unit={unit}",
         *selected_slice(state, allocation),
-        *([] if unbounded else [f"--property=MemoryMax={integer(execution['observer_memory_bytes'])}", "--property=MemorySwapMax=0"]),
+        *(
+            []
+            if unbounded
+            else [
+                f"--property=MemoryMax={integer(execution['observer_memory_bytes'])}",
+                "--property=MemorySwapMax=0",
+            ]
+        ),
         "--property=TasksMax=2048",
         "--",
         *role_command(
@@ -2831,12 +2855,19 @@ def observer_control_limit(
     """Borrow the caller's control cap only for the observer's verified lifetime."""
     if owner.profile.unbounded:
         if profile != "exclusive-observer":
-            raise SupervisorError("Unbounded observer control requires the ordinary test profile")
-        from scripts.pse_env import current_memory_ceiling, require_unbounded_slice  # noqa: PLC0415 -- placement owner
+            raise SupervisorError(
+                "Unbounded observer control requires the ordinary test profile"
+            )
+        from scripts.pse_env import (  # noqa: PLC0415 -- placement owner
+            current_memory_ceiling,
+            require_unbounded_slice,
+        )
 
         require_unbounded_slice(host_admission.allocation_slice(owner))
         if current_memory_ceiling() is not None:
-            raise SupervisorError("Unbounded build observer control has a finite role cap")
+            raise SupervisorError(
+                "Unbounded build observer control has a finite role cap"
+            )
         yield
         return
     deadline = cancellation_deadline() if cancellation_deadline is not None else None
@@ -3053,7 +3084,13 @@ def observer(
             environment["PSE_SURREAL_STATE"] = str(state)
             if profile is not None:
                 environment["PSE_TEST_EXECUTION_PROFILE"] = profile
-            selected_command = observer_scope_command(state, allocation, unit, command, unbounded=owner.profile.unbounded and profile == "exclusive-observer")
+            selected_command = observer_scope_command(
+                state,
+                allocation,
+                unit,
+                command,
+                unbounded=owner.profile.unbounded and profile == "exclusive-observer",
+            )
             attempted = True
             # The operation creator owns cancellation of this handoff. Keep its
             # native supervisor outside a validation gate's process-group kill,
@@ -6589,13 +6626,25 @@ def maintenance_domain_call(
     arguments: list[object],
 ) -> object:
     """Call a fixed generated domain owner; never accept SQL from an operator input."""
-    if function not in {"current", "claim", "page", "rehome_complete", "validation_reads"}:
+    if function not in {
+        "current",
+        "claim",
+        "page",
+        "rehome_complete",
+        "validation_reads",
+    }:
         raise SupervisorError("Unknown generated maintenance operation")
     encoded = ",".join(json.dumps(value, allow_nan=False) for value in arguments)
-    call = f"fn::pse_maintenance_v1::{function}({payload_expiry()}" + ("," + encoded if encoded else "") + ")"
+    call = (
+        f"fn::pse_maintenance_v1::{function}({payload_expiry()}"
+        + ("," + encoded if encoded else "")
+        + ")"
+    )
     if credentials is None:
         return payload_query(state, config, "RETURN " + call + ";")
-    return maintenance_query(state, config, credentials, "LET $value=" + call + ";").get("value")
+    return maintenance_query(
+        state, config, credentials, "LET $value=" + call + ";"
+    ).get("value")
 
 
 def maintenance_domain_context(
@@ -6617,9 +6666,23 @@ def maintenance_domain_context(
         phase = pending.get("phase")
         nonce = pending.get("domain_nonce")
         actual = object_mapping(persisted.get("derived_rebuild_pending"))
-        identity = ("kind", "phase", "namespace", "database", "target_namespace", "target_database", "payload_incarnation", "backup_digest")
-        if any(actual.get(key) != pending.get(key) for key in identity) or actual.get("domain_nonce") != nonce:
-            raise SupervisorError("Domain maintenance phase or original operation changed")
+        identity = (
+            "kind",
+            "phase",
+            "namespace",
+            "database",
+            "target_namespace",
+            "target_database",
+            "payload_incarnation",
+            "backup_digest",
+        )
+        if (
+            any(actual.get(key) != pending.get(key) for key in identity)
+            or actual.get("domain_nonce") != nonce
+        ):
+            raise SupervisorError(
+                "Domain maintenance phase or original operation changed"
+            )
         if nonce is None:
             nonce = uuid.uuid4().hex
             actual["domain_nonce"] = nonce
@@ -6630,9 +6693,22 @@ def maintenance_domain_context(
         if persisted.get("derived_rebuild_pending"):
             raise SupervisorError("Domain maintenance phase changed")
         phase, nonce = "validation", uuid.uuid4().hex
-    if not isinstance(phase, str) or not isinstance(nonce, str) or re.fullmatch(r"[a-f0-9]{32}", nonce) is None:
+    if (
+        not isinstance(phase, str)
+        or not isinstance(nonce, str)
+        or re.fullmatch(r"[a-f0-9]{32}", nonce) is None
+    ):
         raise SupervisorError("Invalid original domain maintenance operation")
-    operation = ":".join((nonce, purpose, source, target, str(config["namespace"]), str(config["database"])))
+    operation = ":".join(
+        (
+            nonce,
+            purpose,
+            source,
+            target,
+            str(config["namespace"]),
+            str(config["database"]),
+        )
+    )
     previous = maintenance_domain_call(state, config, credentials, "current", [])
     if previous is not None and (
         not isinstance(previous, dict)
@@ -6641,9 +6717,17 @@ def maintenance_domain_context(
     ):
         raise SupervisorError("Malformed current maintenance generation")
     acknowledged = maintenance_domain_call(
-        state, config, credentials, "claim", [operation, generation, phase, source, target, previous]
+        state,
+        config,
+        credentials,
+        "claim",
+        [operation, generation, phase, source, target, previous],
     )
-    if acknowledged != {"operation": operation, "generation": generation, "phase": phase}:
+    if acknowledged != {
+        "operation": operation,
+        "generation": generation,
+        "phase": phase,
+    }:
         raise SupervisorError("Maintenance generation was not acknowledged")
     return operation, generation, phase
 
@@ -6654,10 +6738,13 @@ def maintenance_domain_page(value: object, after: str) -> tuple[int, str, bool]:
         raise SupervisorError("Malformed generated maintenance page")
     count, cursor, complete = value["count"], value["after"], value["complete"]
     if (
-        type(count) is not int or not 0 <= count <= 64
-        or not isinstance(cursor, str) or type(complete) is not bool
+        type(count) is not int
+        or not 0 <= count <= 64
+        or not isinstance(cursor, str)
+        or type(complete) is not bool
         or complete != (count == 0)
-        or (count and cursor <= after) or (not count and cursor != after)
+        or (count and cursor <= after)
+        or (not count and cursor != after)
     ):
         raise SupervisorError("Invalid generated maintenance progress")
     return count, cursor, complete
@@ -6669,10 +6756,14 @@ def rotate_source_authorities(
     """Fence old creation grants while preserving admitted science and its borrowers."""
     pending = object_mapping(config.get("derived_rebuild_pending"))
     incarnation = str(pending["payload_incarnation"])
-    context = maintenance_domain_context(state, config, credentials, "rotate", incarnation, incarnation)
+    context = maintenance_domain_context(
+        state, config, credentials, "rotate", incarnation, incarnation
+    )
     after = ""
     while True:
-        value = maintenance_domain_call(state, config, credentials, "page", [*context, "rotate", after])
+        value = maintenance_domain_call(
+            state, config, credentials, "page", [*context, "rotate", after]
+        )
         _count, after, complete = maintenance_domain_page(value, after)
         if complete:
             return
@@ -7338,11 +7429,18 @@ def rehome_restored_payloads(
     # physical fields are absent from scientific descriptors and manifest bytes.
     after = ""
     while True:
-        value = maintenance_domain_call(state, config, credentials, "page", [*context, "rehome", after])
+        value = maintenance_domain_call(
+            state, config, credentials, "page", [*context, "rehome", after]
+        )
         _count, after, complete = maintenance_domain_page(value, after)
         if complete:
             break
-    if maintenance_domain_call(state, config, credentials, "rehome_complete", list(context)) is not True:
+    if (
+        maintenance_domain_call(
+            state, config, credentials, "rehome_complete", list(context)
+        )
+        is not True
+    ):
         raise SupervisorError("Restored file incarnation was not acknowledged")
     config["payload_frozen"] = True
     write_json(state / "config.json", config)
@@ -8218,8 +8316,12 @@ def validation_payload_reads(
             "Validator file reads require the exact closed restored profile"
         )
     incarnation = str(config["payload_incarnation"])
-    context = maintenance_domain_context(state, config, None, "validation", incarnation, incarnation)
-    acknowledged = maintenance_domain_call(state, config, None, "validation_reads", [*context, interpretation])
+    context = maintenance_domain_context(
+        state, config, None, "validation", incarnation, incarnation
+    )
+    acknowledged = maintenance_domain_call(
+        state, config, None, "validation_reads", [*context, interpretation]
+    )
     if acknowledged is not True:
         raise SupervisorError("Validator file-read admission was not acknowledged")
 

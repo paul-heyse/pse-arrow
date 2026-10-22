@@ -23,6 +23,8 @@ from pse._build import _diagnostic_query_specification
 from pse._diagnostic_query import run_query
 from pse.contracts import documents as d
 from pse.contracts.enums import NativeSolveIntent
+from pse.contracts.identities import RunId
+from pse.contracts.values import SemanticId
 from pse.tests.test_diagnostics import diagnostic_native_solve
 from pse.tests.test_frozen_review import source_recording_request
 from pse.tests.test_local_runtime import physical_documents
@@ -352,7 +354,7 @@ def test_malformed_source_ack_does_not_stop_science_and_claim_is_exclusive(
         ),
         d.SourceRecordingLaunchRequest,
     )
-    results: list[d.SourceRecordingLaunchDocument] = []
+    results: list[d.SourceRecordingLaunchDocumentOutput] = []
     errors: list[BaseException] = []
 
     def run() -> None:
@@ -428,10 +430,13 @@ def test_explicit_diagnostic_work_keeps_origin_and_prehandle_failure(
                 f'@id("{case}") case run {{child root:D=D();}} }}'
             ),
         ),
-        case_id=case,
+        case_id=SemanticId.from_hex(case),
         settings=pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        diagnostics=policy,
-        origin=d.DiagnosticOriginBody(run_id="cd" * 16),
+        diagnostics=codec.convert_document(
+            codec.document_builtins(policy),
+            d.ModelingDiagnosticPolicyBody,
+        ),
+        origin=d.DiagnosticOriginBody(run_id=RunId(SemanticId.from_hex("cd" * 16))),
         allowance=d.ClosedDuration(secs=10, nanos=0),
         maximum_source_bytes=4 << 20,
     )
@@ -556,7 +561,10 @@ def test_query_table_cli_writes_registry_typed_ipc_stream(
         tool_version="fixture 1.0",
         status="completed",
         exit_code=0,
-        columns=specification.columns,
+        columns=tuple(codec.convert_document(
+            codec.document_builtins(column),
+            d.ReviewQueryColumn,
+        ) for column in specification.columns),
         covered_interval=None,
         output="rows.csv",
         output_prefix_bytes=(1 << 53) + 1,
@@ -671,7 +679,10 @@ def test_cli_explicit_live_source_joins_selected_handoff_without_replacing_snaps
     assert retained.invocations
     assert retained.invocations[0].operation == operation
     inspecting = d.FrozenInspectionRequest(
-        version=1, inspection=d.InspectionRequest(operation=operation)
+        version=1, inspection=d.InspectionRequest(operation=codec.convert_document(
+            codec.document_builtins(operation),
+            d.OperationIdBody,
+        ))
     )
     inspect_path = tmp_path / "inspect-live.json"
     inspect_path.write_bytes(codec.encode_json(inspecting))
@@ -833,7 +844,7 @@ def test_cli_handoff_exports_multiple_protected_scientific_selections(
                 row_start=0,
                 row_end=(1 << 64) - 1,
                 output=d.ReviewOutputSelection(
-                    owner=symbol.hex(),
+                    owner=SemanticId(symbol),
                     field="value",
                     partition=f"step:{original.column('step')[0].as_py()}",
                 ),

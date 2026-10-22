@@ -97,7 +97,8 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
         package.prepare_flow(
             case,
             pse.FlowSelectionDocument(
-                nodes=(case.to_hex(), case.to_hex()), connections=selection.connections
+                nodes=(selection.nodes[0], selection.nodes[0]),
+                connections=selection.connections
             ),
             settings,
         )
@@ -146,9 +147,14 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert attempt is not None
     assert row.failure is None
     assert attempt.qualification == "feasible"
-    primal = codec.structure_rows(pa.table(attempt.primal()).to_pylist(), result_contracts.RuntimePrimalValuesRow)
+    primal = codec.structure_rows(
+        pa.table(attempt.primal()).to_pylist(), result_contracts.RuntimePrimalValuesRow
+    )
     coordinate = next(value for value in primal if value.coordinate_id == inlet.id)
-    assert (coordinate.value.quantity_type_id, coordinate.value.unit_id) == primitive_quantity("Scalar")
+    assert (
+        coordinate.value.quantity_type_id,
+        coordinate.value.unit_id,
+    ) == primitive_quantity("Scalar")
     assert coordinate.coordinate_role.value == "original"
     assert coordinate.value.value == pytest.approx(
         4.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0

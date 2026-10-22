@@ -28,7 +28,7 @@ class ScientificArtifact:
 
     @property
     def original_intent(self) -> ArtifactIntent:
-        """Exact original settlement document, also retained by errors and interrupts."""
+        """Original settlement document, retained by errors and interrupts."""
         return self._handle.original_intent
 
     def metadata(self) -> TableStream:

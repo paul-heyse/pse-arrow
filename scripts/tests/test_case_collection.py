@@ -15,6 +15,8 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
+import msgspec
+
 from scripts import case_audit, case_measure
 
 
@@ -31,6 +33,7 @@ class CollectionSelectionTests(unittest.TestCase):
         from pse.contracts.documents import (  # noqa: PLC0415
             AnalysisRequest,
             OperationId,
+            OperationIdBody,
         )
 
         root = OperationId(process_instance=(1, 2), sequence=1)
@@ -51,7 +54,7 @@ class CollectionSelectionTests(unittest.TestCase):
         ]
         observer = Mock(diagnostics=diagnostics)
         result: dict = {}
-        request = AnalysisRequest(operation=root)
+        request = AnalysisRequest(operation=msgspec.convert(root, type=OperationIdBody, from_attributes=True))
         analysis = case_audit.analyze_case_evidence(observer, evidence, request, result)
         self.assertIs(analysis, actual_analysis)
         self.assertEqual(result["analysis_scope"]["selected_operation"], "2")

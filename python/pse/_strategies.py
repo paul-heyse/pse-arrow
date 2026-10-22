@@ -15,9 +15,9 @@ from pse._inspection import TableStream
 from pse.contracts.documents import (
     FlowGraphDocument,
     InitializationDocument,
-    ReviewContextDocument,
+    ReviewContextDocumentOutput,
     ReviewContextRequest,
-    RouteDocument,
+    RouteDocumentOutput,
     SolveSettings,
     TearSelectionDocument,
 )
@@ -39,9 +39,7 @@ class PreparedFlow:
         self, method: TearMethod, settings: SolveSettings
     ) -> "StrategyResult":
         """Run the explicitly selected native MILP or policy-respecting heuristic."""
-        return StrategyResult(
-            self._handle.select_tears(method, settings)
-        )
+        return StrategyResult(self._handle.select_tears(method, settings))
 
 
 @attrs.frozen
@@ -51,7 +49,7 @@ class PreparedStrategy:
     _handle: _NativePreparedStrategy
 
     @property
-    def routes(self) -> tuple[RouteDocument, ...]:
+    def routes(self) -> tuple[RouteDocumentOutput, ...]:
         """Typed routes selected before execution, without implicit failure fallback."""
         return tuple(self._handle.routes)
 
@@ -68,7 +66,7 @@ class StrategyResult:
 
     _handle: _NativeStrategyResult
 
-    def review_context(self) -> ReviewContextDocument:
+    def review_context(self) -> ReviewContextDocumentOutput:
         """Read context explicitly selected for the original joined execution."""
         return self._handle.review_context()
 

@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Arrow transport protocols for registry-governed physical inputs."""
+
 from typing import Protocol, TypeAlias
 
 
 class ArrowArrayInput(Protocol):
     """An Arrow C Data producer, including a record batch."""
 
-    def __arrow_c_array__(self, requested_schema: object = None) -> tuple[object, object]:
+    def __arrow_c_array__(
+        self, requested_schema: object = None
+    ) -> tuple[object, object]:
         """Export a schema and array capsule."""
         ...
 

@@ -34,15 +34,15 @@ from pse.contracts.documents import (
     SensitivityRequest,
 )
 from pse.contracts.enums import (
-    ScientificArtifactKind,
-    CanonicalTerminalOutcome,
     ArtifactOwnerKind,
     CanonicalAttemptPhase,
+    CanonicalTerminalOutcome,
     DiagnosticCode,
     FailureClass,
     NativeBackend,
     NativeSolveIntent,
     PresolvePolicyKind,
+    ScientificArtifactKind,
 )
 from pse.contracts.identities import DeclarationId
 from pse.tests.canonical_fixture import CanonicalFixture
@@ -514,7 +514,11 @@ def test_canonical_result_selection_and_progress_reopen(
     # strict recovery document settles the inactive occurrence without a reader.
     with pytest.raises(pse.InspectionError) as inactive_transfer:
         reopened.promote_scientific_artifact(
-            run, attempt, ScientificArtifactKind.FINAL_STATE, owner_kind=ArtifactOwnerKind.USER, owner=""
+            run,
+            attempt,
+            ScientificArtifactKind.FINAL_STATE,
+            owner_kind=ArtifactOwnerKind.USER,
+            owner="",
         )
     inactive_report = inactive_transfer.value.report
     assert inactive_report.artifact_key is not None
@@ -530,20 +534,30 @@ def test_canonical_result_selection_and_progress_reopen(
     )
 
     artifact = reopened.promote_scientific_artifact(
-        run, attempt, ScientificArtifactKind.FINAL_STATE, owner_kind=ArtifactOwnerKind.USER, owner="python-final-state"
+        run,
+        attempt,
+        ScientificArtifactKind.FINAL_STATE,
+        owner_kind=ArtifactOwnerKind.USER,
+        owner="python-final-state",
     )
     assert isinstance(artifact.original_intent, ArtifactIntent)
     settlement = reopened.recover_artifact_intent(artifact.original_intent)
     assert settlement.key == artifact.key
     assert not hasattr(settlement, "block")
-    altered_intent = msgspec.structs.replace(artifact.original_intent, creation_request_digest="f" * 64)
+    altered_intent = msgspec.structs.replace(
+        artifact.original_intent, creation_request_digest="f" * 64
+    )
     altered_settlement = reopened.recover_artifact_intent(altered_intent)
     with pytest.raises(pse.InspectionError):
         altered_settlement.release(ArtifactOwnerKind.USER, "python-final-state")
     with pytest.raises(TypeError):
-        reopened.recover_artifact_intent(cast(ArtifactIntent, b"{}"))
+        reopened.recover_artifact_intent(cast("ArtifactIntent", b"{}"))
     with pytest.raises(pse.InspectionError):
-        reopened.recover_artifact_intent(msgspec.structs.replace(artifact.original_intent, provenance=b" " * (1024 * 1024 + 1)))
+        reopened.recover_artifact_intent(
+            msgspec.structs.replace(
+                artifact.original_intent, provenance=b" " * (1024 * 1024 + 1)
+            )
+        )
     artifact.retain(ArtifactOwnerKind.AUDIT, "python-independent-audit")
     (artifact_header,) = pa.table(artifact.metadata()).to_pylist()
     assert artifact_header["kind"] == "final-state"
@@ -558,7 +572,9 @@ def test_canonical_result_selection_and_progress_reopen(
     relation = "runtime.solve_runs"
     exact = pa.table(reopened.results(run, attempt, relation))
     latest = pa.table(
-        reopened.latest_results(header["problem"], relation, classes=(CanonicalTerminalOutcome.SUCCEEDED,))
+        reopened.latest_results(
+            header["problem"], relation, classes=(CanonicalTerminalOutcome.SUCCEEDED,)
+        )
     )
     assert exact.equals(latest)
     assert exact.num_rows == 1

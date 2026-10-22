@@ -21,7 +21,10 @@ from pse.tests.test_diagnostics import diagnostic_native_solve
 settings = pse.EngineSettings(
     memory_limit_bytes=int(sys.argv[1]), threads=2, target_partitions=1,
     spill_dir=sys.argv[2], max_spill_bytes=1 << 30, batch_size=7,
-    cache=pse.CacheSettings(working_bytes=16 << 30, concurrent_loads=2, inflight_bytes=64 << 20, inspection_bytes=4 << 20),
+    cache=pse.CacheSettings(
+        working_bytes=16 << 30, concurrent_loads=2,
+        inflight_bytes=64 << 20, inspection_bytes=4 << 20,
+    ),
 )
 runtime = pse.Runtime(settings, ephemeral=True)
 try:

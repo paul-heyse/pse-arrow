@@ -16,11 +16,11 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.contracts import documents
 from pse import codec, diagnostics
+from pse.contracts import documents
 from pse.contracts.documents import (
     CaptureBudget,
-    CaptureDocument,
+    CaptureDocumentOutput,
     CaptureRequest,
     CheckpointIdentity,
     ClosedDuration,
@@ -33,8 +33,8 @@ from pse.contracts.documents import (
     InvocationComparisonDocument,
     InvocationEvidenceDocument,
     LaunchCaptureRequest,
-    MetricSnapshot,
-    NativeCountersKinsol,
+    MetricSnapshotOutput,
+    NativeCountersOutputKinsol,
     ProcessCheckpoint,
     ProcessLocator,
     ProcessResources,
@@ -46,7 +46,7 @@ from pse.contracts.documents import (
     ValueNumber,
     ValueText,
     ValueUnavailable,
-    WorkObservation,
+    WorkObservationOutput,
 )
 from pse.contracts.enums import (
     CaptureKind,
@@ -79,7 +79,12 @@ def test_rust_owned_inspection_fixture_preserves_exact_observations_and_outcome(
     assert snapshot is not None
     assert snapshot.id == document.request.operation
     assert (
-        diagnostics.operation_text(codec.convert_document(codec.document_builtins(snapshot.id), documents.OperationId)) == "00000000000000010000000000000002:3"
+        diagnostics.operation_text(
+            codec.convert_document(
+                codec.document_builtins(snapshot.id), documents.OperationId
+            )
+        )
+        == "00000000000000010000000000000002:3"
     )
     assert snapshot.outcome == OperationOutcome.CANCELLED
     assert snapshot.finished_at is not None
@@ -120,7 +125,10 @@ def observed_runtime(
     runtime.physical_from_documents(physical_documents())
     page = observations.list(limit=32)
     assert page.operations, "physical preparation publishes its actual operation"
-    reader = observations.reader(page.operations[-1].id)
+    reader = observations.reader(codec.convert_document(
+        codec.document_builtins(page.operations[-1].id),
+        documents.OperationId,
+    ))
     assert reader is not None
     return runtime, observations, reader
 
@@ -154,7 +162,9 @@ def diagnostic_native_solve(
 
 def diagnostic_scientific_probe(
     settings: pse.EngineSettings,
-) -> tuple[bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int]:
+) -> tuple[
+    bool, float, WorkObservationOutput, NativeCountersOutputKinsol, bool, bool, int
+]:
     """Fresh-process probe compares actual native work independently of the hub."""
     runtime = pse.Runtime(settings, ephemeral=True)
     try:
@@ -167,7 +177,7 @@ def diagnostic_scientific_probe(
         assert step.work.evaluations > 0
         assert step.native_observations is not None
         counters = step.native_observations.counters
-        assert isinstance(counters, NativeCountersKinsol)
+        assert isinstance(counters, NativeCountersOutputKinsol)
         assert counters.function_evaluations is not None
         assert counters.function_evaluations > 0
         observations = runtime.observations()
@@ -175,12 +185,15 @@ def diagnostic_scientific_probe(
         before: list[
             tuple[
                 pse.OperationObservations,
-                tuple[MetricSnapshot, ...],
+                tuple[MetricSnapshotOutput, ...],
                 ClosedDuration | None,
             ]
         ] = []
         for operation in page.operations:
-            reader = observations.reader(operation.id)
+            reader = observations.reader(codec.convert_document(
+                codec.document_builtins(operation.id),
+                documents.OperationId,
+            ))
             assert reader is not None
             snapshot = reader.snapshot()
             before.append((reader, snapshot.metrics, snapshot.observed_at))
@@ -262,7 +275,13 @@ print(codec.encode_json(diagnostic_scientific_probe(settings)).decode())
             codec.decode_json(
                 process.stdout,
                 tuple[
-                    bool, float, WorkObservation, NativeCountersKinsol, bool, bool, int
+                    bool,
+                    float,
+                    WorkObservationOutput,
+                    NativeCountersOutputKinsol,
+                    bool,
+                    bool,
+                    int,
                 ],
             )
         )
@@ -299,7 +318,9 @@ def test_nonempty_native_checkpoint_related_python_and_cli_reads_are_passive(
         )
         request = InspectionRequest(
             version=2,
-            operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
+            operation=msgspec.convert(
+                reader.id, type=documents.OperationIdBody, from_attributes=True
+            ),
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
             related_limit=32,
@@ -420,14 +441,20 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
             system_cpu_ticks=None,
         ),
         parent=None,
-        locator=locator,
+        locator=codec.convert_document(
+            codec.document_builtins(locator),
+            documents.ProcessLocatorBody,
+        ),
         clock=None,
         threads=(),
         threads_partial=False,
     )
     checkpoint = tmp_path / "retained.json"
     checkpoint.write_bytes(codec.encode_json(image))
-    expected = CheckpointIdentity(process=image.process, locator=locator)
+    expected = CheckpointIdentity(process=image.process, locator=codec.convert_document(
+        codec.document_builtins(locator),
+        documents.ProcessLocatorBody,
+    ))
     retained = diagnostics.read_checkpoint(checkpoint, expected=expected)
     assert retained == image
     checkpoint.write_bytes(b"replacement/truncated path")
@@ -443,13 +470,22 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
     checkpoint.write_bytes(codec.encode_json(image))
     reused = CheckpointIdentity(
         process=image.process,
-        locator=documents.ProcessLocatorBody(pid=locator.pid, start_ticks=78, executable=None),
+        locator=documents.ProcessLocatorBody(
+            pid=locator.pid, start_ticks=78, executable=None
+        ),
     )
     with pytest.raises(pse.InspectionError, match="identity mismatch"):
         diagnostics.read_checkpoint(checkpoint, expected=reused)
     with pytest.raises(pse.InspectionError, match="identity mismatch"):
         diagnostics.read_checkpoint(
-            checkpoint, expected=CheckpointIdentity(process="wrong", locator=locator)
+            checkpoint,
+            expected=CheckpointIdentity(
+                process="wrong",
+                locator=codec.convert_document(
+                    codec.document_builtins(locator),
+                    documents.ProcessLocatorBody,
+                ),
+            ),
         )
 
 
@@ -548,7 +584,9 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
     try:
         request = InspectionRequest(
             version=2,
-            operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
+            operation=msgspec.convert(
+                reader.id, type=documents.OperationIdBody, from_attributes=True
+            ),
             window=ClosedDuration(secs=60, nanos=0),
             include_related=True,
             related_limit=16,
@@ -572,7 +610,9 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
             CaptureRequest(
                 version=1,
                 checkpoint=str(observations.checkpoint),
-                operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
+                operation=msgspec.convert(
+                    reader.id, type=documents.OperationIdBody, from_attributes=True
+                ),
                 kind=CaptureKind.TIMELINE,
                 output=str(tmp_path / "capture"),
                 duration=ClosedDuration(secs=10, nanos=0),
@@ -580,7 +620,7 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
             )
         )
         waiting = threading.Event()
-        completed: list[CaptureDocument] = []
+        completed: list[CaptureDocumentOutput] = []
         failures: list[BaseException] = []
 
         def wait() -> None:
@@ -617,7 +657,10 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
         assert stopped.status == expected_status, (
             "retained source coalescing/coverage survives capture stop"
         )
-        assert codec.decode_json(codec.encode_json(stopped), CaptureDocument) == stopped
+        assert (
+            codec.decode_json(codec.encode_json(stopped), CaptureDocumentOutput)
+            == stopped
+        )
         capture_view = diagnostics.capture_arrow(stopped)
         assert capture_view.num_rows == 1
         assert capture_view.column("operation")[
@@ -625,7 +668,7 @@ def test_checkpoint_inspection_and_capture_wait_remain_independent(
         ].as_py() == diagnostics.operation_text(reader.id)
         assert (
             codec.decode_json(
-                capture_view.column("document_json")[0].as_py(), CaptureDocument
+                capture_view.column("document_json")[0].as_py(), CaptureDocumentOutput
             )
             == stopped
         )
@@ -841,7 +884,12 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             for ordinal, field in enumerate(record.values, 1):
                 assert view.column("operation")[
                     row
-                ].as_py() == diagnostics.operation_text(codec.convert_document(codec.document_builtins(record.producer.operation), documents.OperationId))
+                ].as_py() == diagnostics.operation_text(
+                    codec.convert_document(
+                        codec.document_builtins(record.producer.operation),
+                        documents.OperationId,
+                    )
+                )
                 assert view.column("producer")[row].as_py() == record.producer.sequence
                 assert view.column("event_sequence")[row].as_py() == record.sequence
                 assert (
@@ -964,7 +1012,7 @@ def test_launch_capture_cli_retains_command_and_returns_scientific_exit(
         == 7
     )
     assert (tmp_path / "science-finished").read_text() == "finished"
-    document = codec.decode_json(capsys.readouterr().out, CaptureDocument)
+    document = codec.decode_json(capsys.readouterr().out, CaptureDocumentOutput)
     assert document.operation is None
     assert document.launch_process is not None
 

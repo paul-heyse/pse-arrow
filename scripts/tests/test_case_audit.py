@@ -1166,8 +1166,8 @@ class AuditTests(unittest.TestCase):
 
         from pse import codec  # noqa: PLC0415
         from pse.contracts.documents import (  # noqa: PLC0415
-            InspectionDocument,
-            OperationId,
+            InspectionDocumentOutput,
+            OperationIdBody,
         )
         from pse.contracts.enums import OperationOutcome  # noqa: PLC0415
 
@@ -1178,17 +1178,17 @@ class AuditTests(unittest.TestCase):
             ).read_text()
         )
         source = codec.decode_json(
-            json.dumps(products["diagnostic_inspection"]).encode(), InspectionDocument
+            json.dumps(products["diagnostic_inspection"]).encode(), InspectionDocumentOutput
         )
         assert source.operation is not None
         completed = replace(
             source.operation,
-            id=OperationId(process_instance=(1, 2), sequence=1),
+            id=OperationIdBody(process_instance=(1, 2), sequence=1),
             outcome=OperationOutcome.COMPLETED,
             phases=(),
         )
         child_operation = replace(
-            completed, id=OperationId(process_instance=(1, 2), sequence=2)
+            completed, id=OperationIdBody(process_instance=(1, 2), sequence=2)
         )
         identities = {"root": completed.id, "child": child_operation.id}
         names = {value: key for key, value in identities.items()}
@@ -1220,6 +1220,8 @@ class AuditTests(unittest.TestCase):
                     related=[child_operation],
                 )
                 child = SimpleNamespace(operation=child_operation, related=[])
+                observer.codec = codec
+                observer.operation_body = OperationIdBody
                 observer.recorded_operations["child"] = child_operation
                 self.install_diagnostics(
                     observer,

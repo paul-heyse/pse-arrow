@@ -188,7 +188,7 @@ def members(
     inspected = authored.inspect(case, settings).members
     identities: dict[str, SemanticId] = {}
     for member in inspected:
-        identities[member.lineage.path] = SemanticId.from_hex(member.id)
+        identities[member.lineage.path] = member.id
     return identities
 
 

@@ -21,8 +21,8 @@ from pse._build import (
     _NativeRuntime,
 )
 from pse._inspection import TableStream
-from pse._physical import ArrowSchema
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
+from pse._physical import ArrowSchema
 from pse._runs import (
     PreparedOperation,
     ProgressStream,
@@ -33,31 +33,38 @@ from pse._strategies import (
     PreparedStrategy,
 )
 from pse.contracts.documents import (
-    ArtifactIntent,
-    SolverCapability,
     AnalysisControls,
     AnalysisDocument,
+    AnalysisDocumentOutput,
+    ArtifactIntent,
     BackendSettings,
     ConicRequest,
-    DiagnosticExecutionDocument,
+    DiagnosticExecutionDocumentOutput,
     DiagnosticExecutionRequest,
     FrozenEvidenceSet,
+    FrozenEvidenceSetOutput,
     HistoryObligation,
     HistoryOwner,
     HistoryReclamationPage,
     PackExportRequest,
-    PackIndex,
-    ParameterCovariance,
-    ResourceReport,
+    PackIndexOutput,
+    ParameterCovarianceOutput,
+    ResourceReportOutput,
     ResultReclamationPage,
     RunControls,
+    SolverCapability,
     SolveSettings,
-    SourceSettlement,
     SourceReclamationPage,
+    SourceSettlementOutput,
     StudyDefinition,
+    StudyDefinitionOutput,
     StudyRunControls,
 )
-from pse.contracts.enums import CanonicalTerminalOutcome, NativeBackend, PhysicalInputKind
+from pse.contracts.enums import (
+    CanonicalTerminalOutcome,
+    NativeBackend,
+    PhysicalInputKind,
+)
 from pse.contracts.identities import (
     SolutionId,
     StudyId,
@@ -124,7 +131,7 @@ class Runtime:
 
     def diagnose_documents(
         self, request: DiagnosticExecutionRequest
-    ) -> DiagnosticExecutionDocument:
+    ) -> DiagnosticExecutionDocumentOutput:
         """Run original-source diagnostics under one admission-to-result deadline."""
         return self._handle.diagnose_documents(request)
 
@@ -148,14 +155,14 @@ class Runtime:
             )
         )
 
-    def source_settlement(self, problem: str, operation: str) -> SourceSettlement:
+    def source_settlement(self, problem: str, operation: str) -> SourceSettlementOutput:
         """Observe the original source acknowledgement without replaying the edit.
 
         An absent acknowledgement leaves the original outcome unproved.
         """
         return self._handle.source_settlement(problem, operation)
 
-    def resource_usage(self) -> ResourceReport:
+    def resource_usage(self) -> ResourceReportOutput:
         """Observe the shared deployment's accounted pool and process memory."""
         return self._handle.resource_usage()
 
@@ -171,7 +178,7 @@ class Runtime:
         """Read the exact admitted closed descriptor through its Arrow schema."""
         return TableStream(self._handle.result_manifest(attempt))
 
-    def fit_covariance(self, run: str, attempt: str) -> ParameterCovariance:
+    def fit_covariance(self, run: str, attempt: str) -> ParameterCovarianceOutput:
         """Hydrate the actual qualified covariance of one exact recorded fit."""
         return self._handle.fit_covariance(run, attempt)
 
@@ -248,7 +255,10 @@ class Runtime:
         return self._handle.reclaim_run_results(run)
 
     def reclaim_source_page(self, problem: str) -> SourceReclamationPage:
-        """Continue bounded source cleanup from its stored cursor; repeat until after is None."""
+        """Continue bounded source cleanup from its stored cursor.
+
+        Repeat until ``after`` is None.
+        """
         return self._handle.reclaim_source_page(problem)
 
     def latest_results(
@@ -274,10 +284,10 @@ class Runtime:
     def export_review_pack(
         self,
         destination: str | Path,
-        evidence: "FrozenEvidenceSet",
-        analysis: "AnalysisDocument",
+        evidence: "FrozenEvidenceSet | FrozenEvidenceSetOutput",
+        analysis: "AnalysisDocument | AnalysisDocumentOutput",
         request: "PackExportRequest",
-    ) -> "PackIndex":
+    ) -> "PackIndexOutput":
         """Export protected scientific selections and release their readers."""
         return self._handle.export_review_pack(
             Path(destination), evidence, analysis, request
@@ -364,14 +374,17 @@ class Runtime:
         """Read the exact terminal attempt's bounded recorded event history."""
         return ProgressStream(self._handle.progress(run, attempt))
 
-    def record_study(self, local: LocalStudy) -> StudyDefinition:
+    def record_study(self, local: LocalStudy) -> StudyDefinitionOutput:
         """Publish exact retained inputs and return a portable recorded definition."""
         return self._handle.record_study(
             local._handle,  # noqa: SLF001 - same native ownership boundary
         )
 
     def execute_study(
-        self, definition: StudyDefinition, *, controls: StudyRunControls | None = None
+        self,
+        definition: StudyDefinition | StudyDefinitionOutput,
+        *,
+        controls: StudyRunControls | None = None,
     ) -> StudyReport:
         """Join recorded durable execution and retain its original result report."""
         return StudyReport(
@@ -381,7 +394,9 @@ class Runtime:
             )
         )
 
-    def start_study(self, definition: StudyDefinition) -> StudyHandle:
+    def start_study(
+        self, definition: StudyDefinition | StudyDefinitionOutput
+    ) -> StudyHandle:
         """Start durable workers from a genuinely recorded portable definition."""
         return StudyHandle(self._handle.start_study(codec.encode_json(definition)))
 

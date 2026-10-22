@@ -4,12 +4,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pse._build import _diagnostic_record_launch
-from pse.contracts.documents import (
-    SourceRecordingLaunchDocumentOutput,
-    SourceRecordingLaunchRequest,
-    SourceRecordingLaunchRequestOutput,
-)
+
+if TYPE_CHECKING:
+    from pse.contracts.documents import (
+        SourceRecordingLaunchDocumentOutput,
+        SourceRecordingLaunchRequest,
+        SourceRecordingLaunchRequestOutput,
+    )
 
 
 def record_launch(

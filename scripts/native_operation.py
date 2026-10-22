@@ -32,7 +32,11 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import build_environment  # noqa: E402 -- direct-script path routing
+from scripts import (  # noqa: E402 -- direct-script path routing
+    build_environment,
+    native_cache,
+    pse_env,
+)
 
 MARKER = "PSE_NATIVE_OPERATION"
 # Private handshake with the build-measurement observer, never an admission input.
@@ -1863,17 +1867,23 @@ def require_command_parent(
         registered = host_admission.readonly_snapshot(
             allocation.directory, deadline=deadline
         )["owners"].get(allocation.nonce)
-    if not isinstance(registered, dict) or registered.get("boot") != host_admission.boot():
+    if (
+        not isinstance(registered, dict)
+        or registered.get("boot") != host_admission.boot()
+    ):
         raise ValueError("selected workload lost its registered command allocation")
     group = process_group(os.getpid())
     unit = next(
         (
-            part for part in reversed(Path(group).parts)
+            part
+            for part in reversed(Path(group).parts)
             if re.fullmatch(r"pse-cmd-[a-f0-9]{32}\.scope", part)
         ),
         None,
     )
-    binding = registered["units"].get(unit) if unit is not None else None
+    if unit is None:
+        raise ValueError("selected workload requires a bound command parent")
+    binding = registered["units"].get(unit)
     if not isinstance(binding, dict) or not binding.get("group"):
         raise ValueError("selected workload requires a bound command parent")
     control = binding["group"]
@@ -1923,6 +1933,7 @@ def run_child_scope(
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(command, 0)
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+
     allocation = host_admission.inherit(env, **deadline_options(deadline))
     if allocation is None:
         raise ValueError("selected native workload requires its admitted parent")
@@ -1931,15 +1942,21 @@ def run_child_scope(
             require_command_parent(allocation, **deadline_options(deadline))
             if owner_record(**deadline_options(deadline)) is None:
                 if os.environ.get(MARKER) or env.get(MARKER):
-                    raise ValueError("selected workload has a contradictory operation parent")
-                from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
-
+                    raise ValueError(
+                        "selected workload has a contradictory operation parent"
+                    )
                 # PID ownership is sufficient for foreground supervision, but
                 # scope=None deliberately cannot authorize native setup reuse.
-                lifetime.enter_context(Operation(cache.cache_root(env)))
+                lifetime.enter_context(Operation(native_cache.cache_root(env)))
         return _run_child_scope(
-            command, env, allocation, cwd=cwd, observation=observation,
-            deadline=deadline, stdout=stdout, stderr=stderr,
+            command,
+            env,
+            allocation,
+            cwd=cwd,
+            observation=observation,
+            deadline=deadline,
+            stdout=stdout,
+            stderr=stderr,
         )
 
 
@@ -1955,21 +1972,19 @@ def _run_child_scope(
     stderr: int | None,
 ) -> int:
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
-    from scripts.pse_env import current_memory_ceiling  # noqa: PLC0415 -- placement owner
-
     process_observation = observation if observation is not None else {}
-    role_memory = current_memory_ceiling()
+    role_memory = pse_env.current_memory_ceiling()
     if allocation.profile.unbounded:
-        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
-
-        require_unbounded_slice(host_admission.allocation_slice(allocation))
+        pse_env.require_unbounded_slice(host_admission.allocation_slice(allocation))
         # A genuinely bounded scientific child of this build owner retains its
         # actual role cap; only the ordinary uncapped launcher omits one.
         if role_memory is not None and role_memory <= 0:
             raise ValueError("Invalid originating role cap")
     else:
         if role_memory is None or role_memory <= 0:
-            raise ValueError("selected native workload requires a finite originating role cap")
+            raise ValueError(
+                "selected native workload requires a finite originating role cap"
+            )
         # A sibling scope preserves its narrower observer/control role.
         role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
@@ -1990,7 +2005,11 @@ def _run_child_scope(
         "--expand-environment=no",
         f"--unit={unit}",
         f"--slice={host_admission.allocation_slice(allocation)}",
-        *([] if role_memory is None else [f"--property=MemoryMax={role_memory}", "--property=MemorySwapMax=0"]),
+        *(
+            []
+            if role_memory is None
+            else [f"--property=MemoryMax={role_memory}", "--property=MemorySwapMax=0"]
+        ),
         "--",
         sys.executable,
         str(Path(__file__).resolve()),

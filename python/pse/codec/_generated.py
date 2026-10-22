@@ -70,7 +70,9 @@ def _encode(
         for member in info.fields:
             if member.encode_name == header:
                 if member.default is msgspec.NODEFAULT:
-                    message = "generated current document header has no constructor default"
+                    message = (
+                        "generated current document header has no constructor default"
+                    )
                     raise TypeError(message)
                 plain[header] = member.default
     _check_finite(plain, "$")

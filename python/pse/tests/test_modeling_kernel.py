@@ -18,15 +18,15 @@ from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts import documents
 from pse.contracts.enums import (
-    DynamicsMethod,
     DiagnosticCode,
     DiagnosticRule,
     DiagnosticStage,
+    DynamicsMethod,
     NativeBackend,
     NativeBoundaryClass,
     NativeSolveIntent,
 )
-from pse.contracts.identities import DeclarationId
+from pse.contracts.identities import DeclarationId, RunId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.physical_input_fixture import coordinate_batch, member, sample_batch
@@ -635,10 +635,16 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
             start=0,
             end=2,
             samples=[0, 0.25, 0.75, 2],
-            atol=coordinate_batch(runtime, [(member(package, case, "x"), 1e-8, "Time")]),
-            parameter_scales=coordinate_batch(runtime, [(member(package, case, "p"), 1.0, "Scalar")]),
+            atol=coordinate_batch(
+                runtime, [(member(package, case, "x"), 1e-8, "Time")]
+            ),
+            parameter_scales=coordinate_batch(
+                runtime, [(member(package, case, "p"), 1.0, "Scalar")]
+            ),
             out_rtol=1e-8,
-            out_atol=coordinate_batch(runtime, [(member(package, case, "area"), 1e-9, "Time")]),
+            out_atol=coordinate_batch(
+                runtime, [(member(package, case, "area"), 1e-9, "Time")]
+            ),
             method=DynamicsMethod.DIFFSOL,
         ),
     )
@@ -753,11 +759,11 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         code=DiagnosticCode.NATIVE_NUMERICAL,
         rule=DiagnosticRule.NATIVE_NUMERICAL,
         stage=DiagnosticStage.NATIVE,
-        sources=(identity(245).to_hex(),),
+        sources=(identity(245),),
         observations={},
     )
     origin = documents.DiagnosticOrigin(
-        run_id=identity(240).to_hex(),
+        run_id=RunId(identity(240)),
         attempt_id=None,
         step=1,
         native_attempt=None,
@@ -785,7 +791,18 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(229),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
-        sample_batch(runtime, [(identity(233), [(missing_columns[0], 1.0, "Scalar"), (missing_columns[1], -1.0, "Scalar")])]),
+        sample_batch(
+            runtime,
+            [
+                (
+                    identity(233),
+                    [
+                        (missing_columns[0], 1.0, "Scalar"),
+                        (missing_columns[1], -1.0, "Scalar"),
+                    ],
+                )
+            ],
+        ),
         origin=origin,
     )
     assert codec.encode_json(supplied.origin) == codec.encode_json(origin)
@@ -795,11 +812,25 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     supplied_origin = supplied_report.origin
     assert codec.encode_json(supplied_origin) == codec.encode_json(origin)
     assert supplied_origin is not None
-    assert codec.encode_json(supplied_origin.failure) == codec.encode_json(original_failure)
+    assert codec.encode_json(supplied_origin.failure) == codec.encode_json(
+        original_failure
+    )
     exported_origin = pa.table(supplied_report.table()).to_pylist()[0]["origin_json"]
-    assert codec.encode_json(codec.decode_json(exported_origin, documents.DiagnosticOriginBody)) == codec.encode_json(msgspec.convert(origin, type=documents.DiagnosticOriginBody, from_attributes=True))
+    assert codec.encode_json(
+        codec.decode_json(exported_origin, documents.DiagnosticOriginBody)
+    ) == codec.encode_json(
+        msgspec.convert(
+            origin, type=documents.DiagnosticOriginBody, from_attributes=True
+        )
+    )
     sample_origin = pa.table(supplied.table()).to_pylist()[0]["origin_json"]
-    assert codec.encode_json(codec.decode_json(sample_origin, documents.DiagnosticOriginBody)) == codec.encode_json(msgspec.convert(origin, type=documents.DiagnosticOriginBody, from_attributes=True))
+    assert codec.encode_json(
+        codec.decode_json(sample_origin, documents.DiagnosticOriginBody)
+    ) == codec.encode_json(
+        msgspec.convert(
+            origin, type=documents.DiagnosticOriginBody, from_attributes=True
+        )
+    )
     with pytest.raises(pse.InspectionError, match="missing case value"):
         package.solve_case(
             declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -811,7 +842,11 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         package.diagnose(declaration(220), expired, settings, origin=origin)
     with pytest.raises(pse.InspectionError):
         package.diagnose_samples(
-            declaration(220), expired, settings, sample_batch(runtime, [(identity(230), ())]), origin=origin
+            declaration(220),
+            expired,
+            settings,
+            sample_batch(runtime, [(identity(230), ())]),
+            origin=origin,
         )
     rows, columns = report.coordinates()
     source_settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -837,12 +872,12 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         == source_map
     )
     assert source_map.scope == "static_eligible_alternatives"
-    assert source_map.rows == tuple(row.to_hex() for row in rows)
-    assert source_map.columns == tuple(column.to_hex() for column in columns)
+    assert source_map.rows == rows
+    assert source_map.columns == columns
     assert "no transformed native attempt" in source_map.native_pullback_unavailable
-    assert source_map.source_identity.startswith("blake3:")
-    assert source_map.numerical_identity.startswith("blake3:")
-    original_equations = {identity(225).to_hex(), identity(226).to_hex()}
+    assert source_map.source_identity.to_prefixed().startswith("blake3:")
+    assert source_map.numerical_identity.to_prefixed().startswith("blake3:")
+    original_equations = {identity(225), identity(226)}
     fields = [
         field for field in source_map.fields if field.declaration in original_equations
     ]
@@ -879,7 +914,10 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
-        sample_batch(runtime, [(identity(230), [(columns[0], 2.0, "Scalar")]), (identity(232), ())]),
+        sample_batch(
+            runtime,
+            [(identity(230), [(columns[0], 2.0, "Scalar")]), (identity(232), ())],
+        ),
     )
     assert samples.stop == "completed"
     assert samples.unattempted == 0
@@ -892,8 +930,12 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert all(outcome["failure_ordinal"] is None for outcome in sample_outcomes)
     assert not failure_rows
     with pytest.raises(pse.InspectionError, match="unknown physical coordinate"):
-        package.diagnose_samples(declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
-            sample_batch(runtime, [(identity(231), [(identity(249), 1.0, "Scalar")])]))
+        package.diagnose_samples(
+            declaration(220),
+            pse.SolveSettings(intent=NativeSolveIntent.ROOT),
+            settings,
+            sample_batch(runtime, [(identity(231), [(identity(249), 1.0, "Scalar")])]),
+        )
     sampled = samples.result(1)
     assert sampled is not None
     assert sampled.complete
@@ -935,8 +977,14 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     diagnostic_table = report.table()
     finding_table = report.table("runtime.modeling_findings")
     with pytest.raises(pse.InspectionError, match="finite"):
-        package.diagnose_samples(declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
-            sample_batch(runtime, [(identity(234), [(columns[0], float("nan"), "Scalar")])]))
+        package.diagnose_samples(
+            declaration(220),
+            pse.SolveSettings(intent=NativeSolveIntent.ROOT),
+            settings,
+            sample_batch(
+                runtime, [(identity(234), [(columns[0], float("nan"), "Scalar")])]
+            ),
+        )
     del samples, capped
     del package, runtime
     assert sampled.rank == 1
@@ -980,7 +1028,10 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         v["source_id"] in durable["rows"] for v in durable["matrix"]["modes"][0]["left"]
     )
     assert pa.table(finding_table).num_rows > 0
-    assert all(outcome["error_class"] is None for outcome in pa.table(sample_table).to_pylist()[0]["outcomes"])
+    assert all(
+        outcome["error_class"] is None
+        for outcome in pa.table(sample_table).to_pylist()[0]["outcomes"]
+    )
     assert pa.table(capped_table).to_pylist()[0]["unattempted"] == 1
     native_row = pa.table(native_table).to_pylist()[0]
     assert native_row["complete"]
@@ -1031,7 +1082,7 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
         backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30)
     )
     origin = documents.DiagnosticOrigin(
-        run_id=identity(240).to_hex(),
+        run_id=RunId(identity(240)),
         attempt_id=None,
         step=2,
         native_attempt=None,

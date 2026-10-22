@@ -2,9 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 """Isolated native boundary admission; no publication, compiler or store fixture."""
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from typing import cast
 
 import msgspec
@@ -16,9 +16,9 @@ from pse.conformance import RunSettings, run_once
 from pse.contracts import documents, identities, values
 from pse.contracts.enums import (
     AttemptState,
+    DiagnosticCode,
     DynamicSensitivity,
     DynamicsMethod,
-    DiagnosticCode,
     FailureClass,
     NativeBoundaryClass,
     NativeCandidateKind,
@@ -44,23 +44,31 @@ class IdentityDocumentControl(msgspec.Struct, forbid_unknown_fields=True):
 def test_document_identity_hooks_preserve_hex_width_and_nested_values() -> None:
     run = SemanticId(bytes([7]) * 16)
     declaration = SemanticId(bytes([8]) * 16)
-    value = IdentityDocumentControl(identities.RunId(run), (identities.DeclarationId(declaration),))
+    value = IdentityDocumentControl(
+        identities.RunId(run), (identities.DeclarationId(declaration),)
+    )
     encoded = codec.encode_json(value)
     assert codec.decode_json(encoded, IdentityDocumentControl) == value
     assert codec.decode_json(encoded, IdentityDocumentControl).run is not run
     assert type(codec.decode_json(encoded, IdentityDocumentControl).run) is SemanticId
     assert run.to_hex().encode() in encoded
     assert declaration.to_hex().encode() in encoded
-    for invalid in ('"00"', '"zz"', '7', 'null'):
+    for invalid in ('"00"', '"zz"', "7", "null"):
         with pytest.raises(msgspec.ValidationError):
-            codec.decode_json('{"run":' + invalid + ',"declarations":[]}', IdentityDocumentControl)
+            codec.decode_json(
+                '{"run":' + invalid + ',"declarations":[]}', IdentityDocumentControl
+            )
 
 
 @pytest.mark.unit
 def test_generated_result_document_uses_the_registry_identity_value() -> None:
-    fixture = Path(__file__).parent / "fixtures/generated-native-boundaries/products.json"
+    fixture = (
+        Path(__file__).parent / "fixtures/generated-native-boundaries/products.json"
+    )
     products = codec.decode_json(fixture.read_bytes(), dict[str, msgspec.Raw])
-    result = codec.decode_json(bytes(products["qualified_incumbent"]), documents.Completion)
+    result = codec.decode_json(
+        bytes(products["qualified_incumbent"]), documents.Completion
+    )
     assert type(result.solves[0].run_id) is SemanticId
     assert codec.decode_json(codec.encode_json(result), documents.Completion) == result
 
@@ -70,7 +78,9 @@ def _mutate(instance: object, field: str, value: object) -> None:
 
 
 @pytest.mark.unit
-def test_simulation_vocabulary_inputs_require_their_generated_enum_class(inspection_settings: pse.EngineSettings) -> None:
+def test_simulation_vocabulary_inputs_require_their_generated_enum_class(
+    inspection_settings: pse.EngineSettings,
+) -> None:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     settings = pse.SimulationSettings(
         runtime=runtime,
@@ -112,9 +122,11 @@ def test_simulation_vocabulary_inputs_require_their_generated_enum_class(inspect
 
 @pytest.mark.unit
 @pytest.mark.parametrize("first", ["method", "sensitivity"])
-def test_vocabulary_cells_are_independent_in_cold_interpreter_orders(first: str) -> None:
-    # Each process starts a supported fresh interpreter/extension lifecycle; reinitializing
-    # CPython underneath a live PyO3 extension is not a supported extra lifecycle.
+def test_vocabulary_cells_are_independent_in_cold_interpreter_orders(
+    first: str,
+) -> None:
+    # Each process starts a fresh interpreter/extension lifecycle; reinitializing
+    # CPython underneath a live PyO3 extension is not supported.
     script = """
 import sys
 from tempfile import TemporaryDirectory
@@ -122,14 +134,24 @@ import pse
 from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
 from pse.tests.physical_input_fixture import coordinate_batch
 spill = TemporaryDirectory()
-runtime = pse.Runtime(pse.EngineSettings(memory_limit_bytes=64 << 30, threads=2, spill_dir=spill.name, max_spill_bytes=1 << 30, batch_size=7), ephemeral=True)
-base = dict(runtime=runtime,start=0.0,end=1.0,samples=[0.0],atol=coordinate_batch(runtime),parameter_scales=coordinate_batch(runtime))
+runtime = pse.Runtime(
+    pse.EngineSettings(
+        memory_limit_bytes=64 << 30, threads=2, spill_dir=spill.name,
+        max_spill_bytes=1 << 30, batch_size=7,
+    ), ephemeral=True,
+)
+base = dict(
+    runtime=runtime, start=0.0, end=1.0, samples=[0.0],
+    atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime),
+)
 values = {'method': DynamicsMethod.IDAS, 'sensitivity': DynamicSensitivity.NONE}
 first = sys.argv[1]
 second = 'sensitivity' if first == 'method' else 'method'
 for key in (first, second, first):
     pse.SimulationSettings(**base, **{key: values[key]})
-for key, wrong in [('method', DynamicSensitivity.NONE), ('sensitivity', DynamicsMethod.IDAS)]:
+for key, wrong in [
+    ('method', DynamicSensitivity.NONE), ('sensitivity', DynamicsMethod.IDAS),
+]:
     try:
         pse.SimulationSettings(**base, **{key: wrong})
     except TypeError:
@@ -251,7 +273,8 @@ def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -
     assert document.chains[0].bound.value is None
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"document_version":1,"status":"not_requested","chains":[]}', documents.FitProfileDocument
+            b'{"document_version":1,"status":"not_requested","chains":[]}',
+            documents.FitProfileDocument,
         )
 
 
@@ -259,7 +282,7 @@ def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -
 def test_strategy_document_constructor_and_decoder_refuse_duplicate_selected_ids() -> (
     None
 ):
-    identity = "01" * 16
+    identity = SemanticId.from_hex("01" * 16)
     with pytest.raises(ValueError, match="unique"):
         documents.RecycleRequest(
             tears=(identity, identity), units=(), anderson=0, damping=1.0
@@ -269,7 +292,7 @@ def test_strategy_document_constructor_and_decoder_refuse_duplicate_selected_ids
             codec.encode_json(
                 {
                     "document_version": 1,
-                    "tears": [identity, identity],
+                    "tears": [identity.to_hex(), identity.to_hex()],
                     "units": [],
                     "anderson": 0,
                     "damping": 1.0,
@@ -282,10 +305,18 @@ def test_strategy_document_constructor_and_decoder_refuse_duplicate_selected_ids
 @pytest.mark.unit
 def test_generated_document_keys_preserve_mapping_and_signed_zero_equality() -> None:
     first = documents.LinearDiagnosticControls(
-        relaxation=(1.0, 1.0, 1.0), lower_penalties={"01" * 16: -0.0, "02" * 16: 2.0}
+        relaxation=(1.0, 1.0, 1.0),
+        lower_penalties={
+            SemanticId.from_hex("01" * 16): -0.0,
+            SemanticId.from_hex("02" * 16): 2.0,
+        },
     )
     second = documents.LinearDiagnosticControls(
-        relaxation=(1.0, 1.0, 1.0), lower_penalties={"02" * 16: 2.0, "01" * 16: 0.0}
+        relaxation=(1.0, 1.0, 1.0),
+        lower_penalties={
+            SemanticId.from_hex("02" * 16): 2.0,
+            SemanticId.from_hex("01" * 16): 0.0,
+        },
     )
     assert first == second
     assert values.record_key(first) == values.record_key(second)
@@ -371,7 +402,8 @@ def test_generated_duration_retains_standard_fields_and_refuses_unknown_fields()
     None
 ):
     overrides = codec.decode_json(
-        b'{"document_version":1,"time_limit":{"secs":7,"nanos":123}}', documents.InitializationOverrides
+        b'{"document_version":1,"time_limit":{"secs":7,"nanos":123}}',
+        documents.InitializationOverrides,
     )
     assert overrides.time_limit is not None
     assert overrides.time_limit.secs == 7
@@ -383,7 +415,8 @@ def test_generated_duration_retains_standard_fields_and_refuses_unknown_fields()
         )
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"document_version":1,"time_limit":{"secs":-1,"nanos":0}}', documents.InitializationOverrides
+            b'{"document_version":1,"time_limit":{"secs":-1,"nanos":0}}',
+            documents.InitializationOverrides,
         )
 
 

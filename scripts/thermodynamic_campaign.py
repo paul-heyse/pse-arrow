@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from pse.contracts.documents import StudyPoint, StudyRequest
 
 
-def documents(path: Path) -> dict[str, str | bytes]:
+def authored_documents(path: Path) -> dict[str, str | bytes]:
     return {
         file.relative_to(path).as_posix(): file.read_bytes()
         for file in path.rglob("*")
@@ -57,27 +57,13 @@ def explicit_study_request(points: tuple[StudyPoint, ...]) -> StudyRequest:
 def measure(output: Path, selected: str) -> None:
     # Load the linked extension only inside the placed observer process.
     import pse  # noqa: PLC0415 -- load only inside placed observer
-    from pse import conformance  # noqa: PLC0415 -- load only inside placed observer
-    from pse.contracts.documents import (  # noqa: PLC0415 -- load only inside placed observer
-        AssemblyLimits,
-        BindingAssignment,
-        BindingQuantity,
-        BindingTargetPath,
-        CaseOperation,
-        EvaluationLimits,
-        EvaluatorInterpreted,
-        Limits,
-        OperationRequestDeclaredCase,
-        Optimization,
-        PointOverlay,
-        PreparationSettings,
-        SolveControls,
-        SolveSettings,
-        StartPolicyFresh,
-        StudyCompilerProfile,
-        StudyPoint,
-        StudyPointPolicy,
-        StudyRunControls,
+    from pse import (  # noqa: PLC0415 -- load only inside placed observer
+        codec,
+        conformance,
+    )
+    from pse.contracts import (  # noqa: PLC0415 -- load only inside placed observer
+        documents,
+        values,
     )
     from pse.contracts.enums import (  # noqa: PLC0415 -- load only inside placed observer
         ModelingAnalysisRoute,
@@ -114,44 +100,44 @@ def measure(output: Path, selected: str) -> None:
         runtime = pse.Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
         package = runtime.modeling_from_documents(
             [
-                documents(base / spec.package),
-                *(documents(base / name) for name in spec.dependencies),
+                authored_documents(base / spec.package),
+                *(authored_documents(base / name) for name in spec.dependencies),
             ],
-            runtime.physical_from_documents(documents(base / spec.physical)),
+            runtime.physical_from_documents(authored_documents(base / spec.physical)),
         ).with_limits(pse.ModelingLimits(items=1000000, body_occurrences=65536))
         cases = {
             row.name: row.declaration_id
             for row in package.declarations()
             if row.name.startswith("measurement_")
         }
-        settings = SolveSettings(
+        settings = documents.SolveSettings(
             backend=NativeBackend.IPOPT,
             intent=NativeSolveIntent.FEASIBLE_POINT,
-            controls=SolveControls(time_limit=600, threads=1, history=4096),
+            controls=documents.SolveControls(time_limit=600, threads=1, history=4096),
         )
         # Campaign-owned bounds are explicit inputs to admission, not production defaults.
-        preparation = PreparationSettings(
-            compiler=StudyCompilerProfile(
+        preparation = documents.PreparationSettings(
+            compiler=documents.StudyCompilerProfile(
                 class_proof_work=1_000_000,
-                assembly=AssemblyLimits(
+                assembly=documents.AssemblyLimits(
                     contributions=1_000_000,
                     native_index=2_147_483_647,
                     worker_bytes=2 << 30,
                 ),
-                optimization=Optimization(
+                optimization=documents.Optimization(
                     cores=1,
                     horner_iterations=10,
                     cpe_iterations=10,
-                    evaluator=EvaluatorInterpreted(),
+                    evaluator=documents.EvaluatorInterpreted(),
                 ),
-                evaluation=EvaluationLimits(
+                evaluation=documents.EvaluationLimits(
                     derivative_components=1_000_000,
                     operations=100_000_000,
                     scratch_bytes=1 << 30,
                     provider_calls=1_000_000,
                 ),
             ),
-            limits=Limits(
+            limits=documents.Limits(
                 depth=64, items=1_000_000, members=1_000_000, body_occurrences=65536
             ),
         )
@@ -171,7 +157,7 @@ def measure(output: Path, selected: str) -> None:
 
         def assignment(
             target: str, magnitude: float, quantity: str, symbol: str
-        ) -> BindingAssignment:
+        ) -> documents.BindingAssignment:
             quantity_id = next(
                 row["quantity_type_id"]
                 for row in quantities
@@ -181,10 +167,10 @@ def measure(output: Path, selected: str) -> None:
             if not isinstance(quantity_id, str) or not isinstance(unit_id, str):
                 message = "reference physical identities must be declared strings"
                 raise TypeError(message)
-            return BindingAssignment(
-                target=BindingTargetPath(value=target),
-                value=BindingQuantity(
-                    magnitude=magnitude, quantity=quantity_id, unit=unit_id
+            return documents.BindingAssignment(
+                target=documents.BindingTargetPath(value=target),
+                value=documents.BindingQuantity(
+                    magnitude=magnitude, quantity=values.SemanticId.from_hex(quantity_id), unit=values.SemanticId.from_hex(unit_id)
                 ),
             )
 
@@ -197,7 +183,7 @@ def measure(output: Path, selected: str) -> None:
         for name in phases:
             overlays = (
                 tuple(
-                    PointOverlay(
+                    documents.PointOverlay(
                         assignments=(
                             assignment(
                                 "root.inlet.T", row["temperature"], "Temperature", "K"
@@ -223,7 +209,7 @@ def measure(output: Path, selected: str) -> None:
                 )
                 if selected == "flash"
                 else tuple(
-                    PointOverlay(
+                    documents.PointOverlay(
                         assignments=(
                             assignment(
                                 "root.inlet.T",
@@ -240,20 +226,20 @@ def measure(output: Path, selected: str) -> None:
             definition = package.admit_study(
                 explicit_study_request(
                     tuple(
-                        StudyPoint(
-                            operation=OperationRequestDeclaredCase(
-                                request=CaseOperation(
-                                    case=cases[name].to_hex(),
+                        documents.StudyPoint(
+                            operation=documents.OperationRequestDeclaredCase(
+                                request=documents.CaseOperation(
+                                    case=cases[name],
                                     route=ModelingAnalysisRoute.STEADY,
                                     settings=settings,
                                 )
                             ),
-                            preparation=preparation,
+                            preparation=codec.convert_document(codec.document_builtins(preparation), documents.PreparationSettingsBody),
                             overlay=overlay,
-                            policy=StudyPointPolicy(
+                            policy=documents.StudyPointPolicy(
                                 key=index,
                                 dependencies=(),
-                                start=StartPolicyFresh(),
+                                start=documents.StartPolicyFresh(),
                                 attempt_limit=1,
                             ),
                         )
@@ -263,7 +249,7 @@ def measure(output: Path, selected: str) -> None:
             )
             study = runtime.execute_study(
                 runtime.record_study(definition),
-                controls=StudyRunControls(maximum_points=len(overlays)),
+                controls=documents.StudyRunControls(maximum_points=len(overlays)),
             )
             elapsed = time.perf_counter() - started
             resources = runtime.resource_usage()

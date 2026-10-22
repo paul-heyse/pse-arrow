@@ -15,11 +15,16 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import coordinate_batch, member
-from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
 from pse import codec, diagnostics
 from pse.contracts import documents as d
-from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
+from pse.contracts.enums import (
+    DynamicSensitivity,
+    DynamicsMethod,
+    NativeBackend,
+    NativeSolveIntent,
+    PresolvePolicyKind,
+)
+from pse.tests.physical_input_fixture import coordinate_batch, member
 from pse.tests.test_diagnostics import diagnostic_native_solve
 from pse.tests.test_local_runtime import physical_documents
 from pse.tests.test_native_workflow import package_documents
@@ -30,8 +35,8 @@ class ObserverFitMeasurement(msgspec.Struct, frozen=True, kw_only=True):
     mode: str
     usable: bool
     values: tuple[float, ...]
-    work: tuple[d.WorkObservation | None, ...]
-    kinsol_counters: tuple[d.NativeCountersKinsol | None, ...]
+    work: tuple[d.WorkObservationOutput | None, ...]
+    kinsol_counters: tuple[d.NativeCountersOutputKinsol | None, ...]
     idas_hub_counters: tuple[tuple[str, int], ...]
     idas_segment_counters: tuple[tuple[tuple[str, int], ...], ...]
     curtailed_operations: int
@@ -44,7 +49,7 @@ class ObserverFitMeasurement(msgspec.Struct, frozen=True, kw_only=True):
     serialized_bytes: dict[str, int]
     process_peak_rss_bytes: int
     rss_scope: str
-    detail: d.DetailDocument | None
+    detail: d.DetailDocumentOutput | None
     detail_pages: int
     detail_paging_truncated: bool
     limits: tuple[str, ...]
@@ -99,8 +104,12 @@ def _start(runtime: pse.Runtime, case: str) -> pse.RunHandle:
                 end=1,
                 samples=[0, 0.5, 1],
                 rtol=0.001,
-                atol=coordinate_batch(runtime, [(member(package, selected, "x"), 0.001, "Time")]),
-                parameter_scales=coordinate_batch(runtime, [(member(package, selected, "p"), 1.0, "Scalar")]),
+                atol=coordinate_batch(
+                    runtime, [(member(package, selected, "x"), 0.001, "Time")]
+                ),
+                parameter_scales=coordinate_batch(
+                    runtime, [(member(package, selected, "p"), 1.0, "Scalar")]
+                ),
                 sensitivity=DynamicSensitivity.NONE,
             ),
         ).start()
@@ -203,7 +212,9 @@ def observer_fit_probe(
         counters = tuple(
             step.native_observations.counters
             if step.native_observations is not None
-            and isinstance(step.native_observations.counters, d.NativeCountersKinsol)
+            and isinstance(
+                step.native_observations.counters, d.NativeCountersOutputKinsol
+            )
             else None
             for step in summary.steps
         )
@@ -249,7 +260,7 @@ def observer_fit_probe(
                     "no POUNCE-specific public NativeCounters variant exists."
                 )
         page = observations.list(limit=1)
-        readers: list[tuple[pse.OperationObservations, d.OperationSnapshot]] = []
+        readers: list[tuple[pse.OperationObservations, d.OperationSnapshotOutput]] = []
         original_reader = handle.observations() if page.coverage.enabled else None
         pending = [] if original_reader is None else [original_reader.id]
         seen: set[d.OperationId] = set()
@@ -266,7 +277,10 @@ def observer_fit_probe(
                 continue
             snapshot = reader.snapshot()
             readers.append((reader, snapshot))
-            pending.extend(child.id for child in snapshot.children)
+            pending.extend(codec.convert_document(
+                codec.document_builtins(child.id),
+                d.OperationId,
+            ) for child in snapshot.children)
         if pending:
             limits.append(
                 "Selected related-operation traversal stopped at its 64-member bound."
@@ -347,7 +361,7 @@ def observer_fit_probe(
                     "counter comparison."
                 )
         detail = None if selected is None else selected.snapshot()
-        detail_pages: list[d.DetailRecordPage] = []
+        detail_pages: list[d.DetailRecordPageOutput] = []
         truncated = False
         if detail is not None:
             offset = 0
@@ -370,9 +384,12 @@ def observer_fit_probe(
                 "analysis/export not requested, absent metrics are not zero work."
             )
         else:
-            evidence = d.FrozenEvidenceSet(
+            evidence = d.FrozenEvidenceSetOutput(
                 checkpoints=(),
-                operations=snapshots,
+                operations=tuple(codec.convert_document(
+                    codec.document_builtins(snapshot),
+                    d.OperationSnapshotBodyOutput,
+                ) for snapshot in snapshots),
                 contexts=(context,),
                 invocations=(invocation,),
                 detail_pages=tuple(detail_pages),

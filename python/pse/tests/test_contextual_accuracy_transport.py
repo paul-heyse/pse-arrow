@@ -8,9 +8,11 @@ import msgspec
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import coordinate_batch
 from pse import codec
 from pse.contracts import documents, enums
+from pse.contracts.identities import AccuracyGoalId, RunId
+from pse.contracts.values import ContentHash, SemanticId
+from pse.tests.physical_input_fixture import coordinate_batch
 
 
 @pytest.mark.unit
@@ -51,7 +53,9 @@ def test_contextual_accuracy_document_versions_precede_defaults() -> None:
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(inspection_settings: pse.EngineSettings) -> None:
+def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(
+    inspection_settings: pse.EngineSettings,
+) -> None:
     current = codec.decode_json(b'{"version":5}', documents.SolveSettings)
     assert current.numerics.version == 1  # Omission uses the owning current default.
     wire = codec.decode_json(codec.encode_json(current), dict[str, msgspec.Raw])
@@ -105,10 +109,17 @@ def test_contextual_accuracy_versions_are_checked_inside_typed_containers() -> N
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_simulation_version_precedes_policy(inspection_settings: pse.EngineSettings) -> None:
+def test_contextual_accuracy_simulation_version_precedes_policy(
+    inspection_settings: pse.EngineSettings,
+) -> None:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     settings = pse.SimulationSettings(
-        runtime=runtime, start=0.0, end=1.0, samples=[0.0, 1.0], atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime)
+        runtime=runtime,
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=coordinate_batch(runtime),
+        parameter_scales=coordinate_batch(runtime),
     )
     document = settings.document
     assert document.version == 1
@@ -121,7 +132,13 @@ def test_contextual_accuracy_simulation_version_precedes_policy(inspection_setti
     historical_policy = msgspec.structs.replace(document.controls.numerics, version=0)
     with pytest.raises(pse.InspectionError, match="version"):
         pse.SimulationSettings.from_document(
-            runtime, msgspec.structs.replace(document, controls=msgspec.structs.replace(document.controls, numerics=historical_policy))
+            runtime,
+            msgspec.structs.replace(
+                document,
+                controls=msgspec.structs.replace(
+                    document.controls, numerics=historical_policy
+                ),
+            ),
         )
 
 
@@ -155,11 +172,11 @@ def test_contextual_accuracy_historical_completion_preserves_interpretation() ->
 def test_contextual_accuracy_completion_preserves_estimated_violated_decision() -> None:
     """Export retains a resolved violation and its estimated evidence unchanged."""
     row = documents.RuntimeAccuracyGoalAssessmentsRow(
-        goal_id="01" * 16,
-        run_id="02" * 16,
-        target_id="03" * 16,
-        quantity_id="04" * 16,
-        unit_id="05" * 16,
+        goal_id=AccuracyGoalId(SemanticId.from_hex("01" * 16)),
+        run_id=RunId(SemanticId.from_hex("02" * 16)),
+        target_id=SemanticId.from_hex("03" * 16),
+        quantity_id=SemanticId.from_hex("04" * 16),
+        unit_id=SemanticId.from_hex("05" * 16),
         step=7,
         subject=enums.AccuracyGoalSubject.SELECTED_OUTPUT,
         target_kind=enums.NumericalTarget.OBSERVABLE,
@@ -179,9 +196,9 @@ def test_contextual_accuracy_completion_preserves_estimated_violated_decision() 
         criterion_status=enums.AccuracyCriterionStatus.VIOLATED,
         interpretation=enums.AccuracyEvidenceInterpretation.OUTPUT_ERROR,
         method=enums.AccuracyEvidenceMethod.SQUARE_CORRECTION,
-        dependencies=("blake3:" + "06" * 32,),
-        product="blake3:" + "07" * 32,
-        validity="blake3:" + "08" * 32,
+        dependencies=(ContentHash.from_prefixed("blake3:" + "06" * 32),),
+        product=ContentHash.from_prefixed("blake3:" + "07" * 32),
+        validity=ContentHash.from_prefixed("blake3:" + "08" * 32),
         limitation="Local estimate on the retained stationary branch.",
     )
     completion = documents.Completion(

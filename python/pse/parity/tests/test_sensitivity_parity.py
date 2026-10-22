@@ -75,7 +75,7 @@ def pse_prediction(
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
         intent=NativeSolveIntent.OPTIMIZE,
-        sensitivity=documents.SensitivityRequest(parameters=(a.to_hex(), b.to_hex())),
+        sensitivity=documents.SensitivityRequest(parameters=(a, b)),
     )
     result = authored.prepare_solve(root, settings).start().wait()
     assert result.usable, result.diagnostics()

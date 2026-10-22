@@ -12,12 +12,12 @@ import pse
 from pse import codec
 from pse.contracts import documents
 from pse.contracts.enums import (
-    DynamicsMethod,
     ClarabelMode,
     DiagnosticCode,
     DiagnosticRule,
     DiffsolMethod,
     DynamicSensitivity,
+    DynamicsMethod,
     HessianMode,
     HighsMethod,
     KinsolStrategy,
@@ -37,6 +37,7 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.invalid_call import invalid_call
 from pse.tests.physical_input_fixture import coordinate_batch, stage_batch
 
 #: A manifest dependency on the physical primitives fixture. Its document names
@@ -141,26 +142,37 @@ def test_backend_settings_typed() -> None:
         # field is present with the default the Rust type states.
         encoded = msgspec.to_builtins(settings)
         assert encoded["backend"] == backend.value
-        assert codec.decode_json(codec.encode_json(settings), documents.BackendSettingsBody) == settings
-        current = codec.convert_document(codec.document_builtins(settings), pse.BackendSettings)
+        assert (
+            codec.decode_json(
+                codec.encode_json(settings), documents.BackendSettingsBody
+            )
+            == settings
+        )
+        current = codec.convert_document(
+            codec.document_builtins(settings), pse.BackendSettings
+        )
         decoded = codec.decode_json(codec.encode_json(current), pse.BackendSettings)
         assert decoded == current
-        assert codec.document_builtins(decoded)["document_version"] == 1
+        assert decoded.document_version == 1
         # Each field of each document type is typed: no field is `Any` or untyped.
         for field in msgspec.structs.fields(type(settings)):
             assert field.type is not object, (backend, field.name)
     # The generated types refuse what their schema refuses, before anything is native.
     with pytest.raises(msgspec.ValidationError, match="unknown field"):
         codec.decode_json(
-            b'{"document_version":1,"backend": "highs", "methd": "simplex"}', pse.BackendSettings
+            b'{"document_version":1,"backend": "highs", "methd": "simplex"}',
+            pse.BackendSettings,
         )
     with pytest.raises(msgspec.ValidationError):
-        codec.decode_json(b'{"document_version":1,"backend": "gurobi"}', pse.BackendSettings)
+        codec.decode_json(
+            b'{"document_version":1,"backend": "gurobi"}', pse.BackendSettings
+        )
     with pytest.raises(
         msgspec.ValidationError, match=r"Expected `float` >= 0\.0|> 0\.0"
     ):
         codec.decode_json(
-            b'{"document_version":1,"backend": "ipopt", "bound_push": -1.0}', pse.BackendSettings
+            b'{"document_version":1,"backend": "ipopt", "bound_push": -1.0}',
+            pse.BackendSettings,
         )
 
 
@@ -214,7 +226,9 @@ def test_solve_settings_enum_types() -> None:
 
 
 @pytest.mark.unit
-def test_idas_current_version_default_omission_and_explicit_step(inspection_settings: pse.EngineSettings) -> None:
+def test_idas_current_version_default_omission_and_explicit_step(
+    inspection_settings: pse.EngineSettings,
+) -> None:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     settings = pse.IdasSettings()
     assert settings.version == 3
@@ -281,7 +295,9 @@ def test_solve_settings_backend_projection(
     )
     assert simulation.idas == idas
     assert simulation.diffsol == diffsol
-    assert simulation.document.controls.idas.sensitivity is SensitivityCorrector.STAGGERED
+    assert (
+        simulation.document.controls.idas.sensitivity is SensitivityCorrector.STAGGERED
+    )
     # The adjoint checkpoints are a document; the sensitivity is a registry name.
     adjoint = pse.AdjointSettings(steps_between_checkpoints=50)
     assert adjoint.max_checkpoints == pse.AdjointSettings().max_checkpoints
@@ -299,13 +315,23 @@ def test_solve_settings_backend_projection(
     assert gradient.document.controls.sensitivity is DynamicSensitivity.ADJOINT
     # Native ingress revalidates records and requires their actual generated class.
     with pytest.raises(TypeError, match="DiffsolSettings"):
-        pse.SimulationSettings(
-            runtime=runtime, start=0.0, end=1.0, samples=[0.0], atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime),
+        invalid_call(pse.SimulationSettings,
+            runtime=runtime,
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=coordinate_batch(runtime),
+            parameter_scales=coordinate_batch(runtime),
             diffsol=b'{"version": 1}',
         )
     with pytest.raises(pse.InspectionError, match="version"):
         pse.SimulationSettings(
-            runtime=runtime, start=0.0, end=1.0, samples=[0.0], atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime),
+            runtime=runtime,
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=coordinate_batch(runtime),
+            parameter_scales=coordinate_batch(runtime),
             idas=msgspec.structs.replace(idas, version=2),
         )
 
@@ -455,6 +481,7 @@ def test_solve_settings_backend_projection(
 
 @pytest.mark.integration
 def test_route_and_eligibility_are_typed(
+    runtime: pse.Runtime,
     cases: tuple[pse.ModelingPackage, dict[str, DeclarationId]],
 ) -> None:
     package, ids = cases
@@ -485,7 +512,9 @@ def test_route_and_eligibility_are_typed(
     # Strategy routes are typed rows, one per initialization block, and attempts and
     # failures share one index space.
     initialization = package.prepare_block_initialization(
-        ids["Root"], pse.SolveSettings(intent=NativeSolveIntent.INITIALIZE), stage_batch(runtime, [(), ()])
+        ids["Root"],
+        pse.SolveSettings(intent=NativeSolveIntent.INITIALIZE),
+        stage_batch(runtime, [(), ()]),
     )
     assert [route.backend for route in initialization.routes] == ["kinsol"]
     result = initialization.run()
@@ -499,7 +528,9 @@ def test_route_and_eligibility_are_typed(
 
     # Initialization admission is native: no Python check precedes it.
     with pytest.raises(pse.InspectionError, match="root or initialize intent"):
-        package.prepare_block_initialization(ids["Root"], pse.SolveSettings(), stage_batch(runtime, [()]))
+        package.prepare_block_initialization(
+            ids["Root"], pse.SolveSettings(), stage_batch(runtime, [()])
+        )
     with pytest.raises(pse.InspectionError) as refused:
         package.prepare_block_initialization(
             ids["Root"],

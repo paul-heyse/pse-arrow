@@ -70,9 +70,13 @@ def prepare(
             start=0,
             end=1,
             samples=SAMPLES,
-            atol=coordinate_batch(runtime, [(member(package, case, "x"), 1e-8, "Time")]),
+            atol=coordinate_batch(
+                runtime, [(member(package, case, "x"), 1e-8, "Time")]
+            ),
             rtol=1e-8,
-            parameter_scales=coordinate_batch(runtime, [(member(package, case, "p"), 1.0, "Scalar")]),
+            parameter_scales=coordinate_batch(
+                runtime, [(member(package, case, "p"), 1.0, "Scalar")]
+            ),
             sensitivity=sensitivity,
         ),
     )

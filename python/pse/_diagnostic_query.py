@@ -18,12 +18,19 @@ from msgspec.structs import replace
 
 from pse import codec
 from pse._build import _diagnostic_query_specification
-from pse.contracts.documents import ReviewQueryDocument, ReviewQueryStatus
+from pse.contracts.documents import (
+    ReviewQueryDocumentOutput,
+    ReviewQueryRequestOutput,
+    ReviewQueryStatus,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from pse.contracts.documents import ReviewQueryRequest, ReviewQuerySpecification
+    from pse.contracts.documents import (
+        ReviewQueryRequest,
+        ReviewQuerySpecificationOutput,
+    )
 
 
 def _bounded_child(
@@ -94,7 +101,7 @@ def _bounded_child(
     return status, reason
 
 
-def _validate_csv(path: Path, specification: ReviewQuerySpecification) -> int:
+def _validate_csv(path: Path, specification: ReviewQuerySpecificationOutput) -> int:
     """Validate one result schema without collecting rows or inferring types."""
     with path.open(newline="", encoding="utf-8", errors="strict") as source:
         reader = csv.reader(source, strict=True)
@@ -134,13 +141,13 @@ def _validate_inputs(binary: Path, trace: Path) -> None:
 
 
 def run_query(
-    request: ReviewQueryRequest,
+    request: ReviewQueryRequest | ReviewQueryRequestOutput,
     trace: Path,
     output: Path,
     binary: Path,
     *,
     cancelled: Callable[[], bool] = lambda: False,
-) -> ReviewQueryDocument:
+) -> ReviewQueryDocumentOutput:
     """Retain query context and failure prefixes without executing science."""
     spec = _diagnostic_query_specification(request)
     end = time.monotonic() + request.timeout_seconds
@@ -148,9 +155,21 @@ def run_query(
     sql = output / "query.sql"
     sql.write_text(spec.sql, encoding="utf-8")
     rows, errors = output / "rows.csv", output / "stderr.txt"
-    result = ReviewQueryDocument(
+    result = ReviewQueryDocumentOutput(
         version=1,
-        request=request,
+        request=(
+            request
+            if isinstance(request, ReviewQueryRequestOutput)
+            else ReviewQueryRequestOutput(
+                version=request.version,
+                clock_scope=request.clock_scope,
+                input_member=request.input_member,
+                interval=request.interval,
+                output_bytes=request.output_bytes,
+                question=request.question,
+                timeout_seconds=request.timeout_seconds,
+            )
+        ),
         query_version=spec.query_version,
         sql=spec.sql,
         tool_version=None,

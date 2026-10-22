@@ -18,15 +18,15 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
     from pse.contracts.documents import (
-        AnalysisDocument,
+        AnalysisDocumentOutput,
         AnalysisRequest,
-        FrozenEvidenceSet,
-        InspectionDocument,
+        FrozenEvidenceSetOutput,
+        InspectionDocumentOutput,
         InspectionRequest,
-        OperationSnapshot,
+        OperationSnapshotBodyOutput,
         PackFormat,
         PackMemberRole,
-        ProcessCheckpoint,
+        ProcessCheckpointOutput,
         ReviewHandoffReceipt,
         SourceRecordingAcknowledgement,
         SourceRecordingRequest,
@@ -70,9 +70,10 @@ class Observer:
             CheckpointIdentity,
             ClosedDuration,
             DiagnosticListRequest,
-            FrozenEvidenceSet,
+            FrozenEvidenceSetOutput,
             FrozenInspectionRequest,
             InspectionRequest,
+            OperationIdBody,
             ReceiverCheckpoint,
         )
         from pse.contracts.enums import CaptureKind  # noqa: PLC0415
@@ -80,11 +81,12 @@ class Observer:
         self.directory = directory
         self.codec = codec
         self.diagnostics = diagnostics
+        self.operation_body = OperationIdBody
         self.request = InspectionRequest
-        self.evidence_type = FrozenEvidenceSet
+        self.evidence_type = FrozenEvidenceSetOutput
         self.frozen_request_type = FrozenInspectionRequest
-        self.recorded_operations: dict[str, OperationSnapshot] = {}
-        self.frozen_member_image: ProcessCheckpoint | None = None
+        self.recorded_operations: dict[str, OperationSnapshotBodyOutput] = {}
+        self.frozen_member_image: ProcessCheckpointOutput | None = None
         self.frozen_member_index = 0
         self.frozen_request_index = 0
         self.identity_type = CheckpointIdentity
@@ -110,12 +112,12 @@ class Observer:
 
     def interpret_image(
         self,
-        image: ProcessCheckpoint,
+        image: ProcessCheckpointOutput,
         request: InspectionRequest,
         checkpoint: Path,
         *,
         terminal: bool,
-    ) -> InspectionDocument:
+    ) -> InspectionDocumentOutput:
         """Live observation or a recorded final read over explicitly retained members."""
         if terminal:
             local = {
@@ -165,7 +167,12 @@ class Observer:
         try:
             target = json.loads(locator.read_text())
             checkpoint = Path(target["checkpoint"])
-            root = self.diagnostics.operation_id(target["operation"])
+            root = self.codec.convert_document(
+                self.codec.document_builtins(
+                    self.diagnostics.operation_id(target["operation"])
+                ),
+                self.operation_body,
+            )
             image = self.diagnostics.read_checkpoint(checkpoint)
             pending = [root]
             seen = set()
@@ -803,10 +810,10 @@ def managed_records_path(audit: Path, records: str) -> Path:
 
 def analyze_case_evidence(
     observer: Observer,
-    evidence: FrozenEvidenceSet,
+    evidence: FrozenEvidenceSetOutput,
     request: AnalysisRequest,
     result: dict,
-) -> AnalysisDocument:
+) -> AnalysisDocumentOutput:
     """Keep full copied facts when an aggregate exceeds the analyzer subject bound."""
     from msgspec.structs import replace  # noqa: PLC0415
 
@@ -917,7 +924,7 @@ def collect_review_artifacts(
         result["errors"].append(f"recording acknowledgement unavailable: {error}")
         return result
 
-    retained = d.FrozenEvidenceSet(checkpoints=())
+    retained = d.FrozenEvidenceSetOutput(checkpoints=())
     files: list[d.PackFileInput] = []
     members: list[d.PackMemberSelection] = []
 
@@ -1111,7 +1118,7 @@ def collect_review_artifacts(
             continue
         try:
             capture = codec.decode_json(
-                _read_bounded(path, 16 << 20), d.CaptureDocument
+                _read_bounded(path, 16 << 20), d.CaptureDocumentOutput
             )
             captures.append(capture)
             for index, output in enumerate(capture.outputs):
@@ -1150,7 +1157,7 @@ def collect_review_artifacts(
         for path in sorted(audit.glob("frozen-evidence-*.json")):
             encoded = _read_bounded(path, (64 << 20) - encoded_bytes)
             encoded_bytes += len(encoded)
-            supplied = codec.decode_json(encoded, d.FrozenEvidenceSet)
+            supplied = codec.decode_json(encoded, d.FrozenEvidenceSetOutput)
             checkpoints.update((image.process, image) for image in supplied.checkpoints)
             operations.update(
                 (operation.id, operation) for operation in supplied.operations
@@ -1160,7 +1167,7 @@ def collect_review_artifacts(
             for image in checkpoints.values()
             for operation in image.operations
         }
-        evidence = d.FrozenEvidenceSet(
+        evidence = d.FrozenEvidenceSetOutput(
             checkpoints=tuple(checkpoints.values()),
             operations=tuple(
                 operation

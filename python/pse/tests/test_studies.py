@@ -14,8 +14,8 @@ import pytest
 from scripts import thermodynamic_campaign
 
 import pse
-from pse.contracts import documents
 from pse import codec
+from pse.contracts import documents
 from pse.contracts.documents import (
     BoundaryDiagnostic,
     CaptureBudget,
@@ -27,7 +27,6 @@ from pse.contracts.documents import (
     ObservationContracts,
     SelectedStudyVariant,
     SourceChoice,
-    SourceDelta,
     StudyDetailDemand,
     StudyInputsExplicit,
     StudyInputsLazy,
@@ -50,6 +49,7 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
+from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.managed_study_fixture import (
     CallerStarted,
@@ -1277,11 +1277,17 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     variants = StudyVariants(
-        source=package.operation_source,
+        source=codec.convert_document(
+            codec.document_builtins(package.operation_source),
+            documents.OperationSourceBody,
+        ),
         choices=(
             SourceChoice(
                 alternatives=(
-                    documents.SourceDeltaBody(parent=package.revision_id, removals=("0" * 32,)),
+                    documents.SourceDeltaBody(
+                        parent=package.revision_id,
+                        removals=(DeclarationId(SemanticId.from_hex("0" * 32)),),
+                    ),
                 )
             ),
         ),
@@ -1327,12 +1333,18 @@ def test_local_lazy_study_executes_selected_occurrence_without_store(
         presolve=PresolvePolicyKind.OFF,
     )
     variants = StudyVariants(
-        source=package.operation_source,
+        source=codec.convert_document(
+            codec.document_builtins(package.operation_source),
+            documents.OperationSourceBody,
+        ),
         choices=(
             SourceChoice(
                 alternatives=(
                     documents.SourceDeltaBody(parent=package.revision_id),
-                    documents.SourceDeltaBody(parent=package.revision_id, removals=("0" * 32,)),
+                    documents.SourceDeltaBody(
+                        parent=package.revision_id,
+                        removals=(DeclarationId(SemanticId.from_hex("0" * 32)),),
+                    ),
                 )
             ),
         ),

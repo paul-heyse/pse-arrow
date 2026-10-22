@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
 from scripts import native_operation as operation
+from scripts import pse_env
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
@@ -204,7 +205,9 @@ def select(name: str, requested: str | None = None) -> Profile:
     timing = tuple(config["timing_cores"])
     if name == "build":
         if requested is not None:
-            raise AdmissionError("The unbounded build class cannot take PSE_MEMORY_MAX; select a finite resource class")
+            raise AdmissionError(
+                "The unbounded build class cannot take PSE_MEMORY_MAX; select a finite resource class"
+            )
         return Profile(name, 0, "build", 1, timing + functional)
     amount = finite_bytes(requested) if requested is not None else None
     if name == "compiler-cache":
@@ -340,10 +343,22 @@ def classify(command: Sequence[str], native: bool = False) -> str:
         for part in command
     ):
         return "exclusive"
-    if len(command) > 1 and Path(command[0]).name == "just" and command[1] in {
-        "check", "check-package", "check-native-package", "check-native-test",
-        "codegen", "codegen-check", "py-sync", "py-sync-native", "py-sync-correctness",
-    }:
+    if (
+        len(command) > 1
+        and Path(command[0]).name == "just"
+        and command[1]
+        in {
+            "check",
+            "check-package",
+            "check-native-package",
+            "check-native-test",
+            "codegen",
+            "codegen-check",
+            "py-sync",
+            "py-sync-native",
+            "py-sync-correctness",
+        }
+    ):
         return "compile"
     if "scripts.arrow_validation" in command[:4]:
         return "compile"
@@ -614,10 +629,15 @@ def validate_allocation_record(record: Mapping[str, object]) -> None:
     )
     valid = (
         valid
-        and (integer(record.get("memory", 0)) > 0 or (
-            record.get("class") == "build" and record.get("lane") == "build"
-            and record.get("memory") == 0 and record.get("exclusive") is False
-        ))
+        and (
+            integer(record.get("memory", 0)) > 0
+            or (
+                record.get("class") == "build"
+                and record.get("lane") == "build"
+                and record.get("memory") == 0
+                and record.get("exclusive") is False
+            )
+        )
         and integer(record.get("slots", 0)) > 0
     )
     valid = valid and type(record.get("exclusive")) is bool
@@ -1192,8 +1212,12 @@ def reconcile(
 def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
     entries = [item for item in owners.values() if isinstance(item, dict)]
     heavy = [item for item in entries if item["lane"] != "light"]
-    if (profile.unbounded and any(item["lane"] in {"timing", "store-timing"} for item in entries)) or (
-        profile.lane in {"timing", "store-timing"} and any(item["lane"] == "build" for item in entries)
+    if (
+        profile.unbounded
+        and any(item["lane"] in {"timing", "store-timing"} for item in entries)
+    ) or (
+        profile.lane in {"timing", "store-timing"}
+        and any(item["lane"] == "build" for item in entries)
     ):
         return "isolated timing owner"
     if (profile.exclusive and heavy) or (
@@ -1723,7 +1747,9 @@ def enforce_allocation(
     name = allocation_slice(allocation)
     command = ["systemctl", "--user"]
     properties = [
-        "set-property", "--runtime", name,
+        "set-property",
+        "--runtime",
+        name,
         f"CPUQuota={len(allocation.profile.cores) * 100}%",
         "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
     ]
@@ -1750,9 +1776,7 @@ def enforce_allocation(
     )
 
     if allocation.profile.unbounded:
-        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
-
-        require_unbounded_slice(name)
+        pse_env.require_unbounded_slice(name)
     else:
         observed = int((slice_group(name) / "memory.max").read_text().strip())
         if observed != ceiling:
@@ -1799,12 +1823,21 @@ def _enforce_parent(
 ) -> None:
     if profile.unbounded:
         command = ["systemctl", "--user", "start", "psebuild.slice"]
-        result = subprocess.run(command, env=dict(env), capture_output=True, text=True, timeout=5, check=False) if deadline is None else control_run(command, env=env, deadline=deadline, maximum=5)
+        result = (
+            subprocess.run(
+                command,
+                env=dict(env),
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if deadline is None
+            else control_run(command, env=env, deadline=deadline, maximum=5)
+        )
         if result.returncode:
             raise AdmissionError("Cannot start unbounded build parent")
-        from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner
-
-        require_unbounded_slice("psebuild.slice")
+        pse_env.require_unbounded_slice("psebuild.slice")
         return
     cap = aggregate(profile)
     # A concurrent light admission may never lower a widened live heavy envelope.

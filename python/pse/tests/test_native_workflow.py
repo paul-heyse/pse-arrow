@@ -42,8 +42,8 @@ from pse.contracts.enums import (
     NumericalEventKind,
     NumericalPosition,
     NumericalTransition,
-    PresolvePolicyKind,
     PhysicalInputKind,
+    PresolvePolicyKind,
 )
 from pse.contracts.identities import (
     DeclarationId,
@@ -52,7 +52,12 @@ from pse.contracts.identities import (
 )
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
-from pse.tests.physical_input_fixture import coordinate_batch, primitive_quantity, stage_batch
+from pse.tests.invalid_call import invalid_call
+from pse.tests.physical_input_fixture import (
+    coordinate_batch,
+    primitive_quantity,
+    stage_batch,
+)
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -233,10 +238,15 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         5.0, rel=settings.numerics.gap_relative, abs=settings.numerics.gap_absolute
     )
     primal_batch = attempt.primal()
-    primal = codec.structure_rows(pa.table(primal_batch).to_pylist(), result_contracts.RuntimePrimalValuesRow)
+    primal = codec.structure_rows(
+        pa.table(primal_batch).to_pylist(), result_contracts.RuntimePrimalValuesRow
+    )
     (coordinate,) = primal
     assert coordinate.coordinate_id == identity(201)
-    assert (coordinate.value.quantity_type_id, coordinate.value.unit_id) == primitive_quantity("Scalar")
+    assert (
+        coordinate.value.quantity_type_id,
+        coordinate.value.unit_id,
+    ) == primitive_quantity("Scalar")
     assert coordinate.coordinate_role.value == "original"
     assert coordinate.value.value == pytest.approx(
         2.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
@@ -281,7 +291,9 @@ def test_explicit_primal_seed_and_transactional_initialization(
     x = member.id
     prepared = package.prepare_solve(case, settings)
     assert prepared.eligibility
-    start_input = coordinate_batch(runtime, [(x, 1.0, "Scalar")], kind=PhysicalInputKind.PRIMAL_VALUES)
+    start_input = coordinate_batch(
+        runtime, [(x, 1.0, "Scalar")], kind=PhysicalInputKind.PRIMAL_VALUES
+    )
     selected = prepared.with_primal_start(start_input)
     # Mutate the exported source's actual numeric buffer after admission. The
     # selected preparation must retain its owned immutable +1 snapshot.
@@ -503,7 +515,7 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
         direct.strategy.mechanisms[0],
         profile=documents.ProfileRef(
             method=documents.NumericalMethodBackend(backend=NativeBackend.KINSOL),
-            key=prepared.strategy_profile.to_prefixed(),
+            key=prepared.strategy_profile,
         ),
         transitions=(
             NumericalTransition.FINISH,
@@ -709,16 +721,28 @@ def test_simulation_controls_round_trip_exact_native_options(
 ) -> None:
 
     settings = pse.SimulationSettings(
-        runtime=runtime, start=0.0, end=1.0, samples=[0.0, 1.0], atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime)
+        runtime=runtime,
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=coordinate_batch(runtime),
+        parameter_scales=coordinate_batch(runtime),
     )
-    configured = msgspec.structs.replace(settings.document.controls.idas, native_initial_step="configured")
-    document = msgspec.structs.replace(settings.document, controls=msgspec.structs.replace(settings.document.controls, idas=configured))
+    configured = msgspec.structs.replace(
+        settings.document.controls.idas, native_initial_step="configured"
+    )
+    document = msgspec.structs.replace(
+        settings.document,
+        controls=msgspec.structs.replace(settings.document.controls, idas=configured),
+    )
     restored = pse.SimulationSettings.from_document(runtime, document)
     assert restored.document == document
     assert restored.idas.native_initial_step == "configured"
     assert "diffsol" in {c.backend for c in runtime.capabilities()}
     with pytest.raises(TypeError, match="PhysicalSimulationRequest"):
-        pse.SimulationSettings.from_document(runtime, codec.encode_json(document))
+        invalid_call(
+            pse.SimulationSettings.from_document, runtime, codec.encode_json(document)
+        )
 
 
 @pytest.mark.integration
@@ -801,9 +825,14 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     prepared = package.prepare_fit(
         FitId(identity(158)),
         codec.decode_json(
-            codec.encode_json({"version": 1, "settings": {
-                "solver": pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
-            }}),
+            codec.encode_json(
+                {
+                    "version": 1,
+                    "settings": {
+                        "solver": pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
+                    },
+                }
+            ),
             pse.PhysicalFitRequest,
         ),
     )

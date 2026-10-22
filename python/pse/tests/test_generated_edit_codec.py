@@ -13,6 +13,7 @@ import pytest
 from pse import codec
 from pse.codec import _generated
 from pse.contracts import authored, documents, enums
+from pse.contracts.identities import DeclarationId, FitId, InstanceId
 from pse.contracts.values import ContentHash, SemanticId
 
 
@@ -89,8 +90,8 @@ def _row(
         codec.encode_json(values), documents.AuthoredModelingDeclarationsFieldValue
     )
     document = documents.AuthoredModelingDeclarationsRow(
-        declaration_id="1" * 32,
-        document_id="2" * 32,
+        declaration_id=DeclarationId(SemanticId.from_hex("1" * 32)),
+        document_id=SemanticId.from_hex("2" * 32),
         is_override=False,
         name="p",
         ordinal=0,
@@ -107,7 +108,9 @@ def _reference(rows: tuple[object, ...], field: str, document_type: type) -> byt
     converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
     plain = {field: tuple(converter.unstructure(row) for row in rows)}
     current = codec.convert_document(plain, document_type)
-    return codec.encode_json(codec.decode_json(codec.encode_json(current), document_type))
+    return codec.encode_json(
+        codec.decode_json(codec.encode_json(current), document_type)
+    )
 
 
 @pytest.mark.unit
@@ -134,10 +137,10 @@ def test_every_declaration_arm_retains_strict_transport_bytes() -> None:
 
 def _fit() -> authored.AuthoredFitCasesRow:
     fit = documents.AuthoredFitCasesRow(
-        fit_id="3" * 32,
+        fit_id=FitId(SemanticId.from_hex("3" * 32)),
         parameters=(
             documents.AuthoredFitCasesFieldParametersItem(
-                symbol_id="4" * 32,
+                symbol_id=SemanticId.from_hex("4" * 32),
                 fixed=False,
                 value=-0.0,
                 scale=2.0,
@@ -147,16 +150,16 @@ def _fit() -> authored.AuthoredFitCasesRow:
         ),
         experiments=(
             documents.AuthoredFitCasesFieldExperimentsItem(
-                experiment_id="5" * 32,
-                case_id="6" * 32,
+                experiment_id=InstanceId(SemanticId.from_hex("5" * 32)),
+                case_id=DeclarationId(SemanticId.from_hex("6" * 32)),
                 route=enums.ModelingAnalysisRoute.STEADY,
                 bindings=(),
             ),
         ),
         observations=(
             documents.AuthoredFitCasesFieldObservationsItem(
-                observation_id="7" * 32,
-                experiment_id="5" * 32,
+                observation_id=DeclarationId(SemanticId.from_hex("7" * 32)),
+                experiment_id=InstanceId(SemanticId.from_hex("5" * 32)),
                 output_path="unit.x",
                 value_attribute="value",
                 importance=1.0,

@@ -4630,7 +4630,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                     return {"value": [dict(row) for row in selected_science[table]]}
             prefix = "LET $value=fn::pse_maintenance_v1::"
             if body.startswith(prefix):
-                function, encoded = body[len(prefix):].split("(", 1)
+                function, encoded = body[len(prefix) :].split("(", 1)
                 self.assertTrue(encoded.endswith(");"))
                 arguments = json.loads("[" + encoded[:-2] + "]")
                 self.assertIs(type(arguments[0]), int)
@@ -4642,18 +4642,29 @@ class SurrealSupervisorTests(unittest.TestCase):
                 if function == "claim":
                     self.assertEqual(len(arguments), 7)
                     self.assertEqual(arguments[6], previous)
-                    current = dict(zip(("operation", "generation", "phase"), arguments[1:4], strict=True))
+                    current = dict(
+                        zip(
+                            ("operation", "generation", "phase"),
+                            arguments[1:4],
+                            strict=True,
+                        )
+                    )
                     domain_owners[key] = current
                     return {"value": dict(current)}
                 self.assertIsNotNone(previous)
                 assert previous is not None
-                self.assertEqual(arguments[1:4], [previous["operation"], previous["generation"], previous["phase"]])
+                self.assertEqual(
+                    arguments[1:4],
+                    [previous["operation"], previous["generation"], previous["phase"]],
+                )
                 if function == "page":
                     self.assertEqual(len(arguments), 6)
                     self.assertIn(arguments[4], {"rotate", "rehome"})
                     # This fixture contains no creation authorities or file-instance
                     # placements to mutate; science and future borrowers are retained.
-                    return {"value": {"count": 0, "after": arguments[5], "complete": True}}
+                    return {
+                        "value": {"count": 0, "after": arguments[5], "complete": True}
+                    }
                 self.assertEqual(function, "rehome_complete")
                 self.assertEqual(len(arguments), 4)
                 return {"value": True}
@@ -4756,7 +4767,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     for table, rows in exported_science.items()
                 }
                 if exported_domain_owner is not None:
-                    domain_owners[(state, arguments[6], arguments[8])] = dict(exported_domain_owner)
+                    domain_owners[(state, arguments[6], arguments[8])] = dict(
+                        exported_domain_owner
+                    )
             return subprocess.CompletedProcess(arguments, 0, "", "")
 
         with (
@@ -6707,9 +6720,15 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertFalse(config["accepting_writes"])
         self.assertEqual((source / "input").read_text(), "external authority")
 
-    def test_maintenance_domain_context_refuses_dead_generation_before_rpc(self) -> None:
+    def test_maintenance_domain_context_refuses_dead_generation_before_rpc(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
-        owner = {"nonce": "actual-generation", "pid": os.getpid(), "start": "stale-start"}
+        owner = {
+            "nonce": "actual-generation",
+            "pid": os.getpid(),
+            "start": "stale-start",
+        }
         server.write_json(self.state / "lifecycle-owner.json", owner)
         before = (self.state / "config.json").read_bytes()
         with (
@@ -6717,12 +6736,16 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             patch.object(server, "maintenance_domain_call") as domain,
             self.assertRaisesRegex(server.SupervisorError, "actual live generation"),
         ):
-            server.maintenance_domain_context(self.state, config, {}, "rotate", "source", "source")
+            server.maintenance_domain_context(
+                self.state, config, {}, "rotate", "source", "source"
+            )
         live.assert_called_once_with(owner)
         domain.assert_not_called()
         self.assertEqual((self.state / "config.json").read_bytes(), before)
 
-    def test_maintenance_domain_context_requires_exact_persisted_phase_and_intent(self) -> None:
+    def test_maintenance_domain_context_requires_exact_persisted_phase_and_intent(
+        self,
+    ) -> None:
         original, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
         for nonce in (None, "a" * 32):
             for changed in ({"phase": "disposing"}, {"kind": "current-restore"}):
@@ -6734,34 +6757,56 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                         pending["domain_nonce"] = nonce
                         server.write_json(self.state / "config.json", config)
                     persisted = json.loads(json.dumps(config))
-                    server.object_mapping(persisted["derived_rebuild_pending"]).update(changed)
+                    server.object_mapping(persisted["derived_rebuild_pending"]).update(
+                        changed
+                    )
                     server.write_json(self.state / "config.json", persisted)
                     before = (self.state / "config.json").read_bytes()
                     with (
                         server.lifecycle_reservation(self.state),
                         patch.object(server, "maintenance_domain_call") as domain,
-                        self.assertRaisesRegex(server.SupervisorError, "phase.*changed|intent changed"),
+                        self.assertRaisesRegex(
+                            server.SupervisorError, "phase.*changed|intent changed"
+                        ),
                     ):
-                        server.maintenance_domain_context(self.state, config, {}, "rotate", "source", "source")
+                        server.maintenance_domain_context(
+                            self.state, config, {}, "rotate", "source", "source"
+                        )
                     domain.assert_not_called()
                     self.assertEqual((self.state / "config.json").read_bytes(), before)
 
-    def test_maintenance_domain_context_retains_nonce_across_lost_ack_and_generation_retry(self) -> None:
+    def test_maintenance_domain_context_retains_nonce_across_lost_ack_and_generation_retry(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
         current: dict[str, object] | None = None
         claims: list[list[object]] = []
         lost_ack = True
 
-        def domain(_state: Path, _config: dict[str, object], _credentials: dict[str, object] | None, function: str, arguments: list[object]) -> object:
+        def domain(
+            _state: Path,
+            _config: dict[str, object],
+            _credentials: dict[str, object] | None,
+            function: str,
+            arguments: list[object],
+        ) -> object:
             nonlocal current, lost_ack
             if function == "current":
                 self.assertEqual(arguments, [])
                 return dict(current) if current else None
             self.assertEqual(function, "claim")
             self.assertEqual(arguments[5], current)
-            pending = server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])
-            self.assertTrue(str(arguments[0]).startswith(str(pending["domain_nonce"]) + ":rotate:source:source:"))
-            current = dict(zip(("operation", "generation", "phase"), arguments[:3], strict=True))
+            pending = server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )
+            self.assertTrue(
+                str(arguments[0]).startswith(
+                    str(pending["domain_nonce"]) + ":rotate:source:source:"
+                )
+            )
+            current = dict(
+                zip(("operation", "generation", "phase"), arguments[:3], strict=True)
+            )
             claims.append(arguments)
             if lost_ack:
                 lost_ack = False
@@ -6771,154 +6816,325 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with patch.object(server, "maintenance_domain_call", side_effect=domain):
             with (
                 server.lifecycle_reservation(self.state),
-                self.assertRaisesRegex(server.SupervisorError, "lost original acknowledgment"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "lost original acknowledgment"
+                ),
             ):
-                server.maintenance_domain_context(self.state, config, {}, "rotate", "source", "source")
-            retained_nonce = server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])["domain_nonce"]
+                server.maintenance_domain_context(
+                    self.state, config, {}, "rotate", "source", "source"
+                )
+            retained_nonce = server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )["domain_nonce"]
             resumed = server.config_for(self.state)
             with server.lifecycle_reservation(self.state):
-                generation = server.read_json(self.state / "lifecycle-owner.json")["nonce"]
-                context = server.maintenance_domain_context(self.state, resumed, {}, "rotate", "source", "source")
+                generation = server.read_json(self.state / "lifecycle-owner.json")[
+                    "nonce"
+                ]
+                context = server.maintenance_domain_context(
+                    self.state, resumed, {}, "rotate", "source", "source"
+                )
         self.assertEqual(len(claims), 2)
         self.assertEqual(claims[0][0], claims[1][0])
         self.assertNotEqual(claims[0][1], claims[1][1])
         self.assertEqual(context, (claims[1][0], generation, "cleanup"))
-        self.assertEqual(server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])["domain_nonce"], retained_nonce)
+        self.assertEqual(
+            server.object_mapping(
+                server.config_for(self.state)["derived_rebuild_pending"]
+            )["domain_nonce"],
+            retained_nonce,
+        )
 
-    def test_maintenance_domain_context_refuses_nonexact_claim_acknowledgment(self) -> None:
+    def test_maintenance_domain_context_refuses_nonexact_claim_acknowledgment(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
         for fault in ("operation", "generation", "phase", "extra", "nonobject"):
-            def domain(_state: Path, _config: dict[str, object], _credentials: dict[str, object] | None, function: str, arguments: list[object]) -> object:
+
+            def domain(
+                _state: Path,
+                _config: dict[str, object],
+                _credentials: dict[str, object] | None,
+                function: str,
+                arguments: list[object],
+                *, fault: str = fault,
+            ) -> object:
                 if function == "current":
                     return None
                 self.assertEqual(function, "claim")
-                acknowledgment = dict(zip(("operation", "generation", "phase"), arguments[:3], strict=True))
+                acknowledgment = dict(
+                    zip(
+                        ("operation", "generation", "phase"), arguments[:3], strict=True
+                    )
+                )
                 if fault == "nonobject":
                     return True
                 acknowledgment["unknown" if fault == "extra" else fault] = "different"
                 return acknowledgment
+
             with (
                 self.subTest(fault=fault),
                 server.lifecycle_reservation(self.state),
                 patch.object(server, "maintenance_domain_call", side_effect=domain),
-                self.assertRaisesRegex(server.SupervisorError, "generation was not acknowledged"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "generation was not acknowledged"
+                ),
             ):
-                server.maintenance_domain_context(self.state, config, {}, "rotate", "source", "source")
+                server.maintenance_domain_context(
+                    self.state, config, {}, "rotate", "source", "source"
+                )
         self.assertFalse(server.config_for(self.state)["accepting_writes"])
 
-    def test_maintenance_domain_context_rejects_malformed_current_before_claim(self) -> None:
+    def test_maintenance_domain_context_rejects_malformed_current_before_claim(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
-        for previous in (True, {}, {"operation": "old", "generation": "old"}, {"operation": "old", "generation": "", "phase": "cleanup"}, {"operation": "old", "generation": "old", "phase": "cleanup", "unknown": "value"}):
+        for previous in (
+            True,
+            {},
+            {"operation": "old", "generation": "old"},
+            {"operation": "old", "generation": "", "phase": "cleanup"},
+            {
+                "operation": "old",
+                "generation": "old",
+                "phase": "cleanup",
+                "unknown": "value",
+            },
+        ):
             with (
                 self.subTest(previous=previous),
                 server.lifecycle_reservation(self.state),
-                patch.object(server, "maintenance_domain_call", return_value=previous) as domain,
-                self.assertRaisesRegex(server.SupervisorError, "Malformed current maintenance generation"),
+                patch.object(
+                    server, "maintenance_domain_call", return_value=previous
+                ) as domain,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "Malformed current maintenance generation"
+                ),
             ):
-                server.maintenance_domain_context(self.state, config, {}, "rotate", "source", "source")
+                server.maintenance_domain_context(
+                    self.state, config, {}, "rotate", "source", "source"
+                )
             domain.assert_called_once_with(self.state, config, {}, "current", [])
         self.assertFalse(server.config_for(self.state)["accepting_writes"])
 
-    def test_maintenance_domain_validation_refuses_pending_intent_missing_from_snapshot(self) -> None:
+    def test_maintenance_domain_validation_refuses_pending_intent_missing_from_snapshot(
+        self,
+    ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "cleanup")
-        stale = {key: value for key, value in config.items() if key != "derived_rebuild_pending"}
+        stale = {
+            key: value
+            for key, value in config.items()
+            if key != "derived_rebuild_pending"
+        }
         retained = (self.state / "config.json").read_bytes()
         with (
             server.lifecycle_reservation(self.state),
             patch.object(server, "maintenance_domain_call") as domain,
             self.assertRaisesRegex(server.SupervisorError, "phase changed"),
         ):
-            server.maintenance_domain_context(self.state, stale, None, "validation", "source", "source")
+            server.maintenance_domain_context(
+                self.state, stale, None, "validation", "source", "source"
+            )
         domain.assert_not_called()
         self.assertEqual((self.state / "config.json").read_bytes(), retained)
 
-    def test_generated_maintenance_adapter_is_closed_and_preserves_sole_ack(self) -> None:
+    def test_generated_maintenance_adapter_is_closed_and_preserves_sole_ack(
+        self,
+    ) -> None:
         config = self.initialized()
-        arguments: list[object] = ["quoted\"source", "generation", "cleanup", "rotate", ""]
+        arguments: list[object] = [
+            'quoted"source',
+            "generation",
+            "cleanup",
+            "rotate",
+            "",
+        ]
         with (
             patch.object(server, "payload_expiry", return_value=123456),
-            patch.object(server, "maintenance_query", return_value={"value": {"count": 0, "after": "", "complete": True}}) as query,
+            patch.object(
+                server,
+                "maintenance_query",
+                return_value={"value": {"count": 0, "after": "", "complete": True}},
+            ) as query,
         ):
-            value = server.maintenance_domain_call(self.state, config, {}, "page", arguments)
+            value = server.maintenance_domain_call(
+                self.state, config, {}, "page", arguments
+            )
         self.assertEqual(value, {"count": 0, "after": "", "complete": True})
-        self.assertEqual(query.call_args.args[3], "LET $value=fn::pse_maintenance_v1::page(123456," + ",".join(json.dumps(argument) for argument in arguments) + ");")
+        self.assertEqual(
+            query.call_args.args[3],
+            "LET $value=fn::pse_maintenance_v1::page(123456,"
+            + ",".join(json.dumps(argument) for argument in arguments)
+            + ");",
+        )
         with (
             patch.object(server, "maintenance_query") as query,
             patch.object(server, "payload_query") as payload,
-            self.assertRaisesRegex(server.SupervisorError, "Unknown generated maintenance operation"),
+            self.assertRaisesRegex(
+                server.SupervisorError, "Unknown generated maintenance operation"
+            ),
         ):
-            server.maintenance_domain_call(self.state, config, {}, "unowned_mutation", [])
+            server.maintenance_domain_call(
+                self.state, config, {}, "unowned_mutation", []
+            )
         query.assert_not_called()
         payload.assert_not_called()
 
-    def test_validation_payload_reads_uses_exact_closed_profile_and_generated_ack(self) -> None:
+    def test_validation_payload_reads_uses_exact_closed_profile_and_generated_ack(
+        self,
+    ) -> None:
         config = self.initialized()
-        config.update(admission="validation_required", accepting_writes=False, payload_frozen=True, interpretation=server.SUBSTRATE_INTERPRETATION, schema_interpretation=server.SUBSTRATE_INTERPRETATION)
+        config.update(
+            admission="validation_required",
+            accepting_writes=False,
+            payload_frozen=True,
+            interpretation=server.SUBSTRATE_INTERPRETATION,
+            schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+        )
         server.write_json(self.state / "config.json", config)
         context = ("operation", "actual-generation", "validation")
         with (
-            patch.object(server, "maintenance_domain_context", return_value=context) as claim,
-            patch.object(server, "maintenance_domain_call", return_value=True) as domain,
+            patch.object(
+                server, "maintenance_domain_context", return_value=context
+            ) as claim,
+            patch.object(
+                server, "maintenance_domain_call", return_value=True
+            ) as domain,
         ):
-            server.validation_payload_reads(self.state, config, server.SUBSTRATE_INTERPRETATION)
+            server.validation_payload_reads(
+                self.state, config, server.SUBSTRATE_INTERPRETATION
+            )
         incarnation = config["payload_incarnation"]
-        claim.assert_called_once_with(self.state, config, None, "validation", str(incarnation), str(incarnation))
-        domain.assert_called_once_with(self.state, config, None, "validation_reads", [*context, server.SUBSTRATE_INTERPRETATION])
+        claim.assert_called_once_with(
+            self.state, config, None, "validation", str(incarnation), str(incarnation)
+        )
+        domain.assert_called_once_with(
+            self.state,
+            config,
+            None,
+            "validation_reads",
+            [*context, server.SUBSTRATE_INTERPRETATION],
+        )
         for acknowledgment in (False, None, 1, "true", {"value": True}):
             with (
                 self.subTest(acknowledgment=acknowledgment),
-                patch.object(server, "maintenance_domain_context", return_value=context),
-                patch.object(server, "maintenance_domain_call", return_value=acknowledgment),
+                patch.object(
+                    server, "maintenance_domain_context", return_value=context
+                ),
+                patch.object(
+                    server, "maintenance_domain_call", return_value=acknowledgment
+                ),
                 self.assertRaisesRegex(server.SupervisorError, "not acknowledged"),
             ):
-                server.validation_payload_reads(self.state, config, server.SUBSTRATE_INTERPRETATION)
-        for changes in ({"accepting_writes": True}, {"admission": "quiesced"}, {"payload_frozen": False}, {"derived_rebuild_pending": {"phase": "copy"}}, {"surrealkit_rollout_pending": {"phase": "pending"}}, {"interpretation": "another", "schema_interpretation": "another"}, {"namespace": "replacement"}, {"database": "replacement"}, {"payload_incarnation": "11111111-1111-4111-8111-111111111111"}, {"instance_id": "replacement"}):
+                server.validation_payload_reads(
+                    self.state, config, server.SUBSTRATE_INTERPRETATION
+                )
+        for changes in (
+            {"accepting_writes": True},
+            {"admission": "quiesced"},
+            {"payload_frozen": False},
+            {"derived_rebuild_pending": {"phase": "copy"}},
+            {"surrealkit_rollout_pending": {"phase": "pending"}},
+            {"interpretation": "another", "schema_interpretation": "another"},
+            {"namespace": "replacement"},
+            {"database": "replacement"},
+            {"payload_incarnation": "11111111-1111-4111-8111-111111111111"},
+            {"instance_id": "replacement"},
+        ):
             with self.subTest(changes=changes):
                 server.write_json(self.state / "config.json", {**config, **changes})
                 with (
                     patch.object(server, "maintenance_domain_context") as claim,
                     patch.object(server, "maintenance_domain_call") as domain,
-                    self.assertRaisesRegex(server.SupervisorError, "exact closed restored profile"),
+                    self.assertRaisesRegex(
+                        server.SupervisorError, "exact closed restored profile"
+                    ),
                 ):
-                    server.validation_payload_reads(self.state, config, server.SUBSTRATE_INTERPRETATION)
+                    server.validation_payload_reads(
+                        self.state, config, server.SUBSTRATE_INTERPRETATION
+                    )
                 claim.assert_not_called()
                 domain.assert_not_called()
         server.write_json(self.state / "config.json", config)
         self.assertFalse(server.config_for(self.state)["accepting_writes"])
 
-    def test_validation_payload_read_lifetime_recloses_and_drains_after_uncertain_admission_or_validator_failure(self) -> None:
+    def test_validation_payload_read_lifetime_recloses_and_drains_after_uncertain_admission_or_validator_failure(
+        self,
+    ) -> None:
         config = self.initialized()
-        config.update(admission="validation_required", accepting_writes=False, payload_frozen=True, interpretation=server.SUBSTRATE_INTERPRETATION, schema_interpretation=server.SUBSTRATE_INTERPRETATION)
+        config.update(
+            admission="validation_required",
+            accepting_writes=False,
+            payload_frozen=True,
+            interpretation=server.SUBSTRATE_INTERPRETATION,
+            schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+        )
         server.write_json(self.state / "config.json", config)
         for failure in ("admission", "validator"):
             events: list[str] = []
-            def domain(*_arguments: object) -> bool:
+
+            def domain(*_arguments: object, failure: str = failure, events: list[str] = events) -> bool:
                 events.append("read-admission")
                 if failure == "admission":
                     raise server.SupervisorError("uncertain generated acknowledgment")
                 return True
-            def validator(*_arguments: object, **_options: object) -> int:
+
+            def validator(*_arguments: object, events: list[str] = events, **_options: object) -> int:
                 events.append("validator")
                 raise subprocess.TimeoutExpired(["original-validator"], 120)
-            def freeze(_state: Path, _config: dict[str, object], body: str) -> bool:
+
+            def freeze(_state: Path, _config: dict[str, object], body: str, *, events: list[str] = events) -> bool:
                 events.append("freeze")
                 self.assertTrue(body.startswith("RETURN fn::pse_files_v1::freeze("))
                 return True
+
             with (
                 self.subTest(failure=failure),
                 patch.object(server, "start"),
                 patch.object(server, "validate_interpretation"),
-                patch.object(server, "maintenance_domain_context", return_value=("operation", "generation", "validation")),
+                patch.object(
+                    server,
+                    "maintenance_domain_context",
+                    return_value=("operation", "generation", "validation"),
+                ),
                 patch.object(server, "maintenance_domain_call", side_effect=domain),
                 patch.object(server, "run_file_effect", side_effect=validator) as run,
                 patch.object(server, "payload_query", side_effect=freeze),
-                patch.object(server, "all_contexts_drained", side_effect=lambda *_arguments: events.append("drain")),
-                patch.object(server, "reap_payload_owners", side_effect=lambda *_arguments, **_options: events.append("reap")) as reap,
-                patch.object(server, "stop", side_effect=lambda *_arguments: events.append("stop")),
+                patch.object(
+                    server,
+                    "all_contexts_drained",
+                    side_effect=lambda *_arguments, events=events: events.append("drain"),
+                ),
+                patch.object(
+                    server,
+                    "reap_payload_owners",
+                    side_effect=lambda *_arguments, events=events, **_options: events.append("reap"),
+                ) as reap,
+                patch.object(
+                    server,
+                    "stop",
+                    side_effect=lambda *_arguments, events=events: events.append("stop"),
+                ),
                 self.assertRaises((server.SupervisorError, subprocess.TimeoutExpired)),
             ):
-                server.validate(self.state, config, server.SUBSTRATE_INTERPRETATION, ["original-validator"])
-            self.assertEqual(events, ["drain", "read-admission", *(["validator"] if failure == "validator" else []), "freeze", "drain", "reap", "stop"])
+                server.validate(
+                    self.state,
+                    config,
+                    server.SUBSTRATE_INTERPRETATION,
+                    ["original-validator"],
+                )
+            self.assertEqual(
+                events,
+                [
+                    "drain",
+                    "read-admission",
+                    *(["validator"] if failure == "validator" else []),
+                    "freeze",
+                    "drain",
+                    "reap",
+                    "stop",
+                ],
+            )
             self.assertEqual(run.call_count, int(failure == "validator"))
             reap.assert_called_once_with(self.state, config, require_all=True)
             retained = server.config_for(self.state)
@@ -6926,7 +7142,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             self.assertFalse(retained["accepting_writes"])
             self.assertTrue(retained["payload_frozen"])
 
-    def test_validation_payload_closure_requires_ack_before_draining_or_reaping(self) -> None:
+    def test_validation_payload_closure_requires_ack_before_draining_or_reaping(
+        self,
+    ) -> None:
         config = self.initialized()
         for acknowledgment in (False, None, 1, "true"):
             with (
@@ -6934,58 +7152,116 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 patch.object(server, "payload_query", return_value=acknowledgment),
                 patch.object(server, "all_contexts_drained") as drain,
                 patch.object(server, "reap_payload_owners") as reap,
-                self.assertRaisesRegex(server.SupervisorError, "closure was not acknowledged"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "closure was not acknowledged"
+                ),
             ):
                 server.close_validation_payload_reads(self.state, config)
             drain.assert_not_called()
             reap.assert_not_called()
 
-    def test_payload_rehome_refuses_incomplete_ack_and_keeps_original_backup(self) -> None:
+    def test_payload_rehome_refuses_incomplete_ack_and_keeps_original_backup(
+        self,
+    ) -> None:
         backup = self.backup_fixture()
         selected = server.fresh_database_identity(server.config_for(self.state))
-        selected["derived_rebuild_pending"] = {"backup": str(backup), "backup_digest": server.file_digest(backup / "backup.json"), "kind": "current-restore", "phase": "copy"}
+        selected["derived_rebuild_pending"] = {
+            "backup": str(backup),
+            "backup_digest": server.file_digest(backup / "backup.json"),
+            "kind": "current-restore",
+            "phase": "copy",
+        }
         server.write_json(self.state / "config.json", selected)
         original = (backup / "backup.json").read_bytes()
         context = ("original-operation", "actual-generation", "copy")
         for acknowledgment in (False, None, 1, "true"):
             with (
                 self.subTest(acknowledgment=acknowledgment),
-                patch.object(server, "maintenance_domain_context", return_value=context),
-                patch.object(server, "verify_payload_inventory", wraps=server.verify_payload_inventory) as verify,
-                patch.object(server, "maintenance_domain_call", side_effect=[{"count": 0, "after": "", "complete": True}, acknowledgment]) as domain,
+                patch.object(
+                    server, "maintenance_domain_context", return_value=context
+                ),
+                patch.object(
+                    server,
+                    "verify_payload_inventory",
+                    wraps=server.verify_payload_inventory,
+                ) as verify,
+                patch.object(
+                    server,
+                    "maintenance_domain_call",
+                    side_effect=[
+                        {"count": 0, "after": "", "complete": True},
+                        acknowledgment,
+                    ],
+                ) as domain,
                 server.lifecycle_reservation(self.state),
-                self.assertRaisesRegex(server.SupervisorError, "incarnation was not acknowledged"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "incarnation was not acknowledged"
+                ),
             ):
                 server.rehome_restored_payloads(self.state, selected, {})
             verify.assert_called_once()
-            self.assertEqual(domain.call_args_list[0].args[-2:], ("page", [*context, "rehome", ""]))
-            self.assertEqual(domain.call_args_list[1].args[-2:], ("rehome_complete", list(context)))
+            self.assertEqual(
+                domain.call_args_list[0].args[-2:], ("page", [*context, "rehome", ""])
+            )
+            self.assertEqual(
+                domain.call_args_list[1].args[-2:], ("rehome_complete", list(context))
+            )
             self.assertEqual((backup / "backup.json").read_bytes(), original)
-            self.assertEqual(server.object_mapping(server.config_for(self.state)["derived_rebuild_pending"])["phase"], "copy")
+            self.assertEqual(
+                server.object_mapping(
+                    server.config_for(self.state)["derived_rebuild_pending"]
+                )["phase"],
+                "copy",
+            )
             self.assertFalse(server.config_for(self.state)["accepting_writes"])
 
-    def test_bounded_authority_rotation_preserves_admitted_analyses_and_borrowers(self) -> None:
+    def test_bounded_authority_rotation_preserves_admitted_analyses_and_borrowers(
+        self,
+    ) -> None:
         config = self.initialized()
-        config["derived_rebuild_pending"] = {"payload_incarnation": config["payload_incarnation"]}
+        config["derived_rebuild_pending"] = {
+            "payload_incarnation": config["payload_incarnation"]
+        }
         context = ("original-operation", "actual-generation", "cleanup")
         with (
             patch.object(server, "maintenance_domain_context", return_value=context),
-            patch.object(server, "maintenance_domain_call", side_effect=[
-                {"count": 1, "after": "retention:source", "complete": False},
-                {"count": 0, "after": "retention:source", "complete": True},
-            ]) as query,
+            patch.object(
+                server,
+                "maintenance_domain_call",
+                side_effect=[
+                    {"count": 1, "after": "retention:source", "complete": False},
+                    {"count": 0, "after": "retention:source", "complete": True},
+                ],
+            ) as query,
         ):
             server.rotate_source_authorities(self.state, config, {})
         self.assertEqual(query.call_count, 2)
-        self.assertEqual(query.call_args_list[0].args[-2:], ("page", [*context, "rotate", ""]))
-        self.assertEqual(query.call_args_list[1].args[-2:], ("page", [*context, "rotate", "retention:source"]))
+        self.assertEqual(
+            query.call_args_list[0].args[-2:], ("page", [*context, "rotate", ""])
+        )
+        self.assertEqual(
+            query.call_args_list[1].args[-2:],
+            ("page", [*context, "rotate", "retention:source"]),
+        )
 
-    def test_authority_rotation_refuses_live_protection_and_invalid_page_acknowledgment(self) -> None:
+    def test_authority_rotation_refuses_live_protection_and_invalid_page_acknowledgment(
+        self,
+    ) -> None:
         config = self.initialized()
-        config["derived_rebuild_pending"] = {"payload_incarnation": config["payload_incarnation"]}
+        config["derived_rebuild_pending"] = {
+            "payload_incarnation": config["payload_incarnation"]
+        }
         with (
-            patch.object(server, "maintenance_domain_context", return_value=("operation", "generation", "cleanup")),
-            patch.object(server, "maintenance_domain_call", side_effect=server.SupervisorError("live protections")) as query,
+            patch.object(
+                server,
+                "maintenance_domain_context",
+                return_value=("operation", "generation", "cleanup"),
+            ),
+            patch.object(
+                server,
+                "maintenance_domain_call",
+                side_effect=server.SupervisorError("live protections"),
+            ) as query,
             self.assertRaisesRegex(server.SupervisorError, "live protections"),
         ):
             server.rotate_source_authorities(self.state, config, {})
@@ -7001,7 +7277,13 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             with self.subTest(value=value), self.assertRaises(server.SupervisorError):
                 server.maintenance_domain_page(value, "")
-        self.assertEqual(server.maintenance_domain_page({"count": 0, "after": "retention:source", "complete": True}, "retention:source"), (0, "retention:source", True))
+        self.assertEqual(
+            server.maintenance_domain_page(
+                {"count": 0, "after": "retention:source", "complete": True},
+                "retention:source",
+            ),
+            (0, "retention:source", True),
+        )
 
     def test_payload_rehome_mutations_keep_sole_acknowledgment_across_same_intent_retry(
         self,
@@ -7055,13 +7337,19 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
         with (
             patch.object(server, "maintenance_sql", side_effect=sql),
-            patch.object(server, "maintenance_domain_context", return_value=("operation", "generation", "copy")),
+            patch.object(
+                server,
+                "maintenance_domain_context",
+                return_value=("operation", "generation", "copy"),
+            ),
             server.lifecycle_reservation(self.state),
         ):
             for _retry in range(2):
                 server.rehome_restored_payloads(self.state, selected, {})
         self.assertTrue(any("fn::pse_maintenance_v1::page(" in body for body in bodies))
-        self.assertTrue(any("fn::pse_maintenance_v1::rehome_complete(" in body for body in bodies))
+        self.assertTrue(
+            any("fn::pse_maintenance_v1::rehome_complete(" in body for body in bodies)
+        )
         self.assertFalse(any("UPDATE" in body or "DELETE" in body for body in bodies))
         self.assertEqual(
             server.object_mapping(

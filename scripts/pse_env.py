@@ -338,7 +338,9 @@ def require_unbounded_slice(name: str) -> None:
     require_unbounded_group(slice_group(name))
 
 
-def require_unbounded_group(group: Path, *, root: Path = Path("/sys/fs/cgroup")) -> None:
+def require_unbounded_group(
+    group: Path, *, root: Path = Path("/sys/fs/cgroup")
+) -> None:
     """Verify native files rather than inferring absence of a cap from policy."""
     if not group.is_relative_to(root):
         raise BoundaryError("Unbounded build group is outside the cgroup hierarchy")
@@ -347,13 +349,22 @@ def require_unbounded_group(group: Path, *, root: Path = Path("/sys/fs/cgroup"))
     while group.is_relative_to(root):
         path = group / "memory.max"
         if path.is_file() and path.read_text().strip() != "max":
-            raise BoundaryError("Unbounded build allocation has a finite ancestor memory limit")
+            raise BoundaryError(
+                "Unbounded build allocation has a finite ancestor memory limit"
+            )
         if group == root:
             break
         group = group.parent
 
 
-def selected_resource_class(command: Sequence[str], env: Mapping[str, str], *, native: bool, explicit: str | None = None, default: str | None = None) -> str:
+def selected_resource_class(
+    command: Sequence[str],
+    env: Mapping[str, str],
+    *,
+    native: bool,
+    explicit: str | None = None,
+    default: str | None = None,
+) -> str:
     """Caller choices win; local unbounded mode changes ordinary recipe defaults only."""
     if explicit is not None:
         return explicit
@@ -364,8 +375,17 @@ def selected_resource_class(command: Sequence[str], env: Mapping[str, str], *, n
     if mode not in {"bounded", "unbounded"}:
         raise BoundaryError("PSE_BUILD_MODE must be bounded or unbounded")
     selected = default or host.classify(command, native)
-    ordinary = default in {"compile", "exclusive"} or host.classify(command, native) in {"compile", "exclusive"}
-    if mode == "unbounded" and ordinary and selected in {"compile", "functional", "wide", "exclusive"} and "PSE_MEMORY_MAX" not in env and operation.BUILD_TIMING not in env and "--managed-primary-route" not in command:
+    ordinary = default in {"compile", "exclusive"} or host.classify(
+        command, native
+    ) in {"compile", "exclusive"}
+    if (
+        mode == "unbounded"
+        and ordinary
+        and selected in {"compile", "functional", "wide", "exclusive"}
+        and "PSE_MEMORY_MAX" not in env
+        and operation.BUILD_TIMING not in env
+        and "--managed-primary-route" not in command
+    ):
         return "build"
     return selected
 
@@ -568,10 +588,14 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
         if allocation.profile.unbounded:
             require_unbounded_slice(host.allocation_slice(allocation))
             if env.get("PSE_MEMORY_MAX") is not None:
-                raise BoundaryError("A finite request cannot inherit an unbounded build allocation")
+                raise BoundaryError(
+                    "A finite request cannot inherit an unbounded build allocation"
+                )
             desired = env.get("PSE_RESOURCE_CLASS", "build")
             if desired not in {"build", "light", "compile"}:
-                raise BoundaryError("A scientific role requires its own finite allocation")
+                raise BoundaryError(
+                    "A scientific role requires its own finite allocation"
+                )
             return []
         requested = env.get("PSE_MEMORY_MAX")
         if (
@@ -1194,7 +1218,13 @@ def operation_description(
             "reuse": "unknown until actual preparation/admission",
             "effect": "validate explicit provider or select/build a managed generation",
         }
-    selected_class = selected_resource_class(command, env, native=requested is not None, explicit=resource_class, default=recipe_default_class)
+    selected_class = selected_resource_class(
+        command,
+        env,
+        native=requested is not None,
+        explicit=resource_class,
+        default=recipe_default_class,
+    )
     runtime = (
         operation.runtime_selection(requested, env, root=root)
         if requested is not None
@@ -1395,7 +1425,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.resource_class:
             env["PSE_RESOURCE_CLASS"] = args.resource_class
         elif host.MARKER not in env:
-            env["PSE_RESOURCE_CLASS"] = selected_resource_class(command, env, native=requested is not None, default=args.recipe_default_class)
+            env["PSE_RESOURCE_CLASS"] = selected_resource_class(
+                command,
+                env,
+                native=requested is not None,
+                default=args.recipe_default_class,
+            )
         if args.bind_allocation:
             allocation = required_allocation(env, handoff=True)
             allocation.bind(args.bind_allocation)

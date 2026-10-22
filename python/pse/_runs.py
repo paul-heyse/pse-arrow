@@ -2,9 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 """Joined computation and exact canonical execution handles."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Sequence
 from types import TracebackType
-from typing import Self, TypeAlias
+from typing import Self, TypeAlias, TypeVar
 
 import attrs
 import pyarrow as pa
@@ -27,52 +27,57 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse._physical import ArrowInput
-from pse.contracts.enums import LiveSimulationEventKind, TrajectoryTermination
 from pse.contracts.documents import (
     AdviceMetric,
     AdviceObservation,
     AnalysisControls,
     AnalysisDocument,
-    AttemptSummary,
+    AnalysisDocumentOutput,
+    AttemptSummaryOutput,
     ComparisonPolicy,
-    Completion,
-    CompositionRequest,
-    DiagnosticOrigin,
-    EligibilityDocument,
+    CompletionOutput,
+    CompositionRequestOutput,
+    DiagnosticOriginOutput,
+    EligibilityDocumentOutput,
     FitExecutionDocument,
     FitProfileDocument,
-    FrozenAdvice,
+    FrozenAdviceOutput,
     FrozenEvidenceSet,
-    InvocationComparisonDocument,
-    InvocationEvidenceDocument,
-    ManagedStudyDiagnosticsDocument,
+    FrozenEvidenceSetOutput,
+    InvocationComparisonDocumentOutput,
+    InvocationEvidenceDocumentOutput,
+    ManagedStudyDiagnosticsDocumentOutput,
     NumericalStrategyDocument,
-    ParameterCovariance,
+    NumericalStrategyDocumentOutput,
     PackExportRequest,
-    PackIndex,
+    PackIndexOutput,
+    ParameterCovarianceOutput,
     PointStatus,
-    ProgressCheckpointDocument,
+    ProgressCheckpointDocumentOutput,
     ProgressCoverage,
-    ProgressEventDocument,
+    ProgressEventDocumentOutput,
     ReplayDocument,
-    ReviewContextDocument,
+    ReviewContextDocumentOutput,
     ReviewContextRequest,
     ReviewInventoryRequest,
-    ReviewInventorySelection,
-    RouteDocument,
-    RuntimeAccuracyGoalAssessmentsRow,
-    SolverAdviceInputs,
+    ReviewInventorySelectionOutput,
+    RouteDocumentOutput,
+    RuntimeAccuracyGoalAssessmentsRowOutput,
+    SolverAdviceInputsOutput,
     StudyCancel,
     StudyResults,
-    StudyStatus,
+    StudyStatusOutput,
     StudyWaitControls,
 )
+from pse.contracts.enums import LiveSimulationEventKind, TrajectoryTermination
 from pse.contracts.identities import (
     RunId,
     StudyId,
 )
-from pse.contracts.values import ContentHash, SemanticId
+from pse.contracts.values import ContentHash
 from pse.diagnostics import OperationObservations
+
+_CovarianceResult = TypeVar("_CovarianceResult")
 
 StudyPointStatus: TypeAlias = PointStatus
 
@@ -94,7 +99,7 @@ class StoredResult:
         return self._handle.usable
 
     @property
-    def completion(self) -> Completion:
+    def completion(self) -> CompletionOutput:
         """Original bounded scientific completion, without report hydration."""
         return self._handle.completion()
 
@@ -126,14 +131,14 @@ class StoredResult:
         self,
         relation: str,
         destination: str,
-        evidence: FrozenEvidenceSet,
-        analysis: AnalysisDocument,
+        evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
+        analysis: AnalysisDocument | AnalysisDocumentOutput,
         request: PackExportRequest,
         *,
         member: str = "result",
         start: int = 0,
         end: int = (1 << 64) - 1,
-    ) -> PackIndex:
+    ) -> PackIndexOutput:
         """Export protected scientific selections and release their readers."""
         return self._handle.export_review_pack(
             relation,
@@ -164,13 +169,13 @@ class PreparedOperation:
     _handle: _NativePreparedOperation
 
     @property
-    def advice_inputs(self) -> SolverAdviceInputs | None:
+    def advice_inputs(self) -> SolverAdviceInputsOutput | None:
         """Actual comparable cohort and baseline, when original equivalence is known."""
         return self._handle.advice_inputs
 
     def freeze_advice(
         self, metric: AdviceMetric, observations: Sequence[AdviceObservation]
-    ) -> FrozenAdvice:
+    ) -> FrozenAdviceOutput:
         """Freeze descriptive support with Rust's conservative fallback rules."""
         return self._handle.freeze_advice(
             codec.encode_json(metric), codec.encode_json(observations)
@@ -186,12 +191,12 @@ class PreparedOperation:
         return self._handle.identity
 
     @property
-    def route(self) -> RouteDocument:
+    def route(self) -> RouteDocumentOutput:
         """Admitted algebraic route, before native execution."""
         return self._handle.route
 
     @property
-    def eligibility(self) -> tuple[EligibilityDocument, ...]:
+    def eligibility(self) -> tuple[EligibilityDocumentOutput, ...]:
         """Typed eligibility of every assessed backend, with registry reason codes."""
         return tuple(self._handle.eligibility)
 
@@ -201,18 +206,18 @@ class PreparedOperation:
         return self._handle.strategy_profile
 
     @property
-    def composition_request(self) -> CompositionRequest:
+    def composition_request(self) -> CompositionRequestOutput:
         """Requested composition with preserved branch, start and work constraints."""
         return self._handle.composition_request
 
     @property
-    def numerical_strategy(self) -> NumericalStrategyDocument:
+    def numerical_strategy(self) -> NumericalStrategyDocumentOutput:
         """Actual finite execution declaration, projected by Rust."""
         return self._handle.numerical_strategy
 
     def with_numerical_strategy(
         self,
-        declaration: NumericalStrategyDocument,
+        declaration: NumericalStrategyDocument | NumericalStrategyDocumentOutput,
         rungs: Sequence["PreparedOperation"],
     ) -> "PreparedOperation":
         """Bind admitted original-system profiles to one declared numerical task."""
@@ -233,15 +238,9 @@ class PreparedOperation:
         """Select a compatible owned numerical seed for an algebraic solve."""
         return PreparedOperation(self._handle.with_start(seed))
 
-    def with_primal_start(
-        self, values: ArrowInput
-    ) -> "PreparedOperation":
+    def with_primal_start(self, values: ArrowInput) -> "PreparedOperation":
         """Select every original free coordinate without retaining native state."""
-        return PreparedOperation(
-            self._handle.with_primal_start(
-                values
-            )
-        )
+        return PreparedOperation(self._handle.with_primal_start(values))
 
     def start(self) -> "RunHandle":
         """Start one admitted native operation."""
@@ -365,12 +364,18 @@ class RunResult:
 
     _handle: _NativeRunResult
 
+    def bind_parameter_covariance(
+        self, consumer: Callable[[_NativeRunResult], _CovarianceResult]
+    ) -> _CovarianceResult:
+        """Bind covariance-dependent preparation while retaining its source owner."""
+        return consumer(self._handle)
+
     @property
-    def parameter_covariance(self) -> ParameterCovariance | None:
+    def parameter_covariance(self) -> ParameterCovarianceOutput | None:
         """Qualified fit covariance; retain this result as its in-process source."""
         return self._handle.parameter_covariance()
 
-    def diagnostic_origin(self, step: int | None = None) -> DiagnosticOrigin:
+    def diagnostic_origin(self, step: int | None = None) -> DiagnosticOriginOutput:
         """Retain original invocation and failure context for follow-up diagnostics."""
         return self._handle.diagnostic_origin(step)
 
@@ -413,23 +418,23 @@ class RunResult:
         return self._handle.fit_profiles()
 
     @property
-    def completion(self) -> Completion:
+    def completion(self) -> CompletionOutput:
         """Read the immutable joined assessment without evaluating the model again."""
         return self._handle.completion()
 
     @property
-    def attempt_summary(self) -> AttemptSummary:
+    def attempt_summary(self) -> AttemptSummaryOutput:
         """Bounded retained observations and decisions; performs no numerical work."""
         return self._handle.attempt_summary()
 
     @property
-    def invocation_evidence(self) -> InvocationEvidenceDocument:
+    def invocation_evidence(self) -> InvocationEvidenceDocumentOutput:
         """Read qualification/readiness endpoints and retained attempt evidence."""
         return self._handle.invocation_evidence()
 
     def review_context(
         self, *, request: ReviewContextRequest | None = None
-    ) -> ReviewContextDocument:
+    ) -> ReviewContextDocumentOutput:
         """Export retained explanatory facts independently of runnable Replay."""
         return self._handle.review_context(request=request)
 
@@ -439,20 +444,20 @@ class RunResult:
 
     def explain_invocation(
         self, *, policy: ComparisonPolicy | None = None
-    ) -> InvocationComparisonDocument:
+    ) -> InvocationComparisonDocumentOutput:
         """Explain actual work and limitations without reevaluating the model."""
         return self._handle.explain_invocation(policy=policy)
 
     def compare_invocation(
         self, other: Self, *, policy: ComparisonPolicy | None = None
-    ) -> InvocationComparisonDocument:
+    ) -> InvocationComparisonDocumentOutput:
         """Compare actual products, work, outcomes and clock scopes of two results."""
         return self._handle.compare_invocation(other._handle, policy=policy)
 
     @property
     def accuracy_goals(
         self,
-    ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:
+    ) -> tuple[RuntimeAccuracyGoalAssessmentsRowOutput, ...]:
         """Retained engineering goal outcomes; reading this performs no solver work."""
         return tuple(self.completion.accuracy_goals)
 
@@ -534,7 +539,7 @@ class RunHandle:
         result = self._handle.result()
         return None if result is None else RunResult(result)
 
-    def progress(self) -> tuple[tuple[ProgressEventDocument, ...], int]:
+    def progress(self) -> tuple[tuple[ProgressEventDocumentOutput, ...], int]:
         """Observe bounded typed native events and actual dropped-event count."""
         events, dropped = self._handle.progress()
         return tuple(events), dropped
@@ -544,7 +549,7 @@ class RunHandle:
         """Retained native events and dropped-event count."""
         return self._handle.progress_count
 
-    def current_progress(self) -> ProgressCheckpointDocument:
+    def current_progress(self) -> ProgressCheckpointDocumentOutput:
         """Read whole current progress and coverage, including history zero."""
         return self._handle.current_progress()
 
@@ -577,7 +582,7 @@ class ProgressStream:
     def __iter__(self) -> Self:
         return self
 
-    def __next__(self) -> ProgressEventDocument:
+    def __next__(self) -> ProgressEventDocumentOutput:
         event = self._handle.next_event()
         if event is None:
             raise StopIteration
@@ -607,11 +612,11 @@ class StudyHandle:
 
     def review_inventory(
         self, request: ReviewInventoryRequest
-    ) -> ReviewInventorySelection:
+    ) -> ReviewInventorySelectionOutput:
         """Select exact attempt metadata with explicit availability gaps."""
         return self._handle.review_inventory(request)
 
-    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocument:
+    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocumentOutput:
         """Read bounded actual worker references for explicitly selected detail."""
         return self._handle.diagnostic_selection()
 
@@ -620,7 +625,7 @@ class StudyHandle:
         """The study identity."""
         return self._handle.study_id
 
-    def status(self) -> StudyStatus:
+    def status(self) -> StudyStatusOutput:
         """Read exact canonical occurrence status and lineage."""
         return self._handle.status()
 

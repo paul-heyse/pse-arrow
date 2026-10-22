@@ -57,7 +57,6 @@ from pse._modeling import (
     StudyReport,
 )
 from pse._runs import (
-    Completion,
     LiveSimulationCursor,
     LiveSimulationEvent,
     PreparedOperation,
@@ -70,7 +69,6 @@ from pse._runs import (
     StudyHandle,
     StudyPointStatus,
     StudyResults,
-    StudyStatus,
 )
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
 from pse._transfer import FieldTransfer
@@ -81,6 +79,7 @@ from pse._workflow import (
 )
 from pse.contracts import extension_types
 from pse.contracts.documents import (
+    SCHEMA_SET_FINGERPRINT,
     AdjointSettings,
     AnalysisControls,
     BackendSettings,
@@ -88,6 +87,7 @@ from pse.contracts.documents import (
     BuildInfo,
     CacheReport,
     ClarabelSettings,
+    Completion,
     CompositionRequest,
     ConformanceControls,
     ConicRequest,
@@ -101,7 +101,6 @@ from pse.contracts.documents import (
     EffortPolicy,
     EligibilityDocument,
     FitExecutionDocument,
-    PhysicalFitRequest,
     FitProfileDocument,
     FlowConnectionDocument,
     FlowGraphDocument,
@@ -123,6 +122,7 @@ from pse.contracts.documents import (
     ModelingNonlinearPolicy,
     NumericalStrategy,
     NumericalStrategyDocument,
+    PhysicalFitRequest,
     PounceSettings,
     ProgressEventDocument,
     ProgressMetricDocument,
@@ -144,6 +144,7 @@ from pse.contracts.documents import (
     StudyInputsExplicit,
     StudyInputsLazy,
     StudyRunControls,
+    StudyStatus,
     StudyVariants,
     StudyWaitControls,
     TableName,
@@ -184,7 +185,6 @@ __all__ = [
     "EngineSettings",
     "FieldTransfer",
     "FitExecutionDocument",
-    "PhysicalFitRequest",
     "FitProfileDocument",
     "FlowConnectionDocument",
     "FlowGraphDocument",
@@ -228,6 +228,7 @@ __all__ = [
     "NumericalStrategyDocument",
     "OperationObservations",
     "PhysicalContext",
+    "PhysicalFitRequest",
     "PounceSettings",
     "PreparedFlow",
     "PreparedOperation",
@@ -299,5 +300,5 @@ def _resolve_version() -> str:
 __version__: str = _resolve_version()
 
 # Cheap boundary compatibility; exhaustive annotation lint is an explicit check.
-_check_native_compatibility(__version__)
+_check_native_compatibility(__version__, SCHEMA_SET_FINGERPRINT)
 extension_types.register_all()

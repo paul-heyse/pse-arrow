@@ -26,17 +26,18 @@ import msgspec.json
 import msgspec.toml
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
+from pse._build import _check_document_header
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 from pse.governance import check_class
 
 __all__ = [
-    "converter",
     "convert_document",
+    "converter",
     "decode_json",
-    "decode_toml",
     "decode_rows_json",
-    "document_rows",
+    "decode_toml",
     "document_builtins",
+    "document_rows",
     "encode_json",
     "render_errors",
     "structure_rows",
@@ -194,13 +195,23 @@ def _check_version_headers(
     if original is not None:
         value = msgspec.json.decode(
             original,
-            type=dict[str, msgspec.Raw] | list[msgspec.Raw] | str | int | float | bool | None,
+            type=dict[str, msgspec.Raw]
+            | list[msgspec.Raw]
+            | str
+            | int
+            | float
+            | bool
+            | None,
         )
     if isinstance(info, msgspec.inspect.Metadata):
-        _check_version_headers(original if original is not None else value, info.type, path)
+        _check_version_headers(
+            original if original is not None else value, info.type, path
+        )
     elif isinstance(info, msgspec.inspect.UnionType):
         for alternative in info.types:
-            _check_version_headers(original if original is not None else value, alternative, path)
+            _check_version_headers(
+                original if original is not None else value, alternative, path
+            )
     elif isinstance(info, msgspec.inspect.StructType) and isinstance(value, dict):
         if info.tag_field is not None:
             tag = value.get(info.tag_field)
@@ -228,8 +239,6 @@ def _check_version_headers(
                 )
                 raise msgspec.ValidationError(message)
             if original is not None:
-                from pse._build import _check_document_header
-
                 try:
                     _check_document_header(bytes(original), field, expected)
                 except ValueError as error:
@@ -315,7 +324,8 @@ def document_rows(values: Iterable[object], row_type: type[T]) -> tuple[T, ...]:
     """Project document rows to the registry's generated relation-row type."""
     conv = converter()
     return tuple(
-        conv.structure(msgspec.to_builtins(value, enc_hook=_encode_identity), row_type) for value in values
+        conv.structure(msgspec.to_builtins(value, enc_hook=_encode_identity), row_type)
+        for value in values
     )
 
 
@@ -336,11 +346,13 @@ def _decode_identity(target: type, value: object) -> object:
     if target is SemanticId:
         if isinstance(value, str):
             return SemanticId.from_hex(value)
-        raise ValueError("semantic identity JSON must be hexadecimal text")
+        message = "semantic identity JSON must be hexadecimal text"
+        raise ValueError(message)
     if target is ContentHash:
         if isinstance(value, str):
             return ContentHash.from_prefixed(value)
-        raise ValueError("content digest JSON must be blake3-prefixed text")
+        message = "content digest JSON must be blake3-prefixed text"
+        raise ValueError(message)
     raise NotImplementedError(f"unsupported document value {target!r}")
 
 

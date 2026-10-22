@@ -13,7 +13,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import coordinate_batch, member
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
@@ -30,6 +29,7 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import coordinate_batch, member
 
 
 @pytest.mark.integration
@@ -80,7 +80,7 @@ def test_public_native_process_and_exact_results(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
     members = package.inspect(case, settings).members
-    coordinates = {m.lineage.path: SemanticId.from_hex(m.id) for m in members}
+    coordinates = {m.lineage.path: m.id for m in members}
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
@@ -207,9 +207,20 @@ def test_public_dynamic_and_transient_fit(
         start=0.0,
         end=1.0,
         samples=[0.0, 0.5, 1.0],
-        atol=coordinate_batch(runtime, [(member(package, case, "total"), numerics.engineering_relative_fraction, "Time")]),
+        atol=coordinate_batch(
+            runtime,
+            [
+                (
+                    member(package, case, "total"),
+                    numerics.engineering_relative_fraction,
+                    "Time",
+                )
+            ],
+        ),
         rtol=numerics.engineering_relative_fraction,
-        parameter_scales=coordinate_batch(runtime, [(member(package, case, "rate"), 1.0, "Scalar")]),
+        parameter_scales=coordinate_batch(
+            runtime, [(member(package, case, "rate"), 1.0, "Scalar")]
+        ),
         sensitivity=DynamicSensitivity.FORWARD,
     )
     simulation = package.simulate(case, settings)
@@ -333,10 +344,19 @@ def test_public_dynamic_and_transient_fit(
         package.prepare_fit(
             fit.fit_id,
             codec.decode_json(
-                codec.encode_json({"version": 1, "settings": {
-                    "solver": fit_settings,
-                    "simulations": {fit.experiments[0].experiment_id.to_hex(): simulation_profile},
-                }}),
+                codec.encode_json(
+                    {
+                        "version": 1,
+                        "settings": {
+                            "solver": fit_settings,
+                            "simulations": {
+                                fit.experiments[
+                                    0
+                                ].experiment_id.to_hex(): simulation_profile
+                            },
+                        },
+                    }
+                ),
                 pse.PhysicalFitRequest,
             ),
         )

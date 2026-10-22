@@ -20,8 +20,8 @@ from pse.contracts.enums import (
     NativeBackend,
     NativeSolveIntent,
     NativeStartPolicy,
-    PresolvePolicyKind,
     PhysicalInputKind,
+    PresolvePolicyKind,
     ReusePolicy,
 )
 from pse.contracts.values import SemanticId
@@ -104,7 +104,11 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     warmed = prepared.with_start(seed).start().wait()
     assert warmed.usable
     assert warmed.run_id != result.run_id
-    primal = coordinate_batch(runtime, [(SemanticId(rows[0]["symbol_id"]), 1.5, "Scalar")], kind=PhysicalInputKind.PRIMAL_VALUES)
+    primal = coordinate_batch(
+        runtime,
+        [(SemanticId(rows[0]["symbol_id"]), 1.5, "Scalar")],
+        kind=PhysicalInputKind.PRIMAL_VALUES,
+    )
     assert prepared.with_primal_start(primal).start().wait().usable
     # Source inventory is explicitly read from the immutable package revision.
     sources = package.source_tables()
@@ -257,8 +261,8 @@ def test_typed_bound_solve_preserves_parent_and_returns_exact_admission(
             target=BindingTargetPath(value=path),
             value=BindingQuantity(
                 magnitude=value,
-                quantity="1f" * 16,
-                unit="0a" * 16,
+                quantity=SemanticId.from_hex("1f" * 16),
+                unit=SemanticId.from_hex("0a" * 16),
             ),
         )
 

@@ -1105,8 +1105,12 @@ def observer_execution(environment: Mapping[str, str]) -> dict:
         physical_cpu for physical_cpu in physical_cpus if isinstance(physical_cpu, int)
     ]
     owner = pse_env.host.inherit(environment)
-    unbounded = profile == "exclusive-observer" and owner is not None and owner.profile.unbounded
-    if unbounded:
+    unbounded = (
+        profile == "exclusive-observer"
+        and owner is not None
+        and owner.profile.unbounded
+    )
+    if unbounded and owner is not None:
         pse_env.require_unbounded_slice(pse_env.host.allocation_slice(owner))
     if (
         not group.is_relative_to(

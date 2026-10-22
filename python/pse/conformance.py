@@ -37,8 +37,24 @@ from pse import (
     codec,
 )
 from pse._build import _admit_conformance_manifest
-from pse.contracts.documents import (ConformanceManifest, ConformanceManifestOutput, ConformanceRun as ConformanceRun, RunSettings, RunSettingsOutput)
-from pse.contracts.enums import ConformanceExecution, ConformancePresolve, NativeBackend, NativeSolveIntent, PresolvePolicyKind
+from pse.contracts.documents import (
+    ConformanceManifest,
+    ConformanceManifestOutput,
+    ModelingDiagnosticPolicyBody,
+    PreparationSettings,
+    PreparationSettingsBody,
+    PreparationSettingsBodyOutput,
+    PreparationSettingsOutput,
+    RunSettings,
+    RunSettingsOutput,
+)
+from pse.contracts.enums import (
+    ConformanceExecution,
+    ConformancePresolve,
+    NativeBackend,
+    NativeSolveIntent,
+    PresolvePolicyKind,
+)
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
@@ -79,6 +95,38 @@ def load_manifest(path: Path) -> ConformanceManifestOutput:
 def fixture_id(text: str) -> DeclarationId:
     """A fixture selection names a test declaration by its identity."""
     return DeclarationId(SemanticId.from_hex(text))
+
+
+def _preparation_document(
+    body: PreparationSettingsBody | PreparationSettingsBodyOutput | None,
+) -> PreparationSettings | PreparationSettingsOutput | None:
+    if body is None:
+        return None
+    if isinstance(body, PreparationSettingsBodyOutput):
+        return PreparationSettingsOutput(compiler=body.compiler, limits=body.limits)
+    return PreparationSettings(compiler=body.compiler, limits=body.limits)
+
+
+def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
+    source = Path(path).read_text(encoding="utf-8")
+    # Rust retains threshold/budget validation; project the original authored fields.
+    ModelingDiagnosticSettings.from_json(source)
+    policy = codec.decode_json(source, ModelingDiagnosticPolicy)
+    return ModelingDiagnosticPolicyBody(
+        bound_violation=policy.bound_violation,
+        jacobian_large=policy.jacobian_large,
+        jacobian_small=policy.jacobian_small,
+        matrix=policy.matrix,
+        maximum_findings=policy.maximum_findings,
+        near_bound_absolute=policy.near_bound_absolute,
+        near_bound_relative=policy.near_bound_relative,
+        profile=policy.profile,
+        residual=policy.residual,
+        terms=policy.terms,
+        variable_large=policy.variable_large,
+        variable_small=policy.variable_small,
+        variable_zero=policy.variable_zero,
+    )
 
 
 def _documents(root: Path) -> dict[str, str | bytes]:
@@ -164,12 +212,10 @@ def run_once(
                 controls=PureConformanceControls(
                     maximum_fixtures=settings.maximum_fixtures,
                     maximum_checks=settings.maximum_checks,
-                    fixtures=None
-                    if fixtures is None
-                    else tuple(fixtures),
+                    fixtures=None if fixtures is None else tuple(fixtures),
                 ),
                 limits=limits,
-                preparation=settings.preparation,
+                preparation=_preparation_document(settings.preparation),
             )
         else:
             runtime = Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
@@ -191,21 +237,14 @@ def run_once(
                     derivative_cells=settings.derivative_cells,
                     derivative_step=settings.derivative_step,
                     derivative_tolerance=settings.derivative_tolerance,
-                    fixtures=None
-                    if fixtures is None
-                    else tuple(fixtures),
+                    fixtures=None if fixtures is None else tuple(fixtures),
                     diagnostics=(
                         None
                         if settings.diagnostics is None
-                        else codec.decode_json(
-                            ModelingDiagnosticSettings.from_json(
-                                Path(settings.diagnostics).read_text(encoding="utf-8")
-                            ).to_json(),
-                            ModelingDiagnosticPolicy,
-                        )
+                        else _diagnostic_policy(settings.diagnostics)
                     ),
                 ),
-                preparation=settings.preparation,
+                preparation=_preparation_document(settings.preparation),
             )
         if report is not None:
             _write(report, result)
@@ -286,7 +325,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"registry backend name, or {AUTOMATIC} for automatic selection",
     )
     parser.add_argument("--intent", choices=("root", "optimize"))
-    parser.add_argument("--presolve", choices=tuple(choice.value for choice in ConformancePresolve))
+    parser.add_argument(
+        "--presolve", choices=tuple(choice.value for choice in ConformancePresolve)
+    )
     parser.add_argument("--time-limit", type=float)
     parser.add_argument("--maximum-fixtures", type=int)
     parser.add_argument("--maximum-checks", type=int)
@@ -328,7 +369,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "threads": args.threads,
         "time_limit_seconds": args.time_limit,
         "intent": None if args.intent is None else NativeSolveIntent(args.intent).value,
-        "backend": None if args.backend == AUTOMATIC else NativeBackend(args.backend).value,
+        "backend": None
+        if args.backend == AUTOMATIC
+        else NativeBackend(args.backend).value,
         "presolve": args.presolve,
         "maximum_fixtures": args.maximum_fixtures,
         "maximum_checks": args.maximum_checks,
@@ -342,7 +385,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "derivative_tolerance": args.derivative_tolerance,
         "diagnostics": None if args.diagnostics is None else str(args.diagnostics),
     }
-    values = codec.convert_document(codec.document_builtins(defaults), dict[str, object])
+    values = codec.convert_document(
+        codec.document_builtins(defaults), dict[str, object]
+    )
     values.update({key: value for key, value in supplied.items() if value is not None})
     settings = codec.convert_document(values, RunSettings)
     summary = run_once(

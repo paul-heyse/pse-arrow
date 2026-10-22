@@ -16,10 +16,11 @@ from pse.contracts.documents import (
 )
 from pse.contracts.identities import DeclarationId
 from pse.contracts.reference import ReferenceQuantityTypesRow
+from pse.contracts.values import SemanticId
 
 
 def assignment(
-    target: str,
+    target: str | SemanticId,
     magnitude: float,
     quantity: str,
     unit: str,
@@ -27,7 +28,10 @@ def assignment(
     member: bool = False,
 ) -> dict[str, object]:
     return {
-        "target": {"kind": "member" if member else "path", "value": target},
+        "target": {
+            "kind": "member" if member else "path",
+            "value": target.to_hex() if isinstance(target, SemanticId) else target,
+        },
         "value": {"magnitude": magnitude, "quantity": quantity, "unit": unit},
     }
 

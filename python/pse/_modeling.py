@@ -27,6 +27,7 @@ from pse._build import (
     _NativeModelingPackage,
     _NativeModelingResult,
     _NativeModelingTrajectory,
+    _NativeRunResult,
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
@@ -40,27 +41,26 @@ from pse.contracts.authored import (
 )
 from pse.contracts.documents import (
     AdmittedBinding,
-    CompletionOutput as Completion,
     Conclusion,
     ConformanceControls,
     DiagnosticOrigin,
+    DiagnosticOriginOutput,
     DiagnosticSamplesControls,
-    PhysicalFitRequest,
     FlowSelectionDocument,
     InitializationOverrides,
     JacobianDiagnosticControls,
     KnowledgeControls,
     LazyStudyDefinition,
     LinearDiagnosticControls,
-    ManagedStudyDiagnosticsDocument,
-    ModelingInspectionOutput as ModelingInspection,
+    ManagedStudyDiagnosticsDocumentOutput,
     ModelingNonlinearPolicy,
-    ModelingSourceMapDocument,
+    ModelingSourceMapDocumentOutput,
     OperationSource,
-    PointOutcomeOutput as PointOutcome,
+    PhysicalFitRequest,
     PointOverlay,
     PreparationCounts,
     PreparationSettings,
+    PreparationSettingsOutput,
     PureConformanceControls,
     RecycleRequest,
     SolveSettings,
@@ -68,6 +68,15 @@ from pse.contracts.documents import (
     StudyPointDefinition,
     StudyRequest,
     StudyRunControls,
+)
+from pse.contracts.documents import (
+    CompletionOutput as Completion,
+)
+from pse.contracts.documents import (
+    ModelingInspectionOutput as ModelingInspection,
+)
+from pse.contracts.documents import (
+    PointOutcomeOutput as PointOutcome,
 )
 from pse.contracts.enums import (
     ModelingDiagnosticSampleStop,
@@ -167,7 +176,7 @@ class ModelingNativeAnalysis:
     _handle: _NativeModelingNativeAnalysis
 
     @property
-    def origin(self) -> DiagnosticOrigin | None:
+    def origin(self) -> DiagnosticOriginOutput | None:
         """Original invocation/failure link, independent of diagnostic success."""
         return self._handle.origin
 
@@ -261,7 +270,7 @@ class ModelingConformance:
         *,
         controls: PureConformanceControls | None = None,
         limits: ModelingLimits | None = None,
-        preparation: PreparationSettings | None = None,
+        preparation: PreparationSettings | PreparationSettingsOutput | None = None,
     ) -> "ModelingConformance":
         """Run native pure conformance; an explicit preparation replaces ``limits``."""
         return cls(
@@ -417,7 +426,7 @@ class StudyReport:
 
     _handle: _NativeStudyReport
 
-    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocument | None:
+    def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocumentOutput | None:
         """Read managed child evidence; absent for in-process studies."""
         return self._handle.diagnostic_selection()
 
@@ -487,7 +496,7 @@ class ModelingDiagnostics:
     _handle: _NativeModelingDiagnostics
 
     @property
-    def origin(self) -> DiagnosticOrigin | None:
+    def origin(self) -> DiagnosticOriginOutput | None:
         """Original invocation/failure link, independent of diagnostic success."""
         return self._handle.origin
 
@@ -594,7 +603,7 @@ class ModelingDiagnosticSamples:
     _handle: _NativeModelingDiagnosticSamples
 
     @property
-    def origin(self) -> DiagnosticOrigin | None:
+    def origin(self) -> DiagnosticOriginOutput | None:
         """Original invocation/failure link, independent of diagnostic success."""
         return self._handle.origin
 
@@ -693,9 +702,7 @@ class ModelingPackage:
         self, fit_id: FitId, request: PhysicalFitRequest
     ) -> "PreparedOperation":
         """Admit owned fit settings against the selected model and experiments."""
-        return PreparedOperation(
-            self._handle.prepare_fit(fit_id, request)
-        )
+        return PreparedOperation(self._handle.prepare_fit(fit_id, request))
 
     def with_limits(self, limits: ModelingLimits) -> "ModelingPackage":
         """Share the admitted revision while selecting explicit expansion limits."""
@@ -709,7 +716,7 @@ class ModelingPackage:
         samples: ArrowInput,
         *,
         controls: DiagnosticSamplesControls | None = None,
-        origin: DiagnosticOrigin | None = None,
+        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
     ) -> ModelingDiagnosticSamples:
         """Inspect overrides while preserving the prepared case's frozen inputs."""
         return ModelingDiagnosticSamples(
@@ -731,9 +738,7 @@ class ModelingPackage:
     ) -> ModelingNonlinearExplanation:
         """Explain local infeasibility using the actual native penalty policy."""
         return ModelingNonlinearExplanation(
-            self._handle.explain_nonlinear(
-                case_id, settings, codec.encode_json(policy)
-            )
+            self._handle.explain_nonlinear(case_id, settings, codec.encode_json(policy))
         )
 
     def prepare_simulation(
@@ -743,9 +748,7 @@ class ModelingPackage:
 
         The case's fixture declares its modes, events and scheduled inputs.
         """
-        return PreparedOperation(
-            self._handle.prepare_simulation(case_id, settings)
-        )
+        return PreparedOperation(self._handle.prepare_simulation(case_id, settings))
 
     def simulate(
         self, case_id: DeclarationId, settings: SimulationSettings
@@ -760,7 +763,7 @@ class ModelingPackage:
         *,
         maximum_bytes: int = 16 << 20,
         time_limit: float = 30.0,
-    ) -> ModelingSourceMapDocument:
+    ) -> ModelingSourceMapDocumentOutput:
         """Read static attribution under one preparation and copy clock."""
         return self._handle.diagnostic_source_map(
             case_id, settings, maximum_bytes, time_limit
@@ -772,7 +775,7 @@ class ModelingPackage:
         settings: SolveSettings,
         diagnostics: ModelingDiagnosticSettings,
         *,
-        origin: DiagnosticOrigin | None = None,
+        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
     ) -> ModelingDiagnostics:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
@@ -790,7 +793,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         controls: LinearDiagnosticControls | None = None,
-        origin: DiagnosticOrigin | None = None,
+        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
     ) -> ModelingNativeAnalysis:
         """Run native affine diagnostics with explicit physical penalties."""
         return ModelingNativeAnalysis(
@@ -808,7 +811,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         controls: JacobianDiagnosticControls | None = None,
-        origin: DiagnosticOrigin | None = None,
+        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
     ) -> ModelingNativeAnalysis:
         """Bounded native evidence about the local scaled Jacobian."""
         return ModelingNativeAnalysis(
@@ -916,18 +919,23 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        preparation: PreparationSettings | None = None,
+        preparation: PreparationSettings | PreparationSettingsOutput | None = None,
         covariance_source: RunResult | None = None,
     ) -> PreparedOperation:
         """Prepare an authored solve with optional compiler and expansion policy."""
-        return PreparedOperation(
-            self._handle.prepare_solve(
-                case_id,
-                settings,
-                preparation=preparation,
-                covariance_source=None if covariance_source is None else covariance_source._handle,
+        def bind(source: _NativeRunResult | None) -> PreparedOperation:
+            return PreparedOperation(
+                self._handle.prepare_solve(
+                    case_id,
+                    settings,
+                    preparation=preparation,
+                    covariance_source=source,
+                )
             )
-        )
+
+        if covariance_source is None:
+            return bind(None)
+        return covariance_source.bind_parameter_covariance(bind)
 
     def solve_bound(
         self,
@@ -935,7 +943,7 @@ class ModelingPackage:
         overlay: PointOverlay,
         settings: SolveSettings,
         *,
-        preparation: PreparationSettings | None = None,
+        preparation: PreparationSettings | PreparationSettingsOutput | None = None,
         covariance_source: RunResult | None = None,
     ) -> ModelingResult:
         """Solve transient typed values against this immutable declared parent.
@@ -943,22 +951,27 @@ class ModelingPackage:
         Parameter and fixed-coordinate assignments replace values; free-coordinate
         assignments replace starts. The returned receipt retains parent and attribution.
         """
-        return ModelingResult(
-            self._handle.solve_bound(
-                case_id,
-                codec.encode_json(overlay),
-                settings,
-                preparation=preparation,
-                covariance_source=None if covariance_source is None else covariance_source._handle,
+        def bind(source: _NativeRunResult | None) -> ModelingResult:
+            return ModelingResult(
+                self._handle.solve_bound(
+                    case_id,
+                    codec.encode_json(overlay),
+                    settings,
+                    preparation=preparation,
+                    covariance_source=source,
+                )
             )
-        )
+
+        if covariance_source is None:
+            return bind(None)
+        return covariance_source.bind_parameter_covariance(bind)
 
     def solve_case(
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        preparation: PreparationSettings | None = None,
+        preparation: PreparationSettings | PreparationSettingsOutput | None = None,
         covariance_source: RunResult | None = None,
     ) -> ModelingResult:
         """Solve a case through the native solver pipeline.
@@ -966,14 +979,19 @@ class ModelingPackage:
         The case uses its source fixture specifications and model starts. An explicit
         preparation replaces this package's compiler and expansion defaults.
         """
-        return ModelingResult(
-            self._handle.solve_case(
-                case_id,
-                settings,
-                preparation=preparation,
-                covariance_source=None if covariance_source is None else covariance_source._handle,
+        def bind(source: _NativeRunResult | None) -> ModelingResult:
+            return ModelingResult(
+                self._handle.solve_case(
+                    case_id,
+                    settings,
+                    preparation=preparation,
+                    covariance_source=source,
+                )
             )
-        )
+
+        if covariance_source is None:
+            return bind(None)
+        return covariance_source.bind_parameter_covariance(bind)
 
     def initialize(
         self,
@@ -1014,7 +1032,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         controls: ConformanceControls | None = None,
-        preparation: PreparationSettings | None = None,
+        preparation: PreparationSettings | PreparationSettingsOutput | None = None,
     ) -> ModelingConformance:
         """Run bounded checks with optional complete compiler and expansion policy."""
         return ModelingConformance(
