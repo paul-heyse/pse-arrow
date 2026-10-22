@@ -13,6 +13,7 @@ current_work = [
   "plans/40*.md",
   "plans/49-*.md",
   "plans/49[b-h]-*.md",
+  "plans/50*.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",

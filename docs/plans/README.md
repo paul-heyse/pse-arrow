@@ -1,5 +1,15 @@
 # Current work and plans
 
+[Plan50: Codex effectiveness and diagnostic tooling](50-codex-effectiveness-and-diagnostics.md)
+is the proposed series consuming the
+[2026-10-22 functional review](../functional_reviews/codex-effectiveness-and-diagnostics-2026-10-22.md).
+Its coordinator owns O01–O20, the package state, bounded investigations and shared decisions;
+50a–50g develop session/environment integration, development feedback, execution/lifecycle,
+database tooling, native/Python diagnostics, preparation/reproduction and qualification.
+The [checkpoint](50-codex-effectiveness-and-diagnostics.md#verification-checkpoint-and-completion)
+records the authoring boundary and next work after authorization. This series does not resume
+production execution or close existing Plans32, 40 or 49.
+
 [Plan49: Library-native remediation and SurrealMX integration](49-library-native-remediation.md)
 is the series consuming the revised in-use-library review, recommendation audit
 and new SurrealDB/Symbolica capability assessment. Its coordinator owns DA-001–DA-032,
