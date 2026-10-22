@@ -119,7 +119,11 @@ its inquiry does not authorize a new configuration policy or public request shap
 update alone needs no ADR. A selected new binding/operation or architecture change follows
 its existing ADR/design route before dependent implementation.
 
-### Dependency-ordered next work after explicit execution resumption
+### Reassessment sequencing before 49a–49c execution
+
+This records the sequencing chosen at reassessment. Completed 49a–49c work and selected
+acceptance are reconciled in the Outcome below; the package table and 49d–49h companions
+own the actual remaining series work.
 
 1. Reconcile retained-state disposition and representative fixture changes at their existing
    owners; preserve unknown effects. PRE01's Salsa patch/accounting can proceed independently
@@ -328,6 +332,12 @@ release/distribution or controlled performance-improvement qualification is clai
 creation records/older poisoned state remain preserved: neither process absence nor the new
 deployment settles them. ADR-0214/0215 remain formally proposed. Downstream active readers
 still consume 49a–49c design, so these completed companions remain retained under ADR-0096.
+
+Preparation, readiness and tooling branches were verified patch-integrated, their ancestry
+recorded in merge `1829e2fe3`, and all three clean worktrees/merged branches removed. Required
+receipts and deployed immutable artifacts remain outside those worktrees. The main checkout
+is the continuing owner. Remaining 49d–49h packages retain their current scope and status;
+this selected execution does not close or resume their broader campaigns.
 
 ## Reading route and ownership
 
