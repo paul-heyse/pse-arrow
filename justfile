@@ -1362,7 +1362,7 @@ native-test *args:
 [group('local')]
 [doc('Linked Python correctness scopes; requires py-sync-native-correctness; --managed-primary-route uses a separate observer process')]
 [positional-arguments]
-[script]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
 native-python output *args:
     native_output="$1"
     shift
