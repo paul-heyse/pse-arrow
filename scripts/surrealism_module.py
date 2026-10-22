@@ -188,6 +188,7 @@ def _configuration(value: object) -> None:
     capabilities = _object(config.get("capabilities"))
     if (
         capabilities != CAPABILITIES
+        or any(type(capabilities.get(name)) is not type(value) for name, value in CAPABILITIES.items())
         or any(capabilities.get(name) is not False for name in ("allow_scripting", "allow_arbitrary_queries"))
         or capabilities.get("allow_functions") != [] or capabilities.get("allow_net") != []
         or capabilities.get("max_kv_entries") != 0 or capabilities.get("max_kv_value_bytes") != 0
@@ -247,12 +248,14 @@ def verify(value: object, *, qualification: bool = False) -> dict[str, object]:
     """Authenticate the retained immutable artifact, not current mutable sources."""
     receipt = _object(value)
     inputs = _object(receipt.get("inputs"))
+    limits = _object(receipt.get("limits"))
     kind = QUALIFICATION_KIND if qualification else KIND
     features = ["module-qualification"] if qualification else []
     artifact = receipt.get("artifact")
     if (
         receipt.get("kind") != kind or receipt.get("sdk_version") != surreal_source.SURREALISM_SDK
-        or receipt.get("abi") != ABI or receipt.get("limits") != LIMITS
+        or receipt.get("abi") != ABI or limits != LIMITS
+        or any(type(limits.get(name)) is not type(value) for name, value in LIMITS.items())
         or inputs.get("kind") != kind or inputs.get("features") != features or inputs.get("sdk_version") != surreal_source.SURREALISM_SDK
         or inputs.get("target") != TARGET or inputs.get("profile") != "release"
         or not isinstance(artifact, str)

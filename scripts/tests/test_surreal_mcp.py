@@ -306,7 +306,8 @@ class SurrealMcpTests(unittest.TestCase):
             "credentials_file": str(self.state / "credentials.json"),
             "server": {"binary_sha256": "1" * 64},
         }
-        self.config["study_module"] = fixture_module(self.root / "modules")
+        study_module = fixture_module(self.root / "modules")
+        self.config["study_module"] = study_module
         self.credentials = {
             "username": "root",
             "password": "private-root-password",
@@ -320,7 +321,7 @@ class SurrealMcpTests(unittest.TestCase):
             "invocation": "b" * 32,
             "binary_sha256": "1" * 64,
             "credentials_sha256": server.file_digest(self.state / "credentials.json"),
-            "study_module_sha256": self.config["study_module"]["sha256"],
+            "study_module_sha256": study_module["sha256"],
             "study_module_qualification_sha256": None,
         }
         self.write("protocol-readiness.json", self.proof)

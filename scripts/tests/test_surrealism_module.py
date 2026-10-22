@@ -78,6 +78,20 @@ class ModuleAdmissionTests(unittest.TestCase):
             with self.assertRaisesRegex(module.ModuleError, "exports differ"):
                 module.inspect_archive(Path(str(receipt["artifact"])))
 
+    def test_boolean_integer_aliases_cannot_change_capability_or_receipt_types(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            receipt = fixture_module(root)
+            for field, value in (("max_kv_entries", False), ("strict_timeout", 1)):
+                with self.subTest(field=field), self.assertRaises(module.ModuleError):
+                    module.verify({**receipt, "limits": {**module.LIMITS, field: value}})
+            config = (module.ROOT / module.CRATE / "surrealism.toml").read_text().replace(
+                "max_kv_entries = 0", "max_kv_entries = false"
+            )
+            fixture_module(root, config=config)
+            with self.assertRaisesRegex(module.ModuleError, "capabilities"):
+                module.inspect_archive(Path(str(receipt["artifact"])))
+
     def test_artifact_tamper_and_mutable_permissions_refuse(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             receipt = fixture_module(Path(scratch))
