@@ -359,6 +359,26 @@ receipts and deployed immutable artifacts remain outside those worktrees. The ma
 is the continuing owner. Remaining 49d–49h packages retain their current scope and status;
 this selected execution does not close or resume their broader campaigns.
 
+## Execution resumption — remaining 49d–49e, 2026-10-22
+
+The maintainer authorized the conversational execution approach for all remaining MAT01–MAT06
+and RUN01–RUN10 scope at clean HEAD `8dcaf5911`. Completed 49a–49c Outcomes supply the current
+preparation, protected-result and same-source Surrealism readiness prerequisites. Historical
+external scope/apply wording is not a new implementation obligation. The principal mathematical,
+request, policy and native seams are already implemented; this continuation owns concrete repairs,
+consumer/retirement acceptance, composed scientific and lifecycle qualification, and publication.
+
+Three disjoint execution assignments cover mathematical products/compiler consumers,
+runtime/host contracts, and native adapters/retained-worker custody. The coordinator owns
+cross-boundary integration, live-store and actual sixteen-native-owner acceptance, package/finding
+dispositions, documentation and discrete commits. Existing Direct/Reverse/Regional product routes
+retain their deterministic eligibility; settled optional inquiries are not reopened. Build commands
+retain the configured sixteen jobs and unbounded ordinary build mode; scientific deployment
+envelopes and ownership remain explicit. The canceled broad native sweep stays canceled.
+
+Current package rows below remain open until their required acceptance is established. This
+continuation does not close independent 49f–49h work or establish comparative performance gains.
+
 ## Reading route and ownership
 
 | Document | Local design and packages |
