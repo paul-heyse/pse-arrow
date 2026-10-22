@@ -407,7 +407,7 @@ class SurrealMcpTests(unittest.TestCase):
 
     def test_metrics_request_is_fixed_and_changed_identity_refuses_output(self) -> None:
         reply = MagicMock(status=200)
-        reply.read.return_value = (server.MX_METRIC_PREFIX + "active_readers 0\n").encode()
+        reply.read1.side_effect = [(server.MX_METRIC_PREFIX + "active_readers 0\n").encode(), b"", b""]
         connection = MagicMock()
         connection.getresponse.return_value = reply
         with self.proof_controls(), patch.object(server.http.client, "HTTPConnection", return_value=connection):
@@ -420,6 +420,21 @@ class SurrealMcpTests(unittest.TestCase):
             with self.assertRaisesRegex(server.SupervisorError, "changed"):
                 server.metric_snapshot(self.state, self.deadline)
         connection.close.assert_called()
+
+    def test_metrics_dripped_response_cannot_renew_absolute_clock(self) -> None:
+        reply = MagicMock(status=200)
+        connection = MagicMock()
+        connection.getresponse.return_value = reply
+        clock = [100.0]
+        def drip(_size: int) -> bytes:
+            clock[0] += 0.4
+            return b"# harmless comment\n"
+        reply.read1.side_effect = drip
+        with self.proof_controls(), patch.object(server.time, "monotonic", side_effect=lambda: clock[0]), patch.object(server.http.client, "HTTPConnection", return_value=connection):
+            with self.assertRaises(server.DeadlineExpiredError):
+                server.metric_snapshot(self.state, 101.0)
+        self.assertEqual(reply.read1.call_count, 3)
+        connection.close.assert_called_once()
 
     def test_metric_comparison_refuses_restart_and_preserves_gauge_meaning(self) -> None:
         before = {"identity": {"invocation": "first"}, **server.selected_metric_values(server.MX_METRIC_PREFIX + "active_readers 0")}

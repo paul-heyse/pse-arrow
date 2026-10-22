@@ -9186,7 +9186,9 @@ def selected_metric_values(exposition: str) -> dict[str, object]:
                 continue
             entry = families.setdefault(name, {"samples": []})
             entry[kind.lower()] = description
-            entry["availability"] = "registered_no_sample"
+            entry.setdefault("availability", "registered_no_sample")
+            if entry["availability"] == "unregistered":
+                entry["availability"] = "registered_no_sample"
         elif line and not line.startswith("#"):
             match = re.fullmatch(r'([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})?\s+([^\s]+)(?:\s+[0-9]+)?', line)
             if match is None:
@@ -9223,9 +9225,18 @@ def metric_snapshot(state: Path, deadline: float) -> dict[str, object]:
         response = connection.getresponse()
         if response.status != 200:
             raise SupervisorError("Selected native metrics request/authentication failed")
-        raw = response.read((4 << 20) + 1)
-        if len(raw) > 4 << 20:
-            raise SupervisorError("Selected native metrics exceeds its response bound")
+        raw = bytearray()
+        while True:
+            timeout = remaining(deadline)
+            if connection.sock is not None:
+                connection.sock.settimeout(timeout)
+            block = response.read1(min(64 << 10, (4 << 20) + 1 - len(raw)))
+            remaining(deadline)
+            if not block:
+                break
+            raw.extend(block)
+            if len(raw) > 4 << 20:
+                raise SupervisorError("Selected native metrics exceeds its response bound")
         values = selected_metric_values(raw.decode())
     except (OSError, UnicodeError, http.client.HTTPException):
         raise SupervisorError("Selected native metrics request/parse failed") from None

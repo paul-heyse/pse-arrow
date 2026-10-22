@@ -310,6 +310,7 @@ def run(binary: Path, strace: Path | None = None) -> None:
                 raise TypeError("Native gRPC CLI result is not a statement list")
             return value
 
+        selection_password = secrets.token_urlsafe(32)
         metric_names = {
             "live_keys",
             "live_versions",
@@ -328,9 +329,7 @@ def run(binary: Path, strace: Path | None = None) -> None:
         def metrics(*, authenticated: bool) -> dict[str, int]:
             request = urllib.request.Request(f"http://127.0.0.1:{port}/metrics")
             if authenticated:
-                credentials = (
-                    environment["SURREAL_USER"] + ":" + environment["SURREAL_PASS"]
-                )
+                credentials = "pse-selection:" + selection_password
                 request.add_header(
                     "Authorization",
                     "Basic " + base64.b64encode(credentials.encode()).decode(),
@@ -618,6 +617,7 @@ def run(binary: Path, strace: Path | None = None) -> None:
             if result[-1] != 41:
                 raise RuntimeError("Acknowledged control write returned another value")
             print("native_cli_grpc_acknowledged_write=passed")
+            query("DEFINE USER `pse-selection` ON ROOT PASSWORD " + json.dumps(selection_password) + " ROLES VIEWER;")
             held_reader_statistics()
             # A tiny process-global cap makes leaked crash sessions revealing.
             for _ in range(8):
