@@ -181,6 +181,22 @@ mod study {
 #[cfg(all(target_family = "wasm", feature = "module-qualification"))]
 #[surrealism::surrealism]
 mod qualification {
+    fn utc_micros() -> Result<surrealdb_types::Decimal, String> {
+        let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| error.to_string())?;
+        u64::try_from(time.as_micros()).map(surrealdb_types::Decimal::from)
+            .map_err(|error| error.to_string())
+    }
+
+    /// Hold an actual controller across cooperative WASI clock polling.
+    /// Returned times certify overlap; the guest retains no state or effects.
+    #[surrealism]
+    fn hold() -> Result<Vec<surrealdb_types::Decimal>, String> {
+        let started = utc_micros()?;
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        Ok(vec![started, utc_micros()?])
+    }
+
     /// Trap after a sibling native write so rollback can be observed independently.
     #[surrealism]
     fn trap() -> bool { core::arch::wasm32::unreachable() }
