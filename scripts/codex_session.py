@@ -69,6 +69,7 @@ def session_description(
             helper = shlex.join([
                 str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/surreal_server.py"),
                 "mcp-headers", "--state", str(selected.state), "--expected-endpoint", endpoint,
+                "--expected-selection", selected.selection_fence,
             ])
             command += ["-c", "mcp_servers.pse-surreal.enabled=true",
                         "-c", "mcp_servers.pse-surreal.url=" + json.dumps(endpoint),

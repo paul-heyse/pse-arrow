@@ -62,6 +62,7 @@ from scripts import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
+    from typing import BinaryIO
 
 
 MIB = 1024 * 1024
@@ -5596,10 +5597,134 @@ def server_environment(
             "RAYON_NUM_THREADS": "4",
         }
     )
+    telemetry = config.get("diagnostic_telemetry")
+    if telemetry is not None:
+        selected_telemetry = object_mapping(telemetry)
+        endpoint = selected_telemetry.get("endpoint")
+        if (set(selected_telemetry) != {"endpoint", "capture_nonce"}
+            or not isinstance(endpoint,str)
+            or not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}",endpoint)
+            or not 0 < int(endpoint.rsplit(":",1)[1]) < 65536
+            or not re.fullmatch(r"[a-f0-9]{32}",str(selected_telemetry.get("capture_nonce")))):
+            raise SupervisorError("Temporary diagnostic telemetry must name its owned loopback collector")
+        for key in list(environment):
+            if key.startswith("OTEL_"):
+                environment.pop(key)
+        environment.update(SURREAL_TELEMETRY_PROVIDER="otlp",SURREAL_TELEMETRY_DISABLE_METRICS="true",
+                           OTEL_EXPORTER_OTLP_ENDPOINT=endpoint,OTEL_BSP_SCHEDULE_DELAY="100")
     if not bootstrap:
         environment.pop("SURREAL_USER", None)
         environment.pop("SURREAL_PASS", None)
     return environment
+
+
+LOG_CONFIGURATIONS = {
+    "baseline": {"filter": "warn", "format": "text"},
+    "mcp-audit": {"filter": "warn,surrealdb::mcp::audit=info", "format": "json"},
+}
+
+
+def log_configuration(config: Mapping[str, object]) -> dict[str, str]:
+    selection = config.get("diagnostic_logging", "baseline")
+    if not isinstance(selection, str) or selection not in LOG_CONFIGURATIONS:
+        raise SupervisorError("Unknown explicit diagnostic log configuration")
+    return dict(LOG_CONFIGURATIONS[selection])
+
+
+def log_arguments(config: Mapping[str, object]) -> list[str]:
+    selected = log_configuration(config)
+    return ["--log=" + selected["filter"], "--log-format=" + selected["format"]]
+
+
+def inspect_log_configuration(state: Path, deadline: float) -> dict[str, object]:
+    config = config_for(state, deadline=deadline)
+    receipt = state / "diagnostic-log-change.json"
+    return {"state": str(state), "instance_id": config["instance_id"],
+            "selected": log_configuration(config), "candidate": LOG_CONFIGURATIONS["mcp-audit"],
+            "effect": "explicit owned restart required; no live reload or allocation reconfiguration",
+            "change": read_json(receipt, deadline=deadline) if receipt.exists() else None}
+
+
+def mcp_audit_records(state: Path, deadline: float) -> dict[str, object]:
+    """Return only native audit metadata; never echo arbitrary server log text or payloads."""
+    selected = selected_service(state, deadline)
+    maximum = integer(selected._config["log_max_bytes"])
+    raw = private_record_bytes(selected.state / "server.log", deadline, maximum_bytes=maximum)
+    events: list[dict[str, object]] = []
+    malformed = 0
+    for line in raw.splitlines():
+        remaining(deadline)
+        try:
+            event = object_mapping(json.loads(line))
+        except (ValueError, SupervisorError):
+            malformed += 1
+            continue
+        if event.get("target") != "surrealdb::mcp::audit":
+            continue
+        fields = object_mapping(event.get("fields", {}))
+        events.append({name: fields.get(name) for name in ("tool", "subject", "namespace", "database", "outcome", "kind", "time_ms")})
+    selected.recheck(deadline)
+    return {"identity": selected.identity, "records": events[-64:], "omitted_records": max(0, len(events)-64),
+            "unparsed_lines": malformed, "scope": "current bounded private log only; rotation or baseline text can omit observations"}
+
+
+def restart_log_configuration(state: Path, selection: str, deadline: float) -> dict[str, object]:
+    """Apply/restore only selected logging through the shared explicit diagnostic restart owner."""
+    if selection not in LOG_CONFIGURATIONS:
+        raise SupervisorError("Unsupported diagnostic logging selection")
+    return restart_diagnostic_configuration(state, {"diagnostic_logging":selection}, selection, "log", deadline)
+
+
+def restart_diagnostic_configuration(state: Path, updates: dict[str, object], selection: str, category: str, deadline: float) -> dict[str, object]:
+    """Explicit logging/temporary telemetry changes share drain, immutable publication and restart."""
+    if set(updates) - {"diagnostic_logging", "diagnostic_telemetry"} or category not in {"log", "trace"}:
+        raise SupervisorError("Unsupported diagnostic service configuration")
+    state = lexical_absolute(state)
+    with lifecycle_deadline(deadline), lifecycle_reservation(state, purpose="maintenance", deadline=deadline):
+        config = config_for(state, deadline=deadline)
+        if config.get("service_state") is not None or config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+            raise SupervisorError("Log restart requires an independent settled service owner")
+        before = selected_service(state, deadline)
+        receipt = {"schema": "diagnostic-log-change-v1", "selection": selection,
+                   "previous": {"logging":log_configuration(config), "telemetry":config.get("diagnostic_telemetry")}, "before": before.identity, "phase": "quiescing"}
+        path = state / ("diagnostic-"+category+"-change.json")
+        write_json(path, receipt)
+        try:
+            close_context_admission(state, admission="quiescing")
+            for context in managed_contexts(state):
+                selected = config_for(context, deadline=deadline)
+                drain_context(context, str(selected["database"]), deadline=deadline)
+            all_contexts_drained(state)
+            if storage_unit_observation(state, deadline=deadline).get("InvocationID") != before.identity["invocation"]:
+                raise SupervisorError("Selected service changed before log restart")
+            stop(state, config_for(state, deadline=deadline))
+            receipt["phase"] = "stopped"
+            write_json(path, receipt)
+            with state_lock(state):
+                current = config_for(state, deadline=deadline)
+                if current["instance_id"] != before.identity["instance_id"]:
+                    raise SupervisorError("Selected generation changed before log application")
+                current.update(updates)
+                current["restart_qualified"] = False
+                write_json(state / "config.json", current)
+            # Publish the current immutable supervisor explicitly; old artifacts are never edited.
+            readmit_supervisor(state, deadline=deadline)
+            receipt["phase"] = "starting"
+            write_json(path, receipt)
+            start(state, config_for(state, deadline=deadline), deadline=deadline)
+            after = selected_service(state, deadline)
+            if after.identity["invocation"] == before.identity["invocation"]:
+                raise SupervisorError("Log restart did not produce a new invocation")
+            receipt.update(phase="applied" if selection in {"mcp-audit", "telemetry-capture"} else "restored", after=after.identity)
+            write_json(path, receipt)
+            return receipt
+        except BaseException:
+            # A partial start is not a successful application. Keep admission closed and
+            # preserve the selected phase for explicit stop/recovery rather than restart it.
+            close_context_admission(state)
+            receipt["outcome"] = "interrupted; admission closed, inspect selected service and pending phase"
+            write_json(path, receipt)
+            raise
 
 
 class BoundedLog:
@@ -5635,6 +5760,30 @@ class BoundedLog:
             )
             with os.fdopen(fd, "ab") as output:
                 output.write(part)
+
+    def capture(self, stream: BinaryIO) -> None:
+        # Retain overlap so a secret split across pipe reads is still redacted.
+        tail = b""
+        overlap = len(self.secret)
+        while block := stream.read1(8192):
+            tail += block
+            safe = len(tail) - overlap
+            # Complete records can be published immediately: generated credentials
+            # contain no newline, so a token cannot cross this record boundary.
+            if b"\n" not in self.secret:
+                safe = max(safe, tail.rfind(b"\n") + 1)
+            if safe > 0:
+                # Redact before splitting; retaining the overlap handles partial tokens.
+                redacted = tail.replace(self.secret, b"[REDACTED]")
+                if redacted != tail:
+                    tail = redacted
+                    safe = max(0, len(tail) - overlap)
+                    if b"\n" not in self.secret:
+                        safe = max(safe, tail.rfind(b"\n") + 1)
+                self.append(tail[:safe])
+                tail = tail[safe:]
+        self.append(tail)
+
 
 
 def serve(state: Path) -> int:
@@ -5723,7 +5872,7 @@ def _serve(state: Path) -> int:
         str(server["binary"]),
         "start",
         "--no-banner",
-        "--log=warn",
+        *log_arguments(config),
         "--no-defaults",
         "--deny-guests",
         "--deny-net",
@@ -5785,28 +5934,11 @@ def _serve(state: Path) -> int:
     if stream is None:
         raise SupervisorError("Server output pipe was not created")
 
-    def capture() -> None:
-        # Retain overlap so a secret split across pipe reads is still redacted.
-        tail = b""
-        overlap = len(log.secret)
-        while block := stream.read(8192):
-            tail += block
-            safe = len(tail) - overlap
-            if safe > 0:
-                # Redact before splitting; retaining the overlap handles partial tokens.
-                redacted = tail.replace(log.secret, b"[REDACTED]")
-                if redacted != tail:
-                    tail = redacted
-                    safe = max(0, len(tail) - overlap)
-                log.append(tail[:safe])
-                tail = tail[safe:]
-        log.append(tail)
-
     if maintenance:
         threading.Thread(
             target=watch_maintenance_owner, args=(state, child), daemon=True
         ).start()
-    reader = threading.Thread(target=capture, daemon=True)
+    reader = threading.Thread(target=log.capture, args=(stream,), daemon=True)
     reader.start()
     result = child.wait()
     reader.join(timeout=5)
@@ -9088,6 +9220,12 @@ class SelectedService:
             "binary_sha256": object_mapping(self._config["server"]).get("binary_sha256"),
         }
 
+    @property
+    def selection_fence(self) -> str:
+        """Nonsecret exact-generation fence for a later fixed header helper."""
+        selected={"identity":self.identity,"credentials":self._credential_digest,"proof":self._proof_digest}
+        return hashlib.sha256(json.dumps(selected,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+
     def recheck(self, deadline: float) -> None:
         if (
             config_for(self.state, deadline=deadline) != self._config
@@ -9155,11 +9293,13 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
     return selected
 
 
-def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, str]:
+def mcp_authorization(state: Path, endpoint: str, deadline: float, *, expected_selection: str | None = None) -> dict[str, str]:
     """Release a header only for the exact selected native MCP endpoint."""
     selected = selected_service(state, deadline)
     if endpoint != f"http://127.0.0.1:{selected.port}/mcp":
         raise SupervisorError("MCP endpoint does not match its live owned service")
+    if expected_selection is not None and (not re.fullmatch(r"[a-f0-9]{64}",expected_selection) or not secrets.compare_digest(selected.selection_fence,expected_selection)):
+        raise SupervisorError("MCP selected generation changed before authentication")
     return selected.authorization()
 
 
@@ -9273,6 +9413,7 @@ def mcp_headers_main(arguments: list[str]) -> int:
     command = argparse.ArgumentParser(prog="surreal-server mcp-headers")
     command.add_argument("--state", type=Path, required=True)
     command.add_argument("--expected-endpoint", required=True)
+    command.add_argument("--expected-selection")
     if child:
         command.add_argument("--deadline", type=float, required=True)
     args = command.parse_args(arguments[1:])
@@ -9296,7 +9437,7 @@ def mcp_headers_main(arguments: list[str]) -> int:
                 )
             if owner is None:
                 raise SupervisorError("Missing admitted fixed helper ownership")  # noqa: TRY301 -- fixed boundary redacts every failure
-            headers = mcp_authorization(args.state, args.expected_endpoint, deadline)
+            headers = mcp_authorization(args.state, args.expected_endpoint, deadline, expected_selection=args.expected_selection)
         else:
             environment = pse_env.control_environment(
                 SCRIPT.parents[1], os.environ, deadline=deadline
@@ -9312,6 +9453,7 @@ def mcp_headers_main(arguments: list[str]) -> int:
                     args.expected_endpoint,
                     "--deadline",
                     str(deadline),
+                    *(["--expected-selection",args.expected_selection] if args.expected_selection is not None else []),
                 ],
                 environment,
                 deadline=deadline,

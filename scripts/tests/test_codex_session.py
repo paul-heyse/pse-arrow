@@ -23,6 +23,7 @@ class CodexSessionTests(unittest.TestCase):
     def test_selected_endpoint_and_literal_caller_overrides(self) -> None:
         selected = Mock(port=12345, state=Path('/selected state'))
         selected.identity = {'state': '/selected state', 'invocation': 'authentic'}
+        selected.selection_fence = 'a' * 64
         literal = ['-c', 'mcp_servers.pse-surreal.enabled=false', 'spaces $HOME `pwd`']
         with patch.object(session.shutil, 'which', side_effect=lambda name: '/tools/' + name), \
              patch.object(session.surreal_server, 'selected_service', return_value=selected):
@@ -31,6 +32,7 @@ class CodexSessionTests(unittest.TestCase):
         self.assertIn('mcp_servers.pse-surreal.url="http://127.0.0.1:12345/mcp"', command)
         helper = next(value for value in command if '.http_headers_helper=' in value)
         self.assertIn("'/selected state'", helper)
+        self.assertIn("--expected-selection " + "a" * 64, helper)
         self.assertNotIn('Authorization', json.dumps(description))
         self.assertEqual(description['attachment'].split(';')[0], 'requires a real client interaction')
         selected.recheck.assert_called_once()

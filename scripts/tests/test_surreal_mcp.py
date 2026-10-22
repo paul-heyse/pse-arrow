@@ -387,6 +387,30 @@ class SurrealMcpTests(unittest.TestCase):
                 with self.assertRaisesRegex(server.SupervisorError, "changed"):
                     selected.recheck(self.deadline)
 
+    def test_selection_fence_refuses_same_port_restart_and_credential_rotation(self) -> None:
+        with self.proof_controls():
+            selected=server.selected_service(self.state,self.deadline)
+            fence=selected.selection_fence
+            self.assertRegex(fence,r"^[a-f0-9]{64}$")
+            self.assertNotIn(self.secret,fence)
+            self.assertEqual(server.mcp_authorization(self.state,self.endpoint,self.deadline,expected_selection=fence),{"Authorization":self.authorization})
+            changed={**self.proof,"invocation":"c"*32}
+            self.write("protocol-readiness.json",changed)
+            with patch.object(server,"storage_unit_observation",return_value={"InvocationID":"c"*32}), self.assertRaisesRegex(server.SupervisorError,"generation changed"):
+                server.mcp_authorization(self.state,self.endpoint,self.deadline,expected_selection=fence)
+            self.write("credentials.json",{**self.credentials,"selection_password":"rotated-private-viewer"})
+            self.write("protocol-readiness.json",{**self.proof,"credentials_sha256":server.file_digest(self.state/"credentials.json")})
+            with self.assertRaisesRegex(server.SupervisorError,"generation changed"):
+                server.mcp_authorization(self.state,self.endpoint,self.deadline,expected_selection=fence)
+
+    def test_fixed_helper_forwards_nonsecret_selection_fence(self) -> None:
+        fence="a"*64
+        with patch.object(pse_env,"control_environment",return_value={}), patch.object(pse_env,"run_light_control",return_value=subprocess.CompletedProcess([],0,json.dumps({"Authorization":self.authorization}),"")) as run:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(server.main(["mcp-headers","--state",str(self.state),"--expected-endpoint",self.endpoint,"--expected-selection",fence]),0)
+        command=run.call_args.args[0]
+        self.assertEqual(command[command.index("--expected-selection")+1],fence)
+
     def test_selected_service_rechecks_protocol_proof_after_observation(self) -> None:
         with self.proof_controls():
             selected = server.selected_service(self.state, self.deadline)
