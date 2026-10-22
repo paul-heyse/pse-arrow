@@ -738,6 +738,95 @@ impl Engine<'_, '_> {
                     })
             })
             .collect::<Result<Vec<_>>>()?;
+        let permissions = self.evidence_permissions(instance)?;
+        let selection_receipts = selection_scope.finish();
+        let selected_records = selection_receipts.values().flat_map(|closure| {
+            closure.roots.iter().chain(std::iter::once(&closure.context)).chain(&closure.records)
+                .chain(closure.edges.keys()).chain(closure.edges.values().flatten())
+        }).cloned().collect::<Vec<_>>();
+        let package = prelude::PreludePremises::select(self.p, &prelude::PreludeBindings {
+            definition: function, root: self.root,
+            fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
+            arguments: statics.clone(), scope: Environment::from([("fragment.selection-records".into(), Value::Set(selected_records))]), inherited: Environment::new(),
+            facts: Environment::new(), members: self.limits.members,
+        })?.package;
+        let input = Arc::new(function_fragments::FunctionFragmentInput {
+            package, recipe: Arc::new(function_fragments::FunctionFragmentRecipe {
+            function, instance, contract, formals, lexical, indexed, lexical_references, permissions,
+            substitution, statics, argument_layouts, selections: selection_receipts,
+            root: self.root, fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
+            limits: self.limits, function_stack: self.function_stack.clone(),
+            }),
+        });
+        let fragment = if let Some(fragments) = self.fragments {
+            fragments.function_fragment(input)?
+        } else {
+            Arc::new(function_fragments::derive(&input, None, self.cancel, self.discretizer)?)
+        };
+        self.reserve(fragment.construction_items)?;
+        for (relationship, _) in fragment.derivations.iter() {
+            self.model.derivations.publish(*relationship)?;
+        }
+        for (occurrence, closure) in &fragment.selections {
+            self.selection_collector.record(occurrence.clone(), closure.clone());
+        }
+        self.finite_collector.merge(&fragment.finite)?;
+        for (name, inspection) in &fragment.inspections {
+            if self.model.functions.get(name).is_some_and(|prior| prior != inspection) {
+                return Err(invalid(function, "typed fragment inspection name has conflicting original source meaning"));
+            }
+            self.model.functions.insert(name.clone(), inspection.clone());
+        }
+        self.original_guards.extend(fragment.original_guards.clone());
+        let product = fragment.product.clone();
+        let name = fragment.name.clone();
+        let function = self.construction.function(product)?;
+        let roots = actual.iter().map(|arg| arg.root).collect();
+        let args = actual.into_iter().map(|arg| arg.inspection).collect();
+        Ok(if selected.is_empty() {
+            RewrittenKind {
+                node: Node::Apply {
+                    function,
+                    args: roots,
+                },
+                inspection: ExprKind::NamedCall {
+                    name: Path::single(name),
+                    args,
+                },
+            }
+        } else {
+            RewrittenKind {
+                node: Node::Partial {
+                    function,
+                    wrt: selected.iter().map(|(_, ordinal)| *ordinal).collect(),
+                    args: roots,
+                },
+                inspection: ExprKind::Partial {
+                    function: Path::single(name),
+                    wrt: selected.into_iter().map(|(path, _)| path).collect(),
+                    args,
+                },
+            }
+        })
+    }
+    pub(super) fn build_function_fragment(
+        &mut self,
+        input: &function_fragments::FunctionFragmentInput,
+    ) -> Result<(Arc<FunctionProduct>, String)> {
+        let function = input.recipe.function;
+        let instance = input.recipe.instance;
+        let mut contract = input.recipe.contract.clone();
+        let formals = input.recipe.formals.clone();
+        let lexical = input.recipe.lexical.clone();
+        let indexed = input.recipe.indexed.clone();
+        let lexical_references = input.recipe.lexical_references.clone();
+        let substitution = input.recipe.substitution.clone();
+        let statics = input.recipe.statics.clone();
+        let argument_layouts = input.recipe.argument_layouts.clone();
+        let selection_scope = self.selection_collector.scope();
+        for (occurrence, closure) in &input.recipe.selections {
+            self.selection_collector.record(occurrence.clone(), closure.clone());
+        }
         let saved_lexical = std::mem::replace(&mut self.lexical, lexical);
         let saved_indexed = std::mem::replace(&mut self.indexed_arguments, indexed);
         let saved_references = std::mem::replace(&mut self.lexical_references, lexical_references);
@@ -1010,11 +1099,7 @@ impl Engine<'_, '_> {
             continuity: contract.continuity,
         }
         .seal()?;
-        let name = format!(
-            "f_{}_inspection_{}",
-            product.identity.to_hex(),
-            self.model.functions.len()
-        );
+        let name = format!("f_{}_inspection_{}_{}", product.identity.to_hex(), function.as_id(), input.recipe.inspection_context().to_hex());
         self.model.functions.insert(
             name.clone(),
             crate::Function {
@@ -1039,34 +1124,7 @@ impl Engine<'_, '_> {
                 body: body.map(|value| value.inspection),
             },
         );
-        let function = self.construction.function(product)?;
-        let roots = actual.iter().map(|arg| arg.root).collect();
-        let args = actual.into_iter().map(|arg| arg.inspection).collect();
-        Ok(if selected.is_empty() {
-            RewrittenKind {
-                node: Node::Apply {
-                    function,
-                    args: roots,
-                },
-                inspection: ExprKind::NamedCall {
-                    name: Path::single(name),
-                    args,
-                },
-            }
-        } else {
-            RewrittenKind {
-                node: Node::Partial {
-                    function,
-                    wrt: selected.iter().map(|(_, ordinal)| *ordinal).collect(),
-                    args: roots,
-                },
-                inspection: ExprKind::Partial {
-                    function: Path::single(name),
-                    wrt: selected.into_iter().map(|(path, _)| path).collect(),
-                    args,
-                },
-            }
-        })
+        Ok((product, name))
     }
 }
 
@@ -1077,5 +1135,12 @@ impl SpecializedModel {
         package: &'a CheckedPackage,
     ) -> crate::FunctionContracts<'a> {
         crate::FunctionContracts::new(package, &self.functions)
+    }
+}
+
+impl PartialEq for IndexedSelection {
+    fn eq(&self, other: &Self) -> bool {
+        self.domains == other.domains && self.members.len() == other.members.len()
+            && self.members.iter().zip(&other.members).all(|((left, a), (right, b))| left == right && a.reference == b.reference && a.inspection == b.inspection)
     }
 }

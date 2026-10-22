@@ -275,6 +275,24 @@ impl Collector {
             }
         }
     }
+    pub(super) fn merge(&self, incoming: &FiniteFacts) -> Result<()> {
+        let mut facts = self.0.borrow_mut();
+        for (key, value) in &incoming.domains {
+            if facts.domains.get(key).is_some_and(|prior| prior != value) { return Err(invalid(key.family.declaration, "fragment finite domain conflicts with root")); }
+        }
+        for (key, value) in &incoming.families {
+            if facts.families.get(key).is_some_and(|prior| prior != value) { return Err(invalid(key.declaration, "fragment finite family conflicts with root")); }
+        }
+        for (key, value) in &incoming.members {
+            if facts.absent.contains(key) || facts.members.get(key).is_some_and(|prior| prior != value) { return Err(invalid(key.declaration, "fragment finite member conflicts with root")); }
+        }
+        for key in &incoming.absent { if facts.members.contains_key(key) { return Err(invalid(key.declaration, "fragment finite absence conflicts with root")); } }
+        facts.domains.extend(incoming.domains.clone());
+        facts.families.extend(incoming.families.clone());
+        facts.members.extend(incoming.members.clone());
+        facts.absent.extend(incoming.absent.clone());
+        Ok(())
+    }
     pub(super) fn finish(self) -> FiniteFacts {
         self.0.into_inner()
     }

@@ -8,7 +8,7 @@ use std::sync::Arc;
 /// Numerical member bodies are intentionally not part of this product.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreludePremises {
-    package: Arc<CheckedPackage>,
+    pub(super) package: Arc<CheckedPackage>,
     members: BTreeMap<String, PreludeMember>,
     conditional: BTreeMap<DeclarationId, Vec<PreludeMember>>,
 }
@@ -118,6 +118,8 @@ impl InstancePrelude {
 /// The compiler provides query-owned derivation; standalone specialization derives
 /// exactly the same pure result without introducing another production mechanism.
 pub trait Fragments {
+    /// Derive a local typed function body under its exact finite and physical premises.
+    fn function_fragment(&self, input: Arc<function_fragments::FunctionFragmentInput>) -> Result<Arc<function_fragments::FunctionFragment>>;
     /// Derive from entity-local premises and exact bindings.
     fn instance_prelude(&self, premises: Arc<PreludePremises>, bindings: PreludeBindings) -> Result<Arc<InstancePrelude>>;
 }

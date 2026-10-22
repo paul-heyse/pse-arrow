@@ -1516,3 +1516,49 @@ fn instance_prelude_is_local_to_membership_and_static_meaning() {
         assert_eq!(executions.load(Ordering::Relaxed), expected);
     }
 }
+
+#[test]
+fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution() {
+    let executions = Arc::new(AtomicUsize::new(0));
+    let observed = executions.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("function_fragment(") {
+                observed.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    ).unwrap();
+    let original = "package p {fn law(x:Scalar)->Scalar=x*x; def Root {var x:Scalar;eq e:law(x)==1;}}";
+    for (source, expected) in [
+        (original.to_owned(), 1),
+        (original.replace("==1", "==2"), 1),
+        (original.replace("x*x", "x+x"), 2),
+        (format!("\n{original}"), 3),
+    ] {
+        let declarations = rows(&source);
+        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let revision = workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let incremental = workspace.specialize_modeling(root, instance, Bindings::default(), Limits::default()).unwrap();
+        let clean = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(), root, instance, &Bindings::default(), Limits::default(), &|| false, &LibraryDiscretizer,
+        ).unwrap();
+        assert_eq!(incremental.as_ref(), &clean);
+        assert_eq!(executions.load(Ordering::Relaxed), expected);
+    }
+}
+
+#[test]
+fn shared_typed_function_math_preserves_distinct_original_callable_selections() {
+    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
+    let declarations = rows("package p {fn first(x:Scalar)->Scalar=x; fn second(x:Scalar)->Scalar=x; fn apply(method:Fn(x:Scalar)->Scalar,x:Scalar)->Scalar=method(x); def Root {var x:Scalar;eq a:apply(first,x)==1;eq b:apply(second,x)==1;}}");
+    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let apply = declarations.iter().find(|row| row.name == "apply").unwrap().declaration_id;
+    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+    let model = workspace.specialize_modeling(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default()).unwrap();
+    let inspections = model.functions.values().filter(|function| function.id == apply).collect::<Vec<_>>();
+    assert_eq!(inspections.len(), 2, "equivalent arithmetic must retain the two selected original callables");
+    assert_ne!(inspections[0].body, inspections[1].body);
+}

@@ -8,6 +8,7 @@ mod continuous;
 mod envelopes;
 pub mod finite;
 pub mod prelude;
+pub mod function_fragments;
 mod symbols;
 pub use symbols::Symbols;
 mod fold;
@@ -489,6 +490,8 @@ struct ReplicatedEquation {
 pub(crate) struct Engine<'a, 'b> {
     fragments: Option<&'a dyn prelude::Fragments>,
     root: DeclarationId,
+    function_permissions: Option<std::sync::Arc<Vec<pse_model::applicability::Permission>>>,
+    inspection_context: Option<ContentHash>,
     selection_collector: crate::scientific_selection::Collector,
     finite_collector: finite::Collector,
     construction: crate::resolved::construction::Construction,
@@ -644,54 +647,10 @@ pub fn specialize_with_fragments(
     // ambient fact any definition reads.
     let ambient = crate::analysis::facts(&bindings.facts)?;
     let context = package.context();
-    let mut engine = Engine {
-        fragments,
-        root,
-        selection_collector: crate::scientific_selection::Collector::default(),
-        finite_collector: finite::Collector::default(),
-        construction: crate::resolved::construction::Construction::new(limits.items),
-        originals: Vec::new(),
-        original_guards: Vec::new(),
-        lexical_references: BTreeMap::new(),
-        p: package,
-        c: &context,
-        limits,
-        model: SpecializedModel {
-            construction_limit: limits.items,
-            engineering_rules: crate::annotation::engineering_rules(package)?,
-            ..SpecializedModel::default()
-        },
-        states: BTreeMap::new(),
-        numerical_sources: BTreeMap::new(),
-        numerical_source_stack: Vec::new(),
-        source_locals: BTreeSet::new(),
-        set_alias_sources: BTreeMap::new(),
-        temporal_owners: BTreeMap::new(),
-        temporal_axis: None,
-        stack: Vec::new(),
-        count: 0,
-        lexical: BTreeMap::new(),
-        indexed_arguments: BTreeMap::new(),
-        function_stack: Vec::new(),
-        function_types: BTreeMap::new(),
-        function_substitutions: BTreeMap::new(),
-        function_symbols: None,
-        lexical_bases: lexical::LexicalBases::default(),
-        preset_stack: Vec::new(),
-        local_serial: 0,
-        continuity_done: BTreeSet::new(),
-        replicated: Vec::new(),
-        pending_inventories: Vec::new(),
-        inventory_initial_sources: BTreeMap::new(),
-        relaxations: BTreeMap::new(),
-        form_realizations: BTreeMap::new(),
-        form_sources: Vec::new(),
-        facts: ambient.clone(),
-        objective_level: crate::analysis::objective_level(&bindings.facts)?,
-        discretizer,
-        cancel,
-        reader: crate::provenance::Reader::of(package, root),
-    };
+    let mut engine = Engine::new(package, &context, root, limits, cancel, discretizer, fragments);
+    engine.model.engineering_rules = crate::annotation::engineering_rules(package)?;
+    engine.facts = ambient.clone();
+    engine.objective_level = crate::analysis::objective_level(&bindings.facts)?;
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
     args.extend(ambient);
@@ -849,6 +808,67 @@ pub fn specialize_with_fragments(
     engine.model.finite_facts = engine.finite_collector.finish();
     engine.model.selection_closures = engine.selection_collector.into_inner();
     Ok(engine.model)
+}
+impl<'a, 'b> Engine<'a, 'b> {
+    fn new(
+        package: &'a CheckedPackage,
+        context: &'a TypeContext<'b>,
+        root: DeclarationId,
+        limits: Limits,
+        cancel: &'a dyn Fn() -> bool,
+        discretizer: &'a dyn crate::continuous::Discretizer,
+        fragments: Option<&'a dyn prelude::Fragments>,
+    ) -> Self {
+        Self {
+        fragments,
+        root,
+        function_permissions: None,
+        inspection_context: None,
+        selection_collector: crate::scientific_selection::Collector::default(),
+        finite_collector: finite::Collector::default(),
+        construction: crate::resolved::construction::Construction::new(limits.items),
+        originals: Vec::new(),
+        original_guards: Vec::new(),
+        lexical_references: BTreeMap::new(),
+        p: package,
+        c: context,
+        limits,
+        model: SpecializedModel {
+            construction_limit: limits.items,
+            ..SpecializedModel::default()
+        },
+        states: BTreeMap::new(),
+        numerical_sources: BTreeMap::new(),
+        numerical_source_stack: Vec::new(),
+        source_locals: BTreeSet::new(),
+        set_alias_sources: BTreeMap::new(),
+        temporal_owners: BTreeMap::new(),
+        temporal_axis: None,
+        stack: Vec::new(),
+        count: 0,
+        lexical: BTreeMap::new(),
+        indexed_arguments: BTreeMap::new(),
+        function_stack: Vec::new(),
+        function_types: BTreeMap::new(),
+        function_substitutions: BTreeMap::new(),
+        function_symbols: None,
+        lexical_bases: lexical::LexicalBases::default(),
+        preset_stack: Vec::new(),
+        local_serial: 0,
+        continuity_done: BTreeSet::new(),
+        replicated: Vec::new(),
+        pending_inventories: Vec::new(),
+        inventory_initial_sources: BTreeMap::new(),
+        relaxations: BTreeMap::new(),
+        form_realizations: BTreeMap::new(),
+        form_sources: Vec::new(),
+        facts: Environment::new(),
+        objective_level: None,
+        discretizer,
+        cancel,
+        reader: crate::provenance::Reader::of(package, root),
+        }
+    }
 }
 impl Engine<'_, '_> {
     fn with_instance_selections<T>(
