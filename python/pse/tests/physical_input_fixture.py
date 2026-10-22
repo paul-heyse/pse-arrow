@@ -25,7 +25,10 @@ def primitive_quantity(name: str) -> tuple[SemanticId, SemanticId]:
         source = "\n".join(line for line in path.read_text().splitlines() if not line.lstrip().startswith("#"))
         document = codec.decode_json(source, dict[str, msgspec.Raw])
         for row in codec.decode_json(bytes(document["quantity_types"]), list[dict[str, msgspec.Raw]]):
-            if codec.decode_json(bytes(row["name"]), str) == name:
+            encoded_name = row.get("name")
+            if encoded_name is None:
+                continue
+            if codec.decode_json(bytes(encoded_name), str | None) == name:
                 found.append((
                     SemanticId.from_hex(codec.decode_json(bytes(row["quantity_type_id"]), str)),
                     SemanticId.from_hex(codec.decode_json(bytes(row["canonical_unit_id"]), str)),
