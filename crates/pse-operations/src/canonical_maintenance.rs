@@ -437,7 +437,7 @@ impl CanonicalStore {
                     return Ok(witness);
                 }
                 if witness.previous_marker != predecessor { return Err(invalid("activation predecessor changed")); }
-                if predecessor.as_ref().is_some_and(|marker| marker.interpretation != wire::INTERPRETATION || uuid::Uuid::parse_str(&marker.issuing_store).is_err()) { return Err(invalid("incompatible predecessor requires explicit fresh reset")); }
+                if predecessor.as_ref().is_some_and(|marker| marker.interpretation != wire::INTERPRETATION || marker.study_module_sha256!=witness.study_module_sha256 || uuid::Uuid::parse_str(&marker.issuing_store).is_err()) { return Err(invalid("incompatible predecessor requires explicit fresh reset")); }
                 if predecessor.is_none() {
                     let definitions = parse_definitions(wire::SCHEMA)?;
                     for key in definitions.keys().filter(|key| key.0 == "table") {

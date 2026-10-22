@@ -437,7 +437,12 @@ struct PendingRebuild {
 }
 
 #[derive(serde::Deserialize)]
+struct SelectedStudyModule {sha256:String}
+
+#[derive(serde::Deserialize)]
 struct WriteAdmission {
+    #[serde(default)]
+    study_module:Option<SelectedStudyModule>,
     namespace: String,
     database: String,
     accepting_writes: bool,
@@ -453,6 +458,11 @@ impl WriteAdmission {
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         serde_json::from_slice(&config)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))
+    }
+
+    fn require_module(&self,expected:Option<&String>)->Result<(),CanonicalError> {
+        if let Some(expected)=expected && self.study_module.as_ref().map(|module|&module.sha256)!=Some(expected) {return Err(CanonicalError::Quiesced);}
+        Ok(())
     }
 
     fn require_initializer(
@@ -1013,6 +1023,7 @@ pub struct CanonicalStore {
     database: String,
     namespace: String,
     issuing_store: Arc<std::sync::OnceLock<String>>,
+    study_module_sha256: Arc<std::sync::OnceLock<String>>,
     // Fields drop in declaration order. The fixture's final drain must run
     // after both client aliases have relinquished this handle's continuation.
     #[cfg(any(test, feature = "test-support"))]
@@ -1222,12 +1233,17 @@ impl CanonicalStore {
         self.ensure_writes()
     }
     pub(crate) fn ensure_writes(&self) -> Result<(), CanonicalError> {
-        WriteAdmission::read(&self.state_path)?.require_writes(
+        let admission=WriteAdmission::read(&self.state_path)?;
+        admission.require_module(self.study_module_sha256.get())?;
+        admission.require_writes(
             &self.state_path,
             &self.namespace,
             &self.database,
             self.connection_options.initializer_nonce.as_deref(),
         )
+    }
+    pub(crate) fn study_module_hash(&self)->Result<&str,CanonicalError> {
+        self.study_module_sha256.get().map(String::as_str).ok_or_else(||CanonicalError::Configuration("study module identity has not been opened".into()))
     }
     /// Connect to the supported authenticated native gRPC deployment.
     pub async fn connect(options: &CanonicalOptions) -> Result<Self, CanonicalError> {
@@ -1284,6 +1300,7 @@ impl CanonicalStore {
             database: options.database.clone(),
             namespace: options.namespace.clone(),
             issuing_store: Arc::default(),
+            study_module_sha256: Arc::default(),
         })
     }
     /// Explicitly initialize a database through an operation-owned connection
@@ -1474,6 +1491,11 @@ impl CanonicalStore {
                 return Err(CanonicalError::Configuration("installed study module identity differs; explicit coordinated activation is required".into()));
             }
             self.validate_study_module(&module).await?;
+            if let Some(existing)=self.study_module_sha256.get() {
+                if existing!=&module.sha256 {return Err(CanonicalError::Quiesced);}
+            } else if self.study_module_sha256.set(module.sha256.clone()).is_err() && self.study_module_sha256.get()!=Some(&module.sha256) {
+                return Err(CanonicalError::Quiesced);
+            }
             if marker.schema_digest != wire::SCHEMA_DIGEST {
                 return Err(CanonicalError::Interpretation {
                     expected: wire::SCHEMA_DIGEST,
@@ -2824,6 +2846,16 @@ mod canonical_admission_unit {
             "derived_rebuild_pending": {"initializer": owner},
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn write_admission_refuses_changed_or_missing_opened_module() {
+        let hash="a".repeat(64);
+        let selected:WriteAdmission=serde_json::from_value(serde_json::json!({"namespace":"fresh","database":"current","accepting_writes":true,"study_module":{"sha256":hash}})).unwrap();
+        assert!(selected.require_module(Some(&hash)).is_ok());
+        assert!(matches!(selected.require_module(Some(&"b".repeat(64))),Err(CanonicalError::Quiesced)));
+        let missing:WriteAdmission=serde_json::from_value(serde_json::json!({"namespace":"fresh","database":"current","accepting_writes":true})).unwrap();
+        assert!(matches!(missing.require_module(Some(&hash)),Err(CanonicalError::Quiesced)));
     }
 
     #[test]

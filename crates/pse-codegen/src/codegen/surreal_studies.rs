@@ -81,11 +81,10 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_page_item($rpc_expiry:int,$study:str
     IF array::len($keys)>64 { RETURN object::extend($acc,{refused:true}); };
     LET $required=array::distinct(array::concat([$point],$keys));
     LET $missing=$required.filter(|$key| $key NOT IN $acc.rows.key);
-    LET $new=$missing.map(|$key| SELECT key,study,occurrence,policy,facts,revision,assigned,settled FROM ONLY type::record('canonical_study_points',$key));
+    LET $new=$missing.map(|$key| SELECT key,study,ordinal,occurrence,policy,facts,revision,assigned,settled FROM ONLY type::record('canonical_study_points',$key));
     IF array::len($new.filter(|$row| $row=NONE OR $row.study!=$study))!=0 { RETURN object::extend($acc,{refused:true}); };
     LET $rows=array::concat($acc.rows,$new);
-    LET $hint=SELECT source_revision,pending,eligible,premises,dirty,notify FROM ONLY type::record('canonical_study_readiness',$point);
-    LET $items=array::append($acc.items,{point:$point,predecessors:$keys,ordinal:$entry.ordinal,edge:$entry.edge,hint:$hint});
+    LET $items=array::append($acc.items,{point:$point,predecessors:$keys,ordinal:$entry.ordinal,edge:$entry.edge});
     LET $next={rows:$rows,items:$items,stopped:false,refused:false,next_edge:$entry.edge,next_ordinal:$entry.ordinal};
     // CBOR is used as a conservative application extent, independently of the
     // 4 MiB transport guard. 128 native rows also cap maps, keys and nesting.
@@ -129,34 +128,27 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
         items:$page.items.map(|$item| {point:$item.point,predecessors:$item.predecessors})});
 };
 
-DEFINE FUNCTION fn::pse_study_v1::readiness_repair_item($rpc_expiry:int,$study:string,$generation:decimal,$cancelled:bool,$item:object,$mutating:bool) -> object {
-    LET $s=SELECT generation,cancelled,active,terminal FROM ONLY type::record('canonical_studies',$study);
-    LET $p=SELECT * FROM ONLY type::record('canonical_study_points',$item.point);
-    IF $p=NONE OR $p.study!=$study { RETURN {point:$item.point,status:'refused',changed:false}; };
-    LET $edges=type::record('canonical_study_points',$item.point)->(SELECT predecessor FROM canonical_study_dependencies LIMIT 193);
-    LET $keys=array::distinct($edges.predecessor);
-    IF array::len($keys)>64 OR array::sort($item.expected.key)!=array::sort(array::concat([$item.point],$keys)) OR $item.pending<0dec OR $item.pending><decimal>array::len($keys) {
-        RETURN {point:$item.point,status:'refused',changed:false};
-    };
-    LET $current=$item.expected.map(|$premise| SELECT key,study,revision FROM ONLY type::record('canonical_study_points',$premise.key) FOR UPDATE);
-    LET $stale=$s=NONE OR $s.active=false OR $s.terminal OR $s.generation!=$generation OR $s.cancelled!=$cancelled OR array::len($current.filter(|$row| $row=NONE OR $row.study!=$study OR $row.revision!=($item.expected.filter(|$premise|$premise.key=$row.key))[0].revision))!=0;
-    LET $hint=SELECT * FROM ONLY type::record('canonical_study_readiness',$item.point) FOR UPDATE;
-    IF $stale {
-        IF $mutating=false { RETURN {point:$item.point,status:'stale',changed:false}; };
-        // Skipping an old premise must leave recovery reachable, including when
-        // the hint was missing rather than merely dirty.
-        LET $changed=$hint=NONE OR $hint.source_revision!=$p.revision OR $hint.dirty=false OR $hint.notify=false;
-        IF $changed { fn::pse_study_v1::readiness_invalidate($rpc_expiry,$p,false); };
-        RETURN {point:$item.point,status:'stale',changed:$changed};
-    };
-    LET $eligible=$item.eligible AND $p.assigned=false AND $p.settled=false;
-    LET $changed=$hint=NONE OR $hint.source_revision!=$p.revision OR $hint.pending!=$item.pending OR $hint.eligible!=$eligible OR $hint.premises!=$item.premises OR $hint.dirty;
+// Page acquisition and policy evaluation already share this exact native SSI
+// snapshot. Only the destination hint needs a write lock; scientific rows and
+// dependency edges are neither fetched nor decoded again per candidate.
+DEFINE FUNCTION fn::pse_study_v1::readiness_apply_hint($rpc_expiry:int,$point:object,$item:object,$mutating:bool) -> object {
+    LET $hint=SELECT * FROM ONLY type::record('canonical_study_readiness',$point.key) FOR UPDATE;
+    LET $eligible=$item.eligible AND $point.assigned=false AND $point.settled=false;
+    LET $changed=$hint=NONE OR $hint.source_revision!=$point.revision OR $hint.pending!=$item.pending OR $hint.eligible!=$eligible OR $hint.premises!=$item.premises OR $hint.dirty;
     IF $changed {
-        IF $mutating=false { RETURN {point:$item.point,status:'stale',changed:false}; };
-        IF $hint=NONE OR $hint.source_revision!=$p.revision { fn::pse_study_v1::readiness_invalidate($rpc_expiry,$p,false); };
-        UPDATE ONLY type::record('canonical_study_readiness',$item.point) SET source_revision=$p.revision,pending=$item.pending,eligible=$eligible,premises=$item.premises,dirty=false;
+        IF $mutating=false { RETURN {point:$point.key,status:'stale',changed:false}; };
+        IF $hint=NONE OR $hint.source_revision!=$point.revision {
+            UPSERT ONLY type::record('canonical_study_readiness',$point.key) CONTENT {
+                key:$point.key,point:$point.key,study:$point.study,
+                ordinal:$point.ordinal,
+                source_revision:$point.revision,pending:$item.pending,eligible:$eligible,premises:$item.premises,
+                dirty:false,notify:true,notify_revision:$point.revision,notify_after:''
+            };
+        } ELSE {
+            UPDATE ONLY type::record('canonical_study_readiness',$point.key) SET pending=$item.pending,eligible=$eligible,premises=$item.premises,dirty=false;
+        };
     };
-    RETURN {point:$item.point,status:'accepted',changed:$changed};
+    RETURN {point:$point.key,status:'accepted',changed:$changed};
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operation:string,$study:string,$run:string) -> option<object> {
@@ -179,6 +171,8 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operation:string,$coordinates:object) -> option<object> {
     LET $study=$coordinates.study;
+    LET $module=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256;
+    IF $coordinates.module_sha256!=$module {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
     IF $cursor=NONE { THROW 'PSE_REFUSAL:study_readiness_owner_unavailable'; };
@@ -194,14 +188,14 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operat
         LET $reply=fn::pse_study_v1::readiness_policy($page);
         IF $reply.accepted=false { THROW 'PSE_REFUSAL:study_readiness_policy_refused'; };
         LET $check={study:$study,generation:$s.generation,cancelled:$s.cancelled,fence:$page.fence,mutating:false};
-        LET $result=fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$check,$reply.decisions,true);
+        LET $result=fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$check,$page,$reply.decisions,true);
         IF array::len($result.outcomes.filter(|$item| $item.status!='accepted'))=0 {
             RETURN {settled:true,result:$result,keys:$page.items.point};
         };
     };
     // Persist only traversal coordinates and immutable candidate identities.
     // Facts, premises and policy decisions are reacquired inside each apply.
-    LET $request={study:$study,run:$s.run,fence:$page.fence,keys:$page.items.point};
+    LET $request={study:$study,run:$s.run,module_sha256:$module,fence:$page.fence,keys:$page.items.point};
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$s.run,encoding::cbor::encode($request));
     IF $old!=NONE { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     fn::pse_history_v1::retain($rpc_expiry,$operation,'run',$s.run,'unsettled','study-readiness-repair-page');
@@ -229,11 +223,24 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operatio
     RETURN {settled:false,epoch:$current.disposition};
 };
 
-DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$items:array<object>,$finish:bool) -> object {
-    LET $study=$request.study; LET $generation=$request.generation; LET $cancelled=$request.cancelled; LET $fence=$request.fence;
+DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$page:object,$items:array<object>,$finish:bool) -> object {
+    LET $study=$request.study; LET $fence=$request.fence;
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
-    LET $outcomes=$items.map(|$item| fn::pse_study_v1::readiness_repair_item($rpc_expiry,$study,$generation,$cancelled,$item,$request.mutating));
-    LET $safe=$finish AND array::len($outcomes.filter(|$item|$item.status='refused' OR ($request.mutating=false AND $item.status='stale')))=0;
+    LET $coverage=array::sort($items.point)=array::sort($page.items.point) AND array::len(array::distinct($items.point))=array::len($items);
+    LET $available=$page.study!=NONE AND $page.study.active AND $page.study.terminal=false;
+    LET $outcomes=$items.map(|$item| {
+        LET $members=($page.items.filter(|$member|$member.point=$item.point))[0];
+        LET $point=($page.rows.filter(|$row|$row.key=$item.point))[0];
+        LET $keys=array::concat([$item.point],$members.predecessors);
+        LET $expected=$item.expected;
+        LET $valid=$coverage AND $point!=NONE AND $point.study=$study AND array::sort($expected.key)=array::sort($keys)
+            AND array::len($expected)=array::len($keys) AND $item.pending>=0dec AND $item.pending<=<decimal>array::len($members.predecessors)
+            AND array::len($expected.filter(|$premise| array::len($page.rows.filter(|$row| $row.key=$premise.key AND $row.revision=$premise.revision AND $row.study=$study))!=1))=0;
+        IF $valid=false {{point:$item.point,status:'refused',changed:false}}
+        ELSE IF $available=false {{point:$item.point,status:'stale',changed:false}}
+        ELSE {fn::pse_study_v1::readiness_apply_hint($rpc_expiry,$point,$item,$request.mutating)}
+    });
+    LET $safe=$available AND $finish AND array::len($outcomes.filter(|$item|$item.status='refused' OR ($request.mutating=false AND $item.status='stale')))=0;
     LET $notified=IF $safe AND $fence.mode='notify' {
         fn::pse_study_v1::readiness_notify_advance($rpc_expiry,$study,$fence.source.point,$fence.source.revision,$fence.source.before,$fence.next_edge ?? $fence.source.before,$fence.exhausted)
     } ELSE {false};
@@ -257,20 +264,21 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operatio
     LET $cursor=SELECT pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
     IF $cursor.pending_operation!=$operation { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     LET $request=encoding::cbor::decode($old.request);
+    IF $request.module_sha256!=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256 {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
     LET $previous=encoding::cbor::decode($old.result);
     LET $offset=array::len($previous.outcomes);
     LET $keys=array::slice($request.keys,$offset,$offset+$maximum);
     LET $entries=$keys.map(|$key,$index| {point:$key,ordinal:NONE,edge:NONE,position:$index});
     LET $page=$entries.fold({rows:[],items:[],stopped:false,refused:false,next_edge:NONE,next_ordinal:NONE},|$acc,$entry| fn::pse_study_v1::readiness_page_item($rpc_expiry,$study,$acc,$entry,65));
-    LET $s=SELECT key,generation,cancelled FROM ONLY type::record('canonical_studies',$study);
+    LET $s=SELECT key,generation,cancelled,active,terminal FROM ONLY type::record('canonical_studies',$study);
     LET $reply=IF $page.refused OR $page.stopped {{accepted:false,decisions:[]}} ELSE {fn::pse_study_v1::readiness_policy(object::extend($page,{study:$s}))};
     LET $finish=$reply.accepted=false OR $offset+array::len($keys)=array::len($request.keys);
     // A prior logical refusal also prevents cursor certification at the end.
     LET $safe=array::len($previous.outcomes.filter(|$item|$item.status='refused'))=0;
     LET $inputs=object::extend($request,{generation:$s.generation,cancelled:$s.cancelled,mutating:true});
     LET $next=IF $reply.accepted {
-        fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$inputs,$reply.decisions,$finish AND $safe)
-    } ELSE {{outcomes:array::slice($request.keys,$offset).map(|$key| {point:$key,status:'refused',changed:false}),advanced:false,notified:false,refusal:true}};
+        fn::pse_study_v1::readiness_apply_decisions($rpc_expiry,$inputs,object::extend($page,{study:$s}),$reply.decisions,$finish AND $safe)
+    } ELSE {{outcomes:array::slice($request.keys,$offset,array::len($request.keys)).map(|$key| {point:$key,status:'refused',changed:false}),advanced:false,notified:false,refusal:true}};
     IF $finish {
         UPDATE ONLY type::record('canonical_study_readiness_cursors',$study) SET pending_operation=NONE,revision=math::max([(SELECT revision FROM ONLY type::record('canonical_study_readiness_cursors',$study)).revision,$request.fence.cursor+1dec]);
         fn::pse_history_v1::drop_obligation($rpc_expiry,$operation,'run',$run,'unsettled','study-readiness-repair-page');

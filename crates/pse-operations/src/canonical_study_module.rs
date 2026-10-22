@@ -30,6 +30,27 @@ struct ModuleLimits {
     max_kv_value_bytes:u64,
     strict_timeout:bool,
 }
+struct ModuleDeclaration {abi:u32,sdk:String,limits:ModuleLimits}
+impl ModuleDeclaration {
+    fn read()->Result<Self,CanonicalError> {
+        let manifest:toml::Value=toml::from_str(include_str!("../../pse-study-module/surrealism.toml")).map_err(invalid)?;
+        let abi=manifest.get("abi").and_then(toml::Value::as_integer).and_then(|value|u32::try_from(value).ok()).ok_or_else(||invalid("declared ABI absent"))?;
+        let mut capabilities=manifest.get("capabilities").and_then(toml::Value::as_table).cloned().ok_or_else(||invalid("declared capabilities absent"))?;
+        for name in ["allow_scripting","allow_arbitrary_queries"] {
+            if capabilities.remove(name)!=Some(toml::Value::Boolean(false)) {return Err(invalid("pure module cannot enable host side effects"));}
+        }
+        for name in ["allow_functions","allow_net"] {
+            if capabilities.remove(name)!=Some(toml::Value::Array(Vec::new())) {return Err(invalid("pure module cannot enable host attachments"));}
+        }
+        let time=capabilities.remove("max_execution_time").ok_or_else(||invalid("declared execution limit absent"))?;
+        capabilities.insert("max_execution_time_ms".into(),time);
+        let limits:ModuleLimits=toml::Value::Table(capabilities).try_into().map_err(invalid)?;
+        let workspace:toml::Value=toml::from_str(include_str!("../../../Cargo.toml")).map_err(invalid)?;
+        let sdk=workspace.get("workspace").and_then(|value|value.get("dependencies")).and_then(|value|value.get("surrealism"))
+            .and_then(toml::Value::as_str).and_then(|value|value.strip_prefix('=')).filter(|value|!value.is_empty()).ok_or_else(||invalid("exact workspace SDK pin absent"))?.to_owned();
+        Ok(Self{abi,sdk,limits})
+    }
+}
 fn invalid(message:impl std::fmt::Display)->CanonicalError {
     CanonicalError::Configuration(format!("study module: {message}"))
 }
@@ -43,14 +64,14 @@ impl StudyModuleReceipt {
         Ok(receipt.study_module)
     }
     fn validate(&self,state:&Path)->Result<(),CanonicalError> {
-        if self.kind!="pse-study-module-v1" || self.sdk_version!="0.6.4" || self.abi!=2
+        let declared=ModuleDeclaration::read()?;
+        if self.kind!="pse-study-module-v1" || self.sdk_version!=declared.sdk || self.abi!=declared.abi
             || self.inputs.is_empty() || self.sha256.len()!=64
             || !self.sha256.bytes().all(|byte|byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
             || self.bytes==0 || self.bytes>64*1024*1024 {
             return Err(invalid("pinned artifact identity, ABI or source provenance differs"));
         }
-        if self.limits!=(ModuleLimits {max_memory_bytes:67_108_864,max_pool_size:4,
-            max_execution_time_ms:1000,max_kv_entries:0,max_kv_value_bytes:0,strict_timeout:true}) {
+        if self.limits!=declared.limits {
             return Err(invalid("finite pure-module limits differ"));
         }
         if !self.artifact.is_absolute() || self.artifact.file_name().and_then(|name|name.to_str())!=Some("study.surli")
@@ -116,8 +137,8 @@ impl CanonicalStore {
             crate::canonical::within_clock(crate::canonical::original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),async {
                 let before=self.maintenance_config()?;
                 let receipt=StudyModuleReceipt::read(&self.state_path)?;
-                let response=bounded_query(self.db.query(format!("BEGIN; fn::pse_execution_v1::deadline($pse_rpc_expires_at); {} fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;",receipt.declarations(true)))
-                    .bind(("study_module_backend",receipt.backend()?))).await?;
+                let response=bounded_query(self.db.query(format!("BEGIN; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $marker=SELECT study_module_sha256 FROM ONLY canonical_interpretations:current FOR UPDATE; IF $marker!=NONE AND $marker.study_module_sha256!=$study_module_sha256 {{THROW 'PSE_REFUSAL:activation_predecessor_changed';}}; {} fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;",receipt.declarations(true)))
+                    .bind(("study_module_backend",receipt.backend()?)).bind(("study_module_sha256",receipt.sha256.clone()))).await?;
                 crate::canonical::complete_response(response)?;
                 if self.maintenance_config()?!=before {return Err(CanonicalError::Quiesced);}
                 self.validate_study_module(&receipt).await
@@ -150,9 +171,10 @@ mod tests {
             std::fs::write(&artifact,payload).unwrap();
             std::fs::set_permissions(&artifact,std::fs::Permissions::from_mode(0o400)).unwrap();
             let sha256=Sha256::digest(payload).iter().map(|byte|format!("{byte:02x}")).collect();
-            let receipt=StudyModuleReceipt {kind:"pse-study-module-v1".into(),artifact,sha256,bytes:payload.len() as u64,sdk_version:"0.6.4".into(),abi:2,
+            let declared=ModuleDeclaration::read().unwrap();
+            let receipt=StudyModuleReceipt {kind:"pse-study-module-v1".into(),artifact,sha256,bytes:payload.len() as u64,sdk_version:declared.sdk,abi:declared.abi,
                 inputs:serde_json::Map::from_iter([("source".into(),serde_json::Value::String("fixture".into()))]),
-                limits:ModuleLimits{max_memory_bytes:67_108_864,max_pool_size:4,max_execution_time_ms:1000,max_kv_entries:0,max_kv_value_bytes:0,strict_timeout:true}};
+                limits:declared.limits};
             Self{state,receipt}
         }
     }

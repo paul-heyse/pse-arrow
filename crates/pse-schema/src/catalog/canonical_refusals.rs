@@ -412,6 +412,7 @@ refusals! {
     StudyReadinessPageExtent: "study_readiness_page_extent" => (Admission, "study readiness page extent"),
     StudyReadinessNotificationChanged: "study_readiness_notification_changed" => (FreshPremise, "study readiness notification changed"),
     SurrealismControllerCapacityExceeded: "surrealism_controller_capacity_exceeded" => (Admission, "native Surrealism controller capacity exhausted"),
+    StudyReadinessModuleIdentityChanged: "study_readiness_module_identity_changed" => (Invariant, "study readiness requires the originally selected module artifact"),
     StudyReadinessPolicyRefused: "study_readiness_policy_refused" => (Admission, "study readiness pure policy input refused"),
     StudyReadinessRepairPageExtent: "study_readiness_repair_page_extent" => (Admission, "study readiness repair page extent"),
     StudyReadinessReceiptOwnerDiffers: "study_readiness_receipt_owner_differs" => (Identity, "study readiness receipt owner differs"),

@@ -325,7 +325,7 @@ fn readiness_object(value:Value)->Result<Object,CanonicalError> {
 fn readiness_array(value:Value)->Result<Vec<Value>,CanonicalError> {
     match value {Value::Array(rows)=>Ok(rows.into_iter().collect()),_=>Err(CanonicalError::IncompleteResponse)}
 }
-fn readiness_coordinates(study:&str,cursor:&ReadinessCursor,mode:&str,source:Option<&ReadinessHint>)->Result<Object,CanonicalError> {
+fn readiness_coordinates(store:&CanonicalStore,study:&str,cursor:&ReadinessCursor,mode:&str,source:Option<&ReadinessHint>)->Result<Object,CanonicalError> {
     let after=match mode {"rebuild"=>cursor.rebuild_after,"verify"=>cursor.verify_after,_=>None};
     let source=source.map(|source| {
         let mut row=Object::new();
@@ -333,7 +333,7 @@ fn readiness_coordinates(study:&str,cursor:&ReadinessCursor,mode:&str,source:Opt
         row.insert("before",source.notify_after.clone());row.insert("ordinal",codec::encode_uint(source.ordinal)?);
         Ok::<_,CanonicalError>(Value::Object(row))
     }).transpose()?.unwrap_or(Value::None);
-    let mut coordinates=Object::new();coordinates.insert("study",study.to_owned());coordinates.insert("cursor",codec::encode_uint(cursor.revision)?);
+    let mut coordinates=Object::new();coordinates.insert("module_sha256",store.study_module_hash()?.to_owned());coordinates.insert("study",study.to_owned());coordinates.insert("cursor",codec::encode_uint(cursor.revision)?);
     coordinates.insert("mode",mode.to_owned());coordinates.insert("after",after.map(codec::encode_uint).transpose()?.unwrap_or(Value::None));coordinates.insert("source",source);
     Ok(coordinates)
 }
@@ -1212,7 +1212,7 @@ impl CanonicalStore {
     async fn readiness_apply_bounded(
         &self, study: &str, cursor: &ReadinessCursor, mode: &str, source: Option<&ReadinessHint>,
     ) -> Result<u64, CanonicalError> {
-        let coordinates=readiness_coordinates(study,cursor,mode,source)?;
+        let coordinates=readiness_coordinates(self,study,cursor,mode,source)?;
         let operation=format!("study-readiness:{}",uuid::Uuid::new_v4());
         let response=protected_query("canonical_studies::readiness_prepare_page",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
             "RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$coordinates);")
@@ -2618,6 +2618,7 @@ mod canonical_studies_server_unit {
             .unwrap();
         readiness_failure(&store, &claim, true, EffectState::Absent).await;
         drain_readiness(&store, "readiness-policy").await;
+        assert_native_readiness_policy(&store,"readiness-policy").await;
         let retry = store.study_scope(&first.point.key).await.unwrap();
         assert!(matches!(
             retry.action(None).unwrap().kind,
@@ -2645,6 +2646,7 @@ mod canonical_studies_server_unit {
             .unwrap();
         readiness_failure(&store, &claim, false, EffectState::Absent).await;
         drain_readiness(&store, "readiness-policy").await;
+        assert_native_readiness_policy(&store,"readiness-policy").await;
         let refused = store
             .readiness_hint(&point_key("readiness-policy", OccurrenceKey(2)))
             .await
@@ -2822,6 +2824,7 @@ mod canonical_studies_server_unit {
         // permits blind re-execution of this actual sealed failed attempt.
         readiness_failure(&store, &claim, false, EffectState::Unknown).await;
         drain_readiness(&store, "readiness-seed").await;
+        assert_native_readiness_policy(&store,"readiness-seed").await;
         let unknown = store.study_scope(&scope.point.key).await.unwrap();
         assert!(matches!(
             unknown.action(None).unwrap().kind,
@@ -2865,6 +2868,9 @@ mod canonical_studies_server_unit {
             [0, 2]
         );
         assert_eq!(store.database(), database);
+        store.cancel_study("readiness-seed").await.unwrap();
+        assert_native_readiness_policy(&store,"readiness-seed").await;
+        assert!(matches!(store.study_scope(&scope.point.key).await.unwrap().action(None).unwrap().kind,ActionKind::Reconcile));
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -2995,9 +3001,77 @@ mod canonical_studies_server_unit {
     }
 
     async fn native_scope_test(store:&CanonicalStore,study:&str,cursor:&ReadinessCursor)->Object {
-        let coordinates=readiness_coordinates(study,cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(store,study,cursor,"verify",None).unwrap();
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,$coordinates.study,$coordinates.cursor,$coordinates.mode,$coordinates.after,$coordinates.source,64);").bind(("coordinates",coordinates))).await.unwrap();
         response.take::<Option<Object>>(0).unwrap().unwrap()
+    }
+    async fn assert_native_readiness_policy(store:&CanonicalStore,study:&str) {
+        use pse_model::study::WaitReason;
+        let cursor=store.readiness_cursor(study).await.unwrap();
+        let page=native_scope_test(store,study,&cursor).await;
+        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_policy($page);").bind(("page",page))).await.unwrap();
+        let mut reply=response.take::<Option<Object>>(0).unwrap().unwrap();
+        assert_eq!(reply.remove("accepted"),Some(Value::Bool(true)));
+        let decisions=readiness_array(reply.remove("decisions").unwrap()).unwrap();
+        assert!(!decisions.is_empty());
+        for decision in decisions {
+            let mut decision=readiness_object(decision).unwrap();
+            let point=codec::decode_string(codec::required(&mut decision,"point").unwrap()).unwrap();
+            let scope=store.study_scope(&point).await.unwrap();
+            let action=scope.action(scope.point.facts().unwrap().seed).unwrap();
+            let eligible=!scope.point.assigned && !scope.point.settled && !matches!(action.kind,
+                ActionKind::Wait(WaitReason::Dependency {..}|WaitReason::Assigned|WaitReason::Terminal));
+            assert_eq!(codec::decode_boolean(codec::required(&mut decision,"eligible").unwrap()).unwrap(),eligible,"{point}");
+            let pending=scope.predecessors.iter().filter(|point|!point.settled).count() as u64;
+            assert_eq!(codec::decode_uint(codec::required(&mut decision,"pending").unwrap()).unwrap(),pending);
+            let expected=std::iter::once(&scope.point).chain(scope.predecessors.iter()).map(|point|(point.key.clone(),point.revision)).collect::<Vec<_>>();
+            let premises=codec::decode_bytes(codec::required(&mut decision,"premises").unwrap()).unwrap();
+            assert_eq!(decode::<(u64,Vec<(String,u64)>)>(premises.as_slice()).unwrap(),(scope.generation,expected));
+        }
+    }
+    #[tokio::test]
+    async fn canonical_studies_surrealism_native_policy_preserves_full_unsigned_revisions() {
+        let (store,_,revision)=fixture().await;
+        let points=[occurrence(&revision,0,vec![]),occurrence(&revision,1,vec![Dependency::Ordering(OccurrenceKey(0))])];
+        store.create_study("module-u64",&request(&revision,"module-u64-parent"),&[],&points,&||false).await.unwrap();
+        bounded_query(store.db.query("UPDATE canonical_study_points SET revision=$revision WHERE study='module-u64'; UPDATE ONLY type::record('canonical_studies','module-u64') SET generation=$revision;")
+            .bind(("revision",codec::encode_uint(u64::MAX).unwrap()))).await.unwrap();
+        assert_native_readiness_policy(&store,"module-u64").await;
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_studies_surrealism_pending_page_refuses_artifact_replacement() {
+        let (store,_,revision)=fixture().await;
+        store.create_study("module-fence",&request(&revision,"module-fence-parent"),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
+        let cursor=store.readiness_cursor("module-fence").await.unwrap();
+        let coordinates=readiness_coordinates(&store,"module-fence",&cursor,"verify",None).unwrap();
+        let pending=prepare_readiness_test(&store,&coordinates,"module-fence-operation").await;
+        // Direct isolated-fixture corruption tests a fail-closed fence. Supported
+        // installation/activation reject this change and require a fresh namespace.
+        bounded_query(store.db.query("UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;").bind(("hash","0".repeat(64)))).await.unwrap();
+        let error=store.resume_readiness_page(pending,true).await.unwrap_err();
+        assert!(matches!(error,CanonicalError::Refused{code:pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessModuleIdentityChanged,..}));
+        assert!(store.pending_readiness_page("module-fence").await.unwrap().is_some());
+        bounded_query(store.db.query("UPDATE ONLY canonical_interpretations:current SET study_module_sha256=$hash;").bind(("hash",store.study_module_hash().unwrap().to_owned()))).await.unwrap();
+        store.repair_study_readiness("module-fence").await.unwrap();
+        assert!(store.pending_readiness_page("module-fence").await.unwrap().is_none());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_studies_surrealism_malformed_abi_and_policy_refusal_roll_back() {
+        let (store,_,revision)=fixture().await;
+        store.create_study("module-rollback",&request(&revision,"module-rollback-parent"),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
+        let before=store.canonical_study_summary("module-rollback").await.unwrap().unwrap();
+        for body in [
+            "LET $reply=mod::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
+            "RETURN mod::pse::study::readiness('malformed ABI input');",
+        ] {
+            let error=bounded_query(store.db.query(format!("BEGIN; UPDATE ONLY type::record('canonical_studies','module-rollback') SET generation+=1dec; {body} COMMIT;"))).await;
+            assert!(error.is_err(),"module refusal/ABI error must abort the containing transaction");
+            assert_eq!(store.canonical_study_summary("module-rollback").await.unwrap().unwrap().generation,before.generation);
+            assert!(store.pending_readiness_page("module-rollback").await.unwrap().is_none());
+        }
+        store.remove_isolated_fixture().await.unwrap();
     }
     async fn prepare_readiness_test(store:&CanonicalStore,coordinates:&Object,operation:&str)->PendingReadinessPage {
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_prepare_page($pse_rpc_expires_at,$operation,$coordinates);")
@@ -3024,12 +3098,18 @@ mod canonical_studies_server_unit {
         let Value::Array(items)=page.get("items").unwrap() else {unreachable!()};
         assert_eq!(rows.len(),4,"shared predecessor occupies exactly one native row");
         assert_eq!(items.len(),4);
-        let coordinates=readiness_coordinates("shared-page",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"shared-page",&cursor,"verify",None).unwrap();
         let pending=prepare_readiness_test(&store,&coordinates,"original-page").await;
+        let independent=store.study_scope(&point_key("shared-page",OccurrenceKey(3))).await.unwrap();
+        store.claim_study_point(&independent,None,"fresh-native-claim","worker",Duration::from_secs(60)).await.unwrap();
         let mut applied=apply_readiness_test(&store,&pending,65).await;
         assert_eq!(applied.get("settled"),Some(&Value::Bool(true)));
         let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
         validate_repair_outcomes(&original,&pending.keys).unwrap();
+        let current=store.canonical_study_point(&independent.point.key).await.unwrap().unwrap();
+        let fresh=store.readiness_hint(&independent.point.key).await.unwrap().unwrap();
+        assert_eq!(fresh.source_revision,current.revision);
+        assert!(!fresh.eligible && !fresh.dirty,"the guest uses facts acquired after the reservation");
         let scope=store.study_scope(&point_key("shared-page",OccurrenceKey(0))).await.unwrap();
         let _claim=store.claim_study_point(&scope,None,"shared-claim","worker",Duration::from_secs(60)).await.unwrap();
         assert!(store.readiness_hint(&scope.point.key).await.unwrap().unwrap().dirty);
@@ -3058,7 +3138,7 @@ mod canonical_studies_server_unit {
         let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
         store.create_study("pending-page",&request(&revision,"pending-parent"),&[],&points,&||false).await.unwrap();
         let cursor=store.readiness_cursor("pending-page").await.unwrap();
-        let coordinates=readiness_coordinates("pending-page",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"pending-page",&cursor,"verify",None).unwrap();
 
         // The prepare acknowledgment may disappear: the exact original request,
         // parent attribution and Unsettled owner remain reachable by study alone.
@@ -3095,7 +3175,7 @@ mod canonical_studies_server_unit {
         let points=(0..4).map(|key|occurrence(&revision,key,vec![])).collect::<Vec<_>>();
         store.create_study("epoch-race",&request(&revision,"race-parent"),&[],&points,&||false).await.unwrap();
         let cursor=store.readiness_cursor("epoch-race").await.unwrap();
-        let coordinates=readiness_coordinates("epoch-race",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"epoch-race",&cursor,"verify",None).unwrap();
 
         let pending=prepare_readiness_test(&store,&coordinates,"race-original").await;
         let state=std::env::var("PSE_SURREAL_STATE").unwrap();
@@ -3132,12 +3212,12 @@ mod canonical_studies_server_unit {
     }
 
     #[tokio::test]
-    async fn canonical_studies_readiness_no_effect_consumes_reservation_without_full_receipt() {
+    async fn canonical_studies_readiness_known_refusal_consumes_reservation_without_full_receipt() {
         let (store,_,revision)=fixture().await;
         let points=[occurrence(&revision,0,vec![])];
         store.create_study("no-effect-page",&request(&revision,"no-effect-parent"),&[],&points,&||false).await.unwrap();
         let cursor=store.readiness_cursor("no-effect-page").await.unwrap();
-        let coordinates=readiness_coordinates("no-effect-page",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"no-effect-page",&cursor,"verify",None).unwrap();
         let pending=prepare_readiness_test(&store,&coordinates,"no-effect-original").await;
         // An independently committed fact update can make a reserved page
         // inadmissible. The pure guest refuses, rather than leaking its owner.
@@ -3166,14 +3246,14 @@ mod canonical_studies_server_unit {
         let points=[occurrence(&revision,0,vec![])];
         store.create_study("receipt-lifetime",&request(&revision,"receipt-parent"),&[],&points,&||false).await.unwrap();
         let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
-        let coordinates=readiness_coordinates("receipt-lifetime",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"receipt-lifetime",&cursor,"verify",None).unwrap();
 
         let pending=prepare_readiness_test(&store,&coordinates,"retained-repair").await;
         let mut applied=apply_readiness_test(&store,&pending,65).await;
         let original=readiness_object(codec::required(&mut applied,"result").unwrap()).unwrap();
         validate_repair_outcomes(&original,&pending.keys).unwrap();
         let cursor=store.readiness_cursor("receipt-lifetime").await.unwrap();
-        let late_coordinates=readiness_coordinates("receipt-lifetime",&cursor,"rebuild",None).unwrap();
+        let late_coordinates=readiness_coordinates(&store,"receipt-lifetime",&cursor,"rebuild",None).unwrap();
         let _late=prepare_readiness_test(&store,&late_coordinates,"late-repair").await;
         store.cancel_study("receipt-lifetime").await.unwrap();
         let scope=store.study_scope(&point_key("receipt-lifetime",OccurrenceKey(0))).await.unwrap();
@@ -3232,14 +3312,14 @@ mod canonical_studies_server_unit {
         let fence=readiness_object(second.get("fence").unwrap().clone()).unwrap();
         assert_eq!(fence.get("exhausted"),Some(&Value::Bool(false)));
         cursor.verify_after=Some(8);
-        let coordinates=readiness_coordinates("byte-page",&cursor,"verify",None).unwrap();
+        let coordinates=readiness_coordinates(&store,"byte-page",&cursor,"verify",None).unwrap();
         let error=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,$coordinates.study,$coordinates.cursor,$coordinates.mode,$coordinates.after,$coordinates.source,64);").bind(("coordinates",coordinates))).await.err().unwrap();
         assert!(error.to_string().contains("study_readiness_single_scope_extent"),"{error}");
         store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
-    async fn canonical_studies_readiness_rebuild_and_cas_preserve_new_notifications() {
+    async fn canonical_studies_readiness_rebuild_and_notification_fences_preserve_new_work() {
         let (store, database, revision) = fixture().await;
         let points = [
             occurrence(&revision, 0, vec![]),
@@ -3263,16 +3343,6 @@ mod canonical_studies_server_unit {
             .claim_study_point(&stale, None, "cas-claim", "worker", Duration::from_secs(60))
             .await
             .unwrap();
-        let mut decision=Object::new();
-        decision.insert("point",stale.point.key.clone());
-        decision.insert("expected",scope_expected(&stale).unwrap());
-        decision.insert("pending",codec::encode_uint(0).unwrap());
-        decision.insert("eligible",true);
-        decision.insert("premises",Bytes::from(vec![1]));
-        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_repair_item($pse_rpc_expires_at,$study,$generation,$cancelled,$item,true);")
-            .bind(("study",stale.study.clone())).bind(("generation",codec::encode_uint(stale.generation).unwrap()))
-            .bind(("cancelled",stale.cancelled)).bind(("item",decision))).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("status"),Some(&Value::String("stale".into())));
         let old_notify = store
             .readiness_hint(&stale.point.key)
             .await
@@ -3327,18 +3397,6 @@ mod canonical_studies_server_unit {
             store.study_candidates("readiness-cas", None).await.unwrap()[0].ordinal,
             1
         );
-        let current = store.study_scope(&child.point).await.unwrap();
-        let mut decision=Object::new();
-        decision.insert("point",child.point);
-        decision.insert("expected",Vec::<Object>::new());
-        decision.insert("pending",codec::encode_uint(0).unwrap());
-        decision.insert("eligible",true);
-        decision.insert("premises",Bytes::from(vec![1]));
-        let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_repair_item($pse_rpc_expires_at,$study,$generation,$cancelled,$item,true);")
-            .bind(("study",current.study)).bind(("generation",codec::encode_uint(current.generation).unwrap()))
-            .bind(("cancelled",current.cancelled)).bind(("item",decision))).await.unwrap();
-        assert_eq!(response.take::<Option<Object>>(0).unwrap().unwrap().get("status"),Some(&Value::String("refused".into())),
-            "a repair cannot omit authoritative predecessor premises");
         assert_eq!(store.database(), database);
         store.remove_isolated_fixture().await.unwrap();
     }
