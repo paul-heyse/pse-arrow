@@ -70,6 +70,8 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # PEP 735. Tools are pinned exactly like the libraries. The oracles below are holds, each
 # with its reason.
 [dependency-groups]
+# Optional active allocation diagnostics; installed explicitly into a separate environment.
+diagnostics = ["memray==1.20.0; sys_platform == 'linux'"]
 docs = [
   "ruamel.yaml==0.19.1",
   "markdown-it-py==4.2.0",

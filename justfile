@@ -1433,3 +1433,9 @@ trace-query *args:
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-sync-taskdump mode="dev":
     "{{ py }}" -m scripts.python_extension diagnostic-sync "$1"
+
+[group('manual')]
+[doc('Install pinned optional Python allocation tools into .venv-diagnostics without building/replacing the project')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+diagnostic-python-tools:
+    UV_PROJECT_ENVIRONMENT=.venv-diagnostics uv sync --locked --group diagnostics --no-install-project
