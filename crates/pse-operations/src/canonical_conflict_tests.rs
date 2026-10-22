@@ -390,8 +390,14 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
         // Rebuild every collector premise through the production path after a
         // definite SSI abort; a committed collector receives the same recheck.
         let page = store.reclaim_source_page(&old.problem).await.unwrap();
-        assert!(page.examined > 0);
+        assert!(page.examined <= PAGE);
         assert_eq!((page.memberships, page.versions), (0, 0));
+        // A committed held collector leaves the cursor after the sole interval.
+        // Its empty tail resets the pass before a later call revisits that hold.
+        let next_pass = store.reclaim_source_page(&old.problem).await.unwrap();
+        assert!(next_pass.examined <= PAGE);
+        assert!(page.examined + next_pass.examined > 0);
+        assert_eq!((next_pass.memberships, next_pass.versions), (0, 0));
         let pin = store.protect(old, Duration::from_secs(60)).await.unwrap();
         let members = store.membership_page(&pin, None, "").await.unwrap();
         assert_eq!(members.len(), 1);
@@ -631,20 +637,42 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
 async fn exact_protection_absent_settlement_both_orders_and_replay() {
     for creator_first in [false, true] {
         let (store, options, revision) = fixture().await;
-        let (key, deadline) = grant(&store, &revision, 500_000).await;
         assert_eq!(floor(&store, &revision.problem).await, 0);
         let creator = held(&options).await;
-        creator
-            .query(body(ACQUIRE_PROTECTION))
+        // Issue and acquire the short-lived grant on the already-open session:
+        // client setup and response latency are not its acquisition subject.
+        let acquisition = format!(
+            "LET $fixture_deadline=time::micros()+500000; \
+             LET $key='pse.protection.v2:'+type::record('canonical_guards','retention:'+$problem).incarnation+':'+$nonce+':'+<string>$fixture_deadline; \
+             {}",
+            body(ACQUIRE_PROTECTION).replace(
+                "RETURN $rpc_result;",
+                "RETURN {key:$key,deadline:$fixture_deadline};",
+            )
+        );
+        let mut response = creator
+            .query(acquisition)
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", revision.problem.clone()))
             .bind(("revision", revision.key.clone()))
-            .bind(("key", key.clone()))
+            .bind(("nonce", uuid::Uuid::new_v4().to_string()))
             .bind(("lifetime", 100_000i64))
             .await
             .unwrap()
             .check()
             .unwrap();
+        let mut issued = response
+            .take::<Option<Object>>(response.num_statements() - 1)
+            .unwrap()
+            .unwrap();
+        let key = canonical_codec::decode_string(
+            canonical_codec::required(&mut issued, "key").unwrap(),
+        )
+        .unwrap();
+        let deadline = canonical_codec::decode_int(
+            canonical_codec::required(&mut issued, "deadline").unwrap(),
+        )
+        .unwrap();
         while expiry() - 30_000_000 < deadline {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }

@@ -48,6 +48,10 @@ store-failure-output = true
 # - The fixture-connection control observes the deployment database's existence.
 # - Lease, deadline and polling controls assert sub-second windows (50/250 ms client
 #   deadlines, 250-300 ms claims and fences, 1 s leases, 32 x 10 ms polls).
+# - The exact settlement control owns a 500 ms acquisition window; the interval
+#   page control completes 64 RPCs on one original request clock.
+# - The blocked product control transfers 34 MiB plus 4 MiB of dependencies
+#   through multiple guarded publication/read phases on its original live pins.
 filter = """
 (package(pse-operations) & (
     test(=testing::canonical_server_unit::fixture_connections_preserve_deployment_database)
@@ -55,6 +59,9 @@ filter = """
     | test(=canonical_retention::canonical_server_unit::concurrent_protected_reads_and_lease_changes_retry_complete_transactions)
     | test(/^canonical::canonical_server_unit::(initialization_cancellation_cannot_establish_success|query_cancellation_cannot_establish_empty_success|initialization_uses_atomic_transition_client_for_complete_schema)$/)
     | test(=canonical_execution::canonical_execution_server_unit::canonical_execution_expiry_cancellation_and_truthful_recovery)
+    | test(=canonical_retention::canonical_server_unit_exact_conflicts::exact_protection_absent_settlement_both_orders_and_replay)
+    | test(=canonical_retention::canonical_server_unit::interval_reclamation_pages_are_bounded_and_keep_empty_current_head)
+    | test(=canonical_selection::canonical_server_unit::blocked_product_roundtrip_shared_roots_and_bounded_frontier_cleanup)
     | test(=canonical_retention::canonical_server_unit::expired_selection_cannot_read_or_resurrect_reclaimed_history)
     | test(=canonical_staging::canonical_server_unit::abandoned_blocks_reclaim_in_bounded_pages_and_permanent_identity_survives)
     | test(/^canonical_result_retention::canonical_result_retention_server_unit::(retired_results_respect_readers_resume_cleanup_and_preserve_receipts|result_read_and_retirement_conflict_on_exact_selection)$/)))
@@ -92,7 +99,15 @@ slow-timeout = { period = "300s", terminate-after = 2 }
 # Database-only canonical consumers: an isolated fixture database each, shared server.
 # New `workflow::`/`math::` modules default here; the excluded modules have no server use.
 filter = """
-(package(pse-operations) & test(/_server_unit::/))
+(package(pse-operations) & (
+    test(/_server_unit(_exact_conflicts)?::/)
+    | test(/^canonical_artifacts::canonical_artifact_tests::/)
+    | test(/^canonical_capability_tests::/)
+    | test(/^canonical_files::catalog_controls::/)
+    | test(/^canonical_history::canonical_history_tests::/)
+    | test(/^canonical_analyses::race_tests::/)
+    | test(=canonical_maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects)
+    | test(=canonical_maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events)))
 | (package(pse-runtime) & test(/^(workflow|math)::/) & !(
     test(/^math::(flows|initialization|modeling|prediction|retention|settings|staged|tests)::/)
     | test(/^workflow::(controls|diagnostic_documents|diagnostic_rows|diagnostics|dynamics|numerics|progress_documents|result_blocks|result_projection|time)::/)
