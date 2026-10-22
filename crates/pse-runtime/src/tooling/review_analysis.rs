@@ -16,6 +16,7 @@ use std::{
     time::Duration,
 };
 mod physical;
+mod comparison;
 mod preparation;
 mod questions;
 pub(crate) mod render;
@@ -882,6 +883,7 @@ pub fn analyze(
     questions::inventories(&mut b, set, &ids)?;
     questions::context(&mut b, set, &ids)?;
     questions::engine(&mut b, set, &ids)?;
+    comparison::analyze(&mut b, set, &events)?;
     physical::analyze(&mut b, set, &ids, &events)?;
     b.checkpoint()?;
     for question in &mut b.document.questions {

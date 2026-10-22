@@ -2712,7 +2712,9 @@ impl Runtime {
         document: &crate::workflow::replay::ReplaySourceDocument,
         mut physical: super::PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
+        checkpoint(cancel)?;
         // Refuse cheap identity mismatches before copying actual supplied premises.
         if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
             || document.build != pse_backend_native::execution::LINKED.build_identity()
@@ -2781,8 +2783,8 @@ impl Runtime {
             .math()
             .reserve("replay:source-reconstruction", bytes)?;
         let validation = self.admission_context();
-        let cancel = crate::CancelSource::new();
         for (key, batch) in &mut physical.sources {
+            checkpoint(cancel)?;
             let spec = self
                 .registry()
                 .relation_by_key(*key)
@@ -2813,6 +2815,7 @@ impl Runtime {
         let mut objects = BTreeMap::new();
         let mut names = BTreeSet::new();
         for object in &document.objects {
+            checkpoint(cancel)?;
             if objects.insert(object.logical.as_str(), object).is_some()
                 || !names.insert((object.scope.clone(), object.name.clone()))
             {
@@ -2879,6 +2882,7 @@ impl Runtime {
         };
         let mut typed = TypedSourceInputs::default();
         for (object, edited) in document.objects.iter().zip(&edits) {
+            checkpoint(cancel)?;
             if object.kind.starts_with("modeling:") && object.kind != CONTEXT {
                 let source: SourcePayload = decode(&object.payload)?;
                 if object.logical != logical(source.0.declaration_id)
@@ -2900,6 +2904,7 @@ impl Runtime {
         }
         let rows: Vec<_> = index.rows.values().cloned().collect();
         for row in &rows {
+            checkpoint(cancel)?;
             let references: BTreeSet<_> = index
                 .references(row)?
                 .into_iter()
@@ -2938,6 +2943,7 @@ impl Runtime {
         let mut physical_scope: PhysicalScope = decode(&physical_object.payload)?;
         if let Some(documents) = &mut physical_scope.documents {
             for object in &document.objects {
+            checkpoint(cancel)?;
                 if object.kind == "physical_scope_document" {
                     let member: PhysicalScope = decode(&object.payload)?;
                     if member.package != physical_scope.package {
@@ -2975,10 +2981,12 @@ impl Runtime {
                 "replay source context differs from actual complete scientific inputs",
             ));
         }
+        checkpoint(cancel)?;
         let admitted = AdmittedModelRevision::apply_inputs(self, None, &edits, &typed, None)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
         let package = self.package_from_revision(revision, physical, providers)?;
         rebind::admit_rows(&package, self, &validation, &cancel)?;
+        checkpoint(cancel)?;
         Ok(package)
     }
 }

@@ -30,6 +30,8 @@ use regex::Regex;
 use serde::Deserialize;
 
 mod codegen;
+#[cfg(feature = "canonical-tools")]
+mod canonical_diagnostics;
 mod dependency_ceilings;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
@@ -61,6 +63,42 @@ enum Cmd {
     #[cfg(feature = "canonical-tools")]
     CanonicalInit {
         state: PathBuf,
+    },
+    /// Inspect a typed bounded canonical blocker/source/consumer neighborhood.
+    #[cfg(feature = "canonical-tools")]
+    CanonicalGraphInspect {
+        #[arg(long)]
+        state: PathBuf,
+        /// Explicit validated database in the selected service namespace.
+        #[arg(long)]
+        database: Option<String>,
+        /// JSON encoded CanonicalGraphRequest from the generated product schema.
+        #[arg(long)]
+        request: PathBuf,
+        /// Also return the native static physical plan of the same bound query.
+        #[arg(long)]
+        explain: bool,
+        /// Execute and drain native EXPLAIN ANALYZE; includes static explanation.
+        #[arg(long)]
+        experiment: bool,
+    },
+    /// Inspect the actual study-candidate query; execution experiments are explicit.
+    #[cfg(feature = "canonical-tools")]
+    CanonicalQueryInspect {
+        #[arg(long)]
+        state: PathBuf,
+        /// Explicit validated database in the selected service namespace.
+        #[arg(long)]
+        database: Option<String>,
+        #[arg(long)]
+        study: String,
+        #[arg(long)]
+        after: Option<u64>,
+        #[arg(long, conflicts_with = "describe_only")]
+        experiment: bool,
+        /// Emit owned SQL/source/bindings without connecting or running a plan.
+        #[arg(long)]
+        describe_only: bool,
     },
     /// Compare actual installed generated definitions under a live maintenance owner.
     #[cfg(feature = "canonical-tools")]
@@ -254,6 +292,14 @@ fn main() -> Result<()> {
             )?;
             println!("canonical database initialized and interpretation verified");
             Ok(())
+        }
+        #[cfg(feature = "canonical-tools")]
+        Cmd::CanonicalGraphInspect { state, database, request, explain, experiment } => {
+            canonical_diagnostics::graph(&state, database.as_deref(), &request, explain, experiment)
+        }
+        #[cfg(feature = "canonical-tools")]
+        Cmd::CanonicalQueryInspect { state, database, study, after, experiment, describe_only } => {
+            canonical_diagnostics::inspect(&state, database.as_deref(), &study, after, experiment, describe_only)
         }
         #[cfg(feature = "canonical-tools")]
         Cmd::CanonicalValidateDefinitions { state, schema } => {

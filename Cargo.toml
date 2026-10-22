@@ -375,6 +375,7 @@ async-trait = "=0.1.92"
 anyhow = "=1.0.104"
 
 [workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tokio_unstable)"] }
 # Allowed per crate, with a reason, only in [workspace.metadata.pse].unsafe-allowlist.
 unsafe_code = "deny"
 missing_docs = "warn"
@@ -472,6 +473,11 @@ opt-level = 2
 [profile.profiling]
 inherits = "release"
 debug = "full"
+
+# Explicit cooperative executor inspection; ordinary build artifacts/flags stay separate.
+[profile.diagnostic-taskdump]
+inherits = "profiling"
+split-debuginfo = "off"
 
 # Shipped wheels and binaries only (`maturin --profile dist`).
 [profile.dist]

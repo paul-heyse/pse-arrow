@@ -36,7 +36,7 @@ impl Resolver<'_> {
         }
         if !matches!(
             supplied.selection.format,
-            PackFormat::Json | PackFormat::FrozenEvidenceV2 | PackFormat::AnalysisV2
+            PackFormat::Json | PackFormat::FrozenEvidenceV3 | PackFormat::AnalysisV2
         ) {
             return Ok(Some(format!(
                 "required source {member}#{pointer} has no supported typed coordinate interpretation; only the whole member is addressable"

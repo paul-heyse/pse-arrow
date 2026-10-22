@@ -2849,6 +2849,17 @@
           ],
           "description": "Actual enclosing operation captured at assembly, absent outside an observation scope."
         },
+        "physical_graph": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservedPhysicalGraph"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bounded actual topology with metric-local ordinals, selected only in Diagnostic."
+        },
         "physical_plan": {
           "description": "Bounded physical graph, absent before physical planning.",
           "type": [
@@ -6150,6 +6161,126 @@
         "labels",
         "unit",
         "kind"
+      ],
+      "type": "object"
+    },
+    "ObservedPhysicalEdge": {
+      "additionalProperties": false,
+      "description": "An ordered actual physical dependency, distinct from numerical/canonical edges.",
+      "properties": {
+        "cache_producer": {
+          "description": "The edge crosses to an independently planned cache producer.",
+          "type": "boolean"
+        },
+        "child": {
+          "description": "Child metric ordinal.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ordinal": {
+          "description": "Original child position.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "parent": {
+          "description": "Parent metric ordinal.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "parent",
+        "ordinal",
+        "child",
+        "cache_producer"
+      ],
+      "type": "object"
+    },
+    "ObservedPhysicalGraph": {
+      "additionalProperties": false,
+      "description": "A bounded actual physical topology. Ordinals share the native metric traversal.",
+      "properties": {
+        "edges": {
+          "description": "Ordered input/dependency edges; shared inputs retain all incoming edges.",
+          "items": {
+            "$ref": "#/$defs/ObservedPhysicalEdge"
+          },
+          "type": "array"
+        },
+        "nodes": {
+          "description": "Unique actual operators, including independently planned cache producers.",
+          "items": {
+            "$ref": "#/$defs/ObservedPhysicalNode"
+          },
+          "type": "array"
+        },
+        "root": {
+          "description": "First observed node, absent if capture admission failed.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "truncated": {
+          "description": "Bounds or optional allocation admission curtailed capture.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "ObservedPhysicalNode": {
+      "additionalProperties": false,
+      "description": "Original physical operator facts; local ordinal is not cross-run identity.",
+      "properties": {
+        "node": {
+          "description": "Snapshot-local metric ordinal.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "operator": {
+          "description": "Native operator family.",
+          "type": "string"
+        },
+        "output_fields": {
+          "description": "Original output schema, as ordered field name/type pairs.",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "partitions": {
+          "description": "Actual output partition count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "node",
+        "operator",
+        "output_fields",
+        "partitions"
       ],
       "type": "object"
     },
@@ -10214,9 +10345,9 @@
       "type": "array"
     },
     "version": {
-      "const": 2,
-      "default": 2,
-      "description": "Current supplied-set codec; v1 is not interpreted.",
+      "const": 3,
+      "default": 3,
+      "description": "Current supplied-set codec; older physical-observation shapes are not interpreted.",
       "type": "integer"
     }
   },

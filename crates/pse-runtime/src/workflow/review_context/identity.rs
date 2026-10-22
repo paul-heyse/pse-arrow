@@ -224,7 +224,7 @@ pub(super) fn validate(document: &ReviewContextDocument) -> Result<(), WorkflowE
                     ));
                 }
             }
-            "engine-execution-observations.v1" => {
+            "engine-execution-observations.v2" => {
                 let _: pse_engine::session::CopiedExecutionObservations = decode(fact)?;
             }
             _ => {}

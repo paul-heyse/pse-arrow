@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Diagnostic recording, export and inspection over product-owned contracts.
 pub mod capture;
+pub mod taskdump;
 pub mod frozen_inspection;
 pub mod inspection;
 pub mod inspection_comparison;

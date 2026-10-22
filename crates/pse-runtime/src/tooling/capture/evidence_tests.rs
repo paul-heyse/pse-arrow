@@ -454,6 +454,7 @@ fn evidence_engine_projection_preserves_off_abandoned_units_and_drop_scope() {
                 policy: CopiedObservationPolicy::Off,
                 logical_plan: String::new(),
                 physical_plan: None,
+                physical_graph: None,
                 rules: vec![],
                 diagnostic: None,
                 execution: None,
@@ -463,6 +464,7 @@ fn evidence_engine_projection_preserves_off_abandoned_units_and_drop_scope() {
                 policy: CopiedObservationPolicy::Contract,
                 logical_plan: String::new(),
                 physical_plan: Some(String::new()),
+                physical_graph: None,
                 rules: vec![],
                 diagnostic: Some("retained partial capture".into()),
                 execution: Some(CopiedExecutionSnapshot {

@@ -1940,7 +1940,7 @@
       ],
       "type": "object"
     },
-    "BuildObservation": {
+    "BuildObservationOutput": {
       "additionalProperties": false,
       "description": "The build/linkage fact for one registered adapter.",
       "properties": {
@@ -6246,7 +6246,7 @@
         }
       ]
     },
-    "ReplayCaseConstructor": {
+    "ReplayCaseConstructorOutput": {
       "additionalProperties": false,
       "description": "Portable original case constructor, independent of mutable history or compiled native products.",
       "properties": {
@@ -6261,13 +6261,13 @@
           "type": "array"
         },
         "case": {
-          "$ref": "#/$defs/ReplayCaseInputs",
+          "$ref": "#/$defs/ReplayCaseInputsOutput",
           "description": "Exact supplied numeric values and structural variable specifications."
         },
         "declarations": {
           "description": "Original user-supplied numerical declarations, before derived resolution.",
           "items": {
-            "$ref": "#/$defs/SourcedRequirement"
+            "$ref": "#/$defs/SourcedRequirementOutput"
           },
           "type": "array"
         },
@@ -6325,7 +6325,7 @@
         "prepared_graph": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ReplayPreparedGraph"
+              "$ref": "#/$defs/ReplayPreparedGraphOutput"
             },
             {
               "type": "null"
@@ -6336,7 +6336,7 @@
         "requested_screened_start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ReplayScreenedStart"
+              "$ref": "#/$defs/ReplayScreenedStartOutput"
             },
             {
               "type": "null"
@@ -6391,7 +6391,7 @@
         "targets": {
           "description": "Original user-supplied target definitions, before derived resolution.",
           "items": {
-            "$ref": "#/$defs/TargetSpec"
+            "$ref": "#/$defs/TargetSpecOutput"
           },
           "type": "array"
         }
@@ -6416,7 +6416,7 @@
       ],
       "type": "object"
     },
-    "ReplayCaseInputs": {
+    "ReplayCaseInputsOutput": {
       "additionalProperties": false,
       "description": "Exact original case input bits. These are constructor values, not observations or checkpoints.",
       "properties": {
@@ -6448,7 +6448,7 @@
         },
         "variables": {
           "additionalProperties": {
-            "$ref": "#/$defs/ReplayVariableState"
+            "$ref": "#/$defs/ReplayVariableStateOutput"
           },
           "description": "All structural fixed/free and bound overrides.",
           "type": "object"
@@ -6810,7 +6810,7 @@
       "description": "Original NMPC stage, including its complete source, analysis and mapping.",
       "properties": {
         "analysis": {
-          "$ref": "#/$defs/ReplayCaseConstructor",
+          "$ref": "#/$defs/ReplayCaseConstructorOutput",
           "description": "Full source-qualified original analysis."
         },
         "bindings": {
@@ -6883,7 +6883,7 @@
       "description": "Original MHE stage, including exact window and prior meaning.",
       "properties": {
         "analysis": {
-          "$ref": "#/$defs/ReplayCaseConstructor",
+          "$ref": "#/$defs/ReplayCaseConstructorOutput",
           "description": "Full source-qualified original analysis."
         },
         "arrival": {
@@ -7137,14 +7137,14 @@
       ],
       "type": "object"
     },
-    "ReplayPreparedGraph": {
+    "ReplayPreparedGraphOutput": {
       "additionalProperties": false,
       "description": "Full bounded postorder inventory. Opaque capabilities are explicit producer premises.",
       "properties": {
         "nodes": {
           "description": "Actual original nodes, children before parents; no mutable preparation history lookup.",
           "items": {
-            "$ref": "#/$defs/ReplayPreparedNode"
+            "$ref": "#/$defs/ReplayPreparedNodeOutput"
           },
           "type": "array"
         },
@@ -7161,14 +7161,14 @@
       ],
       "type": "object"
     },
-    "ReplayPreparedNode": {
+    "ReplayPreparedNodeOutput": {
       "additionalProperties": false,
       "description": "One original input and its exact full requested policy, before any native dispatch.",
       "properties": {
         "automatic": {
           "description": "Exact ordered automatic inventory prepared in advance, including every Original profile.",
           "items": {
-            "$ref": "#/$defs/ReplayPreparedProduct"
+            "$ref": "#/$defs/ReplayPreparedProductOutput"
           },
           "type": "array"
         },
@@ -7204,7 +7204,7 @@
         "requested_screened_start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ReplayScreenedStart"
+              "$ref": "#/$defs/ReplayScreenedStartOutput"
             },
             {
               "type": "null"
@@ -7226,12 +7226,12 @@
         "rungs": {
           "description": "Exact ordered declared product inventory.",
           "items": {
-            "$ref": "#/$defs/ReplayPreparedProduct"
+            "$ref": "#/$defs/ReplayPreparedProductOutput"
           },
           "type": "array"
         },
         "runtime": {
-          "$ref": "#/$defs/Snapshot",
+          "$ref": "#/$defs/SnapshotOutput",
           "description": "Actual build/runtime observation of this profile's admission."
         },
         "settings": {
@@ -7253,7 +7253,7 @@
       ],
       "type": "object"
     },
-    "ReplayPreparedProduct": {
+    "ReplayPreparedProductOutput": {
       "additionalProperties": false,
       "description": "One ordered reference in the original immutable prepared graph.",
       "properties": {
@@ -7512,7 +7512,7 @@
       ],
       "type": "object"
     },
-    "ReplayScreenedStart": {
+    "ReplayScreenedStartOutput": {
       "additionalProperties": false,
       "description": "Complete original proposal input; historical screening is not renewed permission.",
       "properties": {
@@ -7727,7 +7727,7 @@
           "type": "array"
         },
         "case": {
-          "$ref": "#/$defs/ReplayCaseInputs",
+          "$ref": "#/$defs/ReplayCaseInputsOutput",
           "description": "Full original case values/fixed-state overrides."
         },
         "exact_parameters": {
@@ -8067,7 +8067,7 @@
       ],
       "type": "object"
     },
-    "ReplayVariableState": {
+    "ReplayVariableStateOutput": {
       "additionalProperties": false,
       "description": "Complete original fixed/free and endpoint specification for one authored path.",
       "properties": {
@@ -8727,7 +8727,7 @@
       ],
       "type": "string"
     },
-    "Snapshot": {
+    "SnapshotOutput": {
       "additionalProperties": false,
       "description": "One immutable build/runtime observation supplied by the composition boundary.",
       "properties": {
@@ -8741,7 +8741,7 @@
                 "$ref": "#/$defs/NativeBackend"
               },
               {
-                "$ref": "#/$defs/BuildObservation"
+                "$ref": "#/$defs/BuildObservationOutput"
               }
             ],
             "type": "array"
@@ -8846,7 +8846,7 @@
       ],
       "type": "object"
     },
-    "SourcedRequirement": {
+    "SourcedRequirementOutput": {
       "additionalProperties": false,
       "description": "Selection supplies precedence; declarations cannot promote themselves to analysis overrides.",
       "properties": {
@@ -9231,7 +9231,7 @@
       ],
       "type": "object"
     },
-    "TargetSpec": {
+    "TargetSpecOutput": {
       "additionalProperties": false,
       "description": "Exact admitted coordinate; declared representation is retained through normalization.",
       "properties": {
@@ -9846,7 +9846,7 @@
     "case_constructors": {
       "description": "Original portable case constructors, retaining all supplied structural and numerical inputs.",
       "items": {
-        "$ref": "#/$defs/ReplayCaseConstructor"
+        "$ref": "#/$defs/ReplayCaseConstructorOutput"
       },
       "type": "array"
     },
@@ -9925,7 +9925,7 @@
     "runtime_premises": {
       "description": "Actual immutable build/runtime observations used by constructor admission.",
       "items": {
-        "$ref": "#/$defs/Snapshot"
+        "$ref": "#/$defs/SnapshotOutput"
       },
       "type": "array"
     },

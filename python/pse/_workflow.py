@@ -40,7 +40,12 @@ from pse.contracts.documents import (
     BackendSettings,
     ConicRequest,
     DiagnosticExecutionDocumentOutput,
+    TaskDumpRequest,
+    TaskDumpDocumentOutput,
     DiagnosticExecutionRequest,
+    DiagnosticReproducer,
+    DiagnosticReproducerOutput,
+    ReproductionDocumentOutput,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     HistoryObligation,
@@ -129,11 +134,23 @@ class Runtime:
         """
         self._handle.close()
 
+    def run_reproducer(self, request: DiagnosticReproducer | DiagnosticReproducerOutput) -> ReproductionDocumentOutput:
+        """Execute a selected reproducer under one fresh operation and deadline."""
+        return self._handle.run_reproducer(request)
+
     def diagnose_documents(
         self, request: DiagnosticExecutionRequest
     ) -> DiagnosticExecutionDocumentOutput:
         """Run original-source diagnostics under one admission-to-result deadline."""
         return self._handle.diagnose_documents(request)
+
+    def task_dump(self, request: TaskDumpRequest) -> TaskDumpDocumentOutput:
+        """Explicitly pause/re-poll the actual executor; timeout does not cancel its dump."""
+        return self._handle.task_dump(request)
+
+    def task_dump_status(self) -> TaskDumpDocumentOutput | None:
+        """Read retained issued-request state without requesting another dump."""
+        return self._handle.task_dump_status()
 
     def observations(self) -> Diagnostics:
         """Read preparation and execution diagnostics independently of this caller."""

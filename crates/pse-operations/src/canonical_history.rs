@@ -97,7 +97,7 @@ fn identity(key: &str) -> Result<(), CanonicalError> {
 
 // Each block is one server statement/transaction; guard and absence interpretation
 // share its registered read set. Call sites supply fixed SQL and binding names.
-pub(crate) fn study_query(sql: &'static str, binding: &'static str) -> String {
+pub(crate) fn study_query(sql: &str, binding: &'static str) -> String {
     format!(
         "RETURN {{ fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',${binding}); {sql} }};"
     )

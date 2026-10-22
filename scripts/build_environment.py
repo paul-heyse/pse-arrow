@@ -26,6 +26,7 @@ def configure(
     cache: str = "auto",
     frontend: int | None = None,
     jobs: int | None = None,
+    taskdump: bool = False,
 ) -> dict[str, str]:
     """Preserve explicit overrides; never disable workspace incremental compilation.
 
@@ -172,6 +173,11 @@ def configure(
         # The experiment keeps its own target directory, so its flags never replace
         # this checkout's ordinary artifacts.
         env["CARGO_TARGET_DIR"] = str(root / "target" / f"frontend-{frontend}")
+    if taskdump:
+        flags = effective_flags(root, env)
+        if "tokio_unstable" not in flags:
+            flags += ["--cfg", "tokio_unstable"]
+        env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
     return env
 
 
@@ -209,6 +215,7 @@ def main() -> int:
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
     parser.add_argument("--jobs", type=int, choices=range(1, 257))
+    parser.add_argument("--taskdump", action="store_true", help="explicit diagnostic-taskdump profile flags")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     env = configure(
@@ -217,6 +224,7 @@ def main() -> int:
         cache=args.cache,
         frontend=args.frontend,
         jobs=args.jobs,
+        taskdump=args.taskdump,
     )
     if args.shell:
         for key, value in env.items():
@@ -230,6 +238,8 @@ def main() -> int:
         command = command[1:]
     if not command:
         parser.error("provide a command after --, or --shell")
+    if args.taskdump and not any(command[index:index + 2] in (["--profile", "diagnostic-taskdump"], ["--cargo-profile", "diagnostic-taskdump"]) for index in range(len(command))):
+        parser.error("--taskdump requires --profile diagnostic-taskdump to isolate diagnostic artifacts")
     print(
         f"build: toolchain={env.get('RUSTUP_TOOLCHAIN', 'rust-toolchain.toml')} wrapper={env.get('RUSTC_WRAPPER') or 'disabled'} target={env.get('CARGO_TARGET_DIR', 'target')}",
         file=sys.stderr,

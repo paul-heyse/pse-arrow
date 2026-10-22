@@ -11,8 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Clone, Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(Clone, Debug, Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct StudyModuleReceipt {
     kind: String,
@@ -24,8 +23,7 @@ pub(crate) struct StudyModuleReceipt {
     inputs: serde_json::Map<String, serde_json::Value>,
     limits: ModuleLimits,
 }
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 struct ModuleLimits {
     max_memory_bytes: u64,
@@ -278,13 +276,27 @@ impl CanonicalStore {
             }).await
         }).await
     }
+    /// Explain selected artifact versus installed readonly registration without invocation or installation.
+    pub async fn inspect_study_module(&self) -> Result<serde_json::Value, CanonicalError> {
+        let receipt = StudyModuleReceipt::read(&self.state_path)?;
+        self.validate_study_module(&receipt).await?;
+        let mut response = bounded_query(self.db.metadata_query(MetadataResponse::DiagnosticPlan,
+            "LET $info=INFO FOR DB STRUCTURE; RETURN {buckets:$info.buckets.filter(|$row|$row.name=$bucket),modules:$info.modules.filter(|$row|$row.name='pse')};")
+            .bind(("bucket", receipt.bucket()))).await?;
+        let index = response.num_statements().saturating_sub(1);
+        let installed = response.take::<surrealdb::types::Value>(index)?;
+        Ok(serde_json::json!({"selected": receipt, "installed": installed,
+            "attestation": "existing validate_study_module passed: sole readonly study::readiness export, unsigned Surrealism registration and immutable bucket",
+            "scope": "metadata only; local patched deadline/memory/controller-pool semantics remain in force; no execution or installation"}))
+    }
+
     /// Catalog structure, not rendered SQL text, attests the exact immutable
     /// artifact path and only supported read-only policy export.
     pub(crate) async fn validate_study_module(
         &self,
         receipt: &StudyModuleReceipt,
     ) -> Result<(), CanonicalError> {
-        let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,
+        let mut response=bounded_query(self.db.metadata_query(MetadataResponse::DiagnosticPlan,
             "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse'); RETURN array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false;")
             .bind(("bucket",receipt.bucket())).bind(("backend",receipt.backend()?))).await?;
         let index = response.num_statements().saturating_sub(1);

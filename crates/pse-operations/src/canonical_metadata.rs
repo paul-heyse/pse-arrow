@@ -24,22 +24,28 @@ pub enum MetadataResponse {
     JoinedBlockPage,
     /// A 64-row scalar/dense output page, including encoded registry keys.
     OutputPage,
+    /// Native diagnostic plans and structured schema/module metadata; no payload bytes.
+    DiagnosticPlan,
 }
 impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
+        if matches!(self,Self::DiagnosticPlan) {
+            return surrealdb::opt::ResponseLimits {wire_bytes:1<<20,nodes:16384,depth:256,container_items:1024,string_bytes:1<<20,string_length:256<<10,blob_bytes:0,blob_length:0};
+        }
         let rows = match self {
             Self::Protection | Self::Header | Self::Selection => 2,
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
+            Self::DiagnosticPlan => 0,
         };
         let nodes = 512 + rows * 32 * 2;
         let strings =
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
-            Self::Protection | Self::Page => 0,
+            Self::Protection | Self::Page | Self::DiagnosticPlan => 0,
             Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE
                     * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES

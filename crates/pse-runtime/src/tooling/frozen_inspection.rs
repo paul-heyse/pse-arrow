@@ -57,8 +57,8 @@ pub struct FrozenInspectionRequest {
 #[derive(Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrozenEvidenceSet {
-    /// Current supplied-set codec; v1 is not interpreted.
-    pub version: Version<2>,
+    /// Current supplied-set codec; older physical-observation shapes are not interpreted.
+    pub version: Version<3>,
     /// Exact process publication images, at most 32; conflicting process identities refuse.
     pub checkpoints: Vec<ProcessCheckpoint>,
     /// Exact copied operation members supplied independently of a whole process image.
@@ -569,7 +569,7 @@ mod tests {
         let moved = directory.path().join("moved.json");
         std::fs::write(&moved, &original).unwrap();
         std::fs::write(directory.path().join("unrelated.json"), b"not a checkpoint").unwrap();
-        let restored: FrozenEvidenceSet = read_document::<_, 2>(&moved).unwrap();
+        let restored: FrozenEvidenceSet = read_document::<_, 3>(&moved).unwrap();
         let actual = inspect_frozen(&restored, request.clone()).unwrap();
         assert_eq!(
             serde_json::to_vec(&expected).unwrap(),
@@ -594,7 +594,7 @@ mod tests {
     fn cancelled_recorded_reader_does_not_open_a_file_or_control_a_producer() {
         let cancellation = pse_diagnostics::Cancellation::default();
         cancellation.cancel();
-        let error = read_document_with_cancellation::<FrozenEvidenceSet, 2>(
+        let error = read_document_with_cancellation::<FrozenEvidenceSet, 3>(
             Path::new("nonexistent-recorded-member"),
             &cancellation,
         )
@@ -632,7 +632,7 @@ mod tests {
                         cancellation.cancel();
                     }
                     barrier.wait();
-                    let copied = read_document_with_cancellation::<FrozenEvidenceSet, 2>(
+                    let copied = read_document_with_cancellation::<FrozenEvidenceSet, 3>(
                         path,
                         &cancellation,
                     );
@@ -685,7 +685,7 @@ mod tests {
         set.checkpoints[0].operations[0].id.process_instance = [0, 0];
         assert!(set.validate().is_err());
         let unsupported = br#"{"checkpoints":"bad current body","version":9}"#;
-        let error = decode_document::<FrozenEvidenceSet, 2>(unsupported).unwrap_err();
+        let error = decode_document::<FrozenEvidenceSet, 3>(unsupported).unwrap_err();
         assert!(error.to_string().contains("unsupported"));
     }
 }
@@ -741,7 +741,7 @@ mod native_projection_tests {
         };
         let bytes = serde_json::to_vec(&set).unwrap();
         drop(set);
-        let copied: FrozenEvidenceSet = decode_document::<_, 2>(&bytes).unwrap();
+        let copied: FrozenEvidenceSet = decode_document::<_, 3>(&bytes).unwrap();
         let result = inspect_frozen(&copied, request).unwrap();
         for code in [
             "native.idas.local_error_scope",

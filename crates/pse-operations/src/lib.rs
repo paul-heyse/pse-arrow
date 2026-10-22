@@ -11,6 +11,7 @@ pub mod canonical_artifacts;
 mod canonical_capability_tests;
 pub mod canonical_codec;
 pub mod canonical_execution;
+pub mod canonical_explanations;
 pub mod canonical_files;
 pub mod canonical_history;
 pub mod canonical_result_retention;

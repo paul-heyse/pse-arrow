@@ -208,6 +208,10 @@ fn diagnostic_physical_graph_includes_independently_planned_producers() {
     let physical = observation.physical_plan().unwrap();
     assert!(physical.contains("NativeCacheExec"));
     assert!(physical.contains("Counted"));
+    let topology = observation.copied().physical_graph.unwrap();
+    assert!(topology.edges.iter().any(|edge| edge.parent == 0 && edge.child == 1 && edge.ordinal == 0 && edge.cache_producer));
+    assert_eq!(topology.nodes[1].operator, "Counted");
+    assert!(!topology.truncated);
     assert_eq!(
         calls.load(Ordering::SeqCst),
         0,

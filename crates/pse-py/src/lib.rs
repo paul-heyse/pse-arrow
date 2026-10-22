@@ -67,6 +67,7 @@ fn compiled_features() -> Vec<String> {
     [
         ("compiled-evaluator", cfg!(feature = "compiled-evaluator")),
         ("force-validate", cfg!(feature = "force-validate")),
+        ("diagnostic-taskdump", cfg!(all(feature = "diagnostic-taskdump", tokio_unstable))),
         ("native-solvers", cfg!(feature = "native-solvers")),
         ("solver-diffsol", cfg!(feature = "solver-diffsol")),
         ("solver-highs", cfg!(feature = "solver-highs")),
@@ -98,7 +99,7 @@ mod _native {
             diagnostic_operation_text, diagnostic_pack_analysis, diagnostic_pack_evidence,
             diagnostic_query_specification, diagnostic_read_checkpoint, diagnostic_read_context,
             diagnostic_read_detail, diagnostic_read_evidence, diagnostic_read_handoff,
-            diagnostic_read_invocation, diagnostic_record_launch, diagnostic_render_analysis,
+            diagnostic_read_invocation, diagnostic_record_launch, diagnostic_extract_reproducer, diagnostic_render_analysis,
             diagnostic_review_arrow, diagnostic_review_pack,
         },
         documents::check_document_header,

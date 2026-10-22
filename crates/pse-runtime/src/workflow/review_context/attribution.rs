@@ -156,7 +156,7 @@ impl ReviewContextDocument {
     ) -> Result<Vec<pse_engine::session::CopiedExecutionObservations>, WorkflowError> {
         self.facts
             .iter()
-            .filter(|fact| fact.codec == "engine-execution-observations.v1")
+            .filter(|fact| fact.codec == "engine-execution-observations.v2")
             .map(|fact| {
                 serde_json::from_slice(&fact.payload).map_err(|error| contract(error.to_string()))
             })

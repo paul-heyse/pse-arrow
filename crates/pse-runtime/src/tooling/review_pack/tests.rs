@@ -770,7 +770,7 @@ fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
         );
         let reader = PackReader::open(&path, 1 << 20).unwrap();
         assert_eq!(reader.index().publication, PackPublication::Incomplete);
-        assert_eq!(reader.read_frozen().unwrap().version, Version::<2>);
+        assert_eq!(reader.read_frozen().unwrap().version, Version::<3>);
         assert_eq!(
             reader.read_analysis().unwrap().request.operation.sequence,
             u64::MAX
@@ -1141,6 +1141,7 @@ fn plan47f_all_table_kinds_compare_only_the_selected_finalized_source() {
                     policy: pse_engine::session::CopiedObservationPolicy::Contract,
                     logical_plan: "original copied plan".into(),
                     physical_plan: None,
+                    physical_graph: None,
                     rules: vec![],
                     diagnostic: None,
                     execution: None,

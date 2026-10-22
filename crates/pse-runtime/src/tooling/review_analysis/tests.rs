@@ -712,6 +712,7 @@ fn engine_metric_population_preserves_kinds_units_and_abandoned_coverage() {
             policy: CopiedObservationPolicy::Contract,
             logical_plan: String::new(),
             physical_plan: Some(String::new()),
+            physical_graph: None,
             rules: vec![],
             diagnostic: None,
             execution: Some(CopiedExecutionSnapshot {
@@ -1372,7 +1373,7 @@ fn plan47f_unselected_event_conflicts_and_context_receipts_do_not_enter_answers(
             "unselected original attachment".into(),
             vec![crate::workflow::ReviewContextFact {
                 path: "/physical_admission/0/engine".into(),
-                codec: "engine-execution-observations.v1".into(),
+                codec: "engine-execution-observations.v2".into(),
                 payload: serde_json::to_vec(&pse_engine::session::CopiedExecutionObservations {
                     policy: Some(pse_engine::session::CopiedObservationPolicy::Off),
                     operation: Some(unrelated),
@@ -1939,6 +1940,7 @@ fn selected_run_context_joins_original_engine_scope_and_deduplicates_flat_mirror
                 policy: CopiedObservationPolicy::Contract,
                 logical_plan: String::new(),
                 physical_plan: Some(String::new()),
+                physical_graph: None,
                 rules: vec![],
                 diagnostic: None,
                 execution: Some(CopiedExecutionSnapshot {
@@ -1970,7 +1972,7 @@ fn selected_run_context_joins_original_engine_scope_and_deduplicates_flat_mirror
         context.run_id = Some(invocation.run_id);
         context.facts.push(crate::workflow::ReviewContextFact {
             path: "/physical_admission/0/engine".into(),
-            codec: "engine-execution-observations.v1".into(),
+            codec: "engine-execution-observations.v2".into(),
             payload: serde_json::to_vec(&trace).unwrap(),
         });
         set.contexts.push(context);
@@ -2059,7 +2061,7 @@ fn selected_run_context_joins_original_engine_scope_and_deduplicates_flat_mirror
     .unwrap();
     context.facts.push(crate::workflow::ReviewContextFact {
         path: "/physical_admission/0/engine".into(),
-        codec: "engine-execution-observations.v1".into(),
+        codec: "engine-execution-observations.v2".into(),
         payload: serde_json::to_vec(&trace).unwrap(),
     });
     set.contexts.push(context);
@@ -2113,7 +2115,7 @@ fn actual_dependency_session_joins_exact_retained_run_context_without_relabeling
         .unwrap();
         context.facts.push(ReviewContextFact {
             path: "/physical_admission/0/engine".into(),
-            codec: "engine-execution-observations.v1".into(),
+            codec: "engine-execution-observations.v2".into(),
             payload: payload.clone(),
         });
         set.contexts.push(context);
@@ -2145,4 +2147,62 @@ fn actual_dependency_session_joins_exact_retained_run_context_without_relabeling
                 .any(|statement| statement.code == "engine.actual_session_policy")
         );
     }
+}
+
+#[test]
+fn semantic_preparation_comparison_maps_same_subject_across_generations_and_keeps_unmapped() {
+    let (mut set,mut request) = fixture();
+    let mut baseline = set.operations[0].clone(); baseline.id.sequence += 100;
+    request.baseline = Some(baseline.id); request.question = Some(AnalysisQuestion::Preparation);
+    let mut prior = record(&mut set,"compiler_query.v1","validate",1,vec![("query_family",Value::Text("declaration.parsed".into())),("semantic_subject",Value::Text("actual declaration A".into())),("workspace_generation",Value::Count(0))]);
+    set.operations[0].producers[0].descriptor.role = ProducerRole::Workflow;
+    baseline.producers = set.operations[0].producers.clone();
+    baseline.producers[0].descriptor.id.operation = baseline.id;
+    prior.producer.operation = baseline.id;
+    let current = record(&mut set,"compiler_query.v1","execute",2,vec![("query_family",Value::Text("declaration.parsed".into())),("semantic_subject",Value::Text("actual declaration A".into())),("workspace_generation",Value::Count(1))]);
+    let unknown = record(&mut set,"compiler_query.v1","execute",3,vec![("semantic_subject",Value::Unavailable("no exact mapping".into()))]);
+    set.operations.push(baseline); set.records.extend([prior,current,unknown]);
+    let document = result(&set,&request);
+    assert!(has(&document,AnalysisQuestion::Preparation,"preparation.semantic_events"));
+    let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| statement.message.as_str()).collect::<Vec<_>>().join("\n");
+    assert!(rendered.contains("correspondence=true"));
+    assert!(rendered.contains("baseline execute/validate/wait/discard [0, 1, 0, 0]"));
+    assert!(rendered.contains("selected [1, 0, 0, 0]"));
+    assert!(rendered.contains("no cache-miss cause"));
+    assert!(rendered.contains("no exact mapping"));
+}
+#[test]
+fn before_after_census_compares_derivative_and_storage_facts_and_refuses_repeated_demands() {
+    let (mut set,mut request) = fixture();
+    let mut baseline = set.operations[0].clone(); baseline.id.sequence += 100;
+    request.baseline = Some(baseline.id); request.question = Some(AnalysisQuestion::EvaluatorWork);
+    let mut prior = record(&mut set,"evaluator_census.v1","prepared_template",1,vec![("body",Value::Text("semantic body".into())),("product",Value::Text("value_and_jacobian".into())),("derivative_components",Value::Count(1)),("order",Value::Count(0)),("worker_storage",Value::Count(64))]);
+    baseline.producers = set.operations[0].producers.clone(); baseline.producers[0].descriptor.id.operation = baseline.id; prior.producer.operation = baseline.id;
+    let current = record(&mut set,"evaluator_census.v1","prepared_template",2,vec![("body",Value::Text("semantic body".into())),("product",Value::Text("value_and_jacobian".into())),("derivative_components",Value::Count(3)),("order",Value::Count(1)),("worker_storage",Value::Count(128))]);
+    set.operations.push(baseline); set.records.extend([prior,current.clone()]);
+    let document = result(&set,&request);
+    assert!(has(&document,AnalysisQuestion::EvaluatorWork,"evaluator.body_product_change"));
+    let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| statement.message.as_str()).collect::<Vec<_>>().join("\n");
+    assert!(rendered.contains("derivative_components: Some(1) -> Some(3)"));
+    assert!(rendered.contains("worker_storage: Some(64) -> Some(128)"));
+    let mut repeated = current; repeated.sequence = 3; repeated.family_sequence = Some(3); repeated.observed_at = Duration::from_secs(3); set.records.push(repeated);
+    assert!(has(&result(&set,&request),AnalysisQuestion::EvaluatorWork,"evaluator.correspondence_ambiguous"));
+}
+#[test]
+fn engine_comparison_reports_unique_context_partition_change_and_incomplete_topology() {
+    use pse_engine::session::*;
+    let (mut set,mut request) = fixture();
+    let mut baseline = set.operations[0].clone(); baseline.id.sequence += 100;
+    request.baseline = Some(baseline.id); request.question = Some(AnalysisQuestion::Preparation);
+    let graph = |partitions| ObservedPhysicalGraph { root: Some(0),nodes: vec![ObservedPhysicalNode {node:0,operator:"ActualScan".into(),output_fields: vec![("x".into(),"Float64".into())],partitions}],edges:vec![],truncated:false };
+    let observation = |operation,partitions| CopiedPlanObservation {operation:Some(operation),policy:CopiedObservationPolicy::Diagnostic,logical_plan:String::new(),physical_plan:Some("retained native text".into()),physical_graph:Some(graph(partitions)),rules:vec![],diagnostic:None,execution:None};
+    set.engine_observations = vec![CopiedExecutionObservations {policy:Some(CopiedObservationPolicy::Diagnostic),operation:Some(baseline.id),observations:vec![observation(baseline.id,1)],dropped:0},CopiedExecutionObservations {policy:Some(CopiedObservationPolicy::Diagnostic),operation:Some(request.operation),observations:vec![observation(request.operation,3)],dropped:0}];
+    set.operations.push(baseline);
+    let document = result(&set,&request);
+    let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| format!("{}: {}",statement.code,statement.message)).collect::<Vec<_>>().join("\n");
+    assert!(rendered.contains("engine.operator_correspondence")); assert!(rendered.contains("partitions_before: 1")); assert!(rendered.contains("partitions_after: 3"));
+    set.engine_observations[1].observations[0].physical_graph.as_mut().unwrap().truncated = true;
+    let document = result(&set,&request);
+    let rendered = document.questions.iter().flat_map(|question| &question.statements).map(|statement| format!("{}: {}",statement.code,statement.message)).collect::<Vec<_>>().join("\n");
+    assert!(rendered.contains("incomplete=true"));
 }

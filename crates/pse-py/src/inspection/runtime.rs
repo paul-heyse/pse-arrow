@@ -13,6 +13,7 @@ pub(crate) struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
     pub(crate) executor: &'static tokio::runtime::Runtime,
     pub(crate) model: pse_engine::session::BoundModel,
+    pub(crate) task_dump: Mutex<Option<Arc<pse_runtime::tooling::taskdump::TaskDumpTicket>>>,
     settings: EngineSettings,
 }
 
@@ -66,6 +67,7 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
         shared,
         executor,
         model,
+        task_dump: Mutex::new(None),
         settings: settings.clone(),
     });
     *active = Some(Arc::clone(&runtime));

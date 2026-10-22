@@ -137,7 +137,43 @@ def sync(mode: str, profile: str = "dev") -> int:
     return 0
 
 
+def diagnostic_sync(mode: str = "dev") -> int:
+    """Build/install the explicit cooperative extension into its separate environment.
+
+    Never uses editable develop: that would replace the ordinary checkout binary.
+    The wheel owns a snapshot of Python code and contracts alongside its actual binary.
+    """
+    from scripts import build_environment  # noqa: PLC0415
+
+    if mode not in {"dev", "native"}:
+        raise ValueError("diagnostic extension mode must be dev or native")
+    selected = ROOT / ".venv-diagnostic-taskdump"
+    environment = build_environment.configure(ROOT, dict(os.environ), taskdump=True)
+    environment.update(UV_PROJECT_ENVIRONMENT=str(selected), VIRTUAL_ENV=str(selected))
+    features = "force-validate,diagnostic-taskdump"
+    if mode == "native":
+        features += ",native-solvers"
+    output = ROOT / "build/diagnostic-taskdump/wheels"
+    output.mkdir(parents=True, exist_ok=True)
+    commands = [
+        ["uv", "sync", "--locked", "--no-install-project"],
+        [str(ROOT / ".venv/bin/maturin"), "build", "--locked", "--profile", "diagnostic-taskdump",
+         "--interpreter", str(selected / "bin/python"), "--features", features, "--out", str(output)],
+    ]
+    for command in commands:
+        result = subprocess.call(command, cwd=ROOT, env=environment)
+        if result:
+            return result
+    wheels = list(output.glob("pse_arrow-*.whl"))
+    if len(wheels) != 1:
+        raise ValueError("diagnostic wheel selection is missing or ambiguous")
+    return subprocess.call(["uv", "pip", "install", "--python", str(selected / "bin/python"),
+                            "--force-reinstall", "--no-deps", str(wheels[0])], cwd=ROOT, env=environment)
+
+
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "diagnostic-sync":
+        raise SystemExit(diagnostic_sync(sys.argv[2]))
     if len(sys.argv) not in {3, 4} or sys.argv[1] != "sync":
         raise SystemExit(
             "usage: python -m scripts.python_extension sync dev|native|auto [profile]"

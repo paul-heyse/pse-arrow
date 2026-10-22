@@ -18,6 +18,7 @@ import pytest
 import pse
 from pse import codec, diagnostics
 from pse.contracts import documents
+from pse.contracts.values import SemanticId
 from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocumentOutput,
@@ -1081,3 +1082,98 @@ def test_launch_capture_cli_requires_explicit_executable(tmp_path: Path) -> None
         diagnostics.main(["capture-launch", "--output", str(tmp_path / "unused")])
     assert error.value.code == 2
     assert not (tmp_path / "unused").exists()
+
+
+def _reproducer_text_request(settings: pse.EngineSettings) -> documents.ReproducerExtractionRequest:
+    policy = codec.decode_json(
+        (Path(__file__).resolve().parents[3] / "packages/reference/diagnostics/idaes-2.13.json").read_bytes(),
+        documents.ModelingDiagnosticPolicy,
+    )
+    operation = documents.DiagnosticExecutionRequest(
+        physical_documents={"package.toml": "[package]\nnot a valid manifest"},
+        model_documents=({"models/original.pse": "package original {def Root {var x:Scalar;eq e:x==1;}}"},),
+        case_id=SemanticId.from_hex("ab" * 16),
+        settings=pse.SolveSettings(),
+        diagnostics=msgspec.convert(policy, type=documents.ModelingDiagnosticPolicyBody, from_attributes=True),
+        origin=None,
+        allowance=ClosedDuration(secs=10, nanos=0),
+        maximum_source_bytes=4 << 20,
+    )
+    return codec.decode_json(
+        codec.encode_json({
+            "version": 1,
+            "runtime": {
+                "memory_limit_bytes": settings.memory_limit_bytes,
+                "threads": settings.threads,
+                "spill_dir": settings.spill_dir,
+                "max_spill_bytes": settings.max_spill_bytes,
+                "batch_size": settings.batch_size,
+            },
+            "input": {"family": "original_text", "request": operation},
+            "original_diagnostic": None,
+            "predicate": None,
+        }),
+        documents.ReproducerExtractionRequest,
+    )
+
+
+@pytest.mark.unit
+def test_reproducer_cli_extraction_is_offline_and_keeps_actual_source_text(
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request = _reproducer_text_request(inspection_settings)
+    source = tmp_path / "recorded.json"
+    destination = tmp_path / "reproducer.json"
+    source.write_bytes(codec.encode_json(request))
+
+    def no_runtime(_settings: documents.DiagnosticRuntimeSettings) -> pse.Runtime:
+        pytest.fail("offline extraction must not construct or execute a runtime")
+
+    monkeypatch.setattr(diagnostics, "_diagnostic_runtime", no_runtime)
+    assert diagnostics.main(["extract-reproducer", "--request", str(source), "--output", str(destination)]) == 0
+    extracted = codec.decode_json(destination.read_bytes(), documents.ReproducerCommandRequest)
+    assert isinstance(extracted.reproducer.input, documents.ReproducerInputBodyOriginalText)
+    assert extracted.reproducer.input.request.physical_documents["package.toml"] == "[package]\nnot a valid manifest"
+    assert extracted.reproducer.predicate is None
+    assert "Explicit new run:" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_original_comparison(
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+) -> None:
+    request = _reproducer_text_request(inspection_settings)
+    extracted = diagnostics.extract_reproducer(request)
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        first = runtime.run_reproducer(extracted.reproducer)
+        assert first.failure is not None
+        assert first.run_id is None
+        assert first.effective_allowance.secs <= 10
+        assert first.status == "reproduction_unavailable"
+        assert first.original.original_failure_text is None
+        # Only the selected typed actual failure supplies the strict original predicate.
+        typed = msgspec.structs.replace(request, original_diagnostic=codec.decode_json(codec.encode_json(first.failure), documents.BoundaryDiagnosticBody), original_operation=first.operation)
+        selected = diagnostics.extract_reproducer(typed)
+        second = runtime.run_reproducer(selected.reproducer)
+        assert second.operation != first.operation
+        assert second.status == "original_failure_reproduced"
+        assert second.run_id is None
+        assert second.original.original_operation == first.operation
+        driver = tmp_path / "explicit.json"
+        driver.write_bytes(codec.encode_json(selected))
+    finally:
+        runtime.close()
+    # The driver is an explicit new process; its deployment defaults must not be
+    # mixed with this fixture's already configured process-wide resource owner.
+    completed = subprocess.run(
+        [sys.executable, "-m", "pse.diagnostics", "reproduce", "--request", str(driver), "--json"],
+        check=False, capture_output=True, timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr.decode()
+    result = codec.decode_json(completed.stdout, documents.ReproductionDocumentOutput)
+    assert result.status == "original_failure_reproduced"

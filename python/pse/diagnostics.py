@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import argparse
 import math
+import shlex
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, TypeVar
 
 import attrs
 import pyarrow as pa
-from msgspec import convert
+from msgspec import convert, json as msgspec_json
 from msgspec.structs import replace
 
 import pse
@@ -33,6 +34,7 @@ from pse._build import (
     _diagnostic_detail_records,
     _diagnostic_explain_invocation,
     _diagnostic_export_pack,
+    _diagnostic_extract_reproducer,
     _diagnostic_inspect,
     _diagnostic_inspect_frozen,
     _diagnostic_inspect_image,
@@ -76,6 +78,10 @@ from pse.contracts.documents import (
     DetailRecordPageOutput,
     DetailRequest,
     DiagnosticCommandRequest,
+    DiagnosticRuntimeSettings,
+    ReproducerCommandRequest,
+    ReproducerCommandRequestOutput,
+    ReproducerExtractionRequest,
     DiagnosticListRequest,
     DiagnosticProcessPageOutput,
     FrozenEvidenceSet,
@@ -771,6 +777,8 @@ _REVIEW_COMMANDS = {
     "export",
     "review",
     "diagnose",
+    "extract-reproducer",
+    "reproduce",
 }
 
 
@@ -901,6 +909,16 @@ def _add_review_commands(commands: argparse._SubParsersAction) -> None:
     )
     reviewing.add_argument("subject", type=Path)
     reviewing.add_argument("--json", action="store_true")
+    extracting = commands.add_parser(
+        "extract-reproducer", help="OFFLINE transformation of complete recorded text or frozen source codecs"
+    )
+    extracting.add_argument("--request", required=True, type=Path, help="ReproducerExtractionRequest JSON; no Runtime is constructed")
+    extracting.add_argument("--output", required=True, type=Path, help="New readable ReproducerCommandRequest driver")
+    reproducing = commands.add_parser(
+        "reproduce", help="NEW WORK: explicitly reconstruct, admit and execute an extracted reproducer"
+    )
+    reproducing.add_argument("--request", required=True, type=Path, help="Extracted ReproducerCommandRequest JSON")
+    reproducing.add_argument("--json", action="store_true")
     diagnosing = commands.add_parser(
         "diagnose",
         help=(
@@ -1031,6 +1049,24 @@ def record_launch(
     return launch(request)
 
 
+def extract_reproducer(request: ReproducerExtractionRequest) -> ReproducerCommandRequestOutput:
+    """Transform supported recorded codecs without constructing a runtime or running science."""
+    return _diagnostic_extract_reproducer(request)
+
+
+def _diagnostic_runtime(settings: DiagnosticRuntimeSettings) -> pse.Runtime:
+    return pse.Runtime(
+        pse.EngineSettings(
+            memory_limit_bytes=settings.memory_limit_bytes,
+            threads=settings.threads,
+            spill_dir=settings.spill_dir,
+            max_spill_bytes=settings.max_spill_bytes,
+            batch_size=settings.batch_size,
+        ),
+        ephemeral=True,
+    )
+
+
 def _review_command(args: argparse.Namespace) -> int:
     if args.command == "compare":
         policy = (
@@ -1092,19 +1128,25 @@ def _review_command(args: argparse.Namespace) -> int:
             and result.acknowledgement.accepted
             else 1
         )
+    elif args.command == "extract-reproducer":
+        result = extract_reproducer(_read_review_request(args.request, ReproducerExtractionRequest))
+        with args.output.open("xb") as destination:
+            destination.write(msgspec_json.format(codec.encode_json(result)))
+        print(f"Extracted {args.output}; required environment: {result.reproducer.required_environment}")
+        print(f"Explicit new run: python -m pse.diagnostics reproduce --request {shlex.quote(str(args.output))} --json")
+        return 0
+    elif args.command == "reproduce":
+        command = _read_review_request(args.request, ReproducerCommandRequest)
+        runtime = _diagnostic_runtime(command.runtime)
+        try:
+            reproduction = runtime.run_reproducer(command.reproducer)
+        finally:
+            runtime.close()
+        print(codec.encode_json(reproduction).decode())
+        return 0 if reproduction.status in ("original_failure_reproduced", "related_diagnostic_reproduced") else 1
     elif args.command == "diagnose":
         command = _read_review_request(args.request, DiagnosticCommandRequest)
-        settings = command.runtime
-        runtime = pse.Runtime(
-            pse.EngineSettings(
-                memory_limit_bytes=settings.memory_limit_bytes,
-                threads=settings.threads,
-                spill_dir=settings.spill_dir,
-                max_spill_bytes=settings.max_spill_bytes,
-                batch_size=settings.batch_size,
-            ),
-            ephemeral=True,
-        )
+        runtime = _diagnostic_runtime(command.runtime)
         try:
             result = runtime.diagnose_documents(command.operation)
         finally:

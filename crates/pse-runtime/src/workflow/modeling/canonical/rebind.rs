@@ -350,7 +350,7 @@ mod tests {
             future_source
                 .replay_source()
                 .unwrap()
-                .reconstruct(&runtime, future_source.physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, future_source.physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err(),
             "supplied transport also renews physical evidence under its actual receiving scope"
         );

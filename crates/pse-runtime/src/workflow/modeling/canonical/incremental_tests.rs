@@ -245,7 +245,7 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
         // Public receiving API runs the actual registry, references, source-frame,
         // physical/provider and generated-row predicates on deserialized bytes.
         let imported = received
-            .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+            .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
             .unwrap();
         eprintln!(
             "source-size size={size} phase=byte-receive elapsed_ns={} wire_bytes={}",
@@ -280,7 +280,7 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
             .push(b' ');
         assert!(
             changed
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err(),
             "same claimed identity cannot authorize changed actual source bytes"
         );

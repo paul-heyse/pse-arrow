@@ -276,11 +276,15 @@ assessment-list *args:
     "{{ py }}" -m scripts.validation --list "$@"
 
 [group('discovery')]
-[doc('Read published simulation diagnostics or explicitly capture a bounded profile; never builds or opens a store')]
+[doc('Inspect simulation diagnostics, or explicit active TOOL actions: diagnostics active --help')]
 [positional-arguments]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 diagnostics *args:
-    "{{ py }}" -c 'from pse.diagnostics import main; raise SystemExit(main())' "$@"
+    if [ "${1:-}" = active ]; then
+        shift
+        exec "{{ py }}" -m scripts.active_diagnostics "$@"
+    fi
+    exec scripts/pse-env --native=solver,klu,isolation,uno,petsc --recipe-default-class light -- "{{ py }}" -c 'from pse.diagnostics import main; raise SystemExit(main())' "$@"
 
 [group('local')]
 fmt-rust-check:
@@ -1410,10 +1414,11 @@ case-measure output *args:
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"
 
 [group('manual')]
-[doc('Install the explicitly pinned optional Trace Processor (no target capture)')]
+[doc('Install one explicitly pinned optional tool: trace-processor (default) or mcpls; no capture')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
-diagnostic-tools:
-    python3 -m scripts.diagnostic_trace install
+[positional-arguments]
+diagnostic-tools tool="trace-processor":
+    "{{ py }}" -m scripts.diagnostic_trace install "$1"
 
 [group('manual')]
 [doc('Query a retained Perfetto trace with a finite owned output; arguments pass through')]
@@ -1421,3 +1426,10 @@ diagnostic-tools:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 trace-query *args:
     "{{ py }}" -m scripts.diagnostic_trace query "$@"
+
+[group('manual')]
+[doc('Build the explicit cooperative taskdump wheel into .venv-diagnostic-taskdump; ordinary extension stays separate')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
+py-sync-taskdump mode="dev":
+    "{{ py }}" -m scripts.python_extension diagnostic-sync "$1"

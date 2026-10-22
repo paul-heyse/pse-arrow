@@ -460,7 +460,7 @@ pub fn assess(
                     }) {
                         for (j, retained) in
                             context.facts.iter().enumerate().filter(|(_, retained)| {
-                                retained.codec == "engine-execution-observations.v1"
+                                retained.codec == "engine-execution-observations.v2"
                             })
                         {
                             // Preserve one receipt when multiple source positions
@@ -748,7 +748,7 @@ mod tests {
         // Even an actual pre-handle engine receipt does not establish a second
         // scientific run for a diagnostic-only parent.
         let mut pre_handle = context(
-            "engine-execution-observations.v1",
+            "engine-execution-observations.v2",
             &performed_trace(Some(query)),
         );
         pre_handle.operation = Some(query);
@@ -1018,6 +1018,7 @@ mod tests {
                 policy: CopiedObservationPolicy::Contract,
                 logical_plan: String::new(),
                 physical_plan: Some(String::new()),
+                physical_graph: None,
                 rules: vec![],
                 diagnostic: None,
                 execution: Some(CopiedExecutionSnapshot {
@@ -1082,6 +1083,7 @@ mod tests {
                 policy: CopiedObservationPolicy::Contract,
                 logical_plan: String::new(),
                 physical_plan: Some(String::new()),
+                physical_graph: None,
                 rules: vec![],
                 diagnostic: None,
                 execution: Some(CopiedExecutionSnapshot {
@@ -1113,7 +1115,7 @@ mod tests {
         };
         for original in [Some(foreign), None] {
             let trace = performed_trace(original);
-            let mut unrelated = context("engine-execution-observations.v1", &trace);
+            let mut unrelated = context("engine-execution-observations.v2", &trace);
             unrelated.operation = Some(foreign);
             let mut set = FrozenEvidenceSet {
                 contexts: vec![unrelated],
@@ -1131,7 +1133,7 @@ mod tests {
                     "an unrelated context cannot associate its earlier session with the requested operation"
                 );
             }
-            let selected = context("engine-execution-observations.v1", &trace);
+            let selected = context("engine-execution-observations.v2", &trace);
             set.contexts.push(selected);
             for question in [
                 AnalysisQuestion::Preparation,
@@ -1177,7 +1179,7 @@ mod tests {
     fn prerequisites_prefer_context_payload_over_exact_flat_mirrors_and_reject_malformed_receipts()
     {
         let trace = performed_trace(Some(id()));
-        let mut selected = context("engine-execution-observations.v1", &trace);
+        let mut selected = context("engine-execution-observations.v2", &trace);
         let mut duplicate = selected.facts[0].clone();
         duplicate.path = "/physical_admission/1/engine".into();
         selected.facts.push(duplicate);

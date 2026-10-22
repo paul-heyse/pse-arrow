@@ -229,7 +229,7 @@ pub(super) fn admit(
                 fact.codec.as_str(),
                 "modeling-source-map.v1"
                     | "native-attempt-record.v1"
-                    | "engine-execution-observations.v1"
+                    | "engine-execution-observations.v2"
                     | "replay-simulation-constructor.v2"
                     | "replay-horizon-constructor.v2"
                     | "replay-shooting-constructor.v2"
@@ -329,9 +329,9 @@ pub(super) fn admit(
         .saturating_mul(2)
         .saturating_add(pointer)
         .saturating_add(state.largest_value.max(256));
-    // Event tuple statements retain at most 17 fields/references. The invocation
+    // Event tuple statements retain at most 33 fields/references. The invocation
     // owner uses smaller fixed tuples (including bounded strategy references).
-    let references_per_statement = 17usize;
+    let references_per_statement = 33usize;
     let subjects = state.operations.saturating_add(2).min(64);
     let requirements = subjects
         .saturating_mul(if request.question.is_some() { 4 } else { 16 })

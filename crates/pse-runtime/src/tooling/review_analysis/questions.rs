@@ -73,7 +73,9 @@ pub(super) fn limitations(b: &mut Builder) {
     }
 }
 pub(super) fn metric_question(name: &str) -> Option<Q> {
-    if name.starts_with("math.demand.") || name.starts_with("math.census.") {
+    if name.starts_with("compiler.") {
+        Some(Q::Preparation)
+    } else if name.starts_with("math.demand.") || name.starts_with("math.census.") {
         Some(Q::EvaluatorWork)
     } else if name.starts_with("math.")
         && [
@@ -225,7 +227,7 @@ pub(super) fn operations(
 }
 pub(super) fn family_question(family: &str) -> Option<Q> {
     match family {
-        "evaluator_demand_batch.v1" | "evaluator_demand.v1" | "evaluator_census.v1" => {
+        "compiler_query.v1" => Some(Q::Preparation),        "evaluator_demand_batch.v1" | "evaluator_demand.v1" | "evaluator_census.v1" => {
             Some(Q::EvaluatorWork)
         }
         "root_raw_map.v1"
@@ -279,6 +281,7 @@ pub(super) fn declared_role(
 }
 pub(super) fn eligible(q: Q, role: Option<ProducerRole>) -> bool {
     match q {
+        Q::Preparation => role == Some(ProducerRole::Workflow),
         Q::EvaluatorWork => role == Some(ProducerRole::Evaluator),
         Q::RootProgress | Q::DynamicWork | Q::FactorRecovery => matches!(
             role,
@@ -337,7 +340,7 @@ fn event_evidence(b: &mut Builder, event: &Event<'_>) -> Vec<AnalysisSourceRefer
     let mut result = vec![event.reference(None)];
     for (i, field) in event.record.values.iter().enumerate() {
         let pointer = format!("{}/values/{i}", event.pointer);
-        if i >= 16 {
+        if i >= 32 {
             b.omitted.insert(format!("{}#{pointer}", event.member));
             continue;
         }
@@ -410,6 +413,7 @@ pub(super) fn records(
             .collect::<Vec<_>>()
             .join("; ");
         let message = match q {
+            Q::Preparation => format!("Actual compiler {} event: query family {:?}, semantic subject {:?}, workspace generation {:?}. {}. An unmapped event stays unattributed. Execution is not a proved cache-miss cause; validation is not root-wide preparation or a duration.", event.record.phase, field_text(event, "query_family"), field_text(event, "semantic_subject"), field_count(event, "workspace_generation"), values),
             Q::EvaluatorWork => format!(
                 "Actual {} event, demand {:?}, requested_order {:?}: {}. Batch increments and per-row cumulative histories are separate; these populations are never added together.",
                 event.record.family,
@@ -1090,6 +1094,7 @@ pub(super) fn same_engine_trace(
                     && left.policy == right.policy
                     && left.logical_plan == right.logical_plan
                     && left.physical_plan == right.physical_plan
+                    && left.physical_graph == right.physical_graph
                     && left.rules == right.rules
                     && left.diagnostic == right.diagnostic
                     && match (&left.execution, &right.execution) {
@@ -1167,6 +1172,9 @@ fn engine_trace(
             b.add(Q::EvaluationCost,Limitation,"engine.off","Engine capture was Off for this original observation; absent operators are unavailable, not zero work.",vec![reference],vec![NextObservation::InspectRelated]);
             continue;
         }
+        if let Some(graph) = &observation.physical_graph {
+            b.add(Q::Preparation, Established, "engine.physical_topology", format!("Actual structured physical topology: {} unique operators, {} ordered dependency edges, truncated={}. Native metric node ordinals share this capture-local traversal; cache-producer edges are explicit. This is not canonical or numerical dependency authority. {}",graph.nodes.len(),graph.edges.len(),graph.truncated,origin.coordinate(&format!("{pointer}/physical_graph"))),vec![origin.reference(format!("{pointer}/physical_graph"),Value::Text("actual physical topology".into()),graph.truncated)],vec![]);
+        }
         let Some(execution) = &observation.execution else {
             b.add(Q::EvaluationCost,Limitation,"engine.metrics_unavailable","No owner-copied operator population was retained. Plan/rule capture alone does not establish executed operator cost.",vec![reference],vec![NextObservation::InspectRelated]);
             continue;
@@ -1219,7 +1227,7 @@ pub(super) fn engine(
             .facts
             .iter()
             .enumerate()
-            .filter(|(_, fact)| fact.codec == "engine-execution-observations.v1")
+            .filter(|(_, fact)| fact.codec == "engine-execution-observations.v2")
         {
             b.checkpoint()?;
             // A repeated same-byte attachment is the same supplied receipt, even if

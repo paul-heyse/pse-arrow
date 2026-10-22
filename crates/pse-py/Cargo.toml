@@ -30,6 +30,7 @@ doctest = false
 bench = false
 
 [features]
+diagnostic-taskdump = ["pse-runtime/diagnostic-taskdump", "tokio/taskdump"]
 compiled-evaluator = ["pse-runtime/compiled-evaluator"]
 native-solvers = ["pse-runtime/native-solvers", "solver-highs"]
 solver-ipopt = ["pse-runtime/solver-ipopt"]

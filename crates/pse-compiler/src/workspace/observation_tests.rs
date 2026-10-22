@@ -6,6 +6,10 @@ use pse_diagnostics::observation::{ObservationHub, Policy, RecordTap, Value};
 use std::sync::{Mutex, atomic::AtomicUsize};
 use std::time::Duration;
 
+fn observe_query_event(event: &salsa::Event, cache: &Mutex<Option<QueryFacts>>) {
+    super::observe_query_event(event, cache, &Mutex::new(QueryLabels::default()));
+}
+
 fn declarations(value: u64) -> Vec<pse_modeling::Declaration> {
     pse_authoring::language::parse(
         &format!(
@@ -319,4 +323,38 @@ fn actual_preparation_owner_phases_close_on_success_and_cancellation() {
             .any(|event| event.name == "compiler.body_materialization"),
         "a cancelled direct typed admission does not fabricate a grouped materialization owner"
     );
+}
+
+#[test]
+fn semantic_query_labels_are_exact_generation_owned_and_leave_unknown_events_unmapped() {
+    #[derive(Debug, Default)]
+    struct Detail(Mutex<Vec<pse_diagnostics::observation::CoherentRecord>>);
+    impl RecordTap for Detail {
+        fn selected(&self, family: &str) -> bool { family == "compiler_query.v1" }
+        fn observe(&self, record: &pse_diagnostics::observation::CoherentRecord) {
+            self.0.lock().unwrap().push(record.clone());
+        }
+    }
+    let tap = Arc::new(Detail::default());
+    let hub = ObservationHub::new(Policy::default());
+    let owner = hub.start("semantic labels");
+    let context = owner.context().with_record_tap(tap.clone());
+    let _entered = context.enter();
+    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
+    let original = declarations(1);
+    let expected = original.iter().map(|row| SemanticId::from(row.declaration_id).to_string()).collect::<Vec<_>>();
+    workspace.publish_modeling(original, pse_modeling::PhysicalScope::default()).unwrap();
+    workspace.publish_modeling(declarations(2), pse_modeling::PhysicalScope::default()).unwrap();
+    let records = tap.0.lock().unwrap();
+    let mapped = records.iter().filter(|record| record.values.iter().any(|field| field.name == "query_family" && field.value == Value::Text("declaration.parsed".into()))).collect::<Vec<_>>();
+    assert!(!mapped.is_empty(), "real declaration query executions must be labeled");
+    assert!(mapped.iter().all(|record| record.values.iter().any(|field| field.name == "semantic_subject" && matches!(&field.value, Value::Text(subject) if expected.contains(subject)))));
+    assert!(records.iter().any(|record| record.phase == "validate" && record.values.iter().any(|field| field.name == "semantic_subject" && matches!(&field.value, Value::Text(subject) if expected.contains(subject)))), "an actual Salsa memo validation must retain an exact semantic label");
+    assert!(records.iter().any(|record| record.values.iter().any(|field| field.name == "semantic_subject" && matches!(field.value, Value::Unavailable(_)))));
+    drop(records);
+    let old = workspace.db.query_labels.clone();
+    workspace.rebuild(workspace.inputs.clone()).unwrap();
+    assert!(!Arc::ptr_eq(&old, &workspace.db.query_labels));
+    assert_eq!(workspace.db.query_labels.lock().unwrap().generation, 1);
+    assert_eq!(old.lock().unwrap().generation, 0);
 }

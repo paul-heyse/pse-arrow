@@ -43,6 +43,15 @@ pub(crate) fn diagnostic_record_launch(
     })
 }
 
+/// Offline extraction over explicitly supplied recorded codecs. No Runtime is constructed.
+#[pyfunction]
+pub(crate) fn diagnostic_extract_reproducer(
+    py: Python<'_>,
+    request: crate::documents::RecordedInput<pse_runtime::workflow::ReproducerExtractionRequest>,
+) -> PyResult<DocumentValue<pse_runtime::workflow::ReproducerCommandRequest>> {
+    py.detach(|| request.0.extract()).map(DocumentValue).map_err(|error| errors::diagnostic(py,&error))
+}
+
 fn window(seconds: f64) -> PyResult<Duration> {
     if !seconds.is_finite() || seconds < 0.0 {
         return Err(pyo3::exceptions::PyValueError::new_err(
@@ -728,7 +737,7 @@ pub(crate) fn diagnostic_read_evidence(
 ) -> PyResult<DocumentValue<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>> {
     py.detach(|| {
         let set: pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet =
-            pse_runtime::tooling::frozen_inspection::read_document::<_, 2>(&path)?;
+            pse_runtime::tooling::frozen_inspection::read_document::<_, 3>(&path)?;
         set.validate()?;
         Ok::<_, pse_runtime::observation::ObservationError>(set)
     })

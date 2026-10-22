@@ -282,7 +282,7 @@ impl ReviewContextDocument {
                 serde_json::to_vec(observations)
                     .map(|payload| ReviewContextFact {
                         path: "/physical_admission/engine".into(),
-                        codec: "engine-execution-observations.v1".into(),
+                        codec: "engine-execution-observations.v2".into(),
                         payload,
                     })
                     .map_err(|error| contract(error.to_string()))
@@ -371,7 +371,7 @@ impl ReviewContextDocument {
                         | "authored-source.v1"
                         | "submitted-request.v1"
                         | "modeling-source-map.v1"
-                        | "engine-execution-observations.v1"
+                        | "engine-execution-observations.v2"
                         | "initialization-request.v1"
                         | "initialization-outcome.v1"
                         | "initialization-attempt.v1"
@@ -488,7 +488,7 @@ impl Builder {
             if let Some(facts) = receipt.observations() {
                 self.fact(
                     format!("/physical_admission/{position}/engine"),
-                    "engine-execution-observations.v1",
+                    "engine-execution-observations.v2",
                     facts,
                 )?;
             } else if let Some(reason) = receipt.unavailable() {

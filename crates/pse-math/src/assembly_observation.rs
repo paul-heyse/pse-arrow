@@ -373,6 +373,8 @@ impl CaseObservation {
                         "predicate",
                         Value::Boolean(census.directional),
                     ),
+                    field("demand_outputs", "formal-output-indices", index_selection(&template.demand.outputs)),
+                    field("demand_coordinates", "formal-coordinate-indices", index_selection(&template.demand.coordinates)),
                     field(
                         "outputs",
                         "outputs",
@@ -393,6 +395,8 @@ impl CaseObservation {
                         "static-blocks",
                         Value::Count(census.arithmetic_blocks as u64),
                     ),
+                    field("arithmetic_input_entries", "scalar-crossings", Value::Count(census.arithmetic_input_entries as u64)),
+                    field("arithmetic_output_entries", "scalar-crossings", Value::Count(census.arithmetic_output_entries as u64)),
                     field(
                         "native_arithmetic_blocks",
                         "static-blocks",
@@ -544,6 +548,15 @@ fn counter_fields(counts: &DemandCounts) -> impl Iterator<Item = RecordField> + 
             Value::Boolean(counts.overflowed),
         )))
 }
+// Selected diagnostic detail exposes the actual small demand, not a second key.
+// Large selections retain their count and an explicit unavailable index population.
+fn index_selection(indices: &[usize]) -> Value {
+    if indices.len() > 256 {
+        Value::Unavailable("formal index selection exceeds bounded diagnostic detail".into())
+    } else {
+        Value::Text(indices.iter().map(usize::to_string).collect::<Vec<_>>().join(","))
+    }
+}
 fn field(name: &str, unit: &str, value: Value) -> RecordField {
     RecordField {
         name: name.into(),
@@ -640,5 +653,16 @@ mod selected_evaluator_timing_tests {
         assert_eq!(fields[3].value, Value::Count(23));
         timing.record(std::time::Duration::MAX, true);
         assert!(matches!(timing.fields()[0].value, Value::Overflow));
+    }
+}
+
+#[cfg(test)]
+mod demand_selection_tests {
+    use super::*;
+    #[test]
+    fn actual_formal_selection_preserves_order_empty_and_explicit_detail_limit() {
+        assert_eq!(index_selection(&[4,1,2]),Value::Text("4,1,2".into()));
+        assert_eq!(index_selection(&[]),Value::Text(String::new()));
+        assert!(matches!(index_selection(&vec![0;257]),Value::Unavailable(_)));
     }
 }

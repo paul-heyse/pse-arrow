@@ -264,9 +264,10 @@ impl ReplaySourceDocument {
         runtime: &Runtime,
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
         let activity = runtime.admit_activity()?;
-        activity.sync_scope(|| runtime.admit_replay_source(self, physical, providers))
+        activity.sync_scope(|| runtime.admit_replay_source(self, physical, providers, cancel))
     }
 }
 /// Stream the modeling owner's exact JSON codec as bytes without an unadmitted
@@ -294,6 +295,13 @@ fn serialize_bindings<S: serde::Serializer>(
     let mut bytes = JsonBytes(serializer.serialize_seq(None)?);
     serde_json::to_writer(&mut bytes, value).map_err(S::Error::custom)?;
     bytes.0.end()
+}
+// Decode only the existing producer's byte representation. Executable admission remains
+// ReplayCaseConstructor::reconstruct; decoding grants no runtime capability.
+fn deserialize_bindings<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<pse_modeling::Bindings, D::Error> {
+    let bytes = <Vec<u8> as serde::Deserialize>::deserialize(deserializer)?;
+    if bytes.len() > 64 << 20 { return Err(serde::de::Error::custom("recorded binding codec exceeds finite extent")); }
+    serde_json::from_slice(&bytes).map_err(serde::de::Error::custom)
 }
 /// Full actual requested solver controls; native settings remain their original typed authority.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -1333,7 +1341,7 @@ impl ReplayCaseInputs {
     }
 }
 /// Exact producer required to recreate an opaque compiled product in another runtime.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplayProducerPremise {
     /// Original structural block schedule preparation.
@@ -1352,7 +1360,7 @@ pub enum ReplayProducerPremise {
     Path,
 }
 /// One ordered reference in the original immutable prepared graph.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayPreparedProduct {
     /// Postorder node for an original-only reusable scientific preparation.
@@ -1365,7 +1373,7 @@ pub struct ReplayPreparedProduct {
     pub profile: ContentHash,
 }
 /// One original input and its exact full requested policy, before any native dispatch.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayPreparedNode {
     /// Exact original scientific binding identity.
@@ -1390,7 +1398,7 @@ pub struct ReplayPreparedNode {
     pub rungs: Vec<ReplayPreparedProduct>,
 }
 /// Full bounded postorder inventory. Opaque capabilities are explicit producer premises.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayPreparedGraph {
     /// Actual original nodes, children before parents; no mutable preparation history lookup.
@@ -1617,7 +1625,7 @@ fn same_inventory(
     Ok(true)
 }
 /// Complete original proposal input; historical screening is not renewed permission.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayScreenedStart {
     /// Full original source dependencies.
@@ -1648,7 +1656,7 @@ impl ReplayScreenedStart {
     }
 }
 /// Portable original case constructor, independent of mutable history or compiled native products.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayCaseConstructor {
     /// Index of the immutable source closure in ReplayDocument.sources.
@@ -1658,7 +1666,7 @@ pub struct ReplayCaseConstructor {
     /// Original instance identity.
     pub instance: pse_modeling::InstanceId,
     /// Full immutable structural arguments/facts/omissions/elastic declarations.
-    #[serde(serialize_with = "serialize_bindings")]
+    #[serde(serialize_with = "serialize_bindings", deserialize_with = "deserialize_bindings")]
     #[schemars(with = "Vec<u8>")]
     pub bindings: pse_modeling::Bindings,
     /// Actual compiler controls and original expansion limits.
@@ -2056,14 +2064,14 @@ mod tests {
         document.objects.push(document.objects[0].clone());
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .unwrap_err()
                 .to_string()
                 .contains("duplicate logical or lexical identity")
         );
         runtime.close();
         assert!(matches!(
-            document.reconstruct(&runtime, physical, BTreeMap::new()),
+            document.reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new()),
             Err(WorkflowError::CallerClosed)
         ));
     }
@@ -2085,7 +2093,7 @@ mod tests {
         let restored: ReplaySourceDocument =
             serde_json::from_slice(&serde_json::to_vec(&document).unwrap()).unwrap();
         let reconstructed = restored
-            .reconstruct(&runtime, physical, BTreeMap::new())
+            .reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new())
             .unwrap();
         assert_eq!(
             &*reconstructed.declarations().await.unwrap(),
@@ -2120,14 +2128,14 @@ mod tests {
         document.build = pse_ids::encoding_checksum(b"different build").content_hash();
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
         let mut document = original.clone();
         document.objects[0].payload.push(0);
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
         let mut document = original.clone();
@@ -2139,7 +2147,7 @@ mod tests {
         edge_owner.references.push(edge_owner.references[0].clone());
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
         let mut document = original.clone();
@@ -2159,7 +2167,7 @@ mod tests {
         });
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
         let mut document = original.clone();
@@ -2167,7 +2175,7 @@ mod tests {
             pse_ids::encoding_checksum(b"missing physical premise").content_hash();
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new())
+                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
         let mut document = original;
@@ -2182,7 +2190,7 @@ mod tests {
             .retain(|object| (object.scope.clone(), object.name.clone()) != referenced);
         assert!(
             document
-                .reconstruct(&runtime, physical, BTreeMap::new())
+                .reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new())
                 .is_err()
         );
     }
@@ -3221,7 +3229,7 @@ impl ReplayShootingConstructor {
 }
 
 impl ReplayCaseConstructor {
-    fn from_analysis(
+    pub(in crate::workflow) fn from_analysis(
         source: usize,
         analysis: &super::ModelingAnalysis,
     ) -> Result<Self, WorkflowError> {

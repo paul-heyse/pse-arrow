@@ -49,8 +49,8 @@ pub enum PackMemberRole {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PackFormat {
-    /// FrozenEvidenceSet version 2 JSON codec.
-    FrozenEvidenceV2,
+    /// FrozenEvidenceSet version 3 JSON codec.
+    FrozenEvidenceV3,
     /// AnalysisDocument version 2 JSON codec.
     AnalysisV2,
     /// Original owner JSON document; schema is not inferred.
@@ -73,7 +73,7 @@ pub enum PackFormat {
 impl PackFormat {
     fn extension(self) -> &'static str {
         match self {
-            Self::FrozenEvidenceV2 | Self::AnalysisV2 | Self::Json => "json",
+            Self::FrozenEvidenceV3 | Self::AnalysisV2 | Self::Json => "json",
             Self::JsonLines => "jsonl",
             Self::ArrowIpcStream => "arrow",
             Self::Markdown => "md",
@@ -396,7 +396,7 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
             return Err(invalid("unsafe or duplicate selected member identity"));
         }
         let reserved = match member.id.as_str() {
-            "frozen" => Some((PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV2)),
+            "frozen" => Some((PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV3)),
             "analysis" => Some((PackMemberRole::Analysis, PackFormat::AnalysisV2)),
             "report_markdown" => Some((PackMemberRole::Report, PackFormat::Markdown)),
             "report_html" => Some((PackMemberRole::Report, PackFormat::Html)),
@@ -406,7 +406,7 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
             if member.role != role
                 || member.format != format
                 || !member.required
-                || (member.id == "frozen" && member.document_version != Some(2))
+                || (member.id == "frozen" && member.document_version != Some(3))
                 || (member.id == "analysis" && member.document_version != Some(2))
             {
                 return Err(invalid("reserved typed member contract mismatch"));
@@ -422,7 +422,7 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
 
         if let Some(version) = member.document_version {
             let expected = match (member.role, member.format) {
-                (PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV2) => Some(2),
+                (PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV3) => Some(3),
                 (PackMemberRole::Analysis, PackFormat::AnalysisV2) => Some(2),
                 (PackMemberRole::Context, PackFormat::Json) => Some(1),
                 (PackMemberRole::Capture | PackMemberRole::Detail, PackFormat::Json) => Some(2),
@@ -485,7 +485,7 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
         {
             return Err(invalid("invalid selected scientific coordinates"));
         }
-        if matches!(member.format, PackFormat::FrozenEvidenceV2)
+        if matches!(member.format, PackFormat::FrozenEvidenceV3)
             && member.role != PackMemberRole::FrozenEvidence
             || matches!(member.format, PackFormat::AnalysisV2)
                 && member.role != PackMemberRole::Analysis
@@ -521,7 +521,7 @@ fn built_in(id: &str, role: PackMemberRole, format: PackFormat) -> PackMemberSel
         required: true,
         format,
         document_version: match format {
-            PackFormat::FrozenEvidenceV2 => Some(2),
+            PackFormat::FrozenEvidenceV3 => Some(3),
             PackFormat::AnalysisV2 => Some(2),
             _ => None,
         },
@@ -609,7 +609,7 @@ impl PackSession {
             built_in(
                 "frozen",
                 PackMemberRole::FrozenEvidence,
-                PackFormat::FrozenEvidenceV2,
+                PackFormat::FrozenEvidenceV3,
             ),
             built_in("analysis", PackMemberRole::Analysis, PackFormat::AnalysisV2),
             built_in(
@@ -1606,7 +1606,7 @@ fn validate_encoding(
     }
     if matches!(
         member.selection.format,
-        PackFormat::Json | PackFormat::FrozenEvidenceV2 | PackFormat::AnalysisV2
+        PackFormat::Json | PackFormat::FrozenEvidenceV3 | PackFormat::AnalysisV2
     ) && let Some(version) = member.selection.document_version
     {
         let document: serde_json::Value = decode(&mut file, maximum_document_bytes)?;

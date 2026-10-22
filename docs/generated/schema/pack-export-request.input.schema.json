@@ -62,8 +62,8 @@
       "description": "Actual bytes encoding. IPC stream and IPC file are deliberately different contracts.",
       "oneOf": [
         {
-          "const": "frozen_evidence_v2",
-          "description": "FrozenEvidenceSet version 2 JSON codec.",
+          "const": "frozen_evidence_v3",
+          "description": "FrozenEvidenceSet version 3 JSON codec.",
           "type": "string"
         },
         {

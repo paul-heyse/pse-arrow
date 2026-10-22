@@ -28,6 +28,7 @@ force-validate = [
   "pse-testkit/force-validate",
 ]
 default = []
+diagnostic-taskdump = ["tokio/taskdump"]
 compiled-evaluator = ["pse-math/compiled-evaluator"]
 canonical-tests = ["pse-operations/canonical-tests"]
 solver-ipopt = ["pse-backend-native/ipopt"]

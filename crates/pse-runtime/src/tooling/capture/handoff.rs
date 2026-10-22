@@ -432,7 +432,7 @@ pub fn read_review_handoff(path: &Path) -> Result<FrozenEvidenceSet, CaptureErro
             return Err(invalid("handoff member is not its finalized regular file"));
         }
         let mut evidence =
-            crate::tooling::frozen_inspection::read_document::<FrozenEvidenceSet, 2>(&selected)
+            crate::tooling::frozen_inspection::read_document::<FrozenEvidenceSet, 3>(&selected)
                 .map_err(|error| invalid(error.to_string()))?;
         if evidence.invocations.iter().any(|invocation| {
             Some(invocation.run_id.to_string()) != member.run

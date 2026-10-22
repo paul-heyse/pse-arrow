@@ -226,6 +226,7 @@ struct CompilerDatabase {
     body_retention: Option<Arc<dyn ModelingBodyRetention>>,
     body_refusal: Arc<std::sync::Mutex<Option<MathError>>>,
     live_retention: Arc<std::sync::Mutex<LiveRetention>>,
+    query_labels: Arc<std::sync::Mutex<QueryLabels>>,
 }
 #[salsa::db]
 impl Database for CompilerDatabase {}
@@ -1513,6 +1514,24 @@ fn conditional_blocks(
     Ok(Arc::new(blocks))
 }
 
+#[derive(Clone)]
+struct SemanticQueryLabel {
+    family: &'static str,
+    subject: String,
+}
+#[derive(Default)]
+struct QueryLabels {
+    generation: usize,
+    labels: std::collections::HashMap<salsa::DatabaseKeyIndex, SemanticQueryLabel>,
+}
+
+// Only the exact input/query owner installs labels, before requesting the query.
+fn label_query(db: &CompilerDatabase, key: salsa::DatabaseKeyIndex, family: &'static str, subject: impl ToString) {
+    if let Ok(mut labels) = db.query_labels.lock() {
+        labels.labels.insert(key, SemanticQueryLabel { family, subject: subject.to_string() });
+    }
+}
+
 type CompilerEvents = Arc<dyn Fn(salsa::Event) + Send + Sync>;
 
 struct QueryFacts {
@@ -1545,7 +1564,7 @@ impl QueryFacts {
 
 // The callback reads the active operation at emission time. Only diagnostic handles
 // are retained; database rebuild and operation switches cannot capture invocation permission.
-fn observe_query_event(event: &salsa::Event, cache: &std::sync::Mutex<Option<QueryFacts>>) {
+fn observe_query_event(event: &salsa::Event, cache: &std::sync::Mutex<Option<QueryFacts>>, labels: &std::sync::Mutex<QueryLabels>) {
     use pse_diagnostics::observation::FactUpdate;
     let Some(context) = pse_diagnostics::observation::current() else {
         return;
@@ -1608,17 +1627,28 @@ fn observe_query_event(event: &salsa::Event, cache: &std::sync::Mutex<Option<Que
             producer.activate_record_family("compiler_query.v1");
             producer
         });
+        let mapped = labels.try_lock().ok().map(|labels| (labels.generation, labels.labels.get(key).cloned()));
+        let mut fields = vec![RecordField {
+            name: "salsa_query".into(), unit: "opaque_query_locator".into(),
+            value: Value::Text(identity), availability: None,
+        }];
+        if let Some((generation, label)) = mapped {
+            fields.push(RecordField { name: "workspace_generation".into(), unit: "generation".into(), value: Value::Count(generation as u64), availability: None });
+            if let Some(label) = label {
+                fields.push(RecordField { name: "query_family".into(), unit: "".into(), value: Value::Text(label.family.into()), availability: None });
+                fields.push(RecordField { name: "semantic_subject".into(), unit: "semantic_subject_locator".into(), value: Value::Text(label.subject), availability: None });
+            } else {
+                fields.push(RecordField { name: "semantic_subject".into(), unit: "semantic_subject_locator".into(), value: Value::Unavailable("no exact owner mapping".into()), availability: Some(pse_diagnostics::observation::RecordAvailability::NotSupplied) });
+            }
+        } else {
+            fields.push(RecordField { name: "semantic_subject".into(), unit: "semantic_subject_locator".into(), value: Value::Unavailable("exact owner mapping contended or unavailable".into()), availability: Some(pse_diagnostics::observation::RecordAvailability::Unavailable) });
+        }
         let record = producer.record(
             "compiler_query.v1",
             ["execute", "validate", "wait", "discard"][index],
             None,
             None,
-            vec![RecordField {
-                name: "salsa_query".into(),
-                unit: "opaque_query_locator".into(),
-                value: Value::Text(identity),
-                availability: None,
-            }],
+            fields,
         );
         producer.publish(&record);
     }
@@ -1703,13 +1733,16 @@ impl CompilerWorkspace {
         validate(&inputs, limits)?;
         let callback = events.clone();
         let observations = std::sync::Mutex::new(None);
+        let query_labels = Arc::new(std::sync::Mutex::new(QueryLabels::default()));
+        let event_labels = query_labels.clone();
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(Some(Box::new(move |event| {
-                observe_query_event(&event, &observations);
+                observe_query_event(&event, &observations, &event_labels);
                 if let Some(callback) = &callback {
                     callback(event);
                 }
             }))),
+            query_labels,
             cancel: Arc::default(),
             projection_scratch_limit: limits.input_bytes,
             body_retention: None,
@@ -1745,6 +1778,7 @@ impl CompilerWorkspace {
             context.phase("compiler.workspace_rebuild")
         });
         let mut replacement = Self::with_shared_events(inputs, self.limits, self.events.clone())?;
+        if let Ok(mut labels) = replacement.db.query_labels.lock() { labels.generation = generation; }
         replacement.db.body_retention = self.db.body_retention.clone();
         if let Some(state) = &self.modeling {
             replacement.publish_modeling_revision(state.revision.clone())?;
@@ -1869,6 +1903,7 @@ impl CompilerWorkspace {
     /// this workspace never retains a sibling database handle during observation.
     pub fn observe_retention(&mut self) -> RetentionSnapshot {
         let report = <dyn Database>::memory_usage(&mut self.db);
+        let (label_entries, label_extent) = self.db.query_labels.lock().map_or((0, 0), |labels| (labels.labels.len(), labels.labels.capacity().saturating_mul(size_of::<salsa::DatabaseKeyIndex>() + size_of::<SemanticQueryLabel>() + 32).saturating_add(labels.labels.values().map(|label| label.subject.capacity()).sum::<usize>())));
         let live_entries = self.live_bodies.len().saturating_add(
             self.db
                 .live_retention
@@ -1878,9 +1913,10 @@ impl CompilerWorkspace {
         let (entries, known_bytes, metadata_bytes) =
             report.structs.iter().chain(report.queries.values()).fold(
                 (
-                    self.granular.entries().saturating_add(live_entries),
+                    self.granular.entries().saturating_add(live_entries).saturating_add(label_entries),
                     self.granular
                         .known_bytes(&self.db)
+                        .saturating_add(label_extent)
                         .saturating_add(live_entries.saturating_mul(256)),
                     0usize,
                 ),

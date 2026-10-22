@@ -50,6 +50,8 @@ from pse.contracts.documents import (
     DiagnosticOrigin,
     DiagnosticOriginOutput,
     DiagnosticProcessPageOutput,
+    DiagnosticReproducer,
+    DiagnosticReproducerOutput,
     DiffsolSettings,
     DiffsolSettingsOutput,
     EligibilityDocumentOutput,
@@ -106,6 +108,10 @@ from pse.contracts.documents import (
     ProgressCoverage,
     ProgressEventDocumentOutput,
     ReplayDocument,
+    ReproducerCommandRequestOutput,
+    ReproducerExtractionRequest,
+    ReproducerExtractionRequestOutput,
+    ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
     ReviewContextDocument,
@@ -140,6 +146,8 @@ from pse.contracts.documents import (
     StudyWaitControls,
     StudyWaitControlsOutput,
     SubmittedStartRecord,
+    TaskDumpDocumentOutput,
+    TaskDumpRequest,
     TearSelectionDocument,
     WarmStartSnapshotOutput,
 )
@@ -1102,6 +1110,9 @@ class NativeRuntime:
     ) -> TableStream: ...
     def retain_history_obligation(self, /, obligation: bytes) -> None: ...
     def run_record(self, /, run: str) -> TableStream: ...
+    def run_reproducer(
+        self, /, request: DiagnosticReproducer | DiagnosticReproducerOutput
+    ) -> ReproductionDocumentOutput: ...
     def scientific_artifact(self, /, key: str) -> NativeScientificArtifact: ...
     def source_settlement(
         self, /, problem: str, operation: str
@@ -1115,6 +1126,8 @@ class NativeRuntime:
     ) -> NativeRunHandle: ...
     def start_study(self, /, definition: bytes) -> NativeStudyHandle: ...
     def study(self, /, study_id: StudyId) -> NativeStudyHandle: ...
+    def task_dump(self, /, request: TaskDumpRequest) -> TaskDumpDocumentOutput: ...
+    def task_dump_status(self, /) -> TaskDumpDocumentOutput | None: ...
     def work(
         self,
         /,
@@ -1343,6 +1356,9 @@ def diagnostic_export_pack(
     analysis: AnalysisDocument | AnalysisDocumentOutput,
     selection: PackExportRequest | PackExportRequestOutput,
 ) -> PackIndexOutput: ...
+def diagnostic_extract_reproducer(
+    request: ReproducerExtractionRequest | ReproducerExtractionRequestOutput,
+) -> ReproducerCommandRequestOutput: ...
 def diagnostic_inspect(
     checkpoint: str | PathLike[str],
     request: InspectionRequest | InspectionRequestOutput,

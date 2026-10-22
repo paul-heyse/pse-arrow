@@ -53,6 +53,8 @@ FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
+GraphScope = Literal["immediate_blockers", "recorded_sources", "retained_consumers"]
+
 HistoryPurposeBody = Literal["audit", "unsettled"]
 
 IdasInitialStep = Literal["configured", "automatic"]
@@ -75,7 +77,7 @@ OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
 OptionValue = bool | int | float | str
 
-PackFormat = Literal["frozen_evidence_v2", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
+PackFormat = Literal["frozen_evidence_v3", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
 
 PackMemberRole = Literal["frozen_evidence", "analysis", "context", "detail", "capture", "engine", "query", "result", "report"]
 
@@ -100,6 +102,10 @@ RecordAvailability = Literal["not_requested", "running", "interrupted", "unavail
 ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
 
 ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
+
+ReproductionStatus = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
+
+ReproductionStatusBody = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
 
 RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
 
@@ -138,6 +144,88 @@ class AccuracyDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.allowance), v.scalar_key(self.class_), v.scalar_key(self.normalization), v.scalar_key(self.product),))
+
+
+class ActionKindCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="cancel"):
+    """Study cancellation prevents dispatch and requests any active attempt to stop."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ActionKindOutputCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="cancel"):
+    """Study cancellation prevents dispatch and requests any active attempt to stop."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ActionKindOutputReconcile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="reconcile"):
+    """Resolve unknown publication effects before any retry."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ActionKindOutputRefuse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refuse"):
+    """Record the attributable dependent refusal."""
+
+    detail: RefusalOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
+
+
+class ActionKindOutputStart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="start"):
+    """Dispatch through the existing operation executor."""
+
+    detail: StartProvenance
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
+
+
+class ActionKindOutputWait(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="wait"):
+    """Preserve current state."""
+
+    detail: WaitReason
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
+
+
+class ActionKindReconcile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="reconcile"):
+    """Resolve unknown publication effects before any retry."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ActionKindRefuse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refuse"):
+    """Record the attributable dependent refusal."""
+
+    detail: Refusal
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
+
+
+class ActionKindStart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="start"):
+    """Dispatch through the existing operation executor."""
+
+    detail: StartProvenance
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
+
+
+class ActionKindWait(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="wait"):
+    """Preserve current state."""
+
+    detail: WaitReason
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
 
 
 class ActiveSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4923,6 +5011,18 @@ class BuildObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     """The build/linkage fact for one registered adapter."""
 
     #: The adapter's additional native build contract, when one exists.
+    identity: v.ContentHash | None = None
+    #: This binary links the native implementation.
+    linked: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.identity), v.scalar_key(self.linked),))
+
+
+class BuildObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The build/linkage fact for one registered adapter."""
+
+    #: The adapter's additional native build contract, when one exists.
     identity: v.ContentHash | None
     #: This binary links the native implementation.
     linked: bool
@@ -5073,6 +5173,94 @@ class CacheReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
+
+
+class CanonicalGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded metadata response with explicit local completeness and revision-bound continuation."""
+
+    #: Frozen selected owner/revision.
+    anchor: GraphAnchor
+    #: Whether the requested immediate neighborhood was exhausted.
+    complete: bool
+    #: Explicit next page, never a silent truncated success.
+    continuation: GraphContinuation | None = None
+    #: Shared study policy action, when this is a study occurrence.
+    decision: PointAction | None = None
+    #: At most the requested count of retained original edges.
+    edges: tuple[GraphEdge, ...]
+    #: Scope and evidence limits, including protected acquisition.
+    evidence_scope: str
+    #: Native result rows decoded, including the page-plus-one sentinel; not physical KV work.
+    examined_rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected node plus observed neighboring identities, preserving isolates.
+    nodes: tuple[GraphNode, ...]
+    #: One blocker actually selected by shared policy, not an assertion that all blockers were enumerated.
+    observed_blocker: str | None = None
+    #: Requested local question.
+    scope: GraphScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
+
+
+class CanonicalGraphDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded metadata response with explicit local completeness and revision-bound continuation."""
+
+    #: Frozen selected owner/revision.
+    anchor: GraphAnchor
+    #: Whether the requested immediate neighborhood was exhausted.
+    complete: bool
+    #: Explicit next page, never a silent truncated success.
+    continuation: GraphContinuation | None
+    #: Shared study policy action, when this is a study occurrence.
+    decision: PointActionOutput | None
+    #: At most the requested count of retained original edges.
+    edges: tuple[GraphEdgeOutput, ...]
+    #: Scope and evidence limits, including protected acquisition.
+    evidence_scope: str
+    #: Native result rows decoded, including the page-plus-one sentinel; not physical KV work.
+    examined_rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected node plus observed neighboring identities, preserving isolates.
+    nodes: tuple[GraphNodeOutput, ...]
+    #: One blocker actually selected by shared policy, not an assertion that all blockers were enumerated.
+    observed_blocker: str | None
+    #: Requested local question.
+    scope: GraphScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
+
+
+class CanonicalGraphRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded semantic graph query, separate from native physical-plan observations."""
+
+    #: Exact selected owner/revision.
+    anchor: GraphAnchor
+    #: Optional exact-selection continuation.
+    continuation: GraphContinuation | None = None
+    #: Returned edges, from one through 64; the native query retrieves one additional row.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Local neighborhood question.
+    scope: GraphScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
+
+
+class CanonicalGraphRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded semantic graph query, separate from native physical-plan observations."""
+
+    #: Exact selected owner/revision.
+    anchor: GraphAnchor
+    #: Optional exact-selection continuation.
+    continuation: GraphContinuation | None
+    #: Returned edges, from one through 64; the native query retrieves one additional row.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Local neighborhood question.
+    scope: GraphScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
 
 
 class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6529,6 +6717,8 @@ class CopiedPlanObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     logical_plan: str
     #: Actual enclosing operation captured at assembly, absent outside an observation scope.
     operation: OperationIdBody | None = None
+    #: Bounded actual topology with metric-local ordinals, selected only in Diagnostic.
+    physical_graph: ObservedPhysicalGraph | None = None
     #: Bounded physical graph, absent before physical planning.
     physical_plan: str | None = None
     #: Actual original capture policy.
@@ -6537,7 +6727,7 @@ class CopiedPlanObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     rules: tuple[str, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.diagnostic), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.logical_plan), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.physical_plan), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.rules),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.diagnostic), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.logical_plan), v.optional_key(v.record_key)(self.operation), v.optional_key(v.record_key)(self.physical_graph), v.optional_key(v.scalar_key)(self.physical_plan), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.rules),))
 
 
 class CopiedPlanObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6551,6 +6741,8 @@ class CopiedPlanObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     logical_plan: str
     #: Actual enclosing operation captured at assembly, absent outside an observation scope.
     operation: OperationIdBody | None
+    #: Bounded actual topology with metric-local ordinals, selected only in Diagnostic.
+    physical_graph: ObservedPhysicalGraphOutput | None
     #: Bounded physical graph, absent before physical planning.
     physical_plan: str | None
     #: Actual original capture policy.
@@ -6559,7 +6751,7 @@ class CopiedPlanObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     rules: tuple[str, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.diagnostic), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.logical_plan), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.physical_plan), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.rules),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.diagnostic), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.logical_plan), v.optional_key(v.record_key)(self.operation), v.optional_key(v.record_key)(self.physical_graph), v.optional_key(v.scalar_key)(self.physical_plan), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.rules),))
 
 
 class CounterInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7556,6 +7748,62 @@ class DiagnosticProcessSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.summaries),))
+
+
+class DiagnosticReproducer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable new request, independent of original outcome and scientific permission."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Executable request codec.
+    version: Literal[1] = 1
+    #: Explicit finite allowance for all reconstruction/admission/execution.
+    allowance: ClosedDuration
+    #: Original text or exact selected frozen codec.
+    input: ReproducerInputBody
+    #: Original attribution; absent when the original failed before a run existed.
+    origin: DiagnosticOriginBody | None = None
+    #: Independently retained typed original failure, if actually supplied.
+    original_diagnostic: BoundaryDiagnosticBody | None = None
+    #: Original descriptive failure text, never promoted to a typed predicate.
+    original_failure_text: str | None = None
+    #: Original operation, including failures before an original run handle existed.
+    original_operation: OperationIdBody | None = None
+    #: Selected exact typed predicate; absence permits running but no reproduction claim.
+    predicate: ReproductionPredicateBody | None = None
+    #: Explicit runtime premises; descriptors do not locate executable factories.
+    required_environment: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.record_key(self.input), v.optional_key(v.record_key)(self.origin), v.optional_key(v.record_key)(self.original_diagnostic), v.optional_key(v.scalar_key)(self.original_failure_text), v.optional_key(v.record_key)(self.original_operation), v.optional_key(v.record_key)(self.predicate), v.sequence_key(v.scalar_key)(self.required_environment),))
+
+
+class DiagnosticReproducerOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable new request, independent of original outcome and scientific permission."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Executable request codec.
+    version: Literal[1] = 1
+    #: Explicit finite allowance for all reconstruction/admission/execution.
+    allowance: ClosedDuration
+    #: Original text or exact selected frozen codec.
+    input: ReproducerInputBodyOutput
+    #: Original attribution; absent when the original failed before a run existed.
+    origin: DiagnosticOriginBodyOutput | None
+    #: Independently retained typed original failure, if actually supplied.
+    original_diagnostic: BoundaryDiagnosticBodyOutput | None
+    #: Original descriptive failure text, never promoted to a typed predicate.
+    original_failure_text: str | None
+    #: Original operation, including failures before an original run handle existed.
+    original_operation: OperationIdBody | None
+    #: Selected exact typed predicate; absence permits running but no reproduction claim.
+    predicate: ReproductionPredicateBodyOutput | None
+    #: Explicit runtime premises; descriptors do not locate executable factories.
+    required_environment: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.record_key(self.input), v.optional_key(v.record_key)(self.origin), v.optional_key(v.record_key)(self.original_diagnostic), v.optional_key(v.scalar_key)(self.original_failure_text), v.optional_key(v.record_key)(self.original_operation), v.optional_key(v.record_key)(self.predicate), v.sequence_key(v.scalar_key)(self.required_environment),))
 
 
 class DiagnosticRuntimeSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8795,10 +9043,10 @@ class FrozenAdviceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class FrozenEvidenceSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A supplied finite set. Paths and locators inside members are descriptive only."""
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
-    #: Current supplied-set codec; v1 is not interpreted.
-    version: Literal[2] = 2
+    #: Current supplied-set codec; older physical-observation shapes are not interpreted.
+    version: Literal[3] = 3
     #: Capture metadata only. Embedded output paths never authorize file reads.
     captures: tuple[CaptureDocument, ...] = msgspec.field(default_factory=tuple)
     #: Exact process publication images, at most 32; conflicting process identities refuse.
@@ -8829,10 +9077,10 @@ class FrozenEvidenceSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class FrozenEvidenceSetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A supplied finite set. Paths and locators inside members are descriptive only."""
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
-    #: Current supplied-set codec; v1 is not interpreted.
-    version: Literal[2] = 2
+    #: Current supplied-set codec; older physical-observation shapes are not interpreted.
+    version: Literal[3] = 3
     #: Capture metadata only. Embedded output paths never authorize file reads.
     captures: tuple[CaptureDocumentOutput, ...] = msgspec.field(default_factory=tuple)
     #: Exact process publication images, at most 32; conflicting process identities refuse.
@@ -8926,6 +9174,213 @@ class FrozenInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.record_key(self.inspection), v.record_key(self.window),))
+
+
+class GraphAnchorAnalysisNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="analysis_node"):
+    """One node of an active immutable derived analysis."""
+
+    #: Canonical analysis identity.
+    analysis: str
+    #: Selected node identity, including isolates.
+    node: str
+    #: Exact analysis primary source revision.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.analysis), v.scalar_key(self.node), v.scalar_key(self.revision),))
+
+
+class GraphAnchorArtifact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="artifact"):
+    """A discovered artifact header; content still requires protected acquisition."""
+
+    #: Independent artifact identity.
+    artifact: str
+    #: Exact artifact primary source revision.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.artifact), v.scalar_key(self.revision),))
+
+
+class GraphAnchorRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="run"):
+    """One retained scientific run at its original source revision."""
+
+    #: Exact primary source revision.
+    revision: str
+    #: Canonical run identity.
+    run: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.revision), v.scalar_key(self.run),))
+
+
+class GraphAnchorStudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_point"):
+    """One active managed occurrence at its concurrency revision."""
+
+    #: Exact study authority generation, including cancellation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Canonical point identity.
+    point: str
+    #: Exact point concurrency revision.
+    revision: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.point), v.scalar_key(self.revision),))
+
+
+class GraphContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A continuation binds its exact owner, revision and question."""
+
+    #: Last retained ordering key; artifact consumers order by analysis identity.
+    after: str
+    #: Frozen selection to which the cursor belongs.
+    anchor: GraphAnchor
+    #: Exact neighborhood question.
+    scope: GraphScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.record_key(self.anchor), v.scalar_key(self.scope),))
+
+
+class GraphEdge(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original edge, without client-side graph reconstruction or collapsed parallel kinds."""
+
+    #: Recorded protected evidence locator, if any; no acquisition occurs here.
+    evidence: GraphEvidence | None = None
+    #: Exact table-qualified retained relation identity.
+    identity: str
+    #: Original semantic role.
+    role: GraphEdgeRole
+    #: Original directed source.
+    source: str
+    #: Original directed target.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.evidence), v.scalar_key(self.identity), v.record_key(self.role), v.scalar_key(self.source), v.scalar_key(self.target),))
+
+
+class GraphEdgeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original edge, without client-side graph reconstruction or collapsed parallel kinds."""
+
+    #: Recorded protected evidence locator, if any; no acquisition occurs here.
+    evidence: GraphEvidenceOutput | None
+    #: Exact table-qualified retained relation identity.
+    identity: str
+    #: Original semantic role.
+    role: GraphEdgeRole
+    #: Original directed source.
+    source: str
+    #: Original directed target.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.evidence), v.scalar_key(self.identity), v.record_key(self.role), v.scalar_key(self.source), v.scalar_key(self.target),))
+
+
+class GraphEdgeRoleAnalysisInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="analysis_input"):
+    """Retained analysis-to-artifact input relation."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class GraphEdgeRoleAnalysisRelation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="analysis_relation"):
+    """Authored analysis relation; connectivity alone establishes no numerical semantics."""
+
+    #: Original authored classification.
+    relation: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation),))
+
+
+class GraphEdgeRoleContinuationSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="continuation_seed"):
+    """Authored continuation-seed prerequisite."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class GraphEdgeRoleOrdering(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ordering"):
+    """Ordering prerequisite."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class GraphEdgeRoleRecordedSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="recorded_source"):
+    """Recorded run-to-source relation."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class GraphEdgeRoleUsableResult(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="usable_result"):
+    """Scientific usable-result prerequisite."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class GraphEvidence(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact recorded evidence locator, not a grant to read protected bytes."""
+
+    #: Independent artifact identity.
+    artifact: str
+    #: Optional original member position.
+    block: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional original field identity.
+    field: str | None = None
+    #: Optional original row position.
+    row: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.artifact), v.optional_key(v.scalar_key)(self.block), v.optional_key(v.scalar_key)(self.field), v.optional_key(v.scalar_key)(self.row),))
+
+
+class GraphEvidenceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact recorded evidence locator, not a grant to read protected bytes."""
+
+    #: Independent artifact identity.
+    artifact: str
+    #: Optional original member position.
+    block: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Optional original field identity.
+    field: str | None
+    #: Optional original row position.
+    row: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.artifact), v.optional_key(v.scalar_key)(self.block), v.optional_key(v.scalar_key)(self.field), v.optional_key(v.scalar_key)(self.row),))
+
+
+class GraphNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A metadata node; absent revision means that endpoint's revision was not fetched."""
+
+    #: Exact table-qualified node identity.
+    identity: str
+    #: Selected source or concurrency revision, when actually observed.
+    revision: str | None = None
+    #: Source declaration/owner role.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.identity), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.role),))
+
+
+class GraphNodeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A metadata node; absent revision means that endpoint's revision was not fetched."""
+
+    #: Exact table-qualified node identity.
+    identity: str
+    #: Selected source or concurrency revision, when actually observed.
+    revision: str | None
+    #: Source declaration/owner role.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.identity), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.role),))
 
 
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -12997,6 +13452,70 @@ class ObservedMetricOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.scalar_key(self.kind), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.labels), v.scalar_key(self.name), v.scalar_key(self.node), v.scalar_key(self.operator), v.optional_key(v.scalar_key)(self.partition), v.scalar_key(self.unit), v.optional_key(v.scalar_key)(self.value),))
 
 
+class ObservedPhysicalEdge(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An ordered actual physical dependency, distinct from numerical/canonical edges."""
+
+    #: The edge crosses to an independently planned cache producer.
+    cache_producer: bool
+    #: Child metric ordinal.
+    child: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original child position.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Parent metric ordinal.
+    parent: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cache_producer), v.scalar_key(self.child), v.scalar_key(self.ordinal), v.scalar_key(self.parent),))
+
+
+class ObservedPhysicalGraph(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded actual physical topology. Ordinals share the native metric traversal."""
+
+    #: Ordered input/dependency edges; shared inputs retain all incoming edges.
+    edges: tuple[ObservedPhysicalEdge, ...]
+    #: Unique actual operators, including independently planned cache producers.
+    nodes: tuple[ObservedPhysicalNode, ...]
+    #: First observed node, absent if capture admission failed.
+    root: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Bounds or optional allocation admission curtailed capture.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.edges), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.root), v.scalar_key(self.truncated),))
+
+
+class ObservedPhysicalGraphOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded actual physical topology. Ordinals share the native metric traversal."""
+
+    #: Ordered input/dependency edges; shared inputs retain all incoming edges.
+    edges: tuple[ObservedPhysicalEdge, ...]
+    #: Unique actual operators, including independently planned cache producers.
+    nodes: tuple[ObservedPhysicalNode, ...]
+    #: First observed node, absent if capture admission failed.
+    root: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Bounds or optional allocation admission curtailed capture.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.edges), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.root), v.scalar_key(self.truncated),))
+
+
+class ObservedPhysicalNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original physical operator facts; local ordinal is not cross-run identity."""
+
+    #: Snapshot-local metric ordinal.
+    node: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native operator family.
+    operator: str
+    #: Original output schema, as ordered field name/type pairs.
+    output_fields: tuple[tuple[str, str], ...]
+    #: Actual output partition count.
+    partitions: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.node), v.scalar_key(self.operator), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.output_fields), v.scalar_key(self.partitions),))
+
+
 class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A complete registered quantity type plus its free-index obligations."""
 
@@ -14175,6 +14694,34 @@ class PhysicalSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.identity), v.scalar_key(self.revision),))
+
+
+class PointAction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One action derived from one exact occurrence revision."""
+
+    #: Snapshot revision to check inside the adapter's transaction/locks.
+    expected_revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Shared scientific/operational choice.
+    kind: ActionKind
+    #: Target occurrence.
+    occurrence: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expected_revision), v.record_key(self.kind), v.scalar_key(self.occurrence),))
+
+
+class PointActionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One action derived from one exact occurrence revision."""
+
+    #: Snapshot revision to check inside the adapter's transaction/locks.
+    expected_revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Shared scientific/operational choice.
+    kind: ActionKindOutput
+    #: Target occurrence.
+    occurrence: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expected_revision), v.record_key(self.kind), v.scalar_key(self.occurrence),))
 
 
 class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16007,6 +16554,102 @@ class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.scalar_key(self.proof_cells), v.scalar_key(self.rounds),))
 
 
+class RefusalDependencyUnusable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dependency_unusable"):
+    """A terminal predecessor did not grant required scientific permission."""
+
+    #: Failed dependency.
+    predecessor: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor),))
+
+
+class RefusalOutputDependencyUnusable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dependency_unusable"):
+    """A terminal predecessor did not grant required scientific permission."""
+
+    #: Failed dependency.
+    predecessor: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor),))
+
+
+class RefusalOutputSeedInternal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_internal"):
+    """Seed acquisition/checking failed internally; never fresh fallback."""
+
+    #: Continuation producer, absent for an explicit external seed.
+    predecessor: OccurrenceKey | None
+    #: Selected role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.predecessor), v.scalar_key(self.role),))
+
+
+class RefusalOutputSeedPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_permission"):
+    """The continuation predecessor is neither usable nor explicitly seed-eligible."""
+
+    #: Selected predecessor.
+    predecessor: OccurrenceKey
+    #: Selected seed output role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor), v.scalar_key(self.role),))
+
+
+class RefusalOutputSeedUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_unavailable"):
+    """Selected seed absence or incompatibility, without fallback permission."""
+
+    #: Continuation producer, absent for an explicit external seed.
+    predecessor: OccurrenceKey | None
+    #: Typed unavailability.
+    reason: enums.StudySeedUnavailable
+    #: Explicit selected role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.predecessor), v.scalar_key(self.reason), v.scalar_key(self.role),))
+
+
+class RefusalSeedInternal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_internal"):
+    """Seed acquisition/checking failed internally; never fresh fallback."""
+
+    #: Continuation producer, absent for an explicit external seed.
+    predecessor: OccurrenceKey | None = None
+    #: Selected role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.predecessor), v.scalar_key(self.role),))
+
+
+class RefusalSeedPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_permission"):
+    """The continuation predecessor is neither usable nor explicitly seed-eligible."""
+
+    #: Selected predecessor.
+    predecessor: OccurrenceKey
+    #: Selected seed output role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor), v.scalar_key(self.role),))
+
+
+class RefusalSeedUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_unavailable"):
+    """Selected seed absence or incompatibility, without fallback permission."""
+
+    #: Continuation producer, absent for an explicit external seed.
+    predecessor: OccurrenceKey | None = None
+    #: Typed unavailability.
+    reason: enums.StudySeedUnavailable
+    #: Explicit selected role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.predecessor), v.scalar_key(self.reason), v.scalar_key(self.role),))
+
+
 class ReplayBoundOverrideKeep(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="keep"):
     """Preserve the authored bound."""
 
@@ -16048,11 +16691,51 @@ class ReplayCaseConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Explicit continuation parameters in exact original bits.
     parameters: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
     #: Actual compiler controls and original expansion limits.
+    preparation: PreparationSettingsBody
+    #: Full original-only profile graph; opaque products explicitly require producer rebind.
+    prepared_graph: ReplayPreparedGraph | None = None
+    #: Exact requested screened input; restoring requires fresh producer screening.
+    requested_screened_start: ReplayScreenedStart | None = None
+    #: Exact explicit input requested after constructor admission, even before dispatch.
+    requested_start: WarmStartSnapshotBody | None = None
+    #: Original selected authored definition.
+    root: identities.DeclarationId
+    #: Explicit predecessor starts in exact original bits.
+    seed: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
+    #: Exact original requested scientific/native settings.
+    settings: ReplaySolverSettings
+    #: Index of the immutable source closure in ReplayDocument.sources.
+    source: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original user-supplied target definitions, before derived resolution.
+    targets: tuple[TargetSpec, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.record_key)(self.declarations), v.mapping_key(v.scalar_key, v.scalar_key)(self.fixes), v.scalar_key(self.instance), v.scalar_key(self.order), v.mapping_key(v.scalar_key, v.scalar_key)(self.parameters), v.record_key(self.preparation), v.optional_key(v.record_key)(self.prepared_graph), v.optional_key(v.record_key)(self.requested_screened_start), v.optional_key(v.record_key)(self.requested_start), v.scalar_key(self.root), v.mapping_key(v.scalar_key, v.scalar_key)(self.seed), v.record_key(self.settings), v.scalar_key(self.source), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ReplayCaseConstructorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable original case constructor, independent of mutable history or compiled native products."""
+
+    #: Full immutable structural arguments/facts/omissions/elastic declarations.
+    bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Exact supplied numeric values and structural variable specifications.
+    case: ReplayCaseInputsOutput
+    #: Original user-supplied numerical declarations, before derived resolution.
+    declarations: tuple[SourcedRequirementOutput, ...]
+    #: Explicit temporary fixes in exact original bits.
+    fixes: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
+    #: Original instance identity.
+    instance: identities.InstanceId
+    #: Requested derivative order.
+    order: Annotated[int, msgspec.Meta(ge=0, le=255)]
+    #: Explicit continuation parameters in exact original bits.
+    parameters: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
+    #: Actual compiler controls and original expansion limits.
     preparation: PreparationSettingsBodyOutput
     #: Full original-only profile graph; opaque products explicitly require producer rebind.
-    prepared_graph: ReplayPreparedGraph | None
+    prepared_graph: ReplayPreparedGraphOutput | None
     #: Exact requested screened input; restoring requires fresh producer screening.
-    requested_screened_start: ReplayScreenedStart | None
+    requested_screened_start: ReplayScreenedStartOutput | None
     #: Exact explicit input requested after constructor admission, even before dispatch.
     requested_start: WarmStartSnapshotBodyOutput | None
     #: Original selected authored definition.
@@ -16064,7 +16747,7 @@ class ReplayCaseConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Index of the immutable source closure in ReplayDocument.sources.
     source: Annotated[int, msgspec.Meta(ge=0)]
     #: Original user-supplied target definitions, before derived resolution.
-    targets: tuple[TargetSpec, ...]
+    targets: tuple[TargetSpecOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.record_key)(self.declarations), v.mapping_key(v.scalar_key, v.scalar_key)(self.fixes), v.scalar_key(self.instance), v.scalar_key(self.order), v.mapping_key(v.scalar_key, v.scalar_key)(self.parameters), v.record_key(self.preparation), v.optional_key(v.record_key)(self.prepared_graph), v.optional_key(v.record_key)(self.requested_screened_start), v.optional_key(v.record_key)(self.requested_start), v.scalar_key(self.root), v.mapping_key(v.scalar_key, v.scalar_key)(self.seed), v.record_key(self.settings), v.scalar_key(self.source), v.sequence_key(v.record_key)(self.targets),))
@@ -16079,6 +16762,20 @@ class ReplayCaseInputs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     values: dict[str, Annotated[int, msgspec.Meta(ge=0)]]
     #: All structural fixed/free and bound overrides.
     variables: dict[str, ReplayVariableState]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.members), v.mapping_key(v.scalar_key, v.scalar_key)(self.values), v.mapping_key(v.scalar_key, v.record_key)(self.variables),))
+
+
+class ReplayCaseInputsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original case input bits. These are constructor values, not observations or checkpoints."""
+
+    #: Values supplied by admitted semantic member identity.
+    members: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
+    #: Values supplied by authored path.
+    values: dict[str, Annotated[int, msgspec.Meta(ge=0)]]
+    #: All structural fixed/free and bound overrides.
+    variables: dict[str, ReplayVariableStateOutput]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.members), v.mapping_key(v.scalar_key, v.scalar_key)(self.values), v.mapping_key(v.scalar_key, v.record_key)(self.variables),))
@@ -16152,7 +16849,7 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Exact required binary build.
     build: v.ContentHash
     #: Original portable case constructors, retaining all supplied structural and numerical inputs.
-    case_constructors: tuple[ReplayCaseConstructor, ...]
+    case_constructors: tuple[ReplayCaseConstructorOutput, ...]
     #: Original physical mappings and full constructor configurations, using existing producer documents.
     contexts: tuple[RuntimeScientificContextsRow, ...]
     #: Exact original independent-sequence failure policy.
@@ -16174,7 +16871,7 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Native record coverage is explicit for integrated trajectories.
     native_record_coverage: ReplayNativeRecordCoverage
     #: Actual immutable build/runtime observations used by constructor admission.
-    runtime_premises: tuple[Snapshot, ...]
+    runtime_premises: tuple[SnapshotOutput, ...]
     #: Complete original shooting and simulation constructor.
     shooting_constructor: ReplayShootingConstructor | None
     #: Complete original simulation constructors across all linked methods.
@@ -16271,7 +16968,7 @@ class ReplayHorizonController(msgspec.Struct, frozen=True, forbid_unknown_fields
     """Original NMPC stage, including its complete source, analysis and mapping."""
 
     #: Full source-qualified original analysis.
-    analysis: ReplayCaseConstructor
+    analysis: ReplayCaseConstructorOutput
     #: Exact original case-signal bindings.
     bindings: tuple[tuple[str, ReplayHorizonSignal], ...]
     #: Original first-move mappings.
@@ -16287,7 +16984,7 @@ class ReplayHorizonEstimator(msgspec.Struct, frozen=True, forbid_unknown_fields=
     """Original MHE stage, including exact window and prior meaning."""
 
     #: Full source-qualified original analysis.
-    analysis: ReplayCaseConstructor
+    analysis: ReplayCaseConstructorOutput
     #: Full prior/next-state mapping and exact original prior bits.
     arrival: tuple[tuple[str, str, Annotated[int, msgspec.Meta(ge=0)]], ...]
     #: Original driven-input window bindings; false is Constant, true is Periods.
@@ -16393,11 +17090,51 @@ class ReplayPreparedGraph(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.sequence_key(v.record_key)(self.nodes), v.scalar_key(self.root),))
 
 
+class ReplayPreparedGraphOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full bounded postorder inventory. Opaque capabilities are explicit producer premises."""
+
+    #: Actual original nodes, children before parents; no mutable preparation history lookup.
+    nodes: tuple[ReplayPreparedNodeOutput, ...]
+    #: Exact root original node.
+    root: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.nodes), v.scalar_key(self.root),))
+
+
 class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One original input and its exact full requested policy, before any native dispatch."""
 
     #: Exact ordered automatic inventory prepared in advance, including every Original profile.
     automatic: tuple[ReplayPreparedProduct, ...]
+    #: Exact actual postconstructor ordering, starts, branch and limits.
+    declaration: NumericalStrategy | None = None
+    #: Exact original scientific binding identity.
+    original: v.ContentHash
+    #: Exact compiler artifacts, evaluator admission and composed preparation identity.
+    preparation: v.ContentHash
+    #: Exact effective profile identity, verified again after reconstruction.
+    profile: v.ContentHash
+    #: Full requested screened proposal; fresh screening is an independent premise.
+    requested_screened_start: ReplayScreenedStart | None = None
+    #: Full requested explicit start before dispatch.
+    requested_start: WarmStartSnapshotBody | None = None
+    #: Exact ordered declared product inventory.
+    rungs: tuple[ReplayPreparedProduct, ...]
+    #: Actual build/runtime observation of this profile's admission.
+    runtime: Snapshot
+    #: Full actual immutable scientific/native profile body.
+    settings: ReplaySolverSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.automatic), v.optional_key(v.record_key)(self.declaration), v.scalar_key(self.original), v.scalar_key(self.preparation), v.scalar_key(self.profile), v.optional_key(v.record_key)(self.requested_screened_start), v.optional_key(v.record_key)(self.requested_start), v.sequence_key(v.record_key)(self.rungs), v.record_key(self.runtime), v.record_key(self.settings),))
+
+
+class ReplayPreparedNodeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original input and its exact full requested policy, before any native dispatch."""
+
+    #: Exact ordered automatic inventory prepared in advance, including every Original profile.
+    automatic: tuple[ReplayPreparedProductOutput, ...]
     #: Exact actual postconstructor ordering, starts, branch and limits.
     declaration: NumericalStrategyOutput | None
     #: Exact original scientific binding identity.
@@ -16407,13 +17144,13 @@ class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Exact effective profile identity, verified again after reconstruction.
     profile: v.ContentHash
     #: Full requested screened proposal; fresh screening is an independent premise.
-    requested_screened_start: ReplayScreenedStart | None
+    requested_screened_start: ReplayScreenedStartOutput | None
     #: Full requested explicit start before dispatch.
     requested_start: WarmStartSnapshotBodyOutput | None
     #: Exact ordered declared product inventory.
-    rungs: tuple[ReplayPreparedProduct, ...]
+    rungs: tuple[ReplayPreparedProductOutput, ...]
     #: Actual build/runtime observation of this profile's admission.
-    runtime: Snapshot
+    runtime: SnapshotOutput
     #: Full actual immutable scientific/native profile body.
     settings: ReplaySolverSettingsOutput
 
@@ -16422,6 +17159,22 @@ class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
 
 class ReplayPreparedProduct(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One ordered reference in the original immutable prepared graph."""
+
+    #: Postorder node for an original-only reusable scientific preparation.
+    node: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact original scientific binding identity, retained separately from capability.
+    original: v.ContentHash
+    #: Exact effective product profile identity; a digest does not recreate the capability.
+    profile: v.ContentHash
+    #: Required fresh producer when the product is an opaque compiled capability.
+    required_producer: ReplayProducerPremise | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.node), v.scalar_key(self.original), v.scalar_key(self.profile), v.optional_key(v.scalar_key)(self.required_producer),))
+
+
+class ReplayPreparedProductOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One ordered reference in the original immutable prepared graph."""
 
     #: Postorder node for an original-only reusable scientific preparation.
@@ -16503,6 +17256,24 @@ class ReplayScreenedStart(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     """Complete original proposal input; historical screening is not renewed permission."""
 
     #: Original scientific branch requirement.
+    branch: BranchPolicy
+    #: Actual input producer provenance.
+    origin: enums.NumericalStartOrigin
+    #: Full original source dependencies.
+    source: SemanticProductKey
+    #: Original bound target.
+    target: v.ContentHash
+    #: All physical source coordinates in exact IEEE bits.
+    values: dict[v.SemanticId, Annotated[int, msgspec.Meta(ge=0)]]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.branch), v.scalar_key(self.origin), v.record_key(self.source), v.scalar_key(self.target), v.mapping_key(v.scalar_key, v.scalar_key)(self.values),))
+
+
+class ReplayScreenedStartOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete original proposal input; historical screening is not renewed permission."""
+
+    #: Original scientific branch requirement.
     branch: BranchPolicyOutput
     #: Actual input producer provenance.
     origin: enums.NumericalStartOrigin
@@ -16567,7 +17338,7 @@ class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Full structural arguments, facts and demand.
     bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     #: Full original case values/fixed-state overrides.
-    case: ReplayCaseInputs
+    case: ReplayCaseInputsOutput
     #: Explicit exact derivative parameter demand.
     exact_parameters: tuple[v.SemanticId, ...]
     #: Original internal forward selection, absent for ordinary full Forward.
@@ -16725,6 +17496,20 @@ class ReplayVariableState(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     """Complete original fixed/free and endpoint specification for one authored path."""
 
     #: Original fixed/free override.
+    fixed: bool | None = None
+    #: Original lower endpoint override.
+    lower: ReplayBoundOverride
+    #: Original upper endpoint override.
+    upper: ReplayBoundOverride
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.fixed), v.record_key(self.lower), v.record_key(self.upper),))
+
+
+class ReplayVariableStateOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete original fixed/free and endpoint specification for one authored path."""
+
+    #: Original fixed/free override.
     fixed: bool | None
     #: Original lower endpoint override.
     lower: ReplayBoundOverride
@@ -16733,6 +17518,442 @@ class ReplayVariableState(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.fixed), v.record_key(self.lower), v.record_key(self.upper),))
+
+
+class ReproducerCommandRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Readable deployment/request driver; writing it does not execute it."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Driver codec.
+    version: Literal[1] = 1
+    #: Explicit new-work request.
+    reproducer: DiagnosticReproducer
+    #: Existing finite deployment controls.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.reproducer), v.record_key(self.runtime),))
+
+
+class ReproducerCommandRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Readable deployment/request driver; writing it does not execute it."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Driver codec.
+    version: Literal[1] = 1
+    #: Explicit new-work request.
+    reproducer: DiagnosticReproducerOutput
+    #: Existing finite deployment controls.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.reproducer), v.record_key(self.runtime),))
+
+
+class ReproducerExtractionInputBodyFrozenReviewCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_review_case"):
+    """Complete selected retained source and algebraic constructor."""
+
+    #: Explicit new-run allowance, not an original measured duration.
+    allowance: ClosedDuration
+    #: Descriptive frozen facts; no executable capability is supplied by this type.
+    context: ReviewContextDocument
+    #: Exact original selected step.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.allowance), v.record_key(self.context), v.scalar_key(self.step),))
+
+
+class ReproducerExtractionInputBodyOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original text and its existing scientific diagnostic constructor."""
+
+    #: Complete existing original-source request.
+    request: DiagnosticExecutionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ReproducerExtractionInputBodyOutputFrozenReviewCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_review_case"):
+    """Complete selected retained source and algebraic constructor."""
+
+    #: Explicit new-run allowance, not an original measured duration.
+    allowance: ClosedDuration
+    #: Descriptive frozen facts; no executable capability is supplied by this type.
+    context: ReviewContextDocumentOutput
+    #: Exact original selected step.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.allowance), v.record_key(self.context), v.scalar_key(self.step),))
+
+
+class ReproducerExtractionInputBodyOutputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original text and its existing scientific diagnostic constructor."""
+
+    #: Complete existing original-source request.
+    request: DiagnosticExecutionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ReproducerExtractionInputFrozenReviewCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_review_case"):
+    """Complete selected retained source and algebraic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Explicit new-run allowance, not an original measured duration.
+    allowance: ClosedDuration
+    #: Descriptive frozen facts; no executable capability is supplied by this type.
+    context: ReviewContextDocument
+    #: Exact original selected step.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allowance), v.record_key(self.context), v.scalar_key(self.step),))
+
+
+class ReproducerExtractionInputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original text and its existing scientific diagnostic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete existing original-source request.
+    request: DiagnosticExecutionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.request),))
+
+
+class ReproducerExtractionInputOutputFrozenReviewCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_review_case"):
+    """Complete selected retained source and algebraic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Explicit new-run allowance, not an original measured duration.
+    allowance: ClosedDuration
+    #: Descriptive frozen facts; no executable capability is supplied by this type.
+    context: ReviewContextDocumentOutput
+    #: Exact original selected step.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allowance), v.record_key(self.context), v.scalar_key(self.step),))
+
+
+class ReproducerExtractionInputOutputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original text and its existing scientific diagnostic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete existing original-source request.
+    request: DiagnosticExecutionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.request),))
+
+
+class ReproducerExtractionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Offline extraction request. Decoding does not construct a Runtime or touch a store."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Extraction codec.
+    version: Literal[1] = 1
+    #: Exact selected recorded input.
+    input: ReproducerExtractionInputBody
+    #: Optional selected typed original; failure text is insufficient.
+    original_diagnostic: BoundaryDiagnosticBody | None = None
+    #: Explicit original operation, including a pre-handle original failure.
+    original_operation: OperationIdBody | None = None
+    #: Explicit strict predicate when the typed original is unavailable.
+    predicate: ReproductionPredicateBody | None = None
+    #: Explicit deployment controls forwarded to the later driver.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.input), v.optional_key(v.record_key)(self.original_diagnostic), v.optional_key(v.record_key)(self.original_operation), v.optional_key(v.record_key)(self.predicate), v.record_key(self.runtime),))
+
+
+class ReproducerExtractionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Offline extraction request. Decoding does not construct a Runtime or touch a store."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Extraction codec.
+    version: Literal[1] = 1
+    #: Exact selected recorded input.
+    input: ReproducerExtractionInputBodyOutput
+    #: Optional selected typed original; failure text is insufficient.
+    original_diagnostic: BoundaryDiagnosticBodyOutput | None
+    #: Explicit original operation, including a pre-handle original failure.
+    original_operation: OperationIdBody | None
+    #: Explicit strict predicate when the typed original is unavailable.
+    predicate: ReproductionPredicateBodyOutput | None
+    #: Explicit deployment controls forwarded to the later driver.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.input), v.optional_key(v.record_key)(self.original_diagnostic), v.optional_key(v.record_key)(self.original_operation), v.optional_key(v.record_key)(self.predicate), v.record_key(self.runtime),))
+
+
+class ReproducerInputBodyFrozenAlgebraic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_algebraic"):
+    """Complete frozen algebraic constructor and source; runtime factory checks remain live."""
+
+    #: Exact original requested constructor.
+    constructor: ReplayCaseConstructor
+    #: Complete original source codec.
+    source: ReplaySourceDocument
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.constructor), v.record_key(self.source),))
+
+
+class ReproducerInputBodyOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original authored documents with the existing diagnostic constructor."""
+
+    #: Exact existing original-source diagnostic request.
+    request: DiagnosticExecutionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ReproducerInputBodyOutputFrozenAlgebraic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_algebraic"):
+    """Complete frozen algebraic constructor and source; runtime factory checks remain live."""
+
+    #: Exact original requested constructor.
+    constructor: ReplayCaseConstructorOutput
+    #: Complete original source codec.
+    source: ReplaySourceDocument
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.constructor), v.record_key(self.source),))
+
+
+class ReproducerInputBodyOutputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original authored documents with the existing diagnostic constructor."""
+
+    #: Exact existing original-source diagnostic request.
+    request: DiagnosticExecutionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ReproducerInputFrozenAlgebraic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_algebraic"):
+    """Complete frozen algebraic constructor and source; runtime factory checks remain live."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original requested constructor.
+    constructor: ReplayCaseConstructor
+    #: Complete original source codec.
+    source: ReplaySourceDocument
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.constructor), v.record_key(self.source),))
+
+
+class ReproducerInputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original authored documents with the existing diagnostic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact existing original-source diagnostic request.
+    request: DiagnosticExecutionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.request),))
+
+
+class ReproducerInputOutputFrozenAlgebraic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="frozen_algebraic"):
+    """Complete frozen algebraic constructor and source; runtime factory checks remain live."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original requested constructor.
+    constructor: ReplayCaseConstructorOutput
+    #: Complete original source codec.
+    source: ReplaySourceDocument
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.constructor), v.record_key(self.source),))
+
+
+class ReproducerInputOutputOriginalText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="family", tag="original_text"):
+    """Actual original authored documents with the existing diagnostic constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact existing original-source diagnostic request.
+    request: DiagnosticExecutionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.request),))
+
+
+class ReproductionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """New operation identity exists even if reconstruction fails before run creation."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result codec.
+    version: Literal[1] = 1
+    #: Exact availability explanation; a new failure is not automatically the original.
+    comparison_reason: str
+    #: Effective inherited deadline measured from this new operation establishment.
+    effective_allowance: ClosedDuration
+    #: Actual pre-handle or execution failure.
+    failure: BoundaryDiagnosticBody | None = None
+    #: Findings actually returned by this explicit execution.
+    findings: tuple[BoundaryDiagnosticBody, ...]
+    #: Fresh operation, established before any reconstruction/admission.
+    operation: OperationIdBody
+    #: Complete request preserves original outcome/predicate independently.
+    original: DiagnosticReproducer
+    #: Fresh scientific run, absent on pre-handle refusal.
+    run_id: identities.RunId | None = None
+    #: Strict comparison outcome.
+    status: ReproductionStatusBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.comparison_reason), v.record_key(self.effective_allowance), v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.findings), v.record_key(self.operation), v.record_key(self.original), v.optional_key(v.scalar_key)(self.run_id), v.scalar_key(self.status),))
+
+
+class ReproductionDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """New operation identity exists even if reconstruction fails before run creation."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result codec.
+    version: Literal[1] = 1
+    #: Exact availability explanation; a new failure is not automatically the original.
+    comparison_reason: str
+    #: Effective inherited deadline measured from this new operation establishment.
+    effective_allowance: ClosedDuration
+    #: Actual pre-handle or execution failure.
+    failure: BoundaryDiagnosticBodyOutput | None
+    #: Findings actually returned by this explicit execution.
+    findings: tuple[BoundaryDiagnosticBodyOutput, ...]
+    #: Fresh operation, established before any reconstruction/admission.
+    operation: OperationIdBody
+    #: Complete request preserves original outcome/predicate independently.
+    original: DiagnosticReproducerOutput
+    #: Fresh scientific run, absent on pre-handle refusal.
+    run_id: identities.RunId | None
+    #: Strict comparison outcome.
+    status: ReproductionStatusBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.comparison_reason), v.record_key(self.effective_allowance), v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.findings), v.record_key(self.operation), v.record_key(self.original), v.optional_key(v.scalar_key)(self.run_id), v.scalar_key(self.status),))
+
+
+class ReproductionPredicate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact typed failure predicate. No message parsing or broad exception matching."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Relevant detailed diagnostic identity.
+    code: enums.DiagnosticCode
+    #: Explicit necessary observed conditions. Exact values; no implicit tolerance.
+    conditions: dict[str, Observation]
+    #: Original named contract.
+    rule: enums.DiagnosticRule
+    #: Exact selected original source population, including explicit absence.
+    sources: tuple[v.SemanticId, ...]
+    #: Original operation stage.
+    stage: enums.DiagnosticStage
+    #: Exact recorded validity lineage, when present.
+    validity: ValidityLineage | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class ReproductionPredicateBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact typed failure predicate. No message parsing or broad exception matching."""
+
+    #: Relevant detailed diagnostic identity.
+    code: enums.DiagnosticCode
+    #: Explicit necessary observed conditions. Exact values; no implicit tolerance.
+    conditions: dict[str, Observation]
+    #: Original named contract.
+    rule: enums.DiagnosticRule
+    #: Exact selected original source population, including explicit absence.
+    sources: tuple[v.SemanticId, ...]
+    #: Original operation stage.
+    stage: enums.DiagnosticStage
+    #: Exact recorded validity lineage, when present.
+    validity: ValidityLineage | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class ReproductionPredicateBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact typed failure predicate. No message parsing or broad exception matching."""
+
+    #: Relevant detailed diagnostic identity.
+    code: enums.DiagnosticCode
+    #: Explicit necessary observed conditions. Exact values; no implicit tolerance.
+    conditions: dict[str, Observation]
+    #: Original named contract.
+    rule: enums.DiagnosticRule
+    #: Exact selected original source population, including explicit absence.
+    sources: tuple[v.SemanticId, ...]
+    #: Original operation stage.
+    stage: enums.DiagnosticStage
+    #: Exact recorded validity lineage, when present.
+    validity: ValidityLineageOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class ReproductionPredicateOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact typed failure predicate. No message parsing or broad exception matching."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Relevant detailed diagnostic identity.
+    code: enums.DiagnosticCode
+    #: Explicit necessary observed conditions. Exact values; no implicit tolerance.
+    conditions: dict[str, Observation]
+    #: Original named contract.
+    rule: enums.DiagnosticRule
+    #: Exact selected original source population, including explicit absence.
+    sources: tuple[v.SemanticId, ...]
+    #: Original operation stage.
+    stage: enums.DiagnosticStage
+    #: Exact recorded validity lineage, when present.
+    validity: ValidityLineageOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
 
 
 class ResidualLmCriteria(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19185,6 +20406,20 @@ class Snapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
     #: Registered adapter observations, including absent native implementations.
     adapters: tuple[tuple[enums.NativeBackend, BuildObservation], ...]
     #: Actual process/thread state consumed by Ipopt linear-solver admission.
+    ipopt: Runtime | None = None
+    #: The declared OpenMP cancellation setting consumed by SCIP's nested Ipopt.
+    scip_omp_cancellation: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.tuple_key((v.scalar_key, v.record_key,)))(self.adapters), v.optional_key(v.record_key)(self.ipopt), v.scalar_key(self.scip_omp_cancellation),))
+
+
+class SnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One immutable build/runtime observation supplied by the composition boundary."""
+
+    #: Registered adapter observations, including absent native implementations.
+    adapters: tuple[tuple[enums.NativeBackend, BuildObservationOutput], ...]
+    #: Actual process/thread state consumed by Ipopt linear-solver admission.
     ipopt: Runtime | None
     #: The declared OpenMP cancellation setting consumed by SCIP's nested Ipopt.
     scip_omp_cancellation: bool
@@ -20257,6 +21492,18 @@ class SourcedRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     """Selection supplies precedence; declarations cannot promote themselves to analysis overrides."""
 
     #: Registry-owned declaration.
+    declaration: AuthoredNumericalRequirementsRow
+    #: Selected source category.
+    source: enums.NumericalSource
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.declaration), v.scalar_key(self.source),))
+
+
+class SourcedRequirementOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selection supplies precedence; declarations cannot promote themselves to analysis overrides."""
+
+    #: Registry-owned declaration.
     declaration: AuthoredNumericalRequirementsRowOutput
     #: Selected source category.
     source: enums.NumericalSource
@@ -21133,6 +22380,26 @@ class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     """Exact admitted coordinate; declared representation is retained through normalization."""
 
     #: Explicit physical acceptance budget already owned by a balance/output declaration.
+    declared_tolerance: float | None = None
+    #: Source identity, NIL only for the single objective.
+    id: v.SemanticId
+    #: Coordinate substitution must preserve the integer lattice.
+    integer: bool
+    #: Variable, row, objective, observable or closure.
+    kind: enums.NumericalTarget
+    #: Complete physical type.
+    quantity: v.SemanticId
+    #: Representation of values crossing the original oracle.
+    unit: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
+
+
+class TargetSpecOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact admitted coordinate; declared representation is retained through normalization."""
+
+    #: Explicit physical acceptance budget already owned by a balance/output declaration.
     declared_tolerance: float | None
     #: Source identity, NIL only for the single objective.
     id: v.SemanticId
@@ -21147,6 +22414,96 @@ class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
+
+
+class TaskDumpDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent collector result and actual target-request settlement."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result interpretation.
+    version: Literal[1] = 1
+    #: Coverage and perturbation, never a recovery guarantee.
+    coverage: str
+    #: Actual selected runtime identifier.
+    executor: str
+    #: Collector failure, independent of scientific outcome.
+    failure: str | None = None
+    #: This observer stopped waiting while target work may continue.
+    observer_wait_expired: bool
+    #: Actual process containing the executor.
+    process: Annotated[int, msgspec.Meta(ge=0)]
+    #: Process-local request identity, retained by its executor owner.
+    request: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pending, completed or collector_failed; pending never means drained.
+    target_state: str
+    #: Retained original task traces.
+    tasks: tuple[TaskTrace, ...]
+    #: Retained traces curtailed; local executors can be absent independently.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.coverage), v.scalar_key(self.executor), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.observer_wait_expired), v.scalar_key(self.process), v.scalar_key(self.request), v.scalar_key(self.target_state), v.sequence_key(v.record_key)(self.tasks), v.scalar_key(self.truncated),))
+
+
+class TaskDumpDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent collector result and actual target-request settlement."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result interpretation.
+    version: Literal[1] = 1
+    #: Coverage and perturbation, never a recovery guarantee.
+    coverage: str
+    #: Actual selected runtime identifier.
+    executor: str
+    #: Collector failure, independent of scientific outcome.
+    failure: str | None
+    #: This observer stopped waiting while target work may continue.
+    observer_wait_expired: bool
+    #: Actual process containing the executor.
+    process: Annotated[int, msgspec.Meta(ge=0)]
+    #: Process-local request identity, retained by its executor owner.
+    request: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pending, completed or collector_failed; pending never means drained.
+    target_state: str
+    #: Retained original task traces.
+    tasks: tuple[TaskTrace, ...]
+    #: Retained traces curtailed; local executors can be absent independently.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.coverage), v.scalar_key(self.executor), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.observer_wait_expired), v.scalar_key(self.process), v.scalar_key(self.request), v.scalar_key(self.target_state), v.sequence_key(v.record_key)(self.tasks), v.scalar_key(self.truncated),))
+
+
+class TaskDumpRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit diagnostic action, never an option on passive capture."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request interpretation.
+    version: Literal[1] = 1
+    #: Total retained UTF-8 trace bytes.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Returned task traces; requesting a dump still traces the executor's population.
+    maximum_tasks: Annotated[int, msgspec.Meta(ge=0)]
+    #: Independent collector wait, not a scientific or target cancellation deadline.
+    wait: ClosedDuration
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_tasks), v.record_key(self.wait),))
+
+
+class TaskTrace(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied task trace from the selected actual executor."""
+
+    #: Tokio-local task identifier, never a scientific invocation identity.
+    task: str
+    #: Actual cooperative trace, possibly curtailed.
+    trace: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.task), v.scalar_key(self.trace),))
 
 
 class TearSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -21573,6 +22930,47 @@ class VersionRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.major), v.scalar_key(self.minor), v.scalar_key(self.operator), v.scalar_key(self.patch),))
+
+
+class WaitReasonAssigned(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="assigned"):
+    """An attempt is executing."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class WaitReasonDependency(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dependency"):
+    """Earlier occurrence is not yet terminal."""
+
+    #: Earlier occurrence.
+    predecessor: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor),))
+
+
+class WaitReasonScientificAdmission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="scientific_admission"):
+    """Dependencies permit selected source/overlay admission, before any native claim."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class WaitReasonSeedResolution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed_resolution"):
+    """Queue admission grants acquisition only; no native start has been chosen."""
+
+    #: Consumer input role whose compatibility remains unresolved.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.role),))
+
+
+class WaitReasonTerminal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="terminal"):
+    """Occurrence has ended and no safe retry is available."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class WarmPayloadSnapshotHighs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="highs"):
@@ -22009,6 +23407,10 @@ class WorkingSetTransfer(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.retained), v.scalar_key(self.transformation),))
 
 
+ActionKind = ActionKindWait | ActionKindStart | ActionKindRefuse | ActionKindCancel | ActionKindReconcile
+
+ActionKindOutput = ActionKindOutputWait | ActionKindOutputStart | ActionKindOutputRefuse | ActionKindOutputCancel | ActionKindOutputReconcile
+
 AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
 
 ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
@@ -22044,6 +23446,10 @@ FitExecutionDocument = FitExecutionDocumentEvaluation | FitExecutionDocumentNati
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
 FitResidualTermination = FitResidualTerminationUser | FitResidualTerminationNumerical | FitResidualTerminationFixedEvaluation | FitResidualTerminationResidualsZero | FitResidualTerminationOrthogonal | FitResidualTerminationConverged | FitResidualTerminationNoImprovementPossible | FitResidualTerminationEvaluationLimit | FitResidualTerminationInvalid
+
+GraphAnchor = GraphAnchorStudyPoint | GraphAnchorRun | GraphAnchorAnalysisNode | GraphAnchorArtifact
+
+GraphEdgeRole = GraphEdgeRoleOrdering | GraphEdgeRoleUsableResult | GraphEdgeRoleContinuationSeed | GraphEdgeRoleRecordedSource | GraphEdgeRoleAnalysisInput | GraphEdgeRoleAnalysisRelation
 
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
 
@@ -22091,11 +23497,31 @@ RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
 
 RecordedWindow = RecordedWindowRecorded | RecordedWindowEndingAt | RecordedWindowInterval
 
+Refusal = RefusalDependencyUnusable | RefusalSeedPermission | RefusalSeedUnavailable | RefusalSeedInternal
+
+RefusalOutput = RefusalOutputDependencyUnusable | RefusalOutputSeedPermission | RefusalOutputSeedUnavailable | RefusalOutputSeedInternal
+
 ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | ReplayBoundOverrideValue
 
 ReplayForwardSelection = ReplayForwardSelectionSemanticParameters | ReplayForwardSelectionPhysicalAxes
 
 ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
+
+ReproducerExtractionInput = ReproducerExtractionInputOriginalText | ReproducerExtractionInputFrozenReviewCase
+
+ReproducerExtractionInputBody = ReproducerExtractionInputBodyOriginalText | ReproducerExtractionInputBodyFrozenReviewCase
+
+ReproducerExtractionInputBodyOutput = ReproducerExtractionInputBodyOutputOriginalText | ReproducerExtractionInputBodyOutputFrozenReviewCase
+
+ReproducerExtractionInputOutput = ReproducerExtractionInputOutputOriginalText | ReproducerExtractionInputOutputFrozenReviewCase
+
+ReproducerInput = ReproducerInputOriginalText | ReproducerInputFrozenAlgebraic
+
+ReproducerInputBody = ReproducerInputBodyOriginalText | ReproducerInputBodyFrozenAlgebraic
+
+ReproducerInputBodyOutput = ReproducerInputBodyOutputOriginalText | ReproducerInputBodyOutputFrozenAlgebraic
+
+ReproducerInputOutput = ReproducerInputOutputOriginalText | ReproducerInputOutputFrozenAlgebraic
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
@@ -22125,6 +23551,8 @@ TerminationCauseOutput = TerminationCauseOutputError | TerminationCauseOutputInf
 
 Value = ValueCount | ValueInteger | ValueNumber | ValueBoolean | ValueText | ValueUnavailable | ValueNonFinite | ValueOverflow
 
+WaitReason = WaitReasonScientificAdmission | WaitReasonSeedResolution | WaitReasonDependency | WaitReasonAssigned | WaitReasonTerminal
+
 WarmPayloadSnapshot = WarmPayloadSnapshotRoot | WarmPayloadSnapshotNlp | WarmPayloadSnapshotHighs
 
 WarmPayloadSnapshotOutput = WarmPayloadSnapshotOutputRoot | WarmPayloadSnapshotOutputNlp | WarmPayloadSnapshotOutputHighs
@@ -22133,6 +23561,18 @@ WindowInput = WindowInputConstant | WindowInputPeriods
 
 __all__ = [
     "AccuracyDemand",
+    "ActionKind",
+    "ActionKindCancel",
+    "ActionKindOutput",
+    "ActionKindOutputCancel",
+    "ActionKindOutputReconcile",
+    "ActionKindOutputRefuse",
+    "ActionKindOutputStart",
+    "ActionKindOutputWait",
+    "ActionKindReconcile",
+    "ActionKindRefuse",
+    "ActionKindStart",
+    "ActionKindWait",
     "ActiveSetSnapshot",
     "AdjointSettings",
     "AdjointSettingsOutput",
@@ -22401,11 +23841,16 @@ __all__ = [
     "BranchPolicyOutput",
     "BuildInfo",
     "BuildObservation",
+    "BuildObservationOutput",
     "Bytes",
     "CacheReport",
     "CacheReportBody",
     "CacheReportBodyOutput",
     "CacheReportOutput",
+    "CanonicalGraphDocument",
+    "CanonicalGraphDocumentOutput",
+    "CanonicalGraphRequest",
+    "CanonicalGraphRequestOutput",
     "CaptureBudget",
     "CaptureBudgetOutput",
     "CaptureDocument",
@@ -22538,6 +23983,8 @@ __all__ = [
     "DiagnosticProcessPageOutput",
     "DiagnosticProcessSummary",
     "DiagnosticProcessSummaryOutput",
+    "DiagnosticReproducer",
+    "DiagnosticReproducerOutput",
     "DiagnosticRuntimeSettings",
     "DiagnosticSamplesControls",
     "DiagnosticSamplesControlsOutput",
@@ -22629,6 +24076,26 @@ __all__ = [
     "FrozenInspectionDocumentOutput",
     "FrozenInspectionRequest",
     "FrozenInspectionRequestOutput",
+    "GraphAnchor",
+    "GraphAnchorAnalysisNode",
+    "GraphAnchorArtifact",
+    "GraphAnchorRun",
+    "GraphAnchorStudyPoint",
+    "GraphContinuation",
+    "GraphEdge",
+    "GraphEdgeOutput",
+    "GraphEdgeRole",
+    "GraphEdgeRoleAnalysisInput",
+    "GraphEdgeRoleAnalysisRelation",
+    "GraphEdgeRoleContinuationSeed",
+    "GraphEdgeRoleOrdering",
+    "GraphEdgeRoleRecordedSource",
+    "GraphEdgeRoleUsableResult",
+    "GraphEvidence",
+    "GraphEvidenceOutput",
+    "GraphNode",
+    "GraphNodeOutput",
+    "GraphScope",
     "HighsDiagnostics",
     "HighsDiagnosticsOutput",
     "HighsPenalties",
@@ -22860,6 +24327,10 @@ __all__ = [
     "ObservationText",
     "ObservedMetric",
     "ObservedMetricOutput",
+    "ObservedPhysicalEdge",
+    "ObservedPhysicalGraph",
+    "ObservedPhysicalGraphOutput",
+    "ObservedPhysicalNode",
     "OccurrenceKey",
     "OperandContract",
     "OperationContract",
@@ -22932,6 +24403,8 @@ __all__ = [
     "PhysicalSimulationRequest",
     "PhysicalSimulationRequestOutput",
     "PhysicalSource",
+    "PointAction",
+    "PointActionOutput",
     "PointAttemptOutcome",
     "PointAttemptOutcomeOutput",
     "PointOutcome",
@@ -23053,12 +24526,24 @@ __all__ = [
     "RecycleRestartRequest",
     "RecycleRestartRequestBody",
     "RefinementLimits",
+    "Refusal",
+    "RefusalDependencyUnusable",
+    "RefusalOutput",
+    "RefusalOutputDependencyUnusable",
+    "RefusalOutputSeedInternal",
+    "RefusalOutputSeedPermission",
+    "RefusalOutputSeedUnavailable",
+    "RefusalSeedInternal",
+    "RefusalSeedPermission",
+    "RefusalSeedUnavailable",
     "ReplayBoundOverride",
     "ReplayBoundOverrideKeep",
     "ReplayBoundOverrideRemove",
     "ReplayBoundOverrideValue",
     "ReplayCaseConstructor",
+    "ReplayCaseConstructorOutput",
     "ReplayCaseInputs",
+    "ReplayCaseInputsOutput",
     "ReplayCoverage",
     "ReplayCoverageOutput",
     "ReplayDecisions",
@@ -23080,13 +24565,17 @@ __all__ = [
     "ReplayNativeRecordCoverage",
     "ReplayPhysicalSource",
     "ReplayPreparedGraph",
+    "ReplayPreparedGraphOutput",
     "ReplayPreparedNode",
+    "ReplayPreparedNodeOutput",
     "ReplayPreparedProduct",
+    "ReplayPreparedProductOutput",
     "ReplayProducerPremise",
     "ReplayProvider",
     "ReplayProviderPort",
     "ReplayProviderShape",
     "ReplayScreenedStart",
+    "ReplayScreenedStartOutput",
     "ReplayShootingBound",
     "ReplayShootingConstructor",
     "ReplaySimulationConstructor",
@@ -23095,6 +24584,43 @@ __all__ = [
     "ReplaySourceDocument",
     "ReplaySourceObject",
     "ReplayVariableState",
+    "ReplayVariableStateOutput",
+    "ReproducerCommandRequest",
+    "ReproducerCommandRequestOutput",
+    "ReproducerExtractionInput",
+    "ReproducerExtractionInputBody",
+    "ReproducerExtractionInputBodyFrozenReviewCase",
+    "ReproducerExtractionInputBodyOriginalText",
+    "ReproducerExtractionInputBodyOutput",
+    "ReproducerExtractionInputBodyOutputFrozenReviewCase",
+    "ReproducerExtractionInputBodyOutputOriginalText",
+    "ReproducerExtractionInputFrozenReviewCase",
+    "ReproducerExtractionInputOriginalText",
+    "ReproducerExtractionInputOutput",
+    "ReproducerExtractionInputOutputFrozenReviewCase",
+    "ReproducerExtractionInputOutputOriginalText",
+    "ReproducerExtractionRequest",
+    "ReproducerExtractionRequestOutput",
+    "ReproducerInput",
+    "ReproducerInputBody",
+    "ReproducerInputBodyFrozenAlgebraic",
+    "ReproducerInputBodyOriginalText",
+    "ReproducerInputBodyOutput",
+    "ReproducerInputBodyOutputFrozenAlgebraic",
+    "ReproducerInputBodyOutputOriginalText",
+    "ReproducerInputFrozenAlgebraic",
+    "ReproducerInputOriginalText",
+    "ReproducerInputOutput",
+    "ReproducerInputOutputFrozenAlgebraic",
+    "ReproducerInputOutputOriginalText",
+    "ReproductionDocument",
+    "ReproductionDocumentOutput",
+    "ReproductionPredicate",
+    "ReproductionPredicateBody",
+    "ReproductionPredicateBodyOutput",
+    "ReproductionPredicateOutput",
+    "ReproductionStatus",
+    "ReproductionStatusBody",
     "RequiredFact",
     "RequirementStatus",
     "ResidualLmCriteria",
@@ -23207,6 +24733,7 @@ __all__ = [
     "SimulationOperation",
     "SimulationOperationOutput",
     "Snapshot",
+    "SnapshotOutput",
     "SolveControls",
     "SolveControlsOutput",
     "SolveSettings",
@@ -23257,6 +24784,7 @@ __all__ = [
     "SourceTemplateDocument",
     "SourceTemplateDocumentOutput",
     "SourcedRequirement",
+    "SourcedRequirementOutput",
     "SparseMatrix",
     "StartPolicy",
     "StartPolicyContinuation",
@@ -23324,6 +24852,11 @@ __all__ = [
     "SummaryPublicationOutput",
     "TableName",
     "TargetSpec",
+    "TargetSpecOutput",
+    "TaskDumpDocument",
+    "TaskDumpDocumentOutput",
+    "TaskDumpRequest",
+    "TaskTrace",
     "TearSelectionDocument",
     "TermPolicy",
     "TerminationCause",
@@ -23357,6 +24890,12 @@ __all__ = [
     "ValueText",
     "ValueUnavailable",
     "VersionRequirement",
+    "WaitReason",
+    "WaitReasonAssigned",
+    "WaitReasonDependency",
+    "WaitReasonScientificAdmission",
+    "WaitReasonSeedResolution",
+    "WaitReasonTerminal",
     "WarmPayloadSnapshot",
     "WarmPayloadSnapshotHighs",
     "WarmPayloadSnapshotNlp",
@@ -23387,4 +24926,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:3e9a6ea37901ef2e7d553295c11e172ee5d3d4834f8f8af543cc9194e1b47055"
+SCHEMA_SET_FINGERPRINT = "blake3:7ad3f09237fcf13f3ac232a8f7dd7d0cbd6785b12f3c728cfa98d3549dd645d8"

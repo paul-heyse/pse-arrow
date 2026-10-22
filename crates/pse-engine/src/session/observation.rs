@@ -13,6 +13,8 @@ use std::{
 };
 
 mod graph;
+mod comparison;
+pub use comparison::{PhysicalGraphComparison, PhysicalNodeMatch};
 
 const MAX_RULES: usize = u16::MAX as usize;
 // Optional capture has its own bounded pool so it cannot consume execution admission.
@@ -40,6 +42,7 @@ struct ObservedPlan {
 #[derive(Debug)]
 struct ObservedPhysical {
     explain: String,
+    graph: Option<ObservedPhysicalGraph>,
     execution: u64,
     completion: OnceLock<ExecutionSnapshot>,
     latest: Mutex<Option<Arc<LiveExecutionSnapshot>>>,
@@ -47,6 +50,96 @@ struct ObservedPhysical {
     diagnostic: Option<String>,
     _lease: Arc<AllocationLease>,
 }
+/// A bounded actual physical topology. Ordinals share the native metric traversal.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ObservedPhysicalGraph {
+    /// First observed node, absent if capture admission failed.
+    pub root: Option<usize>,
+    /// Unique actual operators, including independently planned cache producers.
+    pub nodes: Vec<ObservedPhysicalNode>,
+    /// Ordered input/dependency edges; shared inputs retain all incoming edges.
+    pub edges: Vec<ObservedPhysicalEdge>,
+    /// Bounds or optional allocation admission curtailed capture.
+    pub truncated: bool,
+}
+/// Original physical operator facts; local ordinal is not cross-run identity.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ObservedPhysicalNode {
+    /// Snapshot-local metric ordinal.
+    pub node: usize,
+    /// Native operator family.
+    pub operator: String,
+    /// Original output schema, as ordered field name/type pairs.
+    pub output_fields: Vec<(String, String)>,
+    /// Actual output partition count.
+    pub partitions: usize,
+}
+/// An ordered actual physical dependency, distinct from numerical/canonical edges.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ObservedPhysicalEdge {
+    /// Parent metric ordinal.
+    pub parent: usize,
+    /// Original child position.
+    pub ordinal: usize,
+    /// Child metric ordinal.
+    pub child: usize,
+    /// The edge crosses to an independently planned cache producer.
+    pub cache_producer: bool,
+}
+
+// The same bounded preorder supplies capture and metric ordinals. No display text is parsed.
+fn physical_walk<'a>(root: &'a dyn datafusion::physical_plan::ExecutionPlan, reservation: &pse_columnar::MemoryReservation)
+    -> (Vec<&'a dyn datafusion::physical_plan::ExecutionPlan>, Vec<ObservedPhysicalEdge>, bool)
+{
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    let mut visited = std::collections::HashMap::new();
+    let mut pending = vec![(root, None)];
+    let mut truncated = false;
+    while let Some((plan, edge)) = pending.pop() {
+        let identity = std::ptr::from_ref(plan).cast::<()>() as usize;
+        let node = if let Some(&node) = visited.get(&identity) { node } else {
+            if nodes.len() >= 4096 || reservation.try_grow(256).is_err() { truncated = true; break; }
+            let node = nodes.len();
+            visited.insert(identity, node);
+            nodes.push(plan);
+            let producer = super::cache::reset_dependency(plan);
+            let cache_producer = producer.is_some();
+            let children = producer.map_or_else(|| plan.children(), |input| vec![input]);
+            if pending.len().saturating_add(children.len()) > 4096 || reservation.try_grow(children.len().saturating_mul(64)).is_err() {
+                truncated = true;
+            } else {
+                pending.extend(children.into_iter().enumerate().rev().map(|(ordinal, child)| (child.as_ref(), Some((node, ordinal, cache_producer)))));
+            }
+            node
+        };
+        if let Some((parent, ordinal, cache_producer)) = edge {
+            if edges.len() >= 16384 || reservation.try_grow(2 * size_of::<ObservedPhysicalEdge>()).is_err() { truncated = true; break; }
+            edges.push(ObservedPhysicalEdge { parent, ordinal, child: node, cache_producer });
+        }
+    }
+    (nodes, edges, truncated)
+}
+fn physical_graph(root: &dyn datafusion::physical_plan::ExecutionPlan, reservation: &pse_columnar::MemoryReservation) -> ObservedPhysicalGraph {
+    let (plans, edges, mut truncated) = physical_walk(root, reservation);
+    let mut nodes = Vec::new();
+    for plan in plans {
+        let schema = plan.schema();
+        let extent = schema.fields().iter().map(|field| field.name().len().saturating_add(256)).sum::<usize>().saturating_add(plan.name().len()).saturating_add(256);
+        if extent > 65536 || reservation.try_grow(extent).is_err() { truncated = true; break; }
+        nodes.push(ObservedPhysicalNode {
+            node: nodes.len(), operator: plan.name().into(),
+            output_fields: schema.fields().iter().map(|field| (field.name().clone(), field.data_type().to_string())).collect(),
+            partitions: plan.properties().output_partitioning().partition_count(),
+        });
+    }
+    let edges = edges.into_iter().filter(|edge| edge.parent < nodes.len() && edge.child < nodes.len()).collect();
+    ObservedPhysicalGraph { root: (!nodes.is_empty()).then_some(0), nodes, edges, truncated }
+}
+
 /// Native metric units remain explicit; an absent value is never fabricated as zero.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -344,12 +437,14 @@ impl PlanObservation {
         } else {
             writer.value
         };
+        let graph = self.logical.rich.then(|| physical_graph(plan, &reservation));
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Ok(Self {
             operation: pse_diagnostics::observation::current().map(|context| context.id()),
             logical: Arc::clone(&self.logical),
             physical: Some(Arc::new(ObservedPhysical {
                 explain,
+                graph,
                 execution: NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
                 completion: OnceLock::new(),
                 latest: Mutex::new(None),
@@ -374,20 +469,8 @@ fn snapshot(
     let pool = &capture_pool;
     let reservation = pse_columnar::MemoryConsumer::new("session:completed-metrics").register(pool);
     let mut metrics = Vec::new();
-    let mut visited = std::collections::HashSet::new();
-    let mut pending = vec![root];
-    let mut truncated = false;
-    'nodes: while let Some(plan) = pending.pop() {
-        let identity = std::ptr::from_ref(plan).cast::<()>() as usize;
-        if visited.contains(&identity) {
-            continue;
-        }
-        if visited.len() >= 4096 || reservation.try_grow(128).is_err() {
-            truncated = true;
-            break;
-        }
-        let node = visited.len();
-        visited.insert(identity);
+    let (nodes, _, mut truncated) = physical_walk(root, &reservation);
+    'nodes: for (node, plan) in nodes.into_iter().enumerate() {
         if let Some(native) = plan.metrics() {
             for metric in native.iter() {
                 let value = metric.value();
@@ -451,17 +534,6 @@ fn snapshot(
                 });
             }
         }
-        let children = super::cache::reset_dependency(plan)
-            .map_or_else(|| plan.children(), |input| vec![input]);
-        if pending.len().saturating_add(children.len()) > 4096
-            || reservation
-                .try_grow(children.len().saturating_mul(size_of::<usize>() * 2))
-                .is_err()
-        {
-            truncated = true;
-            break;
-        }
-        pending.extend(children.into_iter().rev().map(AsRef::as_ref));
     }
     LiveExecutionSnapshot {
         execution,
@@ -1088,6 +1160,8 @@ pub struct CopiedPlanObservation {
     pub logical_plan: String,
     /// Bounded physical graph, absent before physical planning.
     pub physical_plan: Option<String>,
+    /// Bounded actual topology with metric-local ordinals, selected only in Diagnostic.
+    pub physical_graph: Option<ObservedPhysicalGraph>,
     /// Actual fired analyzer/optimizer rules, empty unless Diagnostic captured them.
     pub rules: Vec<String>,
     /// Optional capture failure; never an execution failure.
@@ -1137,6 +1211,14 @@ impl SelectedPlanObservation<'_> {
             )?;
         for rule in observation.rules_fired() {
             bytes = bytes.checked_add(rule.len())?;
+        }
+        if let Some(graph) = observation.physical.as_ref().and_then(|physical| physical.graph.as_ref()) {
+            bytes = bytes.checked_add(graph.edges.len().checked_mul(size_of::<ObservedPhysicalEdge>())?)?
+                .checked_add(graph.nodes.len().checked_mul(size_of::<ObservedPhysicalNode>())?)?;
+            for node in &graph.nodes {
+                bytes = bytes.checked_add(node.operator.len())?.checked_add(node.output_fields.len().checked_mul(size_of::<(String, String)>())?)?;
+                for (name, ty) in &node.output_fields { bytes = bytes.checked_add(name.len())?.checked_add(ty.len())?; }
+            }
         }
         let metrics = match &self.execution {
             Some(SelectedExecution::Terminal(value)) => value.metrics.as_slice(),
@@ -1200,6 +1282,7 @@ impl SelectedPlanObservation<'_> {
             },
             logical_plan: observation.explain_pgjson().to_owned(),
             physical_plan: observation.physical_plan().map(str::to_owned),
+            physical_graph: observation.physical.as_ref().and_then(|physical| physical.graph.clone()),
             rules: observation.rules_fired().to_vec(),
             diagnostic: observation.diagnostic().map(str::to_owned),
             execution,
@@ -1287,5 +1370,28 @@ mod copied_observation_tests {
             copied.execution.unwrap().status,
             CopiedExecutionStatus::Abandoned
         );
+    }
+}
+
+#[cfg(test)]
+mod physical_topology_tests {
+    use super::*;
+    use datafusion::physical_plan::{ExecutionPlan, empty::EmptyExec, union::UnionExec};
+    #[test]
+    fn topology_captures_ordered_shared_edges_with_metric_preorder_and_no_live_owner() {
+        let schema = Arc::new(datafusion::arrow::datatypes::Schema::empty());
+        let shared: Arc<dyn ExecutionPlan> = Arc::new(EmptyExec::new(schema));
+        let weak = Arc::downgrade(&shared);
+        let root: Arc<dyn ExecutionPlan> = UnionExec::try_new(vec![shared.clone(), shared.clone()]).unwrap();
+        let reservation = pse_columnar::MemoryConsumer::new("test topology").register(&diagnostic_pool());
+        let graph = physical_graph(root.as_ref(), &reservation);
+        assert_eq!(graph.nodes.iter().map(|node| (node.node,node.operator.as_str())).collect::<Vec<_>>(), [(0,"UnionExec"),(1,"EmptyExec")]);
+        assert_eq!(graph.edges.iter().map(|edge| (edge.parent,edge.ordinal,edge.child)).collect::<Vec<_>>(), [(0,0,1),(0,1,1)]);
+        assert!(!graph.truncated);
+        let (walk,_,_) = physical_walk(root.as_ref(), &reservation);
+        assert_eq!(walk.iter().map(|node| node.name()).collect::<Vec<_>>(), ["UnionExec","EmptyExec"]);
+        drop(walk); drop(root); drop(shared);
+        assert!(weak.upgrade().is_none());
+        assert_eq!(graph.nodes.len(), 2);
     }
 }

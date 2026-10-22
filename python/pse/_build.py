@@ -85,6 +85,7 @@ _diagnostic_read_checkpoint = _native.diagnostic_read_checkpoint
 _diagnostic_inspect_image = _native.diagnostic_inspect_image
 _diagnostic_capture = _native.diagnostic_capture
 _diagnostic_launch_capture = _native.diagnostic_launch_capture
+_diagnostic_extract_reproducer = _native.diagnostic_extract_reproducer
 _diagnostic_record_launch = _native.diagnostic_record_launch
 
 
