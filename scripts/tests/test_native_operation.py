@@ -36,6 +36,7 @@ from scripts import (
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
+from scripts.tests.test_surrealism_module import fixture_module
 
 
 class FixtureScope(TypedDict):
@@ -4314,7 +4315,9 @@ child.wait()
                     "server": {
                         "inputs": surreal_server.surreal_source.inputs(),
                         "surrealmx_version": "1.0.0",
+                        "binary_sha256": "1" * 64,
                     },
+                    "study_module": fixture_module(base / "modules"),
                     "payload_incarnation": "438a990a-7e1e-4cc8-b49a-f603b53de398",
                     "rpc_max_message_bytes": surreal_server.MESSAGE_BYTES,
                     "max_message_bytes": surreal_server.MESSAGE_BYTES,

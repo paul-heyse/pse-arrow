@@ -15,7 +15,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import pytest
 
@@ -46,6 +46,15 @@ def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
     )
 
 
+class ServerFixture(TypedDict):
+    """Mutable selected-server receipt used by the lifecycle controls."""
+
+    binary: str
+    binary_sha256: str
+    inputs: dict[str, object]
+    surrealmx_version: str
+
+
 class Plan30LifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
         scratch = tempfile.TemporaryDirectory()
@@ -72,12 +81,12 @@ class Plan30LifecycleTests(unittest.TestCase):
             "resources": server.resources(
                 4 * server.GIB, 2 * server.GIB, 1, 2 * server.GIB
             ),
-            "server": {
-                "binary": str(self.root / "surreal"),
-                "binary_sha256": "1" * 64,
-                "inputs": server.surreal_source.inputs(),
-                "surrealmx_version": "1.0.0",
-            },
+            "server": ServerFixture(
+                binary=str(self.root / "surreal"),
+                binary_sha256="1" * 64,
+                inputs=server.surreal_source.inputs(),
+                surrealmx_version="1.0.0",
+            ),
             "unit_materialized": True,
         }
         self.config["study_module"] = fixture_module(self.root / "modules")
@@ -1629,10 +1638,8 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         binary = self.root / "surreal"
         binary.write_bytes(b"server")
-        self.config["server"] = {
-            "binary": str(binary),
-            "binary_sha256": server.file_digest(binary),
-        }
+        self.config["server"]["binary"] = str(binary)
+        self.config["server"]["binary_sha256"] = server.file_digest(binary)
         self.config["restart_qualified"] = True
         assert not (server.recovery_qualified(self.state, self.config))
         fingerprint = server.recovery_generation(self.state, self.config)

@@ -401,14 +401,14 @@ audit-machete:
     "{{ py }}" -m scripts.audit_tools audit-machete
 
 [group('local')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-combinations:
     export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
     export PATH="$PWD/.venv/bin:$PATH"
     cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
 
 [group('local')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-no-default:
     export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
     export PATH="$PWD/.venv/bin:$PATH"
@@ -663,7 +663,7 @@ py-sync:
 
 [group('local')]
 [doc('Build the editable native solver workflow with its explicit linked library environment')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 py-sync-native profile="dev":
     uv sync --locked --no-install-project
     VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features native-solvers
@@ -671,11 +671,13 @@ py-sync-native profile="dev":
 
 [group('local')]
 [doc('Build an explicitly force-validated Python extension for correctness; auto preserves the installed native/dev build selection')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-sync-correctness mode="auto" profile="dev":
     "{{ py }}" -m scripts.python_extension sync {{ quote(mode) }} {{ quote(profile) }}
 
 [group('local')]
 [doc('Build the linked force-validated Python correctness extension')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-sync-native-correctness profile="dev":
     "{{ py }}" -m scripts.python_extension sync native {{ quote(profile) }}
 
@@ -711,6 +713,7 @@ lint-py:
 
 [group('local')]
 [doc('pyrefly type check, including warnings (the baseline is zero)')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 typecheck:
     "{{ pyrefly }}" check --min-severity warn
 
