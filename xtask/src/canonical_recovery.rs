@@ -518,8 +518,8 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
 )]
 pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Value> {
     use pse_operations::canonical_execution::{
-        ResultPayload, RunRequest, SeedEligibility, TerminalClass, result_batch_key,
-        result_payload_digest, result_set_key,
+        AdmittedSealedResultFile, ResultPayload, RunRequest, SeedEligibility, TerminalClass,
+        result_batch_key, result_payload_digest, result_set_key,
     };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
     ensure!(
@@ -583,24 +583,31 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
             unavailable: None,
         })?;
         let batch = builder.finish()?;
-        let bytes = pse_runtime::workflow::result_files::encode_result_file(batch.batch())?;
+        let admitted = pse_relations::result_batch::AdmittedResultFile::encode(
+            &registry,
+            std::slice::from_ref(&batch),
+            pse_operations::canonical_files::FILE_BYTES,
+            &pool,
+            &pse_columnar::CancellationToken::new(),
+        )?;
         let intent = store
             .reserve_result_file(
                 &fence,
                 &format!("{run}:signal-file:{ordinal}"),
-                &result_payload_digest(&bytes),
+                &result_payload_digest(admitted.bytes()),
             )
             .await?;
         let file = store
             .seal_file(
                 &intent,
-                &bytes,
+                admitted.bytes(),
                 pse_operations::canonical_files::ARROW_IPC_FILE,
                 1,
                 &name,
             )
             .await?;
-        let payload = ResultPayload::from_sealed_owned(file.clone(), 0, owner)?;
+        let admitted_file = AdmittedSealedResultFile::bind(file.clone(), admitted)?;
+        let payload = ResultPayload::from_admitted_sealed_owned(&admitted_file, 0, owner)?;
         let key = result_batch_key(fence.attempt(), &set, ordinal);
         let block = pse_model::generated::runtime::canonical_result_blocks::Row {
             key: key.clone(),
@@ -617,6 +624,7 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
             coordinate_max: None,
             payload_bytes: payload.byte_len(),
             payload_digest: payload.digest().into(),
+            statistics: None,
             interpretation: INTERPRETATION.into(),
         };
         store
@@ -651,18 +659,18 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
     }
     let read = store.read_results(&run, fence.attempt()).await?;
     let page = store
-        .result_block_page(&read, &set, &name, "0", 0, 2, None)
+        .result_joined_block_page(&read, &set, &name, "0", 0, 2, None)
         .await?;
     ensure!(
-        page.len() == 2
-            && page[0].ordinal == 0
-            && page[1].ordinal == 1
-            && page[0].end == page[1].start,
+        page.blocks.len() == 2
+            && page.blocks[0].ordinal == 0
+            && page.blocks[1].ordinal == 1
+            && page.blocks[0].end == page.blocks[1].start
+            && page.next == Some(1)
+            && page.exhausted,
         "first page lacks consecutive distinct-file blocks"
     );
-    let descriptors = store
-        .result_file_batch_descriptors(&read, &set, &[0, 1])
-        .await?;
+    let descriptors = &page.batches;
     ensure!(
         descriptors.len() == 2
             && descriptors[0].file_instance != descriptors[1].file_instance
@@ -671,6 +679,20 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
                 .zip(&files)
                 .all(|(batch, file)| &batch.file_instance == file),
         "signal control did not seal two actual file instances"
+    );
+    ensure!(
+        page.blocks
+            .iter()
+            .zip(descriptors)
+            .all(|(block, batch)| block.batch == batch.key
+                && batch.key == result_batch_key(fence.attempt(), &set, block.ordinal)
+                && batch.attempt == fence.attempt()
+                && batch.result_set == set
+                && batch.ordinal == block.ordinal
+                && batch.file_batch_index == 0
+                && batch.digest == block.payload_digest
+                && block.statistics.is_some()),
+        "signal control joined page differs from exact admitted batch identities or statistics"
     );
     drop(read);
     // Dropping the final read schedules its authenticated protection release.
