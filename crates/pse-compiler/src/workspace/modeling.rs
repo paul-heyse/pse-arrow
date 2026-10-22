@@ -10,6 +10,8 @@ use pse_modeling::{
 };
 use salsa::Setter;
 pub(super) mod granular;
+mod shared_packages;
+use shared_packages::{StaticFunctionPackageKey, intern_static_package, read_static_package};
 
 /// Bounded immutable body retention owned by the mathematics service. No database
 /// handles or attempt workers cross this interface; cache state never defines meaning.
@@ -379,17 +381,6 @@ fn instance_prelude(db: &dyn CompilerDb, key: PreludeKey<'_>) -> Result<Arc<pse_
 fn prelude_heap(value: &Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>>) -> usize {
     value.as_ref().map_or(0, |prelude| prelude.retained_bytes())
 }
-#[derive(Clone, Debug, PartialEq)]
-struct StaticFunctionPackage(Arc<CheckedPackage>);
-impl Eq for StaticFunctionPackage {}
-impl std::hash::Hash for StaticFunctionPackage {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.0.declarations().next().map(|row| row.declaration_id), state);
-    }
-}
-#[salsa::interned(heap_size=static_function_package_heap)]
-struct StaticFunctionPackageKey<'db> { package: StaticFunctionPackage }
-fn static_function_package_heap((package,): &(StaticFunctionPackage,)) -> usize { package.0.retained_bytes() }
 #[salsa::interned(heap_size=function_fragment_key_heap)]
 struct FunctionFragmentKey<'db> {
     package: StaticFunctionPackageKey<'db>,
@@ -399,7 +390,7 @@ fn function_fragment_key_heap((_package, recipe): &(StaticFunctionPackageKey<'_>
 #[salsa::tracked(returns(clone),lru=256,heap_size=function_fragment_heap)]
 fn function_fragment(db: &dyn CompilerDb, key: FunctionFragmentKey<'_>) -> Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>> {
     checkpoint(db);
-    let package = key.package(db).package(db).0.clone();
+    let package = read_static_package(db, key.package(db))?;
     let input = pse_modeling::specialize::function_fragments::FunctionFragmentInput::from_parts(package, key.recipe(db).clone());
     let result = pse_modeling::specialize::function_fragments::derive(
         &input, Some(&QueryFragments { db }),
@@ -413,7 +404,7 @@ struct QueryFragments<'db> { db: &'db dyn CompilerDb }
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
     fn function_fragment(&self, input: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentInput>) -> std::result::Result<Arc<pse_modeling::specialize::function_fragments::FunctionFragment>, pse_modeling::ModelingError> {
         let (package, recipe) = input.parts();
-        let package = StaticFunctionPackageKey::new(self.db, StaticFunctionPackage(package));
+        let package = intern_static_package(self.db, package)?;
         let key = FunctionFragmentKey::new(self.db, package, recipe);
         function_fragment(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,

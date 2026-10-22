@@ -277,13 +277,21 @@ impl Value {
     }
 }
 impl crate::check::SharedPackageInputs {
-    /// Known heap extents in quantities, preconditions, scope and physical-type order.
-    /// Inline Arc fields are accounted by their database ingredient owner.
+    /// Known allocation of one immutable physical visibility owner.
+    pub fn scope_retained_bytes(scope:&crate::PhysicalScope)->usize {
+        size_of::<crate::PhysicalScope>() + 2*size_of::<usize>()
+            + scope.package.as_ref().map_or(0,String::capacity)
+            + scope.documents.as_ref().map_or(0,|documents|documents.len()*(size_of::<pse_ids::SemanticId>()+32))
+    }
+    /// Known allocation of one immutable physical name/type owner.
+    pub fn physical_types_retained_bytes(types:&BTreeMap<String,Type>)->usize {
+        size_of::<BTreeMap<String,Type>>() + 2*size_of::<usize>()
+            + map(types,|name,value|name.capacity()+ty(value))
+    }
+    /// Known extents in quantities, preconditions, scope and physical-type order.
     pub fn retained_extents(&self)->[usize;4] {
-        [self.quantities.allocation_extent(),
-         self.preconditions.declarations().iter().map(|value|size_of::<pse_quantity::PhysicalPrecondition>()+value.operand_positions.capacity()*size_of::<u16>()).sum(),
-         self.scope.package.as_ref().map_or(0,String::capacity)+self.scope.documents.as_ref().map_or(0,|documents|documents.len()*(size_of::<pse_ids::SemanticId>()+32)),
-         map(&self.physical_types,|name,value|name.capacity()+ty(value))]
+        [self.quantities.allocation_extent(), self.preconditions.allocation_extent(),
+         Self::scope_retained_bytes(&self.scope), Self::physical_types_retained_bytes(&self.physical_types)]
     }
 }
 impl CheckedPackage {
@@ -294,38 +302,19 @@ impl CheckedPackage {
         &'a self,
         census: &mut crate::check::phases::RetainedInputs<'a>,
     ) {
-        let quantities = self.quantities.allocation_extent();
-        let preconditions = self
-            .preconditions
-            .declarations()
-            .iter()
-            .map(|p| {
-                size_of::<pse_quantity::PhysicalPrecondition>()
-                    + p.operand_positions.capacity() * size_of::<u16>()
-            })
-            .sum::<usize>();
-        let scope = self.scope.package.as_ref().map_or(0, String::capacity)
-            + self.scope.documents.as_ref().map_or(0, |documents| {
-                documents.len() * (size_of::<pse_ids::SemanticId>() + 32)
-            });
-        let physical_types = map(&self.physical_types, |name, value| {
-            name.capacity() + ty(value)
-        });
         let lexical_index = self.lexical_index.retained_bytes();
-        census.add(self.retained_bytes().saturating_sub(
-            size_of::<Self>() + quantities + preconditions + scope + physical_types + lexical_index,
-        ));
+        census.add(self.retained_bytes_excluding_shared_inputs().saturating_sub(size_of::<Self>()+lexical_index));
         if census.include_shared(&self.quantities) {
-            census.add(quantities);
+            census.add(self.quantities.allocation_extent());
         }
         if census.include_shared(&self.preconditions) {
-            census.add(preconditions);
+            census.add(self.preconditions.allocation_extent());
         }
         if census.include_shared(&self.scope) {
-            census.add(scope);
+            census.add(crate::check::SharedPackageInputs::scope_retained_bytes(&self.scope));
         }
         if census.include_shared(&self.physical_types) {
-            census.add(physical_types);
+            census.add(crate::check::SharedPackageInputs::physical_types_retained_bytes(&self.physical_types));
         }
         if census.include_shared(&self.lexical_index) {
             census.add(lexical_index);
@@ -334,35 +323,11 @@ impl CheckedPackage {
     /// Owned local package storage when each shared registry input has an
     /// independently retained, uniquely counted owner.
     pub fn retained_bytes_excluding_shared_inputs(&self)->usize {
-        let shared=self.shared_inputs();
-        self.retained_bytes().saturating_sub(shared.retained_extents().into_iter().sum())
-    }
-    /// Conservative owned declaration, table, type and lookup storage.
-    pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.selection_index.retained_bytes()
             + self.lexical_index.retained_bytes()
-            + map(&self.physical_types, |name, value| {
-                name.capacity() + ty(value)
-            })
             + selections(&self.selection_closures)
             + crate::expression::occurrences::retained_bytes(&self.expressions)
-            + self
-                .preconditions
-                .declarations()
-                .iter()
-                .map(|p| {
-                    size_of::<pse_quantity::PhysicalPrecondition>()
-                        + p.operand_positions.capacity() * size_of::<u16>()
-                })
-                .sum::<usize>()
-            + self.quantities.allocation_extent()
-            + self.scope.package.as_ref().map_or(0, String::capacity)
-            + self
-                .scope
-                .documents
-                .as_ref()
-                .map_or(0, |d| d.len() * (size_of::<pse_ids::SemanticId>() + 32))
             + self.lowered_functions.len() * (size_of::<pse_ids::SemanticId>() + 64)
             + map(&self.declarations, |_, v| v.heap_bytes())
             + map(&self.names, |n, _| n.capacity())
@@ -435,6 +400,13 @@ impl CheckedPackage {
             + (self.test_only.len() + self.test_only_data.len()) * 80
             + map(&self.oracles, |_, _| 0)
     }
+    /// Conservative owned declaration, table, type and lookup storage, including
+    /// each physical shared owner once for a standalone package.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes_excluding_shared_inputs()
+            .saturating_add(self.shared_inputs().retained_extents().into_iter().sum::<usize>())
+    }
+
 }
 impl SpecializedModel {
     /// Conservative owned specialization storage, excluding separately owned library math.
