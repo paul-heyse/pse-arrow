@@ -1309,6 +1309,13 @@ result run *args:
 activity *args:
     exec python3 scripts/activity.py "$@"
 
+[group('discovery')]
+[doc('Launch a selected-store Codex session; optional database/Rust capabilities, literal args after --')]
+[positional-arguments]
+[script("bash", "-euo", "pipefail")]
+codex-session *args:
+    exec "{{ py }}" -m scripts.codex_session "$@"
+
 [group('env')]
 [doc('Second working copy for a parallel agent: just worktree <name> [--ref REF] [--python|--native]')]
 [positional-arguments]

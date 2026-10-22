@@ -24,6 +24,11 @@ command through `~/.config/codex/bash-env.bash`. New or changed `.envrc` files n
 and approval before commands run; activation failures stop the command. Keep using the
 workload boundary below for execution and native/store admission.
 
+After successful activation, the workstation bridge unsets `BASH_ENV`. Codex supplies it
+afresh for each top-level shell; nested Just/compiler/native children preserve the environment
+already selected by their workload owner. A shell opened before that bridge update may still
+carry its old startup mapping: use a fresh activated shell for propagation checks.
+
 ## One environment boundary: `scripts/pse-env`
 
 Workload recipe lines and scripts run through `scripts/pse-env` (the justfile's
@@ -462,6 +467,15 @@ is an error to report, not permission to initialize it. Retained/quiesced contex
 read independently of scientific write admission. Codex caches headers; reconnect or
 restart after state, port or credential changes and keep registration/helper endpoints
 matched. Do not launch `surreal mcp` on the persistent files: that opens another datastore.
+
+For an explicitly selected session, `just codex-session [--state STATE] -- CODEX_ARGS`
+observes the existing service and supplies the validated endpoint and pinned checkout header
+helper to Codex. This fixed launcher bypasses workload admission and starts no database.
+Rust navigation and database inspection are requested by default; `--without-rust` and
+`--without-database` opt out. An unavailable optional capability is reported and disabled;
+`--require-rust` or `--require-database` makes it a prerequisite. `--explain --json` reports
+nonsecret selection/readiness, never attachment or credentials. Explicit trailing Codex overrides
+remain last and can change the preset; actual attachment is established by client interaction.
 
 For scientific meaning use the typed APIs and exact identifiers described in
 [the substrate guide](surreal-substrate.md#typed-scientific-inspection), rather than
