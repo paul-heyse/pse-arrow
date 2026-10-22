@@ -165,6 +165,28 @@ class InvocationDispositionTests(unittest.TestCase):
         self.assertIn("ownership changed", result["resources"][0]["disposition_result"])
         self.assertEqual(test_resources.resource_status(self.resource)["cleanup"], "retained")
 
+    def test_bounded_exact_report_bytes_do_not_double_count_links_or_follow_symlinks(self) -> None:
+        directory = self.root / "build" / "evidence"
+        directory.mkdir(parents=True)
+        payload = directory / "payload"
+        payload.write_bytes(b"x" * 8192)
+        os.link(payload, directory / "same-inode")
+        (directory / "outside").symlink_to(self.root / "not-owned")
+        (self.root / "not-owned").write_bytes(b"y" * 65536)
+        identity = test_resources.register_report(directory, root=self.root)
+        record = test_resources.resource_status(identity)
+        observed = disposition.storage_observation(record, deadline=time.monotonic() + 5, seen=set())
+        self.assertEqual(observed["status"], "partial")
+        self.assertEqual(observed["logical_bytes"], 8192)
+        self.assertEqual(observed["exclusive_allocated_bytes"], 0)
+        self.assertGreater(observed["shared_allocated_bytes"], 0)
+        bounded = disposition.storage_observation(record, deadline=time.monotonic() + 5, seen=set(), limit=1)
+        self.assertEqual(bounded["status"], "partial")
+        self.assertEqual(bounded["entries"], 1)
+        unsupported = disposition.storage_observation(self.facts, deadline=time.monotonic() + 5, seen=set())
+        self.assertEqual(unsupported["status"], "unavailable")
+        self.assertIn("shared database", unsupported["reason"])
+
 
 class ActualInvocationDispositionTests(unittest.TestCase):
     def test_real_dead_native_composer_abandons_without_terminal_or_ack_and_releases_guard(self) -> None:

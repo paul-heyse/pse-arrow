@@ -58,7 +58,7 @@ def artifact_observation(path: Path, digest: str, tail: int, record: dict | None
                 result["status"] = "changed"
                 return result
             stream.seek(max(0, before.st_size - 65536))
-            result["tail"] = stream.read().decode(errors="replace").splitlines()[-tail:]
+            result["tail"] = stream.read().decode(errors="replace").splitlines()[-tail:] if tail else []
             after = os.fstat(stream.fileno())
             if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
                 result.update(status="changed", tail=[])
@@ -141,6 +141,7 @@ def product_result(handle: str, *, registry: Path | None = None, subject: str | 
             "terminal_identity": state.get("terminal_identity"),
             "terminal": {key: value for key, value in frozen.items() if key not in {"outcomes", "evidence"}} if frozen else None,
             "lifecycle": state.get("lifecycle"),
+            "diagnostic_actions": state.get("diagnostic_actions", [])[offset:offset + limit],
             "selected_count": len(selected), "subjects": subjects[offset:offset + limit],
             "selected_unreported": unreported[offset:offset + limit], "selected_unreported_count": len(unreported),
             "report_rows": evidence.get("results", [])[offset:offset + limit], "report_errors": evidence.get("report_errors", []),

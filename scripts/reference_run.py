@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -28,11 +29,30 @@ def phase(command: str, state: Path, *extra: str) -> int:
     return surreal_server.dispatch(arguments)
 
 
-def lifetime(state: Path, invocation: Path, command: list[str], initializer: Path) -> dict:
+def freeze_initializer(source: Path, invocation: Path) -> Path:
+    """Capture the selected feature binary before another Cargo producer replaces its alias."""
+    target = invocation.with_suffix(".initializer")
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    with os.fdopen(descriptor, "rb") as original, target.open("xb") as copied:
+        before = os.fstat(original.fileno())
+        shutil.copyfileobj(original, copied, 1 << 20)
+        copied.flush()
+        os.fsync(copied.fileno())
+        after = os.fstat(original.fileno())
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+            raise ValueError("canonical initializer changed during artifact capture")
+    target.chmod(0o500)
+    probe = subprocess.run([str(target), "canonical-init", "--help"], capture_output=True, timeout=10, check=False)
+    if probe.returncode != 0 or b"canonical-init" not in probe.stdout:
+        raise ValueError("captured initializer does not expose the canonical-tools command; rebuild that selected target")
+    return target
+
+
+def lifetime(state: Path, invocation: Path, command: list[str], initializer: Path, *, setup_result: dict | None = None) -> dict:
     owner = host_admission.inherit(os.environ)
     if owner is None or owner.profile.name != "reference":
         raise ValueError("reference lifetime requires its authentic reference allocation")
-    value = {"invocation": str(invocation), "state": str(state), "allocation": owner.nonce,
+    value = {**dict(setup_result or {}), "invocation": str(invocation), "state": str(state), "allocation": owner.nonce,
              "setup": "complete", "start": "not_run", "initialize": "not_run",
              "workload": "not_run", "signal": None, "drain": "not_run", "cleanup": "not_run",
              "normal_resume": "pending owner release", "command": command}
@@ -40,6 +60,9 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
     selected: dict[str, str] | None = None
     instance = config["instance_id"]
     try:
+        if setup_result is not None and isinstance(setup_result.get("initializer"), dict):
+            if test_resources.file_digest(initializer) != setup_result["initializer"].get("sha256"):
+                raise ValueError("captured initializer bytes changed; initialization refused")
         # Serialize only start/selection. Workloads remain free to use their
         # existing context owners; finalization reacquires and rechecks identity.
         with surreal_server.lifecycle_reservation(state, purpose="startup"):
@@ -92,7 +115,7 @@ def lifetime(state: Path, invocation: Path, command: list[str], initializer: Pat
 
 
 def execute(state: Path, worker: Path, command: list[str], *, profile: str = "plan28-reference",
-            tooling_fixture: bool = False) -> dict:
+            tooling_fixture: bool = False, initializer: Path | None = None) -> dict:
     if not command or profile != "plan28-reference":
         raise ValueError("select plan28-reference and a literal workload argv")
     if host_admission.MARKER in os.environ:
@@ -107,11 +130,18 @@ def execute(state: Path, worker: Path, command: list[str], *, profile: str = "pl
     # Build/setup effects precede the finite scientific allocation. The explicit
     # worker is already built; canonical schema tooling is prepared here.
     build = [*boundary, "--native=", "--", sys.executable, "-m", "scripts.arrow_validation", "build", "-p", "xtask", "--bin", "xtask", "--no-default-features", "--features", "canonical-tools", "--locked"]
-    value["build"] = subprocess.call(build, env=environment, cwd=ROOT)
-    if value["build"]:
+    value["build"] = subprocess.call(build, env=environment, cwd=ROOT) if initializer is None else "explicit prebuilt initializer"
+    if isinstance(value["build"], int) and value["build"] != 0:
         value["setup"] = "build failed"
         checkpoint(invocation, value)
         return value
+    try:
+        initializer = freeze_initializer(initializer or ROOT / "target/debug/xtask", invocation)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        value["setup"] = f"initializer unavailable: {error}"
+        checkpoint(invocation, value)
+        return value
+    value["initializer"] = {"path": str(initializer), "sha256": test_resources.file_digest(initializer)}
     setup = [*boundary, "--resource-class", "light", "--", sys.executable, "-m", "scripts.surreal_server", "setup", "--state", str(state), "--execution-profile", profile, "--worker-executable", str(worker)]
     if tooling_fixture:
         setup.append("--tooling-fixture")
@@ -119,7 +149,7 @@ def execute(state: Path, worker: Path, command: list[str], *, profile: str = "pl
     checkpoint(invocation, value)
     if value["setup"]:
         return value
-    run = [*boundary, "--native=", "--resource-class", "reference", "--", sys.executable, "-m", "scripts.reference_run", "_lifetime", "--state", str(state), "--invocation", str(invocation), "--initializer", str(ROOT / "target/debug/xtask"), "--", *command]
+    run = [*boundary, "--native=", "--resource-class", "reference", "--", sys.executable, "-m", "scripts.reference_run", "_lifetime", "--state", str(state), "--invocation", str(invocation), "--initializer", str(initializer), "--", *command]
     value["execution_boundary"] = subprocess.call(run, env=environment, cwd=ROOT)
     state_image = test_resources.storage().invocation_snapshot(invocation.stem)
     value = {**state_image.get("lifecycle", value), "execution_boundary": value["execution_boundary"]}
@@ -144,14 +174,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=("plan28-reference",), default="plan28-reference")
     parser.add_argument("--tooling-fixture", action="store_true")
     parser.add_argument("--invocation", type=Path, required=internal)
-    parser.add_argument("--initializer", type=Path, required=internal)
+    parser.add_argument("--initializer", type=Path, required=internal, help="selected prebuilt canonical-tools initializer; otherwise build it before reference admission")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(arguments)
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("a literal workload command after -- is required")
     try:
-        value = lifetime(args.state, args.invocation, command, args.initializer) if internal else execute(args.state, args.worker, command, profile=args.profile, tooling_fixture=args.tooling_fixture)
+        value = lifetime(args.state, args.invocation, command, args.initializer, setup_result=test_resources.storage().invocation_snapshot(args.invocation.stem).get("lifecycle")) if internal else execute(args.state, args.worker, command, profile=args.profile, tooling_fixture=args.tooling_fixture, initializer=args.initializer)
     except (OSError, ValueError, RuntimeError) as error:
         print(f"reference-run: {error}", file=sys.stderr)
         return 1

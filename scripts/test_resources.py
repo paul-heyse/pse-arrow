@@ -1694,6 +1694,7 @@ def main() -> int:
     parser.add_argument("--digest")
     parser.add_argument("--apply", action="store_true", help="apply exact invocation abandonment instead of inspection")
     parser.add_argument("--seconds", type=float, default=30)
+    parser.add_argument("--storage", action="store_true")
     parser.add_argument(
         "--terminal-owner", choices=("runner", "standalone", "assessment")
     )
@@ -1705,7 +1706,7 @@ def main() -> int:
             parser.error("abandon requires an exact invocation declaration or identity")
         from scripts import invocation_disposition
 
-        return invocation_disposition.main([args.resource, "--seconds", str(args.seconds), *(["--apply"] if args.apply else [])])
+        return invocation_disposition.main([args.resource, "--seconds", str(args.seconds), *(["--apply"] if args.apply else []), *(["--storage"] if args.storage else [])])
     if args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(

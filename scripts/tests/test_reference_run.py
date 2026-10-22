@@ -17,6 +17,20 @@ from scripts import reference_run, surreal_server
 
 
 class ReferenceRunTests(unittest.TestCase):
+    def test_initializer_is_frozen_before_the_shared_build_alias_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "xtask"
+            source.write_text("#!/bin/sh\nprintf 'canonical-init help\\n'\n")
+            source.chmod(0o700)
+            frozen = reference_run.freeze_initializer(source, root / "invocation.json")
+            before = frozen.read_bytes()
+            source.write_text("#!/bin/sh\nexit 7\n")
+            self.assertEqual(frozen.read_bytes(), before)
+            self.assertEqual(frozen.stat().st_mode & 0o777, 0o500)
+            with self.assertRaisesRegex(ValueError, "does not expose"):
+                reference_run.freeze_initializer(source, root / "other-invocation.json")
+
     def run_lifetime(self, *, code: int = 0, changed: bool = False, stop: int = 0) -> tuple[dict, list]:
         calls = []
         def phase(command: str, state: Path, *extra: str) -> int:

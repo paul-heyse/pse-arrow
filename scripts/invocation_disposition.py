@@ -7,6 +7,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
+import contextlib
 import time
 from pathlib import Path
 
@@ -26,7 +28,85 @@ def owner_reason(record: object, deadline: float) -> str | None:
     return None if observation.complete else "execution scope not drained: " + observation.diagnostic()
 
 
-def inspect(handle: str, *, deadline: float) -> tuple[dict, dict]:
+def storage_observation(record: dict, *, deadline: float, seen: set[tuple[int, int]], limit: int = 512) -> dict:
+    """Bound exact owned file metadata; never attribute a shared database tree."""
+    result = {"status": "measured", "allocated_bytes": 0, "logical_bytes": 0,
+              "exclusive_allocated_bytes": 0, "shared_allocated_bytes": 0,
+              "entries": 0, "entry_limit": limit, "reasons": [],
+              "scope": "non-atomic exact owned-path metadata; hardlinks counted once across this request"}
+    directory = record.get("directory") if record.get("kind") != "evidence" else record.get("state")
+    if not isinstance(directory, str):
+        return {"status": "unavailable", "reason": "resource has no independent physical file owner; shared database/namespace bytes cannot be attributed to this invocation"}
+    path = Path(directory)
+    if not path.is_absolute() or ".." in path.parts or any(item.is_symlink() for item in (path, *path.parents)):
+        return {"status": "unavailable", "reason": "exact resource path ownership changed"}
+    try:
+        with contextlib.ExitStack() as contexts:
+            if record.get("kind") == "evidence":
+                root = contexts.enter_context(test_resources.report_directory(record))
+            else:
+                state = Path(record["state"])
+                if state not in path.parents:
+                    raise ValueError("control path is outside its exact declared state")
+                from scripts import surreal_server
+
+                config = surreal_server.config_for(state, deadline=deadline)
+                if config.get("instance_id") != record.get("service_generation"):
+                    raise ValueError("service generation changed; control bytes remain unattributed")
+                flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+                root = os.open(path.anchor, flags)
+                contexts.callback(os.close, root)
+                for component in path.parts[1:]:
+                    root = os.open(component, flags, dir_fd=root)
+                    contexts.callback(os.close, root)
+            information = os.fstat(root)
+            if information.st_uid != os.getuid():
+                raise ValueError("physical resource owner changed")
+            pending = [(root, 0)]
+            while pending:
+                current, depth = pending.pop()
+                with os.scandir(current) as entries:
+                    for entry in entries:
+                        if result["entries"] >= limit or time.monotonic() >= deadline:
+                            result["status"] = "partial"
+                            result["reasons"].append("entry/deadline bound reached")
+                            return result
+                        result["entries"] += 1
+                        selected = entry.stat(follow_symlinks=False)
+                        if selected.st_uid != os.getuid() or selected.st_dev != information.st_dev or stat.S_ISLNK(selected.st_mode):
+                            result["status"] = "partial"
+                            result["reasons"].append("changed owner, cross-device path or symlink not followed")
+                            continue
+                        identity = (selected.st_dev, selected.st_ino)
+                        if stat.S_ISDIR(selected.st_mode):
+                            if depth >= 16:
+                                result["status"] = "partial"
+                                result["reasons"].append("directory depth bound reached")
+                            else:
+                                descriptor = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=current)
+                                contexts.callback(os.close, descriptor)
+                                actual = os.fstat(descriptor)
+                                if (actual.st_dev, actual.st_ino) != identity:
+                                    result["status"] = "partial"
+                                    result["reasons"].append("directory changed before traversal")
+                                    continue
+                                pending.append((descriptor, depth + 1))
+                        elif stat.S_ISREG(selected.st_mode) and identity not in seen:
+                            seen.add(identity)
+                            allocated = selected.st_blocks * 512
+                            result["allocated_bytes"] += allocated
+                            result["logical_bytes"] += selected.st_size
+                            result["shared_allocated_bytes" if selected.st_nlink > 1 else "exclusive_allocated_bytes"] += allocated
+            after = os.fstat(root)
+            if after.st_mtime_ns != information.st_mtime_ns:
+                result["status"] = "partial"
+                result["reasons"].append("directory changed during metadata observation")
+    except (OSError, ValueError, RuntimeError) as error:
+        result.update(status="unavailable", reasons=[str(error)])
+    return result
+
+
+def inspect(handle: str, *, deadline: float, storage: bool = False) -> tuple[dict, dict]:
     registry, declaration, state = run_inspection.resolve(handle)
     blockers = []
     for name in ("producer", "composer"):
@@ -37,6 +117,7 @@ def inspect(handle: str, *, deadline: float) -> tuple[dict, dict]:
         if reason:
             blockers.append(f"{name}: {reason}")
     members = []
+    seen: set[tuple[int, int]] = set()
     for identity, membership in list(state["members"].items())[:1000]:
         try:
             entry = test_resources.storage()._entry(identity)
@@ -64,7 +145,7 @@ def inspect(handle: str, *, deadline: float) -> tuple[dict, dict]:
                         break
             members.append({"resource": identity, "membership": membership, "kind": record["kind"],
                             "state": record["state"], "role": record.get("disposition"),
-                            "bytes_held": "not observed", "reason": reason,
+                            "bytes_held": storage_observation(record, deadline=deadline, seen=seen) if storage else {"status": "not_requested", "route": "repeat exact inspection with --storage"}, "reason": reason,
                             "route": "exact resource release/reclaim" if reason is None else "exact owner recovery",
                             "record": record})
         except (OSError, ValueError, RuntimeError) as error:
@@ -78,8 +159,8 @@ def inspect(handle: str, *, deadline: float) -> tuple[dict, dict]:
     return state, result
 
 
-def apply(handle: str, *, deadline: float) -> dict:
-    state, result = inspect(handle, deadline=deadline)
+def apply(handle: str, *, deadline: float, storage: bool = False) -> dict:
+    state, result = inspect(handle, deadline=deadline, storage=storage)
     if result["blockers"]:
         result["action"] = "blocked"
         return result
@@ -88,7 +169,7 @@ def apply(handle: str, *, deadline: float) -> dict:
     result.update(action="membership fenced", abandonment=disposition)
     # Re-observe every exact resource after durable closure. Its owner compares
     # generation, references and physical scopes again during reclaim.
-    _fresh, current = inspect(handle, deadline=deadline)
+    _fresh, current = inspect(handle, deadline=deadline, storage=storage)
     for resource in current["resources"]:
         identity = resource["resource"]
         status = resource.get("reason")
@@ -137,13 +218,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("invocation")
     parser.add_argument("--apply", action="store_true", help="explicitly fence and dispose eligible exact members")
+    parser.add_argument("--storage", action="store_true", help="bounded exact owned-path byte observation; shared stores stay unattributed")
     parser.add_argument("--seconds", type=float, default=30)
     args = parser.parse_args(argv)
     if not 0 < args.seconds <= 90:
         parser.error("--seconds must be in (0, 90]")
     deadline = time.monotonic() + args.seconds
     try:
-        result = apply(args.invocation, deadline=deadline) if args.apply else inspect(args.invocation, deadline=deadline)[1]
+        result = apply(args.invocation, deadline=deadline, storage=args.storage) if args.apply else inspect(args.invocation, deadline=deadline, storage=args.storage)[1]
     except (OSError, ValueError, RuntimeError) as error:
         print(json.dumps({"error": str(error), "invocation": args.invocation}))
         return 1
