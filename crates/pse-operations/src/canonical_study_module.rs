@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{io::Read, path::{Path, PathBuf}};
 
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(test,derive(serde::Serialize))]
 #[serde(deny_unknown_fields)]
 pub(crate) struct StudyModuleReceipt {
     kind:String,
@@ -21,6 +22,7 @@ pub(crate) struct StudyModuleReceipt {
     limits:ModuleLimits,
 }
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test,derive(serde::Serialize))]
 #[serde(deny_unknown_fields)]
 struct ModuleLimits {
     max_memory_bytes:u64,
@@ -173,24 +175,28 @@ impl CanonicalStore {
 }
 
 #[cfg(all(test,unix))]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    pub(crate) fn receipt_in(state:&Path)->StudyModuleReceipt {
+        let parent=state.join("module");std::fs::create_dir(&parent).unwrap();
+        std::fs::set_permissions(&parent,std::fs::Permissions::from_mode(0o700)).unwrap();
+        let artifact=parent.join("study.surli");let payload=b"exact immutable artifact";
+        std::fs::write(&artifact,payload).unwrap();
+        std::fs::set_permissions(&artifact,std::fs::Permissions::from_mode(0o400)).unwrap();
+        let sha256=Sha256::digest(payload).iter().map(|byte|format!("{byte:02x}")).collect();
+        let declared=ModuleDeclaration::read().unwrap();
+        StudyModuleReceipt {kind:"pse-study-module-v1".into(),artifact,sha256,bytes:payload.len() as u64,sdk_version:declared.sdk,abi:declared.abi,
+            inputs:serde_json::Map::from_iter([("source".into(),serde_json::Value::String("fixture".into()))]),
+            limits:declared.limits}
+
+    }
     struct Fixture { state:PathBuf, receipt:StudyModuleReceipt }
     impl Fixture {
         fn new()->Self {
             let state=std::env::temp_dir().join(format!("pse-study-module-{}",uuid::Uuid::new_v4()));
             std::fs::create_dir(&state).unwrap();
-            let parent=state.join("module");std::fs::create_dir(&parent).unwrap();
-            std::fs::set_permissions(&parent,std::fs::Permissions::from_mode(0o700)).unwrap();
-            let artifact=parent.join("study.surli");let payload=b"exact immutable artifact";
-            std::fs::write(&artifact,payload).unwrap();
-            std::fs::set_permissions(&artifact,std::fs::Permissions::from_mode(0o400)).unwrap();
-            let sha256=Sha256::digest(payload).iter().map(|byte|format!("{byte:02x}")).collect();
-            let declared=ModuleDeclaration::read().unwrap();
-            let receipt=StudyModuleReceipt {kind:"pse-study-module-v1".into(),artifact,sha256,bytes:payload.len() as u64,sdk_version:declared.sdk,abi:declared.abi,
-                inputs:serde_json::Map::from_iter([("source".into(),serde_json::Value::String("fixture".into()))]),
-                limits:declared.limits};
+            let receipt=receipt_in(&state);
             Self{state,receipt}
         }
     }

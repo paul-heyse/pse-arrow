@@ -2790,6 +2790,7 @@ mod canonical_admission_unit {
             "schema_interpretation": wire::INTERPRETATION,
             "max_message_bytes": MESSAGE_BYTES, "credentials_file": credentials,
             "accepting_writes": false,
+            "study_module": serde_json::to_value(study_module::tests::receipt_in(&scope.0)).unwrap(),
         });
         (scope, config)
     }
@@ -2823,6 +2824,37 @@ mod canonical_admission_unit {
                 CanonicalOptions::from_state_for_database(&scope.0, Some("isolated")).unwrap();
             assert_eq!(isolated.database, "isolated");
         }
+    }
+    #[test]
+    fn storage_projection_bounds_full_module_config_separately_from_credentials() {
+        let (scope,mut config)=storage_scope();
+        // Real source receipts can exceed the old 64 KiB configuration bound.
+        // Provenance stays opaque to storage projection but the complete module
+        // artifact, SDK, ABI and declared limits still undergo normal admission.
+        let sources=(0..768).map(|index|serde_json::json!({
+            "path":format!("crates/pse-model/src/source-{index}.rs"),"sha256":"a".repeat(64),
+        })).collect::<Vec<_>>();
+        config["study_module"]["inputs"]["source_files"]=sources.into();
+        let mut qualification=config["study_module"].clone();
+        qualification["kind"]="pse-study-module-qualification-v1".into();
+        qualification["inputs"]["features"]=serde_json::json!(["module-qualification"]);
+        config["study_module_qualification"]=qualification;
+        let path=scope.0.join("config.json");
+        private_document(&path,&config);
+        let mut bytes=std::fs::read(&path).unwrap();
+        assert!(bytes.len()>64*1024 && bytes.len()<256*1024);
+        CanonicalOptions::from_state(&scope.0).unwrap();
+        bytes.resize(256*1024,b' ');std::fs::write(&path,&bytes).unwrap();
+        CanonicalOptions::from_state(&scope.0).unwrap();
+        bytes.push(b' ');std::fs::write(&path,&bytes).unwrap();
+        assert!(matches!(CanonicalOptions::from_state(&scope.0),Err(CanonicalError::Configuration(_))));
+        private_document(&path,&config);
+        let credentials=scope.0.join("credentials.json");
+        let mut bytes=std::fs::read(&credentials).unwrap();
+        bytes.resize(64*1024,b' ');std::fs::write(&credentials,&bytes).unwrap();
+        CanonicalOptions::from_state(&scope.0).unwrap();
+        bytes.push(b' ');std::fs::write(&credentials,&bytes).unwrap();
+        assert!(matches!(CanonicalOptions::from_state(&scope.0),Err(CanonicalError::Configuration(_))));
     }
     #[test]
     fn storage_projection_retains_interpretation_protocol_credentials_and_identity_validation() {
