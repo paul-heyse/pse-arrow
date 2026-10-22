@@ -4291,13 +4291,12 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut response = bounded_query(
+                    let mut response = protected_query("canonical_execution::settle_operation_for_run", || Ok(
                 self.db
                     .control_query(
                         "RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$key,$expected_run);",
                     )
-                    .bind(("key", operation.to_owned())).bind(("expected_run",expected_run.map(|run|Value::String(run.to_owned())).unwrap_or(Value::None))),
-            )
+                    .bind(("key", operation.to_owned())).bind(("expected_run",expected_run.map(|run|Value::String(run.to_owned())).unwrap_or(Value::None)))))
             .await?;
                     let Some(object) = response.take::<Option<Object>>(0)? else {
                         return Ok(None);

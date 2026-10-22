@@ -3,9 +3,11 @@
 
 //! Bounded occurrence storage and scoped decisions over the canonical substrate.
 
+#[cfg(all(test, feature = "canonical-tests"))]
+use crate::canonical::bounded_query;
 use crate::{
     canonical::transport::{original_deadline, within_clock},
-    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query},
+    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
     canonical_codec as codec,
     canonical_execution::{AttemptFence, RunRequest, execution_attempt_key},
     generated::surreal as wire,
@@ -1281,9 +1283,9 @@ impl CanonicalStore {
                     // Only immutable settlement answers an uncertain reply.
                     // Failure or absence leaves the exact durable pending owner;
                     // a later invocation fences it before resuming the same body.
-                    if let Ok(mut readback)=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                    if let Ok(mut readback)=protected_query("canonical_studies::readiness_settlement",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
                         "RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
-                        .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone()))).await
+                        .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone())))).await
                         && let Some(result)=readback.take::<Option<Object>>(0)? {
                         return settled_readiness_count(&result,&pending.keys,&pending.operation);
                     }
@@ -1303,7 +1305,7 @@ impl CanonicalStore {
         }
     }
     async fn readiness_pending(&self, study: &str) -> Result<bool, CanonicalError> {
-        let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending,pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $c.pending_operation!=NONE OR ($s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0));","study")).bind(("study",study.to_owned()))).await?;
+        let mut response=protected_query("canonical_studies::readiness_pending",||Ok(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending,pending_operation FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $c.pending_operation!=NONE OR ($s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0));","study")).bind(("study",study.to_owned())))).await?;
         response
             .take::<Option<bool>>(0)?
             .ok_or(CanonicalError::IncompleteResponse)
@@ -1373,8 +1375,8 @@ impl CanonicalStore {
             if !owner.active || owner.cancelled || owner.terminal { return Ok(ReadinessAdvance::default()); }
             let cursor=self.readiness_cursor(study).await?;
             if cursor.rebuild_pending { return self.readiness_scan_page(study,&cursor,true).await; }
-            let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $next=SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true AND ordinal>$after ORDER BY ordinal LIMIT 1; RETURN IF array::len($next)>0 {$next} ELSE {SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true ORDER BY ordinal LIMIT 1};","study"))
-                .bind(("study",study.to_owned())).bind(("after",cursor.notify_after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut response=protected_query("canonical_studies::readiness_notification",||Ok(self.db.query(crate::canonical_history::study_query("LET $next=SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true AND ordinal>$after ORDER BY ordinal LIMIT 1; RETURN IF array::len($next)>0 {$next} ELSE {SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true ORDER BY ordinal LIMIT 1};","study"))
+                .bind(("study",study.to_owned())).bind(("after",cursor.notify_after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             let Some(row)=response.take::<Vec<Object>>(0)?.pop() else { return Ok(ReadinessAdvance::default()); };
             let source=wire::decode_canonical_study_readiness(row)?;
             let examined=self.readiness_apply_bounded(study,&cursor,"notify",Some(&source)).await?;
