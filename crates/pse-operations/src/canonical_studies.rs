@@ -42,17 +42,32 @@ pub struct StudyCandidatesQuery {
 impl StudyCandidatesQuery {
     /// Preserve bound values, including exact decimal u64 cursors and initial -1.
     pub fn new(study: &str, after: Option<u64>) -> Result<Self, CanonicalError> {
-        Ok(Self { study: study.to_owned(), after: after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?) })
+        Ok(Self {
+            study: study.to_owned(),
+            after: after
+                .map(codec::encode_uint)
+                .transpose()?
+                .unwrap_or(codec::encode_int(-1)?),
+        })
     }
 
     /// The entire dispatched statement includes its history-owner function and branches.
     pub fn sql(&self) -> String {
-        crate::canonical_history::study_query(&format!("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled {{ SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 }} ELSE {{ {readiness} }}; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);", readiness=READINESS_CANDIDATES_SQL), "study")
+        crate::canonical_history::study_query(
+            &format!(
+                "LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled {{ SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 }} ELSE {{ {readiness} }}; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);",
+                readiness = READINESS_CANDIDATES_SQL
+            ),
+            "study",
+        )
     }
 
     /// Named bound values consumed unchanged by dispatch and explanation.
     pub fn bindings(&self) -> BTreeMap<String, Value> {
-        BTreeMap::from([("study".into(), Value::String(self.study.clone())), ("after".into(), self.after.clone())])
+        BTreeMap::from([
+            ("study".into(), Value::String(self.study.clone())),
+            ("after".into(), self.after.clone()),
+        ])
     }
 
     /// Source-aware representation; values contain only this explicit diagnostic selection.
@@ -1463,7 +1478,10 @@ impl CanonicalStore {
     /// This read has no mutation/admission effect and never grants a claim.
     /// Inspect actual production SQL and its readiness access path; ANALYZE requires explicit execution.
     pub async fn inspect_study_candidates(
-        &self, study: &str, after: Option<u64>, experiment: bool,
+        &self,
+        study: &str,
+        after: Option<u64>,
+        experiment: bool,
     ) -> Result<serde_json::Value, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -1496,17 +1514,23 @@ impl CanonicalStore {
         after: Option<u64>,
     ) -> Result<Vec<ScopedStudyPoint>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let query = StudyCandidatesQuery::new(study, after)?;
-            let mut result=protected_query("canonical_studies::study_candidates", || Ok(self.db.query(query.sql()).bind(query.bindings()))).await?;
-            result
-                .take::<Vec<Object>>(0)?
-                .into_iter()
-                .map(decode_scope_point)
-                .collect()
-        }).await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let query = StudyCandidatesQuery::new(study, after)?;
+                    let mut result = protected_query("canonical_studies::study_candidates", || {
+                        Ok(self.db.query(query.sql()).bind(query.bindings()))
+                    })
+                    .await?;
+                    result
+                        .take::<Vec<Object>>(0)?
+                        .into_iter()
+                        .map(decode_scope_point)
+                        .collect()
+                })
+                .await
+            })
+            .await
     }
     /// Bounded explicit occurrence page, including history for user summaries.
     pub async fn study_point_page(
@@ -2392,28 +2416,95 @@ mod canonical_studies_server_unit {
     }
     #[tokio::test]
     async fn canonical_graph_explanation_uses_shared_blocker_policy_and_revision_continuation() {
-        use crate::canonical_explanations::{CanonicalGraphRequest,GraphAnchor,GraphScope,GraphEdgeRole};
-        let (store,_,revision)=fixture().await;
-        let points=vec![occurrence(&revision,0,vec![]),occurrence(&revision,1,vec![]),occurrence(&revision,2,vec![Dependency::Ordering(OccurrenceKey(0)),Dependency::UsableResult(OccurrenceKey(0))])];
-        store.create_study("graph-blocker",&request(&revision,"graph-parent"),&[],&points,&||false).await.unwrap();
-        let point=point_key("graph-blocker",OccurrenceKey(2));
-        let scope=store.study_scope(&point).await.unwrap();
-        let mut request=CanonicalGraphRequest{anchor:GraphAnchor::StudyPoint{point,revision:scope.point().revision,generation:scope.generation()},scope:GraphScope::ImmediateBlockers,limit:1,continuation:None};
-        let first=store.graph_explanation(&request).await.unwrap();
-        assert_eq!(first.observed_blocker,Some(format!("canonical_study_points:{}",point_key("graph-blocker",OccurrenceKey(0)))));
-        assert!(!first.complete);assert_eq!(first.examined_rows,2);
-        request.continuation=first.continuation.clone();
-        let next=store.graph_explanation(&request).await.unwrap();
-        assert!(next.complete);assert_ne!(first.edges[0].role,next.edges[0].role);
-        assert!(matches!(first.edges[0].role,GraphEdgeRole::Ordering|GraphEdgeRole::UsableResult));
-        request.continuation=None;
-        let independent=store.study_scope(&point_key("graph-blocker",OccurrenceKey(1))).await.unwrap();
-        request.anchor=GraphAnchor::StudyPoint{point:independent.point().key.clone(),revision:independent.point().revision,generation:independent.generation()};
-        let isolated=store.graph_explanation(&request).await.unwrap();
-        assert!(isolated.complete);assert_eq!(isolated.nodes.len(),1);assert!(isolated.observed_blocker.is_none());
-        let sources=store.graph_explanation(&CanonicalGraphRequest{anchor:GraphAnchor::Run{run:"graph-parent".into(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:64,continuation:None}).await.unwrap();
-        assert!(sources.complete);assert_eq!(sources.edges.len(),1);assert_eq!(sources.edges[0].role,GraphEdgeRole::RecordedSource);
-        assert_eq!(sources.edges[0].target,format!("canonical_revisions:{}",revision.key));
+        use crate::canonical_explanations::{
+            CanonicalGraphRequest, GraphAnchor, GraphEdgeRole, GraphScope,
+        };
+        let (store, _, revision) = fixture().await;
+        let points = vec![
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![]),
+            occurrence(
+                &revision,
+                2,
+                vec![
+                    Dependency::Ordering(OccurrenceKey(0)),
+                    Dependency::UsableResult(OccurrenceKey(0)),
+                ],
+            ),
+        ];
+        store
+            .create_study(
+                "graph-blocker",
+                &request(&revision, "graph-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let point = point_key("graph-blocker", OccurrenceKey(2));
+        let scope = store.study_scope(&point).await.unwrap();
+        let mut request = CanonicalGraphRequest {
+            anchor: GraphAnchor::StudyPoint {
+                point,
+                revision: scope.point().revision,
+                generation: scope.generation(),
+            },
+            scope: GraphScope::ImmediateBlockers,
+            limit: 1,
+            continuation: None,
+        };
+        let first = store.graph_explanation(&request).await.unwrap();
+        assert_eq!(
+            first.observed_blocker,
+            Some(format!(
+                "canonical_study_points:{}",
+                point_key("graph-blocker", OccurrenceKey(0))
+            ))
+        );
+        assert!(!first.complete);
+        assert_eq!(first.examined_rows, 2);
+        request.continuation = first.continuation.clone();
+        let next = store.graph_explanation(&request).await.unwrap();
+        assert!(next.complete);
+        assert_ne!(first.edges[0].role, next.edges[0].role);
+        assert!(matches!(
+            first.edges[0].role,
+            GraphEdgeRole::Ordering | GraphEdgeRole::UsableResult
+        ));
+        request.continuation = None;
+        let independent = store
+            .study_scope(&point_key("graph-blocker", OccurrenceKey(1)))
+            .await
+            .unwrap();
+        request.anchor = GraphAnchor::StudyPoint {
+            point: independent.point().key.clone(),
+            revision: independent.point().revision,
+            generation: independent.generation(),
+        };
+        let isolated = store.graph_explanation(&request).await.unwrap();
+        assert!(isolated.complete);
+        assert_eq!(isolated.nodes.len(), 1);
+        assert!(isolated.observed_blocker.is_none());
+        let sources = store
+            .graph_explanation(&CanonicalGraphRequest {
+                anchor: GraphAnchor::Run {
+                    run: "graph-parent".into(),
+                    revision: revision.key.clone(),
+                },
+                scope: GraphScope::RecordedSources,
+                limit: 64,
+                continuation: None,
+            })
+            .await
+            .unwrap();
+        assert!(sources.complete);
+        assert_eq!(sources.edges.len(), 1);
+        assert_eq!(sources.edges[0].role, GraphEdgeRole::RecordedSource);
+        assert_eq!(
+            sources.edges[0].target,
+            format!("canonical_revisions:{}", revision.key)
+        );
         store.cancel_study("graph-blocker").await.unwrap();
         assert!(store.graph_explanation(&request).await.is_err());
         store.remove_isolated_fixture().await.unwrap();
@@ -2422,22 +2513,54 @@ mod canonical_studies_server_unit {
     #[tokio::test]
     async fn canonical_candidates_inspection_matches_populated_dispatch_and_native_index() {
         let (store, _, revision) = fixture().await;
-        let points = (0..80).map(|ordinal| occurrence(&revision, ordinal, vec![])).collect::<Vec<_>>();
-        store.create_study("query-inspection", &request(&revision, "query-inspection-parent"), &[], &points, &|| false).await.unwrap();
+        let points = (0..80)
+            .map(|ordinal| occurrence(&revision, ordinal, vec![]))
+            .collect::<Vec<_>>();
+        store
+            .create_study(
+                "query-inspection",
+                &request(&revision, "query-inspection-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
         drain_readiness(&store, "query-inspection").await;
-        let candidates = store.study_candidates("query-inspection", Some(15)).await.unwrap();
+        let candidates = store
+            .study_candidates("query-inspection", Some(15))
+            .await
+            .unwrap();
         assert_eq!(candidates.len(), 64);
         assert_eq!(candidates[0].ordinal, 16);
-        let inspected = store.inspect_study_candidates("query-inspection", Some(15), true).await.unwrap();
-        if let Ok(directory)=std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
+        let inspected = store
+            .inspect_study_candidates("query-inspection", Some(15), true)
+            .await
+            .unwrap();
+        if let Ok(directory) = std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
             std::fs::write(std::path::Path::new(&directory).join("readiness-query.json"),serde_json::to_vec_pretty(&serde_json::json!({"conditions":{"independent_points":80,"after":15,"page_limit":64},"inspection":inspected})).unwrap()).unwrap();
         }
-        assert_eq!(inspected["query"], StudyCandidatesQuery::new("query-inspection", Some(15)).unwrap().description());
+        assert_eq!(
+            inspected["query"],
+            StudyCandidatesQuery::new("query-inspection", Some(15))
+                .unwrap()
+                .description()
+        );
         assert_eq!(inspected["experimental_execution"], true);
-        assert!(inspected["observations"]["readiness_static"].to_string().contains("study_ready_candidates"), "{inspected}");
+        assert!(
+            inspected["observations"]["readiness_static"]
+                .to_string()
+                .contains("study_ready_candidates"),
+            "{inspected}"
+        );
         let module = store.inspect_study_module().await.unwrap();
         assert!(module["scope"].as_str().unwrap().contains("no execution"));
-        crate::canonical_explanations::qualify_operator(&store,"query",&serde_json::json!({"study":"query-inspection","after":15})).await;
+        crate::canonical_explanations::qualify_operator(
+            &store,
+            "query",
+            &serde_json::json!({"study":"query-inspection","after":15}),
+        )
+        .await;
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -5523,8 +5646,14 @@ mod candidate_inspection_tests {
         assert!(query.sql().contains("fn::pse_history_v1::check_owner"));
         let bindings = query.bindings();
         assert_eq!(bindings["study"], Value::String(study.into()));
-        assert_eq!(codec::decode_uint(bindings["after"].clone()).unwrap(), u64::MAX);
+        assert_eq!(
+            codec::decode_uint(bindings["after"].clone()).unwrap(),
+            u64::MAX
+        );
         assert_eq!(query.description()["parameters"][0]["value"], study);
-        assert_eq!(StudyCandidatesQuery::new("study", None).unwrap().bindings()["after"], codec::encode_int(-1).unwrap());
+        assert_eq!(
+            StudyCandidatesQuery::new("study", None).unwrap().bindings()["after"],
+            codec::encode_int(-1).unwrap()
+        );
     }
 }

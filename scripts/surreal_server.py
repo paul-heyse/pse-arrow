@@ -5601,17 +5601,27 @@ def server_environment(
     if telemetry is not None:
         selected_telemetry = object_mapping(telemetry)
         endpoint = selected_telemetry.get("endpoint")
-        if (set(selected_telemetry) != {"endpoint", "capture_nonce"}
-            or not isinstance(endpoint,str)
-            or not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}",endpoint)
-            or not 0 < int(endpoint.rsplit(":",1)[1]) < 65536
-            or not re.fullmatch(r"[a-f0-9]{32}",str(selected_telemetry.get("capture_nonce")))):
-            raise SupervisorError("Temporary diagnostic telemetry must name its owned loopback collector")
+        if (
+            set(selected_telemetry) != {"endpoint", "capture_nonce"}
+            or not isinstance(endpoint, str)
+            or not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}", endpoint)
+            or not 0 < int(endpoint.rsplit(":", 1)[1]) < 65536
+            or not re.fullmatch(
+                r"[a-f0-9]{32}", str(selected_telemetry.get("capture_nonce"))
+            )
+        ):
+            raise SupervisorError(
+                "Temporary diagnostic telemetry must name its owned loopback collector"
+            )
         for key in list(environment):
             if key.startswith("OTEL_"):
                 environment.pop(key)
-        environment.update(SURREAL_TELEMETRY_PROVIDER="otlp",SURREAL_TELEMETRY_DISABLE_METRICS="true",
-                           OTEL_EXPORTER_OTLP_ENDPOINT=endpoint,OTEL_BSP_SCHEDULE_DELAY="100")
+        environment.update(
+            SURREAL_TELEMETRY_PROVIDER="otlp",
+            SURREAL_TELEMETRY_DISABLE_METRICS="true",
+            OTEL_EXPORTER_OTLP_ENDPOINT=endpoint,
+            OTEL_BSP_SCHEDULE_DELAY="100",
+        )
     if not bootstrap:
         environment.pop("SURREAL_USER", None)
         environment.pop("SURREAL_PASS", None)
@@ -5639,17 +5649,23 @@ def log_arguments(config: Mapping[str, object]) -> list[str]:
 def inspect_log_configuration(state: Path, deadline: float) -> dict[str, object]:
     config = config_for(state, deadline=deadline)
     receipt = state / "diagnostic-log-change.json"
-    return {"state": str(state), "instance_id": config["instance_id"],
-            "selected": log_configuration(config), "candidate": LOG_CONFIGURATIONS["mcp-audit"],
-            "effect": "explicit owned restart required; no live reload or allocation reconfiguration",
-            "change": read_json(receipt, deadline=deadline) if receipt.exists() else None}
+    return {
+        "state": str(state),
+        "instance_id": config["instance_id"],
+        "selected": log_configuration(config),
+        "candidate": LOG_CONFIGURATIONS["mcp-audit"],
+        "effect": "explicit owned restart required; no live reload or allocation reconfiguration",
+        "change": read_json(receipt, deadline=deadline) if receipt.exists() else None,
+    }
 
 
 def mcp_audit_records(state: Path, deadline: float) -> dict[str, object]:
     """Return only native audit metadata; never echo arbitrary server log text or payloads."""
     selected = selected_service(state, deadline)
     maximum = integer(config_for(selected.state, deadline=deadline)["log_max_bytes"])
-    raw = private_record_bytes(selected.state / "server.log", deadline, maximum_bytes=maximum)
+    raw = private_record_bytes(
+        selected.state / "server.log", deadline, maximum_bytes=maximum
+    )
     events: list[dict[str, object]] = []
     malformed = 0
     for line in raw.splitlines():
@@ -5662,40 +5678,92 @@ def mcp_audit_records(state: Path, deadline: float) -> dict[str, object]:
         if event.get("target") != "surrealdb::mcp::audit":
             continue
         fields = object_mapping(event.get("fields", {}))
-        events.append({name: fields.get(name) for name in ("tool", "subject", "namespace", "database", "outcome", "kind", "time_ms")})
+        events.append(
+            {
+                name: fields.get(name)
+                for name in (
+                    "tool",
+                    "subject",
+                    "namespace",
+                    "database",
+                    "outcome",
+                    "kind",
+                    "time_ms",
+                )
+            }
+        )
     selected.recheck(deadline)
-    return {"identity": selected.identity, "records": events[-64:], "omitted_records": max(0, len(events)-64),
-            "unparsed_lines": malformed, "scope": "current bounded private log only; rotation or baseline text can omit observations"}
+    return {
+        "identity": selected.identity,
+        "records": events[-64:],
+        "omitted_records": max(0, len(events) - 64),
+        "unparsed_lines": malformed,
+        "scope": "current bounded private log only; rotation or baseline text can omit observations",
+    }
 
 
-def restart_log_configuration(state: Path, selection: str, deadline: float) -> dict[str, object]:
+def restart_log_configuration(
+    state: Path, selection: str, deadline: float
+) -> dict[str, object]:
     """Apply/restore only selected logging through the shared explicit diagnostic restart owner."""
     if selection not in LOG_CONFIGURATIONS:
         raise SupervisorError("Unsupported diagnostic logging selection")
-    return restart_diagnostic_configuration(state, {"diagnostic_logging":selection}, selection, "log", deadline)
+    return restart_diagnostic_configuration(
+        state, {"diagnostic_logging": selection}, selection, "log", deadline
+    )
 
 
-def restart_diagnostic_configuration(state: Path, updates: dict[str, object], selection: str, category: str, deadline: float) -> dict[str, object]:
+def restart_diagnostic_configuration(
+    state: Path,
+    updates: dict[str, object],
+    selection: str,
+    category: str,
+    deadline: float,
+) -> dict[str, object]:
     """Explicit logging/temporary telemetry changes share drain, immutable publication and restart."""
-    if set(updates) - {"diagnostic_logging", "diagnostic_telemetry"} or category not in {"log", "trace"}:
+    if set(updates) - {
+        "diagnostic_logging",
+        "diagnostic_telemetry",
+    } or category not in {"log", "trace"}:
         raise SupervisorError("Unsupported diagnostic service configuration")
     state = lexical_absolute(state)
-    with lifecycle_deadline(deadline), lifecycle_reservation(state, purpose="maintenance", deadline=deadline):
+    with (
+        lifecycle_deadline(deadline),
+        lifecycle_reservation(state, purpose="maintenance", deadline=deadline),
+    ):
         config = config_for(state, deadline=deadline)
-        if config.get("service_state") is not None or config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
-            raise SupervisorError("Log restart requires an independent settled service owner")
+        if (
+            config.get("service_state") is not None
+            or config.get("derived_rebuild_pending")
+            or config.get("surrealkit_rollout_pending")
+        ):
+            raise SupervisorError(
+                "Log restart requires an independent settled service owner"
+            )
         before = selected_service(state, deadline)
-        receipt: dict[str, object] = {"schema": "diagnostic-log-change-v1", "selection": selection,
-                   "previous": {"logging":log_configuration(config), "telemetry":config.get("diagnostic_telemetry")}, "before": before.identity, "phase": "quiescing"}
-        path = state / ("diagnostic-"+category+"-change.json")
+        receipt: dict[str, object] = {
+            "schema": "diagnostic-log-change-v1",
+            "selection": selection,
+            "previous": {
+                "logging": log_configuration(config),
+                "telemetry": config.get("diagnostic_telemetry"),
+            },
+            "before": before.identity,
+            "phase": "quiescing",
+        }
+        path = state / ("diagnostic-" + category + "-change.json")
         write_json(path, receipt)
+
         def restart_selected() -> None:
             close_context_admission(state, admission="quiescing")
             for context in managed_contexts(state):
                 selected = config_for(context, deadline=deadline)
                 drain_context(context, str(selected["database"]), deadline=deadline)
             all_contexts_drained(state)
-            if storage_unit_observation(state, deadline=deadline).get("InvocationID") != before.identity["invocation"]:
+            if (
+                storage_unit_observation(state, deadline=deadline).get("InvocationID")
+                != before.identity["invocation"]
+            ):
                 raise SupervisorError("Selected service changed before log restart")
             stop(state, config_for(state, deadline=deadline))
             receipt["phase"] = "stopped"
@@ -5703,7 +5771,9 @@ def restart_diagnostic_configuration(state: Path, updates: dict[str, object], se
             with state_lock(state):
                 current = config_for(state, deadline=deadline)
                 if current["instance_id"] != before.identity["instance_id"]:
-                    raise SupervisorError("Selected generation changed before log application")
+                    raise SupervisorError(
+                        "Selected generation changed before log application"
+                    )
                 current.update(updates)
                 current["restart_qualified"] = False
                 write_json(state / "config.json", current)
@@ -5715,19 +5785,28 @@ def restart_diagnostic_configuration(state: Path, updates: dict[str, object], se
             after = selected_service(state, deadline)
             if after.identity["invocation"] == before.identity["invocation"]:
                 raise SupervisorError("Log restart did not produce a new invocation")
-            receipt.update(phase="applied" if selection in {"mcp-audit", "telemetry-capture"} else "restored", after=after.identity)
+            receipt.update(
+                phase="applied"
+                if selection in {"mcp-audit", "telemetry-capture"}
+                else "restored",
+                after=after.identity,
+            )
             write_json(path, receipt)
+
         try:
             restart_selected()
         except BaseException:
             # A partial start is not a successful application. Keep admission closed and
             # preserve the selected phase for explicit stop/recovery rather than restart it.
             close_context_admission(state)
-            receipt["outcome"] = "interrupted; admission closed, inspect selected service and pending phase"
+            receipt["outcome"] = (
+                "interrupted; admission closed, inspect selected service and pending phase"
+            )
             write_json(path, receipt)
             raise
 
         return receipt
+
 
 class BoundedLog:
     """Bound each write and retain a fixed number of private rotated files."""
@@ -5785,7 +5864,6 @@ class BoundedLog:
                 self.append(tail[:safe])
                 tail = tail[safe:]
         self.append(tail)
-
 
 
 def serve(state: Path) -> int:
@@ -9217,23 +9295,38 @@ class SelectedService:
     @property
     def identity(self) -> dict[str, object]:
         return {
-            "state": str(self.state), "instance_id": self._config["instance_id"],
-            "invocation": self._invocation, "port": self.port,
-            "binary_sha256": object_mapping(self._config["server"]).get("binary_sha256"),
+            "state": str(self.state),
+            "instance_id": self._config["instance_id"],
+            "invocation": self._invocation,
+            "port": self.port,
+            "binary_sha256": object_mapping(self._config["server"]).get(
+                "binary_sha256"
+            ),
         }
 
     @property
     def selection_fence(self) -> str:
         """Nonsecret exact-generation fence for a later fixed header helper."""
-        selected={"identity":self.identity,"credentials":self._credential_digest,"proof":self._proof_digest}
-        return hashlib.sha256(json.dumps(selected,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+        selected = {
+            "identity": self.identity,
+            "credentials": self._credential_digest,
+            "proof": self._proof_digest,
+        }
+        return hashlib.sha256(
+            json.dumps(selected, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
 
     def recheck(self, deadline: float) -> None:
         if (
             config_for(self.state, deadline=deadline) != self._config
-            or mcp_private_record(self.state / "credentials.json", deadline)[1] != self._credential_digest
-            or mcp_private_record(self.state / "protocol-readiness.json", deadline)[1] != self._proof_digest
-            or storage_unit_observation(self.state, deadline=deadline).get("InvocationID") != self._invocation
+            or mcp_private_record(self.state / "credentials.json", deadline)[1]
+            != self._credential_digest
+            or mcp_private_record(self.state / "protocol-readiness.json", deadline)[1]
+            != self._proof_digest
+            or storage_unit_observation(self.state, deadline=deadline).get(
+                "InvocationID"
+            )
+            != self._invocation
             or not owns_listener(self.state, self._config, deadline=deadline)
         ):
             raise SupervisorError("Selected service changed during observation")
@@ -9267,7 +9360,9 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
     credentials, credential_digest = mcp_private_record(
         state / "credentials.json", deadline
     )
-    proof, proof_digest = mcp_private_record(state / "protocol-readiness.json", deadline)
+    proof, proof_digest = mcp_private_record(
+        state / "protocol-readiness.json", deadline
+    )
     observed = storage_unit_observation(state, deadline=deadline)
     if (
         proof.get("schema") != "native-grpc-readiness-v1"
@@ -9288,28 +9383,51 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
         or not credentials["selection_password"]
     ):
         raise SupervisorError("MCP VIEWER readiness identity is unavailable")
-    selected = SelectedService(state, integer(config["port"]), config, credential_digest,
-                               proof_digest, observed.get("InvocationID", ""),
-                               credentials["selection_password"])
+    selected = SelectedService(
+        state,
+        integer(config["port"]),
+        config,
+        credential_digest,
+        proof_digest,
+        observed.get("InvocationID", ""),
+        credentials["selection_password"],
+    )
     selected.recheck(deadline)
     return selected
 
 
-def mcp_authorization(state: Path, endpoint: str, deadline: float, *, expected_selection: str | None = None) -> dict[str, str]:
+def mcp_authorization(
+    state: Path,
+    endpoint: str,
+    deadline: float,
+    *,
+    expected_selection: str | None = None,
+) -> dict[str, str]:
     """Release a header only for the exact selected native MCP endpoint."""
     selected = selected_service(state, deadline)
     if endpoint != f"http://127.0.0.1:{selected.port}/mcp":
         raise SupervisorError("MCP endpoint does not match its live owned service")
-    if expected_selection is not None and (not re.fullmatch(r"[a-f0-9]{64}",expected_selection) or not secrets.compare_digest(selected.selection_fence,expected_selection)):
+    if expected_selection is not None and (
+        not re.fullmatch(r"[a-f0-9]{64}", expected_selection)
+        or not secrets.compare_digest(selected.selection_fence, expected_selection)
+    ):
         raise SupervisorError("MCP selected generation changed before authentication")
     return selected.authorization()
 
 
 MX_METRIC_PREFIX = "surrealdb_storage_surrealmx_"
 MX_METRIC_FIELDS = (
-    "live_keys", "live_versions", "approx_data_bytes", "active_readers",
-    "oldest_pinned_version", "gc_candidate_keys", "commit_ring_occupancy",
-    "async_queue_depth", "async_queue_bytes", "async_dropped_batches", "poisoned",
+    "live_keys",
+    "live_versions",
+    "approx_data_bytes",
+    "active_readers",
+    "oldest_pinned_version",
+    "gc_candidate_keys",
+    "commit_ring_occupancy",
+    "async_queue_depth",
+    "async_queue_bytes",
+    "async_dropped_batches",
+    "poisoned",
 )
 METRIC_FAMILIES = ("surrealdb_process_", "surrealdb_query_", "surrealdb_transaction_")
 
@@ -9332,10 +9450,14 @@ def selected_metric_values(exposition: str) -> dict[str, object]:
             if entry["availability"] == "unregistered":
                 entry["availability"] = "registered_no_sample"
         elif line and not line.startswith("#"):
-            match = re.fullmatch(r'([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})?\s+([^\s]+)(?:\s+[0-9]+)?', line)
+            match = re.fullmatch(
+                r"([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})?\s+([^\s]+)(?:\s+[0-9]+)?", line
+            )
             if match is None:
                 if line.startswith((MX_METRIC_PREFIX, *METRIC_FAMILIES)):
-                    raise SupervisorError("Selected native metric exposition is malformed")
+                    raise SupervisorError(
+                        "Selected native metric exposition is malformed"
+                    )
                 continue
             name, labels, raw = match.groups()
             if name not in families and not name.startswith(METRIC_FAMILIES):
@@ -9343,30 +9465,46 @@ def selected_metric_values(exposition: str) -> dict[str, object]:
             try:
                 value = float(raw)
             except ValueError:
-                raise SupervisorError("Selected native metric value is malformed") from None
+                raise SupervisorError(
+                    "Selected native metric value is malformed"
+                ) from None
             if not math.isfinite(value):
                 raise SupervisorError("Selected native metric value is nonfinite")
-            if name.startswith(MX_METRIC_PREFIX) and (not value.is_integer() or value < 0):
+            if name.startswith(MX_METRIC_PREFIX) and (
+                not value.is_integer() or value < 0
+            ):
                 raise SupervisorError("Native MX gauge is not a nonnegative integer")
             entry = families.setdefault(name, {"samples": []})
             entry["availability"] = "observed"
             samples = entry["samples"]
             if not isinstance(samples, list):
                 raise SupervisorError("Selected metric series is malformed")
-            samples.append({"labels": labels or "", "value": int(raw) if raw.isdecimal() else value})
-    return {"families": families, "oldest_pinned_version_absence": "normal when no reader; absence alone does not establish reader state"}
+            samples.append(
+                {
+                    "labels": labels or "",
+                    "value": int(raw) if raw.isdecimal() else value,
+                }
+            )
+    return {
+        "families": families,
+        "oldest_pinned_version_absence": "normal when no reader; absence alone does not establish reader state",
+    }
 
 
 def metric_snapshot(state: Path, deadline: float) -> dict[str, object]:
     """One root VIEWER request to the frozen loopback /metrics listener; no redirects."""
     selected = selected_service(state, deadline)
     started = time.time_ns()
-    connection = http.client.HTTPConnection("127.0.0.1", selected.port, timeout=remaining(deadline))
+    connection = http.client.HTTPConnection(
+        "127.0.0.1", selected.port, timeout=remaining(deadline)
+    )
     try:
         connection.request("GET", "/metrics", headers=selected.authorization())
         response = connection.getresponse()
         if response.status != 200:
-            raise SupervisorError("Selected native metrics request/authentication failed")
+            raise SupervisorError(
+                "Selected native metrics request/authentication failed"
+            )
         raw = bytearray()
         while True:
             timeout = remaining(deadline)
@@ -9378,7 +9516,9 @@ def metric_snapshot(state: Path, deadline: float) -> dict[str, object]:
                 break
             raw.extend(block)
             if len(raw) > 4 << 20:
-                raise SupervisorError("Selected native metrics exceeds its response bound")
+                raise SupervisorError(
+                    "Selected native metrics exceeds its response bound"
+                )
         values = selected_metric_values(raw.decode())
     except (OSError, UnicodeError, http.client.HTTPException):
         raise SupervisorError("Selected native metrics request/parse failed") from None
@@ -9386,26 +9526,39 @@ def metric_snapshot(state: Path, deadline: float) -> dict[str, object]:
         connection.close()
     selected.recheck(deadline)
     return {
-        "schema": "selected-native-metrics-v1", "identity": selected.identity,
-        "started_unix_ns": started, "finished_unix_ns": time.time_ns(),
+        "schema": "selected-native-metrics-v1",
+        "identity": selected.identity,
+        "started_unix_ns": started,
+        "finished_unix_ns": time.time_ns(),
         **values,
         "scope": "shared server observation; no exclusive operation attribution; estimated data bytes is not RSS or disk; queue zero does not establish synchronous durability",
     }
 
 
-def compare_metric_snapshots(before: dict[str, object], after: dict[str, object]) -> dict[str, object]:
+def compare_metric_snapshots(
+    before: dict[str, object], after: dict[str, object]
+) -> dict[str, object]:
     """Compare like identities and series; gauge differences remain gauge differences."""
     if before.get("identity") != after.get("identity"):
         raise SupervisorError("Selected service changed between metric snapshots")
     changes: dict[str, object] = {}
     left, right = object_mapping(before["families"]), object_mapping(after["families"])
     for name in sorted(left.keys() | right.keys()):
-        first, last = object_mapping(left.get(name, {})), object_mapping(right.get(name, {}))
+        first, last = (
+            object_mapping(left.get(name, {})),
+            object_mapping(right.get(name, {})),
+        )
         if first.get("samples") != last.get("samples"):
-            changes[name] = {"type": last.get("type", first.get("type", "unknown")),
-                             "before": first, "after": last}
-    return {"identity": after["identity"], "changes": changes,
-            "scope": "shared service; gauge changes are not counter deltas and do not establish operation attribution"}
+            changes[name] = {
+                "type": last.get("type", first.get("type", "unknown")),
+                "before": first,
+                "after": last,
+            }
+    return {
+        "identity": after["identity"],
+        "changes": changes,
+        "scope": "shared service; gauge changes are not counter deltas and do not establish operation attribution",
+    }
 
 
 def mcp_headers_main(arguments: list[str]) -> int:
@@ -9439,7 +9592,12 @@ def mcp_headers_main(arguments: list[str]) -> int:
                 )
             if owner is None:
                 raise SupervisorError("Missing admitted fixed helper ownership")  # noqa: TRY301 -- fixed boundary redacts every failure
-            headers = mcp_authorization(args.state, args.expected_endpoint, deadline, expected_selection=args.expected_selection)
+            headers = mcp_authorization(
+                args.state,
+                args.expected_endpoint,
+                deadline,
+                expected_selection=args.expected_selection,
+            )
         else:
             environment = pse_env.control_environment(
                 SCRIPT.parents[1], os.environ, deadline=deadline
@@ -9455,7 +9613,11 @@ def mcp_headers_main(arguments: list[str]) -> int:
                     args.expected_endpoint,
                     "--deadline",
                     str(deadline),
-                    *(["--expected-selection",args.expected_selection] if args.expected_selection is not None else []),
+                    *(
+                        ["--expected-selection", args.expected_selection]
+                        if args.expected_selection is not None
+                        else []
+                    ),
                 ],
                 environment,
                 deadline=deadline,

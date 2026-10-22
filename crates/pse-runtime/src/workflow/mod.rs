@@ -5,10 +5,14 @@ mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
 mod diagnostic_request;
 mod reproducer;
-pub use reproducer::{DiagnosticReproducer, ReproducerCommandRequest, ReproducerInput, ReproducerExtractionInput, ReproducerExtractionRequest, ReproductionDocument, ReproductionPredicate, ReproductionStatus};
 pub use diagnostic_request::{
     DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
     DiagnosticRuntimeSettings,
+};
+pub use reproducer::{
+    DiagnosticReproducer, ReproducerCommandRequest, ReproducerExtractionInput,
+    ReproducerExtractionRequest, ReproducerInput, ReproductionDocument, ReproductionPredicate,
+    ReproductionStatus,
 };
 mod route_documents;
 pub use route_documents::{EligibilityDocument, IneligibleDocument, RouteDocument};

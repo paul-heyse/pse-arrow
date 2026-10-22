@@ -298,9 +298,15 @@ fn serialize_bindings<S: serde::Serializer>(
 }
 // Decode only the existing producer's byte representation. Executable admission remains
 // ReplayCaseConstructor::reconstruct; decoding grants no runtime capability.
-fn deserialize_bindings<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<pse_modeling::Bindings, D::Error> {
+fn deserialize_bindings<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<pse_modeling::Bindings, D::Error> {
     let bytes = <Vec<u8> as serde::Deserialize>::deserialize(deserializer)?;
-    if bytes.len() > 64 << 20 { return Err(serde::de::Error::custom("recorded binding codec exceeds finite extent")); }
+    if bytes.len() > 64 << 20 {
+        return Err(serde::de::Error::custom(
+            "recorded binding codec exceeds finite extent",
+        ));
+    }
     serde_json::from_slice(&bytes).map_err(serde::de::Error::custom)
 }
 /// Full actual requested solver controls; native settings remain their original typed authority.
@@ -1666,7 +1672,10 @@ pub struct ReplayCaseConstructor {
     /// Original instance identity.
     pub instance: pse_modeling::InstanceId,
     /// Full immutable structural arguments/facts/omissions/elastic declarations.
-    #[serde(serialize_with = "serialize_bindings", deserialize_with = "deserialize_bindings")]
+    #[serde(
+        serialize_with = "serialize_bindings",
+        deserialize_with = "deserialize_bindings"
+    )]
     #[schemars(with = "Vec<u8>")]
     pub bindings: pse_modeling::Bindings,
     /// Actual compiler controls and original expansion limits.
@@ -2064,14 +2073,24 @@ mod tests {
         document.objects.push(document.objects[0].clone());
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .unwrap_err()
                 .to_string()
                 .contains("duplicate logical or lexical identity")
         );
         runtime.close();
         assert!(matches!(
-            document.reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new()),
+            document.reconstruct(
+                &runtime,
+                physical,
+                BTreeMap::new(),
+                &crate::CancelSource::new()
+            ),
             Err(WorkflowError::CallerClosed)
         ));
     }
@@ -2093,7 +2112,12 @@ mod tests {
         let restored: ReplaySourceDocument =
             serde_json::from_slice(&serde_json::to_vec(&document).unwrap()).unwrap();
         let reconstructed = restored
-            .reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new())
+            .reconstruct(
+                &runtime,
+                physical,
+                BTreeMap::new(),
+                &crate::CancelSource::new(),
+            )
             .unwrap();
         assert_eq!(
             &*reconstructed.declarations().await.unwrap(),
@@ -2128,14 +2152,24 @@ mod tests {
         document.build = pse_ids::encoding_checksum(b"different build").content_hash();
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
         let mut document = original.clone();
         document.objects[0].payload.push(0);
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
         let mut document = original.clone();
@@ -2147,7 +2181,12 @@ mod tests {
         edge_owner.references.push(edge_owner.references[0].clone());
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
         let mut document = original.clone();
@@ -2167,7 +2206,12 @@ mod tests {
         });
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
         let mut document = original.clone();
@@ -2175,7 +2219,12 @@ mod tests {
             pse_ids::encoding_checksum(b"missing physical premise").content_hash();
         assert!(
             document
-                .reconstruct(&runtime, physical.clone(), BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical.clone(),
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
         let mut document = original;
@@ -2190,7 +2239,12 @@ mod tests {
             .retain(|object| (object.scope.clone(), object.name.clone()) != referenced);
         assert!(
             document
-                .reconstruct(&runtime, physical, BTreeMap::new(), &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime,
+                    physical,
+                    BTreeMap::new(),
+                    &crate::CancelSource::new()
+                )
                 .is_err()
         );
     }

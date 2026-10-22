@@ -25,7 +25,9 @@ class PythonExtensionTests(unittest.TestCase):
             with (
                 patch.object(python_extension, "ROOT", root),
                 patch("scripts.build_environment.configure", return_value={}),
-                patch.object(python_extension.subprocess, "call", return_value=0) as run,
+                patch.object(
+                    python_extension.subprocess, "call", return_value=0
+                ) as run,
                 patch.object(python_extension, "diagnostic_identity", return_value={}),
             ):
                 self.assertEqual(python_extension.diagnostic_sync(), 0)
@@ -43,11 +45,14 @@ class PythonExtensionTests(unittest.TestCase):
             binary = package / "_native.so"
             binary.write_bytes(b"diagnostic actual bytes")
             report = {
-                "package": str(package / "__init__.py"), "binary": str(binary),
-                "prefix": str(selected), "features": ["force-validate"],
+                "package": str(package / "__init__.py"),
+                "binary": str(binary),
+                "prefix": str(selected),
+                "features": ["force-validate"],
             }
             with patch.object(
-                python_extension.subprocess, "check_output",
+                python_extension.subprocess,
+                "check_output",
                 side_effect=lambda *_args, **_kwargs: json.dumps(report),
             ):
                 with self.assertRaisesRegex(ValueError, "lacks actual"):

@@ -1021,11 +1021,17 @@ def register_composer(
     deadline = resources.resource_store.clock(deadline)
     declaration = resources.read_invocation(invocation)
     nonce = declaration["nonce"]
-    composer = {"pid": os.getpid(), "start": start_identity(os.getpid()),
-                "boot": resources.host.boot(), "scope": resources.execution_owner(deadline=deadline)}
+    composer = {
+        "pid": os.getpid(),
+        "start": start_identity(os.getpid()),
+        "boot": resources.host.boot(),
+        "scope": resources.execution_owner(deadline=deadline),
+    }
     with resources.storage().invocation_edit(nonce, deadline=deadline) as selected:
         if selected["phase"] != "open" or selected.get("composer") is not None:
-            raise ValueError("Invocation membership is closed or already has its selected composer")
+            raise ValueError(
+                "Invocation membership is closed or already has its selected composer"
+            )
         selected["composer"] = composer
     parent = owner_record(deadline=deadline)
     if parent is None or scope_owner(deadline=deadline) is None:
@@ -1148,10 +1154,7 @@ def terminal_guard_complete(
         if record.get("version") != VERSION or record.get("scope") != guard["scope"]:
             return False
         composer = composer_registrations(record).get(nonce)
-        if (
-            composer is None
-            or composer.get("token") != guard["token"]
-        ):
+        if composer is None or composer.get("token") != guard["token"]:
             return False
         registry = Path(str(composer["registry"]))
         invocation = registry / "invocations" / f"{nonce}.json"
@@ -1169,14 +1172,23 @@ def terminal_guard_complete(
             if isinstance(abandonment, dict):
                 return (
                     state["phase"] in {"abandoned", "frozen"}
-                    and re.fullmatch(r"[a-f0-9]{32}", str(abandonment.get("identity", ""))) is not None
-                    and abandonment.get("selection") == resource_store.digest(state["declaration"]["selected"])
+                    and re.fullmatch(
+                        r"[a-f0-9]{32}", str(abandonment.get("identity", ""))
+                    )
+                    is not None
+                    and abandonment.get("selection")
+                    == resource_store.digest(state["declaration"]["selected"])
                     and abandonment.get("members") == list(state["members"])
                     and isinstance(selected_composer, dict)
-                    and all(selected_composer.get(key) == composer.get(key) for key in ("pid", "start", "scope"))
+                    and all(
+                        selected_composer.get(key) == composer.get(key)
+                        for key in ("pid", "start", "scope")
+                    )
                     and selected_composer.get("scope") == guard["scope"]
                     and not host_admission.caller_alive(selected_composer)
-                    and drained({"scope": guard["scope"]}, **deadline_options(deadline)).complete
+                    and drained(
+                        {"scope": guard["scope"]}, **deadline_options(deadline)
+                    ).complete
                 )
             return False
         identity, _terminal = resource_store.FileStore(registry).terminal(

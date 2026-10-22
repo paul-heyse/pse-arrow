@@ -31,8 +31,17 @@ impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
-        if matches!(self,Self::DiagnosticPlan) {
-            return surrealdb::opt::ResponseLimits {wire_bytes:1<<20,nodes:16384,depth:256,container_items:1024,string_bytes:1<<20,string_length:256<<10,blob_bytes:0,blob_length:0};
+        if matches!(self, Self::DiagnosticPlan) {
+            return surrealdb::opt::ResponseLimits {
+                wire_bytes: 1 << 20,
+                nodes: 16384,
+                depth: 256,
+                container_items: 1024,
+                string_bytes: 1 << 20,
+                string_length: 256 << 10,
+                blob_bytes: 0,
+                blob_length: 0,
+            };
         }
         let rows = match self {
             Self::Protection | Self::Header | Self::Selection => 2,

@@ -185,8 +185,12 @@ def provision(state: Path, *, test: str = "") -> str:
         }
     )
     directory.mkdir(parents=True, mode=0o700)
-    credentials = {"username": "pse_tool", "password": secrets.token_urlsafe(32),
-                   "inspection_username": "pse_inspection", "inspection_password": secrets.token_urlsafe(32)}
+    credentials = {
+        "username": "pse_tool",
+        "password": secrets.token_urlsafe(32),
+        "inspection_username": "pse_inspection",
+        "inspection_password": secrets.token_urlsafe(32),
+    }
     secret = directory / "credentials.json"
     secret.write_text(json.dumps(credentials))
     secret.chmod(0o600)
@@ -195,8 +199,10 @@ def provision(state: Path, *, test: str = "") -> str:
         record["namespace_creation"] = "submitted"
         record["credentials_sha256"] = digest(secret)
     quoted = surreal_server.sql_identifier(namespace)
-    sql = (f"DEFINE USER pse_tool ON NAMESPACE PASSWORD {json.dumps(credentials['password'])} ROLES OWNER;"
-           f"DEFINE USER pse_inspection ON NAMESPACE PASSWORD {json.dumps(credentials['inspection_password'])} ROLES VIEWER;")
+    sql = (
+        f"DEFINE USER pse_tool ON NAMESPACE PASSWORD {json.dumps(credentials['password'])} ROLES OWNER;"
+        f"DEFINE USER pse_inspection ON NAMESPACE PASSWORD {json.dumps(credentials['inspection_password'])} ROLES VIEWER;"
+    )
     if test_resources.namespace_sql(config, f"DEFINE NAMESPACE {quoted};") != [
         None
     ] or test_resources.namespace_sql(config, sql, namespace=namespace) != [None, None]:
@@ -298,13 +304,20 @@ def environment(
         SURREALDB_QUERY_TIMEOUT_SECS="30",
     )
     if "inspection_username" in credentials and "inspection_password" in credentials:
-        result.update(PSE_SURREALKIT_INSPECTION_USER=str(credentials["inspection_username"]),
-                      PSE_SURREALKIT_INSPECTION_PASSWORD=str(credentials["inspection_password"]))
+        result.update(
+            PSE_SURREALKIT_INSPECTION_USER=str(credentials["inspection_username"]),
+            PSE_SURREALKIT_INSPECTION_PASSWORD=str(credentials["inspection_password"]),
+        )
     return result
 
 
-INSPECTION_ACTOR = {"inspection": {"kind": "namespace", "username_env": "PSE_SURREALKIT_INSPECTION_USER",
-                                   "password_env": "PSE_SURREALKIT_INSPECTION_PASSWORD"}}
+INSPECTION_ACTOR = {
+    "inspection": {
+        "kind": "namespace",
+        "username_env": "PSE_SURREALKIT_INSPECTION_USER",
+        "password_env": "PSE_SURREALKIT_INSPECTION_PASSWORD",
+    }
+}
 
 
 def validate_input(
@@ -402,7 +415,8 @@ def validate_input(
             not isinstance(cases, list)
             or has_http_target(data)
             or any(
-                not isinstance(case, dict) or case.get("kind") not in {"sql_expect", "permissions_matrix"}
+                not isinstance(case, dict)
+                or case.get("kind") not in {"sql_expect", "permissions_matrix"}
                 for case in cases
             )
         ):
@@ -418,13 +432,22 @@ def validate_input(
             )
         for case in cases:
             if case.get("actor") not in {None, "root", "inspection"}:
-                raise ToolError("Only the fixture bootstrap or inspection actor is admitted")
+                raise ToolError(
+                    "Only the fixture bootstrap or inspection actor is admitted"
+                )
             if case.get("kind") == "permissions_matrix" and (
-                case.get("actor") != "inspection" or case.get("table") != "canonical_guards"
+                case.get("actor") != "inspection"
+                or case.get("table") != "canonical_guards"
                 or case.get("record_id") != "exact"
-                or case.get("rules") != [{"action": "select", "allow": True}, {"action": "create", "allow": False}]
+                or case.get("rules")
+                != [
+                    {"action": "select", "allow": True},
+                    {"action": "create", "allow": False},
+                ]
             ):
-                raise ToolError("Only the exact qualified inspection permission matrix is admitted")
+                raise ToolError(
+                    "Only the exact qualified inspection permission matrix is admitted"
+                )
             if (
                 case.get("allow") is False
                 and case.get("error_contains") not in REJECTION_SIGNATURES

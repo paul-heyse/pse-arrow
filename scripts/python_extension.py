@@ -145,20 +145,29 @@ def diagnostic_identity(selected: Path, environment: Mapping[str, str]) -> dict:
         "'binary':sys.modules['pse._native'].__file__,"
         "'prefix':sys.prefix,'features':compiled_features()}))"
     )
-    report = json.loads(subprocess.check_output(
-        [str(selected / "bin/python"), "-c", program],
-        cwd=ROOT, env=dict(environment), text=True,
-    ))
+    report = json.loads(
+        subprocess.check_output(
+            [str(selected / "bin/python"), "-c", program],
+            cwd=ROOT,
+            env=dict(environment),
+            text=True,
+        )
+    )
     if not isinstance(report, dict):
         raise TypeError("invalid diagnostic extension identity")
     binary, package = report.get("binary"), report.get("package")
     features = report.get("features")
-    if (not isinstance(binary, str) or not isinstance(package, str)
-        or not isinstance(features, list)):
+    if (
+        not isinstance(binary, str)
+        or not isinstance(package, str)
+        or not isinstance(features, list)
+    ):
         raise TypeError("diagnostic extension identity is incomplete")
-    if (report.get("prefix") != str(selected)
+    if (
+        report.get("prefix") != str(selected)
         or not Path(binary).is_relative_to(selected)
-        or Path(binary).parent != Path(package).parent):
+        or Path(binary).parent != Path(package).parent
+    ):
         raise ValueError("diagnostic wheel imported a foreign package or extension")
     if not {"force-validate", "diagnostic-taskdump"} <= set(features):
         raise ValueError("installed wheel lacks actual diagnostic-taskdump flags")
@@ -187,10 +196,22 @@ def diagnostic_sync(mode: str = "dev") -> int:
     output.mkdir(parents=True, exist_ok=True)
     commands = [
         ["uv", "sync", "--locked", "--no-install-project"],
-        [str(ROOT / ".venv/bin/maturin"), "build", "--locked", "--profile", "diagnostic-taskdump",
-         "--interpreter", str(selected / "bin/python"), "--features", features,
-         "--compression-enable-large-file-support", "--compression-method", "stored",
-         "--out", str(output)],
+        [
+            str(ROOT / ".venv/bin/maturin"),
+            "build",
+            "--locked",
+            "--profile",
+            "diagnostic-taskdump",
+            "--interpreter",
+            str(selected / "bin/python"),
+            "--features",
+            features,
+            "--compression-enable-large-file-support",
+            "--compression-method",
+            "stored",
+            "--out",
+            str(output),
+        ],
     ]
     for command in commands:
         result = subprocess.call(command, cwd=ROOT, env=environment)
@@ -200,9 +221,18 @@ def diagnostic_sync(mode: str = "dev") -> int:
     if len(wheels) != 1:
         raise ValueError("diagnostic wheel selection is missing or ambiguous")
     result = subprocess.call(
-        ["uv", "pip", "install", "--python", str(selected / "bin/python"),
-         "--force-reinstall", "--no-deps", str(wheels[0])],
-        cwd=ROOT, env=environment,
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(selected / "bin/python"),
+            "--force-reinstall",
+            "--no-deps",
+            str(wheels[0]),
+        ],
+        cwd=ROOT,
+        env=environment,
     )
     if result:
         return result

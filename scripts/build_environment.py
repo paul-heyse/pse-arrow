@@ -35,20 +35,56 @@ def language_server_environment(environment: Mapping[str, str]) -> dict[str, str
     )
 
     keys = {
-        "RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER",
-        "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTDOCFLAGS", "CARGO_ENCODED_RUSTDOCFLAGS",
-        "CARGO_BUILD_JOBS", "CARGO_BUILD_TARGET", "CARGO_INCREMENTAL", "PSE_CARGO_TARGET_DIR",
-        "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "PSE_NATIVE_COMPILER_CACHE",
-        "PSE_SCCACHE_BINARY", "SCCACHE_DIR", "SCCACHE_CACHE_SIZE", "SCCACHE_CONF",
-        "SCCACHE_SERVER_UDS", "SCCACHE_CLIENT_SIDE", "SCCACHE_DIRECT", "SCCACHE_NO_DAEMON",
-        "PSE_LLVM_PREFIX", "LLVM_CONFIG_PATH", "LIBCLANG_PATH", "LIBRARY_PATH",
-        "LD_LIBRARY_PATH", "PKG_CONFIG_PATH", "PYO3_CONFIG_FILE", "PYO3_PYTHON",
-        "PYO3_BUILD_EXTENSION_MODULE", "PYO3_ENVIRONMENT_SIGNATURE", "PYTHON_SYS_EXECUTABLE",
-        "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "PSE_NATIVE_CACHE",
-        "PSE_NATIVE_SETUP_PYTHON", "PSE_NATIVE_HANDOFF", "PSE_ROOT_ISOLATION_DIR",
-        "PSE_ADMISSION_DEADLINE", "PSE_RESOURCE_CLASS", "PSE_MEMORY_MAX",
-        host_admission.MARKER, native_operation.MARKER, native_operation.OFF_MARKER,
-        *native_operation.OVERRIDABLE, *native_operation.AUTHORITATIVE,
+        "RUSTC",
+        "RUSTDOC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "RUSTDOCFLAGS",
+        "CARGO_ENCODED_RUSTDOCFLAGS",
+        "CARGO_BUILD_JOBS",
+        "CARGO_BUILD_TARGET",
+        "CARGO_INCREMENTAL",
+        "PSE_CARGO_TARGET_DIR",
+        "CARGO_HOME",
+        "RUSTUP_HOME",
+        "RUSTUP_TOOLCHAIN",
+        "PSE_NATIVE_COMPILER_CACHE",
+        "PSE_SCCACHE_BINARY",
+        "SCCACHE_DIR",
+        "SCCACHE_CACHE_SIZE",
+        "SCCACHE_CONF",
+        "SCCACHE_SERVER_UDS",
+        "SCCACHE_CLIENT_SIDE",
+        "SCCACHE_DIRECT",
+        "SCCACHE_NO_DAEMON",
+        "PSE_LLVM_PREFIX",
+        "LLVM_CONFIG_PATH",
+        "LIBCLANG_PATH",
+        "LIBRARY_PATH",
+        "LD_LIBRARY_PATH",
+        "PKG_CONFIG_PATH",
+        "PYO3_CONFIG_FILE",
+        "PYO3_PYTHON",
+        "PYO3_BUILD_EXTENSION_MODULE",
+        "PYO3_ENVIRONMENT_SIGNATURE",
+        "PYTHON_SYS_EXECUTABLE",
+        "XDG_STATE_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "PSE_NATIVE_CACHE",
+        "PSE_NATIVE_SETUP_PYTHON",
+        "PSE_NATIVE_HANDOFF",
+        "PSE_ROOT_ISOLATION_DIR",
+        "PSE_ADMISSION_DEADLINE",
+        "PSE_RESOURCE_CLASS",
+        "PSE_MEMORY_MAX",
+        host_admission.MARKER,
+        native_operation.MARKER,
+        native_operation.OFF_MARKER,
+        *native_operation.OVERRIDABLE,
+        *native_operation.AUTHORITATIVE,
         *(key for group in native_operation.CAPABILITY_PATHS.values() for key in group),
     }
     return {key: environment[key] for key in sorted(keys) if key in environment}
@@ -250,7 +286,11 @@ def main() -> int:
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
     parser.add_argument("--jobs", type=int, choices=range(1, 257))
-    parser.add_argument("--taskdump", action="store_true", help="explicit diagnostic-taskdump profile flags")
+    parser.add_argument(
+        "--taskdump",
+        action="store_true",
+        help="explicit diagnostic-taskdump profile flags",
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     env = configure(
@@ -273,8 +313,17 @@ def main() -> int:
         command = command[1:]
     if not command:
         parser.error("provide a command after --, or --shell")
-    if args.taskdump and not any(command[index:index + 2] in (["--profile", "diagnostic-taskdump"], ["--cargo-profile", "diagnostic-taskdump"]) for index in range(len(command))):
-        parser.error("--taskdump requires --profile diagnostic-taskdump to isolate diagnostic artifacts")
+    if args.taskdump and not any(
+        command[index : index + 2]
+        in (
+            ["--profile", "diagnostic-taskdump"],
+            ["--cargo-profile", "diagnostic-taskdump"],
+        )
+        for index in range(len(command))
+    ):
+        parser.error(
+            "--taskdump requires --profile diagnostic-taskdump to isolate diagnostic artifacts"
+        )
     print(
         f"build: toolchain={env.get('RUSTUP_TOOLCHAIN', 'rust-toolchain.toml')} wrapper={env.get('RUSTC_WRAPPER') or 'disabled'} target={env.get('CARGO_TARGET_DIR', 'target')}",
         file=sys.stderr,

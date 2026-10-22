@@ -380,7 +380,8 @@ class FileStore:
             state = read(path)
             if (
                 state.get("version") != 2
-                or state.get("phase") not in {"open", "frozen", "unresolved", "abandoned"}
+                or state.get("phase")
+                not in {"open", "frozen", "unresolved", "abandoned"}
                 or not isinstance(state.get("members"), dict)
             ):
                 raise StoreError("Unknown invocation coordination authority")
@@ -483,23 +484,14 @@ class FileStore:
                     if member.get("publication") == "not-started":
                         del state["members"][resource]
                         continue
-                    raise StoreError(
-                        "Uncertain resource publication remains pinned"
-                    )
+                    raise StoreError("Uncertain resource publication remains pinned")
                 entry = self._entry(resource)
-                if (
-                    entry.identity != logical
-                    or entry.facts.get("invocation") != nonce
-                ):
-                    raise StoreError(
-                        "Pending member contradicts resource authority"
-                    )
+                if entry.identity != logical or entry.facts.get("invocation") != nonce:
+                    raise StoreError("Pending member contradicts resource authority")
                 index = self.path("identities", digest(logical))
                 expected = {"identity": logical, "resource": resource}
                 if index.exists() and read(index) != expected:
-                    raise StoreError(
-                        "Pending member has contradictory logical index"
-                    )
+                    raise StoreError("Pending member has contradictory logical index")
                 publish(index, expected)
                 pending = self.path("identity-pending", digest(logical))
                 if pending.exists():
@@ -523,7 +515,9 @@ class FileStore:
         identity = digest(terminal)
         with self.invocation_edit(nonce, deadline=deadline) as state:
             if state["phase"] == "abandoned":
-                raise StoreError("Invocation membership was explicitly abandoned; terminal freeze refused")
+                raise StoreError(
+                    "Invocation membership was explicitly abandoned; terminal freeze refused"
+                )
             if declaration is not None and state["declaration"] != declaration:
                 raise StoreError(
                     "Invocation declaration differs from terminal selection authority"
@@ -586,7 +580,9 @@ class FileStore:
             raise StoreError("Invalid frozen invocation terminal")
         return state
 
-    def abandon(self, nonce: str, expected: dict, *, deadline: float | None = None) -> dict:
+    def abandon(
+        self, nonce: str, expected: dict, *, deadline: float | None = None
+    ) -> dict:
         """Close exact membership without manufacturing a terminal or an ACK.
 
         Physical observation precedes this short compare-and-fence transition.
@@ -595,12 +591,20 @@ class FileStore:
         deadline = clock(deadline)
         with self.invocation_edit(nonce, deadline=deadline) as state:
             if state != expected:
-                raise StoreError("Invocation changed since abandonment inspection; inspect again")
+                raise StoreError(
+                    "Invocation changed since abandonment inspection; inspect again"
+                )
             if state.get("abandonment") is not None:
                 return state["abandonment"]
             self._settle_members(state, nonce, deadline)
-            disposition = {"version": 1, "identity": uuid.uuid4().hex, "selection": digest(state["declaration"]["selected"]),
-                           "members": list(state["members"]), "phase": "fenced", "resources": {}}
+            disposition = {
+                "version": 1,
+                "identity": uuid.uuid4().hex,
+                "selection": digest(state["declaration"]["selected"]),
+                "members": list(state["members"]),
+                "phase": "fenced",
+                "resources": {},
+            }
             state["abandonment"] = disposition
             if state["phase"] != "frozen":
                 state["phase"] = "abandoned"

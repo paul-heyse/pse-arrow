@@ -168,7 +168,10 @@ def execute_selected(
     child never enters this composer. Persist reconciliation errors separately from
     the workload exit; a missing or partial report cannot manufacture a Pass.
     """
-    print(f"Product result: just result {path} --kind product-test --registry {resources.registry()}", flush=True)
+    print(
+        f"Product result: just result {path} --kind product-test --registry {resources.registry()}",
+        flush=True,
+    )
     started = time.time()
     check: dict[str, object] = {
         "exit_code": None,

@@ -195,8 +195,12 @@ def display(result: dict) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_path", type=Path)
-    parser.add_argument("--kind", choices=("assessment", "product-test"), default="assessment")
-    parser.add_argument("--registry", type=Path, help="exact resource registry for a product invocation")
+    parser.add_argument(
+        "--kind", choices=("assessment", "product-test"), default="assessment"
+    )
+    parser.add_argument(
+        "--registry", type=Path, help="exact resource registry for a product invocation"
+    )
     parser.add_argument("--subject", help="exact selected product subject identity")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=100)
@@ -219,17 +223,32 @@ def main(argv: list[str] | None = None) -> int:
         if args.gate is not None:
             parser.error("--gate belongs to assessment results; use --subject")
         try:
-            result = run_inspection.product_result(str(args.run_path), registry=args.registry,
-                subject=args.subject, failures=args.failures, offset=args.offset, limit=args.limit,
-                tail=args.tail if args.subject is not None or args.failures else 0)
+            result = run_inspection.product_result(
+                str(args.run_path),
+                registry=args.registry,
+                subject=args.subject,
+                failures=args.failures,
+                offset=args.offset,
+                limit=args.limit,
+                tail=args.tail if args.subject is not None or args.failures else 0,
+            )
         except (OSError, TypeError, KeyError, ValueError, RuntimeError) as error:
-            print(json.dumps({"error": str(error), "run_path": str(args.run_path)}) if args.json else f"result: unreadable product invocation: {error}", file=sys.stdout if args.json else sys.stderr)
+            print(
+                json.dumps({"error": str(error), "run_path": str(args.run_path)})
+                if args.json
+                else f"result: unreadable product invocation: {error}",
+                file=sys.stdout if args.json else sys.stderr,
+            )
             return 1
         if args.json:
             print(json.dumps(result, indent=2))
         else:
-            print(f"Product run: {result['invocation']} ({result['run_kind']}); registry={result['registry']}")
-            print(f"Terminal: {result['terminal_status']}; phase={result['phase']}; workload_exit={result['workload_exit']}; owned_drain={result['owned_drain']}")
+            print(
+                f"Product run: {result['invocation']} ({result['run_kind']}); registry={result['registry']}"
+            )
+            print(
+                f"Terminal: {result['terminal_status']}; phase={result['phase']}; workload_exit={result['workload_exit']}; owned_drain={result['owned_drain']}"
+            )
             if result["terminal"] is not None:
                 print(f"Complete: {result['terminal']['complete']}")
             for item in result["subjects"]:
@@ -238,14 +257,23 @@ def main(argv: list[str] | None = None) -> int:
             for error in result["report_errors"]:
                 print(f"Report error: {error}")
             for item in result["resources"]:
-                print(f"Resource: {item['resource']}; {item.get('retention_reason') or item['status']}")
+                print(
+                    f"Resource: {item['resource']}; {item.get('retention_reason') or item['status']}"
+                )
             for item in result["payloads"]:
                 print(f"Artifact: {item['path']} ({item['status']})")
                 for line in item["tail"]:
                     print(f"  {line}")
         return 0
-    if args.registry is not None or args.subject is not None or args.offset or args.limit != 100:
-        parser.error("--registry, --subject, --offset and --limit belong to product-test results")
+    if (
+        args.registry is not None
+        or args.subject is not None
+        or args.offset
+        or args.limit != 100
+    ):
+        parser.error(
+            "--registry, --subject, --offset and --limit belong to product-test results"
+        )
     try:
         run = args.run_path.resolve()
         with contextlib.ExitStack() as borrows:

@@ -25,18 +25,30 @@ def boundary_leads(symbol: str, *, root: Path = ROOT, limit: int = 40) -> dict:
     These are source matches, not inferred calls or cross-language semantic edges.
     Native LSP requests can refine each language's references independently.
     """
-    if not symbol or len(symbol) > 160 or not symbol.replace('_', '').isalnum():
-        raise ValueError('symbol must be a simple source identifier of at most 160 characters')
-    catalogue = root / 'crates/pse-runtime/src/boundary_documents.rs'
+    if not symbol or len(symbol) > 160 or not symbol.replace("_", "").isalnum():
+        raise ValueError(
+            "symbol must be a simple source identifier of at most 160 characters"
+        )
+    catalogue = root / "crates/pse-runtime/src/boundary_documents.rs"
     paths = [catalogue]
-    for directory in ('crates/pse-py/src', 'python/pse', 'crates/pse-runtime/src', 'xtask/src'):
-        paths.extend(sorted((root / directory).rglob('*')))
+    for directory in (
+        "crates/pse-py/src",
+        "python/pse",
+        "crates/pse-runtime/src",
+        "xtask/src",
+    ):
+        paths.extend(sorted((root / directory).rglob("*")))
     seen: set[Path] = set()
     items = []
     remaining = 64 << 20
     truncated = False
     for path in paths:
-        if path in seen or path.suffix not in {'.rs', '.py', '.pyi'} or not path.is_file() or path.is_symlink():
+        if (
+            path in seen
+            or path.suffix not in {".rs", ".py", ".pyi"}
+            or not path.is_file()
+            or path.is_symlink()
+        ):
             continue
         seen.add(path)
         size = path.stat().st_size
@@ -44,18 +56,38 @@ def boundary_leads(symbol: str, *, root: Path = ROOT, limit: int = 40) -> dict:
             truncated = True
             continue
         remaining -= size
-        with path.open(encoding='utf-8') as source:
+        with path.open(encoding="utf-8") as source:
             for number, line in enumerate(source, 1):
                 if symbol in line:
                     relative = str(path.relative_to(root))
-                    items.append({'source': relative, 'line': number, 'excerpt': line.strip()[:400],
-                                  'meaning': 'catalogue declaration' if path == catalogue else 'text reference; inspect native semantic owner',
-                                  'edit_owner': 'crates/pse-runtime/src/boundary_documents.rs and its generator' if '/generated/' in relative or relative.endswith('_native.pyi') or '/contracts/' in relative else relative})
+                    items.append(
+                        {
+                            "source": relative,
+                            "line": number,
+                            "excerpt": line.strip()[:400],
+                            "meaning": "catalogue declaration"
+                            if path == catalogue
+                            else "text reference; inspect native semantic owner",
+                            "edit_owner": "crates/pse-runtime/src/boundary_documents.rs and its generator"
+                            if "/generated/" in relative
+                            or relative.endswith("_native.pyi")
+                            or "/contracts/" in relative
+                            else relative,
+                        }
+                    )
                     if len(items) == limit:
-                        return {'symbol': symbol, 'items': items, 'truncated': True,
-                                'coverage': 'bounded source leads; dynamic consumers and semantic correspondence remain unresolved'}
-    return {'symbol': symbol, 'items': items, 'truncated': truncated,
-            'coverage': 'catalogue, PyO3, Python/stubs, runtime and xtask text leads; no claimed dynamic or whole-workspace call graph'}
+                        return {
+                            "symbol": symbol,
+                            "items": items,
+                            "truncated": True,
+                            "coverage": "bounded source leads; dynamic consumers and semantic correspondence remain unresolved",
+                        }
+    return {
+        "symbol": symbol,
+        "items": items,
+        "truncated": truncated,
+        "coverage": "catalogue, PyO3, Python/stubs, runtime and xtask text leads; no claimed dynamic or whole-workspace call graph",
+    }
 
 
 def recipe_context(recipes: dict, query: str) -> list[dict]:
@@ -67,35 +99,68 @@ def recipe_context(recipes: dict, query: str) -> list[dict]:
         meaning = str(recipe.get("doc") or "")
         if not all(word in (name + " " + meaning).casefold() for word in words):
             continue
-        result.append({"kind": "recipe", "name": name, "description": meaning,
-                       "parameters": recipe.get("parameters", []),
-                       "attributes": recipe.get("attributes", []),
-                       "source": "justfile", "usage": ["just", "--usage", name],
-                       "definition": ["just", "--show", name],
-                       "execution": "not requested; grammar/effects are owned by the recipe"})
+        result.append(
+            {
+                "kind": "recipe",
+                "name": name,
+                "description": meaning,
+                "parameters": recipe.get("parameters", []),
+                "attributes": recipe.get("attributes", []),
+                "source": "justfile",
+                "usage": ["just", "--usage", name],
+                "definition": ["just", "--show", name],
+                "execution": "not requested; grammar/effects are owned by the recipe",
+            }
+        )
     return result
 
 
-def describe(query: str, *, owner: str | None, scope: bool, changes: bool,
-             offset: int, limit: int) -> dict:
+def describe(
+    query: str,
+    *,
+    owner: str | None,
+    scope: bool,
+    changes: bool,
+    offset: int,
+    limit: int,
+) -> dict:
     if offset < 0 or not 1 <= limit <= 100:
         raise ValueError("offset must be nonnegative and limit in 1..100")
-    declaration = json.loads(subprocess.check_output(
-        ["just", "--dump", "--dump-format", "json"], cwd=ROOT, text=True))
+    declaration = json.loads(
+        subprocess.check_output(
+            ["just", "--dump", "--dump-format", "json"], cwd=ROOT, text=True
+        )
+    )
     items = recipe_context(declaration["recipes"], query) if owner is None else []
     if scope:
-        for item in document_lifecycle.aggregate(ROOT, document_metadata.load_policy(ROOT)):
-            if owner is not None and owner.casefold() not in item.get("owner", item["document"]).casefold():
+        for item in document_lifecycle.aggregate(
+            ROOT, document_metadata.load_policy(ROOT)
+        ):
+            if (
+                owner is not None
+                and owner.casefold()
+                not in item.get("owner", item["document"]).casefold()
+            ):
                 continue
-            if all(word in json.dumps(item).casefold() for word in query.casefold().split()):
+            if all(
+                word in json.dumps(item).casefold() for word in query.casefold().split()
+            ):
                 items.append({"kind": "native-scope", **item})
-    selected = items[offset:offset + limit]
-    return {"schema": "workspace-context-v1", "query": query, "items": selected,
-            "next_offset": offset + limit if len(items) > offset + limit else None,
-            "changes": affected.changed_files("HEAD") if changes else None,
-            "authority": "derived discovery; native owners retain status and authorization",
-            "source_routes": ["docs/README.md", "docs/plans/README.md", "crates/pse-runtime/src/boundary_documents.rs"],
-            "coverage": "recipe grammar and selected native plan rows; no inferred dynamic or cross-language reach"}
+    selected = items[offset : offset + limit]
+    return {
+        "schema": "workspace-context-v1",
+        "query": query,
+        "items": selected,
+        "next_offset": offset + limit if len(items) > offset + limit else None,
+        "changes": affected.changed_files("HEAD") if changes else None,
+        "authority": "derived discovery; native owners retain status and authorization",
+        "source_routes": [
+            "docs/README.md",
+            "docs/plans/README.md",
+            "crates/pse-runtime/src/boundary_documents.rs",
+        ],
+        "coverage": "recipe grammar and selected native plan rows; no inferred dynamic or cross-language reach",
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -104,21 +169,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--owner")
     parser.add_argument("--scope", action="store_true")
     parser.add_argument("--changed", action="store_true")
-    parser.add_argument("--symbol", help="bounded catalogue/native/facade/stub/test source leads")
-    parser.add_argument("--retrospective", action="store_true", help="explicit bounded checkout/time log observation")
+    parser.add_argument(
+        "--symbol", help="bounded catalogue/native/facade/stub/test source leads"
+    )
+    parser.add_argument(
+        "--retrospective",
+        action="store_true",
+        help="explicit bounded checkout/time log observation",
+    )
     parser.add_argument("--hours", type=float, default=24)
-    parser.add_argument("--sessions", type=Path, default=Path.home() / '.codex/sessions')
+    parser.add_argument(
+        "--sessions", type=Path, default=Path.home() / ".codex/sessions"
+    )
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = describe(args.query, owner=args.owner, scope=args.scope or bool(args.owner),
-                          changes=args.changed, offset=args.offset, limit=args.limit)
+        result = describe(
+            args.query,
+            owner=args.owner,
+            scope=args.scope or bool(args.owner),
+            changes=args.changed,
+            offset=args.offset,
+            limit=args.limit,
+        )
         if args.symbol:
-            result['boundary_leads'] = boundary_leads(args.symbol, limit=args.limit)
+            result["boundary_leads"] = boundary_leads(args.symbol, limit=args.limit)
         if args.retrospective:
-            result['retrospective'] = session_retrospective.inspect(args.sessions, ROOT, hours=args.hours)
+            result["retrospective"] = session_retrospective.inspect(
+                args.sessions, ROOT, hours=args.hours
+            )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"context: unavailable: {error}\n")
     if args.json:

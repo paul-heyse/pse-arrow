@@ -915,11 +915,15 @@ def _add_review_commands(commands: argparse._SubParsersAction) -> None:
         help="OFFLINE transformation of recorded text or frozen source codecs",
     )
     extracting.add_argument(
-        "--request", required=True, type=Path,
+        "--request",
+        required=True,
+        type=Path,
         help="ReproducerExtractionRequest JSON; no Runtime is constructed",
     )
     extracting.add_argument(
-        "--output", required=True, type=Path,
+        "--output",
+        required=True,
+        type=Path,
         help="New readable ReproducerCommandRequest driver",
     )
     reproducing = commands.add_parser(
@@ -927,7 +931,9 @@ def _add_review_commands(commands: argparse._SubParsersAction) -> None:
         help="NEW WORK: reconstruct, admit and execute an extracted reproducer",
     )
     reproducing.add_argument(
-        "--request", required=True, type=Path,
+        "--request",
+        required=True,
+        type=Path,
         help="Extracted ReproducerCommandRequest JSON",
     )
     reproducing.add_argument("--json", action="store_true")
@@ -1148,10 +1154,14 @@ def _review_command(args: argparse.Namespace) -> int:
         )
         with args.output.open("xb") as destination:
             destination.write(msgspec_json.format(codec.encode_json(result)))
-        print(f"Extracted {args.output}; required environment: "
-              f"{result.reproducer.required_environment}")
-        print("Explicit new run: python -m pse.diagnostics reproduce --request "
-              f"{shlex.quote(str(args.output))} --json")
+        print(
+            f"Extracted {args.output}; required environment: "
+            f"{result.reproducer.required_environment}"
+        )
+        print(
+            "Explicit new run: python -m pse.diagnostics reproduce --request "
+            f"{shlex.quote(str(args.output))} --json"
+        )
         return 0
     elif args.command == "reproduce":
         command = _read_review_request(args.request, ReproducerCommandRequest)
@@ -1162,7 +1172,8 @@ def _review_command(args: argparse.Namespace) -> int:
             runtime.close()
         print(codec.encode_json(reproduction).decode())
         reproduced = reproduction.status in (
-            "original_failure_reproduced", "related_diagnostic_reproduced"
+            "original_failure_reproduced",
+            "related_diagnostic_reproduced",
         )
         return 0 if reproduced else 1
     elif args.command == "diagnose":

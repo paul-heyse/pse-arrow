@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Bounded protobuf wire decoding shared by native gRPC controls and diagnostics."""
+
 from __future__ import annotations
 
 
@@ -42,4 +43,3 @@ def fields(data: bytes) -> dict[int, list[bytes | int]]:
             raise RuntimeError("Unsupported control protobuf wire kind")
         result.setdefault(tag, []).append(value)
     return result
-

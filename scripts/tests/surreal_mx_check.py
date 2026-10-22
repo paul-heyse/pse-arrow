@@ -579,7 +579,11 @@ def run(binary: Path, strace: Path | None = None) -> None:
             if result[-1] != 41:
                 raise RuntimeError("Acknowledged control write returned another value")
             print("native_cli_grpc_acknowledged_write=passed")
-            query("DEFINE USER `pse-selection` ON ROOT PASSWORD " + json.dumps(selection_password) + " ROLES VIEWER;")
+            query(
+                "DEFINE USER `pse-selection` ON ROOT PASSWORD "
+                + json.dumps(selection_password)
+                + " ROLES VIEWER;"
+            )
             held_reader_statistics()
             # A tiny process-global cap makes leaked crash sessions revealing.
             for _ in range(8):

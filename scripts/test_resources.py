@@ -189,10 +189,15 @@ def resource_identity(record: Mapping[str, object]) -> list[str]:
 
 @contextlib.contextmanager
 def resource_update(
-    resource: str, *, deadline: float | None = None, store: resource_store.FileStore | None = None
+    resource: str,
+    *,
+    deadline: float | None = None,
+    store: resource_store.FileStore | None = None,
 ) -> Generator[ResourceRecord, None, None]:
     try:
-        with (storage() if store is None else store).edit(resource, deadline=deadline) as entry:
+        with (storage() if store is None else store).edit(
+            resource, deadline=deadline
+        ) as entry:
             if entry.phase == "disposed":
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
@@ -259,17 +264,30 @@ def execution_owner(*, deadline: float | None = None) -> dict | None:
     allocation = host.inherit(os.environ, **operation.deadline_options(deadline))
     if allocation is None:
         return None
-    snapshot = host.readonly_snapshot(allocation.directory, deadline=resource_store.clock(deadline))
+    snapshot = host.readonly_snapshot(
+        allocation.directory, deadline=resource_store.clock(deadline)
+    )
     record = snapshot["owners"].get(allocation.nonce)
     group = operation.process_group(os.getpid())
     if not isinstance(record, dict):
         return None
     for unit, binding in record["units"].items():
         control = binding.get("group")
-        if isinstance(control, str) and (group == control or group.startswith(control + "/")):
-            observed = operation.unit_observation(unit, **operation.deadline_options(deadline))
-            if observed.get("InvocationID") == binding.get("invocation") and observed.get("ControlGroup") == control:
-                return {"unit": unit, "group": control, "invocation": binding["invocation"]}
+        if isinstance(control, str) and (
+            group == control or group.startswith(control + "/")
+        ):
+            observed = operation.unit_observation(
+                unit, **operation.deadline_options(deadline)
+            )
+            if (
+                observed.get("InvocationID") == binding.get("invocation")
+                and observed.get("ControlGroup") == control
+            ):
+                return {
+                    "unit": unit,
+                    "group": control,
+                    "invocation": binding["invocation"],
+                }
     return None
 
 
@@ -292,17 +310,28 @@ def invocation(
         "terminal_owner": terminal_owner,
     }
     storage().create_invocation(declaration)
-    producer = {"pid": os.getpid(), "start": operation.start_identity(os.getpid()),
-                "boot": host.boot(), "scope": execution_owner(),
-                "allocation": os.environ.get(host.MARKER),
-                "operation": str(operation.current()) if operation.current() else None}
+    producer = {
+        "pid": os.getpid(),
+        "start": operation.start_identity(os.getpid()),
+        "boot": host.boot(),
+        "scope": execution_owner(),
+        "allocation": os.environ.get(host.MARKER),
+        "operation": str(operation.current()) if operation.current() else None,
+    }
     if producer["allocation"] and producer["scope"] is not None:
         allocation_path = Path(producer["allocation"])
-        owner = host.readonly_snapshot(allocation_path.parent, deadline=resource_store.clock())["owners"].get(allocation_path.name)
+        owner = host.readonly_snapshot(
+            allocation_path.parent, deadline=resource_store.clock()
+        )["owners"].get(allocation_path.name)
         if owner is not None:
             binding = owner["units"].get(producer["scope"]["unit"], {})
-            if binding.get("group") == producer["scope"]["group"] and binding.get("invocation") == producer["scope"]["invocation"]:
-                producer["allocation_owner"] = {key: owner[key] for key in ("pid", "start", "boot")}
+            if (
+                binding.get("group") == producer["scope"]["group"]
+                and binding.get("invocation") == producer["scope"]["invocation"]
+            ):
+                producer["allocation_owner"] = {
+                    key: owner[key] for key in ("pid", "start", "boot")
+                }
     with storage().invocation_edit(nonce) as state:
         state["producer"] = producer
     resource_store.publish(path, declaration)
@@ -436,7 +465,9 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
     if declaration is not None:
         image = storage().invocation_snapshot(declaration["nonce"])
         if image["phase"] != "open" or image.get("declaration") != declaration:
-            raise ResourceError("Invocation membership is closed; fixture registration refused before effects")
+            raise ResourceError(
+                "Invocation membership is closed; fixture registration refused before effects"
+            )
     nonce, test = selected_test(payload, declaration=declaration)
     state = Path(str(payload["state"])).resolve(strict=True)
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
@@ -732,7 +763,10 @@ def pin(resource: str, retain: bool, *, deadline: float | None = None) -> None:
 
 @contextlib.contextmanager
 def borrow(
-    resource: str, *, deadline: float | None = None, store: resource_store.FileStore | None = None
+    resource: str,
+    *,
+    deadline: float | None = None,
+    store: resource_store.FileStore | None = None,
 ) -> Generator[str, None, None]:
     token = uuid.uuid4().hex
     with resource_update(resource, deadline=deadline, store=store) as record:
@@ -1692,7 +1726,11 @@ def main() -> int:
     parser.add_argument("resource", nargs="?")
     parser.add_argument("--receipt")
     parser.add_argument("--digest")
-    parser.add_argument("--apply", action="store_true", help="apply exact invocation abandonment instead of inspection")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="apply exact invocation abandonment instead of inspection",
+    )
     parser.add_argument("--seconds", type=float, default=30)
     parser.add_argument("--storage", action="store_true")
     parser.add_argument(
@@ -1704,7 +1742,15 @@ def main() -> int:
     if args.action == "abandon":
         if not args.resource:
             parser.error("abandon requires an exact invocation declaration or identity")
-        return invocation_disposition.main([args.resource, "--seconds", str(args.seconds), *(["--apply"] if args.apply else []), *(["--storage"] if args.storage else [])])
+        return invocation_disposition.main(
+            [
+                args.resource,
+                "--seconds",
+                str(args.seconds),
+                *(["--apply"] if args.apply else []),
+                *(["--storage"] if args.storage else []),
+            ]
+        )
     if args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(

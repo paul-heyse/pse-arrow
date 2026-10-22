@@ -33,7 +33,13 @@ def tool_spec(name: str = "trace-processor") -> dict[str, str]:
 def binary_path(name: str = "trace-processor") -> Path:
     spec = tool_spec(name)
     base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    return base / "pse/tools" / ("perfetto" if name == "trace-processor" else name) / spec["version"] / spec["member"]
+    return (
+        base
+        / "pse/tools"
+        / ("perfetto" if name == "trace-processor" else name)
+        / spec["version"]
+        / spec["member"]
+    )
 
 
 def verify_bundle(root: Path, spec: dict[str, str]) -> None:
@@ -42,7 +48,10 @@ def verify_bundle(root: Path, spec: dict[str, str]) -> None:
     if any(path.is_symlink() for path in (receipt, root, *root.parents)):
         raise ValueError("portable tool installation must not traverse symlinks")
     record = json.loads(receipt.read_text())
-    if record.get("archive_sha256") != spec["sha256"] or record.get("version") != spec["version"]:
+    if (
+        record.get("archive_sha256") != spec["sha256"]
+        or record.get("version") != spec["version"]
+    ):
         raise ValueError("portable tool receipt differs from the pinned declaration")
     members = record.get("members", {})
     if not isinstance(members, dict) or not 1 <= len(members) <= 200:
@@ -52,13 +61,21 @@ def verify_bundle(root: Path, spec: dict[str, str]) -> None:
         if selected.is_absolute() or ".." in selected.parts:
             raise ValueError("invalid portable tool member path")
         path = root / selected
-        if any(item.is_symlink() for item in (path, *path.parents)) or not path.is_file():
+        if (
+            any(item.is_symlink() for item in (path, *path.parents))
+            or not path.is_file()
+        ):
             raise ValueError("portable tool member disappeared or became a symlink")
         with path.open("rb") as stream:
             observed = hashlib.file_digest(stream, "sha256").hexdigest()
         if observed != expected:
             raise ValueError("portable tool member changed")
-    for required in (spec["member"], "lib/rr/librrpreload.so", "lib/rr/librrpage.so", "bin/rr_exec_stub"):
+    for required in (
+        spec["member"],
+        "lib/rr/librrpreload.so",
+        "lib/rr/librrpage.so",
+        "bin/rr_exec_stub",
+    ):
         if required not in members:
             raise ValueError("portable rr runtime member missing")
 
@@ -76,8 +93,15 @@ def stage_bundle(archive: Path, directory: Path, spec: dict[str, str]) -> Path:
             if count > 200 or expanded > 64 << 20:
                 raise ValueError("portable tool archive exceeds expanded allowance")
             path = Path(item.name)
-            if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != spec["prefix"]:
-                raise ValueError("portable archive member escapes selected release prefix")
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or not path.parts
+                or path.parts[0] != spec["prefix"]
+            ):
+                raise ValueError(
+                    "portable archive member escapes selected release prefix"
+                )
             if item.name in names or not (item.isdir() or item.isfile()):
                 raise ValueError("duplicate or nonregular portable archive member")
             names.add(item.name)
@@ -94,8 +118,21 @@ def stage_bundle(archive: Path, directory: Path, spec: dict[str, str]) -> Path:
                 shutil.copyfileobj(source, destination, 1 << 20)
             selected.chmod(0o755 if item.mode & 0o111 else 0o644)
             with selected.open("rb") as stream:
-                hashes[str(relative)] = hashlib.file_digest(stream, "sha256").hexdigest()
-    (root / "bundle.json").write_text(json.dumps({"version": spec["version"], "archive_sha256": spec["sha256"], "source": spec["url"], "members": hashes}, sort_keys=True) + "\n")
+                hashes[str(relative)] = hashlib.file_digest(
+                    stream, "sha256"
+                ).hexdigest()
+    (root / "bundle.json").write_text(
+        json.dumps(
+            {
+                "version": spec["version"],
+                "archive_sha256": spec["sha256"],
+                "source": spec["url"],
+                "members": hashes,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     verify_bundle(root, spec)
     return root
 
@@ -146,9 +183,19 @@ def install(name: str = "trace-processor") -> Path:
         staged = Path(scratch) / "tool"
         if spec.get("archive") == "tar.gz":
             with tarfile.open(archive, "r:gz") as bundle:
-                members = [item for item in bundle.getmembers() if Path(item.name).name == spec["member"]]
-                if len(members) != 1 or not members[0].isfile() or members[0].size > 256 << 20:
-                    raise ValueError("tool binary member missing, ambiguous or oversized")
+                members = [
+                    item
+                    for item in bundle.getmembers()
+                    if Path(item.name).name == spec["member"]
+                ]
+                if (
+                    len(members) != 1
+                    or not members[0].isfile()
+                    or members[0].size > 256 << 20
+                ):
+                    raise ValueError(
+                        "tool binary member missing, ambiguous or oversized"
+                    )
                 source = bundle.extractfile(members[0])
                 if source is None:
                     raise ValueError("tool binary member unavailable")
@@ -156,9 +203,15 @@ def install(name: str = "trace-processor") -> Path:
                     shutil.copyfileobj(source, output, 1 << 20)
         else:
             with zipfile.ZipFile(archive) as bundle:
-                members = [info for info in bundle.infolist() if Path(info.filename).name == spec["member"]]
+                members = [
+                    info
+                    for info in bundle.infolist()
+                    if Path(info.filename).name == spec["member"]
+                ]
                 if len(members) != 1 or members[0].file_size > 256 << 20:
-                    raise ValueError("tool binary member missing, ambiguous or oversized")
+                    raise ValueError(
+                        "tool binary member missing, ambiguous or oversized"
+                    )
                 with bundle.open(members[0]) as source, staged.open("xb") as output:
                     shutil.copyfileobj(source, output, 1 << 20)
         staged.chmod(0o755)
@@ -226,7 +279,12 @@ def query(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("install").add_argument("tool", nargs="?", choices=("trace-processor", "mcpls", "rr"), default="trace-processor")
+    commands.add_parser("install").add_argument(
+        "tool",
+        nargs="?",
+        choices=("trace-processor", "mcpls", "rr"),
+        default="trace-processor",
+    )
     inspect = commands.add_parser("query")
     inspect.add_argument("trace", type=Path)
     inspect.add_argument("question", choices=("timeline", "numerical", "coverage"))

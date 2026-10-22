@@ -967,7 +967,13 @@ impl NativeRuntime {
         request: documents::RecordedInput<native::DiagnosticReproducer>,
     ) -> PyResult<documents::DocumentValue<native::ReproductionDocument>> {
         let cancel = CancelSource::new();
-        blocking(py,&self.owner,self.inner.run_reproducer(request.0,&cancel),|| cancel.cancel()).map(documents::DocumentValue)
+        blocking(
+            py,
+            &self.owner,
+            self.inner.run_reproducer(request.0, &cancel),
+            || cancel.cancel(),
+        )
+        .map(documents::DocumentValue)
     }
     fn diagnose_documents(
         &self,
@@ -994,26 +1000,45 @@ impl NativeRuntime {
         let allowance = request.0.wait;
         let deadline = std::time::Instant::now() + allowance;
         let ticket = {
-            let mut active = self.owner.task_dump.lock()
+            let mut active = self
+                .owner
+                .task_dump
+                .lock()
                 .map_err(|_| invalid(py, "task dump owner lock poisoned"))?;
-            if active.as_ref().map(|ticket| ticket.snapshot()).transpose()
+            if active
+                .as_ref()
+                .map(|ticket| ticket.snapshot())
+                .transpose()
                 .map_err(|error| errors::diagnostic(py, &error))?
-                .is_some_and(|value| value.target_state == "pending") {
-                return Err(invalid(py, "previous issued task dump remains pending; inspect task_dump_status instead of queueing another request"));
+                .is_some_and(|value| value.target_state == "pending")
+            {
+                return Err(invalid(
+                    py,
+                    "previous issued task dump remains pending; inspect task_dump_status instead of queueing another request",
+                ));
             }
-            let ticket = Arc::new(pse_runtime::tooling::taskdump::request(self.owner.executor.handle().clone(), request.0, &CancelSource::new())
-                .map_err(|error| errors::diagnostic(py, &error))?);
+            let ticket = Arc::new(
+                pse_runtime::tooling::taskdump::request(
+                    self.owner.executor.handle().clone(),
+                    request.0,
+                    &CancelSource::new(),
+                )
+                .map_err(|error| errors::diagnostic(py, &error))?,
+            );
             *active = Some(Arc::clone(&ticket));
             ticket
         };
         loop {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
             if remaining.is_zero() {
-                let mut result = ticket.snapshot().map_err(|error| errors::diagnostic(py, &error))?;
+                let mut result = ticket
+                    .snapshot()
+                    .map_err(|error| errors::diagnostic(py, &error))?;
                 result.observer_wait_expired = result.target_state == "pending";
                 return Ok(documents::DocumentValue(result));
             }
-            let result = py.detach(|| ticket.wait(remaining.min(Duration::from_millis(100))))
+            let result = py
+                .detach(|| ticket.wait(remaining.min(Duration::from_millis(100))))
                 .map_err(|error| errors::diagnostic(py, &error))?;
             // An interrupted observer leaves its issued ticket with the actual owner.
             py.check_signals()?;
@@ -1026,11 +1051,21 @@ impl NativeRuntime {
     fn task_dump_status(
         &self,
         py: Python<'_>,
-    ) -> PyResult<Option<documents::DocumentValue<pse_runtime::tooling::taskdump::TaskDumpDocument>>> {
-        let ticket = self.owner.task_dump.lock()
-            .map_err(|_| invalid(py, "task dump owner lock poisoned"))?.clone();
-        ticket.map(|ticket| py.detach(|| ticket.snapshot()).map(documents::DocumentValue)
-            .map_err(|error| errors::diagnostic(py, &error))).transpose()
+    ) -> PyResult<Option<documents::DocumentValue<pse_runtime::tooling::taskdump::TaskDumpDocument>>>
+    {
+        let ticket = self
+            .owner
+            .task_dump
+            .lock()
+            .map_err(|_| invalid(py, "task dump owner lock poisoned"))?
+            .clone();
+        ticket
+            .map(|ticket| {
+                py.detach(|| ticket.snapshot())
+                    .map(documents::DocumentValue)
+                    .map_err(|error| errors::diagnostic(py, &error))
+            })
+            .transpose()
     }
     fn physical_from_documents(
         &self,

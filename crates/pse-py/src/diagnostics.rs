@@ -49,7 +49,9 @@ pub(crate) fn diagnostic_extract_reproducer(
     py: Python<'_>,
     request: crate::documents::RecordedInput<pse_runtime::workflow::ReproducerExtractionRequest>,
 ) -> PyResult<DocumentValue<pse_runtime::workflow::ReproducerCommandRequest>> {
-    py.detach(|| request.0.extract()).map(DocumentValue).map_err(|error| errors::diagnostic(py,&error))
+    py.detach(|| request.0.extract())
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
 }
 
 fn window(seconds: f64) -> PyResult<Duration> {

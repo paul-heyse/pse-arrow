@@ -285,9 +285,11 @@ impl CanonicalStore {
             .bind(("bucket", receipt.bucket()))).await?;
         let index = response.num_statements().saturating_sub(1);
         let installed = response.take::<surrealdb::types::Value>(index)?;
-        Ok(serde_json::json!({"selected": receipt, "installed": installed,
+        Ok(
+            serde_json::json!({"selected": receipt, "installed": installed,
             "attestation": "existing validate_study_module passed: sole readonly study::readiness export, unsigned Surrealism registration and immutable bucket",
-            "scope": "metadata only; local patched deadline/memory/controller-pool semantics remain in force; no execution or installation"}))
+            "scope": "metadata only; local patched deadline/memory/controller-pool semantics remain in force; no execution or installation"}),
+        )
     }
 
     /// Catalog structure, not rendered SQL text, attests the exact immutable

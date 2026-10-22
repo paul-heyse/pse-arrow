@@ -36,8 +36,22 @@ def processes(pid: int, start: str) -> list[dict]:
             tool = (directory / "comm").read_text().strip()
             children = (directory / "task" / str(current) / "children").read_text()
             pending.extend(int(child) for child in children.split())
-            stage = "compiler" if tool in {"rustc", "clippy-driver", "rustdoc"} else "linker" if tool in {"ld", "ld.lld", "lld", "collect2", "rust-lld"} else "build-script" if tool.startswith("build-script-") else "cache-client" if tool == "sccache" else "cargo" if tool == "cargo" else "unknown"
-            found.append({"pid": current, "start": identity, "tool": tool, "stage": stage})
+            stage = (
+                "compiler"
+                if tool in {"rustc", "clippy-driver", "rustdoc"}
+                else "linker"
+                if tool in {"ld", "ld.lld", "lld", "collect2", "rust-lld"}
+                else "build-script"
+                if tool.startswith("build-script-")
+                else "cache-client"
+                if tool == "sccache"
+                else "cargo"
+                if tool == "cargo"
+                else "unknown"
+            )
+            found.append(
+                {"pid": current, "start": identity, "tool": tool, "stage": stage}
+            )
         except (OSError, ValueError):
             continue
     return found
@@ -45,20 +59,45 @@ def processes(pid: int, start: str) -> list[dict]:
 
 class BuildObservation:
     def __init__(self, pid: int, environment: dict[str, str]) -> None:
-        self.path = host_admission.root_path(environment) / "observations" / "build" / (uuid.uuid4().hex + ".json")
-        self.value: dict = {"version": 1, "attempt": self.path.stem, "pid": pid,
-                      "start": native_operation.start_identity(pid), "boot": host_admission.boot(),
-                      "invocation_declaration": environment.get("PSE_TEST_INVOCATION"),
-                      "allocation": environment.get(host_admission.MARKER),
-                      "stage": "unknown", "stage_source": "not yet observed", "cargo_lock_owner": "unknown",
-                      "cargo_records": 0, "fresh_artifacts": 0, "compiled_artifacts": 0,
-                      "cache": {"scope": "selected Cargo environment", "wrapper": environment.get("RUSTC_WRAPPER"),
-                                "hits": "unknown", "misses": "unknown", "bypass_reason": environment.get("PSE_COMPILER_CACHE_BYPASS_REASON", "not observed")}}
+        self.path = (
+            host_admission.root_path(environment)
+            / "observations"
+            / "build"
+            / (uuid.uuid4().hex + ".json")
+        )
+        self.value: dict = {
+            "version": 1,
+            "attempt": self.path.stem,
+            "pid": pid,
+            "start": native_operation.start_identity(pid),
+            "boot": host_admission.boot(),
+            "invocation_declaration": environment.get("PSE_TEST_INVOCATION"),
+            "allocation": environment.get(host_admission.MARKER),
+            "stage": "unknown",
+            "stage_source": "not yet observed",
+            "cargo_lock_owner": "unknown",
+            "cargo_records": 0,
+            "fresh_artifacts": 0,
+            "compiled_artifacts": 0,
+            "cache": {
+                "scope": "selected Cargo environment",
+                "wrapper": environment.get("RUSTC_WRAPPER"),
+                "hits": "unknown",
+                "misses": "unknown",
+                "bypass_reason": environment.get(
+                    "PSE_COMPILER_CACHE_BYPASS_REASON", "not observed"
+                ),
+            },
+        }
         self.last = 0.0
 
     def message(self, line: bytes, stream: str) -> None:
         if stream == "stderr" and b"Blocking waiting for file lock" in line:
-            self.value.update(stage="cargo-lock-wait", stage_source="Cargo stderr diagnostic", stage_observed_at=time.time())
+            self.value.update(
+                stage="cargo-lock-wait",
+                stage_source="Cargo stderr diagnostic",
+                stage_observed_at=time.time(),
+            )
             self.publish(force=True)
             return
         try:
@@ -68,15 +107,30 @@ class BuildObservation:
         if not isinstance(value, dict):
             return
         reason = value.get("reason")
-        if reason not in {"compiler-artifact", "compiler-message", "build-script-executed", "build-finished"}:
+        if reason not in {
+            "compiler-artifact",
+            "compiler-message",
+            "build-script-executed",
+            "build-finished",
+        }:
             return
         self.value["cargo_records"] += 1
-        self.value["last_cargo_record"] = {key: value[key] for key in ("reason", "package_id", "target", "fresh", "success") if key in value}
+        self.value["last_cargo_record"] = {
+            key: value[key]
+            for key in ("reason", "package_id", "target", "fresh", "success")
+            if key in value
+        }
         if reason == "compiler-artifact" and type(value.get("fresh")) is bool:
             # Cargo freshness is not a cache hit: false may still use sccache.
-            self.value["fresh_artifacts" if value["fresh"] else "compiled_artifacts"] += 1
+            self.value[
+                "fresh_artifacts" if value["fresh"] else "compiled_artifacts"
+            ] += 1
         if reason == "build-finished":
-            self.value.update(stage="build-finished", stage_source="Cargo JSON record", stage_observed_at=time.time())
+            self.value.update(
+                stage="build-finished",
+                stage_source="Cargo JSON record",
+                stage_observed_at=time.time(),
+            )
         self.publish()
 
     def publish(self, *, force: bool = False) -> None:
@@ -88,11 +142,21 @@ class BuildObservation:
             for stage in ("linker", "compiler", "build-script", "cache-client"):
                 if any(item["stage"] == stage for item in self.value["processes"]):
                     if self.value["stage"] != stage:
-                        self.value.update(stage=stage, stage_source="actual Cargo descendant /proc identity", stage_observed_at=time.time())
+                        self.value.update(
+                            stage=stage,
+                            stage_source="actual Cargo descendant /proc identity",
+                            stage_observed_at=time.time(),
+                        )
                     break
-            for directory in (self.path.parents[2], self.path.parents[1], self.path.parent):
+            for directory in (
+                self.path.parents[2],
+                self.path.parents[1],
+                self.path.parent,
+            ):
                 host_admission.protected(directory)
-            native_operation.write_json(self.path, {**self.value, "observed_at": time.time()})
+            native_operation.write_json(
+                self.path, {**self.value, "observed_at": time.time()}
+            )
             self.last = now
         except (OSError, ValueError):
             pass  # Diagnostics cannot change Cargo's exit or compilation policy.
@@ -100,7 +164,9 @@ class BuildObservation:
 
 def run_command(command: list[str], *, env: dict[str, str]) -> int:
     """Preserve both byte streams and the command's exit while observing records."""
-    with subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as child:
+    with subprocess.Popen(
+        command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    ) as child:
         try:
             observation = BuildObservation(child.pid, env)
         except (OSError, ValueError):
@@ -129,7 +195,7 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
                         line, buffers[name] = buffers[name].split(b"\n", 1)
                         if observation is not None:
                             observation.message(line, name)
-                    buffers[name] = buffers[name][-1024 * 1024:]
+                    buffers[name] = buffers[name][-1024 * 1024 :]
                 if observation is not None:
                     observation.publish()
         code = child.wait()
@@ -143,13 +209,17 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
 def observations(directory: Path) -> list[dict]:
     area = directory / "observations" / "build"
     result = []
-    for path in sorted(area.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)[:100]:
+    for path in sorted(
+        area.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True
+    )[:100]:
         value = resource_store.read(path)
         if value.get("version") != 1 or value.get("attempt") != path.stem:
             raise ValueError("invalid build observation")
         value["age_seconds"] = max(0, time.time() - value["observed_at"])
         value["caller_alive"] = host_admission.caller_alive(value)
         if "stage_observed_at" in value:
-            value["stage_age_seconds"] = max(0, time.time() - value["stage_observed_at"])
+            value["stage_age_seconds"] = max(
+                0, time.time() - value["stage_observed_at"]
+            )
         result.append(value)
     return result

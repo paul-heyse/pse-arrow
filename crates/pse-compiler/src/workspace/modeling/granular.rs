@@ -433,9 +433,20 @@ impl Phases for Driver<'_> {
         };
         use salsa::plumbing::{AsId, ZalsaDatabase};
         let key = parsed::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(input.as_id());
-        label_query(&db, key, "declaration.parsed", SemanticId::from(row.declaration_id));
-        let key = signature_syntax::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(input.as_id());
-        label_query(&db, key, "declaration.signature_syntax", SemanticId::from(row.declaration_id));
+        label_query(
+            &db,
+            key,
+            "declaration.parsed",
+            SemanticId::from(row.declaration_id),
+        );
+        let key = signature_syntax::fn_ingredient_(&**db, (**db).zalsa())
+            .database_key_index(input.as_id());
+        label_query(
+            &db,
+            key,
+            "declaration.signature_syntax",
+            SemanticId::from(row.declaration_id),
+        );
         parsed(&**db, input).map_err(modeling_error)
     }
     fn inventory(
@@ -534,7 +545,12 @@ impl Phases for Driver<'_> {
         };
         use salsa::plumbing::{AsId, ZalsaDatabase};
         let key = resolved::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(input.as_id());
-        label_query(&db, key, "declaration.resolved", SemanticId::from(row.declaration_id));
+        label_query(
+            &db,
+            key,
+            "declaration.resolved",
+            SemanticId::from(row.declaration_id),
+        );
         typed(&**db, self.inventory, input)
             .map(|p| p.as_ref().clone())
             .map_err(modeling_error)
@@ -633,8 +649,20 @@ impl Phases for Driver<'_> {
                 input
             };
             use salsa::plumbing::{AsId, ZalsaDatabase};
-            let query = occurrence::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(input.as_id());
-            label_query(&db, query, "expression.occurrence", format!("{}:{}:{}:{}", key.declaration, key.role.len(), key.role, key.position));
+            let query =
+                occurrence::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(input.as_id());
+            label_query(
+                &db,
+                query,
+                "expression.occurrence",
+                format!(
+                    "{}:{}:{}:{}",
+                    key.declaration,
+                    key.role.len(),
+                    key.role,
+                    key.position
+                ),
+            );
             output.insert(key, occurrence(&**db, input));
         }
         package.set_bound_occurrences(output);
@@ -671,8 +699,14 @@ impl Phases for Driver<'_> {
                 phase
             };
             use salsa::plumbing::{AsId, ZalsaDatabase};
-            let query = expression_references::fn_ingredient_(&**db, (**db).zalsa()).database_key_index(phase.as_id());
-            label_query(&db, query, "declaration.expression_references", SemanticId::from(id));
+            let query = expression_references::fn_ingredient_(&**db, (**db).zalsa())
+                .database_key_index(phase.as_id());
+            label_query(
+                &db,
+                query,
+                "declaration.expression_references",
+                SemanticId::from(id),
+            );
             references.insert(id, expression_references(&**db, phase));
         }
         let mut products = phases::expressions::Product::default();

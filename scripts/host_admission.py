@@ -1594,18 +1594,35 @@ class AdmissionCheckpoint:
     """Derived diagnostic image, never consulted by admission decisions."""
 
     def __init__(self, directory: Path, profile: Profile, deadline: float) -> None:
-        self.path = directory / "observations" / "admission" / (uuid.uuid4().hex + ".json")
-        self.identity = {"version": 1, "attempt": self.path.stem, "pid": os.getpid(),
-                         "start": operation.start_identity(os.getpid()), "boot": boot(),
-                         "profile": profile.name, "deadline": deadline,
-                         "invocation_declaration": os.environ.get("PSE_TEST_INVOCATION")}
+        self.path = (
+            directory / "observations" / "admission" / (uuid.uuid4().hex + ".json")
+        )
+        self.identity = {
+            "version": 1,
+            "attempt": self.path.stem,
+            "pid": os.getpid(),
+            "start": operation.start_identity(os.getpid()),
+            "boot": boot(),
+            "profile": profile.name,
+            "deadline": deadline,
+            "invocation_declaration": os.environ.get("PSE_TEST_INVOCATION"),
+        }
         self.previous: object = None
         self.last = 0.0
 
-    def publish(self, status: str, reason: str | None, owners: Mapping[str, object] | None = None,
-                allocation: str | None = None) -> None:
-        facts = {"status": status, "reason": reason, "conflicting_owners": dict(owners or {}),
-                 "allocation": allocation}
+    def publish(
+        self,
+        status: str,
+        reason: str | None,
+        owners: Mapping[str, object] | None = None,
+        allocation: str | None = None,
+    ) -> None:
+        facts = {
+            "status": status,
+            "reason": reason,
+            "conflicting_owners": dict(owners or {}),
+            "allocation": allocation,
+        }
         now = time.monotonic()
         if facts == self.previous and now - self.last < 5:
             return
@@ -1614,19 +1631,32 @@ class AdmissionCheckpoint:
             protected(self.path.parents[2])
             protected(self.path.parents[1])
             protected(self.path.parent)
-            operation.write_json(self.path, {**self.identity, **facts, "observed_monotonic": now,
-                                            "observed_at": time.time()})
+            operation.write_json(
+                self.path,
+                {
+                    **self.identity,
+                    **facts,
+                    "observed_monotonic": now,
+                    "observed_at": time.time(),
+                },
+            )
         except (OSError, AdmissionError):
             return
         self.previous, self.last = facts, now
 
 
-def admission_observations(directory: Path, *, attempt: str | None = None) -> list[dict]:
+def admission_observations(
+    directory: Path, *, attempt: str | None = None
+) -> list[dict]:
     """Detached atomic producer checkpoints; no startup, locks or reconciliation."""
     if attempt is not None and not re.fullmatch(r"[a-f0-9]{32}", attempt):
         raise AdmissionError("Invalid exact admission attempt")
     area = directory / "observations" / "admission"
-    paths = [area / (attempt + ".json")] if attempt is not None else sorted(area.glob("*.json"))[-100:]
+    paths = (
+        [area / (attempt + ".json")]
+        if attempt is not None
+        else sorted(area.glob("*.json"))[-100:]
+    )
     result = []
     for path in paths:
         value = resource_store.read(path)
@@ -1713,7 +1743,11 @@ def acquire(
                     }
                     selected = Allocation(directory, nonce, profile, deadline)
             if selected is not None:
-                checkpoint.publish("parking" if profile.exclusive and parkable else "admitted", None, allocation=selected.nonce)
+                checkpoint.publish(
+                    "parking" if profile.exclusive and parkable else "admitted",
+                    None,
+                    allocation=selected.nonce,
+                )
                 if profile.exclusive and parkable:
                     from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
                         surreal_server,
@@ -1751,11 +1785,22 @@ def acquire(
                         )
                     except Exception:
                         selected.release()
-                        checkpoint.publish("failed", "service parking failed", allocation=selected.nonce)
+                        checkpoint.publish(
+                            "failed",
+                            "service parking failed",
+                            allocation=selected.nonce,
+                        )
                         raise
                 checkpoint.publish("admitted", None, allocation=selected.nonce)
                 return selected
-            checkpoint.publish("waiting", reason, {nonce: {"class": owner["class"], "units": owner["units"]} for nonce, owner in competing.items()})
+            checkpoint.publish(
+                "waiting",
+                reason,
+                {
+                    nonce: {"class": owner["class"], "units": owner["units"]}
+                    for nonce, owner in competing.items()
+                },
+            )
         time.sleep(min(0.1, max(0, deadline - time.monotonic())))
     checkpoint.publish("expired", reason)
     raise AdmissionError(f"Admission deadline exhausted: {reason}")

@@ -29,9 +29,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
 
-mod codegen;
 #[cfg(feature = "canonical-tools")]
 mod canonical_diagnostics;
+mod codegen;
 mod dependency_ceilings;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
@@ -294,13 +294,31 @@ fn main() -> Result<()> {
             Ok(())
         }
         #[cfg(feature = "canonical-tools")]
-        Cmd::CanonicalGraphInspect { state, database, request, explain, experiment } => {
+        Cmd::CanonicalGraphInspect {
+            state,
+            database,
+            request,
+            explain,
+            experiment,
+        } => {
             canonical_diagnostics::graph(&state, database.as_deref(), &request, explain, experiment)
         }
         #[cfg(feature = "canonical-tools")]
-        Cmd::CanonicalQueryInspect { state, database, study, after, experiment, describe_only } => {
-            canonical_diagnostics::inspect(&state, database.as_deref(), &study, after, experiment, describe_only)
-        }
+        Cmd::CanonicalQueryInspect {
+            state,
+            database,
+            study,
+            after,
+            experiment,
+            describe_only,
+        } => canonical_diagnostics::inspect(
+            &state,
+            database.as_deref(),
+            &study,
+            after,
+            experiment,
+            describe_only,
+        ),
         #[cfg(feature = "canonical-tools")]
         Cmd::CanonicalValidateDefinitions { state, schema } => {
             canonical_maintenance(&state, None, &schema)

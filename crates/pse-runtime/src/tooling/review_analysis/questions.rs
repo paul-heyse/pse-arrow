@@ -227,7 +227,8 @@ pub(super) fn operations(
 }
 pub(super) fn family_question(family: &str) -> Option<Q> {
     match family {
-        "compiler_query.v1" => Some(Q::Preparation),        "evaluator_demand_batch.v1" | "evaluator_demand.v1" | "evaluator_census.v1" => {
+        "compiler_query.v1" => Some(Q::Preparation),
+        "evaluator_demand_batch.v1" | "evaluator_demand.v1" | "evaluator_census.v1" => {
             Some(Q::EvaluatorWork)
         }
         "root_raw_map.v1"
@@ -413,7 +414,14 @@ pub(super) fn records(
             .collect::<Vec<_>>()
             .join("; ");
         let message = match q {
-            Q::Preparation => format!("Actual compiler {} event: query family {:?}, semantic subject {:?}, workspace generation {:?}. {}. An unmapped event stays unattributed. Execution is not a proved cache-miss cause; validation is not root-wide preparation or a duration.", event.record.phase, field_text(event, "query_family"), field_text(event, "semantic_subject"), field_count(event, "workspace_generation"), values),
+            Q::Preparation => format!(
+                "Actual compiler {} event: query family {:?}, semantic subject {:?}, workspace generation {:?}. {}. An unmapped event stays unattributed. Execution is not a proved cache-miss cause; validation is not root-wide preparation or a duration.",
+                event.record.phase,
+                field_text(event, "query_family"),
+                field_text(event, "semantic_subject"),
+                field_count(event, "workspace_generation"),
+                values
+            ),
             Q::EvaluatorWork => format!(
                 "Actual {} event, demand {:?}, requested_order {:?}: {}. Batch increments and per-row cumulative histories are separate; these populations are never added together.",
                 event.record.family,

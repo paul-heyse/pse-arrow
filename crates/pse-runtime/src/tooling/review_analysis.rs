@@ -15,8 +15,8 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-mod physical;
 mod comparison;
+mod physical;
 mod preparation;
 mod questions;
 pub(crate) mod render;

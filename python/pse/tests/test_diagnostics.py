@@ -1088,17 +1088,21 @@ def _reproducer_text_request(
     settings: pse.EngineSettings,
 ) -> documents.ReproducerExtractionRequest:
     policy = codec.decode_json(
-        (Path(__file__).resolve().parents[3]
-         / "packages/reference/diagnostics/idaes-2.13.json").read_bytes(),
+        (
+            Path(__file__).resolve().parents[3]
+            / "packages/reference/diagnostics/idaes-2.13.json"
+        ).read_bytes(),
         documents.ModelingDiagnosticPolicy,
     )
     operation = documents.DiagnosticExecutionRequest(
         physical_documents={"package.toml": "[package]\nnot a valid manifest"},
-        model_documents=({
-            "models/original.pse": (
-                "package original {def Root {var x:Scalar;eq e:x==1;}}"
-            )
-        },),
+        model_documents=(
+            {
+                "models/original.pse": (
+                    "package original {def Root {var x:Scalar;eq e:x==1;}}"
+                )
+            },
+        ),
         case_id=SemanticId.from_hex("ab" * 16),
         settings=pse.SolveSettings(),
         diagnostics=msgspec.convert(
@@ -1109,19 +1113,21 @@ def _reproducer_text_request(
         maximum_source_bytes=4 << 20,
     )
     return codec.decode_json(
-        codec.encode_json({
-            "version": 1,
-            "runtime": {
-                "memory_limit_bytes": settings.memory_limit_bytes,
-                "threads": settings.threads,
-                "spill_dir": settings.spill_dir,
-                "max_spill_bytes": settings.max_spill_bytes,
-                "batch_size": settings.batch_size,
-            },
-            "input": {"family": "original_text", "request": operation},
-            "original_diagnostic": None,
-            "predicate": None,
-        }),
+        codec.encode_json(
+            {
+                "version": 1,
+                "runtime": {
+                    "memory_limit_bytes": settings.memory_limit_bytes,
+                    "threads": settings.threads,
+                    "spill_dir": settings.spill_dir,
+                    "max_spill_bytes": settings.max_spill_bytes,
+                    "batch_size": settings.batch_size,
+                },
+                "input": {"family": "original_text", "request": operation},
+                "original_diagnostic": None,
+                "predicate": None,
+            }
+        ),
         documents.ReproducerExtractionRequest,
     )
 
@@ -1142,9 +1148,18 @@ def test_reproducer_cli_extraction_is_offline_and_keeps_actual_source_text(
         pytest.fail("offline extraction must not construct or execute a runtime")
 
     monkeypatch.setattr(diagnostics, "_diagnostic_runtime", no_runtime)
-    assert diagnostics.main([
-        "extract-reproducer", "--request", str(source), "--output", str(destination)
-    ]) == 0
+    assert (
+        diagnostics.main(
+            [
+                "extract-reproducer",
+                "--request",
+                str(source),
+                "--output",
+                str(destination),
+            ]
+        )
+        == 0
+    )
     extracted = codec.decode_json(
         destination.read_bytes(), documents.ReproducerCommandRequest
     )
@@ -1194,9 +1209,18 @@ def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_compariso
     # The driver is an explicit new process; its deployment defaults must not be
     # mixed with this fixture's already configured process-wide resource owner.
     completed = subprocess.run(
-        [sys.executable, "-m", "pse.diagnostics", "reproduce",
-         "--request", str(driver), "--json"],
-        check=False, capture_output=True, timeout=30,
+        [
+            sys.executable,
+            "-m",
+            "pse.diagnostics",
+            "reproduce",
+            "--request",
+            str(driver),
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        timeout=30,
     )
     assert completed.returncode == 0, completed.stderr.decode()
     result = codec.decode_json(completed.stdout, documents.ReproductionDocumentOutput)

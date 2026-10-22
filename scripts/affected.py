@@ -115,7 +115,11 @@ def main(argv: list[str] | None = None) -> int:
         "--base", default="HEAD", help="compare the working tree to REF"
     )
     parser.add_argument("--run", action="store_true", help="run the selection")
-    parser.add_argument("--json", action="store_true", help="structured preview with the same selection and exclusions")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="structured preview with the same selection and exclusions",
+    )
     parser.add_argument("--features", default="", help="extra cargo features")
     parser.add_argument("nextest", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
@@ -156,16 +160,38 @@ def main(argv: list[str] | None = None) -> int:
         command = compose(command)
     native = sorted(NATIVE_PACKAGES & set(selected))
     exclusions = [
-        {"kind": "feature-gated-native", "packages": native, "route": "--features " + NATIVE_FEATURES},
-        {"kind": "python", "files": python, "route": "just py-unit; just py-test for components"},
-        {"kind": "generator", "files": generators, "route": "just codegen; just codegen-check at scope end"},
+        {
+            "kind": "feature-gated-native",
+            "packages": native,
+            "route": "--features " + NATIVE_FEATURES,
+        },
+        {
+            "kind": "python",
+            "files": python,
+            "route": "just py-unit; just py-test for components",
+        },
+        {
+            "kind": "generator",
+            "files": generators,
+            "route": "just codegen; just codegen-check at scope end",
+        },
         {"kind": "unowned", "files": unowned},
-        {"kind": "dynamic", "meaning": "data, fixtures and external-process reach is not inferred"},
+        {
+            "kind": "dynamic",
+            "meaning": "data, fixtures and external-process reach is not inferred",
+        },
     ]
-    result = {"schema": "affected-preview-v1", "base": args.base, "changes": changes,
-              "changed_packages": sorted(seeds), "selected_packages": selected,
-              "workspace_widening": wide, "command": command if seeds or wide else None,
-              "exclusions": exclusions, "qualification": "dependency reach only; not exhaustive behavior coverage"}
+    result = {
+        "schema": "affected-preview-v1",
+        "base": args.base,
+        "changes": changes,
+        "changed_packages": sorted(seeds),
+        "selected_packages": selected,
+        "workspace_widening": wide,
+        "command": command if seeds or wide else None,
+        "exclusions": exclusions,
+        "qualification": "dependency reach only; not exhaustive behavior coverage",
+    }
     if args.json:
         print(json.dumps(result, sort_keys=True))
     else:
@@ -173,7 +199,10 @@ def main(argv: list[str] | None = None) -> int:
         print("affected: changed packages: " + (", ".join(sorted(seeds)) or "none"))
         print(f"affected: selected packages: {len(selected)}")
         if wide:
-            print("affected: root configuration widens to workspace: " + ", ".join(wide[:5]))
+            print(
+                "affected: root configuration widens to workspace: "
+                + ", ".join(wide[:5])
+            )
         print("not covered by this selection:")
         for exclusion in exclusions:
             print("  - " + json.dumps(exclusion))

@@ -63,8 +63,8 @@ mod traversal;
 pub use observation::{
     CopiedExecutionSnapshot, CopiedExecutionStatus, CopiedObservationPolicy, CopiedPlanObservation,
     ExecutionSnapshot, LiveExecutionSnapshot, MetricKind, MetricUnit, ObservedMetric,
-    ObservedPhysicalGraph, ObservedPhysicalNode, ObservedPhysicalEdge, PhysicalGraphComparison, PhysicalNodeMatch,
-    PlanObservation,
+    ObservedPhysicalEdge, ObservedPhysicalGraph, ObservedPhysicalNode, PhysicalGraphComparison,
+    PhysicalNodeMatch, PlanObservation,
 };
 pub use preparation::{
     CompletedComputation, DiagnosticSample, OwnedComputationStream, PreparedComputation,

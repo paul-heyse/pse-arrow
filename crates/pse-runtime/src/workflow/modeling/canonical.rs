@@ -2943,7 +2943,7 @@ impl Runtime {
         let mut physical_scope: PhysicalScope = decode(&physical_object.payload)?;
         if let Some(documents) = &mut physical_scope.documents {
             for object in &document.objects {
-            checkpoint(cancel)?;
+                checkpoint(cancel)?;
                 if object.kind == "physical_scope_document" {
                     let member: PhysicalScope = decode(&object.payload)?;
                     if member.package != physical_scope.package {

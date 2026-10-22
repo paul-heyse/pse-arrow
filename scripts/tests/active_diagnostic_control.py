@@ -14,7 +14,7 @@ from pathlib import Path
 
 from scripts import active_diagnostics
 
-SOURCE = r'''#include <stdlib.h>
+SOURCE = r"""#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -47,16 +47,36 @@ int main(int argc,char **argv){
  allocate_retained(); allocate_temporary(); known_cpu(); usleep(100000);
  pthread_mutex_unlock(&mutex); pthread_join(thread,NULL); return 0;
 }
-'''
+"""
 
 
-def action(root: Path, name: str, kind: str, command: list[str] | None = None, options: list[str] | None = None) -> dict:
+def action(
+    root: Path,
+    name: str,
+    kind: str,
+    command: list[str] | None = None,
+    options: list[str] | None = None,
+) -> dict:
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
-        code = active_diagnostics.main([kind, "--output", str(root / name), *(options or []), *(["--", *command] if command else [])])
+        code = active_diagnostics.main(
+            [
+                kind,
+                "--output",
+                str(root / name),
+                *(options or []),
+                *(["--", *command] if command else []),
+            ]
+        )
     value = json.loads(output.getvalue())
-    return {"action": name, "reader": str(root / name / "action.json"), "adapter_exit": code,
-            "status": value.get("status"), "target_outcome": value.get("target_outcome"), "error": value.get("error")}
+    return {
+        "action": name,
+        "reader": str(root / name / "action.json"),
+        "adapter_exit": code,
+        "status": value.get("status"),
+        "target_outcome": value.get("target_outcome"),
+        "error": value.get("error"),
+    }
 
 
 def native(root: Path) -> list[dict]:
@@ -64,15 +84,54 @@ def native(root: Path) -> list[dict]:
     source.write_text(SOURCE)
     executable = root / "native-control"
     library = root / "ffi-control.so"
-    subprocess.run(["cc", "-O0", "-g", "-fno-omit-frame-pointer", "-pthread", str(source), "-o", str(executable)], check=True)
-    subprocess.run(["cc", "-O0", "-g", "-fno-omit-frame-pointer", "-fPIC", "-shared", "-pthread", str(source), "-o", str(library)], check=True)
-    ffi = [sys.executable, "-c", "import ctypes,sys; ctypes.CDLL(sys.argv[1]).crash_native()", str(library)]
-    return [action(root, "gdb-native", "gdb-launch", [str(executable), "crash"]),
-            action(root, "gdb-python-ffi", "gdb-launch", ffi, ["--faulthandler"]),
-            action(root, "native-allocations", "heaptrack", [str(executable)]),
-            action(root, "scheduler", "sched", [str(executable)]),
-            action(root, "counters", "stat", [str(executable)], ["--events", "cycles:u,instructions:u,branches:u,branch-misses:u"]),
-            action(root, "feasibility", "feasibility")]
+    subprocess.run(
+        [
+            "cc",
+            "-O0",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-pthread",
+            str(source),
+            "-o",
+            str(executable),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "cc",
+            "-O0",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-fPIC",
+            "-shared",
+            "-pthread",
+            str(source),
+            "-o",
+            str(library),
+        ],
+        check=True,
+    )
+    ffi = [
+        sys.executable,
+        "-c",
+        "import ctypes,sys; ctypes.CDLL(sys.argv[1]).crash_native()",
+        str(library),
+    ]
+    return [
+        action(root, "gdb-native", "gdb-launch", [str(executable), "crash"]),
+        action(root, "gdb-python-ffi", "gdb-launch", ffi, ["--faulthandler"]),
+        action(root, "native-allocations", "heaptrack", [str(executable)]),
+        action(root, "scheduler", "sched", [str(executable)]),
+        action(
+            root,
+            "counters",
+            "stat",
+            [str(executable)],
+            ["--events", "cycles:u,instructions:u,branches:u,branch-misses:u"],
+        ),
+        action(root, "feasibility", "feasibility"),
+    ]
 
 
 def main() -> int:

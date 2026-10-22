@@ -19,14 +19,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def session_description(
-    *, state: Path | None, database: bool, rust: bool,
-    require_database: bool, require_rust: bool, arguments: list[str],
-    python: bool = True, require_python: bool = False,
+    *,
+    state: Path | None,
+    database: bool,
+    rust: bool,
+    require_database: bool,
+    require_rust: bool,
+    arguments: list[str],
+    python: bool = True,
+    require_python: bool = False,
 ) -> tuple[list[str], dict[str, object]]:
     """Observe existing capabilities only; never start, build or reconcile anything."""
     executable = shutil.which("codex")
     if executable is None:
-        raise ValueError("Codex is unavailable; prepare the workstation Codex installation")
+        raise ValueError(
+            "Codex is unavailable; prepare the workstation Codex installation"
+        )
     command = [executable, "-C", str(ROOT)]
     interpreter = ROOT / ".venv/bin/python"
     interpreter_available = interpreter.is_file()
@@ -37,62 +45,121 @@ def session_description(
     rust_available = False
     if rust:
         analyzer = shutil.which("rust-analyzer")
-        available = interpreter_available and analyzer is not None and diagnostic_trace.binary_path("mcpls").is_file()
+        available = (
+            interpreter_available
+            and analyzer is not None
+            and diagnostic_trace.binary_path("mcpls").is_file()
+        )
         rust_available = available
         capabilities["rust"] = {
-            "requested": True, "available": available, "attached": "not observed",
+            "requested": True,
+            "available": available,
+            "attached": "not observed",
             "repair": "prepare checkout .venv, pinned mcpls and the pinned rustup rust-analyzer component",
             "coverage": "maintained LSP bridge includes references, implementations and call hierarchy; request readiness remains explicit",
         }
         if require_rust and not available:
             raise ValueError("Required rust-analyzer navigation is unavailable")
-    command += ["-c", "mcp_servers.rust-analyzer.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
-                "-c", 'mcp_servers.rust-analyzer.args=["-m","scripts.semantic_navigation","serve","--language","rust"]',
-                "-c", "mcp_servers.rust-analyzer.cwd=" + json.dumps(str(ROOT))]
-    command += ["-c", "mcp_servers.rust-analyzer.enabled=" + str(rust_available).lower()]
-    python_available = python and interpreter_available and diagnostic_trace.binary_path("mcpls").is_file() and (ROOT / ".venv/bin/pyrefly").is_file()
-    capabilities["python"] = {"requested": python, "available": python_available, "attached": "not observed",
-                              "repair": "explicitly install pinned mcpls and sync checkout Pyrefly; python -m scripts.semantic_navigation describe"}
+    command += [
+        "-c",
+        "mcp_servers.rust-analyzer.command="
+        + json.dumps(str(ROOT / ".venv/bin/python")),
+        "-c",
+        'mcp_servers.rust-analyzer.args=["-m","scripts.semantic_navigation","serve","--language","rust"]',
+        "-c",
+        "mcp_servers.rust-analyzer.cwd=" + json.dumps(str(ROOT)),
+    ]
+    command += [
+        "-c",
+        "mcp_servers.rust-analyzer.enabled=" + str(rust_available).lower(),
+    ]
+    python_available = (
+        python
+        and interpreter_available
+        and diagnostic_trace.binary_path("mcpls").is_file()
+        and (ROOT / ".venv/bin/pyrefly").is_file()
+    )
+    capabilities["python"] = {
+        "requested": python,
+        "available": python_available,
+        "attached": "not observed",
+        "repair": "explicitly install pinned mcpls and sync checkout Pyrefly; python -m scripts.semantic_navigation describe",
+    }
     if require_python and not python_available:
         raise ValueError("Required Pyrefly navigation is unavailable")
     command += ["-c", "mcp_servers.pse-python.enabled=" + str(python_available).lower()]
     # Codex validates a transport even for a disabled declaration.
-    command += ["-c", "mcp_servers.pse-python.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
-                    "-c", 'mcp_servers.pse-python.args=["-m","scripts.semantic_navigation","serve"]',
-                    "-c", "mcp_servers.pse-python.cwd=" + json.dumps(str(ROOT)),
-                "-c", "mcp_servers.pse-python.required=" + str(require_python).lower()]
+    command += [
+        "-c",
+        "mcp_servers.pse-python.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
+        "-c",
+        'mcp_servers.pse-python.args=["-m","scripts.semantic_navigation","serve"]',
+        "-c",
+        "mcp_servers.pse-python.cwd=" + json.dumps(str(ROOT)),
+        "-c",
+        "mcp_servers.pse-python.required=" + str(require_python).lower(),
+    ]
 
     def require_interpreter() -> None:
         if not interpreter_available:
-            raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
+            raise ValueError(
+                "selected checkout .venv/bin/python is unavailable; prepare this checkout's environment"
+            )
 
     if database:
-        selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
+        selected_state = state or Path(
+            pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"]
+        )
         deadline = time.monotonic() + 8.0
         try:
             require_interpreter()
             selected = surreal_server.selected_service(selected_state, deadline)
             endpoint = f"http://127.0.0.1:{selected.port}/mcp"
-            helper = shlex.join([
-                str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/surreal_server.py"),
-                "mcp-headers", "--state", str(selected.state), "--expected-endpoint", endpoint,
-                "--expected-selection", selected.selection_fence,
-            ])
-            command += ["-c", "mcp_servers.pse-surreal.enabled=true",
-                        "-c", "mcp_servers.pse-surreal.url=" + json.dumps(endpoint),
-                        "-c", "mcp_servers.pse-surreal.http_headers_helper=" + json.dumps(helper),
-                        "-c", 'mcp_servers.pse-surreal.enabled_tools=["info","list","query"]',
-                        "-c", "mcp_servers.pse-surreal.required=" + str(require_database).lower()]
+            helper = shlex.join(
+                [
+                    str(ROOT / ".venv/bin/python"),
+                    str(ROOT / "scripts/surreal_server.py"),
+                    "mcp-headers",
+                    "--state",
+                    str(selected.state),
+                    "--expected-endpoint",
+                    endpoint,
+                    "--expected-selection",
+                    selected.selection_fence,
+                ]
+            )
+            command += [
+                "-c",
+                "mcp_servers.pse-surreal.enabled=true",
+                "-c",
+                "mcp_servers.pse-surreal.url=" + json.dumps(endpoint),
+                "-c",
+                "mcp_servers.pse-surreal.http_headers_helper=" + json.dumps(helper),
+                "-c",
+                'mcp_servers.pse-surreal.enabled_tools=["info","list","query"]',
+                "-c",
+                "mcp_servers.pse-surreal.required=" + str(require_database).lower(),
+            ]
             selected.recheck(deadline)
-            capabilities["database"] = {"requested": True, "available": True,
-                                        "attached": "not observed", "identity": selected.identity}
+            capabilities["database"] = {
+                "requested": True,
+                "available": True,
+                "attached": "not observed",
+                "identity": selected.identity,
+            }
         except (OSError, ValueError, surreal_server.SupervisorError) as error:
             if require_database:
-                raise ValueError(f"Required selected database is unavailable: {error}") from error
+                raise ValueError(
+                    f"Required selected database is unavailable: {error}"
+                ) from error
             command += ["-c", "mcp_servers.pse-surreal.enabled=false"]
-            capabilities["database"] = {"requested": True, "available": False,
-                                        "attached": "not observed", "reason": str(error),
-                                        "repair": f"inspect the selected state with just surreal status --state {shlex.quote(str(selected_state))}"}
+            capabilities["database"] = {
+                "requested": True,
+                "available": False,
+                "attached": "not observed",
+                "reason": str(error),
+                "repair": f"inspect the selected state with just surreal status --state {shlex.quote(str(selected_state))}",
+            }
     else:
         command += ["-c", "mcp_servers.pse-surreal.enabled=false"]
     if require_rust:
@@ -100,8 +167,10 @@ def session_description(
     # Explicit caller overrides remain last. These strings are argv data, never shell code.
     command += arguments
     return command, {
-        "schema": "codex-selected-session-v1", "checkout": str(ROOT),
-        "capabilities": capabilities, "caller_overrides": bool(arguments),
+        "schema": "codex-selected-session-v1",
+        "checkout": str(ROOT),
+        "capabilities": capabilities,
+        "caller_overrides": bool(arguments),
         "attachment": "requires a real client interaction; process spawn is not attachment",
     }
 
@@ -117,16 +186,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--require-rust", action="store_true")
     parser.add_argument("--explain", action="store_true")
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("arguments", nargs=argparse.REMAINDER, help="literal Codex arguments after --")
+    parser.add_argument(
+        "arguments", nargs=argparse.REMAINDER, help="literal Codex arguments after --"
+    )
     args = parser.parse_args(argv)
-    if (args.require_database and args.without_database) or (args.require_rust and args.without_rust) or (args.require_python and args.without_python):
+    if (
+        (args.require_database and args.without_database)
+        or (args.require_rust and args.without_rust)
+        or (args.require_python and args.without_python)
+    ):
         parser.error("a required capability cannot also be disabled")
     trailing = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
     try:
         command, description = session_description(
-            state=args.state, database=not args.without_database, rust=not args.without_rust,
-            require_database=args.require_database, require_rust=args.require_rust, arguments=trailing,
-            python=not args.without_python, require_python=args.require_python,
+            state=args.state,
+            database=not args.without_database,
+            rust=not args.without_rust,
+            require_database=args.require_database,
+            require_rust=args.require_rust,
+            arguments=trailing,
+            python=not args.without_python,
+            require_python=args.require_python,
         )
     except (OSError, ValueError) as error:
         print(f"codex-session: {error}", file=sys.stderr)

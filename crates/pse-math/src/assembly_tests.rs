@@ -4268,17 +4268,36 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
         );
         assert_eq!(read(value, "math.demand.achieved_first"), Value::Count(1));
     }
-    let census = records.iter().filter(|record| record.family == "evaluator_census.v1").collect::<Vec<_>>();
+    let census = records
+        .iter()
+        .filter(|record| record.family == "evaluator_census.v1")
+        .collect::<Vec<_>>();
     assert!(!census.is_empty());
-    assert!(census.iter().all(|record| read(record,"demand_coordinates") == Value::Text("0,1".into())));
-    let output_selections = census.iter().map(|record| match read(record,"demand_outputs") {
-        Value::Text(outputs) => outputs,
-        other => panic!("actual formal output selection missing: {other:?}"),
-    }).collect::<std::collections::BTreeSet<_>>();
+    assert!(
+        census
+            .iter()
+            .all(|record| read(record, "demand_coordinates") == Value::Text("0,1".into()))
+    );
+    let output_selections = census
+        .iter()
+        .map(|record| match read(record, "demand_outputs") {
+            Value::Text(outputs) => outputs,
+            other => panic!("actual formal output selection missing: {other:?}"),
+        })
+        .collect::<std::collections::BTreeSet<_>>();
     // The authored fixture requests product output 0 for the objective, sum
     // output 1 for the row, and their joint population for the All demand.
-    assert_eq!(output_selections,std::collections::BTreeSet::from(["0".to_owned(),"1".to_owned(),"0,1".to_owned()]));
-    assert!(census.iter().all(|record| matches!(read(record,"arithmetic_input_entries"),Value::Count(_)) && matches!(read(record,"arithmetic_output_entries"),Value::Count(_))));
+    assert_eq!(
+        output_selections,
+        std::collections::BTreeSet::from(["0".to_owned(), "1".to_owned(), "0,1".to_owned()])
+    );
+    assert!(census.iter().all(|record| matches!(
+        read(record, "arithmetic_input_entries"),
+        Value::Count(_)
+    ) && matches!(
+        read(record, "arithmetic_output_entries"),
+        Value::Count(_)
+    )));
     assert!(
         records
             .iter()
