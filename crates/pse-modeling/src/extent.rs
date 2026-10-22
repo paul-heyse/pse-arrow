@@ -276,6 +276,16 @@ impl Value {
             }
     }
 }
+impl crate::check::SharedPackageInputs {
+    /// Known heap extents in quantities, preconditions, scope and physical-type order.
+    /// Inline Arc fields are accounted by their database ingredient owner.
+    pub fn retained_extents(&self)->[usize;4] {
+        [self.quantities.allocation_extent(),
+         self.preconditions.declarations().iter().map(|value|size_of::<pse_quantity::PhysicalPrecondition>()+value.operand_positions.capacity()*size_of::<u16>()).sum(),
+         self.scope.package.as_ref().map_or(0,String::capacity)+self.scope.documents.as_ref().map_or(0,|documents|documents.len()*(size_of::<pse_ids::SemanticId>()+32)),
+         map(&self.physical_types,|name,value|name.capacity()+ty(value))]
+    }
+}
 impl CheckedPackage {
     /// Count this package's owned maps and each physically shared lexical/registry
     /// allocation once across the current compiler input census. Per-owner extents
@@ -320,6 +330,12 @@ impl CheckedPackage {
         if census.include_shared(&self.lexical_index) {
             census.add(lexical_index);
         }
+    }
+    /// Owned local package storage when each shared registry input has an
+    /// independently retained, uniquely counted owner.
+    pub fn retained_bytes_excluding_shared_inputs(&self)->usize {
+        let shared=self.shared_inputs();
+        self.retained_bytes().saturating_sub(shared.retained_extents().into_iter().sum())
     }
     /// Conservative owned declaration, table, type and lookup storage.
     pub fn retained_bytes(&self) -> usize {

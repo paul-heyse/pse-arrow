@@ -183,6 +183,35 @@ pub struct CheckedPackage {
     pub(crate) test_only_data: BTreeSet<DeclarationId>,
 }
 
+/// Physically shared registry inputs retained independently from local package maps.
+/// Canonicalizing equal inputs allows a query database to charge each live owner once.
+#[derive(Clone,Debug,PartialEq)]
+pub struct SharedPackageInputs {
+    /// Admitted physical quantity registry.
+    pub quantities:Arc<pse_quantity::QuantityRegistry>,
+    /// Admitted physical operation prerequisites.
+    pub preconditions:Arc<pse_quantity::PhysicalPreconditions>,
+    /// Document visibility and physical package scope.
+    pub scope:Arc<crate::PhysicalScope>,
+    /// Generated physical name/type bindings.
+    pub physical_types:Arc<BTreeMap<String,Type>>,
+}
+impl CheckedPackage {
+    /// Borrow the shared registry owners separately from this package's local maps.
+    pub fn shared_inputs(&self)->SharedPackageInputs {
+        SharedPackageInputs {quantities:self.quantities.clone(),preconditions:self.preconditions.clone(),scope:self.scope.clone(),physical_types:self.physical_types.clone()}
+    }
+    /// Rebind only equal registry inputs to canonical immutable owners.
+    /// # Errors
+    /// A caller attempts to change an already admitted package's physical meaning.
+    pub fn canonicalize_shared_inputs(&mut self,shared:&SharedPackageInputs)->Result<()> {
+        if self.quantities!=shared.quantities || self.preconditions!=shared.preconditions || self.scope!=shared.scope || self.physical_types!=shared.physical_types {
+            return Err(invalid(SemanticId::NIL,"canonical package input changes admitted physical meaning"));
+        }
+        self.quantities=shared.quantities.clone();self.preconditions=shared.preconditions.clone();self.scope=shared.scope.clone();self.physical_types=shared.physical_types.clone();
+        Ok(())
+    }
+}
 /// Current kind records and their mechanically derived extent types. Key mutations
 /// update both maps; borrowed views cannot detach the projection from its inventory.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1864,6 +1893,14 @@ impl CheckedPackage {
     pub(crate) fn select_static(&self, root: DeclarationId, additional: &[DeclarationId]) -> Result<Self> {
         self.select_mode(root, true, additional)
     }
+    /// Local executable fields retain exact checked syntax/source occurrences.
+    /// Declaration extents are a receiving root diagnostic view, not numerical
+    /// premises: an unrelated descendant can change its container's end offset.
+    pub(crate) fn select_field(&self, root:DeclarationId, additional:&[DeclarationId])->Result<Self> {
+        let mut package=self.select_static(root,additional)?;
+        for row in package.declarations.values_mut() {row.source_start=0;row.source_end=0;}
+        Ok(package)
+    }
     fn select_mode(&self, root: DeclarationId, static_only: bool, additional: &[DeclarationId]) -> Result<Self> {
         if !self.declarations.contains_key(&root) {
             return Err(invalid(root, "selected root absent"));
@@ -2322,5 +2359,28 @@ fn empty_package(context: &TypeContext<'_>) -> CheckedPackage {
         oracles: BTreeMap::new(),
         test_only: BTreeSet::new(),
         test_only_data: BTreeSet::new(),
+    }
+}
+
+#[cfg(test)]
+mod shared_input_tests {
+    use super::*;
+    #[test]
+    fn canonical_package_inputs_rebind_equal_owners_and_refuse_changed_meaning() {
+        let (registry, _)=crate::kernel_types::physical();
+        let preconditions=pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap();
+        let scope=crate::PhysicalScope::default();
+        let context=TypeContext {admissions:None,formula_authority:None,quantities:&registry,preconditions:&preconditions,scope:&scope};
+        let mut package=check(&crate::kernel_types::source("package p {def Root {var x:Scalar;}}"),&context).unwrap();
+        let mut canonical=package.shared_inputs();
+        canonical.scope=Arc::new((*canonical.scope).clone());
+        assert!(!Arc::ptr_eq(&package.scope,&canonical.scope));
+        package.canonicalize_shared_inputs(&canonical).unwrap();
+        assert!(Arc::ptr_eq(&package.scope,&canonical.scope));
+        assert_eq!(package.retained_bytes(),package.retained_bytes_excluding_shared_inputs()+canonical.retained_extents().into_iter().sum::<usize>());
+        let mut different=canonical.clone();
+        Arc::make_mut(&mut different.scope).package=Some("different".into());
+        assert!(package.canonicalize_shared_inputs(&different).is_err());
+        assert!(Arc::ptr_eq(&package.scope,&canonical.scope));
     }
 }
