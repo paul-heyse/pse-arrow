@@ -25,6 +25,9 @@ pub(crate) struct BasisKey {
     dependencies: Arc<LocalSourcePremises>,
     root: DeclarationId,
     instance: InstanceId,
+    /// Complete projection demand remains part of this product key. The compiler
+    /// separately keys structural specialization without existing-symbol observations;
+    /// erasing them here would alias different demand-shaped frontiers/bases.
     bindings: Bindings,
     limits: Limits,
     /// Process-local bucket hint; complete fields above remain the equality authority.

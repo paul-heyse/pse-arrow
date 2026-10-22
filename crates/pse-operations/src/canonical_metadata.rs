@@ -26,7 +26,7 @@ pub enum MetadataResponse {
     /// The two arrays share one aggregate wire/allocation allowance.
     JoinedBlockPage,
     /// A study page shares at most 128 immediate-premise rows between 64
-    /// candidates, with at most 65 point identities in each membership list.
+    /// candidates plus one notification source, with at most 65 point identities in each membership list.
     /// Encoded scope admission also bounds this graph before it leaves the server.
     StudyScopePage,
     /// A 64-row scalar/dense output page, including encoded registry keys.

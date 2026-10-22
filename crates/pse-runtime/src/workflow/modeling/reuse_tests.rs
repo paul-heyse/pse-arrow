@@ -1342,12 +1342,28 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
         )
         .await
         .unwrap();
+    let demanded_basis = retained_preparation_basis(&package, root, instance, demand, default)
+        .await
+        .unwrap();
+    let original_basis = math.modeling_cache.basis(&original).unwrap();
     assert!(
-        retained_preparation_basis(&package, root, instance, demand, default)
-            .await
-            .is_some()
+        !Arc::ptr_eq(&demanded_basis, &original_basis),
+        "an existing-symbol observation still selects a distinct projection-bearing basis"
     );
     assert_eq!(demanded.solved(), first.solved());
+    let returned = prepared(&package).await;
+    assert!(Arc::ptr_eq(
+        &retained_preparation_basis(&package, root, instance, Bindings::default(), default)
+            .await
+            .unwrap(),
+        &original_basis,
+    ), "A/B/A observation selection returns the original complete basis");
+    for (identity, body) in &first.compiled().admitted.bodies {
+        assert!(Arc::ptr_eq(
+            body.math(),
+            returned.compiled().admitted.bodies[identity].math(),
+        ));
+    }
     let bounded = package
         .prepare(
             root,
