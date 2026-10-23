@@ -1762,3 +1762,30 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert_eq!(results.points.len(),1);
     let _=fit;
 }
+
+/// SC02's unknown uncertainty and domain refusals stay at the original authored
+/// measurement/fit readers; exclusion remains an explicit retained observation.
+#[tokio::test]
+async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_exclusions(){
+    use crate::workflow::tests::{compiler_profile,id};
+    let seed=fixture("research-calibration",[1.,2.]).await.unwrap();
+    let cancel=crate::CancelSource::new();
+    let mut declarations=seed.source.fit_declarations().await.unwrap();
+    declarations.fits[0].observations[0].standard_deviation_attribute=None;
+    let unknown=seed.source.clone().with_fit_declarations(declarations.clone()).await.unwrap();
+    let error=unknown.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.unwrap_err();
+    assert!(error.to_string().contains("positive difference-unit standard deviations"),"{error}");
+    declarations.fits[0].observations[0].included=false;
+    let excluded=seed.source.clone().with_fit_declarations(declarations).await.unwrap();
+    let prepared=excluded.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.unwrap();
+    assert_eq!(prepared.problem.measurements.len(),4);
+    let observation=prepared.problem.measurements.iter().find(|m|m.id==id(40)).unwrap();
+    assert!(!observation.included);assert_eq!(observation.value,Some(5.));assert_eq!(observation.sigma,None);
+    let mut rows=seed.source.declarations().await.unwrap().to_vec();
+    let record=rows.iter_mut().find(|r|r.declaration_id.as_id()==id(40)).unwrap();
+    record.value.entity.as_mut().unwrap().attributes.iter_mut().find(|a|a.name=="raw").unwrap().value=pse_authoring::language::parse_cell("-1.0").unwrap();
+    match seed.source.with_declarations(rows).await {
+        Err(_)=>{},
+        Ok(outside)=>assert!(outside.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.is_err(),"authored calibration validity domain cannot be bypassed"),
+    }
+}
