@@ -4,6 +4,11 @@
 
 from typing import Protocol, TypeAlias
 
+import attrs
+
+from pse._build import _NativePhysicalContext
+from pse.contracts.values import ContentHash
+
 
 class ArrowArrayInput(Protocol):
     """An Arrow C Data producer, including a record batch."""
@@ -32,3 +37,15 @@ class ArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> object:
         """Export the registered schema capsule, including metadata."""
         ...
+
+
+@attrs.frozen
+class PhysicalContext:
+    """Admitted quantities, units, prerequisites and original source rows."""
+
+    _handle: _NativePhysicalContext
+
+    @property
+    def identity(self) -> ContentHash:
+        """Complete native compiler context identity."""
+        return self._handle.identity

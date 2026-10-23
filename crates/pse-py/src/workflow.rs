@@ -939,8 +939,10 @@ impl NativeRuntime {
             value,
         ))
     }
-    fn project_closure(&self,py:Python<'_>,request:documents::DocumentInput<native::ProjectExportRequest>,physical:&NativePhysicalContext)->PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> { self.project_closure_native(py,request,physical) }
-    fn project_export(&self,py:Python<'_>,destination:std::path::PathBuf,request:documents::DocumentInput<native::ProjectExportRequest>,physical:&NativePhysicalContext)->PyResult<documents::DocumentValue<native::ProjectManifest>> { self.project_export_native(py,destination,request,physical) }
+    #[pyo3(signature=(request,physical=None))]
+    fn project_closure(&self,py:Python<'_>,request:documents::DocumentInput<native::ProjectExportRequest>,physical:Option<&NativePhysicalContext>)->PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> { self.project_closure_native(py,request,physical) }
+    #[pyo3(signature=(destination,request,physical=None))]
+    fn project_export(&self,py:Python<'_>,destination:std::path::PathBuf,request:documents::DocumentInput<native::ProjectExportRequest>,physical:Option<&NativePhysicalContext>)->PyResult<documents::DocumentValue<native::ProjectManifest>> { self.project_export_native(py,destination,request,physical) }
     #[pyo3(signature=(bundle,*,title,branch_name="main"))]
     fn project_import_issue(&self,py:Python<'_>,bundle:&NativeProjectBundle,title:&str,branch_name:&str)->PyResult<documents::DocumentValue<native::ProjectImportIntent>> { self.project_import_issue_native(py,bundle,title,branch_name) }
     fn project_import(&self,py:Python<'_>,bundle:&NativeProjectBundle,intent:documents::DocumentInput<native::ProjectImportIntent>)->PyResult<documents::DocumentValue<native::ProjectImportReport>> { self.project_import_native(py,bundle,intent) }

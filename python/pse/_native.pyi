@@ -81,6 +81,11 @@ from pse.contracts.documents import (
     LaunchCaptureRequest,
     LaunchCaptureRequestOutput,
     LazyStudyDefinition,
+    LifecycleExplanationOutput,
+    LifecycleReleaseOutput,
+    LifecycleSelection,
+    LifecycleSelectionOutput,
+    LifecycleTarget,
     ManagedStudyDiagnosticsDocumentOutput,
     ModelingInspectionOutput,
     ModelingSourceMapDocumentOutput,
@@ -116,6 +121,7 @@ from pse.contracts.documents import (
     ProjectAcknowledgementOutput,
     ProjectBranchPageOutput,
     ProjectBranchRecordOutput,
+    ProjectClosureExplanationOutput,
     ProjectComparisonOutput,
     ProjectContextOutput,
     ProjectCursor,
@@ -125,6 +131,13 @@ from pse.contracts.documents import (
     ProjectDraftSaveIntentOutput,
     ProjectDraftVersion,
     ProjectDraftVersionOutput,
+    ProjectExportRequest,
+    ProjectExportRequestOutput,
+    ProjectImportIntent,
+    ProjectImportIntentOutput,
+    ProjectImportRecoveryReportOutput,
+    ProjectImportReportOutput,
+    ProjectManifestOutput,
     ProjectMergeIntent,
     ProjectMergeIntentOutput,
     ProjectMergePreview,
@@ -793,6 +806,8 @@ class NativeModelingPackage:
     ) -> NativeModelingKnowledge: ...
     @property
     def operation_source(self, /) -> OperationSourceOutput: ...
+    @property
+    def physical_context(self, /) -> NativePhysicalContext: ...
     def preparation_discovery(
         self,
         /,
@@ -983,6 +998,19 @@ class NativeProgressStream:
     def run_key(self, /) -> str: ...
 
 @final
+class NativeProjectBundle:
+    def __new__(
+        cls, /, path: str | PathLike[str], *, maximum_document_bytes: int = 16777216
+    ) -> NativeProjectBundle: ...
+    @property
+    def digest(self, /) -> str: ...
+    @property
+    def manifest(self, /) -> ProjectManifestOutput: ...
+    def member_bytes(
+        self, /, member: str, *, maximum_bytes: int = 16777216
+    ) -> bytes: ...
+
+@final
 class NativeRunHandle:
     def cancel(self, /) -> None: ...
     @property
@@ -1105,6 +1133,15 @@ class NativeRuntime:
         start: int = 0,
         end: int = ...,
     ) -> TableStream: ...
+    def lifecycle_explain(
+        self, /, selection: LifecycleSelection | LifecycleSelectionOutput
+    ) -> LifecycleExplanationOutput: ...
+    def lifecycle_release(
+        self, /, selection: LifecycleSelection | LifecycleSelectionOutput
+    ) -> LifecycleReleaseOutput: ...
+    def lifecycle_select(
+        self, /, target: LifecycleTarget
+    ) -> LifecycleSelectionOutput: ...
     def modeling_from_documents(
         self,
         /,
@@ -1158,6 +1195,12 @@ class NativeRuntime:
     def project_branches(
         self, /, project: str, *, cursor: ProjectCursor | None = None
     ) -> ProjectBranchPageOutput: ...
+    def project_closure(
+        self,
+        /,
+        request: ProjectExportRequest | ProjectExportRequestOutput,
+        physical: NativePhysicalContext | None = None,
+    ) -> ProjectClosureExplanationOutput: ...
     def project_context_append(
         self,
         /,
@@ -1215,6 +1258,13 @@ class NativeRuntime:
         self, /, key: str
     ) -> ProjectDraftVersionOutput | None: ...
     def project_draft_version_bytes(self, /, key: str) -> bytes: ...
+    def project_export(
+        self,
+        /,
+        destination: str | PathLike[str],
+        request: ProjectExportRequest | ProjectExportRequestOutput,
+        physical: NativePhysicalContext | None = None,
+    ) -> ProjectManifestOutput: ...
     def project_fork(
         self,
         /,
@@ -1224,6 +1274,27 @@ class NativeRuntime:
         operation: str,
         source: NativeModelingPackage,
     ) -> str: ...
+    def project_import(
+        self,
+        /,
+        bundle: NativeProjectBundle,
+        intent: ProjectImportIntent | ProjectImportIntentOutput,
+    ) -> ProjectImportReportOutput: ...
+    def project_import_issue(
+        self, /, bundle: NativeProjectBundle, *, title: str, branch_name: str = "main"
+    ) -> ProjectImportIntentOutput: ...
+    def project_import_open(
+        self, /, intent: ProjectImportIntent | ProjectImportIntentOutput
+    ) -> NativeModelingPackage: ...
+    def project_import_recover(
+        self,
+        /,
+        intent: ProjectImportIntent | ProjectImportIntentOutput,
+        original: ArtifactIntent,
+    ) -> ProjectImportRecoveryReportOutput: ...
+    def project_import_status(
+        self, /, intent: ProjectImportIntent | ProjectImportIntentOutput
+    ) -> ProjectImportReportOutput | None: ...
     def project_merge_draft_intent(
         self,
         /,

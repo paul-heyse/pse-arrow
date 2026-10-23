@@ -1312,12 +1312,10 @@ mod tests {
         assert!(store.select_project_context(&cut,"fixture",0).await.is_err());
         assert!(store.project_acknowledgement("pending-fork").await.unwrap().is_some(),"original operation settlement remains observable");
         assert!(store.revision(&head.key).await.unwrap().is_some(),"original source primitives remain valid for artifact registration");
-        bounded_query(store.db.query("UPDATE canonical_project_imports:pending_import SET complete=true;")).await.unwrap();
-        assert!(store.project("pending-project").await.unwrap().is_some());
-        assert!(store.project_branch("pending-branch").await.unwrap().is_some());
-        assert!(store.project_draft_version("pending-version").await.unwrap().is_some());
-        assert!(store.research_dataset("pending_dataset").await.unwrap().is_some());
-        assert!(store.project_context_record("pending_context").await.unwrap().is_some());
+        assert!(bounded_query(store.db.query("UPDATE canonical_project_imports:pending_import SET complete=true;")).await.is_err(),"a synthetic checkpoint cannot claim completion without copied artifact membership");
+        assert!(store.project("pending-project").await.unwrap().is_none());
+        // Real completed import visibility is exercised through original activation
+        // in the runtime and public Python portability journeys.
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]

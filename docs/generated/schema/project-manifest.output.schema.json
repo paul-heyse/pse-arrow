@@ -13320,6 +13320,53 @@
         }
       ]
     },
+    "ProjectResultMetadataOutput": {
+      "additionalProperties": false,
+      "description": "Original run/attempt facts for a deliberately omitted result payload.",
+      "properties": {
+        "closed_manifest": {
+          "description": "Original closed-manifest locator, if present; the manifest payload is not read.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generation": {
+          "description": "Actual original attempt generation.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "phase": {
+          "description": "Actual original lifecycle phase.",
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/ReviewScientificSelectionOutput",
+          "description": "Original requested coordinates; no selected row bytes are claimed copied."
+        },
+        "source_revision": {
+          "description": "Actual original run's source revision.",
+          "type": "string"
+        },
+        "terminal_class": {
+          "description": "Actual original outcome, if the attempt has one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "selection",
+        "source_revision",
+        "generation",
+        "phase",
+        "terminal_class",
+        "closed_manifest"
+      ],
+      "type": "object"
+    },
     "ProjectSelectionBody": {
       "additionalProperties": false,
       "description": "Retain this selection to reopen the same science after a branch head or label changes.",
@@ -13368,7 +13415,7 @@
       ],
       "type": "object"
     },
-    "ProjectSourceClosure": {
+    "ProjectSourceClosureOutput": {
       "additionalProperties": false,
       "description": "One exact admitted source with all original source and package-data bytes.",
       "properties": {
@@ -13380,8 +13427,11 @@
           "type": "array"
         },
         "physical_context": {
-          "description": "Complete physical meaning used for admission.",
-          "type": "string"
+          "description": "Physical identity from actual source/context metadata; absent when not authenticated independently.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "physical_documents": {
           "description": "Exact physical package document bytes.",
@@ -13391,16 +13441,22 @@
           "type": "array"
         },
         "replay_source": {
-          "description": "Existing complete authored/data source codec, also supports typed source edits without invented text.",
-          "type": "string"
+          "description": "Complete authored/data source codec. None is permitted only for an explicitly omitted descriptive source.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "revision": {
           "description": "Original canonical source revision, meaningful only under manifest origin authority.",
           "type": "string"
         },
         "source_identity": {
-          "description": "Original admitted scientific identity.",
-          "type": "string"
+          "description": "Original scientific identity when actually retained by its source/context owner; absence is unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -13410,6 +13466,50 @@
         "documents",
         "replay_source",
         "physical_documents"
+      ],
+      "type": "object"
+    },
+    "ProjectSourceRevisionMetadataOutput": {
+      "additionalProperties": false,
+      "description": "Compact factual metadata from the original immutable revision owner; it grants no source access.",
+      "properties": {
+        "interpretation": {
+          "description": "Original source interpretation; no receiving compatibility is asserted.",
+          "type": "string"
+        },
+        "key": {
+          "description": "Actual original immutable revision.",
+          "type": "string"
+        },
+        "operation": {
+          "description": "Original operation acknowledgement identity.",
+          "type": "string"
+        },
+        "parent": {
+          "description": "Original parent, if present; never a floating head.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "problem": {
+          "description": "Actual original problem owner.",
+          "type": "string"
+        },
+        "sequence": {
+          "description": "Original immutable source sequence.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "problem",
+        "sequence",
+        "parent",
+        "operation",
+        "interpretation"
       ],
       "type": "object"
     },
@@ -14951,6 +15051,115 @@
         "require_reuse"
       ],
       "type": "string"
+    },
+    "ReviewOutputSelectionOutput": {
+      "additionalProperties": false,
+      "description": "Original output owner/field/partition and finite-value or trajectory-time predicate.",
+      "properties": {
+        "field": {
+          "description": "Original scientific output field.",
+          "type": "string"
+        },
+        "maximum_bits": {
+          "description": "Optional finite upper bound represented by IEEE bits.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minimum_bits": {
+          "description": "Optional finite lower bound represented by IEEE bits.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "missing": {
+          "description": "Optional original missing-value selection.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "owner": {
+          "description": "Original scientific output owner.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "partition": {
+          "description": "Original scientific output partition.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "field",
+        "partition",
+        "minimum_bits",
+        "maximum_bits",
+        "missing"
+      ],
+      "type": "object"
+    },
+    "ReviewScientificSelectionOutput": {
+      "additionalProperties": false,
+      "description": "A request to the scientific owner, not a caller assertion of lineage or permission.",
+      "properties": {
+        "attempt": {
+          "description": "Exact existing canonical attempt key.",
+          "type": "string"
+        },
+        "member": {
+          "description": "Selected pack member identifier.",
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewOutputSelectionOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Existing selected-output semantics; absence selects the original relation range."
+        },
+        "relation": {
+          "description": "Registered scientific relation name.",
+          "type": "string"
+        },
+        "row_end": {
+          "description": "Exclusive original relation row offset.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "row_start": {
+          "description": "Inclusive original relation row offset.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "run": {
+          "description": "Exact existing canonical run key.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "member",
+        "run",
+        "attempt",
+        "relation",
+        "row_start",
+        "row_end",
+        "output"
+      ],
+      "type": "object"
     },
     "RowActivity": {
       "enum": [
@@ -17203,7 +17412,7 @@
     },
     "origin": {
       "$ref": "#/$defs/ProjectSelectionBody",
-      "description": "Exact original owner selection; original service addresses/grants are excluded."
+      "description": "Exact original owner selection; original service addresses/grants are excluded.\nDescriptive identities are retained selector facts, not independent scientific re-admission."
     },
     "providers": {
       "description": "External implementation requirements; inspection never installs them.",
@@ -17233,10 +17442,24 @@
       },
       "type": "array"
     },
+    "result_metadata": {
+      "description": "Authenticated original result metadata when payload copying was explicitly omitted.",
+      "items": {
+        "$ref": "#/$defs/ProjectResultMetadataOutput"
+      },
+      "type": "array"
+    },
+    "source_revisions": {
+      "description": "Authenticated original source owner metadata, including descriptive-only source selection.",
+      "items": {
+        "$ref": "#/$defs/ProjectSourceRevisionMetadataOutput"
+      },
+      "type": "array"
+    },
     "sources": {
       "description": "Selected source closure plus required historical source ancestry.",
       "items": {
-        "$ref": "#/$defs/ProjectSourceClosure"
+        "$ref": "#/$defs/ProjectSourceClosureOutput"
       },
       "type": "array"
     },
@@ -17258,6 +17481,8 @@
     "version",
     "origin",
     "sources",
+    "source_revisions",
+    "result_metadata",
     "datasets",
     "research_selections",
     "publications",

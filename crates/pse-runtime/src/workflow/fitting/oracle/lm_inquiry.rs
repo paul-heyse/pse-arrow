@@ -2350,11 +2350,20 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let bundle = crate::workflow::ProjectBundleReader::open(&pack, 16 << 20).unwrap();
     assert_eq!(bundle.inspect().origin.source_identity, downstream.revision.identity());
     assert_eq!(bundle.inspect().origin.physical_context, downstream.physical.identity());
+    // The offline owner validates the canonical transport envelope against its
+    // manifest. Generated relation admission then checks the original fields and
+    // registry metadata, retaining every non-transport key for validation.
+    fn relation_candidate(batch:pse_relations::RecordBatch)->pse_relations::RecordBatch {
+        let mut metadata=batch.schema().metadata().clone();
+        metadata.retain(|key,_|!key.starts_with("pse.canonical."));
+        let schema=Arc::new(batch.schema().as_ref().clone().with_metadata(metadata));
+        pse_relations::RecordBatch::try_new(schema,batch.columns().to_vec()).unwrap()
+    }
     let copied_cells = datafusion::arrow::ipc::reader::StreamReader::try_new(bundle.open_member("original-fit-cells").unwrap(), None).unwrap()
-        .map(|batch| cells::Row::rows(&batch.unwrap()).unwrap()).collect::<Vec<_>>().concat();
+        .map(|batch| cells::View::try_from_batch_with_registry(runtime.registry(), &relation_candidate(batch.unwrap()), &runtime.validation_context()).unwrap().rows().unwrap()).collect::<Vec<_>>().concat();
     assert_eq!(copied_cells, exported, "copied cells preserve the exact original qualified fit values and identities");
     let copied_predictions = datafusion::arrow::ipc::reader::StreamReader::try_new(bundle.open_member("original-prediction").unwrap(), None).unwrap()
-        .map(|batch| pse_relations::generated::runtime::modeling_reports::Row::rows(&batch.unwrap()).unwrap()).collect::<Vec<_>>().concat();
+        .map(|batch| pse_relations::generated::runtime::modeling_reports::View::try_from_batch_with_registry(runtime.registry(), &relation_candidate(batch.unwrap()), &runtime.validation_context()).unwrap().rows().unwrap()).collect::<Vec<_>>().concat();
     assert_eq!(copied_predictions, values, "copied Arrow evidence keeps original result membership and values");
     assert!(bundle.inspect().members.iter().any(|member| member.result.as_ref().is_some_and(|result| result.run == run && result.attempt == attempt && result.relation == "runtime.fitted_parameter_cells")));
 
@@ -2402,9 +2411,16 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let mut intercept = declarations.iter().find(|row| row.declaration_id == request.targets[0].declaration).unwrap().clone();
     assert_eq!(intercept.name, "a");
     intercept.value.binding.as_mut().unwrap().expression = Some("4".into());
-    let edited = Box::pin(imported_source.with_delta(crate::workflow::SourceDelta {
+    let typed_draft=receiver.project_draft_delta(&imported_source,crate::workflow::SourceDelta {
         parent: imported_source.revision_id().into(), replacements: vec![intercept], ..Default::default()
-    }, &cancel)).await.unwrap();
+    }).unwrap();
+    let body=serde_json::to_vec(&typed_draft).unwrap();
+    let project=receiving_store.project(&imported.project).await.unwrap().unwrap();
+    let branch=receiving_store.project_branch(&imported.branch).await.unwrap().unwrap();
+    let save=Box::pin(receiver.project_draft_save_intent("import-edit-save",&project,&branch,"import-edit",&imported.revision,None,&body)).await.unwrap();
+    Box::pin(receiver.project_save_draft_intent(&save,&body)).await.unwrap();
+    let edited=Box::pin(receiver.project_admit_draft("import-edit-admit","import-edit",imported_source.physical.clone(),&cancel)).await.unwrap();
+    assert!(edited.canonical_revision().is_none(),"ordinary local draft admission does not bypass branch publication");
     assert_ne!(edited.revision.identity(), imported_source.revision.identity());
     let edited_local = Box::pin(edited.admit_study(
         &crate::workflow::StudyInputs::Explicit(vec![point]),

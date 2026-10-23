@@ -13,7 +13,6 @@ from pse.contracts.documents import (
     ProjectNavigationProjectVisibility,
     ProjectNavigationRequest,
 )
-from pse.contracts.enums import LifecycleKind
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.test_modeling_kernel import on_primitives, physical
 
@@ -41,7 +40,7 @@ def test_referenced_source_explanation_is_not_a_foreign_or_stale_release_grant(
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
     revision = project_source(runtime)
-    selected = runtime.lifecycle_select(LifecycleTarget(kind=LifecycleKind.SOURCE_HISTORY, key=revision))
+    selected = runtime.lifecycle_select(LifecycleTarget(kind="source_history", key=revision))
     explanation = runtime.lifecycle_explain(selected)
     assert explanation.selection.issuing_store == selected.issuing_store
     assert explanation.selection.target == selected.target
@@ -79,7 +78,7 @@ def test_historical_draft_release_rechecks_head_and_project_generation_and_keeps
         "first-raw", "lifecycle-project", "lifecycle-branch", "raw", revision, first_bytes
     )
     runtime.project_draft_save(first, first_bytes)
-    target = LifecycleTarget(kind=LifecycleKind.DRAFT_VERSION, key="first-raw")
+    target = LifecycleTarget(kind="draft_version", key="first-raw")
     current = runtime.lifecycle_select(target)
     assert any(b.kind == "current_draft_head" for b in runtime.lifecycle_explain(current).blockers)
     with pytest.raises(pse.InspectionError):

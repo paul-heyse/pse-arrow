@@ -471,7 +471,8 @@ pub(crate) async fn run(
         let runtime = &runtime;
         let shared = &shared;
         let cancel = &cancel;
-        let physical = if let Some(input) = request.physical {
+        let descriptive=matches!(&request.action,Action::ProjectClosure{request} | Action::ProjectExport{request,..} if request.descriptive_only);
+        let physical = if let Some(input) = request.physical.filter(|_|!descriptive) {
             Some(
                 runtime
                     .physical_from_documents(
@@ -488,10 +489,10 @@ pub(crate) async fn run(
         let operation: std::pin::Pin<Box<dyn Future<Output = Result<serde_json::Value>> + '_>> =
             match request.action {
                 Action::ProjectClosure { request } => boxed(shared, async move {
-                    value(runtime.project_closure(&request, require_physical(&physical)?, cancel).await?)
+                    if request.descriptive_only {value(runtime.project_closure_metadata(&request,cancel).await?)} else {value(runtime.project_closure(&request, require_physical(&physical)?, cancel).await?)}
                 })?,
                 Action::ProjectExport { destination, request } => boxed(shared, async move {
-                    value(runtime.project_export(&destination, &request, require_physical(&physical)?, cancel).await?)
+                    if request.descriptive_only {value(runtime.project_export_metadata(&destination,&request,cancel).await?)} else {value(runtime.project_export(&destination, &request, require_physical(&physical)?, cancel).await?)}
                 })?,
                 Action::ProjectImportIssue { input, title, branch_name, maximum_document_bytes } => boxed(shared, async move {
                     cancel.token().checkpoint()?;

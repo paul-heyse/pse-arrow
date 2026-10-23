@@ -31,7 +31,7 @@ from pse._build import (
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
-from pse._physical import ArrowInput
+from pse._physical import ArrowInput, PhysicalContext
 from pse._runs import PreparedOperation, RunResult, StoredResult
 from pse._strategies import PreparedFlow, PreparedStrategy
 from pse.codec._generated import encode_declarations, encode_fits
@@ -667,6 +667,11 @@ class ModelingPackage:
     def revision_id(self) -> str:
         """Opaque exact parent token for edits of this admitted receiver."""
         return self._handle.revision_id
+
+    @property
+    def physical_context(self) -> PhysicalContext:
+        """Reuse this model's admitted physical closure without ambient input files."""
+        return PhysicalContext(self._handle.physical_context)
 
     @property
     def operation_source(self) -> OperationSource:

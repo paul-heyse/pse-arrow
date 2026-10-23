@@ -37,16 +37,16 @@ impl NativeProjectBundle {
     }
 }
 impl NativeRuntime {
-    pub(super) fn project_closure_native(&self, py: Python<'_>, request: documents::DocumentInput<native::ProjectExportRequest>, physical: &NativePhysicalContext) -> PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> {
+    pub(super) fn project_closure_native(&self, py: Python<'_>, request: documents::DocumentInput<native::ProjectExportRequest>, physical: Option<&NativePhysicalContext>) -> PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> {
         let stop=CancelSource::new(); let cancel=&stop;
         blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
-            Box::pin(runtime.project_closure(&request.0,physical.inner.clone(),cancel)).await
+            match physical {Some(physical)=>Box::pin(runtime.project_closure(&request.0,physical.inner.clone(),cancel)).await, None=>Box::pin(runtime.project_closure_metadata(&request.0,cancel)).await}
         }),||stop.cancel()).map(documents::DocumentValue)
     }
-    pub(super) fn project_export_native(&self, py: Python<'_>, destination: PathBuf, request: documents::DocumentInput<native::ProjectExportRequest>, physical: &NativePhysicalContext) -> PyResult<documents::DocumentValue<native::ProjectManifest>> {
+    pub(super) fn project_export_native(&self, py: Python<'_>, destination: PathBuf, request: documents::DocumentInput<native::ProjectExportRequest>, physical: Option<&NativePhysicalContext>) -> PyResult<documents::DocumentValue<native::ProjectManifest>> {
         let stop=CancelSource::new(); let cancel=&stop;
         blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
-            Box::pin(runtime.project_export(&destination,&request.0,physical.inner.clone(),cancel)).await
+            match physical {Some(physical)=>Box::pin(runtime.project_export(&destination,&request.0,physical.inner.clone(),cancel)).await, None=>Box::pin(runtime.project_export_metadata(&destination,&request.0,cancel)).await}
         }),||stop.cancel()).map(documents::DocumentValue)
     }
     pub(super) fn project_import_issue_native(&self, py: Python<'_>, bundle: &NativeProjectBundle, title: &str, branch_name: &str) -> PyResult<documents::DocumentValue<native::ProjectImportIntent>> {

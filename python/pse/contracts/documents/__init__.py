@@ -18028,6 +18028,7 @@ class ProjectManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Intentional omissions.
     omissions: tuple[ProjectOmission, ...]
     #: Exact original owner selection; original service addresses/grants are excluded.
+    #: Descriptive identities are retained selector facts, not independent scientific re-admission.
     origin: ProjectSelectionBody
     #: External implementation requirements; inspection never installs them.
     providers: tuple[ProjectProviderRequirement, ...]
@@ -18037,13 +18038,17 @@ class ProjectManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     reproducers: tuple[DiagnosticReproducer, ...]
     #: Origin frozen calibration/fit observation selections.
     research_selections: tuple[ResearchSelectionBody, ...]
+    #: Authenticated original result metadata when payload copying was explicitly omitted.
+    result_metadata: tuple[ProjectResultMetadata, ...]
+    #: Authenticated original source owner metadata, including descriptive-only source selection.
+    source_revisions: tuple[ProjectSourceRevisionMetadata, ...]
     #: Selected source closure plus required historical source ancestry.
     sources: tuple[ProjectSourceClosure, ...]
     #: Original study definition codecs.
     studies: tuple[ProjectStudyClosure, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.artifact_origins), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.datasets), v.scalar_key(self.descriptive_only), v.scalar_key(self.executable_complete), v.scalar_key(self.maximum_copy_bytes), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.offline_complete), v.sequence_key(v.record_key)(self.omissions), v.record_key(self.origin), v.sequence_key(v.record_key)(self.providers), v.sequence_key(v.record_key)(self.publications), v.sequence_key(v.record_key)(self.reproducers), v.sequence_key(v.record_key)(self.research_selections), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.studies),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.artifact_origins), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.datasets), v.scalar_key(self.descriptive_only), v.scalar_key(self.executable_complete), v.scalar_key(self.maximum_copy_bytes), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.offline_complete), v.sequence_key(v.record_key)(self.omissions), v.record_key(self.origin), v.sequence_key(v.record_key)(self.providers), v.sequence_key(v.record_key)(self.publications), v.sequence_key(v.record_key)(self.reproducers), v.sequence_key(v.record_key)(self.research_selections), v.sequence_key(v.record_key)(self.result_metadata), v.sequence_key(v.record_key)(self.source_revisions), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.studies),))
 
 
 class ProjectManifestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18072,6 +18077,7 @@ class ProjectManifestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Intentional omissions.
     omissions: tuple[ProjectOmission, ...]
     #: Exact original owner selection; original service addresses/grants are excluded.
+    #: Descriptive identities are retained selector facts, not independent scientific re-admission.
     origin: ProjectSelectionBody
     #: External implementation requirements; inspection never installs them.
     providers: tuple[ProjectProviderRequirement, ...]
@@ -18081,13 +18087,17 @@ class ProjectManifestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     reproducers: tuple[DiagnosticReproducerOutput, ...]
     #: Origin frozen calibration/fit observation selections.
     research_selections: tuple[ResearchSelectionBody, ...]
+    #: Authenticated original result metadata when payload copying was explicitly omitted.
+    result_metadata: tuple[ProjectResultMetadataOutput, ...]
+    #: Authenticated original source owner metadata, including descriptive-only source selection.
+    source_revisions: tuple[ProjectSourceRevisionMetadataOutput, ...]
     #: Selected source closure plus required historical source ancestry.
-    sources: tuple[ProjectSourceClosure, ...]
+    sources: tuple[ProjectSourceClosureOutput, ...]
     #: Original study definition codecs.
     studies: tuple[ProjectStudyClosureOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.artifact_origins), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.datasets), v.scalar_key(self.descriptive_only), v.scalar_key(self.executable_complete), v.scalar_key(self.maximum_copy_bytes), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.offline_complete), v.sequence_key(v.record_key)(self.omissions), v.record_key(self.origin), v.sequence_key(v.record_key)(self.providers), v.sequence_key(v.record_key)(self.publications), v.sequence_key(v.record_key)(self.reproducers), v.sequence_key(v.record_key)(self.research_selections), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.studies),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.artifact_origins), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.datasets), v.scalar_key(self.descriptive_only), v.scalar_key(self.executable_complete), v.scalar_key(self.maximum_copy_bytes), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.offline_complete), v.sequence_key(v.record_key)(self.omissions), v.record_key(self.origin), v.sequence_key(v.record_key)(self.providers), v.sequence_key(v.record_key)(self.publications), v.sequence_key(v.record_key)(self.reproducers), v.sequence_key(v.record_key)(self.research_selections), v.sequence_key(v.record_key)(self.result_metadata), v.sequence_key(v.record_key)(self.source_revisions), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.studies),))
 
 
 class ProjectMergeConflict(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18688,6 +18698,46 @@ class ProjectReferenceBranch(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.key),))
 
 
+class ProjectResultMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original run/attempt facts for a deliberately omitted result payload."""
+
+    #: Original closed-manifest locator, if present; the manifest payload is not read.
+    closed_manifest: str | None = None
+    #: Actual original attempt generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual original lifecycle phase.
+    phase: str
+    #: Original requested coordinates; no selected row bytes are claimed copied.
+    selection: ReviewScientificSelection
+    #: Actual original run's source revision.
+    source_revision: str
+    #: Actual original outcome, if the attempt has one.
+    terminal_class: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.closed_manifest), v.scalar_key(self.generation), v.scalar_key(self.phase), v.record_key(self.selection), v.scalar_key(self.source_revision), v.optional_key(v.scalar_key)(self.terminal_class),))
+
+
+class ProjectResultMetadataOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original run/attempt facts for a deliberately omitted result payload."""
+
+    #: Original closed-manifest locator, if present; the manifest payload is not read.
+    closed_manifest: str | None
+    #: Actual original attempt generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual original lifecycle phase.
+    phase: str
+    #: Original requested coordinates; no selected row bytes are claimed copied.
+    selection: ReviewScientificSelectionOutput
+    #: Actual original run's source revision.
+    source_revision: str
+    #: Actual original outcome, if the attempt has one.
+    terminal_class: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.closed_manifest), v.scalar_key(self.generation), v.scalar_key(self.phase), v.record_key(self.selection), v.scalar_key(self.source_revision), v.optional_key(v.scalar_key)(self.terminal_class),))
+
+
 class ProjectSelectRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit navigation command transport."""
 
@@ -18755,19 +18805,39 @@ class ProjectSourceClosure(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Original source packages in loader order.
     documents: tuple[ProjectDocumentMember, ...]
-    #: Complete physical meaning used for admission.
-    physical_context: str
+    #: Physical identity from actual source/context metadata; absent when not authenticated independently.
+    physical_context: str | None = None
     #: Exact physical package document bytes.
     physical_documents: tuple[ProjectDocumentMember, ...]
-    #: Existing complete authored/data source codec, also supports typed source edits without invented text.
-    replay_source: str
+    #: Complete authored/data source codec. None is permitted only for an explicitly omitted descriptive source.
+    replay_source: str | None = None
     #: Original canonical source revision, meaningful only under manifest origin authority.
     revision: str
-    #: Original admitted scientific identity.
-    source_identity: str
+    #: Original scientific identity when actually retained by its source/context owner; absence is unknown.
+    source_identity: str | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.documents), v.scalar_key(self.physical_context), v.sequence_key(v.record_key)(self.physical_documents), v.scalar_key(self.replay_source), v.scalar_key(self.revision), v.scalar_key(self.source_identity),))
+        return (type(self), (v.sequence_key(v.record_key)(self.documents), v.optional_key(v.scalar_key)(self.physical_context), v.sequence_key(v.record_key)(self.physical_documents), v.optional_key(v.scalar_key)(self.replay_source), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.source_identity),))
+
+
+class ProjectSourceClosureOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One exact admitted source with all original source and package-data bytes."""
+
+    #: Original source packages in loader order.
+    documents: tuple[ProjectDocumentMember, ...]
+    #: Physical identity from actual source/context metadata; absent when not authenticated independently.
+    physical_context: str | None
+    #: Exact physical package document bytes.
+    physical_documents: tuple[ProjectDocumentMember, ...]
+    #: Complete authored/data source codec. None is permitted only for an explicitly omitted descriptive source.
+    replay_source: str | None
+    #: Original canonical source revision, meaningful only under manifest origin authority.
+    revision: str
+    #: Original scientific identity when actually retained by its source/context owner; absence is unknown.
+    source_identity: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.documents), v.optional_key(v.scalar_key)(self.physical_context), v.sequence_key(v.record_key)(self.physical_documents), v.optional_key(v.scalar_key)(self.replay_source), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.source_identity),))
 
 
 class ProjectSourceDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18872,6 +18942,46 @@ class ProjectSourceObjectPackage(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceRevisionMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact factual metadata from the original immutable revision owner; it grants no source access."""
+
+    #: Original source interpretation; no receiving compatibility is asserted.
+    interpretation: str
+    #: Actual original immutable revision.
+    key: str
+    #: Original operation acknowledgement identity.
+    operation: str
+    #: Original parent, if present; never a floating head.
+    parent: str | None = None
+    #: Actual original problem owner.
+    problem: str
+    #: Original immutable source sequence.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.problem), v.scalar_key(self.sequence),))
+
+
+class ProjectSourceRevisionMetadataOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact factual metadata from the original immutable revision owner; it grants no source access."""
+
+    #: Original source interpretation; no receiving compatibility is asserted.
+    interpretation: str
+    #: Actual original immutable revision.
+    key: str
+    #: Original operation acknowledgement identity.
+    operation: str
+    #: Original parent, if present; never a floating head.
+    parent: str | None
+    #: Actual original problem owner.
+    problem: str
+    #: Original immutable source sequence.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.problem), v.scalar_key(self.sequence),))
 
 
 class ProjectStudyClosure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29455,10 +29565,13 @@ __all__ = [
     "ProjectReference",
     "ProjectReferenceBookmark",
     "ProjectReferenceBranch",
+    "ProjectResultMetadata",
+    "ProjectResultMetadataOutput",
     "ProjectSelectRequest",
     "ProjectSelection",
     "ProjectSelectionBody",
     "ProjectSourceClosure",
+    "ProjectSourceClosureOutput",
     "ProjectSourceDetail",
     "ProjectSourceDetailOutput",
     "ProjectSourceObject",
@@ -29471,6 +29584,8 @@ __all__ = [
     "ProjectSourceObjectOutputFit",
     "ProjectSourceObjectOutputPackage",
     "ProjectSourceObjectPackage",
+    "ProjectSourceRevisionMetadata",
+    "ProjectSourceRevisionMetadataOutput",
     "ProjectStudyClosure",
     "ProjectStudyClosureOutput",
     "Propagation",
@@ -30008,4 +30123,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:f53042ee479a35d744a75ac2fe1806c9b1e6318ac1988359a36addb18ad6d2a2"
+SCHEMA_SET_FINGERPRINT = "blake3:e117ca4ddabe19d23d93bff89596ff894cd87371d24909b1c2438ff55575b503"

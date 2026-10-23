@@ -229,6 +229,9 @@ impl PackageAdmission {
     }
 }
 impl ModelingPackage {
+    /// Original admitted physical meaning, reusable by ordinary draft and study operations.
+    pub fn physical_context(&self) -> &PhysicalContext { &self.physical }
+
     pub(crate) fn admission(&self) -> Result<PackageAdmission, WorkflowError> {
         Ok(PackageAdmission {
             revision: self.revision.clone(),

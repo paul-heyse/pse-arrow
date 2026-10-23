@@ -17,13 +17,12 @@ from pse._artifacts import (
 )
 from pse._build import (
     EngineSettings,
-    _NativePhysicalContext,
     _NativeRuntime,
     _NativeProjectBundle,
 )
 from pse._inspection import TableStream
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
-from pse._physical import ArrowSchema
+from pse._physical import ArrowSchema, PhysicalContext
 from pse._research import ResearchRuntime
 from pse._runs import (
     PreparedOperation,
@@ -679,17 +678,17 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         """Read this exact raw body through its current protection owner."""
         return bytes(self._handle.project_draft_bytes(key))
 
-    def project_closure(self, request: ProjectExportRequest, physical: "PhysicalContext") -> ProjectClosureExplanationOutput:
+    def project_closure(self, request: ProjectExportRequest, physical: PhysicalContext | None = None) -> ProjectClosureExplanationOutput:
         """Explain exact selected membership through the original owners."""
-        return self._handle.project_closure(request, physical._handle)  # noqa: SLF001
+        return self._handle.project_closure(request, None if physical is None else physical._handle)  # noqa: SLF001
 
-    def project_export(self, destination: Path, request: ProjectExportRequest, physical: "PhysicalContext") -> ProjectManifestOutput:
+    def project_export(self, destination: Path, request: ProjectExportRequest, physical: PhysicalContext | None = None) -> ProjectManifestOutput:
         """Copy a protected selected closure for offline inspection and fresh import."""
-        return self._handle.project_export(destination, request, physical._handle)  # noqa: SLF001
+        return self._handle.project_export(destination, request, None if physical is None else physical._handle)  # noqa: SLF001
 
     def project_import_issue(self, bundle: ProjectBundle, *, title: str, branch_name: str = "main") -> ProjectImportIntentOutput:
         """Issue a retryable intent bound to this receiving authority and exact pack."""
-        return self._handle.project_import_issue(bundle._handle, title, branch_name)  # noqa: SLF001
+        return self._handle.project_import_issue(bundle._handle, title=title, branch_name=branch_name)  # noqa: SLF001
 
     def project_import_status(self, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ProjectImportReportOutput | None:
         """Settle the original intent and distinguish admitted source from a complete project."""
@@ -915,14 +914,3 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
             )
         )
 
-
-@attrs.frozen
-class PhysicalContext:
-    """Admitted quantities, units, prerequisites and original source rows."""
-
-    _handle: _NativePhysicalContext
-
-    @property
-    def identity(self) -> ContentHash:
-        """Complete native compiler context identity."""
-        return self._handle.identity

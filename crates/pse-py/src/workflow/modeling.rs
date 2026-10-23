@@ -222,6 +222,10 @@ impl NativeModelingPackage {
     fn revision_id(&self) -> String {
         self.inner.revision_id().to_owned()
     }
+    #[getter]
+    fn physical_context(&self) -> NativePhysicalContext {
+        NativePhysicalContext { inner: self.inner.physical_context().clone() }
+    }
     /// Exact immutable modeling and physical source identity for lazy study inputs.
     #[getter]
     fn operation_source(&self) -> documents::DocumentValue<native::OperationSource> {
