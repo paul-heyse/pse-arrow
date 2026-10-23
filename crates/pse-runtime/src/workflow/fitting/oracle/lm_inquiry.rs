@@ -1716,7 +1716,13 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let mut actual=vec![];while let Some(batch)=reopened.next_relation_batch().await.unwrap(){actual.extend(cells::Row::rows(&batch).unwrap());}
     assert_eq!(actual,exported,"original producer-qualified cells survive dropping the live result");
     let branch=store.project_branch("main").await.unwrap().unwrap();
-    let targets=[("a",id(1)),("b",id(2))].into_iter().map(|(name,parameter)|ResearchParameterTarget{parameter,declaration:rows.iter().find(|r|r.name==name).unwrap().declaration_id,root,instance:id(33).into(),path:name.into(),quantity:quantity.as_id(),unit:unit.as_id(),lower_bits:Some((-100f64).to_bits()),upper_bits:Some(100f64.to_bits())}).collect();
+    let original_target=source.prepare(root,id(33).into(),Default::default(),Default::default(),&cancel).await.unwrap();
+    let targets=[("a",id(1)),("b",id(2))].into_iter().map(|(name,parameter)|{
+        let declaration=rows.iter().find(|r|r.name==name).unwrap().declaration_id;
+        let symbol=original_target.compiled().model.symbols.values().find(|symbol|symbol.lineage.declaration==declaration).unwrap();
+        let path=original_target.compiled().model.paths.iter().find(|(_,member)|**member==symbol.id).unwrap().0.clone();
+        ResearchParameterTarget{parameter,declaration,root,instance:id(33).into(),path,quantity:quantity.as_id(),unit:unit.as_id(),lower_bits:Some((-100f64).to_bits()),upper_bits:Some(100f64.to_bits())}
+    }).collect();
     let request=ResearchPublicationRequest{operation:"publish-fit".into(),selection:selection.key.clone(),run:run.clone(),attempt:attempt.clone(),project:project.clone(),branch,target:context.clone(),targets};
     let mut wrong=request.clone();wrong.attempt="absent-attempt".into();assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
     let mut wrong=request.clone();wrong.targets[0].unit=id(99);assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
@@ -1733,7 +1739,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let downstream=Box::pin(runtime.research_publication_open("publish-fit",&cancel)).await.unwrap();
     assert_eq!(crate::workflow::OperationSource::of(&downstream).research.unwrap().publication.as_deref(),Some("publish-fit"));
     let downstream_model=downstream.prepare(root,id(33).into(),Default::default(),Default::default(),&cancel).await.unwrap();
-    let target=downstream_model.compiled().model.paths["a"];
+    let target=downstream_model.compiled().model.paths[&request.targets[0].path];
     assert_eq!(downstream_model.compiled().admitted.case().parameters().iter().find(|p|p.id==target).unwrap().quantity,quantity);
     // A backdated correction changes new discovery, never this old fit's source receipt.
     Box::pin(runtime.project_record_context("corrected-context",&project,"calibration",&source,0,None,Some("original-context"),false)).await.unwrap();
