@@ -74,32 +74,48 @@ def regression(
     package = runtime.modeling_from_documents(
         [regression_documents()], physical_context(runtime)
     )
-    case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
     ids = tuple(member(package, case, name) for name in ("a", "b", "z"))
     fit_id = FitId(identity(180))
     fit = modeling.FitDeclaration(
         fit_id=fit_id,
         parameters=tuple(
             a.AuthoredFitCasesFieldParametersItem(
-                symbol_id=id_, fixed=False, value=1.0, lower=-100.0,
-                upper=100.0, scale=scale,
+                symbol_id=id_,
+                fixed=False,
+                value=1.0,
+                lower=-100.0,
+                upper=100.0,
+                scale=scale,
             )
             for id_, scale in zip(ids[:2], (1.0, 2.0), strict=True)
         ),
-        experiments=(a.AuthoredFitCasesFieldExperimentsItem(
-            experiment_id=InstanceId(identity(181)), case_id=case,
-            route=ModelingAnalysisRoute.STEADY,
-            bindings=tuple(
-                a.AuthoredFitCasesFieldExperimentsItemBindingsItem(parameter_id=id_, path=name)
-                for id_, name in zip(ids[:2], ("a", "b"), strict=True)
+        experiments=(
+            a.AuthoredFitCasesFieldExperimentsItem(
+                experiment_id=InstanceId(identity(181)),
+                case_id=case,
+                route=ModelingAnalysisRoute.STEADY,
+                bindings=tuple(
+                    a.AuthoredFitCasesFieldExperimentsItemBindingsItem(
+                        parameter_id=id_, path=name
+                    )
+                    for id_, name in zip(ids[:2], ("a", "b"), strict=True)
+                ),
             ),
-        ),),
+        ),
         observations=tuple(
             a.AuthoredFitCasesFieldObservationsItem(
                 observation_id=DeclarationId(identity(170 + index)),
-                value_attribute="value", standard_deviation_attribute="sigma",
-                experiment_id=InstanceId(identity(181)), output_path=f"y{index + 1}",
-                time=None, time_basis=None, time_unit_id=None, included=True,
+                value_attribute="value",
+                standard_deviation_attribute="sigma",
+                experiment_id=InstanceId(identity(181)),
+                output_path=f"y{index + 1}",
+                time=None,
+                time_basis=None,
+                time_unit_id=None,
+                included=True,
                 importance=importance if index == 2 else 1.0,
             )
             for index in range(4)
@@ -109,13 +125,21 @@ def regression(
 
 
 def fit(package: pse.ModelingPackage, fit_id: FitId) -> pse.RunResult:
-    return package.prepare_fit(
-        fit_id,
-        pse.PhysicalFitRequest(settings=d.FitPreparationDocumentForPhysicalSimulationRequest(
-            optimizer="native_nlp",
-            solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT),
-        )),
-    ).start().wait()
+    return (
+        package.prepare_fit(
+            fit_id,
+            pse.PhysicalFitRequest(
+                settings=d.FitPreparationDocumentForPhysicalSimulationRequest(
+                    optimizer="native_nlp",
+                    solver=pse.SolveSettings(
+                        intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT
+                    ),
+                )
+            ),
+        )
+        .start()
+        .wait()
+    )
 
 
 def covariance_input(value: d.ParameterCovarianceOutput) -> d.ParameterCovariance:
@@ -123,9 +147,12 @@ def covariance_input(value: d.ParameterCovarianceOutput) -> d.ParameterCovarianc
 
 
 def downstream(
-    package: pse.ModelingPackage, case: DeclarationId,
-    ids: tuple[SemanticId, ...], covariance: d.ParameterCovariance,
-    *, source: pse.RunResult | None = None,
+    package: pse.ModelingPackage,
+    case: DeclarationId,
+    ids: tuple[SemanticId, ...],
+    covariance: d.ParameterCovariance,
+    *,
+    source: pse.RunResult | None = None,
 ) -> pse.PreparedOperation:
     # Reload the complete source inventory against the exact fitted parent. The
     # added objective changes the use of z, while a/b/z retain their actual IDs.
@@ -137,7 +164,8 @@ def downstream(
     return optimized.prepare_solve(
         case,
         pse.SolveSettings(
-            intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT,
+            intent=NativeSolveIntent.OPTIMIZE,
+            backend=NativeBackend.IPOPT,
             presolve=PresolvePolicyKind.OFF,
             sensitivity=d.SensitivityRequest(
                 parameters=ids[:2],
@@ -155,10 +183,17 @@ def analytic_covariance() -> tuple[float, ...]:
     s01 = sum(w * x for w, x in zip(weights, (1, 2, 3, 4), strict=True))
     s11 = sum(w * x * x for w, x in zip(weights, (1, 2, 3, 4), strict=True))
     determinant = s00 * s11 - s01 * s01
-    return (s11 / determinant, -s01 / determinant, -s01 / determinant, s00 / determinant)
+    return (
+        s11 / determinant,
+        -s01 / determinant,
+        -s01 / determinant,
+        s00 / determinant,
+    )
 
 
-def assert_contrast(result: pse.RunResult, covariance: tuple[float, ...]) -> dict[str, object]:
+def assert_contrast(
+    result: pse.RunResult, covariance: tuple[float, ...]
+) -> dict[str, object]:
     assert result.usable
     (row,) = pa.table(result.table("runtime.propagated_covariances")).to_pylist()
     # J=(1,-1) gives Σ00-Σ01-Σ10+Σ11 without a fitted-value oracle.
@@ -166,7 +201,10 @@ def assert_contrast(result: pse.RunResult, covariance: tuple[float, ...]) -> dic
         [covariance[0] - covariance[1] - covariance[2] + covariance[3]], abs=1e-7
     )
     validity = pa.table(result.table("runtime.local_validity")).to_pylist()
-    assert any(v["quantity"] == "propagated_covariance" and v["validity"]["certified"] for v in validity)
+    assert any(
+        v["quantity"] == "propagated_covariance" and v["validity"]["certified"]
+        for v in validity
+    )
     return row
 
 
@@ -209,8 +247,16 @@ def test_fit_covariance_public_binding_preserves_content_and_refuses_tampering(
     assert actual is not None
     actual_input = covariance_input(actual)
     for change in changes:
-        with pytest.raises(pse.InspectionError, match="differs from the actual retained qualified fit"):
-            downstream(package, case, ids, msgspec.structs.replace(actual_input, **change), source=fitted)
+        with pytest.raises(
+            pse.InspectionError, match="differs from the actual retained qualified fit"
+        ):
+            downstream(
+                package,
+                case,
+                ids,
+                msgspec.structs.replace(actual_input, **change),
+                source=fitted,
+            )
 
 
 @pytest.mark.integration
@@ -223,19 +269,29 @@ def test_external_covariance_singular_psd_and_indefinite_public_assessments(
     assert covariance is not None
     external = msgspec.structs.replace(
         covariance_input(covariance),
-        origin=d.CovarianceOriginExternal(label="declared singular", assumptions=("common error",)),
+        origin=d.CovarianceOriginExternal(
+            label="declared singular", assumptions=("common error",)
+        ),
         values=(1.0, 1.0, 1.0, 1.0),
     )
-    row = assert_contrast(downstream(package, case, ids, external).start().wait(), external.values)
+    row = assert_contrast(
+        downstream(package, case, ids, external).start().wait(), external.values
+    )
     assert row["covariance_run_id"] is None
     assert row["covariance_origin"] == "external"
     assert row["covariance_label"] == "declared singular"
     assert row["covariance_assumptions"] == ["common error"]
     # Symmetric, finite and positive on the diagonal is insufficient: JΣJᵀ=-2.
-    indefinite = downstream(
-        package, case, ids,
-        msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)),
-    ).start().wait()
+    indefinite = (
+        downstream(
+            package,
+            case,
+            ids,
+            msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)),
+        )
+        .start()
+        .wait()
+    )
     # Propagation is an explicitly requested lazy projection of the joined solve.
     # Its mathematical refusal must be observed at the actual product boundary.
     with pytest.raises(pa.ArrowInvalid, match="negative eigenvalue"):
@@ -255,7 +311,8 @@ def test_withheld_fit_covariance_cannot_fabricate_an_available_product(
 
 @pytest.mark.component
 def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_reference(
-    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture,
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
     package, case, fit_id, ids = regression(runtime)
@@ -275,7 +332,9 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
     package, case, _fit_id, ids = regression(reopened)
     decoded = covariance_input(actual)
     # Canonical references restore authority without an in-process fit handle.
-    row = assert_contrast(downstream(package, case, ids, decoded).start().wait(), actual.values)
+    row = assert_contrast(
+        downstream(package, case, ids, decoded).start().wait(), actual.values
+    )
     assert row["covariance_run_id"] == actual.origin.run_id
     with pytest.raises(pse.InspectionError):
         reopened.fit_covariance(run, "missing-fit-attempt")
@@ -285,5 +344,7 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
         {"parameter_units": (identity(250), actual.parameter_units[1])},
         {"scales": (2.0, 2.0)},
     ):
-        with pytest.raises(pse.InspectionError, match="differs from the actual qualified fit"):
+        with pytest.raises(
+            pse.InspectionError, match="differs from the actual qualified fit"
+        ):
             downstream(package, case, ids, msgspec.structs.replace(decoded, **change))

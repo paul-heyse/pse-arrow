@@ -660,10 +660,9 @@ mod tests {
         let Value::Object(first_page_fields) = &first_page else {
             panic!("maintenance page must be an object")
         };
-        let next = crate::canonical_codec::decode_string(
-            first_page_fields.get("after").unwrap().clone(),
-        )
-        .unwrap();
+        let next =
+            crate::canonical_codec::decode_string(first_page_fields.get("after").unwrap().clone())
+                .unwrap();
         assert_eq!(next, guards[63]);
         assert_eq!(first_page_fields.get("complete"), Some(&Value::Bool(false)));
         let inventory = "RETURN SELECT key,generation,incarnation FROM canonical_guards \
@@ -707,9 +706,8 @@ mod tests {
                 crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(),
                 u64::from(key != guards[64])
             );
-            let incarnation = crate::canonical_codec::decode_string(
-                row.remove("incarnation").unwrap(),
-            ).unwrap();
+            let incarnation =
+                crate::canonical_codec::decode_string(row.remove("incarnation").unwrap()).unwrap();
             assert_eq!(incarnation == format!("original:{key}"), key == guards[64]);
         }
         // Resume the remaining page after a generation handoff. Replaying the
@@ -719,9 +717,9 @@ mod tests {
         let Value::Object(tail_fields) = tail else {
             panic!("maintenance tail must be an object")
         };
-        let after = crate::canonical_codec::decode_string(
-            tail_fields.get("after").unwrap().clone(),
-        ).unwrap();
+        let after =
+            crate::canonical_codec::decode_string(tail_fields.get("after").unwrap().clone())
+                .unwrap();
         let terminal = call(&store, &page("g2", &after)).await.unwrap();
         let Value::Object(terminal_fields) = &terminal else {
             panic!("maintenance completion must be an object")
@@ -736,7 +734,10 @@ mod tests {
             let Value::Object(mut row) = row else {
                 panic!("guard row must be an object")
             };
-            assert_eq!(crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(),1);
+            assert_eq!(
+                crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(),
+                1
+            );
         }
         let Value::Object(mut expected) = first_owner else {
             panic!("maintenance owner must be an object")

@@ -2612,7 +2612,8 @@ mod canonical_studies_server_unit {
             .unwrap();
         let point = point_key("graph-blocker", OccurrenceKey(2));
         let scope = store.study_scope(&point).await.unwrap();
-        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
+        let mut request = CanonicalGraphRequest {
+            version: pse_model::document::Version,
             anchor: GraphAnchor::StudyPoint {
                 point,
                 revision: scope.point().revision,
@@ -2655,7 +2656,8 @@ mod canonical_studies_server_unit {
         assert_eq!(isolated.nodes.len(), 1);
         assert!(isolated.observed_blocker.is_none());
         let sources = store
-            .graph_explanation(&CanonicalGraphRequest { version: pse_model::document::Version,
+            .graph_explanation(&CanonicalGraphRequest {
+                version: pse_model::document::Version,
                 anchor: GraphAnchor::Run {
                     run: "graph-parent".into(),
                     revision: revision.key.clone(),
@@ -2676,19 +2678,87 @@ mod canonical_studies_server_unit {
         // All four study/run questions share the same independent expected-edge
         // and actual native seek checks, including the empty isolate.
         use crate::canonical_explanations::{GraphEdge, qualify_graph_seek_pages};
-        for (ordinal,question) in [(2,GraphScope::ImmediateBlockers),(2,GraphScope::RecordedSources),(0,GraphScope::RetainedConsumers),(1,GraphScope::RecordedSources)] {
-            let selected=store.study_scope(&point_key("graph-blocker",OccurrenceKey(ordinal))).await.unwrap();
-            let expected=if ordinal==1 {vec![]} else {[("ordering",GraphEdgeRole::Ordering),("usable",GraphEdgeRole::UsableResult)].into_iter().map(|(kind,role)| {
-                let dependent=point_key("graph-blocker",OccurrenceKey(2));
-                let predecessor=point_key("graph-blocker",OccurrenceKey(0));
-                let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-                hash.str("pse.study.edge.v1").str(&dependent).str(&predecessor).str(kind);
-                let key=hash.finish_hash().to_hex();
-                (key.clone(),GraphEdge {identity:format!("canonical_study_dependencies:{key}"),source:format!("canonical_study_points:{dependent}"),target:format!("canonical_study_points:{predecessor}"),role,evidence:None})
-            }).collect()};
-            qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope:question,limit:1,continuation:None},expected).await;
+        for (ordinal, question) in [
+            (2, GraphScope::ImmediateBlockers),
+            (2, GraphScope::RecordedSources),
+            (0, GraphScope::RetainedConsumers),
+            (1, GraphScope::RecordedSources),
+        ] {
+            let selected = store
+                .study_scope(&point_key("graph-blocker", OccurrenceKey(ordinal)))
+                .await
+                .unwrap();
+            let expected = if ordinal == 1 {
+                vec![]
+            } else {
+                [
+                    ("ordering", GraphEdgeRole::Ordering),
+                    ("usable", GraphEdgeRole::UsableResult),
+                ]
+                .into_iter()
+                .map(|(kind, role)| {
+                    let dependent = point_key("graph-blocker", OccurrenceKey(2));
+                    let predecessor = point_key("graph-blocker", OccurrenceKey(0));
+                    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+                    hash.str("pse.study.edge.v1")
+                        .str(&dependent)
+                        .str(&predecessor)
+                        .str(kind);
+                    let key = hash.finish_hash().to_hex();
+                    (
+                        key.clone(),
+                        GraphEdge {
+                            identity: format!("canonical_study_dependencies:{key}"),
+                            source: format!("canonical_study_points:{dependent}"),
+                            target: format!("canonical_study_points:{predecessor}"),
+                            role,
+                            evidence: None,
+                        },
+                    )
+                })
+                .collect()
+            };
+            qualify_graph_seek_pages(
+                &store,
+                &CanonicalGraphRequest {
+                    version: pse_model::document::Version,
+                    anchor: GraphAnchor::StudyPoint {
+                        point: selected.point().key.clone(),
+                        revision: selected.point().revision,
+                        generation: selected.generation(),
+                    },
+                    scope: question,
+                    limit: 1,
+                    continuation: None,
+                },
+                expected,
+            )
+            .await;
         }
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Run{run:"graph-parent".into(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},vec![("graph-parent".into(),GraphEdge{identity:"canonical_run_sources:graph-parent".into(),source:"canonical_runs:graph-parent".into(),target:format!("canonical_revisions:{}",revision.key),role:GraphEdgeRole::RecordedSource,evidence:None})]).await;
+        qualify_graph_seek_pages(
+            &store,
+            &CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: GraphAnchor::Run {
+                    run: "graph-parent".into(),
+                    revision: revision.key.clone(),
+                },
+                scope: GraphScope::RecordedSources,
+                limit: 1,
+                continuation: None,
+            },
+            vec![(
+                "graph-parent".into(),
+                GraphEdge {
+                    identity: "canonical_run_sources:graph-parent".into(),
+                    source: "canonical_runs:graph-parent".into(),
+                    target: format!("canonical_revisions:{}", revision.key),
+                    role: GraphEdgeRole::RecordedSource,
+                    evidence: None,
+                },
+            )],
+        )
+        .await;
         store.cancel_study("graph-blocker").await.unwrap();
         assert!(store.graph_explanation(&request).await.is_err());
         store.remove_isolated_fixture().await.unwrap();
@@ -2696,44 +2766,159 @@ mod canonical_studies_server_unit {
 
     #[tokio::test]
     async fn canonical_graph_explanation_study_seek_pages_bound_dense_neighborhoods() {
-        use crate::canonical_explanations::{CanonicalGraphRequest,GraphAnchor,GraphScope,GraphEdge,GraphEdgeRole,qualify_graph_seek_pages};
-        let (store,_,revision)=fixture().await;
-        let mut points=(0..65).map(|ordinal|occurrence(&revision,ordinal,vec![])).collect::<Vec<_>>();
-        let mut authored=Vec::new();
+        use crate::canonical_explanations::{
+            CanonicalGraphRequest, GraphAnchor, GraphEdge, GraphEdgeRole, GraphScope,
+            qualify_graph_seek_pages,
+        };
+        let (store, _, revision) = fixture().await;
+        let mut points = (0..65)
+            .map(|ordinal| occurrence(&revision, ordinal, vec![]))
+            .collect::<Vec<_>>();
+        let mut authored = Vec::new();
         for ordinal in 65..131 {
-            points.push(occurrence(&revision,ordinal,vec![Dependency::Ordering(OccurrenceKey(0)),Dependency::UsableResult(OccurrenceKey(0))]));
-            authored.extend([(ordinal,0,"ordering",GraphEdgeRole::Ordering),(ordinal,0,"usable",GraphEdgeRole::UsableResult)]);
+            points.push(occurrence(
+                &revision,
+                ordinal,
+                vec![
+                    Dependency::Ordering(OccurrenceKey(0)),
+                    Dependency::UsableResult(OccurrenceKey(0)),
+                ],
+            ));
+            authored.extend([
+                (ordinal, 0, "ordering", GraphEdgeRole::Ordering),
+                (ordinal, 0, "usable", GraphEdgeRole::UsableResult),
+            ]);
         }
-        let mut dependencies=Vec::new();
+        let mut dependencies = Vec::new();
         for predecessor in 0..64 {
-            dependencies.extend([Dependency::Ordering(OccurrenceKey(predecessor)),Dependency::UsableResult(OccurrenceKey(predecessor))]);
-            authored.extend([(131,predecessor,"ordering",GraphEdgeRole::Ordering),(131,predecessor,"usable",GraphEdgeRole::UsableResult)]);
+            dependencies.extend([
+                Dependency::Ordering(OccurrenceKey(predecessor)),
+                Dependency::UsableResult(OccurrenceKey(predecessor)),
+            ]);
+            authored.extend([
+                (131, predecessor, "ordering", GraphEdgeRole::Ordering),
+                (131, predecessor, "usable", GraphEdgeRole::UsableResult),
+            ]);
         }
-        points.push(occurrence(&revision,131,dependencies));
-        let mut parent=request(&revision,"graph-dense-parent");
+        points.push(occurrence(&revision, 131, dependencies));
+        let mut parent = request(&revision, "graph-dense-parent");
         for ordinal in 0..64 {
-            parent.sources.push(store.edit(&format!("graph-dense-source-{ordinal:03}"),None,"source",&[]).await.unwrap());
+            parent.sources.push(
+                store
+                    .edit(
+                        &format!("graph-dense-source-{ordinal:03}"),
+                        None,
+                        "source",
+                        &[],
+                    )
+                    .await
+                    .unwrap(),
+            );
         }
-        store.create_study("graph-dense",&parent,&[],&points,&||false).await.unwrap();
-        let mut expected_sources=vec![(parent.key.clone(),GraphEdge{identity:format!("canonical_run_sources:{}",parent.key),source:format!("canonical_runs:{}",parent.key),target:format!("canonical_revisions:{}",revision.key),role:GraphEdgeRole::RecordedSource,evidence:None})];
+        store
+            .create_study("graph-dense", &parent, &[], &points, &|| false)
+            .await
+            .unwrap();
+        let mut expected_sources = vec![(
+            parent.key.clone(),
+            GraphEdge {
+                identity: format!("canonical_run_sources:{}", parent.key),
+                source: format!("canonical_runs:{}", parent.key),
+                target: format!("canonical_revisions:{}", revision.key),
+                role: GraphEdgeRole::RecordedSource,
+                evidence: None,
+            },
+        )];
         for source in &parent.sources {
-            let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-            hash.str("canonical.execution.run-source.v1").part(parent.key.as_bytes()).part(source.problem.as_bytes()).part(source.key.as_bytes());
-            let key=hash.finish_hash().to_hex();
-            expected_sources.push((key.clone(),GraphEdge{identity:format!("canonical_run_sources:{key}"),source:format!("canonical_runs:{}",parent.key),target:format!("canonical_revisions:{}",source.key),role:GraphEdgeRole::RecordedSource,evidence:None}));
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+            hash.str("canonical.execution.run-source.v1")
+                .part(parent.key.as_bytes())
+                .part(source.problem.as_bytes())
+                .part(source.key.as_bytes());
+            let key = hash.finish_hash().to_hex();
+            expected_sources.push((
+                key.clone(),
+                GraphEdge {
+                    identity: format!("canonical_run_sources:{key}"),
+                    source: format!("canonical_runs:{}", parent.key),
+                    target: format!("canonical_revisions:{}", source.key),
+                    role: GraphEdgeRole::RecordedSource,
+                    evidence: None,
+                },
+            ));
         }
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Run{run:parent.key.clone(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},expected_sources).await;
-        for (ordinal,scope) in [(131,GraphScope::ImmediateBlockers),(131,GraphScope::RecordedSources),(0,GraphScope::RetainedConsumers),(64,GraphScope::RecordedSources),(64,GraphScope::RetainedConsumers)] {
-            let selected=store.study_scope(&point_key("graph-dense",OccurrenceKey(ordinal))).await.unwrap();
-            let expected=authored.iter().filter(|(dependent,predecessor,_,_)| if scope==GraphScope::RetainedConsumers {*predecessor==ordinal} else {*dependent==ordinal}).map(|(dependent,predecessor,kind,role)| {
-                let dependent=point_key("graph-dense",OccurrenceKey(*dependent));
-                let predecessor=point_key("graph-dense",OccurrenceKey(*predecessor));
-                let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-                hash.str("pse.study.edge.v1").str(&dependent).str(&predecessor).str(kind);
-                let key=hash.finish_hash().to_hex();
-                (key.clone(),GraphEdge{identity:format!("canonical_study_dependencies:{key}"),source:format!("canonical_study_points:{dependent}"),target:format!("canonical_study_points:{predecessor}"),role:role.clone(),evidence:None})
-            }).collect();
-            qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope,limit:1,continuation:None},expected).await;
+        qualify_graph_seek_pages(
+            &store,
+            &CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: GraphAnchor::Run {
+                    run: parent.key.clone(),
+                    revision: revision.key.clone(),
+                },
+                scope: GraphScope::RecordedSources,
+                limit: 1,
+                continuation: None,
+            },
+            expected_sources,
+        )
+        .await;
+        for (ordinal, scope) in [
+            (131, GraphScope::ImmediateBlockers),
+            (131, GraphScope::RecordedSources),
+            (0, GraphScope::RetainedConsumers),
+            (64, GraphScope::RecordedSources),
+            (64, GraphScope::RetainedConsumers),
+        ] {
+            let selected = store
+                .study_scope(&point_key("graph-dense", OccurrenceKey(ordinal)))
+                .await
+                .unwrap();
+            let expected = authored
+                .iter()
+                .filter(|(dependent, predecessor, _, _)| {
+                    if scope == GraphScope::RetainedConsumers {
+                        *predecessor == ordinal
+                    } else {
+                        *dependent == ordinal
+                    }
+                })
+                .map(|(dependent, predecessor, kind, role)| {
+                    let dependent = point_key("graph-dense", OccurrenceKey(*dependent));
+                    let predecessor = point_key("graph-dense", OccurrenceKey(*predecessor));
+                    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+                    hash.str("pse.study.edge.v1")
+                        .str(&dependent)
+                        .str(&predecessor)
+                        .str(kind);
+                    let key = hash.finish_hash().to_hex();
+                    (
+                        key.clone(),
+                        GraphEdge {
+                            identity: format!("canonical_study_dependencies:{key}"),
+                            source: format!("canonical_study_points:{dependent}"),
+                            target: format!("canonical_study_points:{predecessor}"),
+                            role: role.clone(),
+                            evidence: None,
+                        },
+                    )
+                })
+                .collect();
+            qualify_graph_seek_pages(
+                &store,
+                &CanonicalGraphRequest {
+                    version: pse_model::document::Version,
+                    anchor: GraphAnchor::StudyPoint {
+                        point: selected.point().key.clone(),
+                        revision: selected.point().revision,
+                        generation: selected.generation(),
+                    },
+                    scope,
+                    limit: 1,
+                    continuation: None,
+                },
+                expected,
+            )
+            .await;
         }
         store.remove_isolated_fixture().await.unwrap();
     }

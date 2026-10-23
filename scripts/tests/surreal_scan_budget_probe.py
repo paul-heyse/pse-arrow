@@ -21,7 +21,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REVISION = "1ac2b1dba7cd177621a4cf5d507caebeb2414395"
-PATCH = ROOT / "scripts/tests/fixtures/surreal-source/tool08-compound-range-budget.patch"
+PATCH = (
+    ROOT / "scripts/tests/fixtures/surreal-source/tool08-compound-range-budget.patch"
+)
 NATIVE_PATHS = (
     "surrealdb/core/src/exec",
     "surrealdb/core/src/kvs/util.rs",
@@ -43,15 +45,28 @@ def git_environment() -> dict[str, str]:
 
 
 def git(source: Path, *arguments: str) -> bytes:
-    return subprocess.check_output(["git", "-C", str(source), *arguments], env=git_environment())
+    return subprocess.check_output(
+        ["git", "-C", str(source), *arguments], env=git_environment()
+    )
 
 
 def source_files(source: Path) -> list[Path]:
-    tracked = [Path(os.fsdecode(name)) for name in git(source, "ls-files", "-z").split(b"\0") if name]
+    tracked = [
+        Path(os.fsdecode(name))
+        for name in git(source, "ls-files", "-z").split(b"\0")
+        if name
+    ]
     dependencies = source / ".pse-deps"
     if not dependencies.is_dir():
         raise ValueError("selected patched source must retain its .pse-deps inputs")
-    return sorted(set(tracked) | {path.relative_to(source) for path in dependencies.rglob("*") if path.is_file()})
+    return sorted(
+        set(tracked)
+        | {
+            path.relative_to(source)
+            for path in dependencies.rglob("*")
+            if path.is_file()
+        }
+    )
 
 
 def snapshot(source: Path, paths: list[Path]) -> dict[str, str]:
@@ -73,10 +88,15 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
         raise ValueError("selected source is not the exact TOOL08 upstream revision")
     manifest = (source / "Cargo.toml").read_text()
     lock = (source / "Cargo.lock").read_text()
-    if 'surrealmx = "=1.0.0"' not in manifest or 'name = "surrealmx"\nversion = "1.0.0"' not in lock:
+    if (
+        'surrealmx = "=1.0.0"' not in manifest
+        or 'name = "surrealmx"\nversion = "1.0.0"' not in lock
+    ):
         raise ValueError("selected source must use the patched MX 1.0.0 engine")
     if git(source, "diff", "HEAD", "--", *NATIVE_PATHS):
-        raise ValueError("native planner/index/scanner inputs differ from pinned upstream")
+        raise ValueError(
+            "native planner/index/scanner inputs differ from pinned upstream"
+        )
     paths = source_files(source)
     hashes = snapshot(source, paths)
     scratch.mkdir(parents=True, exist_ok=False)
@@ -87,16 +107,33 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
         shutil.copy2(source / relative, target)
     if snapshot(copied, paths) != hashes or snapshot(source, paths) != hashes:
         raise ValueError("source changed while copying; refuse mixed snapshot")
-    (scratch / "selected-source.patch").write_bytes(git(source, "diff", "--binary", "HEAD"))
-    (scratch / "source-files.json").write_text(json.dumps(hashes, sort_keys=True, indent=2) + "\n")
+    (scratch / "selected-source.patch").write_bytes(
+        git(source, "diff", "--binary", "HEAD")
+    )
+    (scratch / "source-files.json").write_text(
+        json.dumps(hashes, sort_keys=True, indent=2) + "\n"
+    )
     # Private empty metadata prevents Git from discovering an ancestor checkout
     # when scratch is below its build/. Never copy the installed Git metadata.
-    subprocess.run(["git", "init", "--quiet", "--template=", str(copied)],
-                   env=git_environment(), check=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--template=", str(copied)],
+        env=git_environment(),
+        check=True,
+    )
     fixture_patch = scratch / "test-fixture.patch"
     shutil.copy2(PATCH, fixture_patch)
-    subprocess.run(["git", "apply", "--check", str(fixture_patch)], cwd=copied, env=git_environment(), check=True)
-    subprocess.run(["git", "apply", str(fixture_patch)], cwd=copied, env=git_environment(), check=True)
+    subprocess.run(
+        ["git", "apply", "--check", str(fixture_patch)],
+        cwd=copied,
+        env=git_environment(),
+        check=True,
+    )
+    subprocess.run(
+        ["git", "apply", str(fixture_patch)],
+        cwd=copied,
+        env=git_environment(),
+        check=True,
+    )
     receipt: dict[str, object] = {
         "source": str(source),
         "copy": str(copied),
@@ -106,8 +143,14 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
         "fixture_patch_sha256": digest(fixture_patch),
         "lockfile_sha256": digest(copied / "Cargo.lock"),
         "native_paths_equal_pinned_upstream": list(NATIVE_PATHS),
-        "native_file_sha256": {name: value for name, value in hashes.items()
-                               if any(name == prefix or name.startswith(prefix + "/") for prefix in NATIVE_PATHS)},
+        "native_file_sha256": {
+            name: value
+            for name, value in hashes.items()
+            if any(
+                name == prefix or name.startswith(prefix + "/")
+                for prefix in NATIVE_PATHS
+            )
+        },
         "equivalence_scope": "native planner/index/scanner source only; exact dirty snapshot retained, not whole deployed binary equivalence",
         "repository_toolchain_sha256": digest(ROOT / "rust-toolchain.toml"),
         "premises": [
@@ -119,7 +162,9 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
             "65-entry cap and 1001-entry cap; only 1001 crosses native batch boundary; no timing claim",
         ],
     }
-    (scratch / "probe.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+    (scratch / "probe.json").write_text(
+        json.dumps(receipt, sort_keys=True, indent=2) + "\n"
+    )
     return receipt
 
 
@@ -132,35 +177,59 @@ def verify_instrumentation(copied: Path) -> None:
         "async fn tool08_compound_range_scan_stops_at_entry_budget()",
     )
     if any(fragment not in text for fragment in required):
-        raise ValueError("disposable source lacks the exact test-only TOOL08 instrumentation")
+        raise ValueError(
+            "disposable source lacks the exact test-only TOOL08 instrumentation"
+        )
     iterator = text.split("impl CompoundRangeForwardIterator {", 1)[1].split(
         "/// Direction-dispatching wrapper", 1
     )[0]
-    if not (iterator.index("let res = scan(")
-            < iterator.index("tool08_probe::SCANS.lock()")
-            < iterator.index("decode_record_ids(res)")):
+    if not (
+        iterator.index("let res = scan(")
+        < iterator.index("tool08_probe::SCANS.lock()")
+        < iterator.index("decode_record_ids(res)")
+    ):
         raise ValueError("TOOL08 observer is not at the raw KV boundary before decode")
 
 
 def selected_test_passed(output: str) -> bool:
-    return ("running 1 test\n" in output
-            and f"test {TEST} ..." in output
-            and "test result: ok. 1 passed; 0 failed;" in output)
+    return (
+        "running 1 test\n" in output
+        and f"test {TEST} ..." in output
+        and "test result: ok. 1 passed; 0 failed;" in output
+    )
 
 
 def run(scratch: Path, receipt: dict[str, object]) -> int:
     verify_instrumentation(scratch / "source")
     command = [
-        "cargo", "test", "--manifest-path", str(scratch / "source/Cargo.toml"),
-        "--locked", "--no-default-features", "--features", "kv-mem",
-        "--package", "surrealdb-core", "--lib", "--jobs", "16",
-        "--config", "profile.dev.debug=0", "--config", "profile.test.debug=0",
-        TEST, "--", "--exact", "--nocapture",
+        "cargo",
+        "test",
+        "--manifest-path",
+        str(scratch / "source/Cargo.toml"),
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "kv-mem",
+        "--package",
+        "surrealdb-core",
+        "--lib",
+        "--jobs",
+        "16",
+        "--config",
+        "profile.dev.debug=0",
+        "--config",
+        "profile.test.debug=0",
+        TEST,
+        "--",
+        "--exact",
+        "--nocapture",
     ]
     environment = dict(os.environ)
     environment.pop("BASH_ENV", None)
     if environment.get("CARGO_TARGET_DIR"):
-        raise ValueError("probe requires its own default target; unset CARGO_TARGET_DIR")
+        raise ValueError(
+            "probe requires its own default target; unset CARGO_TARGET_DIR"
+        )
     if environment.get("RUSTUP_TOOLCHAIN"):
         raise ValueError("probe requires repository-pinned toolchain without override")
     environment["CARGO_BUILD_JOBS"] = "16"
@@ -168,15 +237,34 @@ def run(scratch: Path, receipt: dict[str, object]) -> int:
     receipt["command"] = command
     receipt["cargo_cwd"] = str(ROOT)
     receipt["test_log"] = str(scratch / "probe.log")
-    print(json.dumps({"receipt": str(scratch / "probe.json"), "command": command, "test_log": receipt["test_log"]}, indent=2), flush=True)
+    print(
+        json.dumps(
+            {
+                "receipt": str(scratch / "probe.json"),
+                "command": command,
+                "test_log": receipt["test_log"],
+            },
+            indent=2,
+        ),
+        flush=True,
+    )
     with (scratch / "probe.log").open("w") as log:
-        result = subprocess.run(command, cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT, check=False)
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
     output = (scratch / "probe.log").read_text()
     exit_code = result.returncode or (0 if selected_test_passed(output) else 1)
     receipt["cargo_exit_code"] = result.returncode
     receipt["exit_code"] = exit_code
     receipt["result"] = "passed" if exit_code == 0 else "failed"
-    (scratch / "probe.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+    (scratch / "probe.json").write_text(
+        json.dumps(receipt, sort_keys=True, indent=2) + "\n"
+    )
     print(output[-20000:], flush=True)
     return exit_code
 

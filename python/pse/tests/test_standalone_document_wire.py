@@ -48,7 +48,7 @@ def test_standalone_history_envelope_keeps_nested_domain_bodies() -> None:
 def test_graph_documents_refuse_missing_or_future_header_before_body(
     document: type,
 ) -> None:
-    for payload in (b'{}', b'{"version":2,"anchor":null}'):
+    for payload in (b"{}", b'{"version":2,"anchor":null}'):
         with pytest.raises(msgspec.ValidationError, match="version"):
             codec.decode_json(payload, document)
 
@@ -62,7 +62,10 @@ def test_graph_request_roundtrips_its_standalone_envelope() -> None:
         documents.CanonicalGraphRequest,
     )
     assert value.version == 1
-    assert codec.decode_json(codec.encode_json(value), documents.CanonicalGraphRequest) == value
+    assert (
+        codec.decode_json(codec.encode_json(value), documents.CanonicalGraphRequest)
+        == value
+    )
 
 
 @pytest.mark.unit

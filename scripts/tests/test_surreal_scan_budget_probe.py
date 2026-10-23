@@ -16,13 +16,26 @@ from scripts.tests import surreal_scan_budget_probe as probe
 
 class ScanProbePreparationTests(unittest.TestCase):
     def test_zero_selected_tests_cannot_claim_probe_success(self) -> None:
-        self.assertFalse(probe.selected_test_passed("running 0 tests\ntest result: ok. 0 passed; 0 failed;"))
-        self.assertTrue(probe.selected_test_passed(
-            f"running 1 test\ntest {probe.TEST} ... ok\ntest result: ok. 1 passed; 0 failed;"
-        ))
+        self.assertFalse(
+            probe.selected_test_passed(
+                "running 0 tests\ntest result: ok. 0 passed; 0 failed;"
+            )
+        )
+        self.assertTrue(
+            probe.selected_test_passed(
+                f"running 1 test\ntest {probe.TEST} ... ok\ntest result: ok. 1 passed; 0 failed;"
+            )
+        )
 
     def test_git_environment_cannot_redirect_probe_operations(self) -> None:
-        with patch.dict("os.environ", {"GIT_DIR": "/unrelated/git", "GIT_WORK_TREE": "/unrelated", "GIT_INDEX_FILE": "/unrelated/index"}):
+        with patch.dict(
+            "os.environ",
+            {
+                "GIT_DIR": "/unrelated/git",
+                "GIT_WORK_TREE": "/unrelated",
+                "GIT_INDEX_FILE": "/unrelated/index",
+            },
+        ):
             environment = probe.git_environment()
         self.assertNotIn("GIT_DIR", environment)
         self.assertNotIn("GIT_WORK_TREE", environment)
@@ -46,23 +59,32 @@ class ScanProbePreparationTests(unittest.TestCase):
                 probe.prepare(source, source / "scratch")
             self.assertFalse((source / "scratch").exists())
 
-    def test_copies_inputs_without_target_or_hard_links_and_preserves_source(self) -> None:
+    def test_copies_inputs_without_target_or_hard_links_and_preserves_source(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
-            subprocess.run(["git", "init", "--quiet", "--template=", str(base)],
-                           env=probe.git_environment(), check=True)
+            subprocess.run(
+                ["git", "init", "--quiet", "--template=", str(base)],
+                env=probe.git_environment(),
+                check=True,
+            )
             (base / "fixture").write_text("ancestor must stay unchanged\n")
             source = base / "selected"
             source.mkdir()
             (source / "Cargo.toml").write_text('surrealmx = "=1.0.0"\n')
-            (source / "Cargo.lock").write_text('name = "surrealmx"\nversion = "1.0.0"\n')
+            (source / "Cargo.lock").write_text(
+                'name = "surrealmx"\nversion = "1.0.0"\n'
+            )
             (source / ".pse-deps").mkdir()
             (source / ".pse-deps/input").write_text("owned dependency")
             (source / "target").mkdir()
             (source / "target/artifact").write_text("must not copy")
             (source / "fixture").write_text("original\n")
             fixture_patch = base / "test.patch"
-            fixture_patch.write_text("--- a/fixture\n+++ b/fixture\n@@ -1 +1 @@\n-original\n+instrumented\n")
+            fixture_patch.write_text(
+                "--- a/fixture\n+++ b/fixture\n@@ -1 +1 @@\n-original\n+instrumented\n"
+            )
 
             def git(_source: Path, *arguments: str) -> bytes:
                 if arguments[0] == "rev-parse":
@@ -71,23 +93,37 @@ class ScanProbePreparationTests(unittest.TestCase):
                     return b"Cargo.toml\0Cargo.lock\0fixture\0"
                 return b""
 
-            with patch.object(probe, "git", side_effect=git), patch.object(probe, "PATCH", fixture_patch):
+            with (
+                patch.object(probe, "git", side_effect=git),
+                patch.object(probe, "PATCH", fixture_patch),
+            ):
                 receipt = probe.prepare(source, base / "scratch")
             copied = Path(str(receipt["copy"]))
-            self.assertEqual((base / "fixture").read_text(), "ancestor must stay unchanged\n")
+            self.assertEqual(
+                (base / "fixture").read_text(), "ancestor must stay unchanged\n"
+            )
             self.assertTrue((copied / ".git").is_dir())
             self.assertEqual((source / "fixture").read_text(), "original\n")
             self.assertEqual((copied / "fixture").read_text(), "instrumented\n")
-            self.assertNotEqual((source / "Cargo.lock").stat().st_ino, (copied / "Cargo.lock").stat().st_ino)
+            self.assertNotEqual(
+                (source / "Cargo.lock").stat().st_ino,
+                (copied / "Cargo.lock").stat().st_ino,
+            )
             self.assertFalse((copied / "target").exists())
-            self.assertEqual((copied / ".pse-deps/input").read_text(), "owned dependency")
+            self.assertEqual(
+                (copied / ".pse-deps/input").read_text(), "owned dependency"
+            )
 
     def test_changed_native_source_refuses_before_creating_scratch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary)
             (source / "Cargo.toml").write_text('surrealmx = "=1.0.0"\n')
-            (source / "Cargo.lock").write_text('name = "surrealmx"\nversion = "1.0.0"\n')
-            with patch.object(probe, "git", side_effect=[probe.REVISION.encode(), b"native drift"]):
+            (source / "Cargo.lock").write_text(
+                'name = "surrealmx"\nversion = "1.0.0"\n'
+            )
+            with patch.object(
+                probe, "git", side_effect=[probe.REVISION.encode(), b"native drift"]
+            ):
                 with self.assertRaisesRegex(ValueError, "native planner/index/scanner"):
                     probe.prepare(source, source.parent / "uncreated-tool08-scratch")
 

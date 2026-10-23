@@ -313,7 +313,11 @@ fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
                                 "predicate_scope",
                             ]
                             .into_iter()
-                            .filter_map(|key| attrs.get(key).map(|value| (key, value.clone().into_json_value())))
+                            .filter_map(|key| {
+                                attrs
+                                    .get(key)
+                                    .map(|value| (key, value.clone().into_json_value()))
+                            })
                             .collect::<BTreeMap<_, _>>()
                         })
                         .unwrap_or_default();
@@ -334,11 +338,21 @@ fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
                                 "props_fallbacks",
                             ]
                             .into_iter()
-                            .filter_map(|key| metrics.get(key).map(|value| (key, value.clone().into_json_value())))
+                            .filter_map(|key| {
+                                metrics
+                                    .get(key)
+                                    .map(|value| (key, value.clone().into_json_value()))
+                            })
                             .collect::<BTreeMap<_, _>>()
                         })
                         .unwrap_or_default();
-                    if operator.contains("Graph") || matches!(operator.as_str(), "IndexScan" | "Filter" | "Sort" | "TopK" | "Limit") || !selected.is_empty() {
+                    if operator.contains("Graph")
+                        || matches!(
+                            operator.as_str(),
+                            "IndexScan" | "Filter" | "Sort" | "TopK" | "Limit"
+                        )
+                        || !selected.is_empty()
+                    {
                         output.push(serde_json::json!({"operator":operator,"attributes":selected,"observed_counters":counters,
                             "folded_blocks_observed":counters.contains_key("block_hits"),"delta_entries_observed":counters.contains_key("delta_hits"),
                             "predicate_interpretation":if operator=="Filter" {"downstream Filter; predicate not pushed into graph scan"} else {match attributes.and_then(|attrs|attrs.get("predicate_scope")) {
@@ -527,22 +541,43 @@ impl CanonicalStore {
 
 // Validate the full native page before dropping its sentinel. A malformed sentinel cannot
 // turn a corrupt range into an apparently complete or resumable neighborhood.
-fn decode_page(request: &CanonicalGraphRequest, after: &str, rows: Vec<Object>) -> Result<Vec<(String, GraphEdge)>, CanonicalError> {
+fn decode_page(
+    request: &CanonicalGraphRequest,
+    after: &str,
+    rows: Vec<Object>,
+) -> Result<Vec<(String, GraphEdge)>, CanonicalError> {
     let mut previous = after.to_owned();
-    rows.into_iter().map(|row| {
-        let entry = decode_edge(request, row)?;
-        if entry.0.as_str() <= previous.as_str() { return Err(invalid("stored graph ordering is not strictly beyond its cursor")); }
-        previous.clone_from(&entry.0);
-        Ok(entry)
-    }).collect()
+    rows.into_iter()
+        .map(|row| {
+            let entry = decode_edge(request, row)?;
+            if entry.0.as_str() <= previous.as_str() {
+                return Err(invalid(
+                    "stored graph ordering is not strictly beyond its cursor",
+                ));
+            }
+            previous.clone_from(&entry.0);
+            Ok(entry)
+        })
+        .collect()
 }
 
-fn decode_edge(request: &CanonicalGraphRequest, row: Object) -> Result<(String, GraphEdge), CanonicalError> {
+fn decode_edge(
+    request: &CanonicalGraphRequest,
+    row: Object,
+) -> Result<(String, GraphEdge), CanonicalError> {
     Ok(match &request.anchor {
         GraphAnchor::StudyPoint { point, .. } => {
             let edge = wire::decode_canonical_study_dependencies(row)?;
-            let endpoint = if request.scope == GraphScope::RetainedConsumers { &edge.predecessor } else { &edge.dependent };
-            if endpoint != point { return Err(invalid("stored study edge is outside selected neighborhood")); }
+            let endpoint = if request.scope == GraphScope::RetainedConsumers {
+                &edge.predecessor
+            } else {
+                &edge.dependent
+            };
+            if endpoint != point {
+                return Err(invalid(
+                    "stored study edge is outside selected neighborhood",
+                ));
+            }
             let role = match edge.kind.as_str() {
                 "ordering" => GraphEdgeRole::Ordering,
                 "usable" => GraphEdgeRole::UsableResult,
@@ -562,7 +597,9 @@ fn decode_edge(request: &CanonicalGraphRequest, row: Object) -> Result<(String, 
         }
         GraphAnchor::Run { run, .. } => {
             let edge = wire::decode_canonical_run_sources(row)?;
-            if edge.run != *run { return Err(invalid("stored source edge belongs to another run")); }
+            if edge.run != *run {
+                return Err(invalid("stored source edge belongs to another run"));
+            }
             (
                 edge.key.clone(),
                 GraphEdge {
@@ -576,7 +613,9 @@ fn decode_edge(request: &CanonicalGraphRequest, row: Object) -> Result<(String, 
         }
         GraphAnchor::Artifact { artifact, .. } => {
             let edge = wire::decode_canonical_analysis_inputs(row)?;
-            if edge.artifact != *artifact { return Err(invalid("stored input edge belongs to another artifact")); }
+            if edge.artifact != *artifact {
+                return Err(invalid("stored input edge belongs to another artifact"));
+            }
             (
                 edge.analysis.clone(),
                 GraphEdge {
@@ -593,10 +632,22 @@ fn decode_edge(request: &CanonicalGraphRequest, row: Object) -> Result<(String, 
                 },
             )
         }
-        GraphAnchor::AnalysisNode { analysis, node: selected, .. } => {
+        GraphAnchor::AnalysisNode {
+            analysis,
+            node: selected,
+            ..
+        } => {
             let edge = wire::decode_canonical_analysis_edges(row)?;
-            let endpoint = if request.scope == GraphScope::RecordedSources { &edge.target } else { &edge.source };
-            if edge.analysis != *analysis || endpoint != selected { return Err(invalid("stored analysis edge is outside selected analysis neighborhood")); }
+            let endpoint = if request.scope == GraphScope::RecordedSources {
+                &edge.target
+            } else {
+                &edge.source
+            };
+            if edge.analysis != *analysis || endpoint != selected {
+                return Err(invalid(
+                    "stored analysis edge is outside selected analysis neighborhood",
+                ));
+            }
             (
                 edge.key.clone(),
                 GraphEdge {
@@ -691,7 +742,8 @@ mod tests {
             revision: 7,
             generation: 3,
         };
-        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
+        let mut request = CanonicalGraphRequest {
+            version: pse_model::document::Version,
             anchor: anchor.clone(),
             scope: GraphScope::RecordedSources,
             limit: 1,
@@ -755,82 +807,217 @@ mod tests {
     #[test]
     fn graph_seek_shapes_use_named_owner_prefixes_without_offset() {
         for (anchor, scope, index, predicate) in [
-            (GraphAnchor::StudyPoint { point: "p".into(), revision: 0, generation: 0 }, GraphScope::ImmediateBlockers, "study_dependencies", "dependent=$point"),
-            (GraphAnchor::StudyPoint { point: "p".into(), revision: 0, generation: 0 }, GraphScope::RecordedSources, "study_dependencies", "dependent=$point"),
-            (GraphAnchor::StudyPoint { point: "p".into(), revision: 0, generation: 0 }, GraphScope::RetainedConsumers, "study_dependents", "predecessor=$point"),
-            (GraphAnchor::Run { run: "r".into(), revision: "v".into() }, GraphScope::RecordedSources, "run_source_cleanup", "run=$run"),
-            (GraphAnchor::Artifact { artifact: "a".into(), revision: "v".into() }, GraphScope::RetainedConsumers, "analysis_input_artifact", "artifact=$artifact"),
-            (GraphAnchor::AnalysisNode { analysis: "a".into(), node: "n".into(), revision: "v".into() }, GraphScope::RecordedSources, "analysis_edge_target", "target=$node"),
-            (GraphAnchor::AnalysisNode { analysis: "a".into(), node: "n".into(), revision: "v".into() }, GraphScope::RetainedConsumers, "analysis_edge_source", "source=$node"),
+            (
+                GraphAnchor::StudyPoint {
+                    point: "p".into(),
+                    revision: 0,
+                    generation: 0,
+                },
+                GraphScope::ImmediateBlockers,
+                "study_dependencies",
+                "dependent=$point",
+            ),
+            (
+                GraphAnchor::StudyPoint {
+                    point: "p".into(),
+                    revision: 0,
+                    generation: 0,
+                },
+                GraphScope::RecordedSources,
+                "study_dependencies",
+                "dependent=$point",
+            ),
+            (
+                GraphAnchor::StudyPoint {
+                    point: "p".into(),
+                    revision: 0,
+                    generation: 0,
+                },
+                GraphScope::RetainedConsumers,
+                "study_dependents",
+                "predecessor=$point",
+            ),
+            (
+                GraphAnchor::Run {
+                    run: "r".into(),
+                    revision: "v".into(),
+                },
+                GraphScope::RecordedSources,
+                "run_source_cleanup",
+                "run=$run",
+            ),
+            (
+                GraphAnchor::Artifact {
+                    artifact: "a".into(),
+                    revision: "v".into(),
+                },
+                GraphScope::RetainedConsumers,
+                "analysis_input_artifact",
+                "artifact=$artifact",
+            ),
+            (
+                GraphAnchor::AnalysisNode {
+                    analysis: "a".into(),
+                    node: "n".into(),
+                    revision: "v".into(),
+                },
+                GraphScope::RecordedSources,
+                "analysis_edge_target",
+                "target=$node",
+            ),
+            (
+                GraphAnchor::AnalysisNode {
+                    analysis: "a".into(),
+                    node: "n".into(),
+                    revision: "v".into(),
+                },
+                GraphScope::RetainedConsumers,
+                "analysis_edge_source",
+                "source=$node",
+            ),
         ] {
-            let request = CanonicalGraphRequest { version: pse_model::document::Version, anchor, scope, limit: 64, continuation: None };
+            let request = CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor,
+                scope,
+                limit: 64,
+                continuation: None,
+            };
             let sql = request.sql();
-            assert!(sql.contains(&format!("WITH INDEX {index} WHERE {predicate}")), "{sql}");
+            assert!(
+                sql.contains(&format!("WITH INDEX {index} WHERE {predicate}")),
+                "{sql}"
+            );
             assert!(sql.contains(" LIMIT $maximum"));
-            assert!(!sql.contains("START") && !sql.contains("RETURN") && !sql.contains("analysis=$analysis"));
-            assert_eq!(request.bindings("").unwrap()["maximum"], codec::encode_int(65).unwrap());
+            assert!(
+                !sql.contains("START")
+                    && !sql.contains("RETURN")
+                    && !sql.contains("analysis=$analysis")
+            );
+            assert_eq!(
+                request.bindings("").unwrap()["maximum"],
+                codec::encode_int(65).unwrap()
+            );
         }
     }
 
     fn analysis_edge_row(key: &str, analysis: &str, source: &str, target: &str) -> Object {
         let mut row = Object::new();
-        for (name, value) in [("key",key), ("analysis",analysis), ("source",source), ("target",target), ("kind","incidence")] {
+        for (name, value) in [
+            ("key", key),
+            ("analysis", analysis),
+            ("source", source),
+            ("target", target),
+            ("kind", "incidence"),
+        ] {
             row.insert(name, Value::String(value.into()));
         }
-        row.insert("id",codec::record_link("canonical_analysis_edges",key));
-        row.insert("in",codec::record_link("canonical_analysis_nodes",source));
-        row.insert("out",codec::record_link("canonical_analysis_nodes",target));
+        row.insert("id", codec::record_link("canonical_analysis_edges", key));
+        row.insert("in", codec::record_link("canonical_analysis_nodes", source));
+        row.insert(
+            "out",
+            codec::record_link("canonical_analysis_nodes", target),
+        );
         row
     }
 
     #[test]
     fn graph_page_refuses_corrupt_sentinel_cross_analysis_endpoints_and_ordering() {
         for scope in [GraphScope::RecordedSources, GraphScope::RetainedConsumers] {
-            let selected = if scope == GraphScope::RecordedSources { "target" } else { "source" };
-            let request = CanonicalGraphRequest { version: pse_model::document::Version,
-                anchor: GraphAnchor::AnalysisNode { analysis: "analysis".into(), node: selected.into(), revision: "revision".into() },
-                scope, limit: 1, continuation: None,
+            let selected = if scope == GraphScope::RecordedSources {
+                "target"
+            } else {
+                "source"
+            };
+            let request = CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: GraphAnchor::AnalysisNode {
+                    analysis: "analysis".into(),
+                    node: selected.into(),
+                    revision: "revision".into(),
+                },
+                scope,
+                limit: 1,
+                continuation: None,
             };
             let valid = analysis_edge_row("a", "analysis", "source", "target");
             let mut wrong_link = analysis_edge_row("b", "analysis", "source", "target");
-            wrong_link.insert("out",codec::record_link("canonical_analysis_nodes","other"));
+            wrong_link.insert(
+                "out",
+                codec::record_link("canonical_analysis_nodes", "other"),
+            );
             let mut wrong_id = analysis_edge_row("b", "analysis", "source", "target");
-            wrong_id.insert("id",codec::record_link("canonical_analysis_edges","other"));
+            wrong_id.insert(
+                "id",
+                codec::record_link("canonical_analysis_edges", "other"),
+            );
             for corrupt in [
                 analysis_edge_row("b", "other-analysis", "source", "target"),
                 analysis_edge_row("b", "analysis", "other-source", "other-target"),
                 analysis_edge_row("a", "analysis", "source", "target"),
-                wrong_link, wrong_id,
+                wrong_link,
+                wrong_id,
             ] {
-                assert!(decode_page(&request, "",vec![valid.clone(),corrupt]).is_err());
+                assert!(decode_page(&request, "", vec![valid.clone(), corrupt]).is_err());
             }
-            assert!(decode_page(&request,"a",vec![valid.clone()]).is_err());
-            assert!(decode_page(&request,"z",vec![valid.clone()]).is_err());
-            assert!(decode_page(&request,"",vec![valid,analysis_edge_row("b","analysis","source","target")]).is_ok());
+            assert!(decode_page(&request, "a", vec![valid.clone()]).is_err());
+            assert!(decode_page(&request, "z", vec![valid.clone()]).is_err());
+            assert!(
+                decode_page(
+                    &request,
+                    "",
+                    vec![
+                        valid,
+                        analysis_edge_row("b", "analysis", "source", "target")
+                    ]
+                )
+                .is_ok()
+            );
         }
     }
 
     #[test]
     fn graph_index_observations_retain_native_access_offset_and_real_counters() {
         let mut attrs = Object::new();
-        for (name,value) in [("index","analysis_edge_source"),("access","['source'] MoreThan 'a'"),("direction","Forward"),("limit","2"),("offset","7")] {
-            attrs.insert(name,Value::String(value.into()));
+        for (name, value) in [
+            ("index", "analysis_edge_source"),
+            ("access", "['source'] MoreThan 'a'"),
+            ("direction", "Forward"),
+            ("limit", "2"),
+            ("offset", "7"),
+        ] {
+            attrs.insert(name, Value::String(value.into()));
         }
         let mut metrics = Object::new();
-        for (name,value) in [("output_rows",2),("output_batches",1),("elapsed_ns",30),("records_fetched",0)] {
-            metrics.insert(name,codec::encode_int(value).unwrap());
+        for (name, value) in [
+            ("output_rows", 2),
+            ("output_batches", 1),
+            ("elapsed_ns", 30),
+            ("records_fetched", 0),
+        ] {
+            metrics.insert(name, codec::encode_int(value).unwrap());
         }
         let mut plan = Object::new();
-        plan.insert("operator",Value::String("IndexScan".into()));
-        plan.insert("attributes",Value::Object(attrs));
-        plan.insert("metrics",Value::Object(metrics));
+        plan.insert("operator", Value::String("IndexScan".into()));
+        plan.insert("attributes", Value::Object(attrs));
+        plan.insert("metrics", Value::Object(metrics));
         let observations = graph_plan_observations(&Value::Object(plan));
-        assert_eq!(observations[0]["attributes"]["index"],"analysis_edge_source");
-        assert_eq!(observations[0]["attributes"]["offset"],"7");
-        assert_eq!(observations[0]["attributes"]["access"],"['source'] MoreThan 'a'");
-        assert_eq!(observations[0]["observed_counters"]["output_rows"],2);
-        assert_eq!(observations[0]["observed_counters"]["records_fetched"],0);
-        assert!(observations[0]["observed_counters"].get("edges_scanned").is_none());
+        assert_eq!(
+            observations[0]["attributes"]["index"],
+            "analysis_edge_source"
+        );
+        assert_eq!(observations[0]["attributes"]["offset"], "7");
+        assert_eq!(
+            observations[0]["attributes"]["access"],
+            "['source'] MoreThan 'a'"
+        );
+        assert_eq!(observations[0]["observed_counters"]["output_rows"], 2);
+        assert_eq!(observations[0]["observed_counters"]["records_fetched"], 0);
+        assert!(
+            observations[0]["observed_counters"]
+                .get("edges_scanned")
+                .is_none()
+        );
     }
 
     #[test]
@@ -856,7 +1043,18 @@ mod tests {
                 "out",
                 codec::record_link("canonical_study_points", "source"),
             );
-            decode_edge(&CanonicalGraphRequest { version: pse_model::document::Version, anchor: anchor.clone(), scope: GraphScope::RecordedSources, limit: 1, continuation: None }, row).unwrap().1
+            decode_edge(
+                &CanonicalGraphRequest {
+                    version: pse_model::document::Version,
+                    anchor: anchor.clone(),
+                    scope: GraphScope::RecordedSources,
+                    limit: 1,
+                    continuation: None,
+                },
+                row,
+            )
+            .unwrap()
+            .1
         };
         let ordering = edge("one", "ordering");
         let usable = edge("two", "usable");
@@ -881,7 +1079,17 @@ mod tests {
             "out",
             codec::record_link("canonical_artifacts", "protected"),
         );
-        let (_, edge) = decode_edge(&CanonicalGraphRequest { version: pse_model::document::Version, anchor: artifact, scope: GraphScope::RetainedConsumers, limit: 1, continuation: None }, row).unwrap();
+        let (_, edge) = decode_edge(
+            &CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: artifact,
+                scope: GraphScope::RetainedConsumers,
+                limit: 1,
+                continuation: None,
+            },
+            row,
+        )
+        .unwrap();
         assert_eq!(edge.source, "canonical_analyses:consumer");
         assert_eq!(edge.target, "canonical_artifacts:protected");
         assert_eq!(edge.evidence.unwrap().artifact, "protected");
@@ -890,63 +1098,143 @@ mod tests {
 
 /// Independent expected edge lists drive first, selective, late and exhausted page controls.
 #[cfg(all(test, feature = "canonical-tests"))]
-#[allow(clippy::unwrap_used, clippy::panic, reason = "native plan and semantic controls fail on any mismatch")]
-pub(crate) async fn qualify_graph_seek_pages(store: &CanonicalStore, request: &CanonicalGraphRequest, mut expected: Vec<(String, GraphEdge)>) {
+#[allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "native plan and semantic controls fail on any mismatch"
+)]
+pub(crate) async fn qualify_graph_seek_pages(
+    store: &CanonicalStore,
+    request: &CanonicalGraphRequest,
+    mut expected: Vec<(String, GraphEdge)>,
+) {
     use surrealdb::types::ToSql;
-    expected.sort_by(|left,right| left.0.cmp(&right.0));
-    let (owner, field, index, ordering) = match (&request.anchor,request.scope) {
-        (GraphAnchor::StudyPoint { point,.. }, GraphScope::RetainedConsumers) => (point,"predecessor","study_dependents","key"),
-        (GraphAnchor::StudyPoint { point,.. }, _) => (point,"dependent","study_dependencies","key"),
-        (GraphAnchor::Run { run,.. }, _) => (run,"run","run_source_cleanup","key"),
-        (GraphAnchor::Artifact { artifact,.. }, _) => (artifact,"artifact","analysis_input_artifact","analysis"),
-        (GraphAnchor::AnalysisNode { node,.. }, GraphScope::RecordedSources) => (node,"target","analysis_edge_target","key"),
-        (GraphAnchor::AnalysisNode { node,.. }, _) => (node,"source","analysis_edge_source","key"),
+    expected.sort_by(|left, right| left.0.cmp(&right.0));
+    let (owner, field, index, ordering) = match (&request.anchor, request.scope) {
+        (GraphAnchor::StudyPoint { point, .. }, GraphScope::RetainedConsumers) => {
+            (point, "predecessor", "study_dependents", "key")
+        }
+        (GraphAnchor::StudyPoint { point, .. }, _) => {
+            (point, "dependent", "study_dependencies", "key")
+        }
+        (GraphAnchor::Run { run, .. }, _) => (run, "run", "run_source_cleanup", "key"),
+        (GraphAnchor::Artifact { artifact, .. }, _) => {
+            (artifact, "artifact", "analysis_input_artifact", "analysis")
+        }
+        (GraphAnchor::AnalysisNode { node, .. }, GraphScope::RecordedSources) => {
+            (node, "target", "analysis_edge_target", "key")
+        }
+        (GraphAnchor::AnalysisNode { node, .. }, _) => {
+            (node, "source", "analysis_edge_source", "key")
+        }
     };
     let mut cursors = vec![String::new(), "~~~~exhausted".into()];
     if !expected.is_empty() {
-        for ordinal in [0, expected.len()/2,expected.len()-1] { cursors.push(expected[ordinal].0.clone()); }
+        for ordinal in [0, expected.len() / 2, expected.len() - 1] {
+            cursors.push(expected[ordinal].0.clone());
+        }
     }
     cursors.sort();
     cursors.dedup();
-    for limit in [1,64] {
+    for limit in [1, 64] {
         for after in &cursors {
             let mut selected = request.clone();
-            selected.limit=limit;
-            selected.continuation=(!after.is_empty()).then(||GraphContinuation { anchor: selected.anchor.clone(), scope: selected.scope, after: after.clone() });
-            let remaining=expected.iter().filter(|entry| entry.0 > *after).collect::<Vec<_>>();
-            let observed=store.graph_explanation(&selected).await.unwrap();
-            assert_eq!(observed.edges,remaining.iter().take(limit as usize).map(|entry|entry.1.clone()).collect::<Vec<_>>());
-            assert_eq!(observed.examined_rows as usize,remaining.len().min(limit as usize+1));
-            assert_eq!(observed.complete,remaining.len()<=limit as usize);
-            assert_eq!(observed.continuation.as_ref().map(|cursor|cursor.after.as_str()),if remaining.len()>limit as usize {Some(remaining[limit as usize-1].0.as_str())}else{None});
-            let physical=store.inspect_graph_explanation(&selected,true).await.unwrap();
-            for mode in ["static","analyze"] {
-                let operators=physical["operator_observations"][mode].as_array().unwrap();
-                assert!(!operators.iter().any(|operator| matches!(operator["operator"].as_str(),Some("Filter"|"Sort"|"TopK"|"TableScan"|"GraphEdgeScan"))),"{physical}");
-                let scans=operators.iter().filter(|operator| operator["operator"]=="IndexScan").collect::<Vec<_>>();
-                assert_eq!(scans.len(),1,"{physical}");
-                let scan=scans[0];
-                assert_eq!(scan["attributes"]["index"],index,"{physical}");
-                assert_eq!(scan["attributes"]["direction"],"Forward","{physical}");
-                assert!(scan["attributes"].get("offset").is_none(),"{physical}");
-                let owner_sql=Value::String(owner.clone()).to_sql();
-                let after_sql=Value::String(after.clone()).to_sql();
-                assert_eq!(scan["attributes"]["access"],format!("[{owner_sql}] MoreThan {after_sql}"),"{physical}");
-                assert_eq!(scan["attributes"]["limit"],(limit+1).to_string(),"{physical}");
+            selected.limit = limit;
+            selected.continuation = (!after.is_empty()).then(|| GraphContinuation {
+                anchor: selected.anchor.clone(),
+                scope: selected.scope,
+                after: after.clone(),
+            });
+            let remaining = expected
+                .iter()
+                .filter(|entry| entry.0 > *after)
+                .collect::<Vec<_>>();
+            let observed = store.graph_explanation(&selected).await.unwrap();
+            assert_eq!(
+                observed.edges,
+                remaining
+                    .iter()
+                    .take(limit as usize)
+                    .map(|entry| entry.1.clone())
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                observed.examined_rows as usize,
+                remaining.len().min(limit as usize + 1)
+            );
+            assert_eq!(observed.complete, remaining.len() <= limit as usize);
+            assert_eq!(
+                observed
+                    .continuation
+                    .as_ref()
+                    .map(|cursor| cursor.after.as_str()),
+                if remaining.len() > limit as usize {
+                    Some(remaining[limit as usize - 1].0.as_str())
+                } else {
+                    None
+                }
+            );
+            let physical = store
+                .inspect_graph_explanation(&selected, true)
+                .await
+                .unwrap();
+            for mode in ["static", "analyze"] {
+                let operators = physical["operator_observations"][mode].as_array().unwrap();
+                assert!(
+                    !operators.iter().any(|operator| matches!(
+                        operator["operator"].as_str(),
+                        Some("Filter" | "Sort" | "TopK" | "TableScan" | "GraphEdgeScan")
+                    )),
+                    "{physical}"
+                );
+                let scans = operators
+                    .iter()
+                    .filter(|operator| operator["operator"] == "IndexScan")
+                    .collect::<Vec<_>>();
+                assert_eq!(scans.len(), 1, "{physical}");
+                let scan = scans[0];
+                assert_eq!(scan["attributes"]["index"], index, "{physical}");
+                assert_eq!(scan["attributes"]["direction"], "Forward", "{physical}");
+                assert!(scan["attributes"].get("offset").is_none(), "{physical}");
+                let owner_sql = Value::String(owner.clone()).to_sql();
+                let after_sql = Value::String(after.clone()).to_sql();
+                assert_eq!(
+                    scan["attributes"]["access"],
+                    format!("[{owner_sql}] MoreThan {after_sql}"),
+                    "{physical}"
+                );
+                assert_eq!(
+                    scan["attributes"]["limit"],
+                    (limit + 1).to_string(),
+                    "{physical}"
+                );
                 // The scan may re-evaluate the exactly covered scalar conditions. It may
                 // not retain another predicate that can reject arbitrarily many entries.
-                if let Some(predicate)=scan["attributes"]["predicate"].as_str() {
-                    let normalize=|value: &str| value.chars().filter(|c| !c.is_whitespace() && !matches!(c,'('|')'|'`')).collect::<String>();
-                    assert_eq!(normalize(predicate),normalize(&format!("{field}={owner_sql} AND {ordering}>{after_sql}")),"{physical}");
+                if let Some(predicate) = scan["attributes"]["predicate"].as_str() {
+                    let normalize = |value: &str| {
+                        value
+                            .chars()
+                            .filter(|c| !c.is_whitespace() && !matches!(c, '(' | ')' | '`'))
+                            .collect::<String>()
+                    };
+                    assert_eq!(
+                        normalize(predicate),
+                        normalize(&format!("{field}={owner_sql} AND {ordering}>{after_sql}")),
+                        "{physical}"
+                    );
                 }
-                if mode=="analyze" {
-                    assert_eq!(scan["observed_counters"]["output_rows"],observed.examined_rows,"{physical}");
+                if mode == "analyze" {
+                    assert_eq!(
+                        scan["observed_counters"]["output_rows"], observed.examined_rows,
+                        "{physical}"
+                    );
                 }
             }
-            if let Ok(directory)=std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
-                let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+            if let Ok(directory) = std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
+                let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
                 hash.str(owner).str(after).str(index).u64(u64::from(limit));
-                let path=std::path::Path::new(&directory).join(format!("graph-seek-{}.json",hash.finish_hash().to_hex()));
+                let path = std::path::Path::new(&directory)
+                    .join(format!("graph-seek-{}.json", hash.finish_hash().to_hex()));
                 std::fs::write(path,serde_json::to_vec_pretty(&serde_json::json!({"request":selected,"document":observed,"physical":physical,"bound_scope":"neighborhood index entries only; study anchors additionally perform two fixed study_scope validations, each at most 193 dependencies and 64 predecessor headers"})).unwrap()).unwrap();
             }
         }
@@ -962,23 +1250,57 @@ mod server_tests {
 
     #[tokio::test]
     async fn canonical_graph_explanation_root_readers_bypass_conditional_row_permissions() {
-        let state=std::env::var("PSE_SURREAL_STATE").unwrap();
-        let mut options=CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
-        options.database=format!("canonical_test_graph_auth_{}",uuid::Uuid::new_v4().simple());
-        let store=crate::testing::canonical_fixture_with_options(&options,true).unwrap();
+        let state = std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database = format!(
+            "canonical_test_graph_auth_{}",
+            uuid::Uuid::new_v4().simple()
+        );
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         // A false conditional permission would defeat a finite scan cap for record
         // authentication. Both supported root accounts must bypass it in reality.
         crate::canonical::bounded_query(store.db.query("DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];")).await.unwrap();
-        let address=url::Url::parse(&options.endpoint).unwrap().socket_addrs(||None).unwrap()[0];
-        for (username,password,role) in [(&options.username,&options.password,"OWNER"),(&options.selection_username,&options.selection_password,"VIEWER")] {
-            let db=surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address).await.unwrap();
-            db.signin(surrealdb::opt::auth::Root{username:username.clone(),password:password.clone()}).await.unwrap();
-            db.use_ns(options.namespace.clone()).use_db(options.database.clone()).await.unwrap();
-            let mut info=db.query(format!("INFO FOR USER `{}` ON ROOT;",username.replace('`', "\\`"))).await.unwrap().check().unwrap();
-            let info=info.take::<Value>(0).unwrap().to_string();
-            assert!(info.to_uppercase().contains(&format!("ROLES {role}")),"{info}");
+        let address = url::Url::parse(&options.endpoint)
+            .unwrap()
+            .socket_addrs(|| None)
+            .unwrap()[0];
+        for (username, password, role) in [
+            (&options.username, &options.password, "OWNER"),
+            (
+                &options.selection_username,
+                &options.selection_password,
+                "VIEWER",
+            ),
+        ] {
+            let db = surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address)
+                .await
+                .unwrap();
+            db.signin(surrealdb::opt::auth::Root {
+                username: username.clone(),
+                password: password.clone(),
+            })
+            .await
+            .unwrap();
+            db.use_ns(options.namespace.clone())
+                .use_db(options.database.clone())
+                .await
+                .unwrap();
+            let mut info = db
+                .query(format!(
+                    "INFO FOR USER `{}` ON ROOT;",
+                    username.replace('`', "\\`")
+                ))
+                .await
+                .unwrap()
+                .check()
+                .unwrap();
+            let info = info.take::<Value>(0).unwrap().into_json_value().to_string();
+            assert!(
+                info.to_uppercase().contains(&format!("ROLES {role}")),
+                "configured root role did not match {role}"
+            );
             let mut rows=db.query("SELECT key FROM graph_auth_probe WITH INDEX graph_auth_seek WHERE owner='owner' AND key>'' ORDER BY key LIMIT 2;").await.unwrap().check().unwrap();
-            assert_eq!(rows.take::<Vec<Object>>(0).unwrap().len(),2);
+            assert_eq!(rows.take::<Vec<Object>>(0).unwrap().len(), 2);
         }
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -1082,29 +1404,129 @@ mod server_tests {
             .unwrap();
         // Compare both directed neighborhoods against the authored edge list, never
         // against a second read of the relation being qualified.
-        for (selected,scope) in [(&nodes[0],GraphScope::RetainedConsumers),(&nodes[1],GraphScope::RecordedSources),(&nodes[2],GraphScope::RetainedConsumers),(&nodes[2],GraphScope::RecordedSources)] {
-            let request=CanonicalGraphRequest { version: pse_model::document::Version, anchor: GraphAnchor::AnalysisNode { analysis: analysis.key.clone(), node: selected.key.clone(), revision: revision.key.clone() }, scope, limit: 1, continuation: None };
-            let expected=edges.iter().filter(|edge| if scope==GraphScope::RecordedSources {edge.target==selected.key} else {edge.source==selected.key}).map(|edge| (edge.key.clone(),GraphEdge {
-                identity: node("canonical_analysis_edges",&edge.key),source:node("canonical_analysis_nodes",&edge.source),target:node("canonical_analysis_nodes",&edge.target),role:GraphEdgeRole::AnalysisRelation{relation:edge.kind.clone()},evidence:Some(GraphEvidence{artifact:artifact.key.clone(),block:Some(0),row:Some(0),field:Some("field".into())})
-            })).collect();
-            qualify_graph_seek_pages(&store,&request,expected).await;
+        for (selected, scope) in [
+            (&nodes[0], GraphScope::RetainedConsumers),
+            (&nodes[1], GraphScope::RecordedSources),
+            (&nodes[2], GraphScope::RetainedConsumers),
+            (&nodes[2], GraphScope::RecordedSources),
+        ] {
+            let request = CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: GraphAnchor::AnalysisNode {
+                    analysis: analysis.key.clone(),
+                    node: selected.key.clone(),
+                    revision: revision.key.clone(),
+                },
+                scope,
+                limit: 1,
+                continuation: None,
+            };
+            let expected = edges
+                .iter()
+                .filter(|edge| {
+                    if scope == GraphScope::RecordedSources {
+                        edge.target == selected.key
+                    } else {
+                        edge.source == selected.key
+                    }
+                })
+                .map(|edge| {
+                    (
+                        edge.key.clone(),
+                        GraphEdge {
+                            identity: node("canonical_analysis_edges", &edge.key),
+                            source: node("canonical_analysis_nodes", &edge.source),
+                            target: node("canonical_analysis_nodes", &edge.target),
+                            role: GraphEdgeRole::AnalysisRelation {
+                                relation: edge.kind.clone(),
+                            },
+                            evidence: Some(GraphEvidence {
+                                artifact: artifact.key.clone(),
+                                block: Some(0),
+                                row: Some(0),
+                                field: Some("field".into()),
+                            }),
+                        },
+                    )
+                })
+                .collect();
+            qualify_graph_seek_pages(&store, &request, expected).await;
         }
-        let mut input_consumers=vec![analysis.key.clone()];
+        let mut input_consumers = vec![analysis.key.clone()];
         // Populate enough genuine immutable consumers to cross the maximum page size.
         for ordinal in 0..65 {
-            let mut consumer=store.new_analysis(&revision,&format!("graph-consumer-{ordinal:03}"),vec![],format!("input-{ordinal}"),0,0).await.unwrap();
-            seal_analysis_request(&mut consumer,std::slice::from_ref(&revision),std::slice::from_ref(&read),&[],&[]);
-            store.persist_analysis(&consumer,std::slice::from_ref(&revision),std::slice::from_ref(&read),&[],&[]).await.unwrap();
+            let mut consumer = store
+                .new_analysis(
+                    &revision,
+                    &format!("graph-consumer-{ordinal:03}"),
+                    vec![],
+                    format!("input-{ordinal}"),
+                    0,
+                    0,
+                )
+                .await
+                .unwrap();
+            seal_analysis_request(
+                &mut consumer,
+                std::slice::from_ref(&revision),
+                std::slice::from_ref(&read),
+                &[],
+                &[],
+            );
+            store
+                .persist_analysis(
+                    &consumer,
+                    std::slice::from_ref(&revision),
+                    std::slice::from_ref(&read),
+                    &[],
+                    &[],
+                )
+                .await
+                .unwrap();
             input_consumers.push(consumer.key);
         }
-        let expected=input_consumers.iter().map(|key| {
-            let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-            hash.str("pse.analysis.input.v1").part(key.as_bytes()).part(artifact.key.as_bytes());
-            (key.clone(),GraphEdge {identity:node("canonical_analysis_inputs",&hash.finish_hash().to_hex()),source:node("canonical_analyses",key),target:node("canonical_artifacts",&artifact.key),role:GraphEdgeRole::AnalysisInput,evidence:Some(GraphEvidence{artifact:artifact.key.clone(),block:None,row:None,field:None})})
-        }).collect();
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Artifact{artifact:artifact.key.clone(),revision:revision.key.clone()},scope:GraphScope::RetainedConsumers,limit:1,continuation:None},expected).await;
+        let expected = input_consumers
+            .iter()
+            .map(|key| {
+                let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+                hash.str("pse.analysis.input.v1")
+                    .part(key.as_bytes())
+                    .part(artifact.key.as_bytes());
+                (
+                    key.clone(),
+                    GraphEdge {
+                        identity: node("canonical_analysis_inputs", &hash.finish_hash().to_hex()),
+                        source: node("canonical_analyses", key),
+                        target: node("canonical_artifacts", &artifact.key),
+                        role: GraphEdgeRole::AnalysisInput,
+                        evidence: Some(GraphEvidence {
+                            artifact: artifact.key.clone(),
+                            block: None,
+                            row: None,
+                            field: None,
+                        }),
+                    },
+                )
+            })
+            .collect();
+        qualify_graph_seek_pages(
+            &store,
+            &CanonicalGraphRequest {
+                version: pse_model::document::Version,
+                anchor: GraphAnchor::Artifact {
+                    artifact: artifact.key.clone(),
+                    revision: revision.key.clone(),
+                },
+                scope: GraphScope::RetainedConsumers,
+                limit: 1,
+                continuation: None,
+            },
+            expected,
+        )
+        .await;
         read.release().await.unwrap();
-        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
+        let mut request = CanonicalGraphRequest {
+            version: pse_model::document::Version,
             anchor: GraphAnchor::AnalysisNode {
                 analysis: analysis.key.clone(),
                 node: nodes[0].key.clone(),
@@ -1164,15 +1586,33 @@ mod server_tests {
             revision: "changed".into(),
         };
         assert!(store.graph_explanation(&request).await.is_err());
-        request.anchor=GraphAnchor::AnalysisNode{analysis:input_consumers[1].clone(),node:nodes[0].key.clone(),revision:revision.key.clone()};
-        assert!(store.graph_explanation(&request).await.is_err(),"an existing node cannot be selected under another analysis");
-        request.anchor=GraphAnchor::AnalysisNode{analysis:analysis.key.clone(),node:nodes[0].key.clone(),revision:"changed".into()};
+        request.anchor = GraphAnchor::AnalysisNode {
+            analysis: input_consumers[1].clone(),
+            node: nodes[0].key.clone(),
+            revision: revision.key.clone(),
+        };
+        assert!(
+            store.graph_explanation(&request).await.is_err(),
+            "an existing node cannot be selected under another analysis"
+        );
+        request.anchor = GraphAnchor::AnalysisNode {
+            analysis: analysis.key.clone(),
+            node: nodes[0].key.clone(),
+            revision: "changed".into(),
+        };
         assert!(store.graph_explanation(&request).await.is_err());
-        request.anchor=GraphAnchor::AnalysisNode{analysis:analysis.key.clone(),node:nodes[0].key.clone(),revision:revision.key.clone()};
+        request.anchor = GraphAnchor::AnalysisNode {
+            analysis: analysis.key.clone(),
+            node: nodes[0].key.clone(),
+            revision: revision.key.clone(),
+        };
         // Deliberately corrupt the sentinel through the fixture owner's raw database
         // connection. The immutable writer never creates this cross-analysis row.
         crate::canonical::bounded_query(store.db.query("UPDATE type::record('canonical_analysis_edges',$key) SET analysis=$analysis RETURN NONE;").bind(("key",edges[1].key.clone())).bind(("analysis",input_consumers[1].clone()))).await.unwrap();
-        assert!(store.graph_explanation(&request).await.is_err(),"a corrupt sentinel must refuse the whole page");
+        assert!(
+            store.graph_explanation(&request).await.is_err(),
+            "a corrupt sentinel must refuse the whole page"
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 }
