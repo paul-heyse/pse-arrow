@@ -197,11 +197,15 @@ async fn fixture_on(
     scales: [f64; 2],
     runtime: crate::workflow::Runtime,
 ) -> FixtureResult<PreparedFit> {
+    fixture_with_physical(kind, scales, runtime, crate::workflow::tests::physical()).await
+}
+async fn fixture_with_physical(
+    kind: &str,
+    scales: [f64; 2],
+    runtime: crate::workflow::Runtime,
+    physical: crate::workflow::PhysicalContext,
+) -> FixtureResult<PreparedFit> {
     use crate::workflow::tests::{compiler_profile, id};
-    let mut physical = crate::workflow::tests::physical();
-    physical.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(
-        pse_quantity::generated::standard_preconditions(),
-    )?);
     let outputs = (1..=4)
         .map(|i| {
             if kind == "cosine-gap" {
@@ -1165,10 +1169,12 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
 #[tokio::test]
 async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile() {
     let runtime = crate::workflow::tests::durable_runtime();
-    let mut seed = fixture_on("linear", [1., 2.], runtime.clone())
+    let cancel = crate::CancelSource::new();
+    let (documents, _) = crate::workflow::worker_tests::sources("package p {}");
+    let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel)).await.unwrap();
+    let mut seed = fixture_with_physical("linear", [1., 2.], runtime.clone(), physical)
         .await
         .unwrap();
-    let cancel = crate::CancelSource::new();
     let store = runtime.canonical_store().unwrap();
     store.create_project("fit-project-create", "fit-project", "Original fit context").await.unwrap();
     let project = store.project("fit-project").await.unwrap().unwrap();
