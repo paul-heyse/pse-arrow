@@ -172,7 +172,7 @@ def parser() -> argparse.ArgumentParser:
         selected.add_argument("--registry", type=Path)
         selected.add_argument(
             "--source-kind",
-            choices=("invocation", "assessment", "diagnostic", "measurement", "host"),
+            choices=("invocation", "assessment", "diagnostic", "measurement", "host", "storage-health"),
             default="invocation",
         )
         selected.add_argument("--inventory", type=Path)
@@ -217,6 +217,7 @@ def parser() -> argparse.ArgumentParser:
                 "--measurement", type=Path, action="append", default=[]
             )
             selected.add_argument("--host", type=Path, action="append", default=[])
+            selected.add_argument("--storage-health", type=Path, action="append", default=[])
             selected.add_argument(
                 "--criterion", action="append", default=[], metavar="CASE=CSV"
             )
@@ -273,6 +274,8 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
             criterion=criterion_selection(args.criterion),
             invocations=criterion_selection(args.invocations),
         )
+    if args.source_kind == "storage-health":
+        return evidence_sources.storage_health_snapshot(path)
     return evidence_sources.host_snapshot(path)
 
 
@@ -348,6 +351,8 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
             )
         for path in args.host:
             snapshots.append(evidence_sources.host_snapshot(path, deadline=deadline))
+        for path in args.storage_health:
+            snapshots.append(evidence_sources.storage_health_snapshot(path))
         inputs = list(args.input)
         for offset, snapshot in enumerate(snapshots):
             path = root / f"snapshot-{offset}.json"
