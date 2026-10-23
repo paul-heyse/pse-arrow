@@ -31,6 +31,42 @@ async fn bundle()->(tempfile::TempDir,ProjectManifest) {
 fn save(root:&Path,manifest:&ProjectManifest) {std::fs::write(root.join("project.json"),serde_json::to_vec(manifest).unwrap()).unwrap();}
 
 #[tokio::test]
+async fn project_portability_result_ipc_reuses_original_lineage_and_finalization_validation() {
+    use datafusion::arrow::{datatypes::{Field,Schema},ipc::writer::StreamWriter};
+    let (root,mut manifest)=bundle().await;
+    let metadata=std::collections::HashMap::from([
+        ("pse.canonical.run".into(),"original-run".into()),("pse.canonical.attempt".into(),"original-attempt".into()),
+        ("pse.canonical.relation".into(),"original-relation".into()),("pse.canonical.relation-version".into(),"1".into()),
+        ("pse.canonical.row-start".into(),"0".into()),("pse.canonical.row-end".into(),"0".into()),
+        ("pse.canonical.terminal-class".into(),"completed".into()),
+    ]);
+    let schema=Schema::new_with_metadata(Vec::<Field>::new(),metadata);
+    let mut bytes=Vec::new();{let mut writer=StreamWriter::try_new(&mut bytes,&schema).unwrap();writer.finish().unwrap();}
+    let path="members/scientific-result.arrow";std::fs::write(root.path().join(path),&bytes).unwrap();
+    manifest.members.push(ProjectBundleMember{id:"selected-result".into(),relative_path:path.into(),codec:"arrow-ipc-stream.v1".into(),copied_bytes:bytes.len() as u64,digest:pse_ids::encoding_checksum(&bytes).content_hash().to_hex(),result:Some(workflow::PackResultSelection{run:"original-run".into(),attempt:"original-attempt".into(),relation:"original-relation".into(),schema_version:1,row_start:0,row_end:0,field:None,terminal_class:"completed".into(),predicate:None,usability:workflow::PackScientificState::Unknown}),artifact:None,artifact_metadata:None});
+    save(root.path(),&manifest);assert!(ProjectBundleReader::open(root.path(),16<<20).is_ok());
+    let original=manifest.clone();
+    for qualifier in ["run","attempt","relation","version","range","terminal","field","predicate"] {
+        let mut changed=original.clone();let result=changed.members.last_mut().unwrap().result.as_mut().unwrap();
+        match qualifier {
+            "run"=>result.run="another-run".into(),"attempt"=>result.attempt="another-attempt".into(),"relation"=>result.relation="another-relation".into(),
+            "version"=>result.schema_version=2,"range"=>result.row_end=1,"terminal"=>result.terminal_class="failed".into(),"field"=>result.field=Some("another-field".into()),
+            "predicate"=>result.predicate=Some(workflow::PackResultPredicate{output:"another-output".into(),partition:"p".into(),minimum_bits:None,maximum_bits:None,missing:None}),_=>unreachable!(),
+        }
+        save(root.path(),&changed);assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"checksummed IPC must retain exact original {qualifier}");
+    }
+    let mut wrong_codec=original.clone();wrong_codec.members.last_mut().unwrap().codec="authored-document.v1".into();save(root.path(),&wrong_codec);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"a result cannot bypass lineage checks by relabelling its codec");
+    let mut unknown=Vec::new();{let mut writer=StreamWriter::try_new(&mut unknown,&Schema::empty()).unwrap();writer.finish().unwrap();}
+    std::fs::write(root.path().join(path),&unknown).unwrap();let mut no_lineage=original;
+    let member=no_lineage.members.last_mut().unwrap();member.copied_bytes=unknown.len() as u64;member.digest=pse_ids::encoding_checksum(&unknown).content_hash().to_hex();save(root.path(),&no_lineage);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"a finalized checksummed stream without original scientific lineage is unknown");
+    let mut unfinished=bytes;unfinished.truncate(unfinished.len()-8);std::fs::write(root.path().join(path),&unfinished).unwrap();
+    let member=manifest.members.last_mut().unwrap();member.copied_bytes=unfinished.len() as u64;member.digest=pse_ids::encoding_checksum(&unfinished).content_hash().to_hex();save(root.path(),&manifest);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"a matching byte checksum cannot replace the IPC terminal marker");
+}
+
+#[tokio::test]
 async fn project_portability_offline_reader_uses_only_contained_bytes_and_detects_later_mutation() {
     let (root,manifest)=bundle().await;
     // This has no canonical deployment handle or reachable original service.

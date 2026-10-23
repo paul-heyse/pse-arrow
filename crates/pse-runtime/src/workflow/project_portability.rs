@@ -273,6 +273,10 @@ impl ProjectBundleReader {
             if file.metadata().map_err(io)?.len()!=member.copied_bytes { return Err(contract("project member extent differs")); }
             let (bytes,digest)=checksum(file,member.copied_bytes)?;
             if bytes!=member.copied_bytes || digest!=member.digest { return Err(contract("project member digest differs")); }
+            if member.codec=="arrow-ipc-stream.v1" {
+                let result=member.result.as_ref().ok_or_else(||contract("result member lacks original scientific selection"))?;
+                crate::tooling::review_pack::validate_scientific_ipc(contained_copy::open_contained(&directory,&member.relative_path).map_err(io)?,member.copied_bytes,maximum_document_bytes,result).map_err(|e|contract(e.to_string()))?;
+            }
             if let Some(metadata)=&member.artifact_metadata {
                 let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);hash.str("pse.execution.result-payload.v1");
                 hash.part_reader(member.copied_bytes,&mut contained_copy::open_contained(&directory,&member.relative_path).map_err(io)?,&||Ok(())).map_err(io)?;
@@ -358,7 +362,7 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
         if member.id.is_empty() || !ids.insert(member.id.as_str()) || !paths.insert(member.relative_path.as_str()) { return Err(contract("duplicate project member")); }
         contained_copy::safe_relative(&member.relative_path).map_err(io)?;
         if !member.relative_path.starts_with("members/") || !matches!(member.codec.as_str(),"authored-document.v1"|"replay-source.v1"|"arrow-ipc-stream.v1"|"artifact-block.v1"|"diagnostic-review-pack.v2") { return Err(contract("unknown project member codec")); }
-        if member.codec=="arrow-ipc-stream.v1" && member.result.is_none() { return Err(contract("result member lacks original qualifiers")); }
+        if (member.codec=="arrow-ipc-stream.v1")!=member.result.is_some() { return Err(contract("scientific result qualifiers require their exact IPC stream codec")); }
         pse_ids::ContentHash::parse_hex(&member.digest).map_err(|e|contract(e.to_string()))?;
         match (&member.artifact,&member.artifact_metadata) {
             (Some((artifact,ordinal)),Some(metadata))=>{
