@@ -14,6 +14,12 @@ from scripts.tests import surreal_scan_budget_probe as probe
 
 
 class ScanProbePreparationTests(unittest.TestCase):
+    def test_zero_selected_tests_cannot_claim_probe_success(self) -> None:
+        self.assertFalse(probe.selected_test_passed("running 0 tests\ntest result: ok. 0 passed; 0 failed;"))
+        self.assertTrue(probe.selected_test_passed(
+            f"running 1 test\ntest {probe.TEST} ... ok\ntest result: ok. 1 passed; 0 failed;"
+        ))
+
     def test_source_and_scratch_must_be_disjoint(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary)
