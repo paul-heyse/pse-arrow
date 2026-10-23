@@ -129,7 +129,7 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_datasets',$key);")?.bind(("key",key.to_owned()))).await?;
+            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_datasets',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
             r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_datasets).transpose().map_err(Into::into)
         })).await
     }
@@ -141,7 +141,7 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_selections',$key);")?.bind(("key",key.to_owned()))).await?;
+            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_selections',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
             r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_selections).transpose().map_err(Into::into)
         })).await
     }
@@ -153,7 +153,7 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_publications',$key);")?.bind(("key",key.to_owned()))).await?;
+            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_publications',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
             r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_publications).transpose().map_err(Into::into)
         })).await
     }
@@ -170,7 +170,7 @@ impl CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("SELECT * FROM canonical_research_datasets WITH INDEX research_dataset_project WHERE project=$project AND key>$after ORDER BY key LIMIT $limit;")?.bind(("project",project.to_owned())).bind(("after",after.to_owned())).bind(("limit",limit))).await?;
+            let mut r=bounded_query(self.research_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_source_unavailable';}; SELECT * FROM canonical_research_datasets WITH INDEX research_dataset_project WHERE project=$project AND fn::pse_project_import_v1::available(project) AND key>$after ORDER BY key LIMIT $limit;")?.bind(("project",project.to_owned())).bind(("after",after.to_owned())).bind(("limit",limit))).await?;
             r.take::<Vec<Object>>(r.num_statements().saturating_sub(2))?.into_iter().map(|o|wire::decode_canonical_research_datasets(o).map_err(Into::into)).collect()
         })).await
     }

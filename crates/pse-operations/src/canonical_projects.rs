@@ -474,7 +474,7 @@ impl CanonicalStore {
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
                     self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_projects',$key);",
+                        "SELECT * FROM ONLY type::record('canonical_projects',$key) WHERE fn::pse_project_import_v1::available(key);",
                     )?
                     .bind(("key", key.to_owned())),
                 )
@@ -502,7 +502,7 @@ impl CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{
-            let mut response=protected_query("canonical_projects::branches",||Ok(self.project_query("BEGIN; LET $project=SELECT * FROM ONLY type::record('canonical_projects',$key); IF $project=NONE OR ($generation!=NONE AND $project.generation!=$generation) { THROW 'PSE_REFUSAL:project_generation_changed'; }; LET $rows=SELECT * FROM canonical_project_branches WITH INDEX project_branch_order WHERE project=$key AND key>$after ORDER BY key LIMIT 65; RETURN {project:$project,branches:$rows}; COMMIT;")?.bind(("key",project.to_owned())).bind(("generation",cursor.map(|c|codec::encode_uint(c.generation)).transpose()?.unwrap_or(Value::None))).bind(("after",cursor.map_or("",|c|c.after.as_str()).to_owned())))).await?;
+            let mut response=protected_query("canonical_projects::branches",||Ok(self.project_query("BEGIN; LET $project=SELECT * FROM ONLY type::record('canonical_projects',$key); IF $project=NONE OR !fn::pse_project_import_v1::available($key) OR ($generation!=NONE AND $project.generation!=$generation) { THROW 'PSE_REFUSAL:project_generation_changed'; }; LET $rows=SELECT * FROM canonical_project_branches WITH INDEX project_branch_order WHERE project=$key AND key>$after ORDER BY key LIMIT 65; RETURN {project:$project,branches:$rows}; COMMIT;")?.bind(("key",project.to_owned())).bind(("generation",cursor.map(|c|codec::encode_uint(c.generation)).transpose()?.unwrap_or(Value::None))).bind(("after",cursor.map_or("",|c|c.after.as_str()).to_owned())))).await?;
             let mut row=final_object(&mut response)?;let project=wire::decode_canonical_projects(object(codec::required(&mut row,"project")?)?)?;
             let Value::Array(rows)=codec::required(&mut row,"branches")? else{return Err(CanonicalError::IncompleteResponse);};
             let mut branches=rows.into_iter().map(|v|wire::decode_canonical_project_branches(object(v)?)).collect::<Result<Vec<_>,_>>()?;
@@ -518,7 +518,7 @@ impl CanonicalStore {
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
                     self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_branches',$key);",
+                        "SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project);",
                     )?
                     .bind(("key", key.to_owned())),
                 )
@@ -539,7 +539,7 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{
-            let mut response=bounded_query(self.project_query("LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$key); LET $problem=IF $branch=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_problems',$branch.problem)}; RETURN IF $problem=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_revisions',$problem.head)};")?.bind(("key",key.to_owned()))).await?;
+            let mut response=bounded_query(self.project_query("LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project); LET $problem=IF $branch=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_problems',$branch.problem)}; RETURN IF $problem=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_revisions',$problem.head)};")?.bind(("key",key.to_owned()))).await?;
             response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_revisions).transpose().map_err(Into::into)
         })).await
     }
@@ -791,7 +791,7 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut response=bounded_query(self.project_query("LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$key); RETURN IF $head=NONE {NONE} ELSE {{head:$head,version:(SELECT * FROM ONLY type::record('canonical_project_draft_versions',$head.version))}};")?.bind(("key",key.to_owned()))).await?;
+            let mut response=bounded_query(self.project_query("LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$key) WHERE fn::pse_project_import_v1::available(project); RETURN IF $head=NONE {NONE} ELSE {{head:$head,version:(SELECT * FROM ONLY type::record('canonical_project_draft_versions',$head.version) WHERE project=$head.project AND fn::pse_project_import_v1::available(project))}};")?.bind(("key",key.to_owned()))).await?;
             let value=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
             value.map(|mut row|Ok(Draft{head:wire::decode_canonical_project_drafts(object(codec::required(&mut row,"head")?)?)?,version:wire::decode_canonical_project_draft_versions(object(codec::required(&mut row,"version")?)?)?})).transpose()
         })).await
@@ -807,7 +807,7 @@ impl CanonicalStore {
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
                     self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key);",
+                        "SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key) WHERE fn::pse_project_import_v1::available(project);",
                     )?
                     .bind(("key", key.to_owned())),
                 )
@@ -828,7 +828,7 @@ impl CanonicalStore {
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
                     self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_bookmarks',$key);",
+                        "SELECT * FROM ONLY type::record('canonical_project_bookmarks',$key) WHERE fn::pse_project_import_v1::available(project);",
                     )?
                     .bind(("key", key.to_owned())),
                 )
@@ -848,7 +848,7 @@ impl CanonicalStore {
     ) -> Result<Vec<String>, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut response=bounded_query(self.project_query("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3; RETURN {parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra};")?.bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
+            let mut response=bounded_query(self.project_query("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; FOR $owner IN $branch {IF !fn::pse_project_import_v1::available($owner.project) {THROW 'PSE_REFUSAL:project_source_unavailable';};}; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3; RETURN {parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra};")?.bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
             let mut row=final_object(&mut response)?;let mut result=Vec::new();for field in ["parent","origin"]{if let Some(value)=row.remove(field){if value!=Value::None && value!=Value::Null {result.push(codec::decode_string(value)?);}}}
             let extra=codec::required(&mut row,"extra")?;if let Value::Array(items)=extra {for item in items{if let Value::String(v)=item {result.push(v);}}}result.sort();result.dedup();Ok(result)
         })).await
@@ -1157,8 +1157,25 @@ impl CanonicalStore {
         } else {
             format!(" WITH INDEX {index}")
         };
-        let sql =
-            format!("SELECT * FROM {table}{index} WHERE {clause}key>$after ORDER BY key LIMIT 65;");
+        // Scope checks and row filtering share this same snapshot. A forged
+        // branch/draft/version coordinate cannot open a pending imported project.
+        let (guard, availability) = match kind {
+            ProjectMetadataKind::Projects => (String::new(), "fn::pse_project_import_v1::available(key)"),
+            ProjectMetadataKind::Bookmarks => (
+                "IF !fn::pse_project_import_v1::available($owner) {THROW 'PSE_REFUSAL:project_source_unavailable';};".into(),
+                "fn::pse_project_import_v1::available(project)",
+            ),
+            ProjectMetadataKind::Drafts | ProjectMetadataKind::Savepoints | ProjectMetadataKind::Diagnostics => {
+                let owner_table=match kind {
+                    ProjectMetadataKind::Drafts => "canonical_project_branches",
+                    ProjectMetadataKind::Savepoints => "canonical_project_drafts",
+                    _ => "canonical_project_draft_versions",
+                };
+                (format!("LET $scope=SELECT project FROM ONLY type::record('{owner_table}',$owner); IF $scope=NONE OR !fn::pse_project_import_v1::available($scope.project) {{THROW 'PSE_REFUSAL:project_source_unavailable';}};"),
+                 if kind==ProjectMetadataKind::Diagnostics {"fn::pse_project_import_v1::available(type::record('canonical_project_draft_versions',version).project)"} else {"fn::pse_project_import_v1::available(project)"})
+            },
+        };
+        let sql = format!("{guard} SELECT * FROM {table}{index} WHERE {clause}{availability} AND key>$after ORDER BY key LIMIT 65;");
         let activity = self.admit_activity()?;
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -1247,6 +1264,62 @@ mod tests {
         reason = "isolated native project fixtures assert exact owned effects"
     )]
     use super::*;
+    #[tokio::test]
+    async fn pending_import_is_unavailable_through_public_project_research_and_context_reads() {
+        let store=fixture().await;
+        let origin=store.edit("pending-origin",None,"pending-origin-revision",&[]).await.unwrap();
+        store.create_project("pending-create","pending-project","Pending fixture").await.unwrap();
+        let project=store.project("pending-project").await.unwrap().unwrap();
+        let intent=store.project_fork_intent(&project,"pending-branch","pending-problem",&origin,"pending-fork").unwrap();
+        let head=store.edit_project(&intent,&[]).await.unwrap();
+        let project=store.project("pending-project").await.unwrap().unwrap();
+        let branch=store.project_branch("pending-branch").await.unwrap().unwrap();
+        store.save_project_draft("pending-version",&project,&branch,"pending-draft",&head.key,None,b"raw draft",None).await.unwrap();
+        store.project_navigate("pending-bookmark-op",&project,&ProjectNavigation::Bookmark{key:"pending-bookmark".into(),name:"bookmark".into(),revision:head.key.clone()}).await.unwrap();
+        let project=store.project("pending-project").await.unwrap().unwrap();
+        store.project_navigate("pending-savepoint-op",&project,&ProjectNavigation::Savepoint{key:"pending-savepoint".into(),name:"saved".into(),draft:"pending-draft".into(),version:"pending-version".into(),generation:1}).await.unwrap();
+        store.project_record_diagnostic("pending-diagnostic","pending-version","fixture diagnostic",false).await.unwrap();
+        // These deliberately synthetic metadata rows test disclosure boundaries,
+        // not scientific admission or validity. Every row belongs to this fixture.
+        bounded_query(store.db.query("BEGIN; CREATE type::record('canonical_context_journals','pending-project') SET key='pending-project',sequence=1dec; CREATE canonical_project_contexts:pending_context SET key='pending_context',project='pending-project',scope='fixture',revision=$revision,source_identity='fixture',physical_context='fixture',physical_revision=$revision,physical_source_identity='fixture',effective_from_us=0,effective_to_us=NONE,recorded_sequence=1dec,corrects=NONE,deleted=false,request=$bytes; CREATE canonical_research_datasets:pending_dataset SET key='pending_dataset',project='pending-project',revision=$revision,physical_context='fixture',context='pending_context',parent=NONE,role='raw',members=$bytes,request=$bytes; CREATE canonical_research_selections:pending_selection SET key='pending_selection',project='pending-project',dataset='pending_dataset',revision=$revision,physical_context='fixture',context='pending_context',fit='fixture',selection=$bytes,request=$bytes; CREATE canonical_research_publications:pending_publication SET key='pending_publication',project='pending-project',selection='pending_selection',run='fixture',attempt='fixture',revision=$revision,parent=$revision,mapping=$bytes,request=$bytes; COMMIT;")
+            .bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
+        let cut=store.project_context_cut("pending-project").await.unwrap();
+        assert!(store.research_dataset("pending_dataset").await.unwrap().is_some());
+        assert!(store.project_context_record("pending_context").await.unwrap().is_some());
+        // Install an original incomplete-import checkpoint only after creating
+        // adversarial pre-existing references, so forged known coordinates are covered.
+        bounded_query(store.db.query("CREATE canonical_project_imports:pending_import SET key='pending_import',issuing_store=$issuer,bundle_digest='fixture',project='pending-project',branch='pending-branch',problem='pending-problem',revision=$revision,origin=$bytes,request=$bytes,artifact=NONE,complete=false;")
+            .bind(("issuer",store.issuing_store().unwrap().to_owned())).bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
+        assert!(store.project("pending-project").await.unwrap().is_none());
+        assert!(store.project_branches("pending-project",None).await.is_err());
+        assert!(store.project_branch("pending-branch").await.unwrap().is_none());
+        assert!(store.project_branch_revision("pending-branch").await.unwrap().is_none());
+        assert!(store.project_bookmark("pending-bookmark").await.unwrap().is_none());
+        assert!(store.project_draft("pending-draft").await.unwrap().is_none());
+        assert!(store.project_draft_version("pending-version").await.unwrap().is_none());
+        assert!(store.project_revision_parents(&head).await.is_err());
+        let projects=store.project_metadata(ProjectMetadataKind::Projects,"",None).await.unwrap();
+        assert!(projects.projects.iter().all(|p|p.key!="pending-project"));
+        for (kind,owner) in [(ProjectMetadataKind::Drafts,"pending-branch"),(ProjectMetadataKind::Bookmarks,"pending-project"),(ProjectMetadataKind::Savepoints,"pending-draft"),(ProjectMetadataKind::Diagnostics,"pending-version")] {
+            assert!(store.project_metadata(kind,owner,None).await.is_err());
+        }
+        assert!(store.research_dataset("pending_dataset").await.unwrap().is_none());
+        assert!(store.research_selection("pending_selection").await.unwrap().is_none());
+        assert!(store.research_publication("pending_publication").await.unwrap().is_none());
+        assert!(store.research_datasets("pending-project","",64).await.is_err());
+        assert!(store.project_context_cut("pending-project").await.is_err());
+        assert!(store.project_context_record("pending_context").await.unwrap().is_none());
+        assert!(store.select_project_context(&cut,"fixture",0).await.is_err());
+        assert!(store.project_acknowledgement("pending-fork").await.unwrap().is_some(),"original operation settlement remains observable");
+        assert!(store.revision(&head.key).await.unwrap().is_some(),"original source primitives remain valid for artifact registration");
+        bounded_query(store.db.query("UPDATE canonical_project_imports:pending_import SET complete=true;")).await.unwrap();
+        assert!(store.project("pending-project").await.unwrap().is_some());
+        assert!(store.project_branch("pending-branch").await.unwrap().is_some());
+        assert!(store.project_draft_version("pending-version").await.unwrap().is_some());
+        assert!(store.research_dataset("pending_dataset").await.unwrap().is_some());
+        assert!(store.project_context_record("pending_context").await.unwrap().is_some());
+        store.remove_isolated_fixture().await.unwrap();
+    }
     #[tokio::test]
     async fn project_navigation_versions_savepoints_and_visibility_are_exact() {
         let store = fixture().await;

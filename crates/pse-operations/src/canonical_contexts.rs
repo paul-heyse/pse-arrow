@@ -66,7 +66,7 @@ impl CanonicalStore {
         identity(project)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("LET $project=SELECT * FROM ONLY type::record('canonical_projects',$project); IF $project=NONE {THROW 'PSE_REFUSAL:project_context_unavailable';}; RETURN SELECT * FROM ONLY type::record('canonical_context_journals',$project.key);")?.bind(("project",project.to_owned()))).await?;
+            let mut response=bounded_query(self.context_query("LET $project=SELECT * FROM ONLY type::record('canonical_projects',$project); IF $project=NONE OR !fn::pse_project_import_v1::available($project.key) {THROW 'PSE_REFUSAL:project_context_unavailable';}; RETURN SELECT * FROM ONLY type::record('canonical_context_journals',$project.key);")?.bind(("project",project.to_owned()))).await?;
             let sequence=final_object(&mut response)?.map(wire::decode_canonical_context_journals).transpose()?.map_or(0,|r|r.sequence);
             Ok(ContextCut{issuing_store:self.issuing_store()?.into(),project:project.into(),sequence})
         })).await
@@ -171,7 +171,7 @@ impl CanonicalStore {
     ) -> Result<Option<ProjectContext>, CanonicalError> {
         identity(key)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {let mut response=bounded_query(self.context_query("RETURN SELECT * FROM ONLY type::record('canonical_project_contexts',$key);")?.bind(("key",key.to_owned()))).await?;final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose().map_err(Into::into)})).await
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {let mut response=bounded_query(self.context_query("RETURN SELECT * FROM ONLY type::record('canonical_project_contexts',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose().map_err(Into::into)})).await
     }
     fn check_cut(&self, cut: &ContextCut) -> Result<(), CanonicalError> {
         identity(&cut.project)?;
@@ -193,7 +193,7 @@ impl CanonicalStore {
         identity(scope)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.clone())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
+            let mut response=bounded_query(self.context_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_context_unavailable';}; LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.clone())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
             Ok(final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose()?.map(|context|ContextSelection{cut:cut.clone(),effective_at_us,context}))
         })).await
     }
