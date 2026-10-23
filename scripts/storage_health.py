@@ -12,11 +12,12 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 import msgspec
 
-from scripts import host_admission, native_operation, surreal_server as server
+from scripts import host_admission, native_operation
+from scripts import surreal_server as server
 
 SCHEMA = "storage-health-v1"
 MAXIMUM_BYTES = 1 << 20
@@ -213,7 +214,7 @@ def numeric_file(path: Path) -> Observation:
         if raw == "max":
             return Observation("available", "max")
         if not raw.isdecimal():
-            raise ValueError("invalid kernel number")
+            return unavailable("kernel observation unavailable")
         return Observation("available", int(raw))
     except (OSError, ValueError):
         return unavailable("kernel observation unavailable")
@@ -256,51 +257,60 @@ def independent_host(state: Path) -> dict[str, Observation]:
     return fields
 
 
+def selected_process(pid: int, group: str, boot: str) -> ProcessObservation:
+    """Read one original member only while its identity and membership remain stable."""
+    process = process_identity(pid)
+    if process.boot != boot or native_operation.process_group(pid) != group:
+        raise ValueError("process membership changed")
+    rss = unavailable("process RSS unavailable")
+    for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+        if line.startswith("VmRSS:"):
+            parts = line.split()
+            if len(parts) == 3 and parts[1].isdecimal() and parts[2] == "kB":
+                rss = Observation("approximate", int(parts[1]) * 1024, "kernel VmRSS estimate")
+    if process_identity(pid) != process or native_operation.process_group(pid) != group:
+        raise ValueError("process lifetime changed")
+    return ProcessObservation(process, rss)
+
+
+def observe_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> CgroupObservation:
+    before = server.storage_unit_observation(state, deadline=deadline)
+    if before.get("InvocationID") != identity.invocation:
+        raise ValueError("service incarnation changed")
+    group = before.get("ControlGroup", "")
+    inode = host_admission.group_identity(group)
+    if inode is None:
+        raise ValueError("cgroup unavailable")
+    boot = host_admission.boot()
+    selected = CgroupIdentity(boot, group, inode, identity.invocation)
+    directory = Path("/sys/fs/cgroup") / group.lstrip("/")
+    fields = {name: numeric_file(directory / name) for name in CGROUP_FIELDS}
+    processes = []
+    partial = any(field.status == "unavailable" for field in fields.values())
+    try:
+        pids = (directory / "cgroup.procs").read_text().split()
+        if len(pids) > MAXIMUM_PROCESSES:
+            partial = True
+        for raw in pids[:MAXIMUM_PROCESSES]:
+            server.remaining(deadline)
+            try:
+                process = selected_process(int(raw), group, boot)
+                processes.append(process)
+                partial |= process.rss_bytes.status == "unavailable"
+            except (OSError, ValueError):
+                partial = True
+    except OSError:
+        partial = True
+    after = server.storage_unit_observation(state, deadline=deadline)
+    if after != before or host_admission.group_identity(group) != inode or host_admission.boot() != boot:
+        raise ValueError("cgroup lifetime changed")
+    return CgroupObservation("partial" if partial else "observed", selected, fields, processes, "some kernel fields or process members unavailable or bounded" if partial else None)
+
+
 def selected_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> CgroupObservation:
     """Link only members of the observed incarnation, rechecking kernel lifetimes."""
     try:
-        before = server.storage_unit_observation(state, deadline=deadline)
-        if before.get("InvocationID") != identity.invocation:
-            raise ValueError("service incarnation changed")
-        group = before.get("ControlGroup", "")
-        inode = host_admission.group_identity(group)
-        if inode is None:
-            raise ValueError("cgroup unavailable")
-        boot = host_admission.boot()
-        selected = CgroupIdentity(boot, group, inode, identity.invocation)
-        directory = Path("/sys/fs/cgroup") / group.lstrip("/")
-        fields = {name: numeric_file(directory / name) for name in CGROUP_FIELDS}
-        processes = []
-        partial = any(field.status == "unavailable" for field in fields.values())
-        try:
-            pids = (directory / "cgroup.procs").read_text().split()
-            if len(pids) > MAXIMUM_PROCESSES:
-                partial = True
-            for raw in pids[:MAXIMUM_PROCESSES]:
-                server.remaining(deadline)
-                try:
-                    pid = int(raw)
-                    process = process_identity(pid)
-                    if process.boot != boot or native_operation.process_group(pid) != group:
-                        raise ValueError("process membership changed")
-                    rss = unavailable("process RSS unavailable")
-                    for line in Path(f"/proc/{pid}/status").read_text().splitlines():
-                        if line.startswith("VmRSS:"):
-                            parts = line.split()
-                            if len(parts) == 3 and parts[1].isdecimal() and parts[2] == "kB":
-                                rss = Observation("approximate", int(parts[1]) * 1024, "kernel VmRSS estimate")
-                    if process_identity(pid) != process or native_operation.process_group(pid) != group:
-                        raise ValueError("process lifetime changed")
-                    processes.append(ProcessObservation(process, rss))
-                    partial |= rss.status == "unavailable"
-                except (OSError, ValueError):
-                    partial = True
-        except OSError:
-            partial = True
-        after = server.storage_unit_observation(state, deadline=deadline)
-        if after != before or host_admission.group_identity(group) != inode or host_admission.boot() != boot:
-            raise ValueError("cgroup lifetime changed")
-        return CgroupObservation("partial" if partial else "observed", selected, fields, processes, "some kernel fields or process members unavailable or bounded" if partial else None)
+        return observe_cgroup(state, identity, deadline)
     except (OSError, ValueError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         return CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service/kernel correspondence unavailable")
 
@@ -329,6 +339,25 @@ def metric_fields(snapshot: dict[str, object]) -> dict[str, Metric]:
     return fields
 
 
+def selected_metrics(
+    state: Path, config: dict[str, object] | None, deadline: float, started: int,
+) -> tuple[ServiceIdentity, dict[str, Metric], int, int]:
+    """Validate original selected-service authority and its capture interval."""
+    original = server.metric_snapshot(state, deadline)
+    if original.get("schema") != "selected-native-metrics-v1":
+        raise ValueError("unsupported original metric codec")
+    identity = msgspec.convert(original["identity"], ServiceIdentity, strict=True)
+    if identity.state != str(state) or (config is not None and identity.instance_id != config["instance_id"]):
+        raise ValueError("metrics differ from requested service authority")
+    decoded = metric_fields(original)
+    first, last = original["started_unix_ns"], original["finished_unix_ns"]
+    if type(first) is not int or type(last) is not int or not started <= first <= last <= time.time_ns():
+        raise ValueError("metrics lack original capture interval")
+    if config is not None and config != server.config_for(state, deadline=deadline):
+        raise ValueError("owner configuration changed during capture")
+    return identity, decoded, first, last
+
+
 def capture(state: Path, deadline: float) -> HealthSnapshot:
     """Collect available independent host facts even when selected service is unavailable."""
     state = server.lexical_absolute(state)
@@ -349,7 +378,8 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         configuration["configured_endpoint"] = Observation("available", server.database_endpoint(state))
         pending = config.get("derived_rebuild_pending")
         configuration["pending_maintenance"] = Observation("available", f"{pending.get('kind')}:{pending.get('phase')}") if isinstance(pending, dict) else Observation("available", "none")
-        configuration["accepting_writes"] = Observation("available", config["accepting_writes"])
+        accepting_writes = config["accepting_writes"]
+        configuration["accepting_writes"] = Observation("available", accepting_writes) if isinstance(accepting_writes, bool) else unavailable("owner admission field unavailable")
     except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         configuration = {name: unavailable("selected owner configuration unavailable") for name in CONFIGURATION_FIELDS}
     metrics = {name: Metric("unavailable", [], "selected service unavailable") for name in server.MX_METRIC_FIELDS}
@@ -357,20 +387,8 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
     group = CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service unavailable")
     metric_started = metric_finished = None
     try:
-        original = server.metric_snapshot(state, deadline)
-        if original.get("schema") != "selected-native-metrics-v1":
-            raise ValueError("unsupported original metric codec")
-        identity = msgspec.convert(original["identity"], ServiceIdentity, strict=True)
-        if identity.state != str(state) or (config is not None and identity.instance_id != config["instance_id"]):
-            raise ValueError("metrics differ from requested service authority")
-        decoded = metric_fields(original)
-        first, last = original["started_unix_ns"], original["finished_unix_ns"]
-        if type(first) is not int or type(last) is not int or not started <= first <= last <= time.time_ns():
-            raise ValueError("metrics lack original capture interval")
-        if config is not None and config != server.config_for(state, deadline=deadline):
-            raise ValueError("owner configuration changed during capture")
+        identity, metrics, metric_started, metric_finished = selected_metrics(state, config, deadline, started)
         service = Service("available", identity)
-        metrics, metric_started, metric_finished = decoded, first, last
         group = selected_cgroup(state, identity, deadline)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         pass
@@ -392,19 +410,33 @@ def read(path: Path) -> HealthSnapshot:
     return msgspec.json.decode(raw, type=HealthSnapshot, strict=True)
 
 
-def owner_actions(snapshot: HealthSnapshot) -> list[dict[str, object]]:
+class OwnerAction(TypedDict):
+    action: Literal["inspect-service", "recover-maintenance"]
+    command: list[str]
+    effect: str
+    preconditions: str
+
+
+class HealthPresentation(TypedDict):
+    snapshot: dict[str, object]
+    reference: str
+    limits: list[str]
+    owner_actions: list[OwnerAction]
+
+
+def owner_actions(snapshot: HealthSnapshot) -> list[OwnerAction]:
     """Inert finite command suggestions: the original owner rechecks every action."""
     base = ["just", "surreal"]
     state = ["--state", snapshot.requested_state]
-    actions: list[dict[str, object]] = [{
-        "action": "inspect-service", "command": base + ["status", *state],
+    actions: list[OwnerAction] = [{
+        "action": "inspect-service", "command": [*base, "status", *state],
         "effect": "inspect current owner status",
         "preconditions": "current owned configuration; snapshot is descriptive only",
     }]
     pending = snapshot.configuration.get("pending_maintenance")
     if pending is not None and pending.status == "available" and pending.value != "none":
         actions.append({
-            "action": "recover-maintenance", "command": base + ["recover-maintenance", *state],
+            "action": "recover-maintenance", "command": [*base, "recover-maintenance", *state],
             "effect": "explicit recovery through original maintenance owner and exact effect settlement",
             "preconditions": "owner reacquires lifecycle reservation, verifies current closed admission, exact pending kind/phase, drained processes and required initializer/verifier; changed or unsupported premises refuse",
         })
@@ -417,5 +449,5 @@ def reference(snapshot: HealthSnapshot) -> str:
     return "storage-health:sha256:" + hashlib.sha256(raw).hexdigest()
 
 
-def presentation(snapshot: HealthSnapshot) -> dict[str, object]:
+def presentation(snapshot: HealthSnapshot) -> HealthPresentation:
     return {"snapshot": msgspec.to_builtins(snapshot), "reference": reference(snapshot), "limits": list(LIMITS), "owner_actions": owner_actions(snapshot)}
