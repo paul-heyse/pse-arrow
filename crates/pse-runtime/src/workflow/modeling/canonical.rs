@@ -948,6 +948,7 @@ pub(super) async fn publish_admitted_project(
         runtime: runtime.clone(),
         revision,
         held_preparation: None,
+        research_source: None,
         project_context: None,
         ..admitted.clone()
     })
@@ -2766,6 +2767,7 @@ impl ModelingPackage {
             review_context::{ReviewProviderDescriptor, ReviewSourceDocument},
         };
         Ok(ReviewSourceDocument {
+            research: self.research_source.clone(),
             context: self.project_context.clone(),
             identity: self.revision.identity().as_id(),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
@@ -2801,6 +2803,7 @@ impl ModelingPackage {
         use crate::workflow::replay::{ReplayProvider, ReplaySourceDocument};
         let source = self.review_source()?;
         Ok(ReplaySourceDocument {
+            research: self.research_source.clone(),
             context: self.project_context.clone(),
             identity: source.identity,
             interpretation: source.interpretation,
@@ -2839,6 +2842,7 @@ impl ModelingPackage {
     pub(in crate::workflow) fn same_replay_source(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.revision.admitted, &other.revision.admitted)
             && self.project_context == other.project_context
+            && self.research_source == other.research_source
             && self.physical.same_sources(&other.physical)
             && Arc::ptr_eq(&self.providers, &other.providers)
             && Arc::ptr_eq(&self.accelerators, &other.accelerators)
@@ -3144,6 +3148,7 @@ impl Runtime {
             // by any later durable recording, not fabricated by embedded metadata.
             package.project_context = Some(selected.clone());
         }
+        package.research_source = document.research.clone();
         rebind::admit_rows(&package, self, &validation, cancel)?;
         checkpoint(cancel)?;
         Ok(package)

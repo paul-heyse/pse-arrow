@@ -667,6 +667,7 @@ impl Runtime {
                     if content.issuing_store!=store.issuing_store()? || content.base_revision!=version.base_revision || content.delta.parent!=content.parent_local{return Err(contract("draft original parent token differs"));}
                     let mut base=self.project_boxed(self.modeling_revision(base,physical,BTreeMap::new()))?.await?;
                     self.restore_project_context(&mut base,content.source.context.as_ref()).await?;
+                    self.restore_research_source(&mut base,content.source.research.as_ref()).await?;
                     self.project_boxed(base.construct_study_variant(&content.source,content.delta,cancel))?.await
                 }
             }

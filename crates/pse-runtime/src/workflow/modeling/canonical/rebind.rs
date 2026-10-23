@@ -44,6 +44,7 @@ pub(super) fn rebind(
     let revision = SourceRevision::admitted(admitted, source.revision.identity(), None, None)?;
     // Preserve original executable and physical owners; do not borrow mutable engagement.
     Ok(ModelingPackage {
+        research_source: source.research_source.clone(),
         project_context: source.project_context.clone(),
         runtime: runtime.clone(),
         revision,

@@ -134,6 +134,8 @@ fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
 /// Immutable source revision sharing one deployment-owned compiler workspace.
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
+    /// Exact authenticated research inputs consumed by ordinary execution.
+    pub(in crate::workflow) research_source: Option<super::ResearchSource>,
     /// Frozen historical engineering selection, independent of scientific content identity.
     pub(in crate::workflow) project_context:
         Option<pse_operations::canonical_contexts::ContextSelection>,
@@ -254,6 +256,7 @@ impl Runtime {
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            research_source: None,
             project_context: None,
             replay_owner: None,
             held_preparation: None,
@@ -631,6 +634,7 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            research_source: None,
             project_context: None,
             replay_owner: None,
             held_preparation: None,

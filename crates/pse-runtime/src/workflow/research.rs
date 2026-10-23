@@ -6,6 +6,23 @@ use pse_operations::{canonical_projects::Project,canonical_contexts::ContextSele
 use pse_model::generated::identities::{DeclarationId,FitId};
 use pse_ids::SemanticId;
 use std::collections::BTreeSet;
+/// Authenticated original research ancestry carried by actual operation inputs.
+#[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResearchSource {
+    /// Canonical installation incarnation.
+    pub issuing_store:String,
+    /// Frozen original observation selection.
+    pub selection:String,
+    /// Immutable dataset version.
+    pub dataset:String,
+    /// Exact currently consumed canonical source.
+    pub revision:String,
+    /// Original physical meaning.
+    pub physical_context:String,
+    /// Explicit parameter publication ancestry, when consuming its new source.
+    pub publication:Option<String>,
+}
 /// Exact attribute selection into the original typed measurement owner.
 #[derive(Clone,Debug,PartialEq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -169,6 +186,24 @@ impl Runtime {
         let row=self.canonical_store()?.research_selection(key).await?.ok_or_else(||contract("research selection unavailable"))?;
         let request:ResearchSelectionRequest=decoded(&row.selection)?;
         if request.key!=row.key||request.dataset!=row.dataset||request.context.context.key!=row.context||request.fit.as_id().to_string()!=row.fit{return Err(contract("research selection immutable coordinates differ"));}
-        Ok((self.research_dataset_open(&row.dataset,&request.context,cancel).await?,request.fit))
+        let mut package=self.research_dataset_open(&row.dataset,&request.context,cancel).await?;
+        package.research_source=Some(ResearchSource{issuing_store:self.canonical_store()?.issuing_store()?.into(),selection:row.key,dataset:row.dataset,revision:row.revision,physical_context:row.physical_context,publication:None});
+        Ok((package,request.fit))
     }
+    /// Authenticate research attribution before recording actual scientific execution.
+    pub(in crate::workflow) async fn restore_research_source(&self,package:&mut ModelingPackage,source:Option<&ResearchSource>)->Result<(),WorkflowError>{
+        if let Some(source)=source {
+            let store=self.canonical_store()?;
+            let selection=store.research_selection(&source.selection).await?.ok_or_else(||contract("original research selection unavailable"))?;
+            let revision=package.recorded_revision()?;
+            if source.issuing_store!=store.issuing_store()? || source.dataset!=selection.dataset || source.physical_context!=selection.physical_context || source.physical_context!=package.physical.identity().to_string() || source.revision!=revision.key{return Err(contract("research operation source differs"));}
+            if let Some(key)=&source.publication {
+                let publication=store.research_publication(key).await?.ok_or_else(||contract("research publication unavailable"))?;
+                if publication.selection!=source.selection||publication.revision!=source.revision{return Err(contract("research publication source differs"));}
+            }else if selection.revision!=source.revision || package.project_context.as_ref().is_none_or(|context|context.context.key!=selection.context){return Err(contract("research original observation context differs"));}
+            package.research_source=Some(source.clone());
+        }
+        Ok(())
+    }
+
 }

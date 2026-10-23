@@ -1402,7 +1402,7 @@ impl ModelingPackage {
         parent.members = revision.admitted.objects.values().map(|object| (object.logical.clone(), SourceMember::from(object.as_ref()))).collect();
         let next_products = Arc::new(Products { parent, index, data: new_data, dependencies, extent, #[cfg(test)] work });
         let _ = revision.delta_products.set(next_products);
-        Ok(Self {revision,held_preparation:None,project_context:None,..self.clone()})
+        Ok(Self {revision,held_preparation:None,research_source:None,project_context:None,..self.clone()})
 
         }).await
     }
