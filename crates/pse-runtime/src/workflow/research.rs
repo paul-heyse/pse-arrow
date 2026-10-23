@@ -140,7 +140,7 @@ pub enum ResearchReadResult {
         #[doc = "Exact original metadata."]
         row: Option<ResearchSelection>,
         #[doc = "Original complete typed selection, including exclusions and reasons."]
-        selection: Option<ResearchSelectionRequest>,
+        selection: Option<Box<ResearchSelectionRequest>>,
     },
 }
 pub(super) fn encoded<T: serde::Serialize>(v: &T) -> Result<Vec<u8>, WorkflowError> {
@@ -178,7 +178,7 @@ impl Runtime {
             }
             ResearchReadRequest::Selection { key } => {
                 let row = store.research_selection(key).await?;
-                let selection = row.as_ref().map(|r| decoded(&r.selection)).transpose()?;
+                let selection = row.as_ref().map(|r| decoded(&r.selection).map(Box::new)).transpose()?;
                 ResearchReadResult::Selection { row, selection }
             }
         })

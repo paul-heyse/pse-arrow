@@ -2579,7 +2579,7 @@ mod occurrence_execution_tests {
         let before = package.runtime.shared.math().preparations().views;
         let definition = package
             .admit_study(
-                &StudyInputs::Lazy(variants),
+                &StudyInputs::Lazy(Box::new(variants)),
                 &crate::workflow::StudyOutputDemand::Full {},
                 &crate::CancelSource::new(),
             )

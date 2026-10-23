@@ -12,6 +12,10 @@ use pse_operations::{
 };
 use pse_relations::{columnar::RelationRow, generated::runtime::fitted_parameter_cells as cells};
 use std::collections::{BTreeMap, BTreeSet};
+// Original canonical source-selection envelope and its immutable source coordinates.
+// Tuple framing is the existing persisted codec; these aliases add no wire layer.
+type RecordedSourceCoordinate = (String, String, u64, String);
+type RecordedConsumedSources = (u8, Vec<u8>, Vec<RecordedSourceCoordinate>);
 /// Explicit original fitted-cell to authored scalar-parameter mapping.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -147,11 +151,8 @@ impl Runtime {
             return Err(contract("original fit source revision differs"));
         }
         // This is the actual original consumed-input receipt, not a generic terminal status.
-        let (envelope, original_receipt, _original_sources): (
-            u8,
-            Vec<u8>,
-            Vec<(String, String, u64, String)>,
-        ) = decoded(read.run().source_selection.as_slice())?;
+        let (envelope, original_receipt, _original_sources): RecordedConsumedSources =
+            decoded(read.run().source_selection.as_slice())?;
         if envelope != 1 {
             return Err(contract(
                 "original canonical source selection codec unavailable",
