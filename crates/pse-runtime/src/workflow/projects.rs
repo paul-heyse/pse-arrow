@@ -563,6 +563,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<pse_columnar::Leased<[u8]>, WorkflowError> {
         draft_checkpoint(cancel)?;
+        if draft.retired { return Err(contract("draft raw detail was explicitly released")); }
         let store = self.canonical_store()?;
         let Some(artifact) = draft.artifact.as_deref() else {
             let lease = self.shared.math().reserve(
