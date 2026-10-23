@@ -389,6 +389,7 @@ impl EvidenceSnapshot {
             ));
         }
         let mut contexts = std::collections::BTreeMap::new();
+        let mut samples = BTreeSet::new();
         for f in &self.facts {
             if let Some(value) = &f.context_json {
                 if f.kind != "context" { return Err(config("context declaration has wrong category")); }
@@ -401,7 +402,10 @@ impl EvidenceSnapshot {
                 if contexts.insert(id.clone(), value).is_some() { return Err(config("duplicate context declaration")); }
             }
             if f.kind == "declared_link" && (f.link_relation.is_none() || f.link_target.is_none()) { return Err(config("declared link lacks exact relation or target")); }
-            if f.kind == "criterion_sample" && (f.sample_id.is_none() || f.population_id.is_none() || f.value_ns.is_none()) { return Err(config("sample lacks actual population, membership or value")); }
+            if f.kind == "criterion_sample" {
+                if f.sample_id.is_none() || f.population_id.is_none() || f.value_ns.is_none() { return Err(config("sample lacks actual population, membership or value")); }
+                if !samples.insert((&f.population_id, &f.sample_id)) { return Err(config("duplicate actual sample membership")); }
+            }
 
             if f.member.is_empty() || f.kind.is_empty() || f.status.is_empty() {
                 return Err(config("fact identity/kind/status required"));
@@ -955,6 +959,7 @@ COMMIT;"#;
         let mut sources = BTreeSet::new();
         let mut snapshots = Vec::new();
         for id in generations {
+            if id.len() != 64 || !id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) { return Err(config("exact lower-case generation identity required")); }
             if !unique.insert(id) { continue; }
             let row = self.generation(id).await?;
             if row.state != pse_model::generated::enums::EvidenceGenerationState::Active {
