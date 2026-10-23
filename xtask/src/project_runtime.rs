@@ -66,6 +66,10 @@ enum Action {
     Import {
         documents: ProjectDraftDocuments,
     },
+    ImportFiles {
+        packages: Vec<PathBuf>,
+        physical_packages: Vec<PathBuf>,
+    },
     Load {
         revision: String,
     },
@@ -274,6 +278,29 @@ fn documents(
         )?,
     )
 }
+fn file_documents(
+    runtime: &Runtime,
+    shared: &SharedRuntime,
+    roots: &[PathBuf],
+    cancel: &CancelSource,
+) -> Result<pse_admission::authoring_driver::document::OwnedDocumentSet> {
+    ensure!((1..=16).contains(&roots.len()), "select 1..=16 explicit package directories");
+    let registry = pse_schema::shared_registry()?;
+    let validation = runtime.validation_context();
+    let token = cancel.token();
+    let mut bundles = Vec::with_capacity(roots.len());
+    for root in roots {
+        token.checkpoint()?;
+        // The existing package loader owns declared paths, byte/row budgets,
+        // symlink refusal, original Parquet decoding and physical admission.
+        bundles.push(pse_admission::authoring_driver::document::load_package(
+            root, &registry, Default::default(), &validation,
+        )?);
+    }
+    Ok(pse_admission::authoring_driver::document::load_bundles_owned(
+        &bundles, &registry, &shared.pool(), &token, &validation,
+    )?)
+}
 async fn selected(
     runtime: &Runtime,
     store: &CanonicalStore,
@@ -436,6 +463,12 @@ pub(crate) async fn run(
                             )
                             .await?,
                     )
+                })?,
+                Action::ImportFiles { packages, physical_packages } => boxed(shared, async move {
+                    let physical_documents = file_documents(runtime, shared, &physical_packages, cancel)?;
+                    let selected_physical = runtime.physical_from_documents(&physical_documents, &cancel.token()).await?;
+                    let sources = file_documents(runtime, shared, &packages, cancel)?;
+                    package(&runtime.modeling_from_documents(&sources, selected_physical, cancel).await?)
                 })?,
                 Action::Load { revision } => boxed(shared, async move {
                     package(&selected(runtime, store, &revision, &physical).await?)
@@ -818,7 +851,16 @@ mod tests {
             .await
             .unwrap()
         };
-        let imported = execute(Action::Import { documents: docs }).await;
+        let source_root = directory.path().join("batch-source");
+        std::fs::create_dir_all(&source_root).unwrap();
+        for (relative, body) in &docs.packages[0] {
+            let path = source_root.join(relative);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, body).unwrap();
+        }
+        let imported = execute(Action::ImportFiles {
+            packages: vec![source_root], physical_packages: vec![physical_root],
+        }).await;
         let original = imported["canonical_revision"].as_str().unwrap().to_owned();
         store
             .create_project("cli-create", "cli-project", "CLI integration")

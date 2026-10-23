@@ -665,7 +665,7 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
         dataset measurements:reading provenance(acquisition,role.measured) from "data/bank.parquet";
         def FitExperiment {}
     }"#;
-    let (physical_documents,mut documents)=super::worker_tests::sources(text);
+    let (physical_documents,mut documents)=worker_tests::sources(text);
     let physical=Box::pin(rt.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
     let document=parquet(vec![("number",Arc::new(Int64Array::from(vec![1,2])),None),("raw",Arc::new(Float64Array::from(vec![1.,2.])),None),("sigma",Arc::new(Float64Array::from(vec![0.25,0.5])),None)]);
     documents.insert(DATA.into(),document);
