@@ -14,7 +14,9 @@ import tempfile
 import time
 from pathlib import Path
 
-from scripts import surreal_server as server
+import msgspec
+
+from scripts import storage_health, surreal_server as server
 from scripts.surreal_telemetry import capture_operation
 
 
@@ -119,6 +121,13 @@ def exact_parser(
 def parser() -> argparse.ArgumentParser:
     command = argparse.ArgumentParser(description=__doc__)
     commands = command.add_subparsers(dest="command", required=True)
+    health = commands.add_parser(
+        "health", help="Inspect selected storage/host health without repair, or read a supplied snapshot"
+    )
+    selection = health.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--state", type=Path)
+    selection.add_argument("--snapshot", type=Path)
+    health.add_argument("--output", type=Path, help="Retain original versioned health snapshot")
     metrics = commands.add_parser(
         "metrics",
         help="Observe fixed selected /metrics with internal VIEWER authentication",
@@ -160,6 +169,16 @@ def main(arguments: list[str] | None = None) -> int:
     args = parser().parse_args(arguments)
     try:
         deadline = time.monotonic() + 15
+        if args.command == "health":
+            snapshot = (
+                storage_health.read(args.snapshot)
+                if args.snapshot is not None
+                else storage_health.capture(args.state, deadline)
+            )
+            if args.output is not None:
+                server.write_json(args.output, msgspec.to_builtins(snapshot))
+            print(json.dumps(storage_health.presentation(snapshot), sort_keys=True, allow_nan=False))
+            return 0
         if args.command == "trace-capture":
             operation = (
                 args.operation[1:] if args.operation[:1] == ["--"] else args.operation
