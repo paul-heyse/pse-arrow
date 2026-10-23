@@ -131,6 +131,115 @@ derived index. Original test terminals, resources and scientific results remain 
 their existing owners. These operations do not refresh or repair those sources.
 Unavailable service/index leaves supplied-only snapshot inspection usable.
 
+### Selected logical project exchange
+
+`Runtime.project_closure(request, physical)` explains the exact selection that
+`Runtime.project_export(destination, request, physical)` copies. The generated
+`ProjectExportRequest` supplies the original `ProjectSelection`, explicit research selections,
+parameter publications, studies, result ranges/output predicates, artifacts and reproducers,
+intentional omissions, and finite copy/document allowances. The same original source, result and
+artifact owners hold protection through destination verification and final `project.json`
+publication. An interrupted copy cannot publish a complete pack. Copied result extents and
+original usability/terminal qualifiers remain distinct from analytical selection and new execution.
+
+The manifest records origin authority and scientific/physical identities, complete selected source
+ancestry, contained member codecs/digests, provider requirements and omissions. `offline_complete`,
+`executable_complete` and `descriptive_only` have separate meanings. A descriptive pack can remain
+inspectable while executable admission refuses it. An unsupported provider is an explicit requirement;
+opening a pack does not install it or recreate a native handle.
+
+The native executable reads copied packs before any service selection:
+
+```bash
+scripts/pse-env -- target/debug/pse-project project inspect-pack --input /path/to/copied-project
+```
+
+This command requires no `--state`, service or product build. Build the executable explicitly with
+`just project-build` when it is absent. Python's `pse.ProjectBundle(Path(...),
+maximum_document_bytes=16 << 20)` uses the same native reader and exposes typed `.manifest`, exact
+manifest `.digest`, and `member_bytes(member_id, maximum_bytes=...)`. Both readers validate only
+manifest-contained membership and recheck consumed member bytes. They require their built native
+artifact or extension; offline support is independent of the source service, not a browser reader.
+
+With an already selected `request`, its `physical` context and a receiving durable runtime:
+
+```python
+from pathlib import Path
+import pse
+
+explanation = runtime.project_closure(request, physical)
+runtime.project_export(Path("new-project-pack"), request, physical)
+bundle = pse.ProjectBundle(Path("new-project-pack"))
+intent = receiving.project_import_issue(bundle, title="Received project", branch_name="working")
+report = receiving.project_import(bundle, intent)
+checkpoint = receiving.project_import_status(intent)
+opened = receiving.project_import_open(intent)
+```
+
+Retain the original import intent unchanged for retries. Import binds the exact manifest digest,
+creates fresh receiving project/branch/problem/revision identities, and admits the copied source
+through the ordinary scientific owner. `source_admitted` is an acknowledged source checkpoint;
+`project_complete` additionally requires exact copied artifact membership to be active and owned.
+Once complete, opening uses receiving-owned bytes even after the supplied pack is moved or removed.
+Original study/run/attempt, seed, fit qualification and research receipts remain origin evidence;
+import does not mint receiving execution authority from them. A request for a new study, fit or
+reproducer is a new operation under current conditions.
+
+Keep `artifact_intent` from the original import report through uncertain artifact completion.
+Ordinary import can settle that exact already active artifact without issuing another occurrence.
+Explicit `project_import_recover(intent, original_artifact)` routes the unchanged original artifact
+creation intent through its owner; pending cleanup, collected originals and complete project
+availability are separate typed outcomes. Retired original headers remain in `retired_originals`.
+A cleanup-pending result is not permission to renew the old allowance or substitute a new artifact.
+
+The existing `runtime --request FILE --spill-dir DIRECTORY` command accepts these typed JSON
+`action.kind` values inside its version-1 envelope. Online commands require explicit `--state`
+before opening a connection; only offline `inspect-pack` bypasses that selection.
+
+| Action kind | Selected input |
+| --- | --- |
+| `project_closure` | Generated core `request`; envelope supplies physical documents |
+| `project_export` | Same `request` plus new `destination` |
+| `project_import_issue` | Copied pack `input`, `title`, optional `branch_name` and `maximum_document_bytes` |
+| `project_import_status` | Original typed `intent` |
+| `project_import` | Same original `intent`, copied pack `input` and `maximum_document_bytes` |
+| `project_import_open` | Original typed `intent`; supplied pack is no longer needed |
+
+Current support is explicit local logical exchange and ordinary exact-parent comparison/merge.
+There is no automatic synchronization, multiwriter service, browser persistence/execution or graphical
+workbench. No application encryption or encrypted-exchange guarantee is supplied for catalogues,
+sealed/staged files, packs, diagnostics, temporary files or backups. Local filesystem access control
+and explicit operator custody remain the supported boundary; a filesystem observation does not attest
+underlying volume encryption. The [coordinator's delivery and confidentiality decisions](../plans/51-engineering-workspaces-and-evidence.md)
+own status and revisit conditions: a selected confidential exchange/at-rest requirement needs complete
+artifact and key/recovery coverage; a named browser operation first warrants a logical viewer/editor
+assessment; concurrent-writer or automatic-exchange needs require explicit identity, conflict,
+divergence, deletion and provenance semantics.
+
+### Exact lifecycle explanations and release
+
+`Runtime.lifecycle_select(LifecycleTarget(kind=..., key=...))` captures original authority,
+revision and applicable owner/project/draft generations. `lifecycle_explain(selection)` observes
+actual references, source roots, active borrowers, unsettled operations and released detail. It
+acquires no release permission. `lifecycle_release(selection)` is a separate explicit effect and
+rechecks current original-owner predicates in its release transaction. A foreign authority, changed
+head/generation, live result borrower or retained project reference can refuse a previously explained
+selection.
+
+The finite target kinds distinguish source history, run/study results, run/study history, historical
+draft versions and evidence artifacts. Project visibility remains a navigation effect. Releasing a
+noncurrent unreferenced draft version retains a `retired` summary while raw detail becomes
+unavailable; the current draft's raw bytes remain separately owned. Evidence-artifact inspection
+reports `requires_original_artifact_intent`: release still requires that owner's unchanged artifact
+intent through `release_artifact_intent` and `collect_artifact`, not its observation key. Dropping a
+derived evidence index releases none of these originals.
+
+Logical, copied, physical and reclaimed byte categories remain separate, with unavailable values
+explicitly null. Release `complete` describes the bounded original-owner operation;
+`physical_reclaimed_bytes` remains unknown. Neither a deleted row nor an MX gauge proves filesystem
+reclamation. The CLI runtime actions `lifecycle_select` (`target`), `lifecycle_explain` (`selection`)
+and `lifecycle_release` (`selection`) use these same typed documents and owners.
+
 ### Research versions, study workbench and selected evidence
 
 The ordinary Rust/Python `Runtime` supplies `research_dataset_create`,
@@ -207,18 +316,47 @@ never authority to reopen a released artifact. `--expected-digest` can bind deta
 reference. Measurement summaries retain actual contexts, sample membership, failed/censored
 populations and known capture cost. Criterion-to-invocation association stays unavailable when
 not recorded. Unknown build/provider/input facts cannot justify a comparable population or a
-speed claim. Storage-health collection, release/exchange workflows and assembled qualification
-remain with their owning later Plan51 packages.
+speed claim. Storage-health snapshots use the explicit adapter described below. The
+[coordinator](../plans/51-engineering-workspaces-and-evidence.md) owns package status and the
+[qualification owner](../plans/51g-qualification-and-publication.md) owns assembled acceptance.
 
 ### Selected-service diagnostics
 
-`python -m scripts.surreal_diagnostics --help` exposes bounded selected-service observations.
+`scripts/pse-env -- .venv/bin/python -m scripts.surreal_diagnostics --help` exposes bounded selected-service observations.
 `metrics --state STATE --output snapshot.json` authenticates internally with the private root
 VIEWER account and retains the verified service identity. `compare-metrics BEFORE AFTER`
 requires compatible service identity and labels shared snapshots/deltas as shared. Anonymous
 absence, unavailable observation and a genuine zero are different states. Native MX gauges
 include active readers, pinned versions and reclamation-related populations; differences are
 not private attribution to the command executed between snapshots.
+
+The `health` command composes those original gauges with independent current host metadata,
+configured persistence, and authenticated service/cgroup/process capture context:
+
+```bash
+scripts/pse-env -- .venv/bin/python -m scripts.surreal_diagnostics health --state "$PSE_SURREAL_STATE" --output health.json
+scripts/pse-env -- .venv/bin/python -m scripts.surreal_diagnostics health --snapshot health.json
+just evidence snapshot health.json --source-kind storage-health
+just evidence offline --storage-health health.json --operation diagnostics
+```
+
+`health.json` is the original typed `storage-health-v1` snapshot. Its presentation supplies an
+immutable content reference and finite owner-command suggestions. Supplied-snapshot inspection and
+evidence adaptation perform no live service lookup. Host memory/filesystem observations survive an
+unavailable database; each engine, host, configuration and process field retains its own availability
+or approximation. Service association uses actual authority/incarnation and kernel boot/PID/start and
+cgroup lifetime checks. Unavailable correspondence remains unknown. Tool, observed service and
+scientific outcomes remain independent; health inspection establishes no scientific failure or success.
+
+Approximate engine bytes are not RSS, disk allocation or reclaimed bytes. A zero async queue does
+not prove durability, and an absent oldest pin does not prove reader absence. Queue/pin observations
+alone identify no stale transaction, leak, causal operation or release owner. Inspection is read only.
+Suggested `just surreal` status or conditional maintenance recovery commands are inert text; explicit
+action still enters the original supervisor's current lifecycle reservation, ownership, phase/drain and
+exact settlement checks. Health does not introduce autotuning, periodic GC, an independent inspector
+of a live engine directory or another workstation memory policy. See the
+[diagnostic evidence guide](simulation-diagnostics.md#storage-health-and-declared-evidence-links)
+for exact association and supplied-source limits.
 
 The canonical tools expose the actual producer query, bound parameters, schema/index/module
 context and native plans:
@@ -578,8 +716,12 @@ Backup freezes new file admission and collection before capturing the catalog, p
 authenticated file owners and managed work drained, and leaves the server stopped and
 admission closed. It copies the entire offline database together with configuration,
 credentials, interpretation, admitted immutable generation closures, isolated context
-descriptors and the exact required sealed/staging file closure. The v3 `backup.json`
-manifest records this inventory and publishes completion last. Missing required sealed
+descriptors and the exact required sealed/staging file closure. The v4 `backup.json`
+manifest also records the issuing application authority and an explicit bounded-page inventory of
+project/draft/version, source/root, research, study/run/attempt, import, artifact and protection owners.
+Every declared application table is present even when empty. Row keys, full-row commitments and
+reference/state projections retain pending effects as observations; this is not a traversal of the
+derived evidence index. The manifest publishes completion last. Missing required sealed
 files refuse backup; unresolved intents and collecting tombstones retain their status.
 Collecting bytes with the exact unsealed zero/empty descriptor remain unresolved copied
 bytes under SHA256 inventory; they acquire no seal acknowledgment or scientific validity.
@@ -596,6 +738,22 @@ maintenance phase uses native export/import to establish its fresh database iden
 that phase is not an alternate backup format.
 An interrupted incomplete copy lacks a valid complete manifest and is not a ready backup.
 
+Inspect a copied application backup independently of its source service:
+
+```bash
+just surreal inspect-backup --source /path/to/new-backup --interpretation pse.substrate.v8 --payload-verifier /absolute/path/to/pse-canonical-recovery
+```
+
+`inspect-backup` shares restore's version-4 inventory, interpretation and required-file validation,
+and runs the explicitly selected native payload verifier without writing to the backup or source
+state. It builds nothing implicitly and does not open a live engine directory. Read the returned
+`complete` and refusal fields: command completion alone is not permission to restore. A missing,
+changed, incomplete or unsupported closure remains explicit; copied bytes and unknown physical
+reclamation remain distinct. Unsettled stages, attempts, file operations and retention effects retain
+their original state. Only the existing explicit restore/maintenance owner can settle them under its
+current authority and validation fences. Native log/snapshot completion alone does not establish a
+complete application backup.
+
 ## Sealed files and owner recovery
 
 Result files are complete uncompressed IPC files, packed within one attempt, relation,
@@ -610,7 +768,7 @@ physical disconnect waits for file effects and read drain. Copied Arrow buffers 
 allocation owners after snapshot release. Creation deadlines remain finite permission
 controls and do not shorten admitted-reader lifetime.
 
-Backup and restore require an explicitly built native verifier selected by
+Backup, backup inspection and restore require an explicitly built native verifier selected by
 `--payload-verifier /absolute/path/to/pse-canonical-recovery`. Its executable digest is
 recorded and rechecked; these operations never compile an implicit replacement. The
 verifier owns canonical framed payload digests; the backup's SHA256 copy inventory is a

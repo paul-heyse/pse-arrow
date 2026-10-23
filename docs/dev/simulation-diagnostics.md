@@ -730,6 +730,45 @@ frames. Neither provides an exact operation-private peak from shared-process tot
 `rr-record` and `rr-replay` retain the trace identity and actual replay/reverse-step result.
 Recording changes execution and is unsuitable for a parallel timing claim.
 
+### Storage health and declared evidence links
+
+Storage health is a selected original host observation, independent of numerical diagnosis:
+
+```bash
+scripts/pse-env -- .venv/bin/python -m scripts.surreal_diagnostics health --state "$PSE_SURREAL_STATE" --output health.json
+scripts/pse-env -- .venv/bin/python -m scripts.surreal_diagnostics health --snapshot health.json
+just evidence snapshot health.json --source-kind storage-health
+just evidence offline --storage-health health.json --diagnostic ACTION_DIRECTORY --operation diagnostics
+```
+
+The capture records actual selected service authority/incarnation, its metric interval and configured
+persistence, independent host memory/filesystem facts, and kernel process/cgroup correspondence when
+it can be authenticated. Service unavailability retains independent host observation; it does not
+turn unavailable MX fields into zero. Every field retains availability/precision separately. Approximate
+engine bytes, process RSS, filesystem availability and reclaimed allocation have different meanings.
+Queue zero establishes no flush/durability guarantee, absent pin establishes no reader count, and shared
+service changes establish no operation attribution, leak or scientific defect.
+
+The original health owner returns an immutable `storage-health:sha256:...` content reference. The
+storage-health evidence adapter retains that reference, its original codec/capture context, independent
+tool/service/scientific outcomes, and only actual service/process identity links. A diagnostic action
+can retain the health reference when its original owner explicitly recorded it. Supplying nearby
+captures does not manufacture an invocation, run, provider or causal link. The query's declared links
+remain distinct from an association to a failing test or execution. Health fields remain inspectable
+through the original health reader; an evidence projection grants no live custody or permission to
+reopen an old detail path. Snapshot and offline evidence adaptation open only supplied sources; they
+neither start a service nor initiate a build.
+
+Health presentation contains finite inert suggestions using supervised `just surreal` owner commands.
+Explicit maintenance recovery retains its original allowance, current ownership/phase/drain checks
+and exact effect settlement. The snapshot is not an action grant. Inspection performs no repair,
+autotuning, GC or capacity-policy change, and queue/pin gauges alone select no transaction owner to
+reap. Application backup inspection, original lifecycle release and logical project exchange have
+separate owner routes in the [substrate operator guide](surreal-substrate.md#selected-logical-project-exchange).
+The [coordinator](../plans/51-engineering-workspaces-and-evidence.md) owns qualification and revisit
+status; a copied diagnostic or project pack preserves original numerical qualifiers without
+establishing receiving scientific execution authority.
+
 ### Cooperative inspection of the actual executor
 
 `just py-sync-taskdump dev` builds the explicit diagnostic profile with `tokio_unstable` and
