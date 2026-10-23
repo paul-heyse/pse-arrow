@@ -279,9 +279,7 @@ def graph_command(command: Sequence[str]) -> list[str]:
     return result
 
 
-def capture(
-    command: Sequence[str], *, env: Mapping[str, str] | None = None
-) -> bytes:
+def capture(command: Sequence[str], *, env: Mapping[str, str] | None = None) -> bytes:
     response = subprocess.run(command, capture_output=True, check=False, env=env)
     if response.returncode:
         raise ValidationError(

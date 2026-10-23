@@ -1,14 +1,26 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Contained local reads and bounded streaming, shared by diagnostic and logical packs.
-use std::{fs::File, io::{Read, Write}, path::{Component, Path}};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::{Component, Path},
+};
 
 pub(crate) fn safe_relative(path: &str) -> std::io::Result<()> {
-    if path.is_empty() || path.contains('\\')
-        || path.split('/').any(|part| part.is_empty() || part == "." || part == "..")
-        || Path::new(path).components().any(|c| !matches!(c, Component::Normal(_)))
+    if path.is_empty()
+        || path.contains('\\')
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || Path::new(path)
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
     {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "unsafe indexed relative path"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "unsafe indexed relative path",
+        ));
     }
     Ok(())
 }
@@ -20,12 +32,25 @@ pub(crate) fn open_contained(directory: &File, relative: &str) -> std::io::Resul
     let mut directory = directory.try_clone()?;
     let mut components = Path::new(relative).components().peekable();
     while let Some(component) = components.next() {
-        let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK
-            | if components.peek().is_some() { OFlags::DIRECTORY } else { OFlags::empty() };
-        directory = File::from(rustix::fs::openat(&directory, component.as_os_str(), flags, Mode::empty()).map_err(std::io::Error::from)?);
+        let flags = OFlags::RDONLY
+            | OFlags::NOFOLLOW
+            | OFlags::CLOEXEC
+            | OFlags::NONBLOCK
+            | if components.peek().is_some() {
+                OFlags::DIRECTORY
+            } else {
+                OFlags::empty()
+            };
+        directory = File::from(
+            rustix::fs::openat(&directory, component.as_os_str(), flags, Mode::empty())
+                .map_err(std::io::Error::from)?,
+        );
     }
     if !directory.metadata()?.is_file() {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "indexed member is not an ordinary local file"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "indexed member is not an ordinary local file",
+        ));
     }
     Ok(directory)
 }
@@ -45,7 +70,10 @@ pub(crate) fn copy_exact(
         let requested = remaining.min(buffer.len() as u64) as usize;
         let read = source.read(&mut buffer[..requested])?;
         if read == 0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "source shorter than acknowledged readable prefix"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "source shorter than acknowledged readable prefix",
+            ));
         }
         output.write_all(&buffer[..read])?;
         remaining -= read as u64;
@@ -65,7 +93,10 @@ pub(crate) fn publish_document(
 ) -> std::io::Result<()> {
     safe_relative(temporary)?;
     safe_relative(destination)?;
-    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(root.join(temporary))?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(root.join(temporary))?;
     file.write_all(bytes)?;
     file.sync_all()?;
     drop(file);

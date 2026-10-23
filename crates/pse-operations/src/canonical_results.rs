@@ -358,9 +358,13 @@ impl ResultRead {
         store.db.same_driver(&self.owner.store.db)
     }
     /// Original immutable source protected by this exact result reader.
-    pub fn source_revision(&self) -> &crate::canonical::Revision { self.owner.selection.revision() }
+    pub fn source_revision(&self) -> &crate::canonical::Revision {
+        self.owner.selection.revision()
+    }
     /// Recheck and renew this original live grant before copied publication; expired grants never revive.
-    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> { self.owner.selection.renew(lifetime).await }
+    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
+        self.owner.selection.renew(lifetime).await
+    }
     /// Exact semantic run and immutable source selection.
     pub fn run(&self) -> &Run {
         &self.run

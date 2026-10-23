@@ -156,34 +156,76 @@ class CargoFeatureCheckTests(unittest.TestCase):
         compose.assert_called_once()
         lookup.assert_not_called()
 
-    def test_taskdump_uses_isolated_profile_and_same_environment_for_validation(self) -> None:
-        selected = {"CARGO_ENCODED_RUSTFLAGS": "--cfg\x1ftokio_unstable", "CARGO_BUILD_JOBS": "16"}
-        arguments = ["check", "--manifest-path", str(self.manifest), "-Fdiagnostic-taskdump"]
+    def test_taskdump_uses_isolated_profile_and_same_environment_for_validation(
+        self,
+    ) -> None:
+        selected = {
+            "CARGO_ENCODED_RUSTFLAGS": "--cfg\x1ftokio_unstable",
+            "CARGO_BUILD_JOBS": "16",
+        }
+        arguments = [
+            "check",
+            "--manifest-path",
+            str(self.manifest),
+            "-Fdiagnostic-taskdump",
+        ]
         with (
             patch.object(adapter.sys, "argv", ["adapter", *arguments]),
             patch.dict(os.environ, {"CARGO": "/existing/cargo"}),
-            patch.object(adapter.build_environment, "configure", return_value=selected) as configure,
+            patch.object(
+                adapter.build_environment, "configure", return_value=selected
+            ) as configure,
             patch.object(adapter, "capture", return_value=b"graph") as capture,
-            patch.object(adapter, "compose", side_effect=lambda command, run: (run(command), command)[1]),
-            patch.object(adapter.subprocess, "run", return_value=SimpleNamespace(returncode=0)) as execute,
+            patch.object(
+                adapter,
+                "compose",
+                side_effect=lambda command, run: (run(command), command)[1],
+            ),
+            patch.object(
+                adapter.subprocess, "run", return_value=SimpleNamespace(returncode=0)
+            ) as execute,
         ):
             expect_equal(adapter.main(), 0)
-        command = ["/existing/cargo", *arguments[:-1], "-Fselected-package/diagnostic-taskdump", "--profile", "diagnostic-taskdump"]
+        command = [
+            "/existing/cargo",
+            *arguments[:-1],
+            "-Fselected-package/diagnostic-taskdump",
+            "--profile",
+            "diagnostic-taskdump",
+        ]
         capture.assert_called_once_with(command, env=selected)
         execute.assert_called_once_with(command, check=False, env=selected)
         expect_equal(configure.call_args.kwargs, {"taskdump": True})
 
     def test_taskdump_never_mutates_ordinary_or_explicit_other_profile(self) -> None:
-        with patch.object(adapter.build_environment, "configure", return_value={}) as configure:
-            for arguments in (["check", "--features=ordinary/diagnostic-taskdump-extra"], ["check", "--", "-Fdiagnostic-taskdump"], ["build", "-Fdiagnostic-taskdump"]):
+        with patch.object(
+            adapter.build_environment, "configure", return_value={}
+        ) as configure:
+            for arguments in (
+                ["check", "--features=ordinary/diagnostic-taskdump-extra"],
+                ["check", "--", "-Fdiagnostic-taskdump"],
+                ["build", "-Fdiagnostic-taskdump"],
+            ):
                 expect_equal(adapter.diagnostic_check(arguments), (arguments, None))
             configure.assert_not_called()
             for suffix in (["--profile", "dev"], ["--profile=release"], ["--release"]):
-                with pytest.raises(ValueError, match="isolated diagnostic-taskdump profile"):
-                    adapter.diagnostic_check(["check", "-Fdiagnostic-taskdump", *suffix])
-            for features in (["--features=selected/diagnostic-taskdump"], ["--features", "ordinary,selected/diagnostic-taskdump"], ["-F", "diagnostic-taskdump"]):
-                command, _ = adapter.diagnostic_check(["check", *features, "--profile=diagnostic-taskdump"])
-                expect_equal(command, ["check", *features, "--profile=diagnostic-taskdump"])
+                with pytest.raises(
+                    ValueError, match="isolated diagnostic-taskdump profile"
+                ):
+                    adapter.diagnostic_check(
+                        ["check", "-Fdiagnostic-taskdump", *suffix]
+                    )
+            for features in (
+                ["--features=selected/diagnostic-taskdump"],
+                ["--features", "ordinary,selected/diagnostic-taskdump"],
+                ["-F", "diagnostic-taskdump"],
+            ):
+                command, _ = adapter.diagnostic_check(
+                    ["check", *features, "--profile=diagnostic-taskdump"]
+                )
+                expect_equal(
+                    command, ["check", *features, "--profile=diagnostic-taskdump"]
+                )
 
     def test_path_fallback_and_configuration_failure_status(self) -> None:
         with (

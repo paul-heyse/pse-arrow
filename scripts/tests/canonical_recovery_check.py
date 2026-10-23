@@ -636,27 +636,50 @@ def journey(
                 )
             with server.lifecycle_reservation(state):
                 server.backup(state, config, directory / "backup")
-                inspected = server.inspect_backup(directory / "backup", server.SUBSTRATE_INTERPRETATION, binary.resolve())
+                inspected = server.inspect_backup(
+                    directory / "backup",
+                    server.SUBSTRATE_INTERPRETATION,
+                    binary.resolve(),
+                )
                 if inspected.get("complete") is not True:
-                    raise server.SupervisorError("Complete application backup did not inspect independently")
+                    raise server.SupervisorError(
+                        "Complete application backup did not inspect independently"
+                    )
                 application = server.object_mapping(inspected["application_inventory"])
                 tables = server.object_mapping(application["tables"])
-                if not tables["canonical_projects"] or not tables["canonical_project_draft_versions"]:
-                    raise server.SupervisorError("Application project closure was not inventoried")
+                if (
+                    not tables["canonical_projects"]
+                    or not tables["canonical_project_draft_versions"]
+                ):
+                    raise server.SupervisorError(
+                        "Application project closure was not inventoried"
+                    )
                 incomplete = directory / "incomplete-backup"
                 incomplete.mkdir()
-                shutil.copy2(directory / "backup" / "backup.json", incomplete / "backup.json")
-                refused = server.inspect_backup(incomplete, server.SUBSTRATE_INTERPRETATION, binary.resolve())
+                shutil.copy2(
+                    directory / "backup" / "backup.json", incomplete / "backup.json"
+                )
+                refused = server.inspect_backup(
+                    incomplete, server.SUBSTRATE_INTERPRETATION, binary.resolve()
+                )
                 if refused.get("complete") is not False:
-                    raise server.SupervisorError("Missing backup members appeared complete")
+                    raise server.SupervisorError(
+                        "Missing backup members appeared complete"
+                    )
                 refused_destination = directory / "refused-restore"
                 try:
-                    server.restore(incomplete, refused_destination, server.SUBSTRATE_INTERPRETATION)
+                    server.restore(
+                        incomplete, refused_destination, server.SUBSTRATE_INTERPRETATION
+                    )
                 except server.SupervisorError:
                     if refused_destination.exists():
-                        raise server.SupervisorError("Incomplete restore created destination state") from None
+                        raise server.SupervisorError(
+                            "Incomplete restore created destination state"
+                        ) from None
                 else:
-                    raise server.SupervisorError("Incomplete application backup restored")
+                    raise server.SupervisorError(
+                        "Incomplete application backup restored"
+                    )
             server.restore(
                 directory / "backup", restored, server.SUBSTRATE_INTERPRETATION
             )

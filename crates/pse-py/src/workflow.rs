@@ -5,8 +5,8 @@ use crate::documents;
 mod modeling;
 mod physical_input;
 use documents::DocumentContent;
-mod research;
 mod project_portability;
+mod research;
 pub(crate) use project_portability::NativeProjectBundle;
 mod routes;
 mod settings;
@@ -940,18 +940,92 @@ impl NativeRuntime {
         ))
     }
     #[pyo3(signature=(request,physical=None))]
-    fn project_closure(&self,py:Python<'_>,request:documents::DocumentInput<native::ProjectExportRequest>,physical:Option<&NativePhysicalContext>)->PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> { self.project_closure_native(py,request,physical) }
+    fn project_closure(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ProjectExportRequest>,
+        physical: Option<&NativePhysicalContext>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectClosureExplanation>> {
+        self.project_closure_native(py, request, physical)
+    }
     #[pyo3(signature=(destination,request,physical=None))]
-    fn project_export(&self,py:Python<'_>,destination:std::path::PathBuf,request:documents::DocumentInput<native::ProjectExportRequest>,physical:Option<&NativePhysicalContext>)->PyResult<documents::DocumentValue<native::ProjectManifest>> { self.project_export_native(py,destination,request,physical) }
+    fn project_export(
+        &self,
+        py: Python<'_>,
+        destination: std::path::PathBuf,
+        request: documents::DocumentInput<native::ProjectExportRequest>,
+        physical: Option<&NativePhysicalContext>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectManifest>> {
+        self.project_export_native(py, destination, request, physical)
+    }
     #[pyo3(signature=(bundle,*,title,branch_name="main"))]
-    fn project_import_issue(&self,py:Python<'_>,bundle:&NativeProjectBundle,title:&str,branch_name:&str)->PyResult<documents::DocumentValue<native::ProjectImportIntent>> { self.project_import_issue_native(py,bundle,title,branch_name) }
-    fn project_import(&self,py:Python<'_>,bundle:&NativeProjectBundle,intent:documents::DocumentInput<native::ProjectImportIntent>)->PyResult<documents::DocumentValue<native::ProjectImportReport>> { self.project_import_native(py,bundle,intent) }
-    fn project_import_status(&self,py:Python<'_>,intent:documents::DocumentInput<native::ProjectImportIntent>)->PyResult<Option<documents::DocumentValue<native::ProjectImportReport>>> { self.project_import_status_native(py,intent) }
-    fn project_import_recover(&self,py:Python<'_>,intent:documents::DocumentInput<native::ProjectImportIntent>,original:documents::DocumentInput<pse_operations::canonical_artifacts::Artifact>)->PyResult<documents::DocumentValue<native::ProjectImportRecoveryReport>> { self.project_import_recover_native(py,intent,original) }
-    fn project_import_open(&self,py:Python<'_>,intent:documents::DocumentInput<native::ProjectImportIntent>)->PyResult<NativeModelingPackage> { self.project_import_open_native(py,intent) }
-    fn lifecycle_select(&self,py:Python<'_>,target:documents::DocumentInput<pse_operations::canonical_lifecycle::LifecycleTarget>)->PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleSelection>> { self.lifecycle_select_native(py,target) }
-    fn lifecycle_explain(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_lifecycle::LifecycleSelection>)->PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleExplanation>> { self.lifecycle_explain_native(py,selection) }
-    fn lifecycle_release(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_lifecycle::LifecycleSelection>)->PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleRelease>> { self.lifecycle_release_native(py,selection) }
+    fn project_import_issue(
+        &self,
+        py: Python<'_>,
+        bundle: &NativeProjectBundle,
+        title: &str,
+        branch_name: &str,
+    ) -> PyResult<documents::DocumentValue<native::ProjectImportIntent>> {
+        self.project_import_issue_native(py, bundle, title, branch_name)
+    }
+    fn project_import(
+        &self,
+        py: Python<'_>,
+        bundle: &NativeProjectBundle,
+        intent: documents::DocumentInput<native::ProjectImportIntent>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectImportReport>> {
+        self.project_import_native(py, bundle, intent)
+    }
+    fn project_import_status(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<native::ProjectImportIntent>,
+    ) -> PyResult<Option<documents::DocumentValue<native::ProjectImportReport>>> {
+        self.project_import_status_native(py, intent)
+    }
+    fn project_import_recover(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<native::ProjectImportIntent>,
+        original: documents::DocumentInput<pse_operations::canonical_artifacts::Artifact>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectImportRecoveryReport>> {
+        self.project_import_recover_native(py, intent, original)
+    }
+    fn project_import_open(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<native::ProjectImportIntent>,
+    ) -> PyResult<NativeModelingPackage> {
+        self.project_import_open_native(py, intent)
+    }
+    fn lifecycle_select(
+        &self,
+        py: Python<'_>,
+        target: documents::DocumentInput<pse_operations::canonical_lifecycle::LifecycleTarget>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleSelection>>
+    {
+        self.lifecycle_select_native(py, target)
+    }
+    fn lifecycle_explain(
+        &self,
+        py: Python<'_>,
+        selection: documents::DocumentInput<
+            pse_operations::canonical_lifecycle::LifecycleSelection,
+        >,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleExplanation>>
+    {
+        self.lifecycle_explain_native(py, selection)
+    }
+    fn lifecycle_release(
+        &self,
+        py: Python<'_>,
+        selection: documents::DocumentInput<
+            pse_operations::canonical_lifecycle::LifecycleSelection,
+        >,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_lifecycle::LifecycleRelease>>
+    {
+        self.lifecycle_release_native(py, selection)
+    }
     fn research_dataset_create(
         &self,
         py: Python<'_>,
@@ -1037,7 +1111,10 @@ impl NativeRuntime {
         ))
     }
     #[pyo3(signature=(operation,project,scope,source,effective_from_us,*,effective_to_us=None,corrects=None,deleted=false))]
-    #[expect(clippy::too_many_arguments, reason = "An exact historical context append carries source, interval, correction and original operation independently across the Python boundary")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "An exact historical context append carries source, interval, correction and original operation independently across the Python boundary"
+    )]
     fn project_context_append(
         &self,
         py: Python<'_>,
@@ -1224,7 +1301,10 @@ impl NativeRuntime {
         Ok(documents::DocumentValue(value))
     }
     #[pyo3(signature=(operation,project,branch,key,base,content,*,expected=None))]
-    #[expect(clippy::too_many_arguments, reason = "The typed Python boundary forwards the original exact draft operation premises without changing its public call contract")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The typed Python boundary forwards the original exact draft operation premises without changing its public call contract"
+    )]
     fn project_draft_save_intent(
         &self,
         py: Python<'_>,

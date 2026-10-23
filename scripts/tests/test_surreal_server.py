@@ -4189,7 +4189,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "workers_drained") as drained,
             patch.object(server, "publish_generation") as publish,
             patch.object(server, "write_json") as write,
-            self.assertRaisesRegex(server.SupervisorError, "complete bounded study module pool"),
+            self.assertRaisesRegex(
+                server.SupervisorError, "complete bounded study module pool"
+            ),
         ):
             server.reconfigure(self.state, config, args)
         manager.assert_not_called()
@@ -4761,7 +4763,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "active", return_value=False),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
         ):
             server.backup(self.state, config, destination)
         return destination
@@ -4848,7 +4854,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 if body == "LET $value=SELECT * FROM " + table + ";":  # noqa: S608
                     # Fixture-owned table names match the validated transport query.
                     return {"value": [dict(row) for row in selected_science[table]]}
-            if body == "LET $value=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;":
+            if (
+                body
+                == "LET $value=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;"
+            ):
                 return {"value": self.application_inventory_fixture()["issuing_store"]}
             if body.startswith("LET $rows=SELECT * FROM "):
                 return {"value": []}
@@ -6396,13 +6405,26 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
     def test_inspect_backup_uses_restore_verifier_and_never_creates_state(self) -> None:
         backup = self.backup_fixture()
-        before = {str(p.relative_to(backup)): p.read_bytes() for p in backup.rglob("*") if p.is_file()}
+        before = {
+            str(p.relative_to(backup)): p.read_bytes()
+            for p in backup.rglob("*")
+            if p.is_file()
+        }
         result = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
         self.assertTrue(result["complete"])
         self.assertEqual(result["backup_version"], 4)
         self.assertIsNone(result["physical_reclaimed_bytes"])
-        self.assertEqual(result["application_inventory"], self.application_inventory_fixture())
-        self.assertEqual(before, {str(p.relative_to(backup)): p.read_bytes() for p in backup.rglob("*") if p.is_file()})
+        self.assertEqual(
+            result["application_inventory"], self.application_inventory_fixture()
+        )
+        self.assertEqual(
+            before,
+            {
+                str(p.relative_to(backup)): p.read_bytes()
+                for p in backup.rglob("*")
+                if p.is_file()
+            },
+        )
 
     def test_backup_requires_application_inventory_and_refuses_old_format(self) -> None:
         backup = self.backup_fixture()
@@ -6411,13 +6433,17 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             with self.subTest(alteration=alteration):
                 value = json.loads(json.dumps(manifest))
                 if alteration == "missing_owner":
-                    del value["application_inventory"]["tables"]["canonical_research_references"]
+                    del value["application_inventory"]["tables"][
+                        "canonical_research_references"
+                    ]
                 elif alteration == "missing_inventory":
                     del value["application_inventory"]
                 else:
                     value["backup_version"] = 3
                 server.write_json(backup / "backup.json", value)
-                inspection = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
+                inspection = server.inspect_backup(
+                    backup, server.SUBSTRATE_INTERPRETATION
+                )
                 self.assertFalse(inspection["complete"])
                 self.assertFalse(inspection["restorable"])
                 destination = self.root / alteration
@@ -6432,44 +6458,75 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         application_inventory = server.object_mapping(manifest["application_inventory"])
         tables = server.object_mapping(application_inventory["tables"])
         tables["canonical_project_imports"] = [
-            {"key": "pending-import", "sha256": "a" * 64, "references": "{complete:false,project:original}"}
+            {
+                "key": "pending-import",
+                "sha256": "a" * 64,
+                "references": "{complete:false,project:original}",
+            }
         ]
         application_inventory["tables"] = tables
         manifest["application_inventory"] = application_inventory
         server.write_json(backup / "backup.json", manifest)
         restored = self.root / "catalogue-mismatch"
-        with self.native_maintenance(), self.assertRaisesRegex(server.SupervisorError, "catalogue differs"):
+        with (
+            self.native_maintenance(),
+            self.assertRaisesRegex(server.SupervisorError, "catalogue differs"),
+        ):
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
         self.assertFalse(server.config_for(restored)["accepting_writes"])
         self.assertEqual(server.read_json(backup / "backup.json"), manifest)
 
-    def test_readonly_payload_verification_keeps_descriptors_outside_backup(self) -> None:
+    def test_readonly_payload_verification_keeps_descriptors_outside_backup(
+        self,
+    ) -> None:
         config = self.initialized()
         verifier = {"binary": "/controlled/native-verifier", "sha256": "a" * 64}
         config["payload_verifier"] = verifier
-        inventory = [{
-            "database": config["database"],
-            "payload_incarnation": config["payload_incarnation"],
-            "instance": {
-                "key": str(server.uuid.uuid4()), "state": "sealed",
-                "digest": "original", "encoding": "opaque-bytes-v1",
-                "batch_count": "0", "schema": "", "interpretation": "original",
-                "payload_bytes": "3",
-            }, "files": {},
-        }]
+        inventory = [
+            {
+                "database": config["database"],
+                "payload_incarnation": config["payload_incarnation"],
+                "instance": {
+                    "key": str(server.uuid.uuid4()),
+                    "state": "sealed",
+                    "digest": "original",
+                    "encoding": "opaque-bytes-v1",
+                    "batch_count": "0",
+                    "schema": "",
+                    "interpretation": "original",
+                    "payload_bytes": "3",
+                },
+                "files": {},
+            }
+        ]
         before = set(self.state.rglob("*"))
-        def native(arguments: list[str], **_options: object) -> subprocess.CompletedProcess[str]:
+
+        def native(
+            arguments: list[str], **_options: object
+        ) -> subprocess.CompletedProcess[str]:
             descriptor = Path(arguments[2])
             self.assertNotEqual(descriptor.parent, self.state)
             self.assertTrue(descriptor.is_file())
-            return subprocess.CompletedProcess(arguments, 0, '{"verified_payload_files":1}', "")
-        with patch.object(server, "payload_verifier", return_value=verifier), patch.object(server.subprocess, "run", side_effect=native):
-            server.verify_payload_inventory(self.state, config, inventory, read_only_source=True)
+            return subprocess.CompletedProcess(
+                arguments, 0, '{"verified_payload_files":1}', ""
+            )
+
+        with (
+            patch.object(server, "payload_verifier", return_value=verifier),
+            patch.object(server.subprocess, "run", side_effect=native),
+        ):
+            server.verify_payload_inventory(
+                self.state, config, inventory, read_only_source=True
+            )
         self.assertEqual(set(self.state.rglob("*")), before)
 
     def test_inspect_backup_refuses_native_semantic_payload_failure(self) -> None:
         backup = self.backup_fixture()
-        with patch.object(server, "verify_payload_inventory", side_effect=server.SupervisorError("canonical payload meaning differs")):
+        with patch.object(
+            server,
+            "verify_payload_inventory",
+            side_effect=server.SupervisorError("canonical payload meaning differs"),
+        ):
             inspection = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
         self.assertFalse(inspection["complete"])
         self.assertFalse(inspection["restorable"])
@@ -6483,35 +6540,59 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertIn("database/fixture", str(inspection["refusal"]))
         self.assertFalse((backup / "database/fixture").exists())
 
-    def test_incomplete_application_capture_never_publishes_complete_manifest(self) -> None:
+    def test_incomplete_application_capture_never_publishes_complete_manifest(
+        self,
+    ) -> None:
         config = self.initialized()
         destination = self.root / "interrupted-application"
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=server.SupervisorError("missing original reference")),
-            self.assertRaisesRegex(server.SupervisorError, "missing original reference"),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=server.SupervisorError("missing original reference"),
+            ),
+            self.assertRaisesRegex(
+                server.SupervisorError, "missing original reference"
+            ),
         ):
             server.backup(self.state, config, destination)
         self.assertFalse((destination / "backup.json").exists())
 
-    def test_application_inventory_query_projects_declared_original_references(self) -> None:
-        body = server.application_inventory_query("canonical_projects", 'original"cursor')
-        self.assertIn('WHERE key>"original\\\"cursor" ORDER BY key LIMIT 64', body)
-        self.assertIn("references:<string>{project:$row.project,draft:$row.draft,", body)
+    def test_application_inventory_query_projects_declared_original_references(
+        self,
+    ) -> None:
+        body = server.application_inventory_query(
+            "canonical_projects", 'original"cursor'
+        )
+        self.assertIn('WHERE key>"original\\"cursor" ORDER BY key LIMIT 64', body)
+        self.assertIn(
+            "references:<string>{project:$row.project,draft:$row.draft,", body
+        )
         self.assertIn("retiring:$row.retiring}", body)
-        self.assertIn("sha256:crypto::sha256(<string>object::remove($row,['id']))", body)
+        self.assertIn(
+            "sha256:crypto::sha256(<string>object::remove($row,['id']))", body
+        )
         self.assertNotIn("object::pick", body)
         with self.assertRaisesRegex(server.SupervisorError, "Unknown application"):
             server.application_inventory_query("unowned_table", "")
 
-    def test_application_inventory_maintenance_preserves_transaction_acknowledgement(self) -> None:
+    def test_application_inventory_maintenance_preserves_transaction_acknowledgement(
+        self,
+    ) -> None:
         config = self.initialized()
         credentials = server.read_json(self.state / "credentials.json")
         authority = self.application_inventory_fixture()["issuing_store"]
-        row = {"key": "original-stage", "sha256": "a" * 64, "references": "{closed:false}"}
+        row = {
+            "key": "original-stage",
+            "sha256": "a" * 64,
+            "references": "{closed:false}",
+        }
         queries: list[str] = []
 
-        def acknowledged(arguments: list[str], **options: object) -> subprocess.CompletedProcess[str]:
+        def acknowledged(
+            arguments: list[str], **options: object
+        ) -> subprocess.CompletedProcess[str]:
             query = options["input"]
             assert isinstance(query, str)
             queries.append(query)
@@ -6520,28 +6601,56 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             # maintenance transport's final acknowledgement may return a result.
             self.assertEqual(query.count("RETURN "), 1)
             self.assertIn("LET $value=", query)
-            value = authority if "canonical_interpretations:current" in query else (
-                [row] if "FROM canonical_stages " in query and 'key>""' in query else []
+            value = (
+                authority
+                if "canonical_interpretations:current" in query
+                else (
+                    [row]
+                    if "FROM canonical_stages " in query and 'key>""' in query
+                    else []
+                )
             )
-            return subprocess.CompletedProcess(arguments, 0, json.dumps([
-                None, {"maintenance": nonce, "value": value}, None,
-            ]), "")
+            return subprocess.CompletedProcess(
+                arguments,
+                0,
+                json.dumps(
+                    [
+                        None,
+                        {"maintenance": nonce, "value": value},
+                        None,
+                    ]
+                ),
+                "",
+            )
 
         with (
-            patch.object(server, "maintenance_endpoint", return_value="http://127.0.0.1:18080"),
+            patch.object(
+                server, "maintenance_endpoint", return_value="http://127.0.0.1:18080"
+            ),
             patch.object(server.subprocess, "run", side_effect=acknowledged),
         ):
-            inventory = server.capture_application_inventory(self.state, config, credentials)
+            inventory = server.capture_application_inventory(
+                self.state, config, credentials
+            )
         self.assertEqual(inventory["issuing_store"], authority)
-        self.assertEqual(server.object_mapping(inventory["tables"])["canonical_stages"], [row])
+        self.assertEqual(
+            server.object_mapping(inventory["tables"])["canonical_stages"], [row]
+        )
         self.assertEqual(len(queries), len(server.APPLICATION_BACKUP_TABLES) + 2)
         self.assertFalse((self.state / "maintenance-cli-failure.json").exists())
 
-    def test_application_inventory_pages_preserve_unsettled_original_references(self) -> None:
+    def test_application_inventory_pages_preserve_unsettled_original_references(
+        self,
+    ) -> None:
         config = self.initialized()
         key = "original-unsettled-stage"
-        row = {"key": key, "sha256": "a" * 64, "references": "{activated:false,closed:false,problem:original}"}
+        row = {
+            "key": key,
+            "sha256": "a" * 64,
+            "references": "{activated:false,closed:false,problem:original}",
+        }
         calls: list[str] = []
+
         def query(_state: Path, _config: dict[str, object], body: str) -> object:
             calls.append(body)
             if "canonical_interpretations:current" in body:
@@ -6549,9 +6658,12 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             if "FROM canonical_stages " in body and 'key>""' in body:
                 return [row]
             return []
+
         with patch.object(server, "payload_query", side_effect=query):
             inventory = server.capture_application_inventory(self.state, config)
-        self.assertEqual(server.object_mapping(inventory["tables"])["canonical_stages"], [row])
+        self.assertEqual(
+            server.object_mapping(inventory["tables"])["canonical_stages"], [row]
+        )
         self.assertTrue(any('key>"original-unsettled-stage"' in body for body in calls))
         self.assertFalse(any("UPDATE" in body or "DELETE" in body for body in calls))
 
@@ -6843,7 +6955,14 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         )
         server.write_json(self.state / "config.json", config)
         backup = self.root / "backup"
-        with patch.object(server, "freeze_payloads", return_value=[]), patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture):
+        with (
+            patch.object(server, "freeze_payloads", return_value=[]),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
+        ):
             server.backup(self.state, config, backup)
         with self.assertRaisesRegex(server.SupervisorError, "explicit rebuild"):
             server.restore(backup, self.root / "restored", "pse.substrate.old")
@@ -6988,7 +7107,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
         with (
             patch.object(server, "freeze_payloads", return_value=frozen),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -7037,7 +7160,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -7086,7 +7213,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         (source / "input").write_text("external authority")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -7373,17 +7504,28 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         query.assert_not_called()
         payload.assert_not_called()
 
-    def test_generated_claim_preserves_absent_or_exact_original_predecessor(self) -> None:
+    def test_generated_claim_preserves_absent_or_exact_original_predecessor(
+        self,
+    ) -> None:
         config = self.initialized()
-        expected = {"operation": "operation", "generation": "generation", "phase": "copy"}
+        expected = {
+            "operation": "operation",
+            "generation": "generation",
+            "phase": "copy",
+        }
         for previous in (None, expected):
             with (
                 self.subTest(previous=previous),
                 patch.object(server, "payload_expiry", return_value=123456),
-                patch.object(server, "maintenance_query", return_value={"value": expected}) as query,
+                patch.object(
+                    server, "maintenance_query", return_value={"value": expected}
+                ) as query,
             ):
                 acknowledged = server.maintenance_domain_call(
-                    self.state, config, {}, "claim",
+                    self.state,
+                    config,
+                    {},
+                    "claim",
                     ["operation", "generation", "copy", "NONE", "target", previous],
                 )
             self.assertEqual(acknowledged, expected)
@@ -7391,8 +7533,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             self.assertEqual(
                 query.call_args.args[3],
                 'LET $domain=fn::pse_maintenance_v1::claim(123456,"operation",'
-                '"generation","copy","NONE","target",' + predecessor
-                + '); LET $value=IF $domain=NONE {NULL} ELSE {$domain};',
+                '"generation","copy","NONE","target",'
+                + predecessor
+                + "); LET $value=IF $domain=NONE {NULL} ELSE {$domain};",
             )
 
     def test_generated_domain_absence_is_explicit_and_missing_ack_refuses(self) -> None:
@@ -8273,7 +8416,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "rotate_source_authorities"),
             patch.object(
@@ -8312,7 +8459,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "rotate_source_authorities", side_effect=refuse),
             patch.object(server, "discard_database") as discard,
@@ -8358,7 +8509,14 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             )
             server.write_json(self.state / "config.json", old)
             source_backup = self.root / "maintenance-backup"
-            with patch.object(server, "freeze_payloads", return_value=[]), patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture):
+            with (
+                patch.object(server, "freeze_payloads", return_value=[]),
+                patch.object(
+                    server,
+                    "capture_application_inventory",
+                    side_effect=self.application_inventory_fixture,
+                ),
+            ):
                 server.backup(self.state, old, source_backup)
         before = server.read_json(self.state / "credentials.json")
         after = server.fresh_credentials()
@@ -8514,7 +8672,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -8630,7 +8792,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -8657,7 +8823,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -9010,7 +9180,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -9088,7 +9262,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, _before, _after = self.maintenance_fixture("rebuild", "accounts")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(
                 server, "publish_generation", return_value=config["service_supervisor"]
@@ -9293,7 +9471,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         )
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "require_private_catalog"),
             patch.object(server, "recover_credentials", return_value=(after, True)),
@@ -9316,7 +9498,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         config, _before, _after = self.maintenance_fixture("rebuild", "initializing")
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "recover_credentials") as credentials,
             self.assertRaisesRegex(
@@ -9329,7 +9515,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         server.write_json(self.state / "config.json", config)
         with (
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             self.assertRaisesRegex(server.SupervisorError, "Unknown maintenance phase"),
         ):
@@ -9370,7 +9560,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -9414,7 +9608,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
             patch.object(server, "require_private_catalog"),
@@ -9458,7 +9656,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             self.native_maintenance(),
             patch.object(server, "freeze_payloads", return_value=[]),
-            patch.object(server, "capture_application_inventory", side_effect=self.application_inventory_fixture),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.application_inventory_fixture,
+            ),
             patch.object(server, "private_offline_state"),
             patch.object(server, "require_private_catalog"),
             patch.object(server, "recover_credentials", return_value=(after, True)),

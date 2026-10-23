@@ -398,20 +398,21 @@ fn impacts(
             }
             // Only numeric literal parameter initializers are known value-only edits.
             // A changed reference, equation, unit/type or domain remains structural.
-            if a.value.kind == Kind::Parameter && b.value.kind == Kind::Parameter
+            if a.value.kind == Kind::Parameter
+                && b.value.kind == Kind::Parameter
                 && let (Some(before), Some(after)) =
                     (&mut normalized.value.binding, &b.value.binding)
             {
-                    let literal = |s: &Option<String>| {
-                        s.as_ref()
-                            .is_some_and(|s| s.parse::<f64>().is_ok_and(f64::is_finite))
-                    };
-                    if literal(&before.expression) && literal(&after.expression) {
-                        before.expression = after.expression.clone();
-                        if normalized == *b {
-                            return vec![Source, Value];
-                        }
+                let literal = |s: &Option<String>| {
+                    s.as_ref()
+                        .is_some_and(|s| s.parse::<f64>().is_ok_and(f64::is_finite))
+                };
+                if literal(&before.expression) && literal(&after.expression) {
+                    before.expression = after.expression.clone();
+                    if normalized == *b {
+                        return vec![Source, Value];
                     }
+                }
             }
             vec![Source, Structural]
         }
@@ -843,7 +844,10 @@ impl Runtime {
         ))
         .await
     }
-    #[expect(clippy::too_many_arguments, reason = "A merge decision binds three independently admitted parents, selected resolutions, original publication, mode and cancellation")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "A merge decision binds three independently admitted parents, selected resolutions, original publication, mode and cancellation"
+    )]
     async fn project_merge_decision(
         &self,
         publication: ProjectPublication,
@@ -1047,7 +1051,9 @@ mod tests {
         );
         assert_eq!(
             impacts(
-                Some(&ProjectSourceObject::Declaration(Box::new(original.clone()))),
+                Some(&ProjectSourceObject::Declaration(Box::new(
+                    original.clone()
+                ))),
                 Some(&ProjectSourceObject::Declaration(Box::new(changed)))
             ),
             vec![ProjectChangeImpact::Source, ProjectChangeImpact::Value]
@@ -1057,7 +1063,9 @@ mod tests {
         presentation.source_end += 3;
         assert_eq!(
             impacts(
-                Some(&ProjectSourceObject::Declaration(Box::new(original.clone()))),
+                Some(&ProjectSourceObject::Declaration(Box::new(
+                    original.clone()
+                ))),
                 Some(&ProjectSourceObject::Declaration(Box::new(presentation)))
             ),
             vec![ProjectChangeImpact::Source]
@@ -1073,7 +1081,9 @@ mod tests {
         assert_eq!(
             impacts(
                 Some(&ProjectSourceObject::Declaration(Box::new(old_equation))),
-                Some(&ProjectSourceObject::Declaration(Box::new(changed_equation)))
+                Some(&ProjectSourceObject::Declaration(Box::new(
+                    changed_equation
+                )))
             ),
             vec![ProjectChangeImpact::Source, ProjectChangeImpact::Structural]
         );
@@ -1462,7 +1472,10 @@ mod tests {
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
-#[allow(clippy::unwrap_used, reason = "Exact native fixtures fail at setup when their declared source or original publication is absent")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "Exact native fixtures fail at setup when their declared source or original publication is absent"
+)]
 mod native_tests {
     use super::*;
     fn rows() -> Vec<Declaration> {

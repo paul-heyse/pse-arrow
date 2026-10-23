@@ -22,8 +22,26 @@ from scripts import surreal_server as server
 SCHEMA = "storage-health-v1"
 MAXIMUM_BYTES = 1 << 20
 MAXIMUM_PROCESSES = 128
-HOST_FIELDS = ("hostname", "MemTotal_bytes", "MemAvailable_bytes", "SwapTotal_bytes", "SwapFree_bytes", "filesystem_path", "filesystem_available_bytes", "filesystem_total_bytes")
-CONFIGURATION_FIELDS = ("surrealmx_memory_limit_bytes", "surrealmx_max_transaction_age_seconds", "surrealmx_snapshot_interval_seconds", "surrealmx_max_async_queue_depth", "surrealmx_max_async_queue_bytes", "configured_endpoint", "pending_maintenance", "accepting_writes")
+HOST_FIELDS = (
+    "hostname",
+    "MemTotal_bytes",
+    "MemAvailable_bytes",
+    "SwapTotal_bytes",
+    "SwapFree_bytes",
+    "filesystem_path",
+    "filesystem_available_bytes",
+    "filesystem_total_bytes",
+)
+CONFIGURATION_FIELDS = (
+    "surrealmx_memory_limit_bytes",
+    "surrealmx_max_transaction_age_seconds",
+    "surrealmx_snapshot_interval_seconds",
+    "surrealmx_max_async_queue_depth",
+    "surrealmx_max_async_queue_bytes",
+    "configured_endpoint",
+    "pending_maintenance",
+    "accepting_writes",
+)
 CGROUP_FIELDS = ("memory.current", "memory.max", "memory.peak", "memory.swap.current")
 LIMITS = (
     "Shared service observations establish no operation attribution or causality.",
@@ -74,7 +92,10 @@ class ServiceIdentity(msgspec.Struct, forbid_unknown_fields=True):
             or not 1 <= self.port <= 65535
             or len(self.invocation) != 32
             or len(self.binary_sha256) != 64
-            or any(c not in "0123456789abcdef" for c in self.invocation + self.binary_sha256)
+            or any(
+                c not in "0123456789abcdef"
+                for c in self.invocation + self.binary_sha256
+            )
         ):
             raise ValueError("invalid selected service identity")
 
@@ -125,8 +146,11 @@ class CgroupIdentity(msgspec.Struct, forbid_unknown_fields=True):
 
     def __post_init__(self) -> None:
         if (
-            not self.boot or self.inode <= 0 or not self.group.startswith("/")
-            or self.group == "/" or ".." in Path(self.group).parts
+            not self.boot
+            or self.inode <= 0
+            or not self.group.startswith("/")
+            or self.group == "/"
+            or ".." in Path(self.group).parts
         ):
             raise ValueError("invalid selected cgroup identity")
 
@@ -162,9 +186,17 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
             0 < self.started_unix_ns <= self.finished_unix_ns
         ):
             raise ValueError("invalid health capture context")
-        if set(self.host) != set(HOST_FIELDS) or set(self.configuration) != set(CONFIGURATION_FIELDS) or set(self.cgroup.fields) != set(CGROUP_FIELDS):
-            raise ValueError("health snapshot lacks declared host/configuration/cgroup coverage")
-        if len(self.cgroup.processes) > MAXIMUM_PROCESSES or len({p.identity.pid for p in self.cgroup.processes}) != len(self.cgroup.processes):
+        if (
+            set(self.host) != set(HOST_FIELDS)
+            or set(self.configuration) != set(CONFIGURATION_FIELDS)
+            or set(self.cgroup.fields) != set(CGROUP_FIELDS)
+        ):
+            raise ValueError(
+                "health snapshot lacks declared host/configuration/cgroup coverage"
+            )
+        if len(self.cgroup.processes) > MAXIMUM_PROCESSES or len(
+            {p.identity.pid for p in self.cgroup.processes}
+        ) != len(self.cgroup.processes):
             raise ValueError("health process population is duplicated or unbounded")
         if set(self.metrics) != set(server.MX_METRIC_FIELDS):
             raise ValueError("health snapshot lacks declared MX field coverage")
@@ -175,10 +207,15 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
                 raise ValueError("health metric has incorrect precision")
         identity = self.service.identity
         if identity is None:
-            if self.service_outcome != "unavailable" or any(
-                field.status != "unavailable" for field in self.metrics.values()
-            ) or self.metric_started_unix_ns is not None or self.metric_finished_unix_ns is not None:
-                raise ValueError("unavailable service cannot authenticate engine observations")
+            if (
+                self.service_outcome != "unavailable"
+                or any(field.status != "unavailable" for field in self.metrics.values())
+                or self.metric_started_unix_ns is not None
+                or self.metric_finished_unix_ns is not None
+            ):
+                raise ValueError(
+                    "unavailable service cannot authenticate engine observations"
+                )
         elif (
             identity.state != self.requested_state or self.service_outcome != "observed"
         ):
@@ -186,16 +223,29 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
         if identity is not None:
             first, last = self.metric_started_unix_ns, self.metric_finished_unix_ns
             if first is None and last is None:
-                if any(field.status != "unavailable" for field in self.metrics.values()):
+                if any(
+                    field.status != "unavailable" for field in self.metrics.values()
+                ):
                     raise ValueError("health metrics lack original capture interval")
-            elif first is None or last is None or not self.started_unix_ns <= first <= last <= self.finished_unix_ns:
+            elif (
+                first is None
+                or last is None
+                or not self.started_unix_ns <= first <= last <= self.finished_unix_ns
+            ):
                 raise ValueError("health metrics differ from selected service capture")
         group = self.cgroup.identity
         if group is None:
-            if self.correspondence != "unknown" or self.cgroup.processes or self.cgroup.status != "unavailable":
-                raise ValueError("unavailable cgroup cannot establish process correspondence")
+            if (
+                self.correspondence != "unknown"
+                or self.cgroup.processes
+                or self.cgroup.status != "unavailable"
+            ):
+                raise ValueError(
+                    "unavailable cgroup cannot establish process correspondence"
+                )
         elif (
-            identity is None or group.invocation != identity.invocation
+            identity is None
+            or group.invocation != identity.invocation
             or self.correspondence != "selected-service-cgroup"
             or self.cgroup.status == "unavailable"
             or (self.observer is not None and self.observer.boot != group.boot)
@@ -203,11 +253,18 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
         ):
             raise ValueError("health cgroup differs from selected service incarnation")
         if self.tool_outcome == "complete" and (
-            identity is None or self.observer is None or self.cgroup.status != "observed"
+            identity is None
+            or self.observer is None
+            or self.cgroup.status != "observed"
             or self.metric_started_unix_ns is None
-            or any(f.status == "unavailable" for f in (*self.host.values(), *self.configuration.values()))
+            or any(
+                f.status == "unavailable"
+                for f in (*self.host.values(), *self.configuration.values())
+            )
         ):
-            raise ValueError("partial health capture cannot claim complete tool outcome")
+            raise ValueError(
+                "partial health capture cannot claim complete tool outcome"
+            )
 
 
 def unavailable(reason: str) -> Observation:
@@ -227,7 +284,9 @@ def numeric_file(path: Path) -> Observation:
 
 
 def process_identity(pid: int) -> ProcessIdentity:
-    return ProcessIdentity(host_admission.boot(), pid, native_operation.start_identity(pid))
+    return ProcessIdentity(
+        host_admission.boot(), pid, native_operation.start_identity(pid)
+    )
 
 
 def independent_host(state: Path) -> dict[str, Observation]:
@@ -245,7 +304,10 @@ def independent_host(state: Path) -> dict[str, Observation]:
             if name + "_bytes" in fields:
                 parts = raw.split()
                 if len(parts) == 2 and parts[0].isdecimal() and parts[1] == "kB":
-                    fields[name + "_bytes"] = Observation("approximate" if name == "MemAvailable" else "available", int(parts[0]) * 1024)
+                    fields[name + "_bytes"] = Observation(
+                        "approximate" if name == "MemAvailable" else "available",
+                        int(parts[0]) * 1024,
+                    )
     except OSError:
         pass
     # A missing service still has an independent host filesystem observation.
@@ -255,8 +317,12 @@ def independent_host(state: Path) -> dict[str, Observation]:
     fields["filesystem_path"] = Observation("available", str(path))
     try:
         usage = os.statvfs(path)
-        fields["filesystem_available_bytes"] = Observation("available", usage.f_bavail * usage.f_frsize)
-        fields["filesystem_total_bytes"] = Observation("available", usage.f_blocks * usage.f_frsize)
+        fields["filesystem_available_bytes"] = Observation(
+            "available", usage.f_bavail * usage.f_frsize
+        )
+        fields["filesystem_total_bytes"] = Observation(
+            "available", usage.f_blocks * usage.f_frsize
+        )
     except OSError:
         for name in ("filesystem_available_bytes", "filesystem_total_bytes"):
             fields[name] = unavailable("statvfs unavailable")
@@ -273,13 +339,17 @@ def selected_process(pid: int, group: str, boot: str) -> ProcessObservation:
         if line.startswith("VmRSS:"):
             parts = line.split()
             if len(parts) == 3 and parts[1].isdecimal() and parts[2] == "kB":
-                rss = Observation("approximate", int(parts[1]) * 1024, "kernel VmRSS estimate")
+                rss = Observation(
+                    "approximate", int(parts[1]) * 1024, "kernel VmRSS estimate"
+                )
     if process_identity(pid) != process or native_operation.process_group(pid) != group:
         raise ValueError("process lifetime changed")
     return ProcessObservation(process, rss)
 
 
-def observe_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> CgroupObservation:
+def observe_cgroup(
+    state: Path, identity: ServiceIdentity, deadline: float
+) -> CgroupObservation:
     before = server.storage_unit_observation(state, deadline=deadline)
     if before.get("InvocationID") != identity.invocation:
         raise ValueError("service incarnation changed")
@@ -308,17 +378,46 @@ def observe_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> C
     except OSError:
         partial = True
     after = server.storage_unit_observation(state, deadline=deadline)
-    if after != before or host_admission.group_identity(group) != inode or host_admission.boot() != boot:
+    if (
+        after != before
+        or host_admission.group_identity(group) != inode
+        or host_admission.boot() != boot
+    ):
         raise ValueError("cgroup lifetime changed")
-    return CgroupObservation("partial" if partial else "observed", selected, fields, processes, "some kernel fields or process members unavailable or bounded" if partial else None)
+    return CgroupObservation(
+        "partial" if partial else "observed",
+        selected,
+        fields,
+        processes,
+        "some kernel fields or process members unavailable or bounded"
+        if partial
+        else None,
+    )
 
 
-def selected_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> CgroupObservation:
+def selected_cgroup(
+    state: Path, identity: ServiceIdentity, deadline: float
+) -> CgroupObservation:
     """Link only members of the observed incarnation, rechecking kernel lifetimes."""
     try:
         return observe_cgroup(state, identity, deadline)
-    except (OSError, ValueError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
-        return CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service/kernel correspondence unavailable")
+    except (
+        OSError,
+        ValueError,
+        subprocess.SubprocessError,
+        server.SupervisorError,
+        host_admission.AdmissionError,
+    ):
+        return CgroupObservation(
+            "unavailable",
+            None,
+            {
+                name: unavailable("selected cgroup unavailable")
+                for name in CGROUP_FIELDS
+            },
+            [],
+            "selected service/kernel correspondence unavailable",
+        )
 
 
 def metric_fields(snapshot: dict[str, object]) -> dict[str, Metric]:
@@ -328,17 +427,32 @@ def metric_fields(snapshot: dict[str, object]) -> dict[str, Metric]:
         source = server.object_mapping(families.get(server.MX_METRIC_PREFIX + name, {}))
         samples = []
         population = server.object_inventory(source.get("samples", []))
-        if len(population) > 64 or sum(len(str(sample.get("labels", ""))) for sample in population) > 64 << 10:
-            fields[name] = Metric("unavailable", [], "original series exceeds bounded health selection")
+        if (
+            len(population) > 64
+            or sum(len(str(sample.get("labels", ""))) for sample in population)
+            > 64 << 10
+        ):
+            fields[name] = Metric(
+                "unavailable", [], "original series exceeds bounded health selection"
+            )
             continue
         for sample in population:
             value = sample.get("value")
             labels = sample.get("labels")
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0 or int(value) != value or not isinstance(labels, str):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+                or int(value) != value
+                or not isinstance(labels, str)
+            ):
                 raise ValueError("invalid original MX sample")
             samples.append(MetricSample(labels, int(value)))
         fields[name] = Metric(
-            ("approximate" if name == "approx_data_bytes" else "observed") if samples else "unavailable",
+            ("approximate" if name == "approx_data_bytes" else "observed")
+            if samples
+            else "unavailable",
             samples,
             None if samples else str(source.get("availability", "unregistered")),
         )
@@ -346,18 +460,27 @@ def metric_fields(snapshot: dict[str, object]) -> dict[str, Metric]:
 
 
 def selected_metrics(
-    state: Path, config: dict[str, object] | None, deadline: float, started: int,
+    state: Path,
+    config: dict[str, object] | None,
+    deadline: float,
+    started: int,
 ) -> tuple[ServiceIdentity, dict[str, Metric], int, int]:
     """Validate original selected-service authority and its capture interval."""
     original = server.metric_snapshot(state, deadline)
     if original.get("schema") != "selected-native-metrics-v1":
         raise ValueError("unsupported original metric codec")
     identity = msgspec.convert(original["identity"], ServiceIdentity, strict=True)
-    if identity.state != str(state) or (config is not None and identity.instance_id != config["instance_id"]):
+    if identity.state != str(state) or (
+        config is not None and identity.instance_id != config["instance_id"]
+    ):
         raise ValueError("metrics differ from requested service authority")
     decoded = metric_fields(original)
     first, last = original["started_unix_ns"], original["finished_unix_ns"]
-    if type(first) is not int or type(last) is not int or not started <= first <= last <= time.time_ns():
+    if (
+        type(first) is not int
+        or type(last) is not int
+        or not started <= first <= last <= time.time_ns()
+    ):
         raise ValueError("metrics lack original capture interval")
     if config is not None and config != server.config_for(state, deadline=deadline):
         raise ValueError("owner configuration changed during capture")
@@ -373,54 +496,151 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         observer = process_identity(os.getpid())
     except (OSError, ValueError):
         observer = None
-    configuration = {name: unavailable("selected owner configuration unavailable") for name in CONFIGURATION_FIELDS}
+    configuration = {
+        name: unavailable("selected owner configuration unavailable")
+        for name in CONFIGURATION_FIELDS
+    }
     config = None
     try:
         config = server.config_for(state, deadline=deadline)
         resources = server.object_mapping(config["resources"])
         for name in CONFIGURATION_FIELDS[:5]:
             value = resources.get(name)
-            configuration[name] = Observation("available", value) if type(value) is int else unavailable("owner configuration field unavailable")
-        configuration["configured_endpoint"] = Observation("available", server.database_endpoint(state))
+            configuration[name] = (
+                Observation("available", value)
+                if type(value) is int
+                else unavailable("owner configuration field unavailable")
+            )
+        configuration["configured_endpoint"] = Observation(
+            "available", server.database_endpoint(state)
+        )
         pending = config.get("derived_rebuild_pending")
-        configuration["pending_maintenance"] = Observation("available", f"{pending.get('kind')}:{pending.get('phase')}") if isinstance(pending, dict) else Observation("available", "none")
+        configuration["pending_maintenance"] = (
+            Observation("available", f"{pending.get('kind')}:{pending.get('phase')}")
+            if isinstance(pending, dict)
+            else Observation("available", "none")
+        )
         accepting_writes = config["accepting_writes"]
-        configuration["accepting_writes"] = Observation("available", accepting_writes) if isinstance(accepting_writes, bool) else unavailable("owner admission field unavailable")
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
-        configuration = {name: unavailable("selected owner configuration unavailable") for name in CONFIGURATION_FIELDS}
-    metrics = {name: Metric("unavailable", [], "selected service unavailable") for name in server.MX_METRIC_FIELDS}
-    service = Service("unavailable", reason="selected service or metric observation unavailable")
-    group = CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service unavailable")
+        configuration["accepting_writes"] = (
+            Observation("available", accepting_writes)
+            if isinstance(accepting_writes, bool)
+            else unavailable("owner admission field unavailable")
+        )
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        subprocess.SubprocessError,
+        server.SupervisorError,
+        host_admission.AdmissionError,
+    ):
+        configuration = {
+            name: unavailable("selected owner configuration unavailable")
+            for name in CONFIGURATION_FIELDS
+        }
+    metrics = {
+        name: Metric("unavailable", [], "selected service unavailable")
+        for name in server.MX_METRIC_FIELDS
+    }
+    service = Service(
+        "unavailable", reason="selected service or metric observation unavailable"
+    )
+    group = CgroupObservation(
+        "unavailable",
+        None,
+        {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS},
+        [],
+        "selected service unavailable",
+    )
     metric_started = metric_finished = None
     try:
         selected = server.selected_service(state, deadline)
         identity = msgspec.convert(selected.identity, ServiceIdentity, strict=True)
-        if identity.state != str(state) or (config is not None and identity.instance_id != config["instance_id"]):
-            service = Service("unavailable", reason="verified service differs from requested authority")
+        if identity.state != str(state) or (
+            config is not None and identity.instance_id != config["instance_id"]
+        ):
+            service = Service(
+                "unavailable",
+                reason="verified service differs from requested authority",
+            )
         else:
             service = Service("available", identity)
             try:
-                observed, decoded, first, last = selected_metrics(state, config, deadline, started)
+                observed, decoded, first, last = selected_metrics(
+                    state, config, deadline, started
+                )
                 if observed == identity:
                     metrics, metric_started, metric_finished = decoded, first, last
                 else:
-                    metrics = {name: Metric("unavailable", [], "metrics differ from verified service incarnation") for name in server.MX_METRIC_FIELDS}
-            except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError) as error:
-                metrics = {name: Metric("unavailable", [], str(error)[:1024] or type(error).__name__) for name in server.MX_METRIC_FIELDS}
+                    metrics = {
+                        name: Metric(
+                            "unavailable",
+                            [],
+                            "metrics differ from verified service incarnation",
+                        )
+                        for name in server.MX_METRIC_FIELDS
+                    }
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                subprocess.SubprocessError,
+                server.SupervisorError,
+                host_admission.AdmissionError,
+            ) as error:
+                metrics = {
+                    name: Metric(
+                        "unavailable", [], str(error)[:1024] or type(error).__name__
+                    )
+                    for name in server.MX_METRIC_FIELDS
+                }
             # A failed metric response proves neither service death nor continuity.
             # Recheck the independent original owner before retaining its identity.
             selected.recheck(deadline)
             group = selected_cgroup(state, identity, deadline)
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
-        service = Service("unavailable", reason="selected service identity or continuity unavailable")
-        metrics = {name: Metric("unavailable", [], "selected service identity or continuity unavailable") for name in server.MX_METRIC_FIELDS}
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        subprocess.SubprocessError,
+        server.SupervisorError,
+        host_admission.AdmissionError,
+    ):
+        service = Service(
+            "unavailable", reason="selected service identity or continuity unavailable"
+        )
+        metrics = {
+            name: Metric(
+                "unavailable", [], "selected service identity or continuity unavailable"
+            )
+            for name in server.MX_METRIC_FIELDS
+        }
         metric_started = metric_finished = None
-    partial = service.status == "unavailable" or observer is None or group.status != "observed" or metric_started is None or any(f.status == "unavailable" for f in (*host.values(), *configuration.values()))
+    partial = (
+        service.status == "unavailable"
+        or observer is None
+        or group.status != "observed"
+        or metric_started is None
+        or any(
+            f.status == "unavailable" for f in (*host.values(), *configuration.values())
+        )
+    )
     return HealthSnapshot(
-        SCHEMA, str(state), started, time.time_ns(), observer, host, service,
-        configuration, metrics, metric_started, metric_finished, group,
+        SCHEMA,
+        str(state),
+        started,
+        time.time_ns(),
+        observer,
+        host,
+        service,
+        configuration,
+        metrics,
+        metric_started,
+        metric_finished,
+        group,
         "partial" if partial else "complete",
-        "observed" if service.status == "available" else "unavailable", "unknown",
+        "observed" if service.status == "available" else "unavailable",
+        "unknown",
         "selected-service-cgroup" if group.identity is not None else "unknown",
     )
 
@@ -451,26 +671,46 @@ def owner_actions(snapshot: HealthSnapshot) -> list[OwnerAction]:
     """Inert finite command suggestions: the original owner rechecks every action."""
     base = ["just", "surreal"]
     state = ["--state", snapshot.requested_state]
-    actions: list[OwnerAction] = [{
-        "action": "inspect-service", "command": [*base, "status", *state],
-        "effect": "inspect current owner status",
-        "preconditions": "current owned configuration; snapshot is descriptive only",
-    }]
+    actions: list[OwnerAction] = [
+        {
+            "action": "inspect-service",
+            "command": [*base, "status", *state],
+            "effect": "inspect current owner status",
+            "preconditions": "current owned configuration; snapshot is descriptive only",
+        }
+    ]
     pending = snapshot.configuration.get("pending_maintenance")
-    if pending is not None and pending.status == "available" and pending.value != "none":
-        actions.append({
-            "action": "recover-maintenance", "command": [*base, "recover-maintenance", *state],
-            "effect": "explicit recovery through original maintenance owner and exact effect settlement",
-            "preconditions": "owner reacquires lifecycle reservation, verifies current closed admission, exact pending kind/phase, drained processes and required initializer/verifier; changed or unsupported premises refuse",
-        })
+    if (
+        pending is not None
+        and pending.status == "available"
+        and pending.value != "none"
+    ):
+        actions.append(
+            {
+                "action": "recover-maintenance",
+                "command": [*base, "recover-maintenance", *state],
+                "effect": "explicit recovery through original maintenance owner and exact effect settlement",
+                "preconditions": "owner reacquires lifecycle reservation, verifies current closed admission, exact pending kind/phase, drained processes and required initializer/verifier; changed or unsupported premises refuse",
+            }
+        )
     return actions
 
 
 def reference(snapshot: HealthSnapshot) -> str:
     """The original owner's immutable content reference, never a live protection grant."""
-    raw = json.dumps(msgspec.to_builtins(snapshot), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    raw = json.dumps(
+        msgspec.to_builtins(snapshot),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode()
     return "storage-health:sha256:" + hashlib.sha256(raw).hexdigest()
 
 
 def presentation(snapshot: HealthSnapshot) -> HealthPresentation:
-    return {"snapshot": msgspec.to_builtins(snapshot), "reference": reference(snapshot), "limits": list(LIMITS), "owner_actions": owner_actions(snapshot)}
+    return {
+        "snapshot": msgspec.to_builtins(snapshot),
+        "reference": reference(snapshot),
+        "limits": list(LIMITS),
+        "owner_actions": owner_actions(snapshot),
+    }

@@ -350,22 +350,60 @@ def storage_health_snapshot(path: Path) -> EvidenceSnapshot:
     )
     facts: list[EvidenceFact] = [
         context,
-        {"member": "health", "kind": "diagnostic_tool", "status": record.tool_outcome, "detail_ref": reference},
-        {"member": "service", "kind": "diagnostic_target", "status": record.service_outcome},
-        {"member": "science", "kind": "diagnostic_science", "status": record.scientific_outcome},
+        {
+            "member": "health",
+            "kind": "diagnostic_tool",
+            "status": record.tool_outcome,
+            "detail_ref": reference,
+        },
+        {
+            "member": "service",
+            "kind": "diagnostic_target",
+            "status": record.service_outcome,
+        },
+        {
+            "member": "science",
+            "kind": "diagnostic_science",
+            "status": record.scientific_outcome,
+        },
         link_fact("link:storage_health", "storage_health", reference),
     ]
     if identity is not None:
-        facts.append(link_fact("link:service", "service", "selected-service:sha256:" + evidence_projection.snapshot_digest(msgspec.to_builtins(identity))))
+        facts.append(
+            link_fact(
+                "link:service",
+                "service",
+                "selected-service:sha256:"
+                + evidence_projection.snapshot_digest(msgspec.to_builtins(identity)),
+            )
+        )
     for process in record.cgroup.processes:
         owner = process.identity
         target = f"process:{owner.boot}:{owner.pid}:{owner.start}"
         facts.append(link_fact("link:" + target, "process", target))
     for name, field in record.metrics.items():
-        facts.append({"member": "metric:" + name, "kind": "storage_health_field", "status": field.status, "detail_ref": reference})
-    for scope, fields in (("host", record.host), ("configuration", record.configuration), ("cgroup", record.cgroup.fields)):
+        facts.append(
+            {
+                "member": "metric:" + name,
+                "kind": "storage_health_field",
+                "status": field.status,
+                "detail_ref": reference,
+            }
+        )
+    for scope, fields in (
+        ("host", record.host),
+        ("configuration", record.configuration),
+        ("cgroup", record.cgroup.fields),
+    ):
         for name, field in fields.items():
-            facts.append({"member": scope + ":" + name, "kind": "storage_health_field", "status": field.status, "detail_ref": reference})
+            facts.append(
+                {
+                    "member": scope + ":" + name,
+                    "kind": "storage_health_field",
+                    "status": field.status,
+                    "detail_ref": reference,
+                }
+            )
     for fact in facts:
         fact["context_id"] = context["context_id"]
     return source_snapshot(

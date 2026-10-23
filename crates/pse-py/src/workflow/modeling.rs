@@ -224,7 +224,9 @@ impl NativeModelingPackage {
     }
     #[getter]
     fn physical_context(&self) -> NativePhysicalContext {
-        NativePhysicalContext { inner: self.inner.physical_context().clone() }
+        NativePhysicalContext {
+            inner: self.inner.physical_context().clone(),
+        }
     }
     /// Exact immutable modeling and physical source identity for lazy study inputs.
     #[getter]

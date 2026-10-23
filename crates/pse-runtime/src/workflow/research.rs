@@ -178,7 +178,10 @@ impl Runtime {
             }
             ResearchReadRequest::Selection { key } => {
                 let row = store.research_selection(key).await?;
-                let selection = row.as_ref().map(|r| decoded(&r.selection).map(Box::new)).transpose()?;
+                let selection = row
+                    .as_ref()
+                    .map(|r| decoded(&r.selection).map(Box::new))
+                    .transpose()?;
                 ResearchReadResult::Selection { row, selection }
             }
         })

@@ -11,9 +11,9 @@ use pse_operations::{
 use pse_runtime::{
     CancelSource, SharedRuntime,
     workflow::{
-        CanonicalDeployment, LifecycleSelection, LifecycleTarget, ModelingPackage, OuterAttestation, PhysicalContext,
-        ProjectBundleReader, ProjectExportRequest, ProjectImportIntent,
-        PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,
+        CanonicalDeployment, LifecycleSelection, LifecycleTarget, ModelingPackage,
+        OuterAttestation, PhysicalContext, PreparationDiscoveryRequest, ProjectBundleReader,
+        ProjectDraftDocuments, ProjectDraftSaveIntent, ProjectExportRequest, ProjectImportIntent,
         ProjectMergeIntent, ProjectMergeResolution, ProjectSelectRequest, ProjectSelection,
         ResearchDatasetRequest, ResearchPublicationIntent, ResearchPublicationRequest,
         ResearchReadRequest, ResearchSelectionRequest, Runtime, StudyCohortRequest,
@@ -24,8 +24,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, io::Read, path::PathBuf, sync::Arc, time::Instant};
 
 pub(super) const PROJECT_DOCUMENT_BYTES: usize = 16 << 20;
-fn project_document_bytes() -> usize { PROJECT_DOCUMENT_BYTES }
-fn project_branch_name() -> String { "main".into() }
+fn project_document_bytes() -> usize {
+    PROJECT_DOCUMENT_BYTES
+}
+fn project_branch_name() -> String {
+    "main".into()
+}
 
 #[derive(Debug, Args)]
 pub(crate) struct RuntimeArgs {
@@ -918,7 +922,10 @@ pub(crate) async fn run(
 
 #[cfg(test)]
 mod transport_tests {
-    #![allow(clippy::unwrap_used, reason = "typed CLI request controls require exact successful decoding")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "typed CLI request controls require exact successful decoding"
+    )]
     use super::*;
 
     #[test]
@@ -938,11 +945,18 @@ mod transport_tests {
         let action: Action = serde_json::from_value(serde_json::json!({
             "kind": "lifecycle_select", "target": {"kind": "source_history", "key": "original-revision"}
         })).unwrap();
-        assert!(matches!(action, Action::LifecycleSelect { target } if target.key == "original-revision"));
+        assert!(
+            matches!(action, Action::LifecycleSelect { target } if target.key == "original-revision")
+        );
         assert!(serde_json::from_value::<Action>(serde_json::json!({
             "kind": "lifecycle_select", "target": {"kind": "source_history", "key": "original-revision"}, "query": "arbitrary"
         })).is_err());
-        assert!(serde_json::from_value::<Action>(serde_json::json!({"kind": "shell", "command": ["arbitrary"]})).is_err());
+        assert!(
+            serde_json::from_value::<Action>(
+                serde_json::json!({"kind": "shell", "command": ["arbitrary"]})
+            )
+            .is_err()
+        );
     }
 }
 

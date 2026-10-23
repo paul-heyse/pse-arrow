@@ -425,29 +425,83 @@ fn text(row: &mut Object, name: &'static str) -> Result<String, CanonicalError> 
 impl CanonicalStore {
     /// Temporarily withhold only a registered disposable database's sealed payload instances.
     /// Tests exercise genuine missing-file reads; the original directory is restored on return or drop.
-    #[cfg(any(test,feature="test-support"))]
-    pub async fn with_unavailable_fixture_payloads<F:Future>(&self,future:F)->Result<F::Output,CanonicalError> {
-        if !self.database().starts_with("canonical_test_") || self.fixture_lifetime.is_none() {return Err(configuration("payload withholding requires a registered isolated fixture"));}
-        struct Restore {original:PathBuf,withheld:PathBuf,restored:bool}
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn with_unavailable_fixture_payloads<F: Future>(
+        &self,
+        future: F,
+    ) -> Result<F::Output, CanonicalError> {
+        if !self.database().starts_with("canonical_test_") || self.fixture_lifetime.is_none() {
+            return Err(configuration(
+                "payload withholding requires a registered isolated fixture",
+            ));
+        }
+        struct Restore {
+            original: PathBuf,
+            withheld: PathBuf,
+            restored: bool,
+        }
         impl Restore {
-            fn restore(&mut self)->Result<(),CanonicalError> {
+            fn restore(&mut self) -> Result<(), CanonicalError> {
                 // Never remove files created by the exercised operation. An unexpected nonempty
                 // directory refuses restoration and preserves the withheld original for diagnosis.
-                match std::fs::remove_dir(&self.original) {Ok(())=>{},Err(e) if e.kind()==std::io::ErrorKind::NotFound=>{},Err(e)=>return Err(configuration(e))};
-                std::fs::rename(&self.withheld,&self.original).map_err(configuration)?;self.restored=true;Ok(())
+                match std::fs::remove_dir(&self.original) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => return Err(configuration(e)),
+                };
+                std::fs::rename(&self.withheld, &self.original).map_err(configuration)?;
+                self.restored = true;
+                Ok(())
             }
         }
-        impl Drop for Restore {fn drop(&mut self){if !self.restored {let _=self.restore();}}}
-        let original=self.files.root.join("instances");
-        if !std::fs::symlink_metadata(&original).map_err(|e|configuration(format!("fixture requires actual published FileTier payloads before withholding: {e}")))?.file_type().is_dir() {return Err(configuration("fixture sealed-instance path is not an ordinary directory"));}
-        if std::fs::read_dir(&original).map_err(configuration)?.next().transpose().map_err(configuration)?.is_none() {return Err(configuration("fixture requires nonempty published FileTier instances before withholding"));}
-        let withheld=self.files.root.join(format!(".withheld-{}",uuid::Uuid::new_v4()));
-        std::fs::rename(&original,&withheld).map_err(configuration)?;
-        let mut restore=Restore{original,withheld,restored:false};
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                if !self.restored {
+                    let _ = self.restore();
+                }
+            }
+        }
+        let original = self.files.root.join("instances");
+        if !std::fs::symlink_metadata(&original)
+            .map_err(|e| {
+                configuration(format!(
+                    "fixture requires actual published FileTier payloads before withholding: {e}"
+                ))
+            })?
+            .file_type()
+            .is_dir()
+        {
+            return Err(configuration(
+                "fixture sealed-instance path is not an ordinary directory",
+            ));
+        }
+        if std::fs::read_dir(&original)
+            .map_err(configuration)?
+            .next()
+            .transpose()
+            .map_err(configuration)?
+            .is_none()
+        {
+            return Err(configuration(
+                "fixture requires nonempty published FileTier instances before withholding",
+            ));
+        }
+        let withheld = self
+            .files
+            .root
+            .join(format!(".withheld-{}", uuid::Uuid::new_v4()));
+        std::fs::rename(&original, &withheld).map_err(configuration)?;
+        let mut restore = Restore {
+            original,
+            withheld,
+            restored: false,
+        };
         // Original owner admission still requires its ordinary layout; only sealed payloads
         // are unavailable, not the service's authenticated per-database directory.
         std::fs::create_dir(&restore.original).map_err(configuration)?;
-        let outcome=future.await;restore.restore()?;Ok(outcome)
+        let outcome = future.await;
+        restore.restore()?;
+        Ok(outcome)
     }
 
     pub(crate) async fn registered_file_owner(&self) -> Result<String, CanonicalError> {

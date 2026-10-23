@@ -147,11 +147,18 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
     ensure!(args.timeout_ms > 0, "positive original allowance required");
     // Offline source inspection must precede all service, environment and executor selection.
     #[cfg(feature = "project-tools")]
-    if let ProjectCommand::InspectPack { input, maximum_document_bytes } = &args.command {
-        let bundle = pse_runtime::workflow::ProjectBundleReader::open(input, *maximum_document_bytes)?;
+    if let ProjectCommand::InspectPack {
+        input,
+        maximum_document_bytes,
+    } = &args.command
+    {
+        let bundle =
+            pse_runtime::workflow::ProjectBundleReader::open(input, *maximum_document_bytes)?;
         return output(value(bundle.inspect())?);
     }
-    let state = args.state.context("online project commands require explicit --state")?;
+    let state = args
+        .state
+        .context("online project commands require explicit --state")?;
     let deadline = Instant::now()
         .checked_add(Duration::from_millis(args.timeout_ms))
         .context("original allowance overflow")?;
@@ -170,7 +177,9 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
                 store.open().await?;
                 match args.command {
                     #[cfg(feature = "project-tools")]
-                    ProjectCommand::InspectPack { .. } => anyhow::bail!("offline project inspection was not dispatched"),
+                    ProjectCommand::InspectPack { .. } => {
+                        anyhow::bail!("offline project inspection was not dispatched")
+                    }
                     ProjectCommand::Navigate {
                         operation,
                         project,
@@ -264,7 +273,10 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
 
 #[cfg(all(test, feature = "project-tools"))]
 mod tests {
-    #![allow(clippy::unwrap_used, reason = "finite CLI parsing controls require exact successful decoding")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "finite CLI parsing controls require exact successful decoding"
+    )]
     use super::*;
     use clap::Parser;
 
@@ -276,14 +288,19 @@ mod tests {
 
     #[test]
     fn offline_inspection_parses_without_service_selection() {
-        let parsed = Cli::try_parse_from(["project", "inspect-pack", "--input", "selected-pack"]).unwrap();
+        let parsed =
+            Cli::try_parse_from(["project", "inspect-pack", "--input", "selected-pack"]).unwrap();
         assert!(parsed.arguments.state.is_none());
-        assert!(matches!(parsed.arguments.command, ProjectCommand::InspectPack { .. }));
+        assert!(matches!(
+            parsed.arguments.command,
+            ProjectCommand::InspectPack { .. }
+        ));
     }
 
     #[test]
     fn online_command_refuses_missing_state_before_service_selection() {
-        let parsed = Cli::try_parse_from(["project", "show", "--project", "original-project"]).unwrap();
+        let parsed =
+            Cli::try_parse_from(["project", "show", "--project", "original-project"]).unwrap();
         let error = run(parsed.arguments).unwrap_err();
         assert!(error.to_string().contains("require explicit --state"));
     }
@@ -292,11 +309,15 @@ mod tests {
     fn supplied_inspection_reaches_original_bundle_reader_without_a_service() {
         let directory = tempfile::tempdir().unwrap();
         let error = run(ProjectArgs {
-            state: None, database: None, timeout_ms: 30_000,
+            state: None,
+            database: None,
+            timeout_ms: 30_000,
             command: ProjectCommand::InspectPack {
-                input: directory.path().into(), maximum_document_bytes: super::super::project_runtime::PROJECT_DOCUMENT_BYTES,
+                input: directory.path().into(),
+                maximum_document_bytes: super::super::project_runtime::PROJECT_DOCUMENT_BYTES,
             },
-        }).unwrap_err();
+        })
+        .unwrap_err();
         assert!(!error.to_string().contains("require explicit --state"));
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
     }

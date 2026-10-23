@@ -308,7 +308,10 @@ async fn cancel_prepared_family_at_worker_entry(
 }
 
 #[cfg(feature = "solver-diffsol")]
-#[allow(clippy::unwrap_used, reason = "The declared dynamics fixture must admit before caller-lifetime assertions can execute")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "The declared dynamics fixture must admit before caller-lifetime assertions can execute"
+)]
 async fn prepared_simulation(runtime: &Runtime) -> PreparedStudyOperation {
     let rows = pse_authoring::language::parse(
         "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; } test plant fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } { child root:Root=Root(); } }",

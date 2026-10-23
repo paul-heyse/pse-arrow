@@ -172,7 +172,14 @@ def parser() -> argparse.ArgumentParser:
         selected.add_argument("--registry", type=Path)
         selected.add_argument(
             "--source-kind",
-            choices=("invocation", "assessment", "diagnostic", "measurement", "host", "storage-health"),
+            choices=(
+                "invocation",
+                "assessment",
+                "diagnostic",
+                "measurement",
+                "host",
+                "storage-health",
+            ),
             default="invocation",
         )
         selected.add_argument("--inventory", type=Path)
@@ -217,7 +224,9 @@ def parser() -> argparse.ArgumentParser:
                 "--measurement", type=Path, action="append", default=[]
             )
             selected.add_argument("--host", type=Path, action="append", default=[])
-            selected.add_argument("--storage-health", type=Path, action="append", default=[])
+            selected.add_argument(
+                "--storage-health", type=Path, action="append", default=[]
+            )
             selected.add_argument(
                 "--criterion", action="append", default=[], metavar="CASE=CSV"
             )

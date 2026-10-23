@@ -962,12 +962,40 @@ impl ModelingPackage {
         intent: &pse_operations::canonical_project_imports::ProjectImportIntent,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
-        intent.validate()?; checkpoint(cancel)?;
-        let edits=self.revision.admitted.objects.values().map(|object|object.edit()).collect::<Vec<_>>();
-        let recorded=runtime.canonical_store()?.edit_project(intent.publication(),&edits).await
-            .map_err(|source|crate::workflow::source_settlement::source_edit_error(intent.destinations().2.into(),intent.operation().into(),source))?;
-        let revision=SourceRevision::admitted(self.revision.admitted.clone(),self.revision.identity,Some(recorded),None)?;
-        Ok(ModelingPackage{runtime:runtime.clone(),revision,held_preparation:None,research_source:None,project_context:None,..self.clone()})
+        intent.validate()?;
+        checkpoint(cancel)?;
+        let edits = self
+            .revision
+            .admitted
+            .objects
+            .values()
+            .map(|object| object.edit())
+            .collect::<Vec<_>>();
+        let recorded = runtime
+            .canonical_store()?
+            .edit_project(intent.publication(), &edits)
+            .await
+            .map_err(|source| {
+                crate::workflow::source_settlement::source_edit_error(
+                    intent.destinations().2.into(),
+                    intent.operation().into(),
+                    source,
+                )
+            })?;
+        let revision = SourceRevision::admitted(
+            self.revision.admitted.clone(),
+            self.revision.identity,
+            Some(recorded),
+            None,
+        )?;
+        Ok(ModelingPackage {
+            runtime: runtime.clone(),
+            revision,
+            held_preparation: None,
+            research_source: None,
+            project_context: None,
+            ..self.clone()
+        })
     }
 }
 

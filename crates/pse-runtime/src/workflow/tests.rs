@@ -47,7 +47,6 @@ pub(super) fn sources(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<Stri
     (physical, modeling)
 }
 
-
 pub(super) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }

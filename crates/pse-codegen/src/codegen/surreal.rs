@@ -135,9 +135,12 @@ pub(super) fn relations<'a>(
                         | "canonical_project_ancestry"
                         | "canonical_draft_diagnostics"
                 )
-                || (table == "canonical_history_retirements" && matches!(name, "revision" | "generation"))
-                || (table == "canonical_project_draft_versions" && !matches!(name, "content" | "retired"))
-                || (table == "canonical_project_imports" && !matches!(name, "artifact" | "complete" | "retired_artifacts"))
+                || (table == "canonical_history_retirements"
+                    && matches!(name, "revision" | "generation"))
+                || (table == "canonical_project_draft_versions"
+                    && !matches!(name, "content" | "retired"))
+                || (table == "canonical_project_imports"
+                    && !matches!(name, "artifact" | "complete" | "retired_artifacts"))
                 || (table == "canonical_project_branches"
                     && matches!(name, "project" | "problem" | "origin_revision"))
                 || (table == "canonical_attempts"

@@ -1626,7 +1626,7 @@ fn validate_encoding(
         }
     }
     if member.selection.format == PackFormat::ArrowIpcStream {
-        let schema = finalized_ipc_schema(file,member.readable_bytes,maximum_document_bytes)?;
+        let schema = finalized_ipc_schema(file, member.readable_bytes, maximum_document_bytes)?;
         if let Some(table) = &member.selection.diagnostic_table {
             let registry = pse_schema::registry().map_err(|e| invalid(e.to_string()))?;
             let relation = registry
@@ -1652,18 +1652,27 @@ fn validate_encoding(
             .result
             .as_ref()
             .ok_or_else(|| invalid("IPC stream lacks declared scientific lineage"))?;
-        validate_scientific_lineage(schema.as_ref(),result)?;
+        validate_scientific_lineage(schema.as_ref(), result)?;
     }
     Ok(())
 }
 
 /// Validate only the bounded IPC schema header, terminal marker and exact original scientific lineage.
 /// Record batches remain streamed by their consumer; this never materializes their arrays.
-pub(crate) fn validate_scientific_ipc(file:File,readable_bytes:u64,maximum_document_bytes:usize,result:&PackResultSelection)->Result<(),PackError> {
-    let schema=finalized_ipc_schema(file,readable_bytes,maximum_document_bytes)?;
-    validate_scientific_lineage(schema.as_ref(),result)
+pub(crate) fn validate_scientific_ipc(
+    file: File,
+    readable_bytes: u64,
+    maximum_document_bytes: usize,
+    result: &PackResultSelection,
+) -> Result<(), PackError> {
+    let schema = finalized_ipc_schema(file, readable_bytes, maximum_document_bytes)?;
+    validate_scientific_lineage(schema.as_ref(), result)
 }
-fn finalized_ipc_schema(mut file:File,readable_bytes:u64,maximum_document_bytes:usize)->Result<datafusion::arrow::datatypes::SchemaRef,PackError> {
+fn finalized_ipc_schema(
+    mut file: File,
+    readable_bytes: u64,
+    maximum_document_bytes: usize,
+) -> Result<datafusion::arrow::datatypes::SchemaRef, PackError> {
     if readable_bytes < 8 {
         return Err(invalid("short IPC stream"));
     }
@@ -1693,16 +1702,24 @@ fn finalized_ipc_schema(mut file:File,readable_bytes:u64,maximum_document_bytes:
         return Err(invalid("IPC schema metadata exceeds finite read allowance"));
     }
     file.seek(SeekFrom::Start(0))?;
-    let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-        file.take(length as u64 + 8),
-        None,
-    )
-    .map_err(|e| invalid(e.to_string()))?;
+    let stream =
+        datafusion::arrow::ipc::reader::StreamReader::try_new(file.take(length as u64 + 8), None)
+            .map_err(|e| invalid(e.to_string()))?;
     Ok(stream.schema())
 }
-fn validate_scientific_lineage(schema:&datafusion::arrow::datatypes::Schema,result:&PackResultSelection)->Result<(),PackError> {
-    if result.schema_version==0 || result.row_start>result.row_end || result.run.is_empty() || result.attempt.is_empty() || result.relation.is_empty() {return Err(invalid("invalid selected scientific coordinates"));}
-    let metadata=schema.metadata();
+fn validate_scientific_lineage(
+    schema: &datafusion::arrow::datatypes::Schema,
+    result: &PackResultSelection,
+) -> Result<(), PackError> {
+    if result.schema_version == 0
+        || result.row_start > result.row_end
+        || result.run.is_empty()
+        || result.attempt.is_empty()
+        || result.relation.is_empty()
+    {
+        return Err(invalid("invalid selected scientific coordinates"));
+    }
+    let metadata = schema.metadata();
     for (key, expected) in [
         ("pse.canonical.run", result.run.clone()),
         ("pse.canonical.attempt", result.attempt.clone()),

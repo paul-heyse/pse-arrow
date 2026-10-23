@@ -37,7 +37,12 @@ def mcp_call(state: Path) -> None:
                 "POST",
                 "/mcp",
                 body=json.dumps(
-                    {"jsonrpc": "2.0", "id": identity, "method": method, "params": params}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": identity,
+                        "method": method,
+                        "params": params,
+                    }
                 ).encode(),
                 headers=headers,
             )

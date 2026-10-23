@@ -10,7 +10,6 @@ use super::*;
 #[cfg(feature = "canonical-tests")]
 use std::collections::BTreeMap;
 
-
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_document_sources_chunked_exact_and_kind_checked() {

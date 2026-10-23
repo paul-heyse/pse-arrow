@@ -753,7 +753,10 @@ impl ModelingPackage {
             .await
     }
 
-    #[expect(clippy::too_many_arguments, reason = "One admitted source composition preserves its original parent, parsed order, cancellation and publication mode without a parallel edit path")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "One admitted source composition preserves its original parent, parsed order, cancellation and publication mode without a parallel edit path"
+    )]
     async fn apply_delta_parent_ordered_mode(
         &self,
         delta: SourceDelta,

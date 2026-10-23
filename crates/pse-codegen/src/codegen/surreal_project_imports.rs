@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original import checkpoint and final artifact-owned project availability.
-pub(super) fn append(ddl:&mut String) { ddl.push_str(FUNCTIONS); }
-const FUNCTIONS:&str=r#"
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(FUNCTIONS);
+}
+const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_project_import_v1::available($project:string) -> bool {
     LET $pending=SELECT key FROM canonical_project_imports WITH INDEX project_import_project WHERE project=$project AND complete=false LIMIT 1;
     RETURN array::len($pending)=0;

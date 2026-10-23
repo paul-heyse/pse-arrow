@@ -102,9 +102,7 @@ type CompactStudyAttribution = (Option<String>, Option<String>, Option<String>);
 
 /// Project immutable scientific metadata into the same original create transaction.
 /// Legacy opaque metadata has no invented physical/context attribution.
-pub(crate) fn index_metadata(
-    bytes: &[u8],
-) -> Result<CompactStudyAttribution, CanonicalError> {
+pub(crate) fn index_metadata(bytes: &[u8]) -> Result<CompactStudyAttribution, CanonicalError> {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
         return Ok((None, None, None));
     };
@@ -381,10 +379,21 @@ mod tests {
         assert_eq!(metadata["physical"]["identity"], identity.to_prefixed());
         assert_eq!(
             index_metadata(&serde_json::to_vec(&metadata).unwrap()).unwrap(),
-            (Some("p".into()), Some(identity.to_hex()), Some("cut".into()))
+            (
+                Some("p".into()),
+                Some(identity.to_hex()),
+                Some("cut".into())
+            )
         );
-        assert_eq!(index_metadata(br#"{"version":5,"physical":null,"context":null}"#).unwrap(), (None, None, None));
-        assert_eq!(index_metadata(br#"{"version":4,"physical":{"identity":"opaque historical value"}}"#).unwrap(), (None, None, None));
+        assert_eq!(
+            index_metadata(br#"{"version":5,"physical":null,"context":null}"#).unwrap(),
+            (None, None, None)
+        );
+        assert_eq!(
+            index_metadata(br#"{"version":4,"physical":{"identity":"opaque historical value"}}"#)
+                .unwrap(),
+            (None, None, None)
+        );
     }
     #[test]
     fn index_attribution_rejects_untyped_or_malformed_physical_checksums() {
@@ -399,5 +408,4 @@ mod tests {
             assert!(index_metadata(&serde_json::to_vec(&metadata).unwrap()).is_err());
         }
     }
-
 }

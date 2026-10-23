@@ -369,16 +369,35 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Option<pse_columnar::Leased<Vec<BTreeMap<String, Vec<u8>>>>>, WorkflowError> {
         let parent = self.delta_parent(cancel).await?;
-        if parent.documents.is_empty() || parent.documents.values().any(|document|document.source_text.is_none() && !parent.frame.data.contains_key(&document.document_id)) {return Ok(None);}
-        let extent = parent.documents.values().try_fold(0usize, |total, document| {
-            let bytes = document.source_text.as_ref().map_or_else(
-                || self.local_object(&format!("data:{}", document.document_id)).map(|v| v.payload.len()),
-                |text| Ok(text.len()),
-            )?;
-            total.checked_add(bytes.saturating_mul(3)).and_then(|n| n.checked_add(document.path.len() + 1024))
-                .ok_or_else(|| contract("portable source extent"))
-        })?;
-        let owner = self.runtime.shared.math().reserve("project:portable-documents", extent)?;
+        if parent.documents.is_empty()
+            || parent.documents.values().any(|document| {
+                document.source_text.is_none()
+                    && !parent.frame.data.contains_key(&document.document_id)
+            })
+        {
+            return Ok(None);
+        }
+        let extent = parent
+            .documents
+            .values()
+            .try_fold(0usize, |total, document| {
+                let bytes = document.source_text.as_ref().map_or_else(
+                    || {
+                        self.local_object(&format!("data:{}", document.document_id))
+                            .map(|v| v.payload.len())
+                    },
+                    |text| Ok(text.len()),
+                )?;
+                total
+                    .checked_add(bytes.saturating_mul(3))
+                    .and_then(|n| n.checked_add(document.path.len() + 1024))
+                    .ok_or_else(|| contract("portable source extent"))
+            })?;
+        let owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("project:portable-documents", extent)?;
         let sources = exact_document_sources(self, &parent, cancel)?;
         Ok(Some(pse_columnar::Leased::new(Arc::new(sources), owner)))
     }

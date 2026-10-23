@@ -261,7 +261,10 @@ impl Runtime {
         }))
     }
     /// Read-only issue of the original immutable raw-draft custody effect.
-    #[expect(clippy::too_many_arguments, reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises"
+    )]
     pub async fn project_draft_save_intent(
         &self,
         operation: &str,
@@ -485,7 +488,10 @@ impl Runtime {
         .await
     }
     /// Single-effect bounded inline save; larger bodies require the retained original intent API.
-    #[expect(clippy::too_many_arguments, reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises"
+    )]
     pub async fn project_save_draft(
         &self,
         operation: &str,
@@ -562,7 +568,9 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<pse_columnar::Leased<[u8]>, WorkflowError> {
         draft_checkpoint(cancel)?;
-        if draft.retired { return Err(contract("draft raw detail was explicitly released")); }
+        if draft.retired {
+            return Err(contract("draft raw detail was explicitly released"));
+        }
         let store = self.canonical_store()?;
         let Some(artifact) = draft.artifact.as_deref() else {
             let lease = self.shared.math().reserve(

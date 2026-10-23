@@ -105,7 +105,11 @@ def diagnostic_check(arguments: list[str]) -> tuple[list[str], dict[str, str] | 
                     for feature in re.split(r"[\s,]+", arguments[index])
                 )
         elif argument.startswith(("--features=", "-F")):
-            value = argument.split("=", 1)[1] if argument.startswith("--features=") else argument[2:]
+            value = (
+                argument.split("=", 1)[1]
+                if argument.startswith("--features=")
+                else argument[2:]
+            )
             selected |= any(
                 feature.rsplit("/", 1)[-1] == "diagnostic-taskdump"
                 for feature in re.split(r"[\s,]+", value)
@@ -115,8 +119,12 @@ def diagnostic_check(arguments: list[str]) -> tuple[list[str], dict[str, str] | 
         index += 1
     if not selected:
         return arguments, None
-    if (profile is not None and profile != "diagnostic-taskdump") or "--release" in arguments[:boundary]:
-        raise ValueError("diagnostic-taskdump checks require the isolated diagnostic-taskdump profile")
+    if (
+        profile is not None and profile != "diagnostic-taskdump"
+    ) or "--release" in arguments[:boundary]:
+        raise ValueError(
+            "diagnostic-taskdump checks require the isolated diagnostic-taskdump profile"
+        )
     command = arguments.copy()
     if profile is None:
         command[boundary:boundary] = ["--profile", "diagnostic-taskdump"]

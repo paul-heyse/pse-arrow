@@ -88,21 +88,45 @@ pub struct ProjectPublication {
 }
 impl ProjectPublication {
     pub(crate) fn import_intent(
-        issuing_store: &str, operation: &str, project: &str, branch: &str, problem: &str,
+        issuing_store: &str,
+        operation: &str,
+        project: &str,
+        branch: &str,
+        problem: &str,
         binding: crate::canonical_project_imports::ImportBinding,
     ) -> Result<Self, CanonicalError> {
-        let mut intent=Self {
-            issuing_store:issuing_store.into(),operation:operation.into(),project:project.into(),
-            branch:branch.into(),problem:problem.into(),project_generation:0,branch_generation:0,
-            expected:None,origin_revision:None,draft:None,draft_generation:None,
-            kind:"import".into(),request:Vec::new(),branch_name:binding.branch_name.clone(),
-            extra_parents:Vec::new(),context_commitment:Some(binding.bundle_digest.clone()),research:None,
-            import:Some(binding),
+        let mut intent = Self {
+            issuing_store: issuing_store.into(),
+            operation: operation.into(),
+            project: project.into(),
+            branch: branch.into(),
+            problem: problem.into(),
+            project_generation: 0,
+            branch_generation: 0,
+            expected: None,
+            origin_revision: None,
+            draft: None,
+            draft_generation: None,
+            kind: "import".into(),
+            request: Vec::new(),
+            branch_name: binding.branch_name.clone(),
+            extra_parents: Vec::new(),
+            context_commitment: Some(binding.bundle_digest.clone()),
+            research: None,
+            import: Some(binding),
         };
-        intent.refresh_request()?; intent.validate()?; Ok(intent)
+        intent.refresh_request()?;
+        intent.validate()?;
+        Ok(intent)
     }
-    pub(crate) fn import_binding(&self)->Option<&crate::canonical_project_imports::ImportBinding> { self.import.as_ref() }
-    pub(crate) fn import_coordinates(&self)->(&str,&str,&str) { (&self.project,&self.branch,&self.problem) }
+    pub(crate) fn import_binding(
+        &self,
+    ) -> Option<&crate::canonical_project_imports::ImportBinding> {
+        self.import.as_ref()
+    }
+    pub(crate) fn import_coordinates(&self) -> (&str, &str, &str) {
+        (&self.project, &self.branch, &self.problem)
+    }
     /// Bind exact original scientific evidence into the ordinary source activation intent.
     pub fn with_research_publication(
         mut self,
@@ -225,15 +249,27 @@ impl ProjectPublication {
         if let Some(commitment) = &self.context_commitment {
             identity(commitment)?;
         }
-        if let Some(binding)=&self.import {
+        if let Some(binding) = &self.import {
             binding.validate()?;
-            if self.kind!="import" || self.context_commitment.as_deref()!=Some(binding.bundle_digest.as_str())
-                || self.branch_name!=binding.branch_name || self.research.is_some() { return Err(CanonicalError::OperationReused); }
-        } else if self.kind=="import" { return Err(CanonicalError::OperationReused); }
+            if self.kind != "import"
+                || self.context_commitment.as_deref() != Some(binding.bundle_digest.as_str())
+                || self.branch_name != binding.branch_name
+                || self.research.is_some()
+            {
+                return Err(CanonicalError::OperationReused);
+            }
+        } else if self.kind == "import" {
+            return Err(CanonicalError::OperationReused);
+        }
         match self.kind.as_str() {
-            "import" if self.expected.is_none() && self.origin_revision.is_none() && self.draft.is_none()
-                && self.draft_generation.is_none() && self.project_generation==0 && self.branch_generation==0
-                && self.extra_parents.is_empty() => {},
+            "import"
+                if self.expected.is_none()
+                    && self.origin_revision.is_none()
+                    && self.draft.is_none()
+                    && self.draft_generation.is_none()
+                    && self.project_generation == 0
+                    && self.branch_generation == 0
+                    && self.extra_parents.is_empty() => {}
             "fork"
                 if self.expected.is_none()
                     && self.origin_revision.is_some()
@@ -294,7 +330,15 @@ impl ProjectPublication {
             Value::None
         };
         row.insert("research", research);
-        row.insert("import", self.import.as_ref().map(crate::canonical_project_imports::ImportBinding::encode).transpose()?.map(Value::Object).unwrap_or(Value::None));
+        row.insert(
+            "import",
+            self.import
+                .as_ref()
+                .map(crate::canonical_project_imports::ImportBinding::encode)
+                .transpose()?
+                .map(Value::Object)
+                .unwrap_or(Value::None),
+        );
         row.insert("kind", self.kind.clone());
         row.insert("branch_name", self.branch_name.clone());
         row.insert(
@@ -734,7 +778,10 @@ impl CanonicalStore {
             .await
     }
     /// Save original malformed/empty raw bytes under exact generation; this never admits science.
-    #[expect(clippy::too_many_arguments, reason = "The original draft effect binds the project, branch, exact base, raw bytes and optional artifact as independent admission premises")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The original draft effect binds the project, branch, exact base, raw bytes and optional artifact as independent admission premises"
+    )]
     pub async fn save_project_draft(
         &self,
         operation: &str,
@@ -1176,7 +1223,9 @@ impl CanonicalStore {
                  if kind==ProjectMetadataKind::Diagnostics {"fn::pse_project_import_v1::available(type::record('canonical_project_draft_versions',version).project)"} else {"fn::pse_project_import_v1::available(project)"})
             },
         };
-        let sql = format!("{guard} SELECT * FROM {table}{index} WHERE {clause}{availability} AND key>$after ORDER BY key LIMIT 65;");
+        let sql = format!(
+            "{guard} SELECT * FROM {table}{index} WHERE {clause}{availability} AND key>$after ORDER BY key LIMIT 65;"
+        );
         let activity = self.admit_activity()?;
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -1267,53 +1316,223 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn pending_import_is_unavailable_through_public_project_research_and_context_reads() {
-        let store=fixture().await;
-        let origin=store.edit("pending-origin",None,"pending-origin-revision",&[]).await.unwrap();
-        store.create_project("pending-create","pending-project","Pending fixture").await.unwrap();
-        let project=store.project("pending-project").await.unwrap().unwrap();
-        let intent=store.project_fork_intent(&project,"pending-branch","pending-problem",&origin,"pending-fork").unwrap();
-        let head=store.edit_project(&intent,&[]).await.unwrap();
-        let project=store.project("pending-project").await.unwrap().unwrap();
-        let branch=store.project_branch("pending-branch").await.unwrap().unwrap();
-        store.save_project_draft("pending-version",&project,&branch,"pending-draft",&head.key,None,b"raw draft",None).await.unwrap();
-        store.project_navigate("pending-bookmark-op",&project,&ProjectNavigation::Bookmark{key:"pending-bookmark".into(),name:"bookmark".into(),revision:head.key.clone()}).await.unwrap();
-        let project=store.project("pending-project").await.unwrap().unwrap();
-        store.project_navigate("pending-savepoint-op",&project,&ProjectNavigation::Savepoint{key:"pending-savepoint".into(),name:"saved".into(),draft:"pending-draft".into(),version:"pending-version".into(),generation:1}).await.unwrap();
-        store.project_record_diagnostic("pending-diagnostic","pending-version","fixture diagnostic",false).await.unwrap();
+        let store = fixture().await;
+        let origin = store
+            .edit("pending-origin", None, "pending-origin-revision", &[])
+            .await
+            .unwrap();
+        store
+            .create_project("pending-create", "pending-project", "Pending fixture")
+            .await
+            .unwrap();
+        let project = store.project("pending-project").await.unwrap().unwrap();
+        let intent = store
+            .project_fork_intent(
+                &project,
+                "pending-branch",
+                "pending-problem",
+                &origin,
+                "pending-fork",
+            )
+            .unwrap();
+        let head = store.edit_project(&intent, &[]).await.unwrap();
+        let project = store.project("pending-project").await.unwrap().unwrap();
+        let branch = store
+            .project_branch("pending-branch")
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .save_project_draft(
+                "pending-version",
+                &project,
+                &branch,
+                "pending-draft",
+                &head.key,
+                None,
+                b"raw draft",
+                None,
+            )
+            .await
+            .unwrap();
+        store
+            .project_navigate(
+                "pending-bookmark-op",
+                &project,
+                &ProjectNavigation::Bookmark {
+                    key: "pending-bookmark".into(),
+                    name: "bookmark".into(),
+                    revision: head.key.clone(),
+                },
+            )
+            .await
+            .unwrap();
+        let project = store.project("pending-project").await.unwrap().unwrap();
+        store
+            .project_navigate(
+                "pending-savepoint-op",
+                &project,
+                &ProjectNavigation::Savepoint {
+                    key: "pending-savepoint".into(),
+                    name: "saved".into(),
+                    draft: "pending-draft".into(),
+                    version: "pending-version".into(),
+                    generation: 1,
+                },
+            )
+            .await
+            .unwrap();
+        store
+            .project_record_diagnostic(
+                "pending-diagnostic",
+                "pending-version",
+                "fixture diagnostic",
+                false,
+            )
+            .await
+            .unwrap();
         // These deliberately synthetic metadata rows test disclosure boundaries,
         // not scientific admission or validity. Every row belongs to this fixture.
         bounded_query(store.db.query("BEGIN; CREATE type::record('canonical_context_journals','pending-project') SET key='pending-project',sequence=1dec; CREATE canonical_project_contexts:pending_context SET key='pending_context',project='pending-project',scope='fixture',revision=$revision,source_identity='fixture',physical_context='fixture',physical_revision=$revision,physical_source_identity='fixture',effective_from_us=0,effective_to_us=NONE,recorded_sequence=1dec,corrects=NONE,deleted=false,request=$bytes; CREATE canonical_research_datasets:pending_dataset SET key='pending_dataset',project='pending-project',revision=$revision,physical_context='fixture',context='pending_context',parent=NONE,role='raw',members=$bytes,request=$bytes; CREATE canonical_research_selections:pending_selection SET key='pending_selection',project='pending-project',dataset='pending_dataset',revision=$revision,physical_context='fixture',context='pending_context',fit='fixture',selection=$bytes,request=$bytes; CREATE canonical_research_publications:pending_publication SET key='pending_publication',project='pending-project',selection='pending_selection',run='fixture',attempt='fixture',revision=$revision,parent=$revision,mapping=$bytes,request=$bytes; COMMIT;")
             .bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
-        let cut=store.project_context_cut("pending-project").await.unwrap();
-        assert!(store.research_dataset("pending_dataset").await.unwrap().is_some());
-        assert!(store.project_context_record("pending_context").await.unwrap().is_some());
+        let cut = store.project_context_cut("pending-project").await.unwrap();
+        assert!(
+            store
+                .research_dataset("pending_dataset")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            store
+                .project_context_record("pending_context")
+                .await
+                .unwrap()
+                .is_some()
+        );
         // Install an original incomplete-import checkpoint only after creating
         // adversarial pre-existing references, so forged known coordinates are covered.
         bounded_query(store.db.query("CREATE canonical_project_imports:pending_import SET key='pending_import',issuing_store=$issuer,bundle_digest='fixture',project='pending-project',branch='pending-branch',problem='pending-problem',revision=$revision,origin=$bytes,request=$bytes,artifact=NONE,complete=false;")
             .bind(("issuer",store.issuing_store().unwrap().to_owned())).bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
         assert!(store.project("pending-project").await.unwrap().is_none());
-        assert!(store.project_branches("pending-project",None).await.is_err());
-        assert!(store.project_branch("pending-branch").await.unwrap().is_none());
-        assert!(store.project_branch_revision("pending-branch").await.unwrap().is_none());
-        assert!(store.project_bookmark("pending-bookmark").await.unwrap().is_none());
-        assert!(store.project_draft("pending-draft").await.unwrap().is_none());
-        assert!(store.project_draft_version("pending-version").await.unwrap().is_none());
+        assert!(
+            store
+                .project_branches("pending-project", None)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .project_branch("pending-branch")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .project_branch_revision("pending-branch")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .project_bookmark("pending-bookmark")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .project_draft("pending-draft")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .project_draft_version("pending-version")
+                .await
+                .unwrap()
+                .is_none()
+        );
         assert!(store.project_revision_parents(&head).await.is_err());
-        let projects=store.project_metadata(ProjectMetadataKind::Projects,"",None).await.unwrap();
-        assert!(projects.projects.iter().all(|p|p.key!="pending-project"));
-        for (kind,owner) in [(ProjectMetadataKind::Drafts,"pending-branch"),(ProjectMetadataKind::Bookmarks,"pending-project"),(ProjectMetadataKind::Savepoints,"pending-draft"),(ProjectMetadataKind::Diagnostics,"pending-version")] {
-            assert!(store.project_metadata(kind,owner,None).await.is_err());
+        let projects = store
+            .project_metadata(ProjectMetadataKind::Projects, "", None)
+            .await
+            .unwrap();
+        assert!(projects.projects.iter().all(|p| p.key != "pending-project"));
+        for (kind, owner) in [
+            (ProjectMetadataKind::Drafts, "pending-branch"),
+            (ProjectMetadataKind::Bookmarks, "pending-project"),
+            (ProjectMetadataKind::Savepoints, "pending-draft"),
+            (ProjectMetadataKind::Diagnostics, "pending-version"),
+        ] {
+            assert!(store.project_metadata(kind, owner, None).await.is_err());
         }
-        assert!(store.research_dataset("pending_dataset").await.unwrap().is_none());
-        assert!(store.research_selection("pending_selection").await.unwrap().is_none());
-        assert!(store.research_publication("pending_publication").await.unwrap().is_none());
-        assert!(store.research_datasets("pending-project","",64).await.is_err());
+        assert!(
+            store
+                .research_dataset("pending_dataset")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .research_selection("pending_selection")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .research_publication("pending_publication")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .research_datasets("pending-project", "", 64)
+                .await
+                .is_err()
+        );
         assert!(store.project_context_cut("pending-project").await.is_err());
-        assert!(store.project_context_record("pending_context").await.unwrap().is_none());
-        assert!(store.select_project_context(&cut,"fixture",0).await.is_err());
-        assert!(store.project_acknowledgement("pending-fork").await.unwrap().is_some(),"original operation settlement remains observable");
-        assert!(store.revision(&head.key).await.unwrap().is_some(),"original source primitives remain valid for artifact registration");
-        assert!(bounded_query(store.db.query("UPDATE canonical_project_imports:pending_import SET complete=true;")).await.is_err(),"a synthetic checkpoint cannot claim completion without copied artifact membership");
+        assert!(
+            store
+                .project_context_record("pending_context")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .select_project_context(&cut, "fixture", 0)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .project_acknowledgement("pending-fork")
+                .await
+                .unwrap()
+                .is_some(),
+            "original operation settlement remains observable"
+        );
+        assert!(
+            store.revision(&head.key).await.unwrap().is_some(),
+            "original source primitives remain valid for artifact registration"
+        );
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query("UPDATE canonical_project_imports:pending_import SET complete=true;")
+            )
+            .await
+            .is_err(),
+            "a synthetic checkpoint cannot claim completion without copied artifact membership"
+        );
         assert!(store.project("pending-project").await.unwrap().is_none());
         // Real completed import visibility is exercised through original activation
         // in the runtime and public Python portability journeys.

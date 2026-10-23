@@ -26,28 +26,47 @@ use surrealdb::types::{Bytes, Object, Value};
 tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
 
 /// Exact original run/attempt facts without execution requests, attestations or scientific completion.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct CanonicalResultOrigin {
     /// Exact attempt identity.
-    pub key:String,
+    pub key: String,
     /// Exact original run.
-    pub run:String,
+    pub run: String,
     /// Original source revision.
-    pub source_revision:String,
+    pub source_revision: String,
     /// Original attempt generation.
-    pub generation:u64,
+    pub generation: u64,
     /// Original lifecycle phase.
-    pub phase:String,
+    pub phase: String,
     /// Original terminal outcome when present.
-    pub outcome:Option<String>,
+    pub outcome: Option<String>,
     /// Original closed manifest locator; its payload is not read.
-    pub closed_manifest:Option<String>,
+    pub closed_manifest: Option<String>,
 }
-const RESULT_ORIGIN_SQL:&str="fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt); LET $a=SELECT key,run,generation,phase,outcome,closed_manifest FROM ONLY type::record('canonical_attempts',$attempt); IF $a!=NONE { fn::pse_history_v1::run($pse_rpc_expires_at,$a.run); }; LET $r=SELECT key,revision FROM ONLY type::record('canonical_runs',$run); IF $a=NONE OR $r=NONE { RETURN NONE; }; RETURN {key:$a.key,run:$a.run,source_revision:$r.revision,generation:$a.generation,phase:$a.phase,outcome:$a.outcome,closed_manifest:$a.closed_manifest};";
-fn decode_result_origin(mut row:Object)->Result<CanonicalResultOrigin,CanonicalError> {
-    use canonical_codec::{decode_string,decode_uint,required};
-    let result=CanonicalResultOrigin{key:decode_string(required(&mut row,"key")?)?,run:decode_string(required(&mut row,"run")?)?,source_revision:decode_string(required(&mut row,"source_revision")?)?,generation:decode_uint(required(&mut row,"generation")?)?,phase:decode_string(required(&mut row,"phase")?)?,outcome:row.remove("outcome").filter(|v|!matches!(v,Value::None|Value::Null)).map(decode_string).transpose()?,closed_manifest:row.remove("closed_manifest").filter(|v|!matches!(v,Value::None|Value::Null)).map(decode_string).transpose()?};
-    if !row.is_empty(){return Err(canonical_codec::CodecError::UnknownFields.into());} Ok(result)
+const RESULT_ORIGIN_SQL: &str = "fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt); LET $a=SELECT key,run,generation,phase,outcome,closed_manifest FROM ONLY type::record('canonical_attempts',$attempt); IF $a!=NONE { fn::pse_history_v1::run($pse_rpc_expires_at,$a.run); }; LET $r=SELECT key,revision FROM ONLY type::record('canonical_runs',$run); IF $a=NONE OR $r=NONE { RETURN NONE; }; RETURN {key:$a.key,run:$a.run,source_revision:$r.revision,generation:$a.generation,phase:$a.phase,outcome:$a.outcome,closed_manifest:$a.closed_manifest};";
+fn decode_result_origin(mut row: Object) -> Result<CanonicalResultOrigin, CanonicalError> {
+    use canonical_codec::{decode_string, decode_uint, required};
+    let result = CanonicalResultOrigin {
+        key: decode_string(required(&mut row, "key")?)?,
+        run: decode_string(required(&mut row, "run")?)?,
+        source_revision: decode_string(required(&mut row, "source_revision")?)?,
+        generation: decode_uint(required(&mut row, "generation")?)?,
+        phase: decode_string(required(&mut row, "phase")?)?,
+        outcome: row
+            .remove("outcome")
+            .filter(|v| !matches!(v, Value::None | Value::Null))
+            .map(decode_string)
+            .transpose()?,
+        closed_manifest: row
+            .remove("closed_manifest")
+            .filter(|v| !matches!(v, Value::None | Value::Null))
+            .map(decode_string)
+            .transpose()?,
+    };
+    if !row.is_empty() {
+        return Err(canonical_codec::CodecError::UnknownFields.into());
+    }
+    Ok(result)
 }
 
 /// Small descriptive projection of one retained attempt; excludes request and result payloads.
@@ -4344,15 +4363,43 @@ impl CanonicalStore {
             }).await
     }
     /// Project only the selected run/attempt metadata under the same original history guards.
-    pub async fn canonical_result_origin(&self,run:&str,attempt:&str)->Result<Option<CanonicalResultOrigin>,CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header,async {
-            let activity=self.admit_activity()?;
-            activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-                identity(run)?;identity(attempt)?;
-                let mut response=protected_query("canonical_execution::canonical_result_origin",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header,crate::canonical_history::run_query(RESULT_ORIGIN_SQL,"run")).bind(("run",run.to_owned())).bind(("attempt",attempt.to_owned())))).await?;
-                response.take::<Option<Object>>(0)?.map(decode_result_origin).transpose()
-            })).await
-        }).await
+    pub async fn canonical_result_origin(
+        &self,
+        run: &str,
+        attempt: &str,
+    ) -> Result<Option<CanonicalResultOrigin>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(
+            crate::canonical::MetadataResponse::Header,
+            async {
+                let activity = self.admit_activity()?;
+                activity
+                    .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                        identity(run)?;
+                        identity(attempt)?;
+                        let mut response =
+                            protected_query("canonical_execution::canonical_result_origin", || {
+                                Ok(self
+                                    .db
+                                    .metadata_query(
+                                        crate::canonical::MetadataResponse::Header,
+                                        crate::canonical_history::run_query(
+                                            RESULT_ORIGIN_SQL,
+                                            "run",
+                                        ),
+                                    )
+                                    .bind(("run", run.to_owned()))
+                                    .bind(("attempt", attempt.to_owned())))
+                            })
+                            .await?;
+                        response
+                            .take::<Option<Object>>(0)?
+                            .map(decode_result_origin)
+                            .transpose()
+                    }))
+                    .await
+            },
+        )
+        .await
     }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
@@ -5868,18 +5915,49 @@ mod canonical_result_admission_unit {
 mod review_attempt_metadata_tests {
     use super::*;
     #[test]
-    fn project_result_origin_projection_excludes_scientific_payloads_and_preserves_history_guards() {
-        let sql=crate::canonical_history::run_query(RESULT_ORIGIN_SQL,"run");
-        for guard in ["fn::pse_history_v1::run($pse_rpc_expires_at,$run)","fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt)","fn::pse_history_v1::run($pse_rpc_expires_at,$a.run)"] {assert!(sql.contains(guard));}
+    fn project_result_origin_projection_excludes_scientific_payloads_and_preserves_history_guards()
+    {
+        let sql = crate::canonical_history::run_query(RESULT_ORIGIN_SQL, "run");
+        for guard in [
+            "fn::pse_history_v1::run($pse_rpc_expires_at,$run)",
+            "fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt)",
+            "fn::pse_history_v1::run($pse_rpc_expires_at,$a.run)",
+        ] {
+            assert!(sql.contains(guard));
+        }
         assert!(sql.contains("SELECT key,run,generation,phase,outcome,closed_manifest FROM ONLY"));
         assert!(sql.contains("SELECT key,revision FROM ONLY"));
-        for forbidden in ["SELECT *","completion","request","source_selection","attestation"] {assert!(!sql.contains(forbidden),"descriptive result projection includes {forbidden}");}
-        let mut row=Object::new();
-        for (name,value) in [("key","attempt"),("run","run"),("source_revision","revision"),("phase","terminal")] {row.insert(name,canonical_codec::encode_string(value.into()).unwrap());}
-        row.insert("generation",canonical_codec::encode_uint(2).unwrap());
-        assert_eq!(decode_result_origin(row.clone()).unwrap().generation,2);
-        row.insert("completion",canonical_codec::encode_bytes(vec![42].into()).unwrap());
-        assert!(decode_result_origin(row).is_err(),"payload accidentally added to this projection must fail the typed decoder");
+        for forbidden in [
+            "SELECT *",
+            "completion",
+            "request",
+            "source_selection",
+            "attestation",
+        ] {
+            assert!(
+                !sql.contains(forbidden),
+                "descriptive result projection includes {forbidden}"
+            );
+        }
+        let mut row = Object::new();
+        for (name, value) in [
+            ("key", "attempt"),
+            ("run", "run"),
+            ("source_revision", "revision"),
+            ("phase", "terminal"),
+        ] {
+            row.insert(name, canonical_codec::encode_string(value.into()).unwrap());
+        }
+        row.insert("generation", canonical_codec::encode_uint(2).unwrap());
+        assert_eq!(decode_result_origin(row.clone()).unwrap().generation, 2);
+        row.insert(
+            "completion",
+            canonical_codec::encode_bytes(vec![42].into()).unwrap(),
+        );
+        assert!(
+            decode_result_origin(row).is_err(),
+            "payload accidentally added to this projection must fail the typed decoder"
+        );
     }
     #[test]
     fn review_attempt_metadata_preserves_uint_fences_and_absent_result() {
