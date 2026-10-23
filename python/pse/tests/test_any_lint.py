@@ -161,9 +161,16 @@ def test_native_compatibility_refuses_version_or_fingerprint_mismatch(
 ) -> None:
     with pytest.raises(ImportError, match="versions differ"):
         _check_native_compatibility("incompatible", documents.SCHEMA_SET_FINGERPRINT)
-    monkeypatch.setattr(pse.contracts, "REGISTRY_FINGERPRINT", "incompatible")
-    with pytest.raises(ImportError, match="registry differ"):
-        _check_native_compatibility(pse.__version__, documents.SCHEMA_SET_FINGERPRINT)
+    with monkeypatch.context() as context:
+        context.setattr(pse.contracts, "REGISTRY_FINGERPRINT", "incompatible")
+        with pytest.raises(ImportError, match="registry differ"):
+            _check_native_compatibility(
+                pse.__version__, documents.SCHEMA_SET_FINGERPRINT
+            )
+    # Keep the package and relation identities valid so this reaches the real
+    # extension's independent document-catalogue comparison.
+    with pytest.raises(ImportError, match="document catalogue.*differ"):
+        _check_native_compatibility(pse.__version__, "incompatible")
 
 
 @pytest.mark.unit

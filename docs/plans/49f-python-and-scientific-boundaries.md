@@ -12,14 +12,15 @@ doc_topics: [design, libraries, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Current execution: [remaining 49f–49h](49-library-native-remediation.md#execution-resumption--remaining-49f49h-2026-10-23).
+The maintainer authorized the complete remaining scope on 2026-10-23, including reconciliation
+against current code. Original authoring baselines and receipts retain their dates and limits.
 
 This companion develops R17, R18 and R20/F10 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
 and [recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
 The [coordinator](49-library-native-remediation.md) owns rule decisions, live package status,
-finding disposition and combined qualification. This **Proposed** implementation is governed
+finding disposition and combined qualification. The selected implementation is governed
 by the recorded target decisions, including RC14 and RC18. It consumes the
 runtime request owner from [49e](49e-runtime-and-native-execution.md) and the schema catalogue
 and tooling contracts developed by [49g](49g-contracts-maintenance-and-tooling.md); it does not
@@ -54,9 +55,48 @@ physical units, current native capability and source/start permission stay with 
 owners. Never expose Z3 AST/context objects or treat a logical candidate as a qualified solution.
 This new feature cannot be smuggled into BND05 as an already accepted boundary correction.
 
+### Current execution remainder — 2026-10-23
+
+**Interface-checked:** source `f29333aaa` and current callers. Strict enum extraction with
+separate vocabulary caches, standalone/versioned documents, semantic identity hooks and
+registry-governed physical schemas already exist. `workflow::physical_values` admits owned
+snapshots for starts, populated stages, diagnostic samples, tolerances and scales. Public
+bindings already consume Arrow batches and return typed primal batches. No repeated boundary
+implementation or speculative deletion of a positional API is scheduled from the older prose.
+
+**Implemented:** exact fit covariance hydration/reconciliation and explicit external origin are
+present. Scale-normalized faer PSD admission prepays matrix/eigenvalue/scratch storage, uses
+sequential library execution and retains its allowance until return. Existing controls cover
+indefinite/asymmetric, zero/singular/mixed-scale, tolerance, overflow/capacity/cancellation and
+negative propagated variance. Their actual execution evidence remains at the coordinator's
+Outcomes; source presence or test discovery alone is not a new pass.
+
+The remaining work is public consumer acceptance and any concrete defect it exposes:
+
+- BND01 joins existing vocabulary/identity controls to current generated documents and actual
+  source/context membership. TOOL01 separately supplies the missing boundary-schema mismatch
+  negative control; matching extension import alone does not establish refusal.
+- BND02 extends existing primal mutation/drop evidence to populated stages, diagnostic samples,
+  tolerances and parameter/output scales where assertions are absent. Include physical conversion,
+  operation-specific coverage, signed/sub-microsecond time and output Arrow C field metadata.
+- BND03/BND04 complete one real Python fit → retained/reopened covariance → downstream solve
+  journey. Use existing `parameter_covariance`, `bind_parameter_covariance`, `fit_covariance` and
+  `covariance_source` consumers. Check altered content/order/units/scales, missing/withheld evidence,
+  and independent propagated values without promoting external origin or PSD admission to
+  statistical certification.
+- BND05 completes the scientific consumer inventory and the catalogue/physical/covariance joins,
+  including affected Plan51 project/research/import consumers and typed graph explanations.
+  TOOL08's semantic producer exists; its native work bound remains owned by 49g.
+
+The coordinator owns package state. Targeted units accompany functional changes; 49h selects
+remaining assembled acceptance after integration. No new public API, wire interpretation,
+dependency or numerical tolerance is selected merely to close this package. Existing Plan51
+evidence is reused at its original scope, and completed inquiries stay closed.
+
 ## Inspected foundations and evidence limits
 
-Static inspection used HEAD `e08b1f1dd` on 2026-10-21 and the current audited review. No product
+The following historical baseline used HEAD `e08b1f1dd` on 2026-10-21 and the audited review.
+It describes original defects, not current missing mechanisms. No product
 tests, builds or probes were run while authoring. Relevant enduring contracts are blueprint §8,
 §19.8 and §21 in the [physical](../authoritative_design/sections/physical-semantics.md) and
 [workflow](../authoritative_design/sections/workflows-and-results.md) owners. The applied standard
@@ -250,11 +290,11 @@ behavioral units and required consumers, leaving local names and implementation 
 
 | Package | Required product | Delivered contract and retirement |
 |---|---|---|
-| BND01 — vocabularies and identities | Registry-owned enum/identity declarations shared with store; catalogue keyword support | Strict enum inputs/outputs, per-type cached lookup, retained SemanticId hooks and generated static role hints; delete hand vocabulary/hex parsing at migrated boundaries. |
-| BND02 — physical Arrow boundary | Registry relation contracts; runtime admitted-input interface from RUN03 | Owned keyed starts/settings/diagnostic inputs and typed primal output; migrate every affected side route and retire positional/float/list entry paths they replace. |
-| BND03 — covariance content and origin | Coordinator RC18 decision; fit result hydration/availability contract; catalogue version evolution | Qualified content lookup/reconciliation and explicit external origin, carried through settings, propagation, results and Python codecs; remove id-only provenance assumptions. |
-| BND04 — mathematical covariance validity | BND03 origin/validity types; explicit scale and numerical tolerance policy | faer PSD admission preserving singular matrices, resource/failure handling and unchanged identity-aligned propagation; remove diagonal-only acceptance as a sufficient covariance guarantee. |
-| BND05 — scientific boundary adoption | TOOL01's working catalogue/fingerprint/typed returns plus BND01–BND04 products and runtime preparation entry | All affected scientific document/table consumers expose truthful availability/provenance and physical custody through Rust and Python; remove remaining local scientific-input interpretations. |
+| BND01 — vocabularies and identities | Implemented registry declarations, strict extraction, identity hooks and catalogue | Complete cold-order/type/membership and actual generated-consumer acceptance; remove only demonstrated duplicate interpretations. |
+| BND02 — physical Arrow boundary | Implemented relation contracts, snapshot admission and public Arrow routes | Complete all affected side-route custody/conversion/metadata/time controls; repair concrete gaps without recreating snapshots or assuming legacy APIs survive. |
+| BND03 — covariance content and origin | Implemented exact fit hydration/reconciliation and explicit external origin | Complete real retained/canonical Python covariance handoff, tampering/unavailable refusal and downstream provenance/validity. |
+| BND04 — mathematical covariance validity | Implemented scale/tolerance policy and prepaid sequential faer PSD admission | Complete public propagation join with independent values, singular support, failure/withholding and separation from statistical certification. |
+| BND05 — scientific boundary adoption | Working TOOL01 catalogue, BND01–BND04/runtime consumers and existing TOOL08 semantic producer | Close actual Rust/Python scientific/document/table consumer acceptance, including affected Plan51 consumers; retire only proven replaced interpretations. |
 
 BND01 can establish strict enum conversion before the full catalogue arrives; identity-role
 generation needs its actual keyword contract. BND02 needs a working runtime custody/admission
@@ -276,7 +316,9 @@ inputs whose physical context and conversions are already owned.
 
 ## Verification and qualification limits
 
-The following checks are **Proposed** acceptance, with zero failures as the baseline. The
+The following checks specify acceptance distinctions, with zero failures as the baseline.
+Credit applicable existing evidence and run uncovered or changed behavior rather than treating
+the historical baseline as a fresh implementation list. The
 historical msgspec hook probe is **Tested** only on its recorded pinned selective conditions;
 the faer method is **Interface-checked**, and the PSD tolerance/integration remains **Proposed**.
 No runtime or scientific qualification is claimed by writing these documents.

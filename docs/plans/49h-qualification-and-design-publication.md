@@ -15,9 +15,8 @@ doc_topics: [design, validation, performance, documentation]
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 Current qualification scope: [post-Plan51 acceptance reconciliation](#post-plan51-acceptance-reconciliation--2026-10-23).
-The maintainer authorized these plan revisions on 2026-10-23. This documentation engagement
-does not resume production execution; original baselines, failed runs and receipts retain
-their dates and conditions.
+The maintainer subsequently authorized [remaining 49f–49h execution](49-library-native-remediation.md#execution-resumption--remaining-49f49h-2026-10-23)
+on 2026-10-23. Original baselines, failed runs and receipts retain their dates and conditions.
 
 ## Purpose and evidence boundary
 

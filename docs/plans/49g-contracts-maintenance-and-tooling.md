@@ -14,8 +14,8 @@ doc_topics: [design, documentation, libraries, storage, validation]
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
 Current remaining scope: [post-Plan51 reconciliation](#remaining-scope-after-plan51--2026-10-23).
-The maintainer authorized these plan revisions on 2026-10-23; this documentation engagement
-does not resume production execution. The earlier reassessment, pause handoff and minimal
+The maintainer subsequently authorized [remaining 49f–49h execution](49-library-native-remediation.md#execution-resumption--remaining-49f49h-2026-10-23)
+on 2026-10-23. The earlier reassessment, documentation-only reconciliation, pause handoff and minimal
 TOOL08 delivery retain their original dates and evidence boundaries.
 
 ## Purpose, basis and responsibility

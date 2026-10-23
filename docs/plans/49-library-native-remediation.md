@@ -12,7 +12,7 @@ doc_topics: [current-work, design, libraries, storage, preparation, numerical-ex
 
 # Plan 49: Library-native remediation and SurrealMX integration
 
-Current 49f–49h handoff: [post-Plan51 scope reconciliation](#plan51-overlap-reconciliation--2026-10-23).
+Current 49f–49h execution: [authorized resumption](#execution-resumption--remaining-49f49h-2026-10-23).
 Earlier Outcomes retain their own implementation and qualification conditions.
 
 ## Purpose and authoring basis
@@ -1728,3 +1728,25 @@ New measurements are required only for retained quantitative claims. The unprove
 fixture-startup issue and bounded primary metric unavailability have explicit conditional
 investigation dispositions at QUAL03; they do not automatically restart a campaign, weaken
 admission, alter compiler jobs or reopen completed Plan51 scope.
+
+## Execution resumption — remaining 49f–49h, 2026-10-23
+
+The maintainer authorized the conversational execution approach and explicitly included all
+remaining 49f scope, revised against current code alongside 49g/49h. Existing BND/TOOL
+foundations remain the implementation baseline; QUAL01 credits original evidence before
+selecting uncovered or invalidated assertions. All three companions retain their own design
+and acceptance responsibilities; this coordinator remains the single status/disposition owner.
+
+Independent assignments cover public scientific/physical boundary acceptance, native bounded
+graph queries and a test-only exact-source scanner probe. The root owns catalogue mismatch,
+conformance/launch/maintenance/review acceptance, shared declarations/generation, integration,
+qualification and publication. Separate worktrees isolate concurrent writers; targets remain
+checkout-local. Sixteen compiler jobs and existing production resource/admission contracts
+remain unchanged. Root-owned unrelated `history.txt` edits are excluded from this work.
+
+Functional changes receive targeted checks and discrete commits. Existing typed envelopes,
+covariance policy, graph identities/cursors and canonical owners are preserved. No production
+engine instrumentation, new schema, configuration/Z3 feature, historical conversion or canceled
+native sweep is selected. 49h owns final scientific/operator joins and scope-end checks after
+all functional scope is integrated. Implementation and acceptance results will be recorded in
+the existing package/Outcome owners rather than inferred from assignment completion.
