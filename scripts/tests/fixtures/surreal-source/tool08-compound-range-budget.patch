@@ -1,0 +1,139 @@
+--- a/surrealdb/core/src/exec/index/iterator/btree.rs
++++ b/surrealdb/core/src/exec/index/iterator/btree.rs
+@@ -662,6 +662,8 @@
+ /// which encodes the equality prefix together with the range value.
+ pub(crate) struct CompoundRangeForwardIterator {
+ 	range: TypedRange<IndexEntryValue>,
++	#[cfg(test)]
++	tool08_observe: bool,
+ }
+ 
+ impl CompoundRangeForwardIterator {
+@@ -675,6 +677,8 @@
+ 	) -> Result<Self> {
+ 		let range = compute_compound_key_range(ns, db, ix, prefix, Some(range))?;
+ 		Ok(Self {
++			#[cfg(test)]
++			tool08_observe: ix.name.as_str() == tool08_probe::INDEX,
+ 			range,
+ 		})
+ 	}
+@@ -688,6 +692,10 @@
+ 	) -> Result<Vec<RecordId>> {
+ 		let scan_limit = limit.min(INDEX_BATCH_SIZE);
+ 		let res = scan(&mut self.range, tx, scan_limit).await?;
++		#[cfg(test)]
++		if self.tool08_observe {
++			tool08_probe::SCANS.lock().expect("TOOL08 observer").push((scan_limit, res.len()));
++		}
+ 		decode_record_ids(res)
+ 	}
+ }
+@@ -1575,3 +1583,107 @@
+ 		assert!(bitmap_scan_range(fx.ns, fx.db, ix, &knn).is_err());
+ 	}
+ }
++
++// Test-only instrumentation in a disposable source copy. Not a production patch.
++#[cfg(test)]
++mod tool08_probe {
++	use std::sync::Mutex;
++
++	use surrealdb_types::{ToSql, Value};
++
++	use crate::catalog::providers::CatalogProvider;
++	use crate::dbs::{NewPlannerStrategy, Session};
++	use crate::kvs::{Datastore, TransactionType};
++
++	pub(super) const INDEX: &str = "tool08_budget_owner_key_f1c493a0";
++	pub(super) static SCANS: Mutex<Vec<(u32, usize)>> = Mutex::new(Vec::new());
++
++	async fn query(ds: &Datastore, session: &Session, sql: &str) -> Value {
++		let mut responses = ds.execute(sql, session, None).await.expect("datastore query");
++		assert_eq!(responses.len(), 1, "one probe statement");
++		responses.remove(0).result.expect("probe statement succeeds")
++	}
++
++	fn check_plan(value: &Value, budget: usize) -> usize {
++		match value {
++			Value::Array(values) => values.iter().map(|v| check_plan(v, budget)).sum(),
++			Value::Object(object) => {
++				let mut scans = 0;
++				if let Some(Value::String(operator)) = object.get("operator") {
++					assert!(!matches!(operator.as_str(), "Filter" | "Sort" | "TopKSort" | "TableScan"),
++						"residual filtering/sorting/full scan invalidates this probe: {value:?}");
++					if operator == "IndexScan" {
++						let Some(Value::Object(attrs)) = object.get("attributes") else {
++							panic!("IndexScan must expose attributes: {value:?}");
++						};
++						assert_eq!(attrs.get("index"), Some(&Value::from(INDEX)));
++						assert_eq!(attrs.get("access"), Some(&Value::from("['eligible'] MoreThan 100")));
++						assert_eq!(attrs.get("direction"), Some(&Value::from("Forward")));
++						assert_eq!(attrs.get("limit"), Some(&Value::from(budget.to_string())));
++						scans += 1;
++					}
++				}
++				scans + object.values().map(|v| check_plan(v, budget)).sum::<usize>()
++			}
++			_ => 0,
++		}
++	}
++
++	fn ids(value: Value) -> Vec<String> {
++		let Value::Array(rows) = value else { panic!("row array required"); };
++		rows.iter().map(|row| {
++			let Value::Object(row) = row else { panic!("projected object required"); };
++			row.get("id").expect("projected id").to_sql()
++		}).collect()
++	}
++
++	#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++	async fn tool08_compound_range_scan_stops_at_entry_budget() {
++		let ds = Datastore::new("memory").await.expect("MX in-memory datastore");
++		let tx = ds.transaction(TransactionType::Write).await.expect("namespace transaction");
++		tx.ensure_ns_db(None, "tool08_probe", "tool08_probe").await.expect("namespace/database");
++		tx.commit().await.expect("namespace commit");
++		let owner = Session::owner().with_ns("tool08_probe").with_db("tool08_probe")
++			.new_planner_strategy(NewPlannerStrategy::AllReadOnlyStatements);
++		for statement in [
++			"DEFINE TABLE tool08_edge SCHEMAFULL PERMISSIONS NONE;".to_owned(),
++			"DEFINE FIELD owner ON tool08_edge TYPE string;".to_owned(),
++			"DEFINE FIELD k ON tool08_edge TYPE int;".to_owned(),
++			format!("DEFINE INDEX {INDEX} ON tool08_edge FIELDS owner, k;"),
++		] {
++			query(&ds, &owner, &statement).await;
++		}
++		// Scalar schema excludes array fanout. IDs and expected ordering come
++		// directly from this independent integer fixture, not a second SELECT.
++		let mut rows = (0..2501).map(|i| format!("{{id: tool08_edge:{i}, owner: 'eligible', k: {i}}}"))
++			.collect::<Vec<_>>();
++		rows.extend((0..300).map(|i| format!("{{id: tool08_edge:{}, owner: 'unrelated', k: {i}}}", i + 3000)));
++		query(&ds, &owner, &format!("INSERT INTO tool08_edge [{}];", rows.join(","))).await;
++		let viewer = Session::viewer().with_ns("tool08_probe").with_db("tool08_probe")
++			.new_planner_strategy(NewPlannerStrategy::AllReadOnlyStatements);
++		let base = format!("SELECT id, k FROM tool08_edge WITH INDEX {INDEX} WHERE owner = 'eligible' AND k > 100 ORDER BY k");
++		// Both are root system identities. PERMISSIONS NONE is bypassed by
++		// OWNER/VIEWER, so there is no conditional row-permission filtering.
++		for (role, session) in [("OWNER", &owner), ("VIEWER", &viewer)] {
++			for (budget, expected_scans) in [(65usize, vec![(65,65)]), (1001, vec![(1000,1000),(1,1)])] {
++				let sql = format!("{base} LIMIT {budget}");
++				let plan = query(&ds, session, &format!("{sql} EXPLAIN;")).await;
++				assert_eq!(check_plan(&plan, budget), 1, "exactly one compound IndexScan: {plan:?}");
++				SCANS.lock().expect("observer").clear();
++				let actual = ids(query(&ds, session, &format!("{sql};")).await);
++				let scans = std::mem::take(&mut *SCANS.lock().expect("observer"));
++				let expected = (101..101+budget).map(|i| format!("tool08_edge:{i}")).collect::<Vec<_>>();
++				assert_eq!(actual, expected, "exclusive cursor and independent IDs");
++				assert_eq!(scans, expected_scans, "raw KV caps/counts before decoding");
++				println!("TOOL08 role={role} budget={budget} raw_scans={scans:?} plan={}", plan.to_sql());
++			}
++			SCANS.lock().expect("observer").clear();
++			let all = ids(query(&ds, session, &format!("{base};")).await);
++			let scans = std::mem::take(&mut *SCANS.lock().expect("observer"));
++			assert_eq!(all, (101..2501).map(|i| format!("tool08_edge:{i}")).collect::<Vec<_>>());
++			assert!(scans.iter().map(|(_, count)| count).sum::<usize>() > 1001,
++				"uncapped sensitivity must expose more raw work than either budget");
++			println!("TOOL08 role={role} uncapped_rows={} raw_scans={scans:?}", all.len());
++		}
++	}
++}
