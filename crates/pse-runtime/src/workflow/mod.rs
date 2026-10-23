@@ -198,7 +198,7 @@ pub(crate) mod modeling;
 mod project_contexts;
 mod projects;
 mod research;
-pub use research::{ResearchDataObject,ResearchDatasetRequest,ResearchObservation,ResearchSelectionRequest,ResearchReadRequest,ResearchReadResult};
+pub use research::{ResearchSource,ResearchDataObject,ResearchDatasetRequest,ResearchObservation,ResearchSelectionRequest,ResearchReadRequest,ResearchReadResult};
 #[cfg(all(test, feature = "canonical-tests"))]
 mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;

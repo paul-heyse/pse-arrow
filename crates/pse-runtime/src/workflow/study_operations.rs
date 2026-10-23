@@ -32,6 +32,8 @@ pub(in crate::workflow) type StudyBindingKey = (ContentHash, Vec<String>, Vec<Se
 )]
 #[serde(deny_unknown_fields)]
 pub struct OperationSource {
+    /// Frozen research attribution consumed by this exact operation.
+    pub research: Option<super::ResearchSource>,
     /// Original effective-time and recorded-cut selection, if explicitly selected.
     pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Immutable modeling revision, including included scientific data.
@@ -44,6 +46,7 @@ impl OperationSource {
     pub fn of(package: &ModelingPackage) -> Self {
         Self {
             revision: package.revision.identity(),
+            research: package.research_source.clone(),
             context: package.project_context.clone(),
             physical_context: package.physical.identity(),
         }
@@ -1530,6 +1533,7 @@ mod study_operation_unit {
             output: crate::workflow::StudyOutputDemand::Full {},
             version: Version,
             source: OperationSource {
+                research: None,
                 context: None,
                 revision: ContentHash::from_bytes([3; 32]).into(),
                 physical_context: ContentHash::from_bytes([4; 32]),

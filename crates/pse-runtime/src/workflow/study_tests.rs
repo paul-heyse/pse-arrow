@@ -579,6 +579,7 @@ fn study_variants_codec_unit_retains_explicit_preparation_and_refuses_old_versio
     let variants = StudyVariants {
         version: pse_model::document::Version,
         source: OperationSource {
+                research: None,
             context: None,
             revision: hash.into(),
             physical_context: hash,
@@ -617,7 +618,7 @@ fn study_definition_historical_readmission_codec_unit() {
         StartPolicy::Fresh,
     );
     let definition = StudyDefinition {
-        context: None,
+            research: None,        context: None,
         variants: None,
         version: pse_model::document::Version,
         physical: PhysicalSource {
@@ -630,6 +631,7 @@ fn study_definition_historical_readmission_codec_unit() {
                 output: StudyOutputDemand::Full {},
                 version: pse_model::document::Version,
                 source: OperationSource {
+                research: None,
                     context: None,
                     revision: hash.into(),
                     physical_context: hash,

@@ -467,6 +467,7 @@ impl Runtime {
                     lazy.variants.retain_parent(&science.modeling_revision);
                 }
                 Ok(StudyDefinition {
+                    research: local.package.research_source.clone(),
                     context: local.package.project_context.clone(),
                     version: Version,
                     physical,
@@ -559,6 +560,7 @@ impl Runtime {
                 .await?;
                 self.restore_project_context(&mut package, definition.context.as_ref())
                     .await?;
+                self.restore_research_source(&mut package,definition.research.as_ref()).await?;
                 // Binding/role admission reuses structure. Explicit starts also validate
                 // compatibility against one prepared target before study activation.
                 let study_id: StudyId = pse_operations::mint_id();
@@ -661,10 +663,11 @@ impl Runtime {
                 let attestation = self.canonical()?.attestation();
                 let attestation = document(&(attestation.source, attestation.build))?;
                 let source_selection = document(&(
-                    2_u8,
+                    3_u8,
                     &definition.modeling_revision,
                     &physical,
                     &definition.context,
+                    &definition.research,
                 ))?;
                 let request = StoredRequest {
                     key: run,
@@ -925,6 +928,7 @@ impl Runtime {
                 .await?;
             self.restore_project_context(&mut package, metadata.context.as_ref())
                 .await?;
+            self.restore_research_source(&mut package,metadata.research.as_ref()).await?;
             lazy.variants.source.check(&package)?;
             lane.input = Some(StudyVariantOwner {
                 study: point.study.clone(),
@@ -979,7 +983,7 @@ impl Runtime {
                             .map_err(|e| contract(e.to_string()))?,
                     ))?,
                     source_selection: document(&(
-                        3_u8,
+                        4_u8,
                         &admitted.revision,
                         &input.physical,
                         &definition.operation.source,
@@ -1089,6 +1093,7 @@ impl Runtime {
                             revision == actual_revision
                                 && receipt == &physical
                                 && retained.project_context == definition.operation.source.context
+                                && retained.research_source == definition.operation.source.research
                         });
                 if !same_source {
                     lane.preparation.close().await?;
@@ -1109,6 +1114,7 @@ impl Runtime {
                         definition.operation.source.context.as_ref(),
                     )
                     .await?;
+                    self.restore_research_source(&mut package,definition.operation.source.research.as_ref()).await?;
                     lane.source = Some((actual_revision.into(), physical, package));
                 }
                 let package = lane
@@ -2414,6 +2420,8 @@ const STUDY_DEFINITION_VERSION: u32 = 13;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
+    /// Frozen research ancestry consumed by original study admission.
+    pub research: Option<super::ResearchSource>,
     /// Exact historical source context selected before admission, never a latest query.
     pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Document version.
@@ -2828,7 +2836,7 @@ mod creation_authority_tests {
         )]);
         let identity = pse_admission::authoring_driver::document::package_checksum(&sources);
         let definition = StudyDefinition {
-            context: None,
+            research: None,            context: None,
             variants: None,
             version: Version,
             physical: super::super::PhysicalSource {

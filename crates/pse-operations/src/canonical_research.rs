@@ -52,6 +52,13 @@ impl CanonicalStore {
             r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_selections).transpose().map_err(Into::into)
         })).await
     }
+    /// Exact atomic source-publication receipt; values remain in original source/result owners.
+    pub async fn research_publication(&self,key:&str)->Result<Option<ResearchPublication>,CanonicalError>{
+        identity(key)?;let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_publications',$key);")?.bind(("key",key.to_owned()))).await?;
+            r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_publications).transpose().map_err(Into::into)
+        })).await
+    }
     /// Bounded indexed metadata page, ordered by immutable key. Continue after the last key.
     pub async fn research_datasets(&self,project:&str,after:&str,limit:usize)->Result<Vec<ResearchDataset>,CanonicalError>{
         identity(project)?;if limit==0||limit>128{return Err(CanonicalError::PayloadLimit);}
