@@ -6741,7 +6741,7 @@ APPLICATION_BACKUP_TABLES = (
 )
 
 
-def application_inventory_query(table: str, after: str) -> str:
+def application_inventory_query(table: str, after: str, *, maintenance: bool = False) -> str:
     if table not in APPLICATION_BACKUP_TABLES:
         raise SupervisorError("Unknown application backup inventory owner")
     # Key and digest bind every original row, including opaque authored bytes. The
@@ -6754,9 +6754,12 @@ def application_inventory_query(table: str, after: str) -> str:
         "complete", "retired", "retiring",
     )
     projection = "{" + ",".join(f"{field}:$row.{field}" for field in fields) + "}"
+    # Maintenance owns the sole RETURN acknowledgement; a RETURN in an assigned
+    # block would escape the transaction before that original nonce is emitted.
+    output = "LET $value=" if maintenance else "RETURN "
     return (
         f"LET $rows=SELECT * FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "  # noqa: S608 -- fixed owner allowlist, JSON cursor
-        "RETURN $rows.map(|$row| { {key:$row.key,"
+        f"{output}$rows.map(|$row| {{ {{key:$row.key,"
         "sha256:crypto::sha256(<string>object::remove($row,['id'])),"
         f"references:<string>{projection}" + "} });"
     )
@@ -6773,10 +6776,15 @@ def capture_application_inventory(
         # Existing authenticated native maintenance transport; never opens an engine.
         return maintenance_query(
             state, config, credentials,
-            "LET $value={ " + body + " };",
+            body,
         ).get("value")
 
-    marker = query("RETURN (SELECT * FROM ONLY canonical_interpretations:current).issuing_store;")
+    marker_query = (
+        "LET $value=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;"
+        if credentials is not None else
+        "RETURN (SELECT * FROM ONLY canonical_interpretations:current).issuing_store;"
+    )
+    marker = query(marker_query)
     if not isinstance(marker, str):
         raise SupervisorError("Application backup authority is unavailable")
     try:
@@ -6788,7 +6796,7 @@ def capture_application_inventory(
         rows: list[dict[str, object]] = []
         after = ""
         while True:
-            page = query(application_inventory_query(table, after))
+            page = query(application_inventory_query(table, after, maintenance=credentials is not None))
             if not isinstance(page, list) or len(page) > 64:
                 raise SupervisorError("Application backup inventory page is invalid")
             if not page:
