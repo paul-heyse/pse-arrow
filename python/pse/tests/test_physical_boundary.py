@@ -139,11 +139,16 @@ def length_context(runtime: pse.Runtime) -> pse.PhysicalContext:
 
 
 def centimetres(batch: pa.RecordBatch) -> pa.RecordBatch:
-    rows = batch.to_pylist()
-    for row in rows:
-        for coordinate in row["values"]:
-            coordinate["value"]["unit_id"] = bytes(identity(245))
-    return pa.RecordBatch.from_pylist(rows, schema=batch.schema)
+    # Preserve the original list/struct/extension children: PyArrow cannot rebuild
+    # these nested extension arrays from Python dictionaries.
+    quantity_values = batch.column("values").values.field("value")
+    units = quantity_values.storage.field("unit_id").storage
+    buffer = units.buffers()[1]
+    assert buffer.is_mutable
+    memory = memoryview(buffer).cast("B")
+    for index in range(len(units)):
+        memory[index * 16:(index + 1) * 16] = bytes(identity(245))
+    return batch
 
 
 @pytest.mark.integration
@@ -245,6 +250,7 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
       eq rate[i in t]:d(x[i])/di==p;
       eq initial:x[-0.0000002{s}]==1{s};
       let area:Time=integral(i in t | p);
+      annotation report area("integral");
      }
      case run fixture {dof 0; route integrated; procedure integrate;
       integrate samples(-0.0000002{s},0{s},0.0000002{s}) relative(1e-8)
@@ -290,7 +296,12 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     rows = pa.table(result.table("runtime.simulation_samples")).to_pylist()
     assert [row["time"] for row in rows] == times
     for row in rows:
-        assert row["value"] == pytest.approx(1.0 + row["time"] - times[0], abs=1e-10)
+        assert row["value"] == pytest.approx(
+            1.0 + row["time"] - times[0], rel=0, abs=1e-10
+        )
+    assert rows[-1]["value"] - rows[0]["value"] == pytest.approx(
+        times[-1] - times[0], rel=0, abs=1e-10
+    )
 
 
 @pytest.mark.unit
