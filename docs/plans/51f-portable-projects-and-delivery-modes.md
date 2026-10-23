@@ -1,6 +1,6 @@
 ---
 title: "Plan 51f: Portable projects and delivery modes"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0220]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,7 +14,7 @@ doc_topics: [current-work, design, storage, numerical-execution]
 
 ## Selected delivery target
 
-**Proposed:** export a selected logical project closure, inspect it without its original service
+**Implemented:** export a selected logical project closure, inspect it without its original service
 and import it under fresh local authority for ordinary editing/study operations. Resolve the
 bounded browser/offline and collaboration questions without assuming a frontend, live replication
 or multi-user platform is required. O18/O20, I06/I08 and package state belong to the
@@ -147,11 +147,42 @@ If a new authority rule is required, obtain its explicit selection before depend
 
 ## Verification and evolution
 
-**Proposed:** targeted manifest/admission/CLI tests use independent source facts and disposable
-authorities; 51g owns the assembled export/import journey and scope-end qualification. Native
-engine checkpoint portability and new numerical performance are not established by these tests.
+**Implemented:** DL01 exposes versioned protected logical export and independent contained-byte
+inspection through Rust, Python and the actual `pse-project` executable. Explicit descriptive
+export uses metadata projections without physical admission or payload hydration. DL02 issues
+original import intents, streams receiving-owned copied evidence and fences project availability
+until complete. Exact active/expired artifact settlement retains original clocks and retired
+receipts. Imported sources reopen from receiving custody after the supplied pack is removed;
+owned physical context supports ordinary typed draft admission and supported new study requests.
+Historical executions, publications and result references retain origin meaning, not local grants.
 
-A later graphical viewer can consume the logical format; a standalone-editable desktop requirement
-can deliberately reopen 51a's embedded topology alternative. Neither needs to alter scientific
-identity, infer accepted historical results or retrofit a generic backend facade now. Current
-checkpoint: plan authored; no export/import, browser or collaboration implementation claimed.
+**Tested (Linux, 2026-10-23, zero failure baseline):** five public Python portability controls
+passed, including actual offline CLI inspection, removed-pack reopen, fresh ownership, exact
+recovery and typed draft admission. The combined public project/research/workbench/lifecycle cut
+passed 14 tests. Native controls exercised exact checksums/coverage, original IPC lineage and
+terminal markers, escaped/symlink paths, unknown codecs/providers, missing selected artifact files,
+interrupted copy and original artifact recovery. The calibrated fit/export/import/edit/study
+journey retains original cells/prediction and requests a distinct new prediction after editing;
+[51g](51g-qualification-and-publication.md) owns assembled reruns, exact conditions and final limits.
+
+DL03/I06 closes with native/offline logical tooling and no browser adoption. DL04/I08 closes with
+explicit logical exchange and exact-parent merge, without live synchronization. The coordinator
+retains the concrete browser-operation and multiwriter/automatic-exchange revisit triggers.
+
+## Outcome
+
+DL01–DL04 are complete at their selected functional boundary. Blueprint §20.6 and the substrate
+guide own enduring formats, commands, fresh-authority and recovery limits. **Measured:** no
+performance, browser persistence, distributed isolation or new receiving scientific qualification
+follows from copying historical evidence. Series acceptance remains owned by 51g.
+
+**Mistakes corrected:** a public test put attrs relation rows into a document-row constructor;
+it now uses the declared strict row-to-document conversion. An imported recorded branch cannot
+bypass its ordinary project draft/publication guards. An early unavailable-payload fixture had
+created no file-backed artifact; it now withholds actual selected original artifact files and
+verifies restoration. Scientific IPC validation reuses its original lineage/finalization owner.
+
+**Deliberate deviations:** no automatic provider installation, live-path fallback, historical
+result-to-seed promotion, engine-directory interchange, compatibility storage path, browser UI
+or live sync service. Import archives stream through original artifact framing rather than a
+whole-buffer allowance; pending source admission remains distinct from project availability.

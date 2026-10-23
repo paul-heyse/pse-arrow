@@ -1,6 +1,6 @@
 ---
 title: "Plan 51e: Reproducibility, lifecycle and storage health"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0220]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,7 +14,7 @@ doc_topics: [current-work, design, storage, diagnostics, validation]
 
 ## Target and authority
 
-**Proposed:** explain what an exact selected project/study/evidence closure contains, copy it
+**Implemented:** explain what an exact selected project/study/evidence closure contains, copy it
 safely for reproduction/exchange, explain recovery and retention through current owners, and
 make storage observations useful without inventing new authority. Resolve whether a complete-
 artifact confidentiality capability is needed. O09/O14/O15/O19 and inquiry I07 remain owned by
@@ -175,11 +175,46 @@ to finish the base workbench. The inquiry is required; adopting TDE/encrypted pa
 
 ## Verification and handoff
 
-**Proposed:** targeted closure/lifetime/recovery tests use disposable authenticated resources and
-the current owner predicates. 51g owns assembled exchange/recovery/retention journeys and static
-scope-end checks. Benchmarking engine GC/checkpoint throughput is optional only if a concrete
-claim requires it; logical closure tests establish no physical reclamation/performance claim.
+**Implemented:** LC01 shares one exact closure resolver with DL01; original protected result and
+artifact readers supply copied membership, and original review-pack owners validate scientific
+IPC lineage/finalization. LC02 extends application backup manifest v4 with bounded original
+catalogue/reference inventories and shared inspection/restore verification. LC03 composes original
+retention/release owners, retained history-settlement receipts and immutable draft retirement.
+LC04 supplies bounded native/service/cgroup/host observations and existing evidence associations.
+LC05 closes with the maintainer's no-application-crypto decision and full artifact inventory at
+the coordinator; filesystem access and explicit custody are the supported boundary.
 
-Current checkpoint: proposed composition only. LC01's closure contract can unblock DL01/DL02
-before LC04's health presentation is complete. Lifecycle participation is incremental from the
-first consumer. Coordinator tables remain the sole package and inquiry status owner.
+**Tested (Linux, 2026-10-23, zero failure baseline):** protected lifecycle/source/artifact controls,
+public Python lifecycle and descriptive/portable controls, independent IPC checks and the actual
+`canonical_recovery_check` numeric journey passed at their recorded conditions. The recovery
+journey includes nonempty project/branch/draft custody, complete/incomplete backup inspection,
+SIGKILL/reopen, positive 4096/2048 MiB server reconfiguration, exact values/staged payloads,
+fresh restore authority, semantic admission and stale credential/creation refusal. Both profiles
+admit the unchanged production module pool. This did not select the optional `--scientific`
+reference-profile recovery campaign.
+
+Actual health capture on the disposable restored service observed ten native metric families;
+its server was stopped afterwards. Capture on the larger primary retained verified service and
+cgroup identity while reporting the unchanged 4 MiB metric-response limit precisely. No truncated
+prefix became a complete metric population. Host adapters passed 322 tests; affected health
+controls passed after the final observation repair. [51g](51g-qualification-and-publication.md)
+owns exact commands, final assembled conditions, scope-end checks and remaining qualification.
+
+## Outcome
+
+LC01–LC05 are complete at their selected functional boundary. Enduring meaning lives in
+blueprint §20.6/§24.1 and the substrate/diagnostic guides. Whole-series acceptance remains owned
+by 51g; this companion does not qualify an unexercised native/provider/platform combination.
+**Measured:** no speedup, physical reclaimed bytes or full-artifact confidentiality is claimed.
+
+**Mistakes corrected:** the first recovery fixture fork omitted the original source closure;
+the unchanged guard correctly refused it. Actual recovery then exposed unsupported SurrealQL
+projection, a premature maintenance RETURN and NULL-versus-NONE transport errors. Repairs preserve
+the original inventory equality, nonce, generation and authority guards. Fixture teardown now
+waits for authenticated releases before disconnecting; validation uses the original lifecycle
+reservation. Health independently retains service observation when bounded metrics fail.
+
+**Deliberate deviations:** no KV topology/checkpoint port, universal retention service, routine
+whole-store GC, encrypted-pack/TDE implementation or legacy-data campaign. Numeric functional
+recovery and independently asserted scientific exchange cover distinct obligations; one does
+not imply the other. Unknown blockers/reclamation/metric correspondence remain explicit.

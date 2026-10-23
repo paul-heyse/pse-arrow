@@ -161,20 +161,20 @@ Resolved here can close an authoring choice without claiming product implementat
 | O04 | resolved: implemented and targeted-tested | SC04/SC05 | Native snapshot cohorts and protected selected physical KPI analysis preserve complete missing/failed populations; passive per-attempt reconnect reports catch-up or explicit gaps; [51c evidence](51c-scientific-data-studies-and-results.md#verification-and-handoff) |
 | O05 | resolved: implemented and targeted-tested | SC01–SC03 | Original measurements → authored calibration/transformed uncertainty → actual LM → original eligible cells → guarded parameter-source publication → downstream prediction; [51c evidence](51c-scientific-data-studies-and-results.md#verification-and-handoff) |
 | O06 | resolved: implemented and targeted-tested | EV01–EV03 | Authentic declared test populations, supplied-only DataFusion questions, exact activated cuts/freshness and protected detail; [51d evidence](51d-development-and-research-evidence.md#verification-and-evolution) |
-| O07 | partial: EV04 complete; LC04 scheduled | EV04/LC04 | Declared diagnostic links and separate tool/target/scientific outcomes with released-detail controls are targeted-tested; actual storage-health collection remains LC04 |
+| O07 | resolved: implemented and targeted-tested | EV04/LC04 | Original diagnostic links and bounded storage-health observations preserve tool/service/scientific distinctions and current identity; metric-bound failure retains service/cgroup observations. 51e verification; final qualification at 51g. |
 | O08 | resolved: implemented and targeted-tested | EV05 | Explicit authentic measurement contexts/sample populations, failed/censored and unsupported membership; [51d evidence](51d-development-and-research-evidence.md#verification-and-evolution); no quantitative improvement claim |
-| O09 | scheduled | LC01/DL01–DL02 | Exact selected closure and explicit new supported reproduction/import |
+| O09 | resolved: implemented and targeted-tested | LC01/DL01–DL02 | Exact selected closure and explicit new supported reproduction/import |
 | O10 | resolved: no additional native working store | ST02/PJ02 | Existing immutable documents/RPDS plus catalogue transactions; revisit a concrete unmet operation |
 | O11 | resolved: implemented and targeted-tested | PJ06 | Passive resident/canonical discovery through existing owners, actual compatibility and explicit unchecked eligibility; no measured performance claim |
 | O12 | resolved: implemented and targeted-tested | ST02/SC04/EV02 | Operation-shaped native filters and selected Arrow/DataFusion cohort/evidence analytics; no universal query framework; [51c](51c-scientific-data-studies-and-results.md#verification-and-handoff)/[51d](51d-development-and-research-evidence.md#verification-and-evolution) |
 | O13 | resolved: foundation operations | ST02–ST04 | Implemented and targeted-tested project/evidence transactions, exact settlement and protected selections; [51a verification](51a-storage-foundations-and-project-ownership.md#verification-and-handoff). Future consumers retain these contracts; assembled series qualification is Q02/Q03. |
-| O14 | scheduled | LC02/LC03 | Application-closure recovery and explicit retained-resource explanations |
-| O15 | scheduled | LC04 | Useful MX/native storage health joined only to real owner evidence |
+| O14 | resolved: implemented and targeted-tested | LC02/LC03 | Application-closure recovery and explicit retained-resource explanations |
+| O15 | resolved: implemented and targeted-tested | LC04 | Useful MX/native storage health joined only to real owner evidence |
 | O16 | resolved: native payload unification not selected | 51a design decision | Preserve sealed files; logical exchange solves handoff without a second payload backend |
 | O17 | resolved: shared service target selected | ST02/ST03 | New consumers integrate with the chosen deployment; no execution-stage topology campaign |
-| O18 | scheduled: bounded inquiry | DL03 | Resolve offline/browser participation; no ready KV1.0 OPFS Tree or browser solver claim |
-| O19 | scheduled: bounded inquiry | LC05 | Decide a complete-artifact confidentiality capability; no default new crypto rollout |
-| O20 | scheduled | DL01/DL02/DL04 | Logical editable project exchange; collaboration implementation conditional on explicit selection |
+| O18 | resolved: native/offline alternative selected | DL03 | Resolve offline/browser participation; no ready KV1.0 OPFS Tree or browser solver claim |
+| O19 | resolved: no application crypto selected | LC05 | Decide a complete-artifact confidentiality capability; no default new crypto rollout |
+| O20 | resolved: logical exchange; no live sync selected | DL01/DL02/DL04 | Logical editable project exchange; collaboration implementation conditional on explicit selection |
 | O21 | resolved: implemented and targeted-tested; batch decision settled | SC05/SC06 | Read-only observation/reconnect with actual progress/history, source gaps and no cancellation ownership; explicit file/batch admission selected, no external acquisition/control producer |
 
 ## Inquiry outcomes and remaining questions
@@ -227,13 +227,13 @@ remaining scope. Completed companions stay retained dependencies until the aggre
 | EV03 | complete | [51d](51d-development-and-research-evidence.md#EV03) | Implemented explicit activated cuts/history, deduplicated source versions and supplied freshness; Tested native generation visibility, offline/index parity, duplicates and source preservation |
 | EV04 | complete | [51d](51d-development-and-research-evidence.md#EV04) | Implemented exact linked/standalone diagnostic contexts and protected/copied selected detail; Tested independent outcomes, unrelated link refusal and released detail; LC04 remains separate |
 | EV05 | complete | [51d](51d-development-and-research-evidence.md#EV05) | Implemented actual context/sample/censored populations and reported statistics; Tested varied context, true sample membership, unmeasured smoke and unsupported associations; no speed claim |
-| LC01 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
-| LC02 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
-| LC03 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
-| LC04 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC04) | Storage-health observations and admitted actions |
+| LC01 | complete | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
+| LC02 | complete | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
+| LC03 | complete | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
+| LC04 | complete | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC04) | Storage-health observations and admitted actions |
 | LC05 | complete: no-adopt decision | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC05) | Complete-artifact confidentiality decision |
-| DL01 | in progress | [51f](51f-portable-projects-and-delivery-modes.md#DL01) | Versioned logical export with explicit selected closure |
-| DL02 | in progress | [51f](51f-portable-projects-and-delivery-modes.md#DL02) | Fresh-authority import and independent local/project use |
+| DL01 | complete | [51f](51f-portable-projects-and-delivery-modes.md#DL01) | Versioned logical export with explicit selected closure |
+| DL02 | complete | [51f](51f-portable-projects-and-delivery-modes.md#DL02) | Fresh-authority import and independent local/project use |
 | DL03 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL03) | Browser/offline capability decision |
 | DL04 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL04) | Collaboration/synchronization decision |
 | Q01 | in progress | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
@@ -331,8 +331,8 @@ Older plan scope and formal ADR acceptance are unchanged.
 ## 51e–51g authorized execution checkpoint
 
 The maintainer authorized the complete remaining series on 2026-10-23. LC01–LC04 and
-DL01–DL02 are being integrated through original source, artifact, project, recovery and
-evidence owners under proposed ADR-0220. Q01–Q04 remain in progress; targeted controls
+DL01–DL02 are implemented and targeted-tested through original source, artifact, project, recovery
+and evidence owners under proposed ADR-0220. Their companions own the functional Outcomes. Q01–Q04 remain in progress; targeted controls
 are not assembled qualification. No generated-data migration or historical preservation
 campaign is required.
 
