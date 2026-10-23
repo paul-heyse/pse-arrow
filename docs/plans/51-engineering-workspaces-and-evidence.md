@@ -186,9 +186,9 @@ Resolved here can close an authoring choice without claiming product implementat
 | I03 | resolved: no extra native workspace | 51a/51b | No demonstrated operation gap beyond immutable sources and catalogue transactions. |
 | I04 | resolved: explicit temporal records | PJ05 | Use exact source/context revisions with effective intervals and correction ancestry; no native memory-engine time travel. |
 | I05 | resolved: logical exchange | LC01/DL01 | Portable manifest/copy closure, not engine directory identity or live native state. |
-| I06 | open: bounded browser decision | DL03 | Check actual pinned worker/Tree/persistence support and a concrete offline inspection/edit consumer; adopt with explicit supported scope or no-adopt with a new observable trigger. |
-| I07 | open: bounded confidentiality decision | LC05 | Compare full payload/metadata/key coverage against the selected exchange/local-use threat; no partial KV-only protection claim. |
-| I08 | open: bounded collaboration decision | DL04 | Decide whether any multi-writer/server synchronization is needed beyond explicit logical import and objectwise merge. No CRDT/replication assumption. |
+| I06 | resolved: native/offline selected, no browser adoption | DL03 | Maintainer selected native tools and independent logical-pack inspection. Revisit a named browser user operation; then compare logical viewer/editor before browser-native persistence. |
+| I07 | resolved: no application crypto | LC05 | Local filesystem access control and explicit operator custody; host encryption is not established. Revisit a concrete confidential exchange or at-rest requirement covering all artifacts and key recovery. See execution checkpoint inventory. |
+| I08 | resolved: explicit exchange and exact-parent merge | DL04 | Sole-operator logical export/import and PJ04 merge; no live sync. Revisit a concrete concurrent-writer or automatic-exchange workflow with conflict/deletion/provenance semantics. |
 | I09 | resolved: file/batch admission selected | SC06 | Maintainer selected explicit file/batch observation import on 2026-10-23. No external streaming acquisition; revisit a named producer with defined clock, calibration, ordering and loss semantics. |
 | I10 | resolved: owner-based observation | SC05 | Selected gRPC has streaming mechanisms; live resume uses no durable cursor. Own catch-up/gaps from admitted source/progress sequences. |
 | I11 | resolved: no inferred sample joins | EV05 | Existing case_measure declares unavailable Criterion membership; retain actual population rather than fabricate it. |

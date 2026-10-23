@@ -12,6 +12,23 @@ use pse_operations::{
 };
 use std::{path::Path, sync::Arc, time::Duration};
 
+/// Wait for authenticated releases already scheduled by dropped fixture readers.
+/// A busy physical connection remains open and rejects premature disconnection.
+async fn disconnect_fixture(store: &CanonicalStore) -> Result<()> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        match store.disconnect().await {
+            Ok(()) => return Ok(()),
+            Err(pse_operations::canonical::CanonicalError::ConnectionBusy { .. })
+                if tokio::time::Instant::now() < deadline =>
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
 /// Retain an unissued, sealed request outside the backup, then replay it through
 /// the public creation API on the restored physical store. Authority is checked
 /// before the creation window, so an expired request cannot mask this refusal.
@@ -517,7 +534,9 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
             "validation admitted an authoring mutation"
         );
     }
-    store.disconnect().await?;
+    drop(read);
+    drop(changed);
+    disconnect_fixture(&store).await?;
     Ok(())
 }
 
@@ -709,20 +728,7 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
         "signal control joined page differs from exact admitted batch identities or statistics"
     );
     drop(read);
-    // Dropping the final read schedules its authenticated protection release.
-    // Disconnect deliberately refuses while that original activity is live.
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
-    loop {
-        match store.disconnect().await {
-            Ok(()) => break,
-            Err(pse_operations::canonical::CanonicalError::ConnectionBusy { .. })
-                if tokio::time::Instant::now() < deadline =>
-            {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
+    disconnect_fixture(&store).await?;
     Ok(serde_json::json!({
         "version": 1, "event": "signal-results-seeded", "state": state,
         "database": options.database, "run": run, "attempt": fence.attempt(),
