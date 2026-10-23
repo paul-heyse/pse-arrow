@@ -139,6 +139,13 @@ mod tests {
         let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false)).await.unwrap();
         let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false).await.unwrap();assert_eq!(row,replay);
         assert_eq!(store.project_context_cut("project").await.unwrap().sequence,1);
+        let (b,c)=tokio::join!(
+            store.append_project_context("b",&project,"scope-b",&source.key,"hash","physical",0,None,None,false),
+            store.append_project_context("c",&project,"scope-c",&source.key,"hash","physical",0,None,None,false),
+        );
+        let b=b.unwrap();let c=c.unwrap();assert_ne!(b.recorded_sequence,c.recorded_sequence);
+        assert_eq!(store.project_context_cut("project").await.unwrap().sequence,3);
+        assert!(bounded_query(store.db.query("UPDATE canonical_project_contexts:a SET source_identity='mutated';")).await.is_err());
         assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",0,None,None,false).await.is_err());
         let cut=store.project_context_cut("project").await.unwrap();let frozen=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
         // Exercise the source owner's declared unavailable-range gate, not current-value fallback.
