@@ -37,7 +37,7 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "LicenseRef-SurrealDB-BSL-3.0"
 
 [[annotations]]
-path = ["scripts/surrealdb-source/*.patch"]
+path = ["scripts/surrealdb-source/*.patch", "scripts/tests/fixtures/surreal-source/*.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = [
   "2025 SurrealDB Limited",
