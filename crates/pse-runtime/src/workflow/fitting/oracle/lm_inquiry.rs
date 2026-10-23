@@ -1180,6 +1180,7 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     let project = store.project("fit-project").await.unwrap().unwrap();
     let revision = Box::pin(runtime.project_fork(&project, "fit-branch", "fit-source", "fit-fork", &seed.source)).await.unwrap();
     let source = Box::pin(runtime.modeling_revision(revision, seed.source.physical.clone(), Default::default())).await.unwrap();
+    let project = store.project("fit-project").await.unwrap().unwrap();
     Box::pin(runtime.project_record_context("fit-original", &project, "calibration", &source, 0, None, None, false)).await.unwrap();
     let cut = store.project_context_cut("fit-project").await.unwrap();
     let selected = store.select_project_context(&cut, "calibration", 10).await.unwrap().unwrap();
