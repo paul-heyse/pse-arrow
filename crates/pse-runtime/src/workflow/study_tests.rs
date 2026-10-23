@@ -5621,66 +5621,230 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
 async fn project_context_recorded_study_keeps_original_source_after_backdated_correction() {
     let runtime = durable_runtime();
     let cancel = crate::CancelSource::new();
-    let (physical_documents, modeling) = sources("package algebraic { def Fixed { param x:Scalar=2; eq fixed:x==2; annotation report x(\"value\"); } }");
-    let physical = runtime.physical_from_sources(&physical_documents, &cancel).await.unwrap();
-    let package = runtime.package_from_sources(std::slice::from_ref(&modeling), physical.clone(), &cancel).await.unwrap();
+    let (physical_documents, modeling) = sources(
+        "package algebraic { def Fixed { param x:Scalar=2; eq fixed:x==2; annotation report x(\"value\"); } }",
+    );
+    let physical = runtime
+        .physical_from_sources(&physical_documents, &cancel)
+        .await
+        .unwrap();
+    let package = runtime
+        .package_from_sources(std::slice::from_ref(&modeling), physical.clone(), &cancel)
+        .await
+        .unwrap();
     let store = runtime.canonical_store().unwrap();
-    store.create_project("context-project-create", "context-project", "History consumer").await.unwrap();
+    store
+        .create_project(
+            "context-project-create",
+            "context-project",
+            "History consumer",
+        )
+        .await
+        .unwrap();
     let project = store.project("context-project").await.unwrap().unwrap();
-    runtime.project_record_context("engineering-original", &project, "calibration", &package, 0, None, None, false).await.unwrap();
+    runtime
+        .project_record_context(
+            "engineering-original",
+            &project,
+            "calibration",
+            &package,
+            0,
+            None,
+            None,
+            false,
+        )
+        .await
+        .unwrap();
     let original_cut = store.project_context_cut(&project.key).await.unwrap();
-    let original = store.select_project_context(&original_cut, "calibration", 20).await.unwrap().unwrap();
-    let selected = runtime.project_context_reopen(&original, &cancel).await.unwrap();
-    let fixed = selected.declarations().await.unwrap().iter().find(|row|row.name=="Fixed").unwrap().declaration_id;
+    let original = store
+        .select_project_context(&original_cut, "calibration", 20)
+        .await
+        .unwrap()
+        .unwrap();
+    let selected = runtime
+        .project_context_reopen(&original, &cancel)
+        .await
+        .unwrap();
+    let fixed = selected
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|row| row.name == "Fixed")
+        .unwrap()
+        .declaration_id;
     let mut requested = point(fixed, 0, vec![], StartPolicy::Fresh);
-    if let OperationRequest::DeclaredCase(case) = &mut requested.operation {case.settings.backend=None;}
-    let local = selected.admit_study(&StudyInputs::Explicit(vec![requested.clone()]), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    if let OperationRequest::DeclaredCase(case) = &mut requested.operation {
+        case.settings.backend = None;
+    }
+    let local = selected
+        .admit_study(
+            &StudyInputs::Explicit(vec![requested.clone()]),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
     let recorded = runtime.record_study(&local, &cancel).await.unwrap();
     assert_eq!(recorded.context.as_ref(), Some(&original));
     assert_eq!(recorded.modeling_revision, original.context.revision);
-    assert_eq!(recorded.points[0].operation.source.context.as_ref(), Some(&original));
+    assert_eq!(
+        recorded.points[0].operation.source.context.as_ref(),
+        Some(&original)
+    );
     let encoded = serde_json::to_string(&recorded).unwrap();
-    let handle = runtime.start_recorded_study(recorded, &cancel).await.unwrap();
-    let before = store.canonical_study(&handle.study_id().to_string()).await.unwrap().unwrap();
+    let handle = runtime
+        .start_recorded_study(recorded, &cancel)
+        .await
+        .unwrap();
+    let before = store
+        .canonical_study(&handle.study_id().to_string())
+        .await
+        .unwrap()
+        .unwrap();
     // One worker lane must refresh historical attribution even when science and
     // physical source are byte-for-byte identical in two independent studies.
-    runtime.project_record_context("engineering-other", &project, "other-scope", &package, 0, None, None, false).await.unwrap();
-    let other_cut=store.project_context_cut(&project.key).await.unwrap();
-    let other=store.select_project_context(&other_cut,"other-scope",20).await.unwrap().unwrap();
-    let other_package=runtime.project_context_reopen(&other,&cancel).await.unwrap();
-    let other_local=other_package.admit_study(&StudyInputs::Explicit(vec![requested]),&StudyOutputDemand::Full {},&cancel).await.unwrap();
-    let other_recorded=runtime.record_study(&other_local,&cancel).await.unwrap();
-    assert_eq!(other_recorded.modeling_revision,original.context.revision);
-    let other_handle=runtime.start_recorded_study(other_recorded,&cancel).await.unwrap();
-    let mut lane=study::StudyCandidateLane::new();
-    for (selected_handle,expected) in [(&handle,&original),(&other_handle,&other)] {
-        let point=pse_operations::canonical_studies::point_key(&selected_handle.study_id().to_string(),OccurrenceKey(0));
-        let scope=store.study_scope(&point).await.unwrap();
-        let prepared=runtime.prepare_study_candidate_in_lane(&scope,&mut lane,&cancel).await.unwrap();
-        let PreparedStudyOperation::DeclaredCase(prepared)=prepared.operation else {panic!("original constant algebraic operation");};
-        assert_eq!(prepared.source.project_context.as_ref(),Some(expected));
+    runtime
+        .project_record_context(
+            "engineering-other",
+            &project,
+            "other-scope",
+            &package,
+            0,
+            None,
+            None,
+            false,
+        )
+        .await
+        .unwrap();
+    let other_cut = store.project_context_cut(&project.key).await.unwrap();
+    let other = store
+        .select_project_context(&other_cut, "other-scope", 20)
+        .await
+        .unwrap()
+        .unwrap();
+    let other_package = runtime
+        .project_context_reopen(&other, &cancel)
+        .await
+        .unwrap();
+    let other_local = other_package
+        .admit_study(
+            &StudyInputs::Explicit(vec![requested]),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let other_recorded = runtime.record_study(&other_local, &cancel).await.unwrap();
+    assert_eq!(other_recorded.modeling_revision, original.context.revision);
+    let other_handle = runtime
+        .start_recorded_study(other_recorded, &cancel)
+        .await
+        .unwrap();
+    let mut lane = study::StudyCandidateLane::new();
+    for (selected_handle, expected) in [(&handle, &original), (&other_handle, &other)] {
+        let point = pse_operations::canonical_studies::point_key(
+            &selected_handle.study_id().to_string(),
+            OccurrenceKey(0),
+        );
+        let scope = store.study_scope(&point).await.unwrap();
+        let prepared = runtime
+            .prepare_study_candidate_in_lane(&scope, &mut lane, &cancel)
+            .await
+            .unwrap();
+        let PreparedStudyOperation::DeclaredCase(prepared) = prepared.operation else {
+            panic!("original constant algebraic operation");
+        };
+        assert_eq!(prepared.source.project_context.as_ref(), Some(expected));
     }
     lane.close().await.unwrap();
-    let (replacement_physical, replacement_modeling) = sources("package algebraic { def Fixed { param x:Scalar=3; eq fixed:x==3; annotation report x(\"value\"); } }");
-    let replacement = runtime.package_from_sources(std::slice::from_ref(&replacement_modeling), runtime.physical_from_sources(&replacement_physical, &cancel).await.unwrap(), &cancel).await.unwrap();
-    runtime.project_record_context("engineering-correction", &project, "calibration", &replacement, 10, None, Some("engineering-original"), false).await.unwrap();
+    let (replacement_physical, replacement_modeling) = sources(
+        "package algebraic { def Fixed { param x:Scalar=3; eq fixed:x==3; annotation report x(\"value\"); } }",
+    );
+    let replacement = runtime
+        .package_from_sources(
+            std::slice::from_ref(&replacement_modeling),
+            runtime
+                .physical_from_sources(&replacement_physical, &cancel)
+                .await
+                .unwrap(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    runtime
+        .project_record_context(
+            "engineering-correction",
+            &project,
+            "calibration",
+            &replacement,
+            10,
+            None,
+            Some("engineering-original"),
+            false,
+        )
+        .await
+        .unwrap();
     let latest_cut = store.project_context_cut(&project.key).await.unwrap();
-    let corrected = store.select_project_context(&latest_cut, "calibration", 20).await.unwrap().unwrap();
-    let new_package = runtime.project_context_package(&corrected, physical.clone(), &cancel).await.unwrap();
-    assert_ne!(OperationSource::of(&selected).revision, OperationSource::of(&new_package).revision);
-    runtime.project_record_context("engineering-deletion", &project, "calibration", &replacement, 15, None, Some("engineering-correction"), true).await.unwrap();
+    let corrected = store
+        .select_project_context(&latest_cut, "calibration", 20)
+        .await
+        .unwrap()
+        .unwrap();
+    let new_package = runtime
+        .project_context_package(&corrected, physical.clone(), &cancel)
+        .await
+        .unwrap();
+    assert_ne!(
+        OperationSource::of(&selected).revision,
+        OperationSource::of(&new_package).revision
+    );
+    runtime
+        .project_record_context(
+            "engineering-deletion",
+            &project,
+            "calibration",
+            &replacement,
+            15,
+            None,
+            Some("engineering-correction"),
+            true,
+        )
+        .await
+        .unwrap();
     let final_cut = store.project_context_cut(&project.key).await.unwrap();
-    assert!(store.select_project_context(&final_cut,"calibration",20).await.unwrap().is_none());
+    assert!(
+        store
+            .select_project_context(&final_cut, "calibration", 20)
+            .await
+            .unwrap()
+            .is_none()
+    );
     let old_definition = StudyDefinition::readmission(&encoded).unwrap();
-    let old_package = runtime.project_context_package(old_definition.context.as_ref().unwrap(), physical, &cancel).await.unwrap();
-    old_definition.points[0].operation.source.check(&old_package).unwrap();
+    let old_package = runtime
+        .project_context_package(old_definition.context.as_ref().unwrap(), physical, &cancel)
+        .await
+        .unwrap();
+    old_definition.points[0]
+        .operation
+        .source
+        .check(&old_package)
+        .unwrap();
     assert_eq!(old_definition.context.as_ref(), Some(&original));
-    let after = store.canonical_study(&handle.study_id().to_string()).await.unwrap().unwrap();
-    assert_eq!(before.metadata,after.metadata);
-    assert_eq!(before.revision,after.revision);
+    let after = store
+        .canonical_study(&handle.study_id().to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(before.metadata, after.metadata);
+    assert_eq!(before.revision, after.revision);
     let portable = selected.replay_source().unwrap();
-    assert_eq!(portable.context.as_ref(),Some(&original));
+    assert_eq!(portable.context.as_ref(), Some(&original));
     handle.cancel().await.unwrap();
     other_handle.cancel().await.unwrap();
-    for _ in 0..4 {if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
+    for _ in 0..4 {
+        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
+            break;
+        }
+    }
 }

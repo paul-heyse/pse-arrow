@@ -134,17 +134,37 @@ impl LoaderOrigins {
         for package in &mut self.packages {
             package.documents.retain(|document| document.document != id);
         }
-        if let Some((package, document)) = original.into_iter().flat_map(|origin| &origin.packages)
-            .find_map(|package| package.documents.iter().find(|document| document.document == id).map(|document| (package.package, document.clone())))
+        if let Some((package, document)) = original
+            .into_iter()
+            .flat_map(|origin| &origin.packages)
+            .find_map(|package| {
+                package
+                    .documents
+                    .iter()
+                    .find(|document| document.document == id)
+                    .map(|document| (package.package, document.clone()))
+            })
         {
-            if let Some(owner) = self.packages.iter_mut().find(|owner| owner.package == package) {
+            if let Some(owner) = self
+                .packages
+                .iter_mut()
+                .find(|owner| owner.package == package)
+            {
                 owner.documents.push(document);
             } else {
-                self.packages.push(PackageOrigin { package, documents: vec![document] });
+                self.packages.push(PackageOrigin {
+                    package,
+                    documents: vec![document],
+                });
             }
         }
     }
-    pub(super) fn empty() -> Self { Self { version: 1, packages: Vec::new() } }
+    pub(super) fn empty() -> Self {
+        Self {
+            version: 1,
+            packages: Vec::new(),
+        }
+    }
     pub(super) fn invalidate_fits(&mut self, changed: &BTreeSet<String>) {
         for package in &mut self.packages {
             for document in &mut package.documents {

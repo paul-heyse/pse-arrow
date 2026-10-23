@@ -10,12 +10,12 @@ pub mod canonical_artifacts;
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_capability_tests;
 pub mod canonical_codec;
+pub mod canonical_contexts;
 pub mod canonical_execution;
 pub mod canonical_explanations;
 pub mod canonical_files;
 pub mod canonical_history;
 pub mod canonical_projects;
-pub mod canonical_contexts;
 pub mod canonical_result_retention;
 pub mod canonical_results;
 pub mod canonical_retention;

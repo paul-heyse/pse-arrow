@@ -5024,26 +5024,66 @@ mod canonical_server_unit {
             expected.push(store.publish_product(&selected, value).await.unwrap());
         }
         expected.sort();
-        store.corrupt_product_descriptor(&expected[0]).await.unwrap();
-        let page = store.product_headers(selected.selection(), None).await.unwrap();
+        store
+            .corrupt_product_descriptor(&expected[0])
+            .await
+            .unwrap();
+        let page = store
+            .product_headers(selected.selection(), None)
+            .await
+            .unwrap();
         assert_eq!(page.rows.len(), 32);
-        assert_eq!(page.rows.iter().map(|row| row.key.clone()).collect::<Vec<_>>(), expected[..32]);
+        assert_eq!(
+            page.rows
+                .iter()
+                .map(|row| row.key.clone())
+                .collect::<Vec<_>>(),
+            expected[..32]
+        );
         assert!(page.rows.iter().all(|row| row.revision == revision.key));
         let cursor = page.next.unwrap();
-        let tail = store.product_headers(selected.selection(), Some(&cursor)).await.unwrap();
+        let tail = store
+            .product_headers(selected.selection(), Some(&cursor))
+            .await
+            .unwrap();
         assert_eq!(tail.rows.len(), 1);
         assert_eq!(tail.rows[0].key, expected[32]);
         assert!(tail.next.is_none());
         let mut foreign = cursor.clone();
         foreign.issuing_store = "foreign".into();
-        assert!(store.product_headers(selected.selection(), Some(&foreign)).await.is_err());
-        let next_revision = store.edit("p", Some(&revision.key), "source-next", &[]).await.unwrap();
+        assert!(
+            store
+                .product_headers(selected.selection(), Some(&foreign))
+                .await
+                .is_err()
+        );
+        let next_revision = store
+            .edit("p", Some(&revision.key), "source-next", &[])
+            .await
+            .unwrap();
         let next = read(&store, next_revision).await;
-        assert!(store.product_headers(next.selection(), None).await.unwrap().rows.is_empty());
-        assert!(store.product_headers(next.selection(), Some(&cursor)).await.is_err());
+        assert!(
+            store
+                .product_headers(next.selection(), None)
+                .await
+                .unwrap()
+                .rows
+                .is_empty()
+        );
+        assert!(
+            store
+                .product_headers(next.selection(), Some(&cursor))
+                .await
+                .is_err()
+        );
         store.release(next.selection()).await.unwrap();
         store.release(selected.selection()).await.unwrap();
-        assert!(store.product_headers(selected.selection(), None).await.is_err());
+        assert!(
+            store
+                .product_headers(selected.selection(), None)
+                .await
+                .is_err()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 

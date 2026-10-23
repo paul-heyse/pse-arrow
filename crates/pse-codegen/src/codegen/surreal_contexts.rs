@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Short native transactions for immutable engineering context history.
-pub(super) fn append(ddl: &mut String) { ddl.push_str(FUNCTIONS); }
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(FUNCTIONS);
+}
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_context_v1::available($expiry:int,$revision:string) -> bool {
     fn::pse_execution_v1::deadline($expiry);

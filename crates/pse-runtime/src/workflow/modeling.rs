@@ -3,8 +3,8 @@
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
 mod bound;
 mod canonical;
-pub(crate) use canonical::{AdmittedModelRevision,LocalSourcePremises};
 pub(crate) use canonical::reload::RetainedIngress;
+pub(crate) use canonical::{AdmittedModelRevision, LocalSourcePremises};
 pub(in crate::workflow) mod cases;
 mod conformance;
 pub(super) mod declared;
@@ -83,16 +83,24 @@ pub use engines::{
 pub(super) mod analysis_tables;
 pub(super) mod assessment;
 pub(super) mod documents;
-pub(super) mod results;
-mod views;
 mod project_comparison;
 mod project_preparation;
-pub use project_preparation::{PreparationDiscoveryRequest,PreparationDiscoveryReport,PreparationProductKind,PreparationEligibility,ResidentPreparation};
-pub use project_comparison::{ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent,ProjectMergeProposal,ProjectDocumentComposition};
+pub(super) mod results;
+mod views;
 use super::{PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, relation};
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
+pub use project_comparison::{
+    ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection, ProjectDocumentComposition,
+    ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict, ProjectMergeConflictKind,
+    ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview, ProjectMergeProposal,
+    ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail, ProjectSourceObject,
+};
+pub use project_preparation::{
+    PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
+    PreparationProductKind, ResidentPreparation,
+};
 use pse_authoring::language::Declaration;
 use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
 use pse_ids::SemanticId;
@@ -127,7 +135,8 @@ fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
     /// Frozen historical engineering selection, independent of scientific content identity.
-    pub(in crate::workflow) project_context: Option<pse_operations::canonical_contexts::ContextSelection>,
+    pub(in crate::workflow) project_context:
+        Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Escaped positional replay metadata retains its receiving allocation owner.
     pub(in crate::workflow) replay_owner: Option<Arc<pse_columnar::AllocationLease>>,
     pub(in crate::workflow) held_preparation: Option<Arc<engagement::HeldPreparationScope>>,

@@ -1216,7 +1216,10 @@ impl DurableAttempt {
         let identity = identities(request)?;
         let sources = request_source_selections(request);
         for context in sources.iter().filter_map(|source| source.context.as_ref()) {
-            self.operations.store.validate_project_context(context).await?;
+            self.operations
+                .store
+                .validate_project_context(context)
+                .await?;
         }
         let selected = serde_json::to_vec(&(
             2_u8,
@@ -1260,9 +1263,18 @@ impl DurableAttempt {
             .first()
             .ok_or_else(|| contract("horizon source absent"))?
             .physical;
-        let selected_sources=packages.iter().map(super::OperationSource::of).collect::<Vec<_>>();
-        for context in selected_sources.iter().filter_map(|source|source.context.as_ref()) {
-            self.operations.store.validate_project_context(context).await?;
+        let selected_sources = packages
+            .iter()
+            .map(super::OperationSource::of)
+            .collect::<Vec<_>>();
+        for context in selected_sources
+            .iter()
+            .filter_map(|source| source.context.as_ref())
+        {
+            self.operations
+                .store
+                .validate_project_context(context)
+                .await?;
         }
         let mut inputs = packages
             .iter()
@@ -2347,12 +2359,21 @@ fn identities(
 /// Scientific source deduplication must not discard distinct context cuts over one source.
 fn request_source_selections(request: &RunRequest<'_>) -> Vec<super::OperationSource> {
     match request {
-        RunRequest::Horizon(horizon) => horizon.sources.iter().map(super::OperationSource::of).collect(),
-        RunRequest::Modeling(steps) => steps.iter().map(|step|super::OperationSource::of(&step.source)).collect(),
+        RunRequest::Horizon(horizon) => horizon
+            .sources
+            .iter()
+            .map(super::OperationSource::of)
+            .collect(),
+        RunRequest::Modeling(steps) => steps
+            .iter()
+            .map(|step| super::OperationSource::of(&step.source))
+            .collect(),
         RunRequest::Simulation(simulation) => vec![super::OperationSource::of(&simulation.source)],
         RunRequest::Fit(fit) => vec![super::OperationSource::of(&fit.source)],
         #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting {problem,..} => vec![super::OperationSource::of(&problem.simulation.source)],
+        RunRequest::Shooting { problem, .. } => {
+            vec![super::OperationSource::of(&problem.simulation.source)]
+        }
     }
 }
 fn request_inputs(request: &RunRequest<'_>) -> Result<Vec<Revision>, WorkflowError> {

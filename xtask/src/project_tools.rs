@@ -5,7 +5,9 @@ use anyhow::{Context, Result, ensure};
 use clap::{Args, Subcommand};
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore},
-    canonical_projects::{Project, ProjectCursor, ProjectNavigationRequest, ProjectMetadataRequest},
+    canonical_projects::{
+        Project, ProjectCursor, ProjectMetadataRequest, ProjectNavigationRequest,
+    },
 };
 use serde::Serialize;
 use std::{
@@ -30,11 +32,21 @@ pub(crate) struct ProjectArgs {
 #[derive(Debug, Subcommand)]
 enum ProjectCommand {
     /// Apply an original typed navigation decision against its original project descriptor.
-    Navigate { #[arg(long)] operation:String, #[arg(long)] project:PathBuf, #[arg(long)] request:PathBuf },
+    Navigate {
+        #[arg(long)]
+        operation: String,
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        request: PathBuf,
+    },
     /// Read a bounded typed project/draft/bookmark/savepoint/diagnostic metadata page.
-    Metadata { #[arg(long)] request:PathBuf },
+    Metadata {
+        #[arg(long)]
+        request: PathBuf,
+    },
     /// Execute a typed runtime action (admission, comparison, merge, history or discovery).
-    #[cfg(feature="project-tools")]
+    #[cfg(feature = "project-tools")]
     Runtime(super::project_runtime::RuntimeArgs),
     /// Create project organization, with an original caller-selected operation identity.
     Create {
@@ -91,12 +103,16 @@ enum ProjectCommand {
     },
 }
 
-pub(super) fn read_json<T:serde::de::DeserializeOwned>(path:&std::path::Path)->Result<T>{
+pub(super) fn read_json<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T> {
     use std::io::Read;
-    let file=std::fs::File::open(path)?;
-    ensure!(file.metadata()?.is_file(),"regular request file required");
-    let mut content=Vec::new();file.take(16*1024*1024+1).read_to_end(&mut content)?;
-    ensure!(content.len()<=16*1024*1024,"request exceeds 16MiB transport limit");
+    let file = std::fs::File::open(path)?;
+    ensure!(file.metadata()?.is_file(), "regular request file required");
+    let mut content = Vec::new();
+    file.take(16 * 1024 * 1024 + 1).read_to_end(&mut content)?;
+    ensure!(
+        content.len() <= 16 * 1024 * 1024,
+        "request exceeds 16MiB transport limit"
+    );
     Ok(serde_json::from_slice(&content)?)
 }
 fn value<T: Serialize>(value: T) -> Result<serde_json::Value> {
@@ -115,41 +131,101 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
     let executor = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    let result=executor.block_on(pse_operations::canonical::operation_scope(deadline,async {
-        let store=CanonicalStore::connect(&options).await?;
-        let result:Result<serde_json::Value>=async {
-            store.open().await?;
-            match args.command {
-                ProjectCommand::Navigate{operation,project,request}=>{
-                    let project:Project=read_json(&project)?;
-                    let request:ProjectNavigationRequest=read_json(&request)?;
-                    value(store.project_navigate(&operation,&project,&request.action).await?)
-                },
-                ProjectCommand::Metadata{request}=>{
-                    let request:ProjectMetadataRequest=read_json(&request)?;
-                    value(store.project_metadata(request.kind,&request.owner,request.cursor.as_ref()).await?)
-                },
-                #[cfg(feature="project-tools")]
-                ProjectCommand::Runtime(input)=>super::project_runtime::run(&store,input,deadline).await,
-                ProjectCommand::Create{operation,project,title}=>value(store.create_project(&operation,&project,&title).await?),
-                ProjectCommand::Show{project}=>value(store.project(&project).await?),
-                ProjectCommand::Branches{project,cursor}=>{
-                    let cursor=cursor.map(|path|->Result<ProjectCursor>{let metadata=std::fs::metadata(&path)?;ensure!(metadata.is_file()&&metadata.len()<=16*1024,"bounded cursor file required");Ok(serde_json::from_slice(&std::fs::read(path)?)?)}).transpose()?;
-                    value(store.project_branches(&project,cursor.as_ref()).await?)
-                }
-                ProjectCommand::Branch{branch}=>value(store.project_branch(&branch).await?),
-                ProjectCommand::DraftShow{key}=>value(store.project_draft(&key).await?),
-                ProjectCommand::Settlement{operation}=>value(store.project_acknowledgement(&operation).await?),
-                ProjectCommand::ResearchReference{operation,project,key,revision,run,attempt,artifact}=>{
-                    let project:Project=read_json(&project)?;
-                    let selected=run.as_deref().zip(attempt.as_deref());
-                    value(store.retain_research_reference(&operation,&project,&key,&revision,selected,artifact.as_deref()).await?)
+    let result = executor.block_on(pse_operations::canonical::operation_scope(
+        deadline,
+        async {
+            let store = CanonicalStore::connect(&options).await?;
+            let result: Result<serde_json::Value> = async {
+                store.open().await?;
+                match args.command {
+                    ProjectCommand::Navigate {
+                        operation,
+                        project,
+                        request,
+                    } => {
+                        let project: Project = read_json(&project)?;
+                        let request: ProjectNavigationRequest = read_json(&request)?;
+                        value(
+                            store
+                                .project_navigate(&operation, &project, &request.action)
+                                .await?,
+                        )
+                    }
+                    ProjectCommand::Metadata { request } => {
+                        let request: ProjectMetadataRequest = read_json(&request)?;
+                        value(
+                            store
+                                .project_metadata(
+                                    request.kind,
+                                    &request.owner,
+                                    request.cursor.as_ref(),
+                                )
+                                .await?,
+                        )
+                    }
+                    #[cfg(feature = "project-tools")]
+                    ProjectCommand::Runtime(input) => {
+                        super::project_runtime::run(&store, input, deadline).await
+                    }
+                    ProjectCommand::Create {
+                        operation,
+                        project,
+                        title,
+                    } => value(store.create_project(&operation, &project, &title).await?),
+                    ProjectCommand::Show { project } => value(store.project(&project).await?),
+                    ProjectCommand::Branches { project, cursor } => {
+                        let cursor = cursor
+                            .map(|path| -> Result<ProjectCursor> {
+                                let metadata = std::fs::metadata(&path)?;
+                                ensure!(
+                                    metadata.is_file() && metadata.len() <= 16 * 1024,
+                                    "bounded cursor file required"
+                                );
+                                Ok(serde_json::from_slice(&std::fs::read(path)?)?)
+                            })
+                            .transpose()?;
+                        value(store.project_branches(&project, cursor.as_ref()).await?)
+                    }
+                    ProjectCommand::Branch { branch } => {
+                        value(store.project_branch(&branch).await?)
+                    }
+                    ProjectCommand::DraftShow { key } => value(store.project_draft(&key).await?),
+                    ProjectCommand::Settlement { operation } => {
+                        value(store.project_acknowledgement(&operation).await?)
+                    }
+                    ProjectCommand::ResearchReference {
+                        operation,
+                        project,
+                        key,
+                        revision,
+                        run,
+                        attempt,
+                        artifact,
+                    } => {
+                        let project: Project = read_json(&project)?;
+                        let selected = run.as_deref().zip(attempt.as_deref());
+                        value(
+                            store
+                                .retain_research_reference(
+                                    &operation,
+                                    &project,
+                                    &key,
+                                    &revision,
+                                    selected,
+                                    artifact.as_deref(),
+                                )
+                                .await?,
+                        )
+                    }
                 }
             }
-        }.await;
-        let drained=store.disconnect().await;
-        let result=result?;drained?;Ok::<_,anyhow::Error>(result)
-    }))?;
+            .await;
+            let drained = store.disconnect().await;
+            let result = result?;
+            drained?;
+            Ok::<_, anyhow::Error>(result)
+        },
+    ))?;
     #[derive(Serialize)]
     struct Output {
         version: pse_model::document::Version<1>,

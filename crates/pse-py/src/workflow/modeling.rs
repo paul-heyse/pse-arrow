@@ -728,8 +728,12 @@ impl NativeModelingPackage {
         request: documents::DocumentInput<native::PreparationDiscoveryRequest>,
     ) -> PyResult<documents::DocumentValue<native::PreparationDiscoveryReport>> {
         let cancel = CancelSource::new();
-        let report = blocking(py, &self.owner,
-            self.inner.preparation_discovery(&request.0, &cancel), || cancel.cancel())?;
+        let report = blocking(
+            py,
+            &self.owner,
+            self.inner.preparation_discovery(&request.0, &cancel),
+            || cancel.cancel(),
+        )?;
         Ok(documents::DocumentValue(report))
     }
 
@@ -907,9 +911,19 @@ impl NativeModelingPackage {
     ) -> PyResult<documents::DocumentValue<native::ProjectComparison>> {
         let cancel = CancelSource::new();
         let result = if source_only {
-            blocking(py, &self.owner, self.inner.project_compare_source(&other.inner, &cancel), || cancel.cancel())?
+            blocking(
+                py,
+                &self.owner,
+                self.inner.project_compare_source(&other.inner, &cancel),
+                || cancel.cancel(),
+            )?
         } else {
-            blocking(py, &self.owner, self.inner.project_compare(&other.inner, &cancel), || cancel.cancel())?
+            blocking(
+                py,
+                &self.owner,
+                self.inner.project_compare(&other.inner, &cancel),
+                || cancel.cancel(),
+            )?
         };
         Ok(documents::DocumentValue(result))
     }
@@ -920,7 +934,12 @@ impl NativeModelingPackage {
         logical: Vec<String>,
     ) -> PyResult<Vec<documents::DocumentValue<native::ProjectSourceDetail>>> {
         let cancel = CancelSource::new();
-        let result = blocking(py, &self.owner, self.inner.project_source_detail(&logical, &cancel), || cancel.cancel())?;
+        let result = blocking(
+            py,
+            &self.owner,
+            self.inner.project_source_detail(&logical, &cancel),
+            || cancel.cancel(),
+        )?;
         Ok(result.into_iter().map(documents::DocumentValue).collect())
     }
     /// Explicit complete source Arrow export, independent of routine preparation.

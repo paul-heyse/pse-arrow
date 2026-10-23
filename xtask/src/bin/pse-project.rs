@@ -3,10 +3,10 @@
 //! Dedicated typed project operator artifact, using existing runtime and storage owners.
 #![recursion_limit = "512"]
 use clap::{Parser, Subcommand};
-#[path = "../project_tools.rs"]
-mod project_tools;
 #[path = "../project_runtime.rs"]
 mod project_runtime;
+#[path = "../project_tools.rs"]
+mod project_tools;
 #[derive(Parser)]
 struct Cli {
     #[command(subcommand)]

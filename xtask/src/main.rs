@@ -38,10 +38,10 @@ mod evidence_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
-#[cfg(feature = "canonical-tools")]
-mod project_tools;
 #[cfg(feature = "project-tools")]
 mod project_runtime;
+#[cfg(feature = "canonical-tools")]
+mod project_tools;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 

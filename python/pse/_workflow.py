@@ -42,7 +42,6 @@ from pse.contracts.documents import (
     ContextCut,
     ContextSelection,
     ContextSelectionOutput,
-    ProjectContextOutput,
     DiagnosticExecutionDocumentOutput,
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
@@ -58,35 +57,36 @@ from pse.contracts.documents import (
     ProjectAcknowledgementOutput,
     ProjectBranchPageOutput,
     ProjectBranchRecordOutput,
+    ProjectContextOutput,
     ProjectCursor,
     ProjectCursorBody,
-    ProjectSelectRequest,
-    ProjectSelection,
     ProjectDraftDeltaOutput,
-    ProjectDraftVersion,
-    ProjectDraftVersionOutput,
-    ProjectMetadataRequest,
-    ProjectMetadataRequestOutput,
-    ProjectMetadataPageOutput,
-    ProjectNavigationRequest,
-    SourceDelta,
-    SourceDeltaOutput,
     ProjectDraftRecordOutput,
     ProjectDraftSaveIntent,
     ProjectDraftSaveIntentOutput,
-    ProjectPublication,
-    ProjectPublicationOutput,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
     ProjectMergeIntent,
     ProjectMergeIntentOutput,
     ProjectMergePreview,
     ProjectMergeResolution,
+    ProjectMetadataPageOutput,
+    ProjectMetadataRequest,
+    ProjectMetadataRequestOutput,
+    ProjectNavigationRequest,
+    ProjectPublication,
+    ProjectPublicationOutput,
     ProjectRecord,
+    ProjectSelection,
+    ProjectSelectRequest,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
     RunControls,
     SolverCapability,
     SolveSettings,
+    SourceDelta,
+    SourceDeltaOutput,
     SourceReclamationPage,
     SourceSettlementOutput,
     StudyDefinition,
@@ -497,24 +497,29 @@ class Runtime:
         """Read original immutable metadata, including tombstones and hidden projects."""
         return self._handle.project_context_record(key)
 
-    def project_context_reopen(self, selection: ContextSelection | ContextSelectionOutput) -> ModelingPackage:
+    def project_context_reopen(
+        self, selection: ContextSelection | ContextSelectionOutput
+    ) -> ModelingPackage:
         """Reopen original persisted source and physical closures without supplied documents."""
         return ModelingPackage(self._handle.project_context_reopen(selection))
 
     def project_context_package(
-        self, selection: ContextSelection | ContextSelectionOutput, physical: PhysicalContext
+        self,
+        selection: ContextSelection | ContextSelectionOutput,
+        physical: PhysicalContext,
     ) -> ModelingPackage:
         """Load this exact selection through ordinary source admission; never select latest."""
         return ModelingPackage(
             self._handle.project_context_package(
-                selection, physical._handle  # noqa: SLF001 - same native boundary
+                selection,
+                physical._handle,  # noqa: SLF001 - same native boundary
             )
         )
 
     def project_context_append(
         self,
         operation: str,
-        project: ProjectRecord | ProjectRecord,
+        project: ProjectRecord,
         scope: str,
         source: ModelingPackage,
         effective_from_us: int,
@@ -529,10 +534,14 @@ class Runtime:
         Scientific values remain in the admitted source, not this context record.
         """
         return self._handle.project_context_append(
-            operation, project, scope,
+            operation,
+            project,
+            scope,
             source._handle,  # noqa: SLF001 - same native boundary
-            effective_from_us, effective_to_us=effective_to_us,
-            corrects=corrects, deleted=deleted,
+            effective_from_us,
+            effective_to_us=effective_to_us,
+            corrects=corrects,
+            deleted=deleted,
         )
 
     def project_create(
@@ -636,7 +645,7 @@ class Runtime:
         return self._handle.project_select(request, physical._handle)  # noqa: SLF001
 
     def project_open_selection(
-        self, selection: ProjectSelection | ProjectSelection, physical: "PhysicalContext"
+        self, selection: ProjectSelection, physical: "PhysicalContext"
     ) -> ModelingPackage:
         """Reopen retained science after labels or the branch head have changed."""
         return ModelingPackage(
@@ -646,7 +655,7 @@ class Runtime:
     def project_navigate(
         self,
         operation: str,
-        project: ProjectRecord | ProjectRecord,
+        project: ProjectRecord,
         request: ProjectNavigationRequest,
     ) -> ProjectAcknowledgementOutput:
         """Apply an explicit name, bookmark, savepoint or visibility operation.
@@ -690,8 +699,12 @@ class Runtime:
         return self._handle.project_acknowledgement(operation)
 
     def project_merge_preview(
-        self, base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
+        self,
+        base: ModelingPackage,
+        target: ModelingPackage,
+        proposal: ModelingPackage,
+        *,
+        resolutions: Sequence[ProjectMergeResolution] = (),
     ) -> ProjectMergePreview:
         """Inspect three-way logical conflicts before issuing a publication decision."""
         return self._handle.project_merge_preview(
@@ -699,20 +712,31 @@ class Runtime:
         )
 
     def project_merge_intent(
-        self, publication: ProjectPublication | ProjectPublicationOutput,
-        base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
+        self,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage,
+        target: ModelingPackage,
+        proposal: ModelingPackage,
+        *,
+        resolutions: Sequence[ProjectMergeResolution] = (),
     ) -> ProjectMergeIntentOutput:
         """Retain exact admitted revision selections and explicit conflict choices."""
         return self._handle.project_merge_intent(
-            publication, base._handle, target._handle, proposal._handle, list(resolutions)
+            publication,
+            base._handle,
+            target._handle,
+            proposal._handle,
+            list(resolutions),
         )
 
     def project_merge_draft_intent(
-        self, publication: ProjectPublication | ProjectPublicationOutput,
-        base: ModelingPackage, target: ModelingPackage,
+        self,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage,
+        target: ModelingPackage,
         version: ProjectDraftVersion | ProjectDraftVersionOutput,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
+        *,
+        resolutions: Sequence[ProjectMergeResolution] = (),
     ) -> ProjectMergeIntentOutput:
         """Merge an exact saved version without publishing a temporary source revision."""
         return self._handle.project_merge_draft_intent(
@@ -720,8 +744,10 @@ class Runtime:
         )
 
     def project_undo_intent(
-        self, publication: ProjectPublication | ProjectPublicationOutput,
-        target: ModelingPackage, restore: ModelingPackage,
+        self,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        target: ModelingPackage,
+        restore: ModelingPackage,
     ) -> ProjectMergeIntentOutput:
         """Retain an ordinary compensating source publication, never a head rewind."""
         return self._handle.project_undo_intent(
@@ -729,11 +755,14 @@ class Runtime:
         )
 
     def project_publish_merge(
-        self, intent: ProjectMergeIntent | ProjectMergeIntentOutput,
+        self,
+        intent: ProjectMergeIntent | ProjectMergeIntentOutput,
         physical: "PhysicalContext",
     ) -> ModelingPackage:
         """Publish or settle the original immutable merge/undo decision."""
-        return ModelingPackage(self._handle.project_publish_merge(intent, physical._handle))
+        return ModelingPackage(
+            self._handle.project_publish_merge(intent, physical._handle)
+        )
 
     def project_publish_draft(
         self,

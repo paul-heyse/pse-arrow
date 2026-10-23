@@ -447,8 +447,19 @@ impl Runtime {
             .scope(async {
                 let revision = local.package.record_study_source(self, cancel).await?;
                 let physical = creation_effect(cancel, operations.put_sources(&sources)).await?;
-                if local.package.project_context.as_ref().is_some_and(|selected| selected.context.physical_revision != physical.revision || selected.context.physical_source_identity != physical.identity.to_string()) {
-                    return Err(contract("historical study physical source differs from frozen original closure"));
+                if local
+                    .package
+                    .project_context
+                    .as_ref()
+                    .is_some_and(|selected| {
+                        selected.context.physical_revision != physical.revision
+                            || selected.context.physical_source_identity
+                                != physical.identity.to_string()
+                    })
+                {
+                    return Err(contract(
+                        "historical study physical source differs from frozen original closure",
+                    ));
                 }
                 let mut science = local.science.clone();
                 science.modeling_revision = revision;
@@ -518,8 +529,14 @@ impl Runtime {
                 creation_checkpoint(cancel)?;
                 let operations = self.study_creation_operations()?;
                 definition.validate_roles()?;
-                if definition.context.as_ref().is_some_and(|selected| selected.context.physical_revision != definition.physical.revision || selected.context.physical_source_identity != definition.physical.identity.to_string()) {
-                    return Err(contract("recorded study physical source differs from frozen context"));
+                if definition.context.as_ref().is_some_and(|selected| {
+                    selected.context.physical_revision != definition.physical.revision
+                        || selected.context.physical_source_identity
+                            != definition.physical.identity.to_string()
+                }) {
+                    return Err(contract(
+                        "recorded study physical source differs from frozen context",
+                    ));
                 }
                 if definition.point_count() == 0 || definition.point_count() > MAXIMUM_STUDY_POINTS
                 {
@@ -540,7 +557,8 @@ impl Runtime {
                     self.modeling_revision(revision.clone(), context, BTreeMap::new()),
                 )
                 .await?;
-                self.restore_project_context(&mut package, definition.context.as_ref()).await?;
+                self.restore_project_context(&mut package, definition.context.as_ref())
+                    .await?;
                 // Binding/role admission reuses structure. Explicit starts also validate
                 // compatibility against one prepared target before study activation.
                 let study_id: StudyId = pse_operations::mint_id();
@@ -642,7 +660,12 @@ impl Runtime {
                         .ok_or_else(|| contract("canonical physical source absent"))?;
                 let attestation = self.canonical()?.attestation();
                 let attestation = document(&(attestation.source, attestation.build))?;
-                let source_selection = document(&(2_u8, &definition.modeling_revision, &physical, &definition.context))?;
+                let source_selection = document(&(
+                    2_u8,
+                    &definition.modeling_revision,
+                    &physical,
+                    &definition.context,
+                ))?;
                 let request = StoredRequest {
                     key: run,
                     revision: revision.clone(),
@@ -900,7 +923,8 @@ impl Runtime {
             let mut package = self
                 .modeling_revision(base_revision, physical, BTreeMap::new())
                 .await?;
-            self.restore_project_context(&mut package, metadata.context.as_ref()).await?;
+            self.restore_project_context(&mut package, metadata.context.as_ref())
+                .await?;
             lazy.variants.source.check(&package)?;
             lane.input = Some(StudyVariantOwner {
                 study: point.study.clone(),
@@ -954,7 +978,12 @@ impl Runtime {
                         pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
                             .map_err(|e| contract(e.to_string()))?,
                     ))?,
-                    source_selection: document(&(3_u8, &admitted.revision, &input.physical, &definition.operation.source))?,
+                    source_selection: document(&(
+                        3_u8,
+                        &admitted.revision,
+                        &input.physical,
+                        &definition.operation.source,
+                    ))?,
                     attestation: input_run.attestation.as_slice().to_vec(),
                 };
                 creation_effect(
@@ -1053,10 +1082,14 @@ impl Runtime {
                 } = serde_json::from_slice(study.metadata.as_slice())
                     .map_err(|error| contract(format!("study interpretation: {error}")))?;
                 let actual_revision = selected_revision.as_deref().unwrap_or(&study.revision);
-                let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, retained)| {
-                    revision == actual_revision && receipt == &physical
-                        && retained.project_context == definition.operation.source.context
-                });
+                let same_source =
+                    lane.source
+                        .as_ref()
+                        .is_some_and(|(revision, receipt, retained)| {
+                            revision == actual_revision
+                                && receipt == &physical
+                                && retained.project_context == definition.operation.source.context
+                        });
                 if !same_source {
                     lane.preparation.close().await?;
                     lane.source = None;
@@ -1071,7 +1104,11 @@ impl Runtime {
                         .await?;
                     // The admitted point owns exact attribution, including no-op variants and
                     // a different cut over the same scientific source in a later study.
-                    self.restore_project_context(&mut package, definition.operation.source.context.as_ref()).await?;
+                    self.restore_project_context(
+                        &mut package,
+                        definition.operation.source.context.as_ref(),
+                    )
+                    .await?;
                     lane.source = Some((actual_revision.into(), physical, package));
                 }
                 let package = lane

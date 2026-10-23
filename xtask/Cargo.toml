@@ -43,7 +43,11 @@ canonical-tools = [
   "dep:pse-operations",
   "pse-operations/canonical-maintenance",
 ]
-canonical-tests = ["package-fixtures", "pse-runtime/canonical-tests", "pse-operations/test-support"]
+canonical-tests = [
+  "package-fixtures",
+  "pse-runtime/canonical-tests",
+  "pse-operations/test-support",
+]
 thermodynamic-oracles = [
   "dep:feos",
   "dep:feos-core",

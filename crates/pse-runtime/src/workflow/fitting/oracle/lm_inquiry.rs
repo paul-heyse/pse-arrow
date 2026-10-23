@@ -1171,20 +1171,56 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     let runtime = crate::workflow::tests::durable_runtime();
     let cancel = crate::CancelSource::new();
     let (documents, _) = crate::workflow::worker_tests::sources("package p {}");
-    let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel)).await.unwrap();
+    let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
+        .await
+        .unwrap();
     let mut seed = fixture_with_physical("linear", [1., 2.], runtime.clone(), physical)
         .await
         .unwrap();
     let store = runtime.canonical_store().unwrap();
-    store.create_project("fit-project-create", "fit-project", "Original fit context").await.unwrap();
+    store
+        .create_project("fit-project-create", "fit-project", "Original fit context")
+        .await
+        .unwrap();
     let project = store.project("fit-project").await.unwrap().unwrap();
-    let revision = Box::pin(runtime.project_fork(&project, "fit-branch", "fit-source", "fit-fork", &seed.source)).await.unwrap();
-    let source = Box::pin(runtime.modeling_revision(revision, seed.source.physical.clone(), Default::default())).await.unwrap();
+    let revision = Box::pin(runtime.project_fork(
+        &project,
+        "fit-branch",
+        "fit-source",
+        "fit-fork",
+        &seed.source,
+    ))
+    .await
+    .unwrap();
+    let source = Box::pin(runtime.modeling_revision(
+        revision,
+        seed.source.physical.clone(),
+        Default::default(),
+    ))
+    .await
+    .unwrap();
     let project = store.project("fit-project").await.unwrap().unwrap();
-    Box::pin(runtime.project_record_context("fit-original", &project, "calibration", &source, 0, None, None, false)).await.unwrap();
+    Box::pin(runtime.project_record_context(
+        "fit-original",
+        &project,
+        "calibration",
+        &source,
+        0,
+        None,
+        None,
+        false,
+    ))
+    .await
+    .unwrap();
     let cut = store.project_context_cut("fit-project").await.unwrap();
-    let selected = store.select_project_context(&cut, "calibration", 10).await.unwrap().unwrap();
-    seed.source = Box::pin(runtime.project_context_reopen(&selected, &cancel)).await.unwrap();
+    let selected = store
+        .select_project_context(&cut, "calibration", 10)
+        .await
+        .unwrap()
+        .unwrap();
+    seed.source = Box::pin(runtime.project_context_reopen(&selected, &cancel))
+        .await
+        .unwrap();
     let prepared = production_profile(&seed, seed.problem.profile.clone())
         .await
         .unwrap();
@@ -1257,14 +1293,49 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     ) = serde_json::from_slice(&selection).unwrap();
     assert_eq!(selection_version, 2);
     assert_eq!(sources.len(), 1);
-    assert_eq!(sources[0], crate::workflow::OperationSource::of(&prepared.source));
-    Box::pin(runtime.project_record_context("fit-corrected", &project, "calibration", &source, 0, None, Some("fit-original"), false)).await.unwrap();
+    assert_eq!(
+        sources[0],
+        crate::workflow::OperationSource::of(&prepared.source)
+    );
+    Box::pin(runtime.project_record_context(
+        "fit-corrected",
+        &project,
+        "calibration",
+        &source,
+        0,
+        None,
+        Some("fit-original"),
+        false,
+    ))
+    .await
+    .unwrap();
     let latest = store.project_context_cut("fit-project").await.unwrap();
-    assert_eq!(store.select_project_context(&latest, "calibration", 10).await.unwrap().unwrap().context.key, "fit-corrected");
-    assert_eq!(sources[0].context.as_ref(), Some(&selected), "actual reopened fit receipt retains its original context after correction");
-    let after_correction = runtime.operations().unwrap().record(&run, &attempt).await.unwrap();
-    assert_eq!(after_correction.run.as_ref().unwrap().source_selection, reopened.run.as_ref().unwrap().source_selection,
-        "later historical correction does not rewrite the stored fit consumption");
+    assert_eq!(
+        store
+            .select_project_context(&latest, "calibration", 10)
+            .await
+            .unwrap()
+            .unwrap()
+            .context
+            .key,
+        "fit-corrected"
+    );
+    assert_eq!(
+        sources[0].context.as_ref(),
+        Some(&selected),
+        "actual reopened fit receipt retains its original context after correction"
+    );
+    let after_correction = runtime
+        .operations()
+        .unwrap()
+        .record(&run, &attempt)
+        .await
+        .unwrap();
+    assert_eq!(
+        after_correction.run.as_ref().unwrap().source_selection,
+        reopened.run.as_ref().unwrap().source_selection,
+        "later historical correction does not rewrite the stored fit consumption"
+    );
     assert_eq!(strategies.len(), 1);
     let stored_strategy = &strategies[0];
     assert_eq!(

@@ -25,11 +25,18 @@ def test_project_context_cut_correction_tombstone_and_exact_source_reopen(
     )
     context = physical(runtime)
     original = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/value.pse": "package p {param value:Scalar=1;}"}],
+        [
+            {
+                "package.toml": manifest,
+                "models/value.pse": "package p {param value:Scalar=1;}",
+            }
+        ],
         context,
     )
     runtime.project_create("create", "project", "Historical calibration")
-    revision = runtime.project_fork("project", "original", "original-source", "fork-original", original)
+    revision = runtime.project_fork(
+        "project", "original", "original-source", "fork-original", original
+    )
     original = runtime.modeling_revision(revision, context)
     project = runtime.project_record("project")
     assert project is not None
@@ -44,27 +51,51 @@ def test_project_context_cut_correction_tombstone_and_exact_source_reopen(
     assert selected.context.physical_source_identity
 
     corrected = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/value.pse": "package p {param value:Scalar=2;}"}],
+        [
+            {
+                "package.toml": manifest,
+                "models/value.pse": "package p {param value:Scalar=2;}",
+            }
+        ],
         context,
     )
-    corrected_revision = runtime.project_fork("project", "corrected", "corrected-source", "fork-corrected", corrected)
+    corrected_revision = runtime.project_fork(
+        "project", "corrected", "corrected-source", "fork-corrected", corrected
+    )
     corrected = runtime.modeling_revision(corrected_revision, context)
     current_project = runtime.project_record("project")
     assert current_project is not None
     runtime.project_context_append(
-        "correction", current_project, "calibration", corrected, 20,
-        effective_to_us=40, corrects="first",
+        "correction",
+        current_project,
+        "calibration",
+        corrected,
+        20,
+        effective_to_us=40,
+        corrects="first",
     )
     corrected_cut = runtime.project_context_cut("project")
     later = runtime.project_context_select(corrected_cut, "calibration", 25)
     assert later is not None
     assert later.context.key == "correction"
-    assert runtime.project_context_package(later, context).canonical_revision == corrected_revision
+    assert (
+        runtime.project_context_package(later, context).canonical_revision
+        == corrected_revision
+    )
     # Original operation settles even after unrelated membership generation advancement.
-    assert runtime.project_context_append("first", project, "calibration", original, 0).key == first.key
+    assert (
+        runtime.project_context_append("first", project, "calibration", original, 0).key
+        == first.key
+    )
     runtime.project_context_append(
-        "deleted", current_project, "calibration", corrected, 24,
-        effective_to_us=30, corrects="correction", deleted=True,
+        "deleted",
+        current_project,
+        "calibration",
+        corrected,
+        24,
+        effective_to_us=30,
+        corrects="correction",
+        deleted=True,
     )
     final_cut = runtime.project_context_cut("project")
     assert runtime.project_context_select(final_cut, "calibration", 25) is None
@@ -72,7 +103,10 @@ def test_project_context_cut_correction_tombstone_and_exact_source_reopen(
     assert boundary is not None
     assert boundary.context.key == "correction"
     assert runtime.project_context_select(cut, "calibration", 25) == selected
-    assert runtime.project_context_package(selected, context).canonical_revision == revision
+    assert (
+        runtime.project_context_package(selected, context).canonical_revision
+        == revision
+    )
     tombstone = runtime.project_context_record("deleted")
     assert tombstone is not None
     assert tombstone.deleted

@@ -894,25 +894,63 @@ pub(super) async fn publish_admitted_project(
     if intent.expected() != Some(parent.recorded_revision()?.key.as_str())
         || parent.physical.key != admitted.physical.key
     {
-        return Err(contract("project publication exact parent or physical context differs"));
+        return Err(contract(
+            "project publication exact parent or physical context differs",
+        ));
     }
     let mut edits = Vec::new();
     for object in admitted.revision.admitted.objects.values() {
-        if parent.revision.admitted.objects.get(&object.logical).is_none_or(|old| old.value != object.value) {
+        if parent
+            .revision
+            .admitted
+            .objects
+            .get(&object.logical)
+            .is_none_or(|old| old.value != object.value)
+        {
             edits.push(object.edit());
         }
     }
     for old in parent.revision.admitted.objects.values() {
-        if !admitted.revision.admitted.objects.contains_key(&old.logical) {
-            edits.push(ObjectEdit { logical: old.logical.clone(), scope: old.scope.clone(), name: old.name.clone(), version: None, references: Vec::new() });
+        if !admitted
+            .revision
+            .admitted
+            .objects
+            .contains_key(&old.logical)
+        {
+            edits.push(ObjectEdit {
+                logical: old.logical.clone(),
+                scope: old.scope.clone(),
+                name: old.name.clone(),
+                version: None,
+                references: Vec::new(),
+            });
         }
     }
     checkpoint(cancel)?;
-    let recorded = runtime.canonical_store()?.edit_project(intent, &edits).await.map_err(|source| {
-        crate::workflow::source_settlement::source_edit_error(intent.problem().into(), intent.operation().into(), source)
-    })?;
-    let revision = SourceRevision::admitted(admitted.revision.admitted.clone(), admitted.revision.identity, Some(recorded), Some(&parent.revision))?;
-    Ok(ModelingPackage { runtime: runtime.clone(), revision, held_preparation: None, project_context: None, ..admitted.clone() })
+    let recorded = runtime
+        .canonical_store()?
+        .edit_project(intent, &edits)
+        .await
+        .map_err(|source| {
+            crate::workflow::source_settlement::source_edit_error(
+                intent.problem().into(),
+                intent.operation().into(),
+                source,
+            )
+        })?;
+    let revision = SourceRevision::admitted(
+        admitted.revision.admitted.clone(),
+        admitted.revision.identity,
+        Some(recorded),
+        Some(&parent.revision),
+    )?;
+    Ok(ModelingPackage {
+        runtime: runtime.clone(),
+        revision,
+        held_preparation: None,
+        project_context: None,
+        ..admitted.clone()
+    })
 }
 
 /// Active eligibility belongs to this call, never to retained admission.
@@ -2497,7 +2535,11 @@ impl ModelingPackage {
         use datafusion::arrow::ipc::writer::StreamWriter;
         let mut extent = 1024_usize;
         if let Some(context) = &self.project_context {
-            extent = extent.checked_add(crate::workflow::replay::encoded_extent(context, maximum_bytes)?)
+            extent = extent
+                .checked_add(crate::workflow::replay::encoded_extent(
+                    context,
+                    maximum_bytes,
+                )?)
                 .filter(|bytes| *bytes <= maximum_bytes)
                 .ok_or_else(|| contract("selected historical context exceeds finite allocation"))?;
         }
@@ -2592,10 +2634,17 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<String, WorkflowError> {
         if let Some(selected) = &self.project_context {
-            receiver.canonical_store()?.validate_project_context(selected).await?;
+            receiver
+                .canonical_store()?
+                .validate_project_context(selected)
+                .await?;
             if selected.context.source_identity != self.revision.identity().to_string()
                 || selected.context.physical_context != self.physical.identity().to_string()
-            { return Err(contract("historical study source no longer matches frozen context")); }
+            {
+                return Err(contract(
+                    "historical study source no longer matches frozen context",
+                ));
+            }
             // Keep the original canonical source, rather than restaging an identical copy
             // and losing the exact retained context-to-source relationship.
             return Ok(selected.context.revision.clone());
@@ -3081,9 +3130,16 @@ impl Runtime {
                 || selected.context.project != selected.cut.project
                 || selected.context.recorded_sequence > selected.cut.sequence
                 || selected.context.effective_from_us > selected.effective_at_us
-                || selected.context.effective_to_us.is_some_and(|to| to <= selected.effective_at_us)
+                || selected
+                    .context
+                    .effective_to_us
+                    .is_some_and(|to| to <= selected.effective_at_us)
                 || selected.context.deleted
-            { return Err(contract("portable context differs from actual source or original selection")); }
+            {
+                return Err(contract(
+                    "portable context differs from actual source or original selection",
+                ));
+            }
             // Portable replay preserves attribution; native context authority is checked again
             // by any later durable recording, not fabricated by embedded metadata.
             package.project_context = Some(selected.clone());

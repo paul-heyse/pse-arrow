@@ -128,7 +128,13 @@ pub(super) fn relations<'a>(
             let readonly = if name == "key"
                 || matches!(
                     table,
-                    "canonical_project_operations" | "canonical_research_references" | "canonical_project_contexts" | "canonical_context_ancestry" | "canonical_project_draft_versions" | "canonical_project_ancestry" | "canonical_draft_diagnostics"
+                    "canonical_project_operations"
+                        | "canonical_research_references"
+                        | "canonical_project_contexts"
+                        | "canonical_context_ancestry"
+                        | "canonical_project_draft_versions"
+                        | "canonical_project_ancestry"
+                        | "canonical_draft_diagnostics"
                 )
                 || (table == "canonical_project_branches"
                     && matches!(name, "project" | "problem" | "origin_revision"))

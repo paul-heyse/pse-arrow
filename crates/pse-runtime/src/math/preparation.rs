@@ -102,12 +102,16 @@ impl BasisKey {
         source: &crate::workflow::modeling::AdmittedModelRevision,
         cancel: &crate::CancelSource,
     ) -> Result<Option<bool>, crate::workflow::WorkflowError> {
-        if self.root != selection.root { return Ok(None); }
-        Ok(Some(self.request.as_ref() == request
-            && self.instance == selection.instance
-            && self.bindings == selection.bindings
-            && self.limits == selection.limits
-            && self.dependencies.matches_scoped(source, cancel)?))
+        if self.root != selection.root {
+            return Ok(None);
+        }
+        Ok(Some(
+            self.request.as_ref() == request
+                && self.instance == selection.instance
+                && self.bindings == selection.bindings
+                && self.limits == selection.limits
+                && self.dependencies.matches_scoped(source, cancel)?,
+        ))
     }
 
     #[cfg(test)]

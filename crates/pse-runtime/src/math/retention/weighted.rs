@@ -95,11 +95,15 @@ impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
         mut describe: impl FnMut(&K, &V, u64) -> Option<T>,
     ) -> (Vec<T>, bool) {
         let state = self.state();
-        let Some(entries) = state.entries.as_ref() else { return (Vec::new(), false) };
+        let Some(entries) = state.entries.as_ref() else {
+            return (Vec::new(), false);
+        };
         let mut rows = Vec::new();
         for (key, snapshot) in entries.iter() {
             if let Some(row) = describe(key, &snapshot.value, snapshot.weight) {
-                if rows.len() == limit { return (rows, true); }
+                if rows.len() == limit {
+                    return (rows, true);
+                }
                 rows.push(row);
             }
         }
@@ -228,7 +232,10 @@ mod tests {
         let (rows, truncated) = cache.inspect(1, |key, _value, weight| Some((key.0[0], weight)));
         assert_eq!(rows.len(), 1);
         assert!(truncated);
-        assert_eq!(owners, (Arc::strong_count(&one.owner), Arc::strong_count(&two.owner)));
+        assert_eq!(
+            owners,
+            (Arc::strong_count(&one.owner), Arc::strong_count(&two.owner))
+        );
         assert_eq!(cache.memory_used(), weights);
         let (rows, truncated) = cache.inspect(2, |key, _value, weight| Some((key.0[0], weight)));
         assert_eq!(rows.len(), 2);

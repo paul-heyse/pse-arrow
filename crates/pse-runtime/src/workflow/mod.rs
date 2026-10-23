@@ -195,8 +195,8 @@ pub use physical_values::{
 mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
-mod projects;
 mod project_contexts;
+mod projects;
 #[cfg(all(test, feature = "canonical-tests"))]
 mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;
@@ -207,14 +207,15 @@ pub use modeling::documents::{
     LinearDiagnosticControls, ModelingInspection, PureConformanceControls, SourceDelta,
     SourceDocumentDelta, SourceFitDelta,
 };
-pub use projects::{ProjectReference,ProjectSelectRequest,ProjectSelection,ProjectDraftDocuments, ProjectDraftDelta, ProjectDraftSaveIntent};
+pub use projects::{
+    ProjectDraftDelta, ProjectDraftDocuments, ProjectDraftSaveIntent, ProjectReference,
+    ProjectSelectRequest, ProjectSelection,
+};
 pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    PreparationDiscoveryRequest,PreparationDiscoveryReport,PreparationProductKind,PreparationEligibility,ResidentPreparation,
-    ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent,ProjectMergeProposal,ProjectDocumentComposition,
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
@@ -225,8 +226,13 @@ pub use modeling::{
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
     ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
-    SimulationSampleAttempt, SimulationSampleObserver, StartSource, conform_pure_documents,
-    with_simulation_sample_wait,
+    PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
+    PreparationProductKind, ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection,
+    ProjectDocumentComposition, ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict,
+    ProjectMergeConflictKind, ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview,
+    ProjectMergeProposal, ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail,
+    ProjectSourceObject, ResidentPreparation, SimulationSampleAttempt, SimulationSampleObserver,
+    StartSource, conform_pure_documents, with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
