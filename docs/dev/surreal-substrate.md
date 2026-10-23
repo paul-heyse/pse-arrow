@@ -15,7 +15,8 @@ remote deployment, returned physical disk space or physical power-loss survival.
 
 [Plan51a](../plans/51a-storage-foundations-and-project-ownership.md) owns the current
 implementation and targeted verification of these foundations; ADR-0216 records
-their authority boundaries.
+their authority boundaries. [Plan51b](../plans/51b-projects-revisions-and-temporal-context.md)
+owns the editing, history and passive-discovery extension under ADR-0217.
 
 ```bash
 just project-build
@@ -39,15 +40,70 @@ different purposes. Commands require the caller's original operation identity an
 expected generation; an acknowledgement observes that exact operation. Missing
 acknowledgement alone does not prove rollback.
 
-The Python `Runtime` exposes project creation, branch selection/forking, draft custody
-and source publication. `project_draft_save_intent` issues an original retained intent;
-save the same intent with `project_draft_save` when settling an uncertain response.
-Raw drafts may be empty or malformed. Larger drafts use the existing sealed opaque
-artifact owner, and `project_draft_bytes` borrows protected bytes before copying them
-to Python. To publish science, encode a generated `ProjectDraftDocuments` document,
-save it, capture `project_publication_intent`, then call `project_publish_draft` with
-the physical context. Publication admits the exact saved generation before the
-guarded source activation; malformed drafts never become admitted sources.
+The Python `Runtime` exposes bounded `project_metadata` and generation-fenced
+`project_navigate` commands for presentation names, bookmarks, draft/savepoint visibility and
+restoration. Stable keys never change when a name changes. Soft deletion changes visibility;
+it does not release science or raw version custody. Draft heads select immutable versions,
+and restoring a savepoint advances the head generation. `project_draft_version_bytes` reads an
+old original body without changing the head.
+
+`project_select` freezes a branch or bookmark selection with issuing authority, project,
+source problem/revision, admitted scientific identity and physical closure identity.
+`project_open_selection` reopens that exact source after head/name movement; it refuses a
+foreign issuer or physical closure. Project metadata alone is not this scientific selection.
+
+`project_draft_save_intent` issues an original retained intent; save the same intent and bytes
+with `project_draft_save` when settling an uncertain response. Raw bytes may be empty or
+malformed. Larger bodies use sealed opaque artifact custody. `project_admit_draft` explicitly
+admits locally and stores version-linked diagnostics, leaving the branch unchanged. Encode a
+generated `ProjectDraftDocuments` for complete original package documents, or capture
+`project_draft_delta` against an exact durable parent for typed edits. Typed recovery binds the
+original authority and canonical base before rebinding a process-local token. Saving grants no
+scientific admission.
+
+Capture `project_publication_intent` with the saved head generation, then call
+`project_publish_draft` to publish through ordinary source admission and the existing head CAS.
+Keep the original intent through uncertain responses. Settlement checks the accepted original
+receipt before later mutable draft/head state. Read/admit/compare journeys have one original
+allowance; cancellation during an issued source effect does not erase its acknowledged result.
+
+`ModelingPackage.project_compare` returns compact source/value/structural/unknown impacts;
+`project_source_detail` fetches selected admitted objects. `project_compare_source` permits an
+explicit source-only comparison without asserting shared physical context. Three-way merge
+and undo use `project_merge_intent`/`project_merge_draft_intent`, `project_undo_intent` and
+`project_publish_merge`. Same-object edits require explicit resolutions. Offset-only source
+attribution does not create a scientific conflict; changed document objects still need a
+choice. When composed declarations have no complete original text preimage, preview reports
+that text is unavailable; original documents remain in retained ancestry. Undo publishes a
+new compensating revision and can restore a complete original preimage.
+
+Engineering history uses UTC instants expressed as signed microseconds, half-open effective
+intervals and a project-specific recorded cut. `project_context_append`,
+`project_context_cut` and `project_context_select` retain explicit correction ancestry.
+Unrelated overlaps refuse; a correction dominates its ancestors only within its own interval.
+A tombstone blocks selection without resurrecting an older value. `project_context_reopen`
+uses both original protected physical and authored source closures. Recorded study, fit,
+horizon and lazy-occurrence receipts retain their actual original context; later corrections
+never substitute a latest value.
+
+`ModelingPackage.preparation_discovery` returns bounded resident metadata and paged original
+canonical product headers. Presence and receiving eligibility are separate. Discovery neither
+compiles nor transfers providers, promotes cache recency or reconstructs portable bodies.
+Unknown absence reasons stay unknown. Compiler/native handles remain process-local.
+
+The dedicated CLI supplies metadata `navigate`/`metadata` and a `runtime --request FILE
+--spill-dir DIRECTORY` adapter. Its JSON envelope is `{"version":1,"physical":null,
+"action":{"kind":"..."}}`; scientific operations supply physical package documents in the
+same `ProjectDraftDocuments` codec. Actions include `import`/`load`/`select`/`open_selection`, fork,
+draft issue/save/read/admit/publish, compare/detail, merge/undo intents and publication,
+context selection/reopen and preparation discovery. Save the returned `.result` unchanged
+when retaining an intent. CLI inputs use core typed JSON inside this versioned envelope;
+Python documents additionally carry their generated boundary version where declared.
+The CLI constructs one runtime/pool, drains it before disconnecting, and registers no native
+providers or qualified persistent-reuse producer. Provider-dependent sources refuse through
+the ordinary owner rather than inventing handles. Rust/Python callers can retain actual
+registered providers. The spill directory must already exist. CLI core hash strings use
+`blake3:HEX`; generated Python documents expose the same hashes as bytes.
 
 `evidence prepare` creates private configuration and credentials under
 `STATE/.tooling/evidence/`. Explicit `init` installs the independently generated

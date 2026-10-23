@@ -887,7 +887,7 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).
 
-> Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; maintainer-authorized Plan51b target).
+> Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; maintainer-authorized Plan51b implementation, targeted evidence at its Outcome).
 
 Stable project/branch identities are distinct from mutable presentation names. Draft heads select
 immutable raw versions and savepoints; admission is explicit. Object-based merge uses exact base,
@@ -898,6 +898,34 @@ selection refuses; tombstones do not silently resurrect a superseded value. Reco
 retain their exact selected context and actual scientific source/physical closure. Current hidden
 or corrected context does not rewrite that original consumption. Payload and scientific closure
 release remain at their existing owners.
+
+Exact project selection freezes issuing authority, project, source problem/revision, admitted
+source identity and physical closure identity. Reopening it validates those original premises;
+later branch movement or presentation rename cannot substitute a new source. Metadata pages
+are bounded live navigation, not an historical snapshot. Draft visibility and savepoint removal
+do not release immutable versions or their protected artifact custody. Explicit local admission
+records version-linked diagnostics without changing a branch. Typed draft recovery authenticates
+the original store and canonical base before rebinding a local source token.
+
+Merge decisions bind complete source inputs, explicit resolutions and ancestry to the original
+publication intent. Foreign issuers refuse even if caller-selected revision keys coincide.
+Nonoverlapping logical edits compose; overlapping document edits still need a choice. Derived
+whole-package inventory checksums are distinct from authored manifest fields. The existing loader
+recomputes that checksum only from a complete original byte inventory; missing IR preimages
+retain the existing absent-text convention. Authored manifest differences still refuse. A private
+admission proof retains original text only when its complete declaration and fit inventory is
+the selected composition's actual preimage. Otherwise the preview reports unavailable composed
+text and original inputs remain in retained ancestry; the public IR/text admission guard is
+unchanged. Undo publishes a new revision and preserves old recorded consumption.
+
+Historical records root both original authored and physical source closures. Effective instants
+are signed UTC microseconds and intervals are half-open. A transitive correction dominates its
+ancestors only within its own interval; unrelated overlaps refuse. A recorded cut freezes the
+project journal independently of source and membership generations. Exact selected context flows
+through study preparation, retained workers, point definitions, standalone fit/horizon descriptors,
+lazy occurrences, replay and review. A changed scientific delta clears inherited context unless
+the original source and physical identities still match. Reopening history loads protected original
+closures rather than receiving current documents; released or unavailable closure refuses.
 
 A project organizes exact admitted source and research references. Each writable branch names its
 own canonical source problem; the existing problem head remains the sole mutable source head.

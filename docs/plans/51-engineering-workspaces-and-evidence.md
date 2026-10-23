@@ -2,7 +2,7 @@
 title: "Plan 51: Engineering workspaces and evidence"
 status: in-progress
 date: 2026-10-22
-adrs: [ADR-0216]
+adrs: [ADR-0216, ADR-0217]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan
@@ -24,8 +24,8 @@ This series captures the complete [functional review](../functional_reviews/surr
 O01–O21, RC01–RC07, alternative realizations, investigations and delivery scenarios. The
 maintainer selected full coverage with the review's delivery/investigation/conditional distinctions
 preserved, and storage/payload choices settled during authoring. The maintainer subsequently
-authorized 51a execution, whose foundation scope is now complete. Remaining production scope still requires maintainer
-authorization; these documents alone do not authorize it.
+authorized 51a and 51b execution. Both are complete at targeted acceptance. Later production
+scope still requires maintainer authorization; these documents alone do not authorize it.
 
 Existing plan documents and their index are deliberately unchanged. This coordinator records
 dependencies and the post-implementation reconciliation obligation; it does not reopen Plan50
@@ -156,9 +156,9 @@ Resolved here can close an authoring choice without claiming product implementat
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 | --- | --- | --- | --- |
-| O01 | scheduled | PJ01–PJ04 | Persistent project/branch navigation, exact comparison and explicit merge/publication |
-| O02 | scheduled | PJ05/SC02 | Effective-time and recorded-cut context without changing exact run receipts |
-| O03 | scheduled | PJ02/PJ04 | Recoverable raw drafts, short commands, explicit admission and conflicting-edit behavior |
+| O01 | resolved: implemented and targeted-tested | PJ01–PJ04 | Exact navigation/selection, logical comparison, guarded explicit merge/publication and compensating undo; [51b evidence](51b-projects-revisions-and-temporal-context.md#verification-and-handoff); series qualification remains Q01–Q04 |
+| O02 | partial: PJ05 implemented; SC02 scheduled | PJ05/SC02 | Effective/recorded context and exact source reopening integrated with actual source consumers; PJ05 actual study/fit provenance is targeted-tested. Wider calibration/observation selection remains SC02 |
+| O03 | resolved: implemented and targeted-tested | PJ02/PJ04 | Immutable raw versions, local admission/diagnostics, savepoint restoration, original intent settlement and one-occurrence cancellation/undo custody; [51b evidence](51b-projects-revisions-and-temporal-context.md#verification-and-handoff) |
 | O04 | scheduled | SC04/SC05 | Indexed study selection and protected original result access |
 | O05 | scheduled | SC01–SC03 | Raw measurement → calibration → admitted fit → parameter revision → downstream study |
 | O06 | scheduled | EV01–EV03 | Authentic selected test facts, honest denominators and protected artifact retrieval |
@@ -166,7 +166,7 @@ Resolved here can close an authoring choice without claiming product implementat
 | O08 | scheduled | EV05 | Comparable measurement cohorts with actual sample membership and unknown conditions |
 | O09 | scheduled | LC01/DL01–DL02 | Exact selected closure and explicit new supported reproduction/import |
 | O10 | resolved: no additional native working store | ST02/PJ02 | Existing immutable documents/RPDS plus catalogue transactions; revisit a concrete unmet operation |
-| O11 | scheduled | PJ06 | Discover existing compatible preparation artifacts and truthful reuse explanations |
+| O11 | resolved: implemented and targeted-tested | PJ06 | Passive resident/canonical discovery through existing owners, actual compatibility and explicit unchecked eligibility; no measured performance claim |
 | O12 | scheduled | ST02/SC04/EV02 | Operation-shaped native indexes and selected columnar analytics; no universal query framework |
 | O13 | resolved: foundation operations | ST02–ST04 | Implemented and targeted-tested project/evidence transactions, exact settlement and protected selections; [51a verification](51a-storage-foundations-and-project-ownership.md#verification-and-handoff). Future consumers retain these contracts; assembled series qualification is Q02/Q03. |
 | O14 | scheduled | LC02/LC03 | Application-closure recovery and explicit retained-resource explanations |
@@ -201,8 +201,8 @@ functional/platform/rule target, obtain that selection before adding dependent i
 
 ## Package state and execution route
 
-ST01–ST04 are complete at their targeted foundation acceptance boundary. Initial consumers
-advance the named adjacent packages only partially; their remaining scope is unchanged.
+ST01–ST04 and PJ01–PJ06 are complete at targeted acceptance. Initial foundation consumers
+advance the other named adjacent packages only partially; their remaining scope is unchanged.
 Whole-series assembled and static qualification remains Q01–Q04. Authoring alone establishes
 none of the remaining implementation.
 
@@ -212,12 +212,12 @@ none of the remaining implementation.
 | ST02 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST02) | Implemented atomic source/project/research operations and Rust/Python/CLI consumers; Tested targeted native and Python journeys |
 | ST03 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST03) | Implemented independent evidence lifecycle, complete import generations and authentic invocation adapter; Tested native roles/lifecycle and public CLI |
 | ST04 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST04) | Implemented issuer/generation fences, exact receipts, original allowance and protected hydration; Tested adversarial/replay/selection controls |
-| PJ01 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ01) | 51a supplies project/independent branch ownership and bounded navigation; full workspace interaction remains |
-| PJ02 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ02) | 51a supplies durable raw drafts, protected bytes and explicit admission/publication; remaining workspace recovery/editing behavior stays here |
-| PJ03 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ03) | Source/value/structural comparison |
-| PJ04 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | 51a supplies exact guarded publication; objectwise merge and undo remain |
-| PJ05 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ05) | Historical context selectors and corrections |
-| PJ06 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ06) | Compatible preparation discovery |
+| PJ01 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ01) | Implemented stable names/keys, indexed pages, bookmarks and frozen source/physical selections; Tested native/Python/actual executable reopening |
+| PJ02 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ02) | Implemented immutable raw versions/savepoints, typed exact-base recovery and version diagnostics; Tested malformed/large bodies, restoration, conflicts, cancellation and retained science |
+| PJ03 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ03) | Implemented compact source/value/structural/unknown comparison and selected detail; Tested known authored edits and explicit physical mismatch |
+| PJ04 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | Implemented exact three-way decisions, private original-text proof, derived checksum composition and compensating undo; Tested conflicts, replay, ancestry, foreign issuers and unchanged old receipts |
+| PJ05 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ05) | Implemented UTC/cut/correction selection and protected authored/physical reopen; Tested native history, actual recorded study/lane and reopened native fit receipts retaining original context |
+| PJ06 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ06) | Implemented bounded passive inspection with existing eligibility owners; Tested no recency/counter/compilation effects and issuer/revision-scoped headers |
 | SC01 | planned | [51c](51c-scientific-data-studies-and-results.md#SC01) | Dataset/measurement versions and admitted source bridge |
 | SC02 | planned | [51c](51c-scientific-data-studies-and-results.md#SC02) | Explicit calibration and observation selection |
 | SC03 | planned | [51c](51c-scientific-data-studies-and-results.md#SC03) | Qualified fit-to-parameter-source publication |
@@ -283,10 +283,18 @@ Proposed, Interface-checked, Implemented, Tested and Measured. No mandatory broa
 upstream DST duplication, new memory governor or repeated per-package hygiene is introduced.
 Quantitative benefit remains a hypothesis until named measurements establish it.
 
-## Authoring checkpoint
+## Authoring baseline
 
-The target choices above are made from static evidence, not deferred to execution. All delivery
-packages remain planned; bounded future capability decisions remain visible. No production
+The target choices above were made from static evidence, not deferred to execution. At authoring,
+all delivery packages were planned; bounded future capability decisions remain visible. No production
 implementation or product qualification occurred during authoring. Relevant sources and exact
 capability conditions are carried into the companions. Existing plans/index and supplied library
 documents are unchanged. Implementation requires subsequent maintainer authorization.
+
+## Execution handoff
+
+**Implemented and Tested:** 51b's PJ01–PJ06 are complete at the targeted boundary documented
+in [51b verification](51b-projects-revisions-and-temporal-context.md#verification-and-handoff).
+Whole-series assembled/static qualification remains Q01–Q04. Enduring project/history/preparation
+contracts are published at blueprint §14.3/§20.6 with proposed ADR-0217. 51a/51b stay retained
+dependencies until Q04. This handoff does not authorize 51c–51g execution or close older plan series.

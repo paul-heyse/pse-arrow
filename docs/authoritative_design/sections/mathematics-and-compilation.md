@@ -567,6 +567,15 @@ persisted product associations. Presence, compatibility and receiving qualificat
 absent explanations remain unknown. Passive discovery performs no solver execution, native
 compilation, provider transfer or portable-body reconstruction, and creates no competing catalogue.
 
+The passive resident snapshot returns at most 32 product descriptors without cache gets, recency
+changes or hit/miss increments. Existing owners compare complete current premises where available;
+body-only semantic identity and persisted headers remain unchecked for receiving eligibility.
+Canonical discovery uses a revision-scoped indexed 32-item page with one continuation witness;
+its cursor binds issuing store, source problem and exact revision. The source stays protected
+through selection. Product presence supplies no live handle or measured reuse benefit. The typed
+boundary's preparation wire is a mechanical projection of the existing binding variants, not a
+second mathematical representation or a replacement library codec.
+
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 

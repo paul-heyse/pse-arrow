@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-06, DP-09]
 blueprint: [§14.3, §20.5, §20.6, §21.1]
 review: "not-required: New relation families and public meanings within existing source, preparation and Python boundary decisions; the maintainer authorized Plan51b's execution approach."
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete supported editing or context-selection operation cannot be expressed through exact admitted source revisions and existing publication or retention owners.
@@ -51,7 +51,7 @@ Retained intents bind complete inputs, issuing authority and expected generation
 
 ### Confirmation
 
-Interface-checked against existing SourceDelta, canonical revision parents, Plan51a project guards, portable-body product associations and finite preparation retention. Plan51b owns implementation and targeted evidence; Plan51g owns assembled qualification.
+Tested on Linux with the selected SurrealDB3.3.4/MX1.0 service, explicit Arrow force-validation and rebuilt Python correctness extension: Plan51b records 13 storage controls, 16 Runtime controls, five public Python/actual executable components and the actual historical native-fit receipt control. Independent bounded static rechecks found no remaining material blocker in the repaired boundaries. Plan51b owns the exact commands and conditions; Plan51g owns assembled qualification. No performance benefit or ADR acceptance is claimed.
 
 ## Pros and cons
 
@@ -64,3 +64,5 @@ Reuses current scientific authority and avoids long-open editing transactions; r
 ## Status history
 
 - 2026-10-22 — proposed before implementation; maintainer authorized execution and selected UTC effective dates.
+
+- 2026-10-22 — implemented and targeted-tested under maintainer-authorized Plan51b; proposed status unchanged, whole-series qualification remains Plan51g.
