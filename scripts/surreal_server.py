@@ -6725,6 +6725,11 @@ APPLICATION_BACKUP_TABLES = (
     "canonical_studies", "canonical_runs", "canonical_attempts",
     "canonical_artifacts", "canonical_artifact_obligations",
     "canonical_history_obligations", "canonical_stages",
+    "canonical_memberships", "canonical_versions", "canonical_version_manifests",
+    "canonical_payload_blocks", "canonical_edges", "canonical_artifact_blocks",
+    "canonical_artifact_reads", "canonical_result_batches", "canonical_result_sets",
+    "canonical_result_manifests", "canonical_result_protections",
+    "canonical_file_instances", "canonical_file_borrowers",
 )
 
 
@@ -6738,6 +6743,7 @@ def application_inventory_query(table: str, after: str) -> str:
         "revision", "run", "attempt", "artifact", "dataset", "selection",
         "owner", "owner_kind", "generation", "state", "phase", "activated",
         "closed", "abandoned", "cleanup_complete", "terminal", "active",
+        "complete", "retired", "retiring",
     ])
     return (
         f"LET $rows=SELECT * FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "  # noqa: S608 -- fixed owner allowlist, JSON cursor
@@ -6823,7 +6829,13 @@ def validate_application_inventory(value: object) -> dict[str, object]:
 
 def inspect_backup(source: Path, interpretation: str) -> dict[str, object]:
     """Read-only inspection shares the exact restore verifier and performs no repair."""
-    manifest, config, payloads = validated_restore_backup(source, interpretation)
+    try:
+        manifest, config, payloads = validated_restore_backup(source, interpretation)
+    except (SupervisorError, OSError, ValueError) as error:
+        return {
+            "backup": str(source), "complete": False, "restorable": False,
+            "refusal": str(error), "physical_reclaimed_bytes": None,
+        }
     application = validate_application_inventory(manifest.get("application_inventory"))
     return {
         "backup": str(source), "backup_version": 4, "complete": True,
@@ -8776,7 +8788,11 @@ def validated_restore_backup(
         if p.is_file() and p != source / "backup.json"
     }
     if actual != set(files):
-        raise SupervisorError("Backup file inventory differs from its manifest")
+        missing = sorted(set(files) - actual)
+        extra = sorted(actual - set(files))
+        raise SupervisorError(
+            f"Backup file inventory differs from its manifest; missing={missing!r}, unexpected={extra!r}"
+        )
     for name, digest in files.items():
         path = source / name
         if (

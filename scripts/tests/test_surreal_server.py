@@ -6386,13 +6386,35 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 else:
                     value["backup_version"] = 3
                 server.write_json(backup / "backup.json", value)
-                with self.assertRaises(server.SupervisorError):
-                    server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
+                inspection = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
+                self.assertFalse(inspection["complete"])
+                self.assertFalse(inspection["restorable"])
                 destination = self.root / alteration
                 with self.assertRaises(server.SupervisorError):
                     server.restore(backup, destination, server.SUBSTRATE_INTERPRETATION)
                 self.assertFalse(destination.exists())
         server.write_json(backup / "backup.json", manifest)
+
+    def test_application_restore_mismatch_keeps_admission_closed(self) -> None:
+        backup = self.backup_fixture()
+        manifest = server.read_json(backup / "backup.json")
+        manifest["application_inventory"]["tables"]["canonical_project_imports"] = [
+            {"key": "pending-import", "sha256": "a" * 64, "references": "{complete:false,project:original}"}
+        ]
+        server.write_json(backup / "backup.json", manifest)
+        restored = self.root / "catalogue-mismatch"
+        with self.native_maintenance(), self.assertRaisesRegex(server.SupervisorError, "catalogue differs"):
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        self.assertFalse(server.config_for(restored)["accepting_writes"])
+        self.assertEqual(server.read_json(backup / "backup.json"), manifest)
+
+    def test_inspect_backup_reports_incomplete_members_without_effects(self) -> None:
+        backup = self.backup_fixture()
+        (backup / "database/fixture").unlink()
+        inspection = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        self.assertFalse(inspection["complete"])
+        self.assertIn("database/fixture", str(inspection["refusal"]))
+        self.assertFalse((backup / "database/fixture").exists())
 
     def test_incomplete_application_capture_never_publishes_complete_manifest(self) -> None:
         config = self.initialized()
