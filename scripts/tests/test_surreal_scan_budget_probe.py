@@ -121,11 +121,13 @@ class ScanProbePreparationTests(unittest.TestCase):
             (source / "Cargo.lock").write_text(
                 'name = "surrealmx"\nversion = "1.0.0"\n'
             )
-            with patch.object(
-                probe, "git", side_effect=[probe.REVISION.encode(), b"native drift"]
+            with (
+                patch.object(
+                    probe, "git", side_effect=[probe.REVISION.encode(), b"native drift"]
+                ),
+                self.assertRaisesRegex(ValueError, "native planner/index/scanner"),
             ):
-                with self.assertRaisesRegex(ValueError, "native planner/index/scanner"):
-                    probe.prepare(source, source.parent / "uncreated-tool08-scratch")
+                probe.prepare(source, source.parent / "uncreated-tool08-scratch")
 
 
 if __name__ == "__main__":

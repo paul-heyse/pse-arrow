@@ -2808,7 +2808,7 @@ mod canonical_studies_server_unit {
                     .edit(
                         &format!("graph-dense-source-{ordinal:03}"),
                         None,
-                        "source",
+                        &format!("graph-dense-edit-{ordinal:03}"),
                         &[],
                     )
                     .await

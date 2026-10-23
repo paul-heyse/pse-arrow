@@ -8,7 +8,6 @@ use crate::{
     canonical::{
         CanonicalError, CanonicalStore, MetadataResponse, REQUEST_TIMEOUT, protected_query,
     },
-    canonical_codec as codec,
     generated::surreal as wire,
 };
 use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
@@ -222,19 +221,13 @@ impl CanonicalGraphRequest {
     pub fn description(&self) -> Result<serde_json::Value, CanonicalError> {
         let after = self.validate()?;
         Ok(
-            serde_json::json!({"sql":self.sql(),"bindings":self.bindings(after)?,
+            serde_json::json!({"sql":self.sql(),"bindings":self.bindings(after),
             "source":{"path":file!(),"owner":"CanonicalGraphRequest::sql and bindings"},
             "scope":"one bound native relation neighborhood; physical graph plan is separate from semantic completeness"}),
         )
     }
-    fn bindings(&self, after: &str) -> Result<BTreeMap<String, Value>, CanonicalError> {
-        let mut bindings = BTreeMap::from([
-            ("after".into(), Value::String(after.into())),
-            (
-                "maximum".into(),
-                codec::encode_int(i64::from(self.limit) + 1)?,
-            ),
-        ]);
+    fn bindings(&self, after: &str) -> BTreeMap<String, Value> {
+        let mut bindings = BTreeMap::from([("after".into(), Value::String(after.into()))]);
         match &self.anchor {
             GraphAnchor::StudyPoint { point, .. } => {
                 bindings.insert("point".into(), Value::String(point.clone()));
@@ -250,29 +243,32 @@ impl CanonicalGraphRequest {
                 bindings.insert("node".into(), Value::String(node.clone()));
             }
         }
-        Ok(bindings)
+        bindings
     }
-    fn sql(&self) -> &'static str {
-        match (&self.anchor, self.scope) {
+    fn sql(&self) -> String {
+        let source = match (&self.anchor, self.scope) {
             (GraphAnchor::StudyPoint { .. }, GraphScope::RetainedConsumers) => {
-                "SELECT id,in,out,key,study,dependent,predecessor,kind FROM canonical_study_dependencies WITH INDEX study_dependents WHERE predecessor=$point AND key>$after ORDER BY key LIMIT $maximum;"
+                "SELECT id,in,out,key,study,dependent,predecessor,kind FROM canonical_study_dependencies WITH INDEX study_dependents WHERE predecessor=$point AND key>$after ORDER BY key"
             }
             (GraphAnchor::StudyPoint { .. }, _) => {
-                "SELECT id,in,out,key,study,dependent,predecessor,kind FROM canonical_study_dependencies WITH INDEX study_dependencies WHERE dependent=$point AND key>$after ORDER BY key LIMIT $maximum;"
+                "SELECT id,in,out,key,study,dependent,predecessor,kind FROM canonical_study_dependencies WITH INDEX study_dependencies WHERE dependent=$point AND key>$after ORDER BY key"
             }
             (GraphAnchor::Run { .. }, _) => {
-                "SELECT id,in,out,key,run,revision FROM canonical_run_sources WITH INDEX run_source_cleanup WHERE run=$run AND key>$after ORDER BY key LIMIT $maximum;"
+                "SELECT id,in,out,key,run,revision FROM canonical_run_sources WITH INDEX run_source_cleanup WHERE run=$run AND key>$after ORDER BY key"
             }
             (GraphAnchor::Artifact { .. }, _) => {
-                "SELECT id,in,out,key,analysis,artifact FROM canonical_analysis_inputs WITH INDEX analysis_input_artifact WHERE artifact=$artifact AND analysis>$after ORDER BY analysis LIMIT $maximum;"
+                "SELECT id,in,out,key,analysis,artifact FROM canonical_analysis_inputs WITH INDEX analysis_input_artifact WHERE artifact=$artifact AND analysis>$after ORDER BY analysis"
             }
             (GraphAnchor::AnalysisNode { .. }, GraphScope::RecordedSources) => {
-                "SELECT id,in,out,key,analysis,source,target,kind,evidence_artifact,evidence_block,evidence_row,evidence_field FROM canonical_analysis_edges WITH INDEX analysis_edge_target WHERE target=$node AND key>$after ORDER BY key LIMIT $maximum;"
+                "SELECT id,in,out,key,analysis,source,target,kind,evidence_artifact,evidence_block,evidence_row,evidence_field FROM canonical_analysis_edges WITH INDEX analysis_edge_target WHERE target=$node AND key>$after ORDER BY key"
             }
             (GraphAnchor::AnalysisNode { .. }, _) => {
-                "SELECT id,in,out,key,analysis,source,target,kind,evidence_artifact,evidence_block,evidence_row,evidence_field FROM canonical_analysis_edges WITH INDEX analysis_edge_source WHERE source=$node AND key>$after ORDER BY key LIMIT $maximum;"
+                "SELECT id,in,out,key,analysis,source,target,kind,evidence_artifact,evidence_block,evidence_row,evidence_field FROM canonical_analysis_edges WITH INDEX analysis_edge_source WHERE source=$node AND key>$after ORDER BY key"
             }
-        }
+        };
+        // Only the validated numeric page cap is rendered; identities and cursor
+        // remain bound values. This also makes the pushed cap explicit in EXPLAIN.
+        format!("{source} LIMIT {};", u64::from(self.limit) + 1)
     }
 }
 
@@ -494,7 +490,7 @@ impl CanonicalStore {
             if experiment {modes.push(("analyze","EXPLAIN ANALYZE FORMAT JSON"));}
             for (name,prefix) in modes {
                 let sql=format!("{prefix} {}",request.sql());
-                let mut response=protected_query("canonical_explanations::plan",||Ok(self.db.metadata_query(MetadataResponse::DiagnosticPlan,sql.clone()).bind(request.bindings(after)?))).await?;
+                let mut response=protected_query("canonical_explanations::plan",||Ok(self.db.metadata_query(MetadataResponse::DiagnosticPlan,sql.clone()).bind(request.bindings(after)))).await?;
                 let plan=response.take::<Value>(0)?;
                 observations.insert(name,graph_plan_observations(&plan));
                 plans.insert(name,plan);
@@ -514,7 +510,7 @@ impl CanonicalStore {
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let after=request.validate()?;
             let (anchor,decision,blocker)=self.graph_anchor(&request.anchor).await?;
-            let bindings=request.bindings(after)?;
+            let bindings=request.bindings(after);
             let mut response=protected_query("canonical_explanations::neighborhood",||Ok(self.db.metadata_query(MetadataResponse::Page,request.sql()).bind(bindings.clone()))).await?;
             let rows=response.take::<Vec<Object>>(0)?;
             if rows.len()>request.limit as usize+1 { return Err(CanonicalError::PayloadLimit); }
@@ -734,6 +730,7 @@ pub(crate) async fn qualify_operator(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::canonical_codec as codec;
 
     #[test]
     fn graph_requests_bind_values_and_refuse_cross_revision_continuations() {
@@ -750,10 +747,8 @@ mod tests {
             continuation: None,
         };
         assert!(!request.sql().contains("DELETE"));
-        assert_eq!(
-            request.bindings("").unwrap()["maximum"],
-            codec::encode_int(2).unwrap()
-        );
+        assert!(request.sql().ends_with(" LIMIT 2;"));
+        assert!(!request.bindings("").contains_key("maximum"));
         request.continuation = Some(GraphContinuation {
             anchor: GraphAnchor::StudyPoint {
                 point: "point';DELETE canonical_studies;".into(),
@@ -888,16 +883,13 @@ mod tests {
                 sql.contains(&format!("WITH INDEX {index} WHERE {predicate}")),
                 "{sql}"
             );
-            assert!(sql.contains(" LIMIT $maximum"));
+            assert!(sql.ends_with(" LIMIT 65;"));
             assert!(
                 !sql.contains("START")
                     && !sql.contains("RETURN")
                     && !sql.contains("analysis=$analysis")
             );
-            assert_eq!(
-                request.bindings("").unwrap()["maximum"],
-                codec::encode_int(65).unwrap()
-            );
+            assert!(!request.bindings("").contains_key("maximum"));
         }
     }
 
