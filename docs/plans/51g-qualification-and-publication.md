@@ -246,7 +246,9 @@ The rebuilt dedicated `pse-project`/`pse-evidence` binaries passed their actual 
 `PSE_EVIDENCE_TEST_TOOL=<rebuilt-tool> .venv/bin/python -m unittest
 scripts.tests.evidence_native` passed **4/4**, 4.770 s, with an absent service and no implicit
 build. The native/store `scripts.python_tests test_project_cli.py -m component -q` journey
-passed **1/1**, 37.75 s. An initial invocation omitted `--native` and failed before collection
+passed **1/1**, 37.75 s. The rebuilt project executable also independently inspected the
+actual copied pack with an absent service state and empty Symbolica licence; it created no
+service state. An initial invocation omitted `--native` and failed before collection
 because the installed linked extension could not load `libcoinmumps`; rerunning through the
 existing native environment corrected the command, with no extension or loader-path change.
 
@@ -254,8 +256,13 @@ The keep-going feature matrix exposed taskdump combinations run without required
 The original cargo-hack adapter now selects the existing isolated diagnostic profile and
 `build_environment.configure(..., taskdump=True)`, including the same flags for force-validation
 graph probes. Ordinary combinations retain ordinary flags. **42** adapter/validation/environment
-controls pass; Ruff passes and the final type check is recorded below. Exact failed combinations
-are rerun separately rather than relabelling the initial matrix as clean.
+controls pass; Ruff passes and Pyrefly reports zero diagnostics (three existing suppressions). Exact failed combinations
+are rerun separately rather than relabelling the initial matrix as clean. The matrix also read
+transient conflict markers during the earlier lifecycle merge; those failed combinations must
+be rerun against the resolved main tree. Later worktree ancestry merges deliberately preserved
+the qualified tree without exposing another in-progress source merge to the running checks.
+The bounded independent source review of the taskdump routing found no material defect; it
+performed no builds/tests and is not runtime evidence.
 
 ### Mistakes corrected
 
