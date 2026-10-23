@@ -550,6 +550,8 @@ DEFINE FIELD OVERWRITE out ON canonical_run_sources TYPE record<canonical_revisi
 DEFINE FIELD revision ON canonical_run_sources TYPE string;
 DEFINE TABLE canonical_runs SCHEMAFULL INLINE EDGES 64 INLINE REFERENCES 32;
 DEFINE FIELD key ON canonical_runs TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD research_selection ON canonical_runs TYPE option<string>;
+DEFINE FIELD research_dataset ON canonical_runs TYPE option<string>;
 DEFINE FIELD problem ON canonical_runs TYPE string;
 DEFINE FIELD revision ON canonical_runs TYPE string;
 DEFINE FIELD source_sequence ON canonical_runs TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
@@ -723,6 +725,8 @@ DEFINE INDEX stage_expiry ON canonical_stages FIELDS activated, abandoned, expir
 DEFINE INDEX stage_cleanup ON canonical_stages FIELDS problem, cleanup_complete, expires_at, key;
 DEFINE INDEX run_order ON canonical_runs FIELDS problem, sequence UNIQUE;
 DEFINE INDEX run_revision ON canonical_runs FIELDS problem, revision, sequence;
+DEFINE INDEX run_research_selection ON canonical_runs FIELDS research_selection, sequence, key;
+DEFINE INDEX run_research_dataset ON canonical_runs FIELDS research_dataset, sequence, key;
 DEFINE INDEX run_terminal_selection ON canonical_runs FIELDS problem, terminal_class, sequence;
 DEFINE INDEX attempt_run ON canonical_attempts FIELDS run, generation UNIQUE;
 DEFINE INDEX attempt_live ON canonical_attempts FIELDS run, phase, generation;
@@ -996,6 +1000,7 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     IF $row.interpretation!='pse.substrate.v8' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v8' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
+    fn::pse_research_v1::run_input($rpc_expiry,$row);
     LET $old = SELECT * FROM ONLY type::record('canonical_runs', $row.key);
     IF $old != NONE {
         IF $old.request != $row.request OR $old.problem != $row.problem OR $old.revision != $row.revision OR $old.source_sequence != $row.source_sequence OR $old.source_selection != $row.source_selection OR $old.attestation != $row.attestation OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
@@ -1725,6 +1730,17 @@ DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:stri
     LET $reference='research-publication:'+$operation;
     CREATE ONLY type::record('canonical_research_references',$reference) CONTENT {key:$reference,project:$intent.project,revision:$selection.revision,run:$e.run,attempt:$e.attempt,request:$intent.request};
     RETURN true;
+};
+
+DEFINE FUNCTION fn::pse_research_v1::run_input($expiry:int,$row:object) -> bool {
+    IF $row.research_selection=NONE {IF $row.research_dataset!=NONE {THROW 'PSE_REFUSAL:research_context_differs';}; RETURN true;};
+    LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$row.research_selection);
+    IF $selection=NONE OR $selection.dataset!=$row.research_dataset {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF $selection.revision!=$row.revision {
+        LET $publication=SELECT * FROM ONLY type::record('canonical_research_publications',$row.revision);
+        IF $publication=NONE OR $publication.selection!=$row.research_selection OR $publication.revision!=$row.revision {THROW 'PSE_REFUSAL:research_context_differs';};
+    };
+    fn::pse_execution_v1::deadline($expiry);RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_files_v1::admission($expiry:int,$incarnation:string,$collecting:bool) -> object {
@@ -2706,12 +2722,13 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object
         LET $run=SELECT terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
         RETURN object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
     });
-    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR math::sum($selected.point_count)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $total=math::sum($selected.point_count) ?? 0;
+    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR $total>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $points=IF $frozen {
         LET $selected_keys=$selected.key;
         SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected_keys ORDER BY study,ordinal LIMIT 129
     } ELSE {[]};
-    IF $frozen AND (array::len($points)!=(math::sum($selected.point_count) ?? 0) OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    IF $frozen AND (array::len($points)!=$total OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $result={headers:$headers,members:$points,has_more:$more};
     IF bytes::len(encoding::cbor::encode($result))>1048576 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     fn::pse_execution_v1::deadline($rpc_expiry);

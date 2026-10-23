@@ -291,7 +291,7 @@ mod tests {
                 member: kind.into(), kind: kind.into(), status: "unknown".into(), context_id: Some(name.into()),
                 detail_ref: (kind == "diagnostic_tool").then(|| format!("sha256:{name}")), ..Default::default()
             }).collect();
-            action.facts.push(EvidenceFact {member:"context".into(),kind:"context".into(),status:"declared".into(),context_id:Some(name.into()),context_json:Some(format!(r#"{{"capture":{{"action":"{name}"}}}}"#)),..Default::default()});
+            action.facts.push(EvidenceFact {member:"context".into(),kind:"context".into(),status:"declared".into(),context_id:Some(name.into()),context_json:Some(serde_json::json!({"workload":null,"input":null,"revision":null,"build":null,"profile":null,"features":null,"provider":null,"isa":null,"capture":{"action":name},"host":null,"environment":null,"source":null,"mode":null,"process":null}).to_string()),..Default::default()});
             action.facts.push(EvidenceFact {member:"link".into(),kind:"declared_link".into(),status:"declared".into(),context_id:Some(name.into()),link_relation:Some("run".into()),link_target:Some(format!("run:{name}")),..Default::default()});
             action.expected_members = action.facts.iter().map(|f|f.member.clone()).collect();
             sources.push(action);

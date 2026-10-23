@@ -899,6 +899,42 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `from_sequence` | `UInt64` | false | `payload` | — | — |
 | `to_sequence` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_research_datasets`
+
+Immutable version referencing admitted typed data objects and exact context. Members contain identities and attribute selections, never a competing measurement payload.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `physical_context` | `Utf8` | false | `payload` | — | — |
+| `context` | `Utf8` | false | `payload` | — | — |
+| `parent` | `Utf8` | true | `payload` | — | — |
+| `role` | `Utf8` | false | `payload` | — | — |
+| `members` | `Binary` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+
+## `canonical_research_publications`
+
+Atomic source publication receipt referencing original qualified fitted cells and admitted target source. No fitted values are copied into this receipt.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `selection` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `parent` | `Utf8` | false | `payload` | — | — |
+| `mapping` | `Binary` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+
 ## `canonical_research_references`
 
 Explicit source/result lineage reference. Source roots and selected artifact obligations preserve the exact original closure; no numerical value is copied as a new scientific authority.
@@ -913,6 +949,24 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `artifact` | `Utf8` | true | `payload` | — | — |
 | `run` | `Utf8` | true | `payload` | — | — |
 | `attempt` | `Utf8` | true | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+
+## `canonical_research_selections`
+
+Frozen original fit observation and calibration selection; exclusions, reasons, original-to-derived correspondence and uncertainty treatment reference admitted attributes.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `dataset` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `physical_context` | `Utf8` | false | `payload` | — | — |
+| `context` | `Utf8` | false | `payload` | — | — |
+| `fit` | `Utf8` | false | `payload` | — | — |
+| `selection` | `Binary` | false | `payload` | — | — |
 | `request` | `Binary` | false | `payload` | — | — |
 
 ## `canonical_result_batches`
@@ -1114,6 +1168,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
+| `research_selection` | `Utf8` | true | `payload` | — | — |
+| `research_dataset` | `Utf8` | true | `payload` | — | — |
 | `problem` | `Utf8` | false | `payload` | — | — |
 | `revision` | `Utf8` | false | `payload` | — | — |
 | `source_sequence` | `UInt64` | false | `payload` | — | — |
@@ -1192,6 +1248,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `problem` | `Utf8` | false | `payload` | — | — |
 | `revision` | `Utf8` | false | `payload` | — | — |
 | `metadata` | `Binary` | false | `payload` | — | — |
+| `physical_revision` | `Utf8` | true | `payload` | — | — |
+| `physical_identity` | `Utf8` | true | `payload` | — | — |
+| `context` | `Utf8` | true | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `point_count` | `UInt64` | false | `payload` | — | — |
 | `next_ordinal` | `UInt64` | false | `payload` | — | — |
@@ -1534,6 +1593,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `crate_name` | `Utf8` | true | `payload` | — | — |
 | `test_id` | `Utf8` | true | `payload` | — | — |
 | `detail_ref` | `Utf8` | true | `payload` | — | — |
+| `binary_id` | `Utf8` | true | `payload` | — | — |
+| `context_id` | `Utf8` | true | `payload` | — | — |
+| `context_json` | `Utf8` | true | `payload` | — | — |
+| `link_relation` | `Utf8` | true | `payload` | — | — |
+| `link_target` | `Utf8` | true | `payload` | — | — |
+| `population_id` | `Utf8` | true | `payload` | — | — |
+| `sample_id` | `Utf8` | true | `payload` | — | — |
+| `value_ns` | `Float64` | true | `payload` | — | — |
 
 ## `evidence_generations`
 

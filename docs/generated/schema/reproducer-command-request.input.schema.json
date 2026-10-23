@@ -2594,8 +2594,8 @@
           "type": "array"
         },
         "version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "description": "Executable request codec.",
           "type": "integer"
         }
@@ -6143,6 +6143,17 @@
             "$ref": "#/$defs/ReplayProvider"
           },
           "type": "array"
+        },
+        "research": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original research source attribution, reauthenticated before durable recording."
         }
       },
       "required": [
@@ -6343,6 +6354,47 @@
         "rule",
         "sources",
         "conditions"
+      ],
+      "type": "object"
+    },
+    "ResearchSource": {
+      "additionalProperties": false,
+      "description": "Authenticated original research ancestry carried by actual operation inputs.",
+      "properties": {
+        "dataset": {
+          "description": "Immutable dataset version.",
+          "type": "string"
+        },
+        "issuing_store": {
+          "description": "Canonical installation incarnation.",
+          "type": "string"
+        },
+        "physical_context": {
+          "description": "Original physical meaning.",
+          "type": "string"
+        },
+        "publication": {
+          "description": "Explicit parameter publication ancestry, when consuming its new source.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "description": "Exact currently consumed canonical source.",
+          "type": "string"
+        },
+        "selection": {
+          "description": "Frozen original observation selection.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issuing_store",
+        "selection",
+        "dataset",
+        "revision",
+        "physical_context"
       ],
       "type": "object"
     },

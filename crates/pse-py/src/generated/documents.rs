@@ -319,7 +319,7 @@ impl crate::documents::DocumentType for pse_runtime::workflow::DiagnosticReprodu
     const INPUT_NAME: &'static str = "DiagnosticReproducer";
     const OUTPUT_NAME: &'static str = "DiagnosticReproducerOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(1);
+    const VERSION: Option<u32> = Some(2);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType
@@ -966,7 +966,7 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ReplayDocument {
     const INPUT_NAME: &'static str = "ReplayDocument";
     const OUTPUT_NAME: &'static str = "ReplayDocument";
     const DISTINCT_DIRECTIONS: bool = false;
-    const VERSION: Option<u32> = Some(3);
+    const VERSION: Option<u32> = Some(4);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::ReproducerCommandRequest {
@@ -1021,9 +1021,85 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ReproductionStatu
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
 impl crate::documents::DocumentType
+for pse_operations::canonical_research::ResearchDataset {
+    const INPUT_NAME: &'static str = "ResearchDataset";
+    const OUTPUT_NAME: &'static str = "ResearchDatasetOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResearchDatasetRequest {
+    const INPUT_NAME: &'static str = "ResearchDatasetRequest";
+    const OUTPUT_NAME: &'static str = "ResearchDatasetRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_research::ResearchPublication {
+    const INPUT_NAME: &'static str = "ResearchPublication";
+    const OUTPUT_NAME: &'static str = "ResearchPublication";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::ResearchPublicationIntent {
+    const INPUT_NAME: &'static str = "ResearchPublicationIntent";
+    const OUTPUT_NAME: &'static str = "ResearchPublicationIntentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::ResearchPublicationPreview {
+    const INPUT_NAME: &'static str = "ResearchPublicationPreview";
+    const OUTPUT_NAME: &'static str = "ResearchPublicationPreviewOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::ResearchPublicationRequest {
+    const INPUT_NAME: &'static str = "ResearchPublicationRequest";
+    const OUTPUT_NAME: &'static str = "ResearchPublicationRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResearchReadRequest {
+    const INPUT_NAME: &'static str = "ResearchReadRequest";
+    const OUTPUT_NAME: &'static str = "ResearchReadRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResearchReadResult {
+    const INPUT_NAME: &'static str = "ResearchReadResult";
+    const OUTPUT_NAME: &'static str = "ResearchReadResultOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
 for pse_operations::canonical_projects::ResearchReference {
     const INPUT_NAME: &'static str = "ResearchReference";
     const OUTPUT_NAME: &'static str = "ResearchReferenceOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_research::ResearchSelection {
+    const INPUT_NAME: &'static str = "ResearchSelection";
+    const OUTPUT_NAME: &'static str = "ResearchSelection";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResearchSelectionRequest {
+    const INPUT_NAME: &'static str = "ResearchSelectionRequest";
+    const OUTPUT_NAME: &'static str = "ResearchSelectionRequestOutput";
     const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
@@ -1047,7 +1123,7 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ReviewContextDocu
     const INPUT_NAME: &'static str = "ReviewContextDocument";
     const OUTPUT_NAME: &'static str = "ReviewContextDocumentOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(1);
+    const VERSION: Option<u32> = Some(2);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::ReviewContextRequest {
@@ -1252,12 +1328,68 @@ impl crate::documents::DocumentType for pse_runtime::workflow::StudyCancel {
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyCohortDocument {
+    const INPUT_NAME: &'static str = "StudyCohortDocument";
+    const OUTPUT_NAME: &'static str = "StudyCohortDocumentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyCohortRequest {
+    const INPUT_NAME: &'static str = "StudyCohortRequest";
+    const OUTPUT_NAME: &'static str = "StudyCohortRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::StudyDefinition {
     const INPUT_NAME: &'static str = "StudyDefinition";
     const OUTPUT_NAME: &'static str = "StudyDefinitionOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(13);
+    const VERSION: Option<u32> = Some(14);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyKpiRequest {
+    const INPUT_NAME: &'static str = "StudyKpiRequest";
+    const OUTPUT_NAME: &'static str = "StudyKpiRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyObservationContext {
+    const INPUT_NAME: &'static str = "StudyObservationContext";
+    const OUTPUT_NAME: &'static str = "StudyObservationContextOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyObservationCursor {
+    const INPUT_NAME: &'static str = "StudyObservationCursor";
+    const OUTPUT_NAME: &'static str = "StudyObservationCursorOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyObservationPage {
+    const INPUT_NAME: &'static str = "StudyObservationPage";
+    const OUTPUT_NAME: &'static str = "StudyObservationPageOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyObservationPosition {
+    const INPUT_NAME: &'static str = "StudyObservationPosition";
+    const OUTPUT_NAME: &'static str = "StudyObservationPositionOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyObservationRequest {
+    const INPUT_NAME: &'static str = "StudyObservationRequest";
+    const OUTPUT_NAME: &'static str = "StudyObservationRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::StudyPointDefinition {
     const INPUT_NAME: &'static str = "StudyPointDefinition";
@@ -1297,6 +1429,34 @@ impl crate::documents::DocumentType for pse_runtime::workflow::StudyStatus {
 impl crate::documents::DocumentType for pse_runtime::workflow::StudyWaitControls {
     const INPUT_NAME: &'static str = "StudyWaitControls";
     const OUTPUT_NAME: &'static str = "StudyWaitControlsOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyWorkbenchCursor {
+    const INPUT_NAME: &'static str = "StudyWorkbenchCursor";
+    const OUTPUT_NAME: &'static str = "StudyWorkbenchCursorOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyWorkbenchFilter {
+    const INPUT_NAME: &'static str = "StudyWorkbenchFilter";
+    const OUTPUT_NAME: &'static str = "StudyWorkbenchFilterOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyWorkbenchPage {
+    const INPUT_NAME: &'static str = "StudyWorkbenchPage";
+    const OUTPUT_NAME: &'static str = "StudyWorkbenchPageOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyWorkbenchRequest {
+    const INPUT_NAME: &'static str = "StudyWorkbenchRequest";
+    const OUTPUT_NAME: &'static str = "StudyWorkbenchRequestOutput";
     const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;

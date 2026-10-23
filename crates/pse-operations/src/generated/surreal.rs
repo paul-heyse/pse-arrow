@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "9a21be47a5c90b175e57160da0899e3b79cae8c5151526f0eda03e32473adaee";
+pub const SCHEMA_DIGEST: &str = "1cd09aa643399eccce30c4ad17d22a67d228b4df8ac849dca04ff18aa3dff537";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -4939,6 +4939,20 @@ pub fn encode_canonical_runs(
 ) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
     let mut object = surrealdb::types::Object::new();
     object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    if let Some(value) = &row.r#research_selection {
+        object
+            .insert(
+                "research_selection",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &row.r#research_dataset {
+        object
+            .insert(
+                "research_dataset",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     object
         .insert(
             "problem",
@@ -5013,6 +5027,14 @@ pub fn decode_canonical_runs(
         r#key: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "key")?,
         )?,
+        r#research_selection: match object.remove("research_selection") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#research_dataset: match object.remove("research_dataset") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
         r#problem: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "problem")?,
         )?,

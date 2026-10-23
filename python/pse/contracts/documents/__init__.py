@@ -125,6 +125,8 @@ SourceMapScope = Literal["static_eligible_alternatives"]
 
 StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
 
+StudyObservationContinuity = Literal["catch_up", "gap_current_resync", "live_numerics_unavailable", "history_unavailable"]
+
 Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
 
 
@@ -7921,10 +7923,10 @@ class DiagnosticProcessSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown
 class DiagnosticReproducer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Portable new request, independent of original outcome and scientific permission."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Executable request codec.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Explicit finite allowance for all reconstruction/admission/execution.
     allowance: ClosedDuration
     #: Original text or exact selected frozen codec.
@@ -7949,10 +7951,10 @@ class DiagnosticReproducer(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 class DiagnosticReproducerOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Portable new request, independent of original outcome and scientific permission."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Executable request codec.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Explicit finite allowance for all reconstruction/admission/execution.
     allowance: ClosedDuration
     #: Original text or exact selected frozen codec.
@@ -14083,11 +14085,13 @@ class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     context: ContextSelectionBody | None = None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
+    #: Frozen research attribution consumed by this exact operation.
+    research: ResearchSource | None = None
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.optional_key(v.record_key)(self.research), v.scalar_key(self.revision),))
 
 
 class OperationSourceBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14097,11 +14101,13 @@ class OperationSourceBody(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     context: ContextSelectionBody | None = None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
+    #: Frozen research attribution consumed by this exact operation.
+    research: ResearchSource | None = None
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.optional_key(v.record_key)(self.research), v.scalar_key(self.revision),))
 
 
 class OperationSourceBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14111,11 +14117,13 @@ class OperationSourceBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     context: ContextSelectionBodyOutput | None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
+    #: Frozen research attribution consumed by this exact operation.
+    research: ResearchSourceOutput | None
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.optional_key(v.record_key)(self.research), v.scalar_key(self.revision),))
 
 
 class OperationSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14129,11 +14137,13 @@ class OperationSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     context: ContextSelectionBodyOutput | None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
+    #: Frozen research attribution consumed by this exact operation.
+    research: ResearchSourceOutput | None
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.optional_key(v.record_key)(self.research), v.scalar_key(self.revision),))
 
 
 class OperationSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14966,6 +14976,66 @@ class PointAttemptOutcomeOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.optional_key(v.scalar_key)(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
+
+
+class PointFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Current operational and scientific facts for one occurrence."""
+
+    #: Selected lazy science has supplied its exact seed consumption capability.
+    #: Absence preserves pending admission; this never grants start permission.
+    admitted_seed_need: enums.StudySeedNeed | None = None
+    #: Attempts already started.
+    attempt_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Publication/effect knowledge.
+    effect: enums.StudyEffectState
+    #: Occurrence identity.
+    key: OccurrenceKey
+    #: Operational state, never a scientific decision.
+    lifecycle: enums.StudyPointState
+    #: A claimed worker may acquire inputs before native dispatch is admitted.
+    native_started: bool
+    #: Explicit retry projection of the latest failure.
+    retry_failure: enums.StudyRetryFailure | None = None
+    #: Revision an executor must revalidate under its locks before applying the action.
+    revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Operation-owned aggregate assessment.
+    scientific: ScientificFacts
+    #: Selected explicit or continuation seed compatibility for this consumer.
+    #: A continuation's artifact originates in the predecessor but is checked for this point.
+    seed: SeedFact | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.admitted_seed_need), v.scalar_key(self.attempt_count), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.scalar_key(self.native_started), v.optional_key(v.scalar_key)(self.retry_failure), v.scalar_key(self.revision), v.record_key(self.scientific), v.optional_key(v.record_key)(self.seed),))
+
+
+class PointFactsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Current operational and scientific facts for one occurrence."""
+
+    #: Selected lazy science has supplied its exact seed consumption capability.
+    #: Absence preserves pending admission; this never grants start permission.
+    admitted_seed_need: enums.StudySeedNeed | None = None
+    #: Attempts already started.
+    attempt_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Publication/effect knowledge.
+    effect: enums.StudyEffectState
+    #: Occurrence identity.
+    key: OccurrenceKey
+    #: Operational state, never a scientific decision.
+    lifecycle: enums.StudyPointState
+    #: A claimed worker may acquire inputs before native dispatch is admitted.
+    native_started: bool
+    #: Explicit retry projection of the latest failure.
+    retry_failure: enums.StudyRetryFailure | None
+    #: Revision an executor must revalidate under its locks before applying the action.
+    revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Operation-owned aggregate assessment.
+    scientific: ScientificFactsOutput
+    #: Selected explicit or continuation seed compatibility for this consumer.
+    #: A continuation's artifact originates in the predecessor but is checked for this point.
+    seed: SeedFact | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.admitted_seed_need), v.scalar_key(self.attempt_count), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.scalar_key(self.native_started), v.optional_key(v.scalar_key)(self.retry_failure), v.scalar_key(self.revision), v.record_key(self.scientific), v.optional_key(v.record_key)(self.seed),))
 
 
 class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16322,6 +16392,33 @@ class ProgressCheckpointDocumentOutput(msgspec.Struct, frozen=True, forbid_unkno
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.current), v.scalar_key(self.current_is_latest), v.scalar_key(self.dropped), v.scalar_key(self.generation), v.scalar_key(self.highest_issued_sequence),))
+
+
+class ProgressCoverageBodySampled(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sampled"):
+    """Finite sampling counters retained by the original execution owner."""
+
+    #: Events in batches with actual canonical append acknowledgments.
+    acknowledged: Annotated[int, msgspec.Meta(ge=0)]
+    #: Observations rejected before queue admission.
+    dropped_before_queue: Annotated[int, msgspec.Meta(ge=0)]
+    #: Callback observations, including events rejected before cloning.
+    observed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Events admitted to the finite writer queue.
+    queued: Annotated[int, msgspec.Meta(ge=0)]
+    #: Queued events without an observed append acknowledgment; storage may be uncertain.
+    unacknowledged: Annotated[int, msgspec.Meta(ge=0)]
+    #: Writer completion, separate from the scientific outcome.
+    writer: ProgressWriterOutcome
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.acknowledged), v.scalar_key(self.dropped_before_queue), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.unacknowledged), v.record_key(self.writer),))
+
+
+class ProgressCoverageBodyUnknown(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unknown"):
+    """Historical or recovered executions did not retain original counters."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class ProgressCoverageSampled(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sampled"):
@@ -17688,9 +17785,10 @@ class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     project: str
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    research: ResearchPublicationBinding | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.record_key)(self.research),))
 
 
 class ProjectPublicationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17712,9 +17810,10 @@ class ProjectPublicationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=
     project: str
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    research: ResearchPublicationBinding | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.record_key)(self.research),))
 
 
 class ProjectPublicationBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17736,9 +17835,10 @@ class ProjectPublicationBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_f
     project: str
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    research: ResearchPublicationBinding | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.record_key)(self.research),))
 
 
 class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17764,9 +17864,10 @@ class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     project: str
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    research: ResearchPublicationBinding | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.record_key)(self.research),))
 
 
 class ProjectRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18835,10 +18936,10 @@ class ReplayDecisions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Complete export of available scientific premises. Compiled products/factories remain in-process capabilities."""
 
-    _pse_required_version: ClassVar[int] = 3
+    _pse_required_version: ClassVar[int] = 4
 
     #: Explicit current document version.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: Exact required binary build.
     build: v.ContentHash
     #: Original portable case constructors, retaining all supplied structural and numerical inputs.
@@ -19460,9 +19561,11 @@ class ReplaySourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     physical_sources: tuple[ReplayPhysicalSource, ...]
     #: Full required callable descriptor bodies; actual executable factories are supplied separately.
     providers: tuple[ReplayProvider, ...]
+    #: Original research source attribution, reauthenticated before durable recording.
+    research: ResearchSource | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers), v.optional_key(v.record_key)(self.research),))
 
 
 class ReplaySourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19484,9 +19587,11 @@ class ReplaySourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     physical_sources: tuple[ReplayPhysicalSource, ...]
     #: Full required callable descriptor bodies; actual executable factories are supplied separately.
     providers: tuple[ReplayProvider, ...]
+    #: Original research source attribution, reauthenticated before durable recording.
+    research: ResearchSourceOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers), v.optional_key(v.record_key)(self.research),))
 
 
 class ReplaySourceObject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19975,6 +20080,656 @@ class ReproductionPredicateOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
 
 
+class ResearchDataObject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact attribute selection into the original typed measurement owner."""
+
+    #: Original acquisition-clock meaning; never inferred from recording time.
+    acquisition_clock: str
+    #: Original authored value attribute, including any authored derivation.
+    attribute: str
+    #: Authored declarations owning the selected calibration or quantity conversion.
+    calibration: tuple[identities.DeclarationId, ...]
+    #: Parent version member for curated/derived correspondence.
+    parent_member: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Expected full physical quantity convention, including basis/reference state.
+    quantity: v.SemanticId
+    #: Original typed inline or package-data record identity.
+    record: identities.DeclarationId
+    #: Original admitted reader root (normally the experiment case).
+    root: identities.DeclarationId
+    #: Explicit authored transformed standard uncertainty, or original annotation.
+    standard_deviation_attribute: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.acquisition_clock), v.scalar_key(self.attribute), v.sequence_key(v.scalar_key)(self.calibration), v.optional_key(v.scalar_key)(self.parent_member), v.scalar_key(self.quantity), v.scalar_key(self.record), v.scalar_key(self.root), v.optional_key(v.scalar_key)(self.standard_deviation_attribute),))
+
+
+class ResearchDataObjectOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact attribute selection into the original typed measurement owner."""
+
+    #: Original acquisition-clock meaning; never inferred from recording time.
+    acquisition_clock: str
+    #: Original authored value attribute, including any authored derivation.
+    attribute: str
+    #: Authored declarations owning the selected calibration or quantity conversion.
+    calibration: tuple[identities.DeclarationId, ...]
+    #: Parent version member for curated/derived correspondence.
+    parent_member: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Expected full physical quantity convention, including basis/reference state.
+    quantity: v.SemanticId
+    #: Original typed inline or package-data record identity.
+    record: identities.DeclarationId
+    #: Original admitted reader root (normally the experiment case).
+    root: identities.DeclarationId
+    #: Explicit authored transformed standard uncertainty, or original annotation.
+    standard_deviation_attribute: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.acquisition_clock), v.scalar_key(self.attribute), v.sequence_key(v.scalar_key)(self.calibration), v.optional_key(v.scalar_key)(self.parent_member), v.scalar_key(self.quantity), v.scalar_key(self.record), v.scalar_key(self.root), v.optional_key(v.scalar_key)(self.standard_deviation_attribute),))
+
+
+class ResearchDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: context
+    context: str
+    #: key
+    key: str
+    #: members
+    members: Bytes
+    #: parent
+    parent: str | None = None
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: role
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.scalar_key(self.key), v.sequence_key(v.scalar_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.role),))
+
+
+class ResearchDatasetBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: context
+    context: str
+    #: key
+    key: str
+    #: members
+    members: Bytes
+    #: parent
+    parent: str | None = None
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: role
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.key), v.sequence_key(v.scalar_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.role),))
+
+
+class ResearchDatasetBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: context
+    context: str
+    #: key
+    key: str
+    #: members
+    members: Bytes
+    #: parent
+    parent: str | None
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: role
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.key), v.sequence_key(v.scalar_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.role),))
+
+
+class ResearchDatasetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: context
+    context: str
+    #: key
+    key: str
+    #: members
+    members: Bytes
+    #: parent
+    parent: str | None
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: role
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.scalar_key(self.key), v.sequence_key(v.scalar_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.role),))
+
+
+class ResearchDatasetRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Create one immutable research version from an exact temporal context."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact effective-time and recorded-cut selection.
+    context: ContextSelectionBody
+    #: Original caller operation/version identity.
+    key: str
+    #: Bounded exact selections; data remains in original sources.
+    members: tuple[ResearchDataObject, ...]
+    #: Original parent version, never a floating latest selector.
+    parent: str | None = None
+    #: Exact project generation.
+    project: ProjectRecordBody
+    #: raw, curated or derived.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.record_key(self.project), v.scalar_key(self.role),))
+
+
+class ResearchDatasetRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Create one immutable research version from an exact temporal context."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact effective-time and recorded-cut selection.
+    context: ContextSelectionBodyOutput
+    #: Original caller operation/version identity.
+    key: str
+    #: Bounded exact selections; data remains in original sources.
+    members: tuple[ResearchDataObjectOutput, ...]
+    #: Original parent version, never a floating latest selector.
+    parent: str | None
+    #: Exact project generation.
+    project: ProjectRecordBody
+    #: raw, curated or derived.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.record_key(self.project), v.scalar_key(self.role),))
+
+
+class ResearchObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One observation's explicit selection explanation."""
+
+    #: Exact dataset member position.
+    member: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original observation identity in the authored fit.
+    observation: identities.DeclarationId
+    #: Explicit inclusion, exclusion or calibration explanation.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.observation), v.scalar_key(self.reason),))
+
+
+class ResearchParameterTarget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit original fitted-cell to authored scalar-parameter mapping."""
+
+    #: Original target authored parameter declaration.
+    declaration: identities.DeclarationId
+    #: Explicit target instance.
+    instance: identities.InstanceId
+    #: Explicit closed target lower bound as IEEE bits; None explicitly means unbounded.
+    lower_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original global fitted parameter identity.
+    parameter: v.SemanticId
+    #: Original target parameter path.
+    path: str
+    #: Full target quantity convention, including basis/reference state.
+    quantity: v.SemanticId
+    #: Exact root used for physical admission.
+    root: identities.DeclarationId
+    #: Target canonical unit; representation conversions require a separately admitted source edit.
+    unit: v.SemanticId
+    #: Explicit closed target upper bound as IEEE bits; None explicitly means unbounded.
+    upper_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration), v.scalar_key(self.instance), v.optional_key(v.scalar_key)(self.lower_bits), v.scalar_key(self.parameter), v.scalar_key(self.path), v.scalar_key(self.quantity), v.scalar_key(self.root), v.scalar_key(self.unit), v.optional_key(v.scalar_key)(self.upper_bits),))
+
+
+class ResearchParameterTargetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit original fitted-cell to authored scalar-parameter mapping."""
+
+    #: Original target authored parameter declaration.
+    declaration: identities.DeclarationId
+    #: Explicit target instance.
+    instance: identities.InstanceId
+    #: Explicit closed target lower bound as IEEE bits; None explicitly means unbounded.
+    lower_bits: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original global fitted parameter identity.
+    parameter: v.SemanticId
+    #: Original target parameter path.
+    path: str
+    #: Full target quantity convention, including basis/reference state.
+    quantity: v.SemanticId
+    #: Exact root used for physical admission.
+    root: identities.DeclarationId
+    #: Target canonical unit; representation conversions require a separately admitted source edit.
+    unit: v.SemanticId
+    #: Explicit closed target upper bound as IEEE bits; None explicitly means unbounded.
+    upper_bits: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration), v.scalar_key(self.instance), v.optional_key(v.scalar_key)(self.lower_bits), v.scalar_key(self.parameter), v.scalar_key(self.path), v.scalar_key(self.quantity), v.scalar_key(self.root), v.scalar_key(self.unit), v.optional_key(v.scalar_key)(self.upper_bits),))
+
+
+class ResearchPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: attempt
+    attempt: str
+    #: key
+    key: str
+    #: mapping
+    mapping: Bytes
+    #: parent
+    parent: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: run
+    run: str
+    #: selection
+    selection: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.key), v.sequence_key(v.scalar_key)(self.mapping), v.scalar_key(self.parent), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.run), v.scalar_key(self.selection),))
+
+
+class ResearchPublicationBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original protected fit evidence and explicit authored target mapping.
+    This binding stores identities and decisions, never a second copy of fitted values.
+    """
+
+    #: Actual original attempt.
+    attempt: str
+    #: Exact closed manifest digest selected by protected read.
+    manifest_digest: str
+    #: Explicit cell/target identities and physical/bound premises.
+    mapping: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Original qualified export set coordinate.
+    result_set: str
+    #: Actual original run.
+    run: str
+    #: Frozen original research selection.
+    selection: str
+    #: Original run's immutable consumed source receipt, independently compared in activation.
+    source_selection: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.manifest_digest), v.sequence_key(v.scalar_key)(self.mapping), v.scalar_key(self.result_set), v.scalar_key(self.run), v.scalar_key(self.selection), v.sequence_key(v.scalar_key)(self.source_selection),))
+
+
+class ResearchPublicationIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained publication intent binds complete original evidence and target semantics."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Sole source owner's exact activation intent and authenticated original result receipt.
+    publication: ProjectPublicationBody
+    #: Complete original scientific decision.
+    request: ResearchPublicationRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.publication), v.record_key(self.request),))
+
+
+class ResearchPublicationIntentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained publication intent binds complete original evidence and target semantics."""
+
+    #: Sole source owner's exact activation intent and authenticated original result receipt.
+    publication: ProjectPublicationBody
+    #: Complete original scientific decision.
+    request: ResearchPublicationRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication), v.record_key(self.request),))
+
+
+class ResearchPublicationIntentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained publication intent binds complete original evidence and target semantics."""
+
+    #: Sole source owner's exact activation intent and authenticated original result receipt.
+    publication: ProjectPublicationBodyOutput
+    #: Complete original scientific decision.
+    request: ResearchPublicationRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication), v.record_key(self.request),))
+
+
+class ResearchPublicationIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained publication intent binds complete original evidence and target semantics."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Sole source owner's exact activation intent and authenticated original result receipt.
+    publication: ProjectPublicationBodyOutput
+    #: Complete original scientific decision.
+    request: ResearchPublicationRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.publication), v.record_key(self.request),))
+
+
+class ResearchPublicationPreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Nonexecuting locally admitted source preview. Values belong to the authored delta only."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Ordinary source delta, inspected and admitted through the original source owner.
+    delta: SourceDeltaBody
+    #: Retain unchanged through restart or uncertain completion.
+    intent: ResearchPublicationIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.delta), v.record_key(self.intent),))
+
+
+class ResearchPublicationPreviewOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Nonexecuting locally admitted source preview. Values belong to the authored delta only."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Ordinary source delta, inspected and admitted through the original source owner.
+    delta: SourceDeltaBodyOutput
+    #: Retain unchanged through restart or uncertain completion.
+    intent: ResearchPublicationIntentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.delta), v.record_key(self.intent),))
+
+
+class ResearchPublicationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original fit and exact target branch/source decision; retain it unchanged for settlement."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original attempt.
+    attempt: str
+    #: Exact target branch generation and canonical problem.
+    branch: ProjectBranchRecordBody
+    #: Caller-issued immutable source operation.
+    operation: str
+    #: Exact target project generation.
+    project: ProjectRecordBody
+    #: Exact original run, never newest.
+    run: str
+    #: Original research selection consumed before the fit executed.
+    selection: str
+    #: Exact original target source/physical context.
+    target: ContextSelectionBody
+    #: Explicit bounded mapping; all unrelated authored declarations remain inherited.
+    targets: tuple[ResearchParameterTarget, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.record_key(self.branch), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.run), v.scalar_key(self.selection), v.record_key(self.target), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ResearchPublicationRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original fit and exact target branch/source decision; retain it unchanged for settlement."""
+
+    #: Exact original attempt.
+    attempt: str
+    #: Exact target branch generation and canonical problem.
+    branch: ProjectBranchRecordBody
+    #: Caller-issued immutable source operation.
+    operation: str
+    #: Exact target project generation.
+    project: ProjectRecordBody
+    #: Exact original run, never newest.
+    run: str
+    #: Original research selection consumed before the fit executed.
+    selection: str
+    #: Exact original target source/physical context.
+    target: ContextSelectionBody
+    #: Explicit bounded mapping; all unrelated authored declarations remain inherited.
+    targets: tuple[ResearchParameterTarget, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.record_key(self.branch), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.run), v.scalar_key(self.selection), v.record_key(self.target), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ResearchPublicationRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original fit and exact target branch/source decision; retain it unchanged for settlement."""
+
+    #: Exact original attempt.
+    attempt: str
+    #: Exact target branch generation and canonical problem.
+    branch: ProjectBranchRecordBodyOutput
+    #: Caller-issued immutable source operation.
+    operation: str
+    #: Exact target project generation.
+    project: ProjectRecordBody
+    #: Exact original run, never newest.
+    run: str
+    #: Original research selection consumed before the fit executed.
+    selection: str
+    #: Exact original target source/physical context.
+    target: ContextSelectionBodyOutput
+    #: Explicit bounded mapping; all unrelated authored declarations remain inherited.
+    targets: tuple[ResearchParameterTargetOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.record_key(self.branch), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.run), v.scalar_key(self.selection), v.record_key(self.target), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ResearchPublicationRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original fit and exact target branch/source decision; retain it unchanged for settlement."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original attempt.
+    attempt: str
+    #: Exact target branch generation and canonical problem.
+    branch: ProjectBranchRecordBodyOutput
+    #: Caller-issued immutable source operation.
+    operation: str
+    #: Exact target project generation.
+    project: ProjectRecordBody
+    #: Exact original run, never newest.
+    run: str
+    #: Original research selection consumed before the fit executed.
+    selection: str
+    #: Exact original target source/physical context.
+    target: ContextSelectionBodyOutput
+    #: Explicit bounded mapping; all unrelated authored declarations remain inherited.
+    targets: tuple[ResearchParameterTargetOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.record_key(self.branch), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.run), v.scalar_key(self.selection), v.record_key(self.target), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ResearchReadRequestDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dataset"):
+    """One exact version."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original version key.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.key),))
+
+
+class ResearchReadRequestDatasets(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="datasets"):
+    """Indexed immutable-key seek page."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exclusive immutable key.
+    after: str
+    #: At most128metadata records.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Project owner.
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.scalar_key(self.limit), v.scalar_key(self.project),))
+
+
+class ResearchReadRequestSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="selection"):
+    """One exact frozen selection."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original selection key.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.key),))
+
+
+class ResearchReadResultDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dataset"):
+    """Original version, if available."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original metadata.
+    row: ResearchDatasetBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.row),))
+
+
+class ResearchReadResultDatasets(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="datasets"):
+    """Bounded dataset headers."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original immutable versions.
+    rows: tuple[ResearchDatasetBody, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.rows),))
+
+
+class ResearchReadResultOutputDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dataset"):
+    """Original version, if available."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original metadata.
+    row: ResearchDatasetBodyOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.row),))
+
+
+class ResearchReadResultOutputDatasets(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="datasets"):
+    """Bounded dataset headers."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original immutable versions.
+    rows: tuple[ResearchDatasetBodyOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.rows),))
+
+
+class ResearchReadResultOutputSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="selection"):
+    """Original selection, if available."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original metadata.
+    row: ResearchSelectionBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.row),))
+
+
+class ResearchReadResultSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="selection"):
+    """Original selection, if available."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original metadata.
+    row: ResearchSelectionBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.row),))
+
+
 class ResearchReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -20025,6 +20780,150 @@ class ResearchReferenceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.key), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.run),))
+
+
+class ResearchSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: context
+    context: str
+    #: dataset
+    dataset: str
+    #: fit
+    fit: str
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: selection
+    selection: Bytes
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.scalar_key(self.dataset), v.scalar_key(self.fit), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.sequence_key(v.scalar_key)(self.selection),))
+
+
+class ResearchSelectionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: context
+    context: str
+    #: dataset
+    dataset: str
+    #: fit
+    fit: str
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: selection
+    selection: Bytes
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.dataset), v.scalar_key(self.fit), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.sequence_key(v.scalar_key)(self.selection),))
+
+
+class ResearchSelectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Freeze an already authored fit's complete selection; no fitting shortcut is introduced."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact recorded context.
+    context: ContextSelectionBody
+    #: Exact immutable dataset version.
+    dataset: str
+    #: Existing authored fitting declaration.
+    fit: identities.FitId
+    #: Immutable original selection operation.
+    key: str
+    #: Complete observation population, including exclusions.
+    observations: tuple[ResearchObservation, ...]
+    #: Exact project generation.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.dataset), v.scalar_key(self.fit), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.observations), v.record_key(self.project),))
+
+
+class ResearchSelectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Freeze an already authored fit's complete selection; no fitting shortcut is introduced."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact recorded context.
+    context: ContextSelectionBodyOutput
+    #: Exact immutable dataset version.
+    dataset: str
+    #: Existing authored fitting declaration.
+    fit: identities.FitId
+    #: Immutable original selection operation.
+    key: str
+    #: Complete observation population, including exclusions.
+    observations: tuple[ResearchObservation, ...]
+    #: Exact project generation.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.dataset), v.scalar_key(self.fit), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.observations), v.record_key(self.project),))
+
+
+class ResearchSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authenticated original research ancestry carried by actual operation inputs."""
+
+    #: Immutable dataset version.
+    dataset: str
+    #: Canonical installation incarnation.
+    issuing_store: str
+    #: Original physical meaning.
+    physical_context: str
+    #: Explicit parameter publication ancestry, when consuming its new source.
+    publication: str | None = None
+    #: Exact currently consumed canonical source.
+    revision: str
+    #: Frozen original observation selection.
+    selection: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dataset), v.scalar_key(self.issuing_store), v.scalar_key(self.physical_context), v.optional_key(v.scalar_key)(self.publication), v.scalar_key(self.revision), v.scalar_key(self.selection),))
+
+
+class ResearchSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authenticated original research ancestry carried by actual operation inputs."""
+
+    #: Immutable dataset version.
+    dataset: str
+    #: Canonical installation incarnation.
+    issuing_store: str
+    #: Original physical meaning.
+    physical_context: str
+    #: Explicit parameter publication ancestry, when consuming its new source.
+    publication: str | None
+    #: Exact currently consumed canonical source.
+    revision: str
+    #: Frozen original observation selection.
+    selection: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dataset), v.scalar_key(self.issuing_store), v.scalar_key(self.physical_context), v.optional_key(v.scalar_key)(self.publication), v.scalar_key(self.revision), v.scalar_key(self.selection),))
 
 
 class ResidentPreparation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -20196,10 +21095,10 @@ class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class ReviewContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Data-only descriptive context. Deserialization grants no factory or execution capability."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Current descriptive codec version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Actual durable attempt, only when retained explicitly.
     attempt_id: identities.AttemptId | None = None
     #: Original scientific coverage and permission; no permission is inferred from context availability.
@@ -20230,10 +21129,10 @@ class ReviewContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class ReviewContextDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Data-only descriptive context. Deserialization grants no factory or execution capability."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Current descriptive codec version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Actual durable attempt, only when retained explicitly.
     attempt_id: identities.AttemptId | None
     #: Original scientific coverage and permission; no permission is inferred from context availability.
@@ -21170,9 +22069,11 @@ class ReviewSourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     physical_sources: tuple[ReplayPhysicalSource, ...]
     #: Recorded provider ABI descriptors; opaque implementations stay unavailable.
     providers: tuple[ReviewProviderDescriptor, ...]
+    #: Original research source attribution, reauthenticated before durable recording.
+    research: ResearchSource | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers), v.optional_key(v.record_key)(self.research),))
 
 
 class ReviewSourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -21194,9 +22095,11 @@ class ReviewSourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     physical_sources: tuple[ReplayPhysicalSource, ...]
     #: Recorded provider ABI descriptors; opaque implementations stay unavailable.
     providers: tuple[ReviewProviderDescriptorOutput, ...]
+    #: Original research source attribution, reauthenticated before durable recording.
+    research: ResearchSourceOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers), v.optional_key(v.record_key)(self.research),))
 
 
 class ReviewTableDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -22335,6 +23238,56 @@ class ScipSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
+
+
+class SeedAvailabilityAbsent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="absent"):
+    """No seed exists for the selected role."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class SeedAvailabilityCompatible(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="compatible"):
+    """Compatible seed artifact, resolved by the executor after the decision."""
+
+    #: Artifact identity.
+    seed: identities.SolutionId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.seed),))
+
+
+class SeedAvailabilityIncompatible(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="incompatible"):
+    """A seed exists but its admitted contract does not match this consumer."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class SeedAvailabilityInternalFailure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="internal_failure"):
+    """Acquisition/checking failed internally; fresh fallback is forbidden."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class SeedAvailabilityUnresolved(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unresolved"):
+    """Adapter has not acquired and validated the consumer seed yet."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class SeedFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected role and its operation-owned seed facts."""
+
+    #: Consumer-specific compatibility result.
+    availability: SeedAvailability
+    #: Explicit output role.
+    role: enums.StudySeedRole
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.availability), v.scalar_key(self.role),))
 
 
 class SeedOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23900,6 +24853,198 @@ class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.already_concluded), v.scalar_key(self.generation), v.scalar_key(self.study_id),))
 
 
+class StudyCohortDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: True only after the single native complete selection succeeded.
+    complete: bool
+    #: Exact original headers.
+    headers: tuple[StudyWorkbenchHeader, ...]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
+    members: tuple[StudyCohortMember, ...]
+    #: Original bounded selection.
+    request: StudyCohortRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+
+
+class StudyCohortDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+
+    #: True only after the single native complete selection succeeded.
+    complete: bool
+    #: Exact original headers.
+    headers: tuple[StudyWorkbenchHeader, ...]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
+    members: tuple[StudyCohortMember, ...]
+    #: Original bounded selection.
+    request: StudyCohortRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+
+
+class StudyCohortDocumentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+
+    #: True only after the single native complete selection succeeded.
+    complete: bool
+    #: Exact original headers.
+    headers: tuple[StudyWorkbenchHeaderOutput, ...]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
+    members: tuple[StudyCohortMemberOutput, ...]
+    #: Original bounded selection.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+
+
+class StudyCohortDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: True only after the single native complete selection succeeded.
+    complete: bool
+    #: Exact original headers.
+    headers: tuple[StudyWorkbenchHeaderOutput, ...]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
+    members: tuple[StudyCohortMemberOutput, ...]
+    #: Original bounded selection.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+
+
+class StudyCohortMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One frozen point's compact original facts; no operation, report or payload is decoded."""
+
+    #: Exact currently assigned attempt; retries remain separate sources.
+    attempt: str | None = None
+    #: Original lifecycle, scientific availability, attempt count and effect facts.
+    facts: PointFacts
+    #: Exact occurrence key.
+    key: str
+    #: Actual native point metadata revision captured in this selection.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual immutable member position.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original run.
+    run: str
+    #: Whether the policy has settled this occurrence.
+    settled: bool
+    #: Exact owning study.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
+
+
+class StudyCohortMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One frozen point's compact original facts; no operation, report or payload is decoded."""
+
+    #: Exact currently assigned attempt; retries remain separate sources.
+    attempt: str | None
+    #: Original lifecycle, scientific availability, attempt count and effect facts.
+    facts: PointFactsOutput
+    #: Exact occurrence key.
+    key: str
+    #: Actual native point metadata revision captured in this selection.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual immutable member position.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original run.
+    run: str
+    #: Whether the policy has settled this occurrence.
+    settled: bool
+    #: Exact owning study.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
+
+
+class StudyCohortRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One complete bounded population selected before any analytical payload work."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact native predicates.
+    filter: StudyWorkbenchFilterBody
+    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Capture refuses if more studies match; maximum 64.
+    maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.filter), v.scalar_key(self.maximum_members), v.scalar_key(self.maximum_studies),))
+
+
+class StudyCohortRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One complete bounded population selected before any analytical payload work."""
+
+    #: Exact native predicates.
+    filter: StudyWorkbenchFilterBody
+    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Capture refuses if more studies match; maximum 64.
+    maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.filter), v.scalar_key(self.maximum_members), v.scalar_key(self.maximum_studies),))
+
+
+class StudyCohortRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One complete bounded population selected before any analytical payload work."""
+
+    #: Exact native predicates.
+    filter: StudyWorkbenchFilterBodyOutput
+    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Capture refuses if more studies match; maximum 64.
+    maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.filter), v.scalar_key(self.maximum_members), v.scalar_key(self.maximum_studies),))
+
+
+class StudyCohortRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One complete bounded population selected before any analytical payload work."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact native predicates.
+    filter: StudyWorkbenchFilterBodyOutput
+    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Capture refuses if more studies match; maximum 64.
+    maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.filter), v.scalar_key(self.maximum_members), v.scalar_key(self.maximum_studies),))
+
+
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `StudyCompilerProfile` document type."""
 
@@ -23915,14 +25060,14 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 13 of a study's definition: the store's `definition` document and the content of
+    """Version 14 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 13
+    _pse_required_version: ClassVar[int] = 14
 
     #: Document version.
-    version: Literal[13] = 13
+    version: Literal[14] = 14
     #: Exact historical source context selected before admission, never a latest query.
     context: ContextSelectionBody | None = None
     #: The exact immutable canonical modeling revision.
@@ -23931,22 +25076,24 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     physical: PhysicalSource
     #: The explicit admitted points, in index order.
     points: tuple[StudyPointDefinitionBody, ...]
+    #: Frozen research ancestry consumed by original study admission.
+    research: ResearchSource | None = None
     #: Lazy science retained once; when present explicit admitted points are empty.
     variants: LazyStudyDefinitionBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.research), v.optional_key(v.record_key)(self.variants),))
 
 
 class StudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 13 of a study's definition: the store's `definition` document and the content of
+    """Version 14 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 13
+    _pse_required_version: ClassVar[int] = 14
 
     #: Document version.
-    version: Literal[13] = 13
+    version: Literal[14] = 14
     #: Exact historical source context selected before admission, never a latest query.
     context: ContextSelectionBodyOutput | None
     #: The exact immutable canonical modeling revision.
@@ -23955,11 +25102,13 @@ class StudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     physical: PhysicalSource
     #: The explicit admitted points, in index order.
     points: tuple[StudyPointDefinitionBodyOutput, ...]
+    #: Frozen research ancestry consumed by original study admission.
+    research: ResearchSourceOutput | None
     #: Lazy science retained once; when present explicit admitted points are empty.
     variants: LazyStudyDefinitionBodyOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.research), v.optional_key(v.record_key)(self.variants),))
 
 
 class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24016,6 +25165,30 @@ class StudyInputsOutputLazy(msgspec.Struct, frozen=True, forbid_unknown_fields=T
         return (type(self), (v.record_key(self.value),))
 
 
+class StudyKpiRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original scientific output, identically selected across the frozen population."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exclusive original relation row coordinate; no implicit all-trajectories request.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Existing declared numeric output field.
+    field: str
+    #: Exact authored scientific output owner.
+    owner: v.SemanticId
+    #: Existing exact output partition.
+    partition: str
+    #: Existing registered result relation.
+    relation: str
+    #: Inclusive original relation row coordinate.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.end), v.scalar_key(self.field), v.scalar_key(self.owner), v.scalar_key(self.partition), v.scalar_key(self.relation), v.scalar_key(self.start),))
+
+
 class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constraint"):
     """One algebraic constraint at its original absolute solve step."""
 
@@ -24070,6 +25243,386 @@ class StudyMemberDemandVariable(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.step), v.scalar_key(self.symbol_id),))
+
+
+class StudyObservationContext(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable selection binds a cursor independently from mutable metadata revisions."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original frozen engineering context.
+    context: str | None = None
+    #: Original physical interpretation.
+    physical_identity: str | None = None
+    #: Exact original physical source.
+    physical_revision: str | None = None
+    #: Exact parent execution.
+    run: str
+    #: Exact original source revision.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.run), v.scalar_key(self.source),))
+
+
+class StudyObservationContextBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable selection binds a cursor independently from mutable metadata revisions."""
+
+    #: Original frozen engineering context.
+    context: str | None = None
+    #: Original physical interpretation.
+    physical_identity: str | None = None
+    #: Exact original physical source.
+    physical_revision: str | None = None
+    #: Exact parent execution.
+    run: str
+    #: Exact original source revision.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.run), v.scalar_key(self.source),))
+
+
+class StudyObservationContextBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable selection binds a cursor independently from mutable metadata revisions."""
+
+    #: Original frozen engineering context.
+    context: str | None
+    #: Original physical interpretation.
+    physical_identity: str | None
+    #: Exact original physical source.
+    physical_revision: str | None
+    #: Exact parent execution.
+    run: str
+    #: Exact original source revision.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.run), v.scalar_key(self.source),))
+
+
+class StudyObservationContextOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable selection binds a cursor independently from mutable metadata revisions."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original frozen engineering context.
+    context: str | None
+    #: Original physical interpretation.
+    physical_identity: str | None
+    #: Exact original physical source.
+    physical_revision: str | None
+    #: Exact parent execution.
+    run: str
+    #: Exact original source revision.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.run), v.scalar_key(self.source),))
+
+
+class StudyObservationCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable reconnect coordinates; decoding grants no result or cancellation authority."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact scientific and engineering context.
+    context: StudyObservationContextBody
+    #: Exact canonical issuer.
+    issuing_store: str
+    #: Exact original observation selection and limits.
+    request: StudyObservationRequestBody
+    #: Original parent and retry sources; older attempts remain present.
+    sources: tuple[StudyObservationPositionBody, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.issuing_store), v.record_key(self.request), v.sequence_key(v.record_key)(self.sources),))
+
+
+class StudyObservationCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable reconnect coordinates; decoding grants no result or cancellation authority."""
+
+    #: Exact scientific and engineering context.
+    context: StudyObservationContextBody
+    #: Exact canonical issuer.
+    issuing_store: str
+    #: Exact original observation selection and limits.
+    request: StudyObservationRequestBody
+    #: Original parent and retry sources; older attempts remain present.
+    sources: tuple[StudyObservationPositionBody, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.issuing_store), v.record_key(self.request), v.sequence_key(v.record_key)(self.sources),))
+
+
+class StudyObservationCursorBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable reconnect coordinates; decoding grants no result or cancellation authority."""
+
+    #: Exact scientific and engineering context.
+    context: StudyObservationContextBodyOutput
+    #: Exact canonical issuer.
+    issuing_store: str
+    #: Exact original observation selection and limits.
+    request: StudyObservationRequestBody
+    #: Original parent and retry sources; older attempts remain present.
+    sources: tuple[StudyObservationPositionBodyOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.issuing_store), v.record_key(self.request), v.sequence_key(v.record_key)(self.sources),))
+
+
+class StudyObservationCursorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable reconnect coordinates; decoding grants no result or cancellation authority."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact scientific and engineering context.
+    context: StudyObservationContextBodyOutput
+    #: Exact canonical issuer.
+    issuing_store: str
+    #: Exact original observation selection and limits.
+    request: StudyObservationRequestBody
+    #: Original parent and retry sources; older attempts remain present.
+    sources: tuple[StudyObservationPositionBodyOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.issuing_store), v.record_key(self.request), v.sequence_key(v.record_key)(self.sources),))
+
+
+class StudyObservationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded read-only poll and its exact reconnect position."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact next reconnect position.
+    cursor: StudyObservationCursorBody
+    #: Bounded selected owner observations.
+    sources: tuple[StudyObservedSource, ...]
+    #: Canonical compact status with actual point metadata revisions.
+    status: StudyCohortDocumentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.cursor), v.sequence_key(v.record_key)(self.sources), v.record_key(self.status),))
+
+
+class StudyObservationPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded read-only poll and its exact reconnect position."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact next reconnect position.
+    cursor: StudyObservationCursorBodyOutput
+    #: Bounded selected owner observations.
+    sources: tuple[StudyObservedSourceOutput, ...]
+    #: Canonical compact status with actual point metadata revisions.
+    status: StudyCohortDocumentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.cursor), v.sequence_key(v.record_key)(self.sources), v.record_key(self.status),))
+
+
+class StudyObservationPosition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Position in one exact attempt, with separate native source and durable batch clocks."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original attempt; retries create another position.
+    attempt: str
+    #: Actual canonical attempt generation.
+    attempt_generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next immutable terminal progress batch.
+    batch: Annotated[int, msgspec.Meta(ge=0)]
+    #: Highest consumed durable append sequence, distinct from source sequence.
+    durable_sequence: int | None = None
+    #: Terminal history was exhausted under its original reader.
+    history_complete: bool
+    #: Actual point metadata revision, absent for parent summary.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Next event inside that batch.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original execution.
+    run: str
+    #: Actual numerical source generation, unavailable for remote live observations.
+    source_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Last actually observed source sequence; never a timestamp.
+    source_sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.attempt_generation), v.scalar_key(self.batch), v.optional_key(v.scalar_key)(self.durable_sequence), v.scalar_key(self.history_complete), v.optional_key(v.scalar_key)(self.metadata_revision), v.scalar_key(self.offset), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.source_generation), v.scalar_key(self.source_sequence),))
+
+
+class StudyObservationPositionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Position in one exact attempt, with separate native source and durable batch clocks."""
+
+    #: Exact original attempt; retries create another position.
+    attempt: str
+    #: Actual canonical attempt generation.
+    attempt_generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next immutable terminal progress batch.
+    batch: Annotated[int, msgspec.Meta(ge=0)]
+    #: Highest consumed durable append sequence, distinct from source sequence.
+    durable_sequence: int | None = None
+    #: Terminal history was exhausted under its original reader.
+    history_complete: bool
+    #: Actual point metadata revision, absent for parent summary.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Next event inside that batch.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original execution.
+    run: str
+    #: Actual numerical source generation, unavailable for remote live observations.
+    source_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Last actually observed source sequence; never a timestamp.
+    source_sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.attempt_generation), v.scalar_key(self.batch), v.optional_key(v.scalar_key)(self.durable_sequence), v.scalar_key(self.history_complete), v.optional_key(v.scalar_key)(self.metadata_revision), v.scalar_key(self.offset), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.source_generation), v.scalar_key(self.source_sequence),))
+
+
+class StudyObservationPositionBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Position in one exact attempt, with separate native source and durable batch clocks."""
+
+    #: Exact original attempt; retries create another position.
+    attempt: str
+    #: Actual canonical attempt generation.
+    attempt_generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next immutable terminal progress batch.
+    batch: Annotated[int, msgspec.Meta(ge=0)]
+    #: Highest consumed durable append sequence, distinct from source sequence.
+    durable_sequence: int | None
+    #: Terminal history was exhausted under its original reader.
+    history_complete: bool
+    #: Actual point metadata revision, absent for parent summary.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Next event inside that batch.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original execution.
+    run: str
+    #: Actual numerical source generation, unavailable for remote live observations.
+    source_generation: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Last actually observed source sequence; never a timestamp.
+    source_sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.attempt_generation), v.scalar_key(self.batch), v.optional_key(v.scalar_key)(self.durable_sequence), v.scalar_key(self.history_complete), v.optional_key(v.scalar_key)(self.metadata_revision), v.scalar_key(self.offset), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.source_generation), v.scalar_key(self.source_sequence),))
+
+
+class StudyObservationPositionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Position in one exact attempt, with separate native source and durable batch clocks."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original attempt; retries create another position.
+    attempt: str
+    #: Actual canonical attempt generation.
+    attempt_generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next immutable terminal progress batch.
+    batch: Annotated[int, msgspec.Meta(ge=0)]
+    #: Highest consumed durable append sequence, distinct from source sequence.
+    durable_sequence: int | None
+    #: Terminal history was exhausted under its original reader.
+    history_complete: bool
+    #: Actual point metadata revision, absent for parent summary.
+    metadata_revision: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Next event inside that batch.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original execution.
+    run: str
+    #: Actual numerical source generation, unavailable for remote live observations.
+    source_generation: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Last actually observed source sequence; never a timestamp.
+    source_sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.attempt_generation), v.scalar_key(self.batch), v.optional_key(v.scalar_key)(self.durable_sequence), v.scalar_key(self.history_complete), v.optional_key(v.scalar_key)(self.metadata_revision), v.scalar_key(self.offset), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.source_generation), v.scalar_key(self.source_sequence),))
+
+
+class StudyObservationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected study and bounded observation allowance. These controls never govern science."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Maximum events returned per poll, from one through 512.
+    maximum_events: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum complete selected point population, from one through 64.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact existing study key.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_events), v.scalar_key(self.maximum_members), v.scalar_key(self.study),))
+
+
+class StudyObservationRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected study and bounded observation allowance. These controls never govern science."""
+
+    #: Maximum events returned per poll, from one through 512.
+    maximum_events: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum complete selected point population, from one through 64.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact existing study key.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_events), v.scalar_key(self.maximum_members), v.scalar_key(self.study),))
+
+
+class StudyObservedSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A source-local page; ordering across sources has no global causal interpretation."""
+
+    #: Current live checkpoint when the local original owner is attached.
+    checkpoint: ProgressCheckpointDocument | None = None
+    #: Actual source continuity, independent from scientific outcome.
+    continuity: StudyObservationContinuity
+    #: Original terminal writer coverage when available.
+    coverage: ProgressCoverageBody | None = None
+    #: Original whole numerical observations in their original source order.
+    events: tuple[ProgressEventDocument, ...]
+    #: Original canonical refusal when retained terminal history is unavailable.
+    history_refusal: str | None = None
+    #: Exact original run/attempt position after this page.
+    position: StudyObservationPositionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.checkpoint), v.scalar_key(self.continuity), v.optional_key(v.record_key)(self.coverage), v.sequence_key(v.record_key)(self.events), v.optional_key(v.scalar_key)(self.history_refusal), v.record_key(self.position),))
+
+
+class StudyObservedSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A source-local page; ordering across sources has no global causal interpretation."""
+
+    #: Current live checkpoint when the local original owner is attached.
+    checkpoint: ProgressCheckpointDocumentOutput | None
+    #: Actual source continuity, independent from scientific outcome.
+    continuity: StudyObservationContinuity
+    #: Original terminal writer coverage when available.
+    coverage: ProgressCoverageBody | None
+    #: Original whole numerical observations in their original source order.
+    events: tuple[ProgressEventDocumentOutput, ...]
+    #: Original canonical refusal when retained terminal history is unavailable.
+    history_refusal: str | None
+    #: Exact original run/attempt position after this page.
+    position: StudyObservationPositionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.checkpoint), v.scalar_key(self.continuity), v.optional_key(v.record_key)(self.coverage), v.sequence_key(v.record_key)(self.events), v.optional_key(v.scalar_key)(self.history_refusal), v.record_key(self.position),))
 
 
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24443,6 +25996,314 @@ class StudyWaitControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
+
+
+class StudyWorkbenchCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authority-bound continuation for live browsing, never a frozen analysis population."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Last displayed study key.
+    after: str
+    #: Exact original predicates.
+    filter: StudyWorkbenchFilterBody
+    #: Canonical issuing database identity.
+    issuing_store: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.record_key(self.filter), v.scalar_key(self.issuing_store),))
+
+
+class StudyWorkbenchCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authority-bound continuation for live browsing, never a frozen analysis population."""
+
+    #: Last displayed study key.
+    after: str
+    #: Exact original predicates.
+    filter: StudyWorkbenchFilterBody
+    #: Canonical issuing database identity.
+    issuing_store: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.record_key(self.filter), v.scalar_key(self.issuing_store),))
+
+
+class StudyWorkbenchCursorBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authority-bound continuation for live browsing, never a frozen analysis population."""
+
+    #: Last displayed study key.
+    after: str
+    #: Exact original predicates.
+    filter: StudyWorkbenchFilterBodyOutput
+    #: Canonical issuing database identity.
+    issuing_store: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.record_key(self.filter), v.scalar_key(self.issuing_store),))
+
+
+class StudyWorkbenchCursorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authority-bound continuation for live browsing, never a frozen analysis population."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Last displayed study key.
+    after: str
+    #: Exact original predicates.
+    filter: StudyWorkbenchFilterBodyOutput
+    #: Canonical issuing database identity.
+    issuing_store: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.record_key(self.filter), v.scalar_key(self.issuing_store),))
+
+
+class StudyWorkbenchFilter(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Indexed predicates over actual original scientific and engineering owners."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact branch key; not its mutable display name.
+    branch: str | None = None
+    #: Exact immutable historical engineering context key.
+    context: str | None = None
+    #: Original canonical terminal class, independent from scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None = None
+    #: Exact admitted physical source revision.
+    physical_revision: str | None = None
+    #: Exact owning project; branch membership is resolved by its native owner.
+    project: str | None = None
+    #: Exact original research reference key; never a floating latest query.
+    research_reference: str | None = None
+    #: Exact canonical modeling source revision.
+    source: str | None = None
+    #: Exact study key, including terminal studies.
+    study: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_revision), v.optional_key(v.scalar_key)(self.project), v.optional_key(v.scalar_key)(self.research_reference), v.optional_key(v.scalar_key)(self.source), v.optional_key(v.scalar_key)(self.study),))
+
+
+class StudyWorkbenchFilterBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Indexed predicates over actual original scientific and engineering owners."""
+
+    #: Exact branch key; not its mutable display name.
+    branch: str | None = None
+    #: Exact immutable historical engineering context key.
+    context: str | None = None
+    #: Original canonical terminal class, independent from scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None = None
+    #: Exact admitted physical source revision.
+    physical_revision: str | None = None
+    #: Exact owning project; branch membership is resolved by its native owner.
+    project: str | None = None
+    #: Exact original research reference key; never a floating latest query.
+    research_reference: str | None = None
+    #: Exact canonical modeling source revision.
+    source: str | None = None
+    #: Exact study key, including terminal studies.
+    study: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_revision), v.optional_key(v.scalar_key)(self.project), v.optional_key(v.scalar_key)(self.research_reference), v.optional_key(v.scalar_key)(self.source), v.optional_key(v.scalar_key)(self.study),))
+
+
+class StudyWorkbenchFilterBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Indexed predicates over actual original scientific and engineering owners."""
+
+    #: Exact branch key; not its mutable display name.
+    branch: str | None
+    #: Exact immutable historical engineering context key.
+    context: str | None
+    #: Original canonical terminal class, independent from scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None
+    #: Exact admitted physical source revision.
+    physical_revision: str | None
+    #: Exact owning project; branch membership is resolved by its native owner.
+    project: str | None
+    #: Exact original research reference key; never a floating latest query.
+    research_reference: str | None
+    #: Exact canonical modeling source revision.
+    source: str | None
+    #: Exact study key, including terminal studies.
+    study: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_revision), v.optional_key(v.scalar_key)(self.project), v.optional_key(v.scalar_key)(self.research_reference), v.optional_key(v.scalar_key)(self.source), v.optional_key(v.scalar_key)(self.study),))
+
+
+class StudyWorkbenchFilterOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Indexed predicates over actual original scientific and engineering owners."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact branch key; not its mutable display name.
+    branch: str | None
+    #: Exact immutable historical engineering context key.
+    context: str | None
+    #: Original canonical terminal class, independent from scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None
+    #: Exact admitted physical source revision.
+    physical_revision: str | None
+    #: Exact owning project; branch membership is resolved by its native owner.
+    project: str | None
+    #: Exact original research reference key; never a floating latest query.
+    research_reference: str | None
+    #: Exact canonical modeling source revision.
+    source: str | None
+    #: Exact study key, including terminal studies.
+    study: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_revision), v.optional_key(v.scalar_key)(self.project), v.optional_key(v.scalar_key)(self.research_reference), v.optional_key(v.scalar_key)(self.source), v.optional_key(v.scalar_key)(self.study),))
+
+
+class StudyWorkbenchHeader(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact immutable attribution and current header facts. No definitions or trajectories."""
+
+    #: Original complete membership is activated.
+    active: bool
+    #: Actual persistent cancellation flag.
+    cancelled: bool
+    #: Exact engineering context, if selected.
+    context: str | None = None
+    #: Actual cancellation authority generation; not a metadata revision.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original operational outcome, not scientific qualification.
+    outcome: enums.CanonicalTerminalOutcome | None = None
+    #: Exact physical source interpretation.
+    physical_identity: str | None = None
+    #: Exact admitted physical revision, unavailable for historical untyped metadata.
+    physical_revision: str | None = None
+    #: Complete activated population size, before outcome filtering or analysis.
+    point_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original source owner.
+    problem: str
+    #: Exact terminal parent attempt, when admitted.
+    result_attempt: str | None = None
+    #: Exact parent execution.
+    run: str
+    #: Exact original modeling revision.
+    source: str
+    #: Exact study identity.
+    study: str
+    #: Parent summary concluded.
+    terminal: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.context), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.point_count), v.scalar_key(self.problem), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.source), v.scalar_key(self.study), v.scalar_key(self.terminal),))
+
+
+class StudyWorkbenchHeaderOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact immutable attribution and current header facts. No definitions or trajectories."""
+
+    #: Original complete membership is activated.
+    active: bool
+    #: Actual persistent cancellation flag.
+    cancelled: bool
+    #: Exact engineering context, if selected.
+    context: str | None
+    #: Actual cancellation authority generation; not a metadata revision.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original operational outcome, not scientific qualification.
+    outcome: enums.CanonicalTerminalOutcome | None
+    #: Exact physical source interpretation.
+    physical_identity: str | None
+    #: Exact admitted physical revision, unavailable for historical untyped metadata.
+    physical_revision: str | None
+    #: Complete activated population size, before outcome filtering or analysis.
+    point_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original source owner.
+    problem: str
+    #: Exact terminal parent attempt, when admitted.
+    result_attempt: str | None
+    #: Exact parent execution.
+    run: str
+    #: Exact original modeling revision.
+    source: str
+    #: Exact study identity.
+    study: str
+    #: Parent summary concluded.
+    terminal: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.context), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.point_count), v.scalar_key(self.problem), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.source), v.scalar_key(self.study), v.scalar_key(self.terminal),))
+
+
+class StudyWorkbenchPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Live browsing page, explicitly independent from frozen completeness."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Compact actual metadata; payloads are unopened.
+    headers: tuple[StudyWorkbenchHeader, ...]
+    #: More headers under this predicate, if present.
+    next: StudyWorkbenchCursorBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyWorkbenchPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Live browsing page, explicitly independent from frozen completeness."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Compact actual metadata; payloads are unopened.
+    headers: tuple[StudyWorkbenchHeaderOutput, ...]
+    #: More headers under this predicate, if present.
+    next: StudyWorkbenchCursorBodyOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyWorkbenchRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live header selection; continuation pages can observe newer metadata."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Issuer- and predicate-bound continuation.
+    cursor: StudyWorkbenchCursorBody | None = None
+    #: Exact scientific and engineering predicates.
+    filter: StudyWorkbenchFilterBody
+    #: Maximum headers, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
+
+
+class StudyWorkbenchRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live header selection; continuation pages can observe newer metadata."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Issuer- and predicate-bound continuation.
+    cursor: StudyWorkbenchCursorBodyOutput | None
+    #: Exact scientific and engineering predicates.
+    filter: StudyWorkbenchFilterBodyOutput
+    #: Maximum headers, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
 
 
 class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -25674,6 +27535,8 @@ ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureSchedulin
 
 ProgressCoverage = ProgressCoverageUnknown | ProgressCoverageSampled
 
+ProgressCoverageBody = ProgressCoverageBodyUnknown | ProgressCoverageBodySampled
+
 ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentReal | ProgressMetricDocumentText | ProgressMetricDocumentBoolean | ProgressMetricDocumentUnavailable
 
 ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | ProgressWriteStageEncoding | ProgressWriteStageCanonicalAppend | ProgressWriteStageAcknowledgment | ProgressWriteStagePublication
@@ -25722,7 +27585,15 @@ ReproducerInputBodyOutput = ReproducerInputBodyOutputOriginalText | ReproducerIn
 
 ReproducerInputOutput = ReproducerInputOutputOriginalText | ReproducerInputOutputFrozenAlgebraic
 
+ResearchReadRequest = ResearchReadRequestDatasets | ResearchReadRequestDataset | ResearchReadRequestSelection
+
+ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | ResearchReadResultSelection
+
+ResearchReadResultOutput = ResearchReadResultOutputDatasets | ResearchReadResultOutputDataset | ResearchReadResultOutputSelection
+
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
+
+SeedAvailability = SeedAvailabilityUnresolved | SeedAvailabilityCompatible | SeedAvailabilityAbsent | SeedAvailabilityIncompatible | SeedAvailabilityInternalFailure
 
 SeedTransformation = SeedTransformationNormalization | SeedTransformationPresolve | SeedTransformationWorkingSet | SeedTransformationInteriorRestart
 
@@ -26617,6 +28488,8 @@ __all__ = [
     "PointActionOutput",
     "PointAttemptOutcome",
     "PointAttemptOutcomeOutput",
+    "PointFacts",
+    "PointFactsOutput",
     "PointOutcome",
     "PointOutcomeBody",
     "PointOutcomeBodyOutput",
@@ -26708,6 +28581,9 @@ __all__ = [
     "ProgressCheckpointDocument",
     "ProgressCheckpointDocumentOutput",
     "ProgressCoverage",
+    "ProgressCoverageBody",
+    "ProgressCoverageBodySampled",
+    "ProgressCoverageBodyUnknown",
     "ProgressCoverageSampled",
     "ProgressCoverageUnknown",
     "ProgressEventDocument",
@@ -26950,8 +28826,49 @@ __all__ = [
     "ReproductionStatusBody",
     "RequiredFact",
     "RequirementStatus",
+    "ResearchDataObject",
+    "ResearchDataObjectOutput",
+    "ResearchDataset",
+    "ResearchDatasetBody",
+    "ResearchDatasetBodyOutput",
+    "ResearchDatasetOutput",
+    "ResearchDatasetRequest",
+    "ResearchDatasetRequestOutput",
+    "ResearchObservation",
+    "ResearchParameterTarget",
+    "ResearchParameterTargetOutput",
+    "ResearchPublication",
+    "ResearchPublicationBinding",
+    "ResearchPublicationIntent",
+    "ResearchPublicationIntentBody",
+    "ResearchPublicationIntentBodyOutput",
+    "ResearchPublicationIntentOutput",
+    "ResearchPublicationPreview",
+    "ResearchPublicationPreviewOutput",
+    "ResearchPublicationRequest",
+    "ResearchPublicationRequestBody",
+    "ResearchPublicationRequestBodyOutput",
+    "ResearchPublicationRequestOutput",
+    "ResearchReadRequest",
+    "ResearchReadRequestDataset",
+    "ResearchReadRequestDatasets",
+    "ResearchReadRequestSelection",
+    "ResearchReadResult",
+    "ResearchReadResultDataset",
+    "ResearchReadResultDatasets",
+    "ResearchReadResultOutput",
+    "ResearchReadResultOutputDataset",
+    "ResearchReadResultOutputDatasets",
+    "ResearchReadResultOutputSelection",
+    "ResearchReadResultSelection",
     "ResearchReference",
     "ResearchReferenceOutput",
+    "ResearchSelection",
+    "ResearchSelectionBody",
+    "ResearchSelectionRequest",
+    "ResearchSelectionRequestOutput",
+    "ResearchSource",
+    "ResearchSourceOutput",
     "ResidentPreparation",
     "ResidentPreparationOutput",
     "ResidualLmCriteria",
@@ -27047,6 +28964,13 @@ __all__ = [
     "ScipSettingsDocument",
     "ScipSettingsDocumentOutput",
     "ScipSettingsOutput",
+    "SeedAvailability",
+    "SeedAvailabilityAbsent",
+    "SeedAvailabilityCompatible",
+    "SeedAvailabilityIncompatible",
+    "SeedAvailabilityInternalFailure",
+    "SeedAvailabilityUnresolved",
+    "SeedFact",
     "SeedOrigin",
     "SeedOriginOutput",
     "SeedTransformation",
@@ -27140,6 +29064,16 @@ __all__ = [
     "StatementOutput",
     "StopFidelity",
     "StudyCancel",
+    "StudyCohortDocument",
+    "StudyCohortDocumentBody",
+    "StudyCohortDocumentBodyOutput",
+    "StudyCohortDocumentOutput",
+    "StudyCohortMember",
+    "StudyCohortMemberOutput",
+    "StudyCohortRequest",
+    "StudyCohortRequestBody",
+    "StudyCohortRequestBodyOutput",
+    "StudyCohortRequestOutput",
     "StudyCompilerProfile",
     "StudyDefinition",
     "StudyDefinitionOutput",
@@ -27150,12 +29084,32 @@ __all__ = [
     "StudyInputsOutput",
     "StudyInputsOutputExplicit",
     "StudyInputsOutputLazy",
+    "StudyKpiRequest",
     "StudyMemberDemand",
     "StudyMemberDemandConstraint",
     "StudyMemberDemandFitObservation",
     "StudyMemberDemandFitParameter",
     "StudyMemberDemandTrajectory",
     "StudyMemberDemandVariable",
+    "StudyObservationContext",
+    "StudyObservationContextBody",
+    "StudyObservationContextBodyOutput",
+    "StudyObservationContextOutput",
+    "StudyObservationContinuity",
+    "StudyObservationCursor",
+    "StudyObservationCursorBody",
+    "StudyObservationCursorBodyOutput",
+    "StudyObservationCursorOutput",
+    "StudyObservationPage",
+    "StudyObservationPageOutput",
+    "StudyObservationPosition",
+    "StudyObservationPositionBody",
+    "StudyObservationPositionBodyOutput",
+    "StudyObservationPositionOutput",
+    "StudyObservationRequest",
+    "StudyObservationRequestBody",
+    "StudyObservedSource",
+    "StudyObservedSourceOutput",
     "StudyOperation",
     "StudyOperationOutput",
     "StudyOutputDemand",
@@ -27179,6 +29133,20 @@ __all__ = [
     "StudyVariantsOutput",
     "StudyWaitControls",
     "StudyWaitControlsOutput",
+    "StudyWorkbenchCursor",
+    "StudyWorkbenchCursorBody",
+    "StudyWorkbenchCursorBodyOutput",
+    "StudyWorkbenchCursorOutput",
+    "StudyWorkbenchFilter",
+    "StudyWorkbenchFilterBody",
+    "StudyWorkbenchFilterBodyOutput",
+    "StudyWorkbenchFilterOutput",
+    "StudyWorkbenchHeader",
+    "StudyWorkbenchHeaderOutput",
+    "StudyWorkbenchPage",
+    "StudyWorkbenchPageOutput",
+    "StudyWorkbenchRequest",
+    "StudyWorkbenchRequestOutput",
     "SubmittedStartRecord",
     "SubmittedStartRecordBody",
     "SubmittedStartRecordBodyOutput",
@@ -27261,4 +29229,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:1d467188ab6f2677aa4e8895d9fd6f3319adc04a7ac0c95342fff5b2a83b959b"
+SCHEMA_SET_FINGERPRINT = "blake3:cdb9b7a59212051481ca63a8c0b0dcef9438775528aef5cfcb8bedbb39faa31b"

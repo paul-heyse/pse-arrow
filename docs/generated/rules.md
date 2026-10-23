@@ -155,7 +155,10 @@
 | `runtime.canonical_projects` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_projects" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_reclaimed_ranges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_reclaimed_ranges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_research_datasets` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_research_datasets" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_research_publications` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_research_publications" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_research_references` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_research_references" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_research_selections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_research_selections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_batches` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_batches" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_block_outputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_block_outputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_blocks` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_blocks" s GROUP BY s."key" HAVING COUNT(*) > 1` |

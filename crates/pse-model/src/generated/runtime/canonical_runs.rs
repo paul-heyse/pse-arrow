@@ -11,6 +11,10 @@
 pub struct RuntimeCanonicalRunsRow {
     ///key
     pub r#key: String,
+    ///research_selection
+    pub r#research_selection: Option<String>,
+    ///research_dataset
+    pub r#research_dataset: Option<String>,
     ///problem
     pub r#problem: String,
     ///revision
@@ -41,7 +45,14 @@ pub struct RuntimeCanonicalRunsRow {
 impl crate::SemanticEq for RuntimeCanonicalRunsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
-            && crate::SemanticEq::semantic_eq(&self.r#problem, &other.r#problem)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#research_selection,
+                &other.r#research_selection,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#research_dataset,
+                &other.r#research_dataset,
+            ) && crate::SemanticEq::semantic_eq(&self.r#problem, &other.r#problem)
             && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
             && crate::SemanticEq::semantic_eq(
                 &self.r#source_sequence,
@@ -86,6 +97,10 @@ impl crate::SemanticFrame for RuntimeCanonicalRunsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#key));
         crate::SemanticFrame::frame(&self.r#key, hash);
+        hash.str(stringify!(r#research_selection));
+        crate::SemanticFrame::frame(&self.r#research_selection, hash);
+        hash.str(stringify!(r#research_dataset));
+        crate::SemanticFrame::frame(&self.r#research_dataset, hash);
         hash.str(stringify!(r#problem));
         crate::SemanticFrame::frame(&self.r#problem, hash);
         hash.str(stringify!(r#revision));
@@ -118,6 +133,8 @@ impl crate::HeapUsage for RuntimeCanonicalRunsRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#research_selection))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#research_dataset))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#problem))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_sequence))
