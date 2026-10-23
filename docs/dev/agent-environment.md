@@ -271,10 +271,16 @@ initializes its own exact registry. Existing legacy metadata requires explicit f
 migration/recovery; ordinary tests refuse it rather than silently importing or resetting
 live ownership. This selector does not select or initialize a canonical database.
 
-Cargo locks individual build units (`[unstable] fine-grain-locking` in `.cargo/config.toml`),
-so concurrent check-type commands on independent crates do not wait for each other. Builds
-and tests that produce artifacts still contend for the package cache and the artifact
-directory; give a concurrent agent its own worktree for those.
+Cargo uses individual build-unit locks (`[unstable] fine-grain-locking` in `.cargo/config.toml`).
+That setting does not establish safe concurrency for overlapping dirty graphs. Upstream
+[Cargo #17508](https://github.com/rust-lang/cargo/issues/17508) reports a permanent deadlock
+between concurrent checks sharing dirty units; no fix is verified in the pinned nightly.
+Keep an overlapping same-target feature matrix or Clippy graph under one Cargo driver.
+Compiler jobs remain at the configured 16, and independent non-Cargo work can run concurrently.
+Work that genuinely needs isolated concurrent builds uses its own checkout and target; do not
+create cold build copies merely to parallelize a matrix when storage/cold cost defeats the gain.
+Cargo-hack's native partitions are disjoint command groups, but their dependencies still share
+units in one target, so partitioning alone does not remove this limitation.
 
 ## Worktrees
 

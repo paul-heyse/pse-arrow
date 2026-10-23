@@ -234,11 +234,17 @@ Each uses `.venv/bin/python -m scripts.arrow_validation clippy --keep-going --lo
 --all-targets ... -- -D warnings`. These include the native-contract/data consumer lint scope.
 Clippy graphs ran sequentially after observing a Cargo upgrade-lock deadlock; independent other
 checks ran concurrently. Compiler jobs remain 16; the selected functional test concurrency does
-not alter environment defaults.
+not alter environment defaults. A bounded source-backed assessment of native cargo-hack
+partitions found no manifest mutation for this command and disjoint coverage, but upstream
+Cargo #17508 reports a same-target dirty-unit deadlock. No fix is verified in the pinned
+nightly, so the overlapping matrix retains one Cargo driver. The environment guide corrects
+its earlier unconditional concurrent-check claim; no toolchain/flag change or cold target copy
+is introduced. This static assessment establishes no parallel throughput benefit.
 
 `just governance` passes, including all generator equivalence and family checks. The actual
 native correctness extension and installed stub check pass. `just ready` passed after the
-startup failure prompted an environment-shaped investigation. The documentation build passed
+startup failure prompted an environment-shaped investigation and again after the taskdump-route
+repair (doctor 1.5 s; no environment failure). The documentation build passed
 617 chapters before final prose. Feature powerset/no-default, final executable controls,
 retirement preflight and final publication results remain to be recorded before Q03/Q04 close.
 
