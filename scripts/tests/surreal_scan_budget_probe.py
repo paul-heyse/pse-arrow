@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Run only TOOL08's instrumented native scanner test in a private source copy.
 
-Invoke through scripts/pse-env --resource-class compile -- .venv/bin/python -m
+Invoke through scripts/pse-env --resource-class build -- .venv/bin/python -m
 scripts.tests.surreal_scan_budget_probe --source /selected/patched/source
 --scratch /new/owned/directory. No server or canonical database is opened. The
 source's own target/ is excluded; this copy builds in its own default target/.
@@ -131,7 +131,7 @@ def run(scratch: Path, receipt: dict[str, object]) -> int:
     receipt["command"] = command
     receipt["cargo_cwd"] = str(ROOT)
     receipt["test_log"] = str(scratch / "probe.log")
-    print(json.dumps(receipt, sort_keys=True, indent=2), flush=True)
+    print(json.dumps({"receipt": str(scratch / "probe.json"), "command": command, "test_log": receipt["test_log"]}, indent=2), flush=True)
     with (scratch / "probe.log").open("w") as log:
         result = subprocess.run(command, cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT, check=False)
     receipt["exit_code"] = result.returncode

@@ -60,7 +60,7 @@
 +			Value::Object(object) => {
 +				let mut scans = 0;
 +				if let Some(Value::String(operator)) = object.get("operator") {
-+					assert!(!matches!(operator.as_str(), "Filter" | "Sort" | "TopKSort" | "TableScan"),
++					assert!(!matches!(operator.as_str(), "Filter" | "Sort" | "SortByKey" | "SortTopK" | "SortTopKByKey" | "ExternalSort" | "ExternalSortByKey" | "TableScan"),
 +						"residual filtering/sorting/full scan invalidates this probe: {value:?}");
 +					if operator == "IndexScan" {
 +						let Some(Value::Object(attrs)) = object.get("attributes") else {
