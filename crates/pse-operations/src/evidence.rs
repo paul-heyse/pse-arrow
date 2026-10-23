@@ -323,7 +323,7 @@ impl EvidenceFact {
             link_target: self.link_target.clone(),
             population_id: self.population_id.clone(),
             sample_id: self.sample_id.clone(),
-            value_ns: self.value_ns.clone(),
+            value_ns: self.value_ns,
         })
     }
 }
@@ -903,10 +903,10 @@ COMMIT;"#;
                 serde_json::to_vec(&(&request.generation, &request.kind, &request.status, limit))
                     .map_err(|e| config(e.to_string()))?,
             );
-        if let Some(cursor) = &request.cursor {
-            if cursor.issuing_store != self.issuing_store || cursor.query_digest != query_digest {
-                return Err(EvidenceError::Cursor);
-            }
+        if let Some(cursor) = &request.cursor
+            && (cursor.issuing_store != self.issuing_store || cursor.query_digest != query_digest)
+        {
+            return Err(EvidenceError::Cursor);
         }
         let cursor_generation = request.cursor.as_ref().map(|c| c.generation.clone());
         let after = request

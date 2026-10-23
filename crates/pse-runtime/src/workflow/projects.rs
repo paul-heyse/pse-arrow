@@ -58,7 +58,7 @@ pub struct ProjectDraftDelta {
 #[serde(untagged)]
 enum DraftContent {
     Documents(ProjectDraftDocuments),
-    Delta(ProjectDraftDelta),
+    Delta(Box<ProjectDraftDelta>),
 }
 /// One explicit navigation reference; a writable branch head and bookmark have different owners.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -247,10 +247,7 @@ impl Runtime {
     pub(in crate::workflow) fn project_boxed<'a, T: 'a, F>(
         &self,
         operation: F,
-    ) -> Result<
-        std::pin::Pin<Box<dyn Future<Output = Result<T, WorkflowError>> + Send + 'a>>,
-        WorkflowError,
-    >
+    ) -> Result<futures_util::future::BoxFuture<'a, Result<T, WorkflowError>>, WorkflowError>
     where
         F: Future<Output = Result<T, WorkflowError>> + Send + 'a,
     {
@@ -264,6 +261,7 @@ impl Runtime {
         }))
     }
     /// Read-only issue of the original immutable raw-draft custody effect.
+    #[expect(clippy::too_many_arguments, reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises")]
     pub async fn project_draft_save_intent(
         &self,
         operation: &str,
@@ -487,6 +485,7 @@ impl Runtime {
         .await
     }
     /// Single-effect bounded inline save; larger bodies require the retained original intent API.
+    #[expect(clippy::too_many_arguments, reason = "The exact draft effect retains independent project, branch, base, generation and raw-custody premises")]
     pub async fn project_save_draft(
         &self,
         operation: &str,

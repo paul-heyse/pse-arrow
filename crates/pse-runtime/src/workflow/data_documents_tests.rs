@@ -666,7 +666,7 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
         dataset measurements:reading provenance(acquisition,role.measured) from "data/bank.parquet";
         def FitExperiment {}
     }"#;
-    let (physical_documents, mut documents) = worker_tests::sources(text);
+    let (physical_documents, mut documents) = tests::sources(text);
     let physical = Box::pin(rt.physical_from_sources(&physical_documents, &cancel))
         .await
         .unwrap();

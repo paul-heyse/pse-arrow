@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Contained independent reader and consumed-byte/import-copy boundaries.
+#![allow(clippy::unreachable, reason = "Explicit fixture discriminants require the selected project and scientific member shapes")]
 use super::*;
 use crate::workflow;
 
 async fn bundle()->(tempfile::TempDir,ProjectManifest) {
     let runtime=workflow::tests::runtime();let cancel=crate::CancelSource::new();
-    let (physical_documents,documents)=workflow::worker_tests::sources("package algebraic {def Fixed {param x:Scalar=2; eq fixed:x==2;}}");
+    let (physical_documents,documents)=workflow::tests::sources("package algebraic {def Fixed {param x:Scalar=2; eq fixed:x==2;}}");
     let physical=Box::pin(runtime.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
     let package=Box::pin(runtime.package_from_sources(&[documents],physical.clone(),&cancel)).await.unwrap();
     let replay=package.replay_source().unwrap();
@@ -260,7 +261,7 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
 #[tokio::test]
 async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads() {
     let runtime=workflow::durable_tests::durable_runtime();let cancel=crate::CancelSource::new();
-    let (physical_documents,documents)=workflow::worker_tests::sources("package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}");
+    let (physical_documents,documents)=workflow::tests::sources("package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}");
     let physical=Box::pin(runtime.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
     let source=Box::pin(runtime.package_from_sources(&[documents],physical.clone(),&cancel)).await.unwrap();
     let store=runtime.canonical_store().unwrap();

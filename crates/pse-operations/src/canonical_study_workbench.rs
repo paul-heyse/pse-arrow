@@ -98,11 +98,13 @@ pub struct NativeStudySelection {
     pub has_more: bool,
 }
 
+type CompactStudyAttribution = (Option<String>, Option<String>, Option<String>);
+
 /// Project immutable scientific metadata into the same original create transaction.
 /// Legacy opaque metadata has no invented physical/context attribution.
 pub(crate) fn index_metadata(
     bytes: &[u8],
-) -> Result<(Option<String>, Option<String>, Option<String>), CanonicalError> {
+) -> Result<CompactStudyAttribution, CanonicalError> {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
         return Ok((None, None, None));
     };
@@ -297,7 +299,7 @@ impl CanonicalStore {
                             "outcome",
                             filter
                                 .outcome
-                                .map(|v| serde_json::to_value(v))
+                                .map(serde_json::to_value)
                                 .transpose()
                                 .map_err(|e| CanonicalError::Configuration(e.to_string()))?
                                 .and_then(|v| v.as_str().map(str::to_owned)),

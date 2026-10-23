@@ -48,6 +48,7 @@ impl ProjectImportIntent {
 }
 impl CanonicalStore {
     /// Read-only issue binds fresh receiving IDs chosen by the caller and original bundle bytes.
+    #[expect(clippy::too_many_arguments, reason = "Read-only intent issuance binds original operation, fresh coordinates and exact imported evidence before any effect")]
     pub fn project_import_intent(&self,operation:&str,project:&str,branch:&str,problem:&str,bundle_digest:&str,origin:Vec<u8>,title:&str,branch_name:&str)->Result<ProjectImportIntent,CanonicalError> {
         Ok(ProjectImportIntent{publication:ProjectPublication::import_intent(self.issuing_store()?,operation,project,branch,problem,ImportBinding{bundle_digest:bundle_digest.into(),origin,title:title.into(),branch_name:branch_name.into()})?})
     }

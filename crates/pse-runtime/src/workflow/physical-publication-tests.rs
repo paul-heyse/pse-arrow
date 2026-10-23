@@ -99,7 +99,7 @@ async fn exact_rows(store: &CanonicalStore, revision: &Revision, expected: &[Vec
 async fn canonical_physical_empty_source_map_publishes_accounted_context_receipt() {
     let runtime = super::super::durable_tests::durable_runtime();
     let operations = runtime.operations().unwrap();
-    let (documents, _) = super::super::worker_tests::sources(
+    let (documents, _) = super::super::tests::sources(
         "package p { def Root { param x:Scalar=3; annotation report x(\"constant\"); } }",
     );
     let source = operations.put_sources(&documents).await.unwrap();
@@ -148,7 +148,7 @@ async fn canonical_physical_empty_source_map_publishes_accounted_context_receipt
 async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relation_receipts() {
     let runtime = super::super::durable_tests::durable_runtime();
     let operations = runtime.operations().unwrap();
-    let (documents, _) = super::super::worker_tests::sources(
+    let (documents, _) = super::super::tests::sources(
         "package p { def Root { param x:Scalar=3; annotation report x(\"constant\"); } }",
     );
     let source = operations.put_sources(&documents).await.unwrap();

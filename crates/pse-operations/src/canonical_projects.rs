@@ -734,6 +734,7 @@ impl CanonicalStore {
             .await
     }
     /// Save original malformed/empty raw bytes under exact generation; this never admits science.
+    #[expect(clippy::too_many_arguments, reason = "The original draft effect binds the project, branch, exact base, raw bytes and optional artifact as independent admission premises")]
     pub async fn save_project_draft(
         &self,
         operation: &str,
@@ -849,7 +850,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
             let mut response=bounded_query(self.project_query("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; FOR $owner IN $branch {IF !fn::pse_project_import_v1::available($owner.project) {THROW 'PSE_REFUSAL:project_source_unavailable';};}; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3; RETURN {parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra};")?.bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
-            let mut row=final_object(&mut response)?;let mut result=Vec::new();for field in ["parent","origin"]{if let Some(value)=row.remove(field){if value!=Value::None && value!=Value::Null {result.push(codec::decode_string(value)?);}}}
+            let mut row=final_object(&mut response)?;let mut result=Vec::new();for field in ["parent","origin"]{if let Some(value)=row.remove(field) && value!=Value::None && value!=Value::Null {result.push(codec::decode_string(value)?);}}
             let extra=codec::required(&mut row,"extra")?;if let Value::Array(items)=extra {for item in items{if let Value::String(v)=item {result.push(v);}}}result.sort();result.dedup();Ok(result)
         })).await
     }

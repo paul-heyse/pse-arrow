@@ -71,7 +71,7 @@ async fn cancel_and_settle(runtime: &Runtime, handle: &StudyHandle) {
 async fn project_admitted_draft_run_cancellation_and_undo_preserve_original_recorded_science() {
     let runtime = durable_tests::durable_runtime();
     let cancel = crate::CancelSource::new();
-    let (physical_documents, original_documents) = worker_tests::sources(
+    let (physical_documents, original_documents) = tests::sources(
         "package algebraic { def Fixed { param x:Scalar=2; eq fixed:x==2; annotation report x(\"value\"); } }",
     );
     let physical = Box::pin(runtime.physical_from_sources(&physical_documents, &cancel))

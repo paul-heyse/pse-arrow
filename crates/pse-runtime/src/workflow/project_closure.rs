@@ -116,7 +116,8 @@ impl Runtime {
         }
         let mut seen=BTreeSet::new();
         while let Some(key)=datasets.pop() {
-            if !seen.insert(key.clone()) {continue;} if seen.len()>1024 {return Err(contract("research dataset ancestry exceeds allowance"));}
+            if !seen.insert(key.clone()) {continue;}
+            if seen.len()>1024 {return Err(contract("research dataset ancestry exceeds allowance"));}
             let row=store.research_dataset(&key).await?.ok_or_else(||contract("selected immutable dataset unavailable"))?;
             if row.project!=request.selection.project {return Err(contract("research dataset belongs to another project"));}
             if let Some(parent)=&row.parent {datasets.push(parent.clone());}
@@ -175,9 +176,9 @@ impl Runtime {
                 let context=closure.manifest.contexts.iter().find(|c|c.revision==revision);
                 closure.manifest.sources.push(ProjectSourceClosure{revision:revision.clone(),source_identity:context.map(|c|c.source_identity.clone()),physical_context:context.map(|c|c.physical_context.clone()),documents:Vec::new(),replay_source:None,physical_documents:Vec::new()});
                 closure.manifest.omissions.push(ProjectOmission{selection:format!("source:{revision}"),reason:"descriptive-only selection retains authenticated revision metadata; authored source objects, raw/curated data, physical documents and provider premises were not opened or copied".into(),required_for_execution:true});
-            } else if !packages.contains_key(&revision) {
+            } else if let std::collections::btree_map::Entry::Vacant(entry)=packages.entry(revision) {
                 let package=self.project_boxed(self.modeling_revision(row,physical.as_ref().ok_or_else(||contract("executable closure requires admitted physical context"))?.clone(),BTreeMap::new()))?.await?;
-                packages.insert(revision,package);
+                entry.insert(package);
             }
         }
         for (ordinal,(revision,package)) in packages.into_iter().enumerate() {

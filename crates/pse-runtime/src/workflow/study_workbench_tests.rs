@@ -19,7 +19,7 @@ use pse_operations::{
 use pse_relations::generated::runtime::simulation_samples;
 use std::time::Duration;
 pub(in crate::workflow) async fn physical(runtime: &Runtime) -> flow::PhysicalSource {
-    let (documents, _) = flow::worker_tests::sources("package fixture { param x:Scalar=1; }");
+    let (documents, _) = flow::tests::sources("package fixture { param x:Scalar=1; }");
     let cancel = crate::CancelSource::new();
     let admitted = runtime
         .physical_from_sources(&documents, &cancel)

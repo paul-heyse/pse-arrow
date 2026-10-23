@@ -70,7 +70,7 @@ pub struct ProjectComparison {
 )]
 pub enum ProjectSourceObject {
     /// Admitted modeling declaration with its stable identity.
-    Declaration(Declaration),
+    Declaration(Box<Declaration>),
     /// Admitted document metadata and exact data identity.
     Document(ProjectDocumentSource),
     /// Admitted fitting declaration.
@@ -251,7 +251,7 @@ impl ModelingPackage {
         for row in parent.rows {
             let key = format!("modeling:{}", row.declaration_id.as_id());
             order.push(key.clone());
-            objects.insert(key, ProjectSourceObject::Declaration(row));
+            objects.insert(key, ProjectSourceObject::Declaration(Box::new(row)));
         }
         for row in parent.documents.into_values() {
             let content_digest = self
@@ -398,10 +398,10 @@ fn impacts(
             }
             // Only numeric literal parameter initializers are known value-only edits.
             // A changed reference, equation, unit/type or domain remains structural.
-            if a.value.kind == Kind::Parameter && b.value.kind == Kind::Parameter {
-                if let (Some(before), Some(after)) =
+            if a.value.kind == Kind::Parameter && b.value.kind == Kind::Parameter
+                && let (Some(before), Some(after)) =
                     (&mut normalized.value.binding, &b.value.binding)
-                {
+            {
                     let literal = |s: &Option<String>| {
                         s.as_ref()
                             .is_some_and(|s| s.parse::<f64>().is_ok_and(f64::is_finite))
@@ -412,7 +412,6 @@ fn impacts(
                             return vec![Source, Value];
                         }
                     }
-                }
             }
             vec![Source, Structural]
         }
@@ -590,10 +589,10 @@ async fn delta_to(
                 Some(b @ ProjectSourceObject::Package(_)),
             ) if same_merge_object(Some(a), Some(b)) => {}
             (None, Some(ProjectSourceObject::Declaration(row))) => {
-                delta.additions.push(row.clone())
+                delta.additions.push(row.as_ref().clone())
             }
             (Some(_), Some(ProjectSourceObject::Declaration(row))) => {
-                delta.replacements.push(row.clone())
+                delta.replacements.push(row.as_ref().clone())
             }
             (Some(ProjectSourceObject::Declaration(row)), None) => {
                 delta.removals.push(row.declaration_id)
@@ -844,6 +843,7 @@ impl Runtime {
         ))
         .await
     }
+    #[expect(clippy::too_many_arguments, reason = "A merge decision binds three independently admitted parents, selected resolutions, original publication, mode and cancellation")]
     async fn project_merge_decision(
         &self,
         publication: ProjectPublication,
@@ -1021,7 +1021,7 @@ mod tests {
             .map(|row| {
                 (
                     format!("modeling:{}", row.declaration_id.as_id()),
-                    ProjectSourceObject::Declaration(row),
+                    ProjectSourceObject::Declaration(Box::new(row)),
                 )
             })
             .collect();
@@ -1047,8 +1047,8 @@ mod tests {
         );
         assert_eq!(
             impacts(
-                Some(&ProjectSourceObject::Declaration(original.clone())),
-                Some(&ProjectSourceObject::Declaration(changed))
+                Some(&ProjectSourceObject::Declaration(Box::new(original.clone()))),
+                Some(&ProjectSourceObject::Declaration(Box::new(changed)))
             ),
             vec![ProjectChangeImpact::Source, ProjectChangeImpact::Value]
         );
@@ -1057,8 +1057,8 @@ mod tests {
         presentation.source_end += 3;
         assert_eq!(
             impacts(
-                Some(&ProjectSourceObject::Declaration(original.clone())),
-                Some(&ProjectSourceObject::Declaration(presentation))
+                Some(&ProjectSourceObject::Declaration(Box::new(original.clone()))),
+                Some(&ProjectSourceObject::Declaration(Box::new(presentation)))
             ),
             vec![ProjectChangeImpact::Source]
         );
@@ -1072,8 +1072,8 @@ mod tests {
         );
         assert_eq!(
             impacts(
-                Some(&ProjectSourceObject::Declaration(old_equation)),
-                Some(&ProjectSourceObject::Declaration(changed_equation))
+                Some(&ProjectSourceObject::Declaration(Box::new(old_equation))),
+                Some(&ProjectSourceObject::Declaration(Box::new(changed_equation)))
             ),
             vec![ProjectChangeImpact::Source, ProjectChangeImpact::Structural]
         );
@@ -1266,7 +1266,7 @@ mod tests {
                 &base,
                 &target,
                 &proposal,
-                &[resolution.clone()],
+                std::slice::from_ref(&resolution),
                 &CancelSource::new(),
             )
             .await

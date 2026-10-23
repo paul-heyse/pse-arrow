@@ -1180,7 +1180,7 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
 async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile() {
     let runtime = crate::workflow::tests::durable_runtime();
     let cancel = crate::CancelSource::new();
-    let (documents, _) = crate::workflow::worker_tests::sources("package p {}");
+    let (documents, _) = crate::workflow::tests::sources("package p {}");
     let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
         .await
         .unwrap();
@@ -1664,7 +1664,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     };
     let runtime = crate::workflow::tests::durable_runtime();
     let cancel = crate::CancelSource::new();
-    let (documents, _) = crate::workflow::worker_tests::sources("package p {}");
+    let (documents, _) = crate::workflow::tests::sources("package p {}");
     let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
         .await
         .unwrap_or_else(|error| panic!("{error}"));

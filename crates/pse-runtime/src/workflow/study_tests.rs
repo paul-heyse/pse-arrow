@@ -4,7 +4,7 @@
 #[cfg(feature = "canonical-tests")]
 use super::durable_tests::durable_runtime;
 #[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
-use super::worker_tests::sources;
+use super::tests::sources;
 use super::*;
 use pse_model::study::*;
 #[cfg(feature = "canonical-tests")]

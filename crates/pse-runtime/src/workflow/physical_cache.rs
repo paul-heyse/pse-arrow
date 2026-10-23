@@ -625,7 +625,7 @@ mod physical_admission_cache_unit {
         clippy::unwrap_used,
         reason = "canonical cache fixtures require successful durable source admission before exercising owner reuse"
     )]
-    use super::super::{Durability, durable_tests::durable_runtime, worker_tests::sources};
+    use super::super::{Durability, durable_tests::durable_runtime, tests::sources};
     use super::*;
 
     async fn fixture() -> (Runtime, PhysicalSource) {
