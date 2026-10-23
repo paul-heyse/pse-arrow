@@ -62,7 +62,8 @@ def regression_documents(*, objective: bool = False) -> dict[str, str]:
     if objective:
         source = source.replace(
             "annotation start z(0);",
-            "annotation start z(0); let cost:Scalar=0.5*z*z; annotation objective cost(minimize);",
+            "annotation start z(0); let cost:Scalar=0.5*z*z; "
+            "annotation objective cost(minimize);",
         )
     return package_documents(source)
 
@@ -122,11 +123,10 @@ def covariance_input(value: d.ParameterCovarianceOutput) -> d.ParameterCovarianc
     return codec.decode_json(codec.encode_json(value), d.ParameterCovariance)
 
 
-def downstream(
+def optimization_revision(
     package: pse.ModelingPackage, case: DeclarationId,
-    ids: tuple[SemanticId, ...], covariance: d.ParameterCovariance,
-    *, source: pse.RunResult | None = None,
-) -> pse.PreparedOperation:
+    ids: tuple[SemanticId, ...],
+) -> pse.ModelingPackage:
     # Reload the complete source inventory against the exact fitted parent. The
     # added objective changes the use of z, while a/b/z retain their actual IDs.
     # The original fit experiment remains objective-free and usable independently.
@@ -134,7 +134,15 @@ def downstream(
     assert optimized.canonical_problem == package.canonical_problem
     assert optimized.revision_id != package.revision_id
     assert tuple(member(optimized, case, name) for name in ("a", "b", "z")) == ids
-    return optimized.prepare_solve(
+    return optimized
+
+
+def downstream(
+    package: pse.ModelingPackage, case: DeclarationId,
+    ids: tuple[SemanticId, ...], covariance: d.ParameterCovariance,
+    *, source: pse.RunResult | None = None,
+) -> pse.PreparedOperation:
+    return package.prepare_solve(
         case,
         pse.SolveSettings(
             intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT,
@@ -186,9 +194,10 @@ def test_fit_covariance_public_binding_preserves_content_and_refuses_tampering(
     assert covariance.origin.record is None
     decoded = covariance_input(covariance)
     assert isinstance(decoded.origin, d.CovarianceOriginQualifiedFit)
+    target = optimization_revision(package, case, ids)
     with pytest.raises(pse.InspectionError, match="decoded in-process covariance"):
-        downstream(package, case, ids, decoded)
-    prepared = downstream(package, case, ids, decoded, source=fitted)
+        downstream(target, case, ids, decoded)
+    prepared = downstream(target, case, ids, decoded, source=fitted)
     # The accepted preparation owns the recovered evidence after the producer dies.
     del fitted, covariance
     gc.collect()
@@ -210,7 +219,7 @@ def test_fit_covariance_public_binding_preserves_content_and_refuses_tampering(
     actual_input = covariance_input(actual)
     for change in changes:
         with pytest.raises(pse.InspectionError, match="differs from the actual retained qualified fit"):
-            downstream(package, case, ids, msgspec.structs.replace(actual_input, **change), source=fitted)
+            downstream(target, case, ids, msgspec.structs.replace(actual_input, **change), source=fitted)
 
 
 @pytest.mark.integration
@@ -226,14 +235,15 @@ def test_external_covariance_singular_psd_and_indefinite_public_assessments(
         origin=d.CovarianceOriginExternal(label="declared singular", assumptions=("common error",)),
         values=(1.0, 1.0, 1.0, 1.0),
     )
-    row = assert_contrast(downstream(package, case, ids, external).start().wait(), external.values)
+    target = optimization_revision(package, case, ids)
+    row = assert_contrast(downstream(target, case, ids, external).start().wait(), external.values)
     assert row["covariance_run_id"] is None
     assert row["covariance_origin"] == "external"
     assert row["covariance_label"] == "declared singular"
     assert row["covariance_assumptions"] == ["common error"]
     # Symmetric, finite and positive on the diagonal is insufficient: JΣJᵀ=-2.
     indefinite = downstream(
-        package, case, ids,
+        target, case, ids,
         msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)),
     ).start().wait()
     # Propagation is an explicitly requested lazy projection of the joined solve.
@@ -263,7 +273,8 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
     covariance = fitted.parameter_covariance
     assert covariance is not None
     run, attempt = fitted.canonical_run_key, fitted.canonical_attempt_key
-    assert run is not None and attempt is not None
+    assert run is not None
+    assert attempt is not None
     del fitted, package
     runtime.clear_program_cache()
     runtime.close()
@@ -273,9 +284,10 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
     assert actual == covariance
     assert actual.values == pytest.approx(analytic_covariance(), abs=1e-7)
     package, case, _fit_id, ids = regression(reopened)
+    target = optimization_revision(package, case, ids)
     decoded = covariance_input(actual)
     # Canonical references restore authority without an in-process fit handle.
-    row = assert_contrast(downstream(package, case, ids, decoded).start().wait(), actual.values)
+    row = assert_contrast(downstream(target, case, ids, decoded).start().wait(), actual.values)
     assert row["covariance_run_id"] == actual.origin.run_id
     with pytest.raises(pse.InspectionError):
         reopened.fit_covariance(run, "missing-fit-attempt")
@@ -286,4 +298,4 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
         {"scales": (2.0, 2.0)},
     ):
         with pytest.raises(pse.InspectionError, match="differs from the actual qualified fit"):
-            downstream(package, case, ids, msgspec.structs.replace(decoded, **change))
+            downstream(target, case, ids, msgspec.structs.replace(decoded, **change))
