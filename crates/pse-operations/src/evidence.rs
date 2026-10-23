@@ -27,6 +27,21 @@ pub enum EvidenceError {
     Unsettled { /// Exact content-addressed generation.
         generation:String, /// Native failure; absence is not inferred.
         #[source] source:Box<CanonicalError> },
+    /// A submitted lifecycle request failed, retaining its exact intended authority.
+    /// The native source determines effect knowledge; this does not imply rollback or replay.
+    #[error("evidence {operation} for {namespace}/{database} (issuing authority {issuing_store}) failed: {source}")]
+    LifecycleFailure {
+        /// Original explicit lifecycle operation.
+        operation:&'static str,
+        /// Selected tooling namespace.
+        namespace:String,
+        /// Selected tooling database.
+        database:String,
+        /// Requested initialization authority or observed disposal authority.
+        issuing_store:String,
+        /// Original native failure, including definite refusals and uncertain completion.
+        #[source] source:Box<CanonicalError>,
+    },
     /// Underlying selected service transport or lifecycle failure.
     #[error(transparent)]
     Transport(#[from] CanonicalError),
@@ -218,7 +233,8 @@ impl EvidenceStore {
     /// Drain the actual SDK connection, reusing existing physical lifetime semantics.
     pub async fn disconnect(&self)->Result<(),EvidenceError>{let db=self.db.clone();self.access.physical.close(||async{Ok(())},move||async move{db.disconnect().await.map_err(Into::into)},||async{Ok(())}).await?;Ok(())}
     /// Stage and reconcile one exact authentic snapshot, then activate it atomically.
-    /// Repeating the same snapshot settles a lost acknowledgement without duplicate rows.
+    /// Repeating the same snapshot settles its original activation without duplicate rows
+    /// or replacing a newer current generation.
     pub async fn import(&self,snapshot:&EvidenceSnapshot)->Result<EvidenceReceipt,EvidenceError>{
         let deadline=original_deadline(canonical::REQUEST_TIMEOUT).into_std();
         within_allowance(deadline,self.import_snapshot(snapshot)).await
@@ -257,20 +273,27 @@ IF time::micros()>=$expiry { THROW 'evidence original deadline expired'; };
 LET $marker=SELECT * FROM ONLY evidence_interpretations:current;
 IF $marker.issuing_store!=$issuer { THROW 'evidence authority changed'; };
 LET $generation_row=SELECT * FROM ONLY type::record('evidence_generations',$generation);
-LET $members=SELECT count() AS n FROM evidence_facts WHERE generation=$generation GROUP ALL;
-IF $generation_row=NONE OR $generation_row.content_digest!=$content OR ($generation_row.expected_members!=0dec AND ($members[0].n=NONE OR <decimal>$members[0].n!=$generation_row.expected_members)) { THROW 'evidence incomplete generation'; };
-UPDATE type::record('evidence_generations',$generation) SET state='active';
-UPDATE evidence_interpretations:current SET active_generation=$generation;
+IF $generation_row=NONE OR $generation_row.content_digest!=$content { THROW 'evidence generation identity differs'; };
+IF $generation_row.state!='active' {
+    LET $members=SELECT count() AS n FROM evidence_facts WHERE generation=$generation GROUP ALL;
+    IF $generation_row.expected_members!=0dec AND ($members[0].n=NONE OR <decimal>$members[0].n!=$generation_row.expected_members) { THROW 'evidence incomplete generation'; };
+    UPDATE type::record('evidence_generations',$generation) SET state='active';
+    UPDATE evidence_interpretations:current SET active_generation=$generation;
+};
 IF time::micros()>=$expiry { THROW 'evidence original deadline expired'; };
 COMMIT;"#;
             let activated=canonical::protected_query("evidence-activate",||self.query(activate).map(|q|q.bind(("issuer",self.issuing_store.clone())).bind(("generation",generation.clone())).bind(("content",content_digest.clone()))).map_err(|e|CanonicalError::Configuration(e.to_string()))).await;
             #[cfg(test)]
             let activated=if self.ack_fault.compare_exchange(2,0,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok(){activated.and_then(|_|Err(CanonicalError::IncompleteResponse))}else{activated};
-            if let Err(source)=activated {let marker=self.marker().await;if !matches!(marker,Ok(ref marker) if marker.issuing_store==self.issuing_store&&marker.active_generation.as_deref()==Some(generation.as_str())){return Err(EvidenceError::Unsettled{generation:generation.clone(),source:Box::new(source)});}}
+            if let Err(source)=activated {let receipt=self.generation(&generation).await;if !matches!(receipt,Ok(ref row) if row.state==pse_model::generated::enums::EvidenceGenerationState::Active&&row.content_digest==content_digest){return Err(EvidenceError::Unsettled{generation:generation.clone(),source:Box::new(source)});}}
             Ok(EvidenceReceipt{generation:generation.clone(),activated:true})
         }).await
     }
-    async fn generation(&self,generation:&str)->Result<pse_model::generated::runtime::evidence_generations::Row,EvidenceError>{let mut r=canonical::bounded_query(self.query("SELECT * FROM ONLY type::record('evidence_generations',$generation);")?.bind(("generation",generation.to_owned()))).await?;let row:Option<Object>=r.take(0)?;wire::decode_evidence_generations(row.ok_or_else(||EvidenceError::Unavailable("generation receipt absent; effect remains unproved".into()))?).map_err(Into::into)}
+    async fn generation(&self,generation:&str)->Result<pse_model::generated::runtime::evidence_generations::Row,EvidenceError>{
+        let mut r=canonical::bounded_query(self.query("BEGIN; SELECT * FROM ONLY evidence_interpretations:current; SELECT * FROM ONLY type::record('evidence_generations',$generation); COMMIT;")?.bind(("generation",generation.to_owned()))).await?;
+        let marker:Option<Object>=r.take(1)?;self.decode_marker(marker.ok_or_else(||EvidenceError::Unavailable("marker absent".into()))?,true)?;
+        let row:Option<Object>=r.take(2)?;wire::decode_evidence_generations(row.ok_or_else(||EvidenceError::Unavailable("generation receipt absent; effect remains unproved".into()))?).map_err(Into::into)
+    }
     /// Query only an activated complete import. Cursor context is checked in one read snapshot.
     pub async fn select(&self,request:&EvidenceQuery)->Result<EvidencePage,EvidenceError>{
         let limit=request.limit.unwrap_or(64);if !(1..=64).contains(&limit){return Err(config("evidence query page must be 1..=64"));}
@@ -322,21 +345,32 @@ COMMIT;"#;
             let input=wire::encode_evidence_interpretations(&marker)?;
             let reader=serde_json::to_string(&options.credentials.reader_password).map_err(|e|config(e.to_string()))?;let importer=serde_json::to_string(&options.credentials.importer_password).map_err(|e|config(e.to_string()))?;
             let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
-            canonical::bounded_query(db.query(sql).bind(("marker",input)).bind(("expiry",rpc_expiry(deadline)?)).request_context(RequestContext::control(deadline.into_std()))).await?;Ok::<_,EvidenceError>(())
+            canonical::bounded_query(db.query(sql).bind(("marker",input)).bind(("expiry",rpc_expiry(deadline)?)).request_context(RequestContext::control(deadline.into_std()))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"initialize",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:marker.issuing_store.clone(),source:Box::new(source)})?;Ok::<_,EvidenceError>(())
         }.await;
         let drained=db.disconnect().await;result?;drained?;
         let store=Self::open(options,EvidenceAccess::Reader).await?;store.disconnect().await?;Ok(())
     }
     /// Explicit privileged disposal of this tooling database only. Original owners are untouched.
+    /// Issuing-authority validation and removal share one native SSI transaction.
     pub async fn drop_database(options:&ToolingOptions,username:&str,password:&str)->Result<(),EvidenceError>{within_allowance(original_deadline(canonical::REQUEST_TIMEOUT).into_std(),Self::drop_selected(options,username,password)).await}
     async fn drop_selected(options:&ToolingOptions,username:&str,password:&str)->Result<(),EvidenceError>{
         // Refuse to drop an absent/wrong interpretation or a foreign service's database.
-        let store=Self::open_selected(options,EvidenceAccess::Reader,false).await?;store.disconnect().await?;
+        let store=Self::open_selected(options,EvidenceAccess::Reader,false).await?;let expected_issuer=store.issuing_store.clone();store.disconnect().await?;
+        #[cfg(test)]
+        if let Some((entered,resume))=DROP_PAUSE.with(|pause|pause.borrow_mut().take()){entered.notify_one();resume.notified().await;}
         let db=Self::client(options).await?;let deadline=original_deadline(canonical::REQUEST_TIMEOUT);
-        let result=async{canonical::request(db.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;canonical::request(db.use_ns(&options.namespace).request_context(RequestContext::control(deadline.into_std()))).await?;canonical::bounded_query(db.query(format!("REMOVE DATABASE `{}`;",options.database)).request_context(RequestContext::control(deadline.into_std()))).await?;Ok::<_,EvidenceError>(())}.await;
+        let result=async{
+            canonical::request(db.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;
+            canonical::request(db.use_ns(&options.namespace).use_db(&options.database).request_context(RequestContext::control(deadline.into_std()))).await?;
+            let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original disposal deadline expired'; }}; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; IF $marker=NONE OR $marker.issuing_store!=$issuer OR $marker.interpretation!=$interpretation OR $marker.service_instance_id!=$service {{ THROW 'evidence disposal authority changed'; }}; REMOVE DATABASE `{}`; COMMIT;",options.database);
+            canonical::protected_query("evidence-dispose",||Ok(db.query(sql.clone()).bind(("expiry",rpc_expiry(deadline).map_err(|e|CanonicalError::Configuration(e.to_string()))?)).bind(("issuer",expected_issuer.clone())).bind(("interpretation",wire::INTERPRETATION)).bind(("service",options.service_instance_id.clone())).request_context(RequestContext::control(deadline.into_std())))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"drop",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:expected_issuer.clone(),source:Box::new(source)})?;
+            Ok::<_,EvidenceError>(())
+        }.await;
         let drained=db.disconnect().await;result?;drained?;Ok(())
     }
 }
+#[cfg(test)]
+thread_local!{static DROP_PAUSE:std::cell::RefCell<Option<(Arc<tokio::sync::Notify>,Arc<tokio::sync::Notify>)>>=const{std::cell::RefCell::new(None)};}
 #[cfg(test)]
 #[path="evidence_tests.rs"]
 mod tests;

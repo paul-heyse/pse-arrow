@@ -16,6 +16,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences(){
     let credentials:serde_json::Value=serde_json::from_slice(&std::fs::read(deployment["credentials_file"].as_str().unwrap()).unwrap()).unwrap();
     let username=credentials["username"].as_str().unwrap();let password=credentials["password"].as_str().unwrap();
     let options=ToolingOptions{endpoint:deployment["endpoint"].as_str().unwrap().into(),namespace:format!("pse_tooling_test_{}",uuid::Uuid::new_v4().simple()),database:"evidence".into(),service_instance_id:deployment["instance_id"].as_str().unwrap().into(),credentials:Credentials{reader_username:"reader".into(),reader_password:uuid::Uuid::new_v4().to_string(),importer_username:"importer".into(),importer_password:uuid::Uuid::new_v4().to_string()}};
+    eprintln!("owned evidence fixture namespace {}",options.namespace);
     assert!(EvidenceStore::open(&options,EvidenceAccess::Reader).await.is_err());
     EvidenceStore::initialize(&options,username,password).await.unwrap();
     use futures_util::FutureExt as _;
@@ -41,7 +42,13 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences(){
         let mut wrong=cursor.clone();wrong.issuing_store="foreign".into();assert!(matches!(reader.select(&EvidenceQuery{cursor:Some(wrong),..query.clone()}).await,Err(EvidenceError::Cursor)));
         let mut changed=source.clone();changed.facts[0].status="changed".into();assert!(matches!(importer.import(&changed).await,Err(EvidenceError::Reused)));
         let mut later=source.clone();later.source_id="invocation-2".into();importer.ack_fault.store(2,std::sync::atomic::Ordering::SeqCst);let second=importer.import(&later).await?;assert_ne!(first.generation,second.generation);
-        assert!(matches!(reader.select(&EvidenceQuery{cursor:Some(cursor),..query}).await,Err(EvidenceError::Cursor)));
+        assert!(matches!(reader.select(&EvidenceQuery{cursor:Some(cursor),..query.clone()}).await,Err(EvidenceError::Cursor)));
+        let b_page=reader.select(&query).await?;let b_cursor=b_page.next.unwrap();
+        importer.ack_fault.store(2,std::sync::atomic::Ordering::SeqCst);
+        let settled_a=importer.import(&source).await?;assert_eq!(settled_a.generation,first.generation);
+        let continued_b=reader.select(&EvidenceQuery{cursor:Some(b_cursor),..query}).await?;
+        assert_eq!(continued_b.generation,second.generation,"replaying activated A must preserve B and its cursor");
+        assert_eq!(reader.status().await?["active_generation"],second.generation);
         let old=reader.select(&EvidenceQuery{generation:Some(first.generation.clone()),..Default::default()}).await?;assert_eq!(old.facts.len(),2);
         let history=reader.generations(None,64).await?;assert_eq!(history["generations"].as_array().unwrap().len(),2);
         // A staged generation with no complete membership never becomes selected.
@@ -52,8 +59,23 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences(){
         let mut invalid=options.clone();invalid.service_instance_id="foreign-service".into();assert!(matches!(EvidenceStore::open(&invalid,EvidenceAccess::Reader).await,Err(EvidenceError::Unavailable(_))));
         // Complete-response checking rejects preceding rows when a later statement fails.
         assert!(canonical::bounded_query(importer.query("SELECT * FROM evidence_facts LIMIT 1; THROW 'later statement failure';")?).await.is_err());
+        // Pinned native REMOVE DATABASE remains inside its enclosing transaction.
+        let admin=EvidenceStore::client(&options).await?;let context=||RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std());
+        admin.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(context()).await?;
+        admin.use_ns(&options.namespace).use_db(&options.database).request_context(context()).await?;
+        let cancelled=canonical::bounded_query(admin.query(format!("BEGIN; SELECT * FROM evidence_interpretations:current; REMOVE DATABASE `{}`; CANCEL;",options.database)).request_context(context())).await;
+        assert!(matches!(&cancelled,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::Cancelled))),"CANCEL must establish rollback, not an earlier failure: {cancelled:?}");admin.disconnect().await?;
+        let retained=EvidenceStore::open(&options,EvidenceAccess::Reader).await?;assert_eq!(retained.issuing_store,reader.issuing_store);retained.disconnect().await?;
+        let entered=Arc::new(tokio::sync::Notify::new());let resume=Arc::new(tokio::sync::Notify::new());
+        DROP_PAUSE.with(|pause|*pause.borrow_mut()=Some((entered.clone(),resume.clone())));
+        let pending_options=options.clone();let pending_username=username.to_owned();let pending_password=password.to_owned();
+        let stale_delete=tokio::spawn(async move{EvidenceStore::drop_database(&pending_options,&pending_username,&pending_password).await});
+        entered.notified().await;
         EvidenceStore::drop_database(&options,username,password).await?;
         EvidenceStore::initialize(&options,username,password).await?;
+        resume.notify_one();match stale_delete.await.unwrap(){Err(EvidenceError::LifecycleFailure{operation,issuing_store,..})=>{assert_eq!(operation,"drop");assert_eq!(issuing_store,reader.issuing_store);},other=>panic!("expected an issuer-bound stale deletion refusal, observed {other:?}")};
+        let replacement=EvidenceStore::open(&options,EvidenceAccess::Reader).await?;
+        assert_ne!(replacement.issuing_store,reader.issuing_store);replacement.status().await?;replacement.disconnect().await?;
         assert!(matches!(reader.status().await,Err(EvidenceError::Unavailable(_))),"old reader must not adopt a replacement issuing identity");
         assert!(matches!(importer.generations(None,64).await,Err(EvidenceError::Unavailable(_))),"history selection must retain the original issuing authority");
         reader.disconnect().await?;importer.disconnect().await?;Ok::<_,EvidenceError>(())
