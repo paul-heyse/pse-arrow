@@ -1262,6 +1262,9 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     let latest = store.project_context_cut("fit-project").await.unwrap();
     assert_eq!(store.select_project_context(&latest, "calibration", 10).await.unwrap().unwrap().context.key, "fit-corrected");
     assert_eq!(sources[0].context.as_ref(), Some(&selected), "actual reopened fit receipt retains its original context after correction");
+    let after_correction = runtime.operations().unwrap().record(&run, &attempt).await.unwrap();
+    assert_eq!(after_correction.run.as_ref().unwrap().source_selection, reopened.run.as_ref().unwrap().source_selection,
+        "later historical correction does not rewrite the stored fit consumption");
     assert_eq!(strategies.len(), 1);
     let stored_strategy = &strategies[0];
     assert_eq!(
