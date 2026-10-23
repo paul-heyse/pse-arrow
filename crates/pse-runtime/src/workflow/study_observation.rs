@@ -135,8 +135,8 @@ impl Runtime {
             let mut keys=std::collections::BTreeSet::new();
             for source in &cursor.sources {
                 if !keys.insert((&source.run,&source.attempt)) || source.offset>512 || source.run!=selected.run && !status.document().members.iter().any(|p|p.run==source.run) {return Err(contract("observer cursor includes foreign or malformed source"));}
-                let attempt=self.canonical_store()?.canonical_attempt(&source.attempt).await?.ok_or_else(||contract("observer original attempt unavailable"))?;
-                if attempt.run!=source.run||attempt.generation!=source.attempt_generation {return Err(contract("observer cursor attempt attribution differs"));}
+                let attempts=self.canonical_store()?.canonical_attempt_page(&source.run,source.attempt_generation.checked_sub(1),source.attempt_generation).await?;
+                if attempts.len()!=1 || attempts[0].key!=source.attempt || attempts[0].run!=source.run || attempts[0].generation!=source.attempt_generation {return Err(contract("observer cursor attempt attribution differs"));}
             }
             cursor
         },None=>StudyObservationCursor{issuing_store:issuer,request,context:selected,sources:Vec::new()}};
@@ -176,8 +176,8 @@ impl StudyObserver {
         runs.extend(status.document().members.iter().map(|p|(p.run.clone(),Some(p.metadata_revision))));
         let mut attempts=Vec::new();
         for (run,revision) in runs {
-            let Some(record)=self.runtime.canonical_store()?.canonical_run(&run).await? else {continue;};
-            let page=self.runtime.canonical_store()?.canonical_attempt_page(&run,None,record.current_generation).await?;
+            let Some(generation)=self.runtime.canonical_store()?.workbench_run_generation(&run).await? else {continue;};
+            let page=self.runtime.canonical_store()?.canonical_attempt_page(&run,None,generation).await?;
             // Refuse an incomplete retry population rather than silently dropping earlier attempts.
             if page.len()==64 || attempts.len()+page.len()>64 {return Err(contract("observer attempt population exceeds bound; narrower observation required"));}
             for attempt in page {attempts.push((attempt,revision));}

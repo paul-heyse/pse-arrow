@@ -147,6 +147,15 @@ pub fn workbench_sql(filter:&StudyWorkbenchFilter, frozen:bool)->String {
     format!("BEGIN; {prelude}{sql} COMMIT;")
 }
 impl CanonicalStore {
+    /// Compact selected-run retry head; never fetch requests, source payloads or completion bytes.
+    pub async fn workbench_run_generation(&self,run:&str)->Result<Option<u64>,CanonicalError> {
+        if run.is_empty()||run.len()>4096 {return Err(CanonicalError::PayloadLimit);}
+        let activity=self.admit_activity()?;
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
+            let mut response=protected_query("canonical_study_workbench::run_generation",||Ok(self.db.query(crate::canonical_history::run_query("SELECT current_generation FROM ONLY type::record('canonical_runs',$run);","run")).bind(("run",run.to_owned())))).await?;
+            response.take::<Option<Object>>(0)?.map(|mut row|codec::decode_uint(codec::required(&mut row,"current_generation")?).map_err(Into::into)).transpose()
+        })).await
+    }
     /// Select one live browsing page or one complete frozen population in one short SSI read.
     /// Frozen requests refuse header or point overflow; pages cannot certify completeness.
     pub async fn select_study_workbench(&self,filter:&StudyWorkbenchFilter,after:Option<&str>,maximum:usize,maximum_members:Option<usize>)->Result<NativeStudySelection,CanonicalError> {
