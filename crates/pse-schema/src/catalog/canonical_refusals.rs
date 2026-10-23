@@ -45,6 +45,8 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    ResearchContextDiffers: "research_context_differs" => (Invariant, "research source, context or original evidence differs"),
+    ResearchBound: "research_bound" => (Admission, "research metadata exceeds declared bound"),
     ProjectContextInvalid: "project_context_invalid" => (Invariant, "context coordinates or correction differ"),
     ProjectContextUnavailable: "project_context_unavailable" => (Fence, "exact historical context unavailable"),
     ProjectContextAmbiguous: "project_context_ambiguous" => (Invariant, "overlapping context selection is ambiguous"),

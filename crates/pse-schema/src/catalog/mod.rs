@@ -32,6 +32,7 @@ mod operations;
 mod products;
 pub mod project_contexts;
 pub mod projects;
+pub mod research;
 mod row_checks;
 pub mod s14_passes;
 pub mod s4_schema;
@@ -101,6 +102,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     operations::declare(builder);
     substrate::declare(builder);
     projects::declare(builder);
+    research::declare(builder);
     project_contexts::declare(builder);
     evidence::declare(builder);
     s6_14_idaes_enums::declare(builder);

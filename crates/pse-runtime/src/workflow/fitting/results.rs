@@ -1169,7 +1169,7 @@ impl RunResult {
             )),
         }
     }
-    async fn project_fit_parameters(
+    pub(in crate::workflow) async fn project_fit_parameters(
         &self,
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
