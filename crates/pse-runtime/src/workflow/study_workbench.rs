@@ -187,4 +187,4 @@ mod tests {
 
 #[cfg(all(test,feature="canonical-tests"))]
 #[path="study_workbench_tests.rs"]
-mod canonical_tests;
+pub(in crate::workflow) mod canonical_tests;
