@@ -3,9 +3,10 @@
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)
 owns the engineering/research and selected development-evidence workbench series. Its
 [package state](51-engineering-workspaces-and-evidence.md#package-state-and-execution-route)
-and linked companion evidence distinguish implemented targeted scope from remaining lifecycle,
-portable-delivery and assembled qualification work. Completed companions stay retained while
-later packages consume them; the coordinator owns inquiry and opportunity dispositions.
+and linked companion Outcomes distinguish delivered project/research/evidence, lifecycle and
+portable-exchange scope from remaining assembled qualification/publication at 51g. Completed
+companions remain retained for qualification and proposed ADR readers; the coordinator owns
+inquiry and opportunity dispositions.
 
 [Plan50: Codex effectiveness and diagnostic tooling](50-codex-effectiveness-and-diagnostics.md)
 is complete for all 32 packages and O01–O20 selected routes. Its

@@ -127,8 +127,8 @@ evidence and explicitly unmeasured benefits.
 against delivered overlap, especially Plans32/40/49 and completed Plan50's preserved boundaries.
 Do not mark an older plan complete because one capability overlaps, reopen completed work merely
 to add a derived consumer or overwrite independent remaining obligations. Follow native status
-owners and repair inbound links when completed plans/reviews retire under ADR-0096. The user's
-current authoring request excludes all such existing-plan edits.
+owners and repair inbound links when completed plans/reviews retire under ADR-0096. The original authoring engagement excluded those edits; the maintainer's subsequent complete
+execution authorization includes this post-implementation reconciliation.
 
 Close this series only when its package/inquiry and opportunity tables agree with actual support,
 required qualification and enduring owners. Record an Outcome with what was built, a mistake
@@ -138,7 +138,144 @@ history is the archive. Do not fabricate an implementation Outcome during docume
 
 ## Current checkpoint
 
-The maintainer authorized complete remaining execution on 2026-10-23. Functional integration
-and targeted verification are underway; assembled qualification, zero-target checks and final
-publication remain open at 51g. The coordinator owns the selected no-adopt inquiry outcomes and
-their observable revisit triggers. This is an execution checkpoint, not completion evidence.
+All selected functional scope and original-consumer reconciliation are implemented. The representative
+Rust, installed Python, actual offline executable and disposable recovery journeys have run. The
+scope-end feature matrix is still running; final publication and worktree retirement remain Q03/Q04.
+The coordinator owns package, opportunity and inquiry state; this record owns assembled evidence.
+
+## Verification and Outcome — assembled execution, 2026-10-23
+
+**Implemented:** selected project/research/evidence workbenches, original-owner lifecycle and backup,
+versioned logical project exchange, fresh-authority import/edit/study, and independently readable
+storage-health evidence are composed through the original runtime, generated store, protected artifact,
+Python and dedicated executable consumers. Q01 reconciled those consumers and the coordinator's
+O01–O21/I01–I11 dispositions. LC05/DL03/DL04 close with the selected local custody/native-offline/
+explicit exchange alternatives and concrete revisit triggers; they add no hidden crypto/browser/sync
+obligation. The independent integration review found no remaining material integration defect after
+its identified source/payload/pending-import issues were repaired.
+
+### Functional evidence
+
+**Tested:** local Linux, pinned nightly and installed native correctness extension, zero failure
+baseline. Actual Arrow-consuming Rust/Python correctness closures explicitly enable force-validation.
+Commands below run through `scripts/pse-env`; `--native` supplies the linked solver environment and
+`--store` selects the configured canonical service. No production deadline, protection, admission or
+scientific assertion was relaxed.
+
+- Rust: `.venv/bin/python -m scripts.arrow_validation nextest run --locked --no-fail-fast -p
+  pse-runtime -p pse-operations -p pse-backend-native -p xtask --features
+  pse-runtime/canonical-tests,pse-runtime/solver-ipopt,pse-operations/evidence-query,xtask/project-tools,xtask/evidence-tools,xtask/canonical-tests`
+  selected the 100 project portability/lifecycle/artifact, project comparison/draft/context,
+  research/workbench/observer/evidence/CLI, retained-context/seed and actual residual-LM controls.
+  At the default 16 concurrent tests, **73 passed and 27 failed**, at canonical fixture startup
+  after approximately 91–94 seconds. That run is not a clean pass.
+- The exact failed selection (26 distinct names, 27 binary/test instances) was rerun with the
+  same command/features/assertions and `--test-threads 4`: **27 passed, zero failed**, 333.229 s,
+  four reported slow. The same failing lifecycle binary separately passed alone in 8.01 s.
+  These are composed selected results, not a single clean 100-test run or 16-test-concurrency
+  qualification. The original primary remained active with no restart/OOM; authenticated HTTP
+  and native gRPC reads passed in 0.027/0.127 s. All failed catalogues had been provisioned;
+  three sampled catalogues had no tables/functions. The exact startup failure cause remains
+  unproven; concurrency contention is an inference, not a diagnosed or repaired transport defect.
+- The Rust selection includes actual calibrated LM → original eligible fitted cells → parameter
+  publication → imported/editable project → supported downstream study. Original and edited
+  numerical predictions remain independently asserted (11 and 12). Missing original artifact
+  files, original IPC schema/lineage/final framing, pending visibility, unknown effects, exact
+  original recovery after expiry and later-occurrence isolation are exercised at their owners.
+- Installed Python: `.venv/bin/python -m scripts.python_tests` on `test_projects.py`,
+  `test_project_contexts.py`, `test_preparation_discovery.py`, `test_project_cli.py`,
+  `test_research.py`, `test_study_workbench.py`, `test_project_portability.py` and
+  `test_lifecycle.py`, `-m component -q -n 4`: **14 passed**, 194.46 s. The final
+  `test_frozen_review.py -m unit -q` selection passed **4/4**, 4.90 s, after the stale
+  frozen-context version guards were corrected. These use the installed native correctness
+  extension rather than a source-only/mock facade.
+- Host controls: `.venv/bin/python -m unittest scripts.tests.test_surreal_server
+  scripts.tests.test_storage_health scripts.tests.test_surreal_diagnostics
+  scripts.tests.test_evidence_sources scripts.tests.test_evidence_projection
+  scripts.tests.test_evidence_store scripts.tests.test_active_diagnostics`: **322 passed**,
+  99.219 s. After the final bounded-metrics correction, the affected
+  `test_storage_health`/`test_surreal_diagnostics` selection passed **22/22**; overlapping
+  reruns are not added to the 322 as independent coverage.
+- Actual application recovery: `.venv/bin/python -u -m scripts.tests.canonical_recovery_check
+  target/debug/pse-canonical-recovery --directory <owned-disposable-state>` passed with a
+  nonempty project/fork/raw draft, manifest-v4 complete/incomplete inventory inspection,
+  refusal before destination creation, SIGKILL/reopen, unchanged protected numerical cells,
+  5 MB staged detail, fresh restore identity/credentials and semantic validation. Lower/original
+  server caps were 2048/4096 MiB. Both disposable services were stopped in `finally`.
+  This was the selected recovery mode, not the separate full scientific recovery campaign.
+- Actual health capture observed ten native metric families on the restored disposable store.
+  Primary capture independently verified the selected running service/cgroup but returned
+  `partial`: the selected metrics exceed the unchanged 4 MiB response bound. Each unavailable
+  metric retains that precise reason; no oversized prefix is parsed. Service identity remains
+  observed, and unavailable oldest-pinned state stays unknown. These are functional observations,
+  not a memory, throughput or causal performance qualification.
+
+Detailed local outputs are `/tmp/pse51ef-composed-rust-final.log`,
+`/tmp/pse51ef-failed-controls-four.log`, `/tmp/pse51ef-composed-python-final.log`,
+`/tmp/pse51ef-frozen-review-settled.log`, `/tmp/pse51ef-host-functional-final.log`,
+`/tmp/pse51ef-health-final.log`, `/tmp/pse51ef-recovery-owner-final.log`,
+`/tmp/pse51ef-disposable-health.json` and `/tmp/pse51ef-actual-storage-health-final.json`.
+They are ignored local evidence, not a new source-controlled scenario registry.
+
+### Scope-end checks and repairs
+
+**Tested:** initial `just hygiene` failed six recipes against zero: ADR front matter, ADR index,
+Ruff, Pyrefly, default Clippy and no-default Clippy. All were repaired and their affected recipes
+passed; other hygiene recipes, including family/import/native-boundary/generated equivalence,
+passed. The initial Python counts included a transient fixture edit and are not a product-error
+baseline. Final `just lint-py typecheck` reports Ruff clean and **zero Pyrefly diagnostics**
+(three existing explicit suppressions). ADR front matter/index checks pass (148 records).
+
+Default workspace and no-default continuing Clippy pass. Full native workspace/all-target Clippy
+also passes with `pse-runtime/native-solvers,pse-py/native-solvers`; the explicit changed optional
+`pse-runtime,pse-operations,xtask` graph passes with
+`pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-operations/evidence-query,xtask/project-tools,xtask/evidence-tools,xtask/canonical-tests`.
+Each uses `.venv/bin/python -m scripts.arrow_validation clippy --keep-going --locked
+--all-targets ... -- -D warnings`. These include the native-contract/data consumer lint scope.
+Clippy graphs ran sequentially after observing a Cargo upgrade-lock deadlock; independent other
+checks ran concurrently. Compiler jobs remain 16; the selected functional test concurrency does
+not alter environment defaults.
+
+`just governance` passes, including all generator equivalence and family checks. The actual
+native correctness extension and installed stub check pass. `just ready` passed after the
+startup failure prompted an environment-shaped investigation. The documentation build passed
+617 chapters before final prose. Feature powerset/no-default, final executable controls,
+retirement preflight and final publication results remain to be recorded before Q03/Q04 close.
+
+### Mistakes corrected
+
+The first disposable recovery fixture omitted a real project/fork/raw draft; it now proves the
+new catalogue inventory with actual nonempty state. Its execution exposed unsupported pinned
+SurrealQL `object::pick`, a nested maintenance `RETURN` escaping the original terminal, and
+JSON null used where the original predecessor requires Surreal `NONE`. These were fixed at the
+original declaration/maintenance boundaries, preserving digest, nonce and activation meaning.
+Invalid module allocation is now refused before configuration/credential effects.
+
+Original project-import completion had separate catalogue/artifact visibility; the original
+pending source checkpoint now fences public reads/mutations until copied artifact activation
+and original finish settle. Descriptive closure had hydrated broader result/source payload;
+original narrow projections now avoid unrelated decoding or physical admission. IPC closure
+validation reuses original schema/lineage/final-framing checks. An absent-file fixture initially
+had no original file to lose; it now removes only a real owned artifact and restores it after
+asserting both execution refusal and honest descriptive omissions.
+
+Three stale frozen-context version-1 readers refused current version-2 records. They now select
+the current declared version; other document versions are unchanged. The health collector had
+misreported an oversized metrics response as service unavailability; independent verified identity
+and per-metric reasons now preserve the actual distinction under the original response bound.
+
+### Deliberate deviations and limits
+
+**Implemented:** original sealed payloads, original project/source/artifact owners and explicit
+logical exchange remain the selected target. No application encryption, browser persistence,
+automatic synchronization, native KV payload replacement, second numerical route or generated-data
+migration was introduced. Disposable recovery uses original positive module allocations and waits
+for authenticated owned protection release rather than increasing deadlines or weakening release.
+Public Python physical context uses its one original wrapper; no compatibility wrapper survives.
+
+**Not run:** a fresh monolithic whole-product Rust/Python/parity campaign, full wheel/distribution,
+other platforms, full scientific backup campaign and 16-concurrent-test startup qualification.
+**Measured:** no comparative speed, capacity, total private peak, confidentiality or automatic
+causal diagnosis is claimed. Primary metrics above the finite capture bound remain unavailable.
+Plan32 WC05/WC06, Plan40e campaigns and Plan49f–h/TOOL08 keep their own remaining obligations;
+this series neither reopens canceled historical campaigns nor settles a strict native edge-work cap.

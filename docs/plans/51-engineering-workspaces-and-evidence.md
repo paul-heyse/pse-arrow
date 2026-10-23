@@ -2,7 +2,7 @@
 title: "Plan 51: Engineering workspaces and evidence"
 status: in-progress
 date: 2026-10-22
-adrs: [ADR-0216, ADR-0217, ADR-0218, ADR-0219]
+adrs: [ADR-0216, ADR-0217, ADR-0218, ADR-0219, ADR-0220]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan
@@ -236,8 +236,8 @@ remaining scope. Completed companions stay retained dependencies until the aggre
 | DL02 | complete | [51f](51f-portable-projects-and-delivery-modes.md#DL02) | Fresh-authority import and independent local/project use |
 | DL03 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL03) | Browser/offline capability decision |
 | DL04 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL04) | Collaboration/synchronization decision |
-| Q01 | in progress | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
-| Q02 | in progress | [51g](51g-qualification-and-publication.md#Q02) | Composed representative journeys |
+| Q01 | complete | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
+| Q02 | complete | [51g](51g-qualification-and-publication.md#Q02) | Composed representative journeys |
 | Q03 | in progress | [51g](51g-qualification-and-publication.md#Q03) | Zero-target scope-end checks |
 | Q04 | in progress | [51g](51g-qualification-and-publication.md#Q04) | Enduring publication and post-implementation existing-plan reconciliation |
 
@@ -332,8 +332,9 @@ Older plan scope and formal ADR acceptance are unchanged.
 
 The maintainer authorized the complete remaining series on 2026-10-23. LC01–LC04 and
 DL01–DL02 are implemented and targeted-tested through original source, artifact, project, recovery
-and evidence owners under proposed ADR-0220. Their companions own the functional Outcomes. Q01–Q04 remain in progress; targeted controls
-are not assembled qualification. No generated-data migration or historical preservation
+and evidence owners under proposed ADR-0220. Their companions own the functional Outcomes. Q01/Q02 are complete at the composed conditions in the 51g Outcome; Q03/Q04 remain in progress.
+The 16-concurrent-test startup failures remain explicitly unqualified; their exact affected
+selection passes at four concurrent tests. No generated-data migration or historical preservation
 campaign is required.
 
 The maintainer selected these bounded inquiry outcomes during execution preparation:

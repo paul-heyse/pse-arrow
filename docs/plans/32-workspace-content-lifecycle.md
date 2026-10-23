@@ -549,6 +549,11 @@ results, not causal productivity, scientific performance or optimal-cache-budget
 
 ## Open items and current checkpoint
 
+Plan51's delivered project/draft/result/evidence lifecycle composes original producer owners
+at blueprint §20.6. Those selected operations do not settle WC05's legacy resource cohorts,
+WC06's broader retirement scope or the reopened document-representation question below.
+A logical pack or evidence-index release never grants disposal of original producer artifacts.
+
 Work is paused at the maintainer's request for later resumption. The
 [implementation and design handoff](../design_review/evidence/workspace-content-lifecycle-2026-10-09/handoff.md)
 captures implemented files, checks, storage limitations and the subsequent representation
