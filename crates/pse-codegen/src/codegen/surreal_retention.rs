@@ -233,6 +233,8 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     LET $staging=SELECT key FROM canonical_artifact_staging_inputs WHERE run=$run LIMIT 1;
     IF array::len($staging)!=0 { THROW 'PSE_REFUSAL:run_results_have_unsettled_artifact_transfer'; };
 
+    LET $project_refs=SELECT key FROM canonical_research_references WITH INDEX project_research_run WHERE run=$run LIMIT 1;
+    IF array::len($project_refs)!=0 { THROW 'PSE_REFUSAL:project_research_retains_results'; };
     LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='run' AND owner=$run ORDER BY key LIMIT 66;
     IF array::len($roots)>65 { THROW 'PSE_REFUSAL:run_source_retention_limit'; };
     FOR $root IN $roots { fn::pse_execution_v1::source_creator($rpc_expiry,$root.problem,$root.key); };

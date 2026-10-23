@@ -570,6 +570,15 @@ pub(super) async fn persist(
     previous: Option<&SourceRevision>,
     cancel: &crate::CancelSource,
 ) -> Result<SourceRevision, WorkflowError> {
+    persist_with_project(runtime, ingress, previous, cancel, None).await
+}
+pub(super) async fn persist_with_project(
+    runtime: &Runtime,
+    ingress: CanonicalIngress<'_>,
+    previous: Option<&SourceRevision>,
+    cancel: &crate::CancelSource,
+    project: Option<&pse_operations::canonical_projects::ProjectPublication>,
+) -> Result<SourceRevision, WorkflowError> {
     checkpoint(cancel)?;
     let CanonicalIngress {
         rows,
@@ -791,12 +800,12 @@ pub(super) async fn persist(
                     references: Vec::new(),
                 }),
         );
-        if edits.is_empty() && identity == previous.identity {
+        if project.is_none() && edits.is_empty() && identity == previous.identity {
             return Ok(previous.clone());
         }
     }
     checkpoint(cancel)?;
-    admit_revision(runtime, previous, identity, &edits, &typed, Some(cancel)).await
+    admit_revision_authorized(runtime, previous, identity, &edits, &typed, Some(cancel), project).await
 }
 
 /// Stage complete local ownership before issuing the existing durable effect.
@@ -807,6 +816,17 @@ async fn admit_revision(
     edits: &[ObjectEdit],
     typed: &TypedSourceInputs,
     cancel: Option<&crate::CancelSource>,
+) -> Result<SourceRevision, WorkflowError> {
+    admit_revision_authorized(runtime, previous, identity, edits, typed, cancel, None).await
+}
+async fn admit_revision_authorized(
+    runtime: &Runtime,
+    previous: Option<&SourceRevision>,
+    identity: SourceRevisionHash,
+    edits: &[ObjectEdit],
+    typed: &TypedSourceInputs,
+    cancel: Option<&crate::CancelSource>,
+    project: Option<&pse_operations::canonical_projects::ProjectPublication>,
 ) -> Result<SourceRevision, WorkflowError> {
     let admitted = AdmittedModelRevision::apply_inputs(
         runtime,
@@ -828,14 +848,15 @@ async fn admit_revision(
             if let Some(cancel) = cancel {
                 checkpoint(cancel)?;
             }
-            let recorded = store
-                .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
-                .await
-                .map_err(|source| {
-                    crate::workflow::source_settlement::source_edit_error(
-                        problem, operation, source,
-                    )
-                })?;
+            let recorded = if let Some(intent) = project {
+                store.edit_project(intent, edits).await.map_err(|source| {
+                    crate::workflow::source_settlement::source_edit_error(intent.problem().into(), intent.operation().into(), source)
+                })?
+            } else {
+                store.edit(&problem, old.map(|old| old.key.as_str()), &operation, edits).await.map_err(|source| {
+                    crate::workflow::source_settlement::source_edit_error(problem, operation, source)
+                })?
+            };
             Some(recorded)
         }
     };
