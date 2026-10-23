@@ -14,11 +14,11 @@ async fn bundle()->(tempfile::TempDir,ProjectManifest) {
     let mut manifest=ProjectManifest{
         version:Version,origin:ProjectSelection{issuing_store:"unavailable-origin".into(),project:"original-project".into(),reference:workflow::ProjectReference::Branch{key:"main".into()},problem:"original-problem".into(),revision:"original-revision".into(),source_identity:package.revision.identity(),physical_context:physical.identity()},
         sources:vec![ProjectSourceClosure{revision:"original-revision".into(),source_identity:package.revision.identity().to_string(),physical_context:physical.identity().to_string(),documents:vec![],replay_source:"source".into(),physical_documents:vec![]}],
-        datasets:vec![],research_selections:vec![],publications:vec![],contexts:vec![],studies:vec![],reproducers:vec![],providers:vec![],members:vec![],maximum_copy_bytes:64<<20,omissions:vec![],offline_complete:true,executable_complete:true,descriptive_only:false,
+        datasets:vec![],research_selections:vec![],publications:vec![],contexts:vec![],studies:vec![],reproducers:vec![],providers:vec![],artifact_origins:vec![],members:vec![],maximum_copy_bytes:64<<20,omissions:vec![],offline_complete:true,executable_complete:true,descriptive_only:false,
     };
     fn add(root:&Path,manifest:&mut ProjectManifest,id:String,codec:&str,bytes:&[u8]) {
         let relative_path=format!("members/{}.bin",manifest.members.len());std::fs::write(root.join(&relative_path),bytes).unwrap();
-        manifest.members.push(ProjectBundleMember{id,relative_path,codec:codec.into(),copied_bytes:bytes.len() as u64,digest:pse_ids::encoding_checksum(bytes).content_hash().to_hex(),result:None,artifact:None});
+        manifest.members.push(ProjectBundleMember{id,relative_path,codec:codec.into(),copied_bytes:bytes.len() as u64,digest:pse_ids::encoding_checksum(bytes).content_hash().to_hex(),result:None,artifact:None,artifact_metadata:None});
     }
     add(root.path(),&mut manifest,"source".into(),"replay-source.v1",&serde_json::to_vec(&replay).unwrap());
     for (i,(path,bytes)) in physical_documents.into_iter().enumerate() {
@@ -103,5 +103,104 @@ fn project_portability_interrupted_final_manifest_publication_leaves_only_partia
     let result=contained_copy::publish_document(root.path(),".project-manifest","project.json",b"complete manifest must not appear",||Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"interrupted final publication")));
     assert!(result.is_err());assert!(!root.path().join("project.json").exists());
     assert!(root.path().join(".project-manifest").exists(),"staged bytes are honest partial output");
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_fresh_destination() {
+    let runtime=workflow::durable_tests::durable_runtime();let cancel=crate::CancelSource::new();
+    let (root,_)=bundle().await;let reader=ProjectBundleReader::open(root.path(),16<<20).unwrap();
+    let intent=Box::pin(runtime.project_import_issue(&reader,"Recovered import","main")).await.unwrap();
+    let local=runtime.clone().with_durability(workflow::DurabilitySelection::Ephemeral).unwrap();
+    let physical_documents=reader.physical_documents().unwrap();
+    let physical=Box::pin(local.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
+    let admitted=reader.replay_source().unwrap().reconstruct(&local,physical,BTreeMap::new(),&cancel).unwrap();
+    let source=Box::pin(admitted.publish_portable_import(&runtime,&intent,&cancel)).await.unwrap();
+    let revision=source.canonical_revision().unwrap().clone();let store=runtime.canonical_store().unwrap();
+    // An authenticated original occurrence that never began copying can already be expired.
+    // Its original identity is issued before any effect; no live header/clock is edited.
+    let bytes=b"interrupted original copy".to_vec();
+    let mut original=store.new_artifact(&revision,"project-import-evidence",encode(&(1u8,intent.bundle_digest()),131072).unwrap(),1,bytes.len() as u64).await.unwrap();
+    original.creation_expires_at=1;
+    original.key=format!("pse.artifact.v1:{}:{}:{}",original.primary_authority,original.creation_nonce,original.creation_expires_at);
+    let blocks=vec![pse_operations::canonical_artifacts::artifact_block(&original.key,0,"project-import-evidence",bytes,intent.bundle_digest(),0)];
+    pse_operations::canonical_artifacts::seal_artifact_request(&mut original,std::slice::from_ref(&revision),&[],&blocks,"project",intent.operation());
+    store.project_import_bind_artifact(&intent,&original).await.unwrap();
+    assert!(!runtime.project_import_status(&intent).await.unwrap().unwrap().project_complete);
+    assert!(Box::pin(runtime.project_import(&reader,&intent,&cancel)).await.is_err(),"an expired original is not silently renewed");
+    let collected=Box::pin(runtime.project_import_recover(&intent,&original,&cancel)).await.unwrap();
+    assert_eq!(collected.state,ProjectImportRecoveryState::OriginalCollected);
+    assert_eq!(collected.import.retired_originals,vec![original.clone()]);
+    assert!(!collected.import.project_complete);assert!(collected.import.artifact_intent.is_none());
+    let imported=Box::pin(runtime.project_import(&reader,&intent,&cancel)).await.unwrap();
+    assert!(imported.project_complete);assert_ne!(imported.artifact_intent.as_ref().unwrap().key,original.key);
+    assert_eq!(imported.project,intent.destinations().0);assert_eq!(imported.revision,intent.operation());
+    // Retrying a lost recovery reply returns its old receipt and cannot abort the newer active occurrence.
+    let old_reply=Box::pin(runtime.project_import_recover(&intent,&original,&cancel)).await.unwrap();
+    assert_eq!(old_reply.state,ProjectImportRecoveryState::OriginalCollected);assert!(old_reply.import.project_complete);
+    assert_eq!(old_reply.import.artifact_intent,imported.artifact_intent);
+    let duplicate=Box::pin(runtime.project_import(&reader,&intent,&cancel)).await.unwrap();assert_eq!(duplicate.project,imported.project);
+    std::fs::remove_dir_all(root.path()).unwrap();
+    let reopened=Box::pin(runtime.project_import_open(&intent,&cancel)).await.unwrap();
+    assert_eq!(reopened.canonical_revision().unwrap().key,imported.revision,"current copied artifact/source ownership is independent of supplied bundle lifetime");
+    let repeated=Box::pin(runtime.project_import(&reader,&intent,&cancel)).await.unwrap();
+    assert_eq!(repeated.project,imported.project,"lost completed reply settles before missing original pack preflight");
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn project_portability_active_original_settles_after_expiry_without_copy_or_original_pack() {
+    let runtime=workflow::durable_tests::durable_runtime();let cancel=crate::CancelSource::new();
+    let (root,_)=bundle().await;let reader=ProjectBundleReader::open(root.path(),16<<20).unwrap();
+    let intent=Box::pin(runtime.project_import_issue(&reader,"Lost activation reply","main")).await.unwrap();
+    let local=runtime.clone().with_durability(workflow::DurabilitySelection::Ephemeral).unwrap();
+    let physical_documents=reader.physical_documents().unwrap();
+    let physical=Box::pin(local.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
+    let admitted=reader.replay_source().unwrap().reconstruct(&local,physical,BTreeMap::new(),&cancel).unwrap();
+    let source=Box::pin(admitted.publish_portable_import(&runtime,&intent,&cancel)).await.unwrap();
+    let revision=source.canonical_revision().unwrap().clone();let store=runtime.canonical_store().unwrap();
+    let mut archive=reader.archive(&cancel).unwrap();let mut bytes=Vec::new();archive.read_to_end(&mut bytes).unwrap();
+    let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES;
+    let mut original=store.new_artifact(&revision,"project-import-evidence",encode(&(1u8,intent.bundle_digest()),131072).unwrap(),bytes.len().div_ceil(chunk) as u64,bytes.len() as u64).await.unwrap();
+    // Shorten an unissued fixture's original allowance before framing/binding it; never renew an issued clock.
+    original.creation_expires_at-=57_000_000;
+    original.key=format!("pse.artifact.v1:{}:{}:{}",original.primary_authority,original.creation_nonce,original.creation_expires_at);
+    let blocks=bytes.chunks(chunk).enumerate().map(|(i,b)|pse_operations::canonical_artifacts::artifact_block(&original.key,i as u64,"project-import-evidence",b.to_vec(),intent.bundle_digest(),0)).collect::<Vec<_>>();
+    pse_operations::canonical_artifacts::seal_artifact_request(&mut original,std::slice::from_ref(&revision),&[],&blocks,"project",intent.operation());
+    store.project_import_bind_artifact(&intent,&original).await.unwrap();
+    store.persist_artifact(&original,std::slice::from_ref(&revision),&[],&blocks,"project",intent.operation()).await.unwrap();
+    assert!(!runtime.project_import_status(&intent).await.unwrap().unwrap().project_complete,"simulate reply loss between original artifact activation and project finish");
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(5);
+    while store.artifact_creation_status(&original).await.unwrap().window_open {
+        assert!(std::time::Instant::now()<deadline);tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    std::fs::remove_dir_all(root.path()).unwrap();
+    let completed=Box::pin(runtime.project_import(&reader,&intent,&cancel)).await.unwrap();
+    assert!(completed.project_complete);assert_eq!(completed.artifact_intent,Some(original.clone()));assert!(completed.retired_originals.is_empty());
+    let reopened=Box::pin(runtime.project_import_open(&intent,&cancel)).await.unwrap();
+    assert_eq!(reopened.canonical_revision().unwrap().key,intent.operation());
+    let recovered=Box::pin(runtime.project_import_recover(&intent,&original,&cancel)).await.unwrap();
+    assert_eq!(recovered.state,ProjectImportRecoveryState::ProjectComplete,"active exact originals are finished, never aborted");
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn project_portability_artifact_original_codec_digest_and_scientific_extent_survive_copy() {
+    let (root,mut manifest)=bundle().await;
+    let block=pse_operations::canonical_artifacts::artifact_block("origin-artifact",0,"origin-fitted-cells",b"{\"estimate\":11}".to_vec(),"original-encoding-provenance",1);
+    let original=pse_operations::canonical_artifacts::Artifact{key:block.artifact.clone(),kind:"original-copied-evidence".into(),revision:manifest.origin.revision.clone(),primary_problem:manifest.origin.problem.clone(),primary_authority:"descriptive-origin-authority".into(),creation_nonce:"original-nonce".into(),creation_expires_at:1,creation_request_digest:"original-request".into(),interpretation:"original-registry".into(),provenance:vec![1].into(),block_count:1,payload_bytes:block.payload.len() as u64,active:true,retiring:false};
+    manifest.artifact_origins.push(original);
+    let relative_path="members/evidence.bin".to_owned();std::fs::write(root.path().join(&relative_path),block.payload.as_slice()).unwrap();
+    manifest.members.push(ProjectBundleMember{id:"original-evidence".into(),relative_path,codec:"artifact-block.v1".into(),copied_bytes:block.payload.len() as u64,digest:pse_ids::encoding_checksum(block.payload.as_slice()).content_hash().to_hex(),result:None,artifact:Some((block.artifact.clone(),0)),artifact_metadata:Some(ProjectArtifactBlockMetadata{relation:block.relation.clone(),payload_digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows,encoding:block.encoding().into(),schema:block.schema().into()})});
+    save(root.path(),&manifest);
+    let reader=ProjectBundleReader::open(root.path(),16<<20).unwrap();
+    let metadata=reader.inspect().members.last().unwrap().artifact_metadata.as_ref().unwrap();
+    assert_eq!(metadata.rows,1);assert_eq!(metadata.relation,"origin-fitted-cells");assert_eq!(metadata.original_digest,"original-encoding-provenance");assert_eq!(metadata.payload_digest,block.digest);
+    assert_eq!(reader.member_bytes("original-evidence",1024).unwrap(),block.payload.as_slice());
+    let metadata=manifest.members.last_mut().unwrap().artifact_metadata.as_mut().unwrap();metadata.payload_digest="00".repeat(32);save(root.path(),&manifest);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
+    let metadata=manifest.members.last_mut().unwrap().artifact_metadata.as_mut().unwrap();metadata.payload_digest=block.digest;metadata.encoding="unknown-evidence.v99".into();save(root.path(),&manifest);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
 }

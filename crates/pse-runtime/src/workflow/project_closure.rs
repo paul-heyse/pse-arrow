@@ -28,7 +28,7 @@ impl ResolvedClosure {
     }
 }
 fn member(id:String,codec:&str)->ProjectBundleMember {
-    ProjectBundleMember{id,relative_path:String::new(),codec:codec.into(),copied_bytes:0,digest:String::new(),result:None,artifact:None}
+    ProjectBundleMember{id,relative_path:String::new(),codec:codec.into(),copied_bytes:0,digest:String::new(),result:None,artifact:None,artifact_metadata:None}
 }
 impl Runtime {
     /// Explain selected exact closure through the same traversal used by logical export.
@@ -45,7 +45,7 @@ impl Runtime {
         if request.selection.issuing_store!=store.issuing_store()? || request.selection.physical_context!=physical.identity() {return Err(contract("project closure authority or physical identity differs"));}
         let selected=self.project_boxed(self.project_open_selection(&request.selection,physical.clone(),cancel))?.await?;
         let mut closure=ResolvedClosure{
-            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),members:Vec::new(),maximum_copy_bytes:request.maximum_output_bytes,omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
+            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),artifact_origins:Vec::new(),members:Vec::new(),maximum_copy_bytes:request.maximum_output_bytes,omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
             documents:Vec::new(),results:Vec::new(),artifacts:Vec::new(),protections:Vec::new(),_owners:Vec::new(),
         };
         let mut packages=BTreeMap::new(); packages.insert(request.selection.revision.clone(),selected);
@@ -115,6 +115,7 @@ impl Runtime {
         for key in &request.artifacts {
             let read=store.read_artifact(key).await?;
             revisions.insert(read.header().revision.clone());
+            closure.manifest.artifact_origins.push(read.header().clone());
             closure.artifacts.push(read);
         }
         for revision in revisions {

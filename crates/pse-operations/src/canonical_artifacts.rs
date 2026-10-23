@@ -14,7 +14,6 @@ use crate::{
 };
 use pse_ids::{Frame, FramedHasher};
 use pse_model::SemanticFrame;
-#[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
 use surrealdb::types::{Object, Value};
 
@@ -56,6 +55,11 @@ pub struct ArtifactBlock {
     batch_count: u64,
 }
 impl ArtifactBlock {
+    /// Original sealed-file encoding; copying does not reinterpret it.
+    pub fn encoding(&self)->&str {&self.encoding}
+    /// Original registry schema identity; opaque encodings have no schema.
+    pub fn schema(&self)->&str {&self.schema}
+
     /// Bind a Runtime-validated standalone native IPC file to its exact schema.
     /// Capsules retain their original JSON/opaque encoding instead.
     pub fn native_file(mut self, schema: &str) -> Result<Self, CanonicalError> {
@@ -296,7 +300,7 @@ impl ArtifactRead {
         &self.header
     }
     /// Recheck and renew the original owner protection before copied publication.
-    pub async fn renew(&self, lifetime: std::time::Duration) -> Result<(), CanonicalError> { self.selection.renew(lifetime).await }
+    pub async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> { self.selection.renew(lifetime).await }
     /// Explicit release is idempotent; the original grant remains fenced through its issue window.
     pub async fn release(self) -> Result<(), CanonicalError> {
         self.selection.finish().await
@@ -331,7 +335,27 @@ impl ArtifactRead {
     }
 }
 
+/// Current observation of the original creation, never permission to replace or renew it.
+#[derive(Clone,Debug)]
+pub struct ArtifactCreationStatus {
+    /// Original exact immutable header when admitted; active/retiring reflect current owner state.
+    pub header:Option<Artifact>,
+    /// The original creation allowance is still open under the same retention incarnation.
+    pub window_open:bool,
+}
 impl CanonicalStore {
+    /// Settle one original creation before deciding whether to retry, finish or explicitly collect it.
+    pub async fn artifact_creation_status(&self,intent:&Artifact)->Result<ArtifactCreationStatus,CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            let row=wire::encode_canonical_artifacts(intent)?;
+            let mut response=protected_query("canonical_artifacts::creation_status",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; LET $guard=fn::pse_artifact_v1::original($pse_rpc_expires_at,$intent); RETURN {header:(SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key)),window_open:$guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at AND $intent.creation_expires_at>($guard.artifact_creation_closed_through ?? 0dec)}; COMMIT;").bind(("intent",row.clone())))).await?;
+            let mut row=object(&mut response)?;
+            let header=match row.remove("header") {None|Some(Value::None)=>None,Some(Value::Object(row))=>Some(wire::decode_canonical_artifacts(row)?),_=>return Err(CanonicalError::IncompleteResponse)};
+            let window_open=codec::decode_boolean(codec::required(&mut row,"window_open")?)?;
+            Ok(ArtifactCreationStatus{header,window_open})
+        }).await
+    }
     /// Abandon one exact pre-header study staging identity. The permanent fence
     /// is published before bounded cleanup and rejects every late staging call.
     /// Existing study headers require the ordinary study retirement owner.
