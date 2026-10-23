@@ -841,6 +841,14 @@ impl NativeRuntime {
         }),||stop.cancel())?;
         Ok(value.map(documents::DocumentValue))
     }
+    /// Reopen original persisted source and physical closures without caller-supplied documents.
+    fn project_context_reopen(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>)->PyResult<NativeModelingPackage> {
+        let stop=CancelSource::new();
+        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async {
+            runtime.project_context_reopen(&selection.0,&stop).await
+        }),||stop.cancel())?;
+        Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+    }
     /// Load the selected exact source through the normal source owner; no latest lookup.
     fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
         let stop=CancelSource::new();
@@ -1088,7 +1096,7 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.recording_operation(&stop, |runtime| async move {
-                runtime.project_draft_bytes(key).await
+                runtime.project_draft_bytes(key,&stop).await
             }),
             || stop.cancel(),
         )?;

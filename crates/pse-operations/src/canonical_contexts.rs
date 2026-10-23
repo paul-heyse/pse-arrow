@@ -135,22 +135,25 @@ mod tests {
     #[tokio::test]
     async fn project_context_exact_replay_settles_once_and_released_source_is_unavailable(){
         let store=fixture().await;let source=source(&store,"source").await;
+        let physical=store.edit("physical",None,"physical-source",&[]).await.unwrap();
         store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
-        let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false)).await.unwrap();
-        let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false).await.unwrap();assert_eq!(row,replay);
+        let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&physical.key,"physical-source-hash",0,None,None,false)).await.unwrap();
+        let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&physical.key,"physical-source-hash",0,None,None,false).await.unwrap();assert_eq!(row,replay);
         assert_eq!(store.project_context_cut("project").await.unwrap().sequence,1);
         let (b,c)=tokio::join!(
-            store.append_project_context("b",&project,"scope-b",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false),
-            store.append_project_context("c",&project,"scope-c",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false),
+            store.append_project_context("b",&project,"scope-b",&source.key,"hash","physical",&physical.key,"physical-source-hash",0,None,None,false),
+            store.append_project_context("c",&project,"scope-c",&source.key,"hash","physical",&physical.key,"physical-source-hash",0,None,None,false),
         );
         let b=b.unwrap();let c=c.unwrap();assert_ne!(b.recorded_sequence,c.recorded_sequence);
         assert_eq!(store.project_context_cut("project").await.unwrap().sequence,3);
         assert!(bounded_query(store.db.query("UPDATE canonical_project_contexts:a SET source_identity='mutated';")).await.is_err());
-        assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",&source.key,"physical-source-hash",0,None,None,false).await.is_err());
+        assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",&physical.key,"physical-source-hash",0,None,None,false).await.is_err());
         let cut=store.project_context_cut("project").await.unwrap();let frozen=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
         // Exercise the source owner's declared unavailable-range gate, not current-value fallback.
         bounded_query(store.db.query("CREATE canonical_reclaimed_ranges:released CONTENT {key:'released',problem:$problem,from_sequence:$from,to_sequence:$to};").bind(("problem",source.problem.clone())).bind(("from",codec::encode_uint(source.sequence).unwrap())).bind(("to",codec::encode_uint(source.sequence+1).unwrap()))).await.unwrap();
         assert!(store.validate_project_context(&frozen).await.is_err());
+        bounded_query(store.db.query("DELETE canonical_reclaimed_ranges:released; CREATE canonical_reclaimed_ranges:physical_released CONTENT {key:'physical_released',problem:$problem,from_sequence:$from,to_sequence:$to};").bind(("problem",physical.problem.clone())).bind(("from",codec::encode_uint(physical.sequence).unwrap())).bind(("to",codec::encode_uint(physical.sequence+1).unwrap()))).await.unwrap();
+        assert!(store.validate_project_context(&frozen).await.is_err(),"physical closure release is not replaced by current physical inputs");
         assert!(store.project_context_record("a").await.unwrap().is_some());
         store.remove_isolated_fixture().await.unwrap();
     }

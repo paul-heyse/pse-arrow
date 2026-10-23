@@ -212,7 +212,7 @@ pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
     PreparationDiscoveryRequest,PreparationDiscoveryReport,PreparationProductKind,PreparationEligibility,ResidentPreparation,
-    ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent,
+    ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent,ProjectMergeProposal,
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,

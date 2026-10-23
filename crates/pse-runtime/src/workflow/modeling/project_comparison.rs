@@ -55,6 +55,7 @@ pub struct ProjectObjectChange {
 }
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+/// Compact exact-source authored change summary; no numerical equivalence is asserted.
 pub struct ProjectComparison {
     /// Original exact admitted source selection.
     pub from: ProjectComparisonSelection,
@@ -214,6 +215,7 @@ fn checkpoint(cancel: &CancelSource) -> Result<(), WorkflowError> {
     Ok(())
 }
 impl ModelingPackage {
+    pub(in crate::workflow) fn runtime_store_issuer(&self)->Result<&str,WorkflowError>{Ok(self.runtime.canonical_store()?.issuing_store()?)}
     fn project_comparison_selection(&self) -> Result<ProjectComparisonSelection, WorkflowError> {
         Ok(ProjectComparisonSelection { issuing_store: match &self.runtime.durability() { crate::workflow::Durability::Durable(_) => Some(self.runtime.canonical_store()?.issuing_store()?.into()), crate::workflow::Durability::Ephemeral => None }, revision: self.canonical_revision().map(|r| r.key.clone()), local_revision: self.revision_id().into(), source: self.revision.identity().to_string(), physical: self.physical.key.to_string() })
     }
@@ -461,6 +463,7 @@ impl Runtime {
     /// Undo means a new admitted source revision with the chosen earlier authored state.
     pub async fn project_undo_intent(&self, publication: ProjectPublication, target: &ModelingPackage, restore: &ModelingPackage, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
         self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
+            for package in [target,restore] {if package.runtime_store_issuer()?!=self.canonical_store()?.issuing_store()? {return Err(contract("undo source issuing authority differs"));}}
             let target_key = &target.recorded_revision()?.key; let restore_key = &restore.recorded_revision()?.key;
             if publication.expected() != Some(target_key.as_str()) || target.physical.key != restore.physical.key || !self.project_is_ancestor(restore_key,target_key,cancel).await? { return Err(contract("undo source is not a compatible exact ancestor")); }
             let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(restore_key,restore_key)?, mode: ProjectMergeMode::Undo, base: restore_key.clone(), target: target_key.clone(), proposal: ProjectMergeProposal::Revision { revision: restore_key.clone() }, physical: target.physical.key.to_string(), resolutions: Vec::new() };

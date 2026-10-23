@@ -129,7 +129,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);
         IF $artifact=NONE OR $artifact.revision!=$row.revision { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
-        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.draft { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
+        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.key { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
         fn::pse_artifact_v1::attach($expiry,$row.artifact,$obligation,true);
     };
     CREATE ONLY type::record('canonical_research_references',$row.key) CONTENT $row;

@@ -146,7 +146,7 @@ evidence *args:
 [group('local')]
 [doc('Explicitly build the dedicated project metadata operator')]
 project-build:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-project --no-default-features --features canonical-tools --locked
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-project --no-default-features --features project-tools --locked
 
 [group('local')]
 [doc('Use owned project metadata commands; --state selects the existing canonical deployment')]

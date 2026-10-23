@@ -124,6 +124,7 @@ macro_rules! for_each_boundary_document {
             (ProjectContext, pse_operations::canonical_contexts::ProjectContext, "project-context", Both, FlatV1),
             (ContextCut, pse_operations::canonical_contexts::ContextCut, "context-cut", Both, FlatV1),
             (ContextSelection, pse_operations::canonical_contexts::ContextSelection, "context-selection", Both, FlatV1),
+            (ProjectSourceDetail, pse_runtime::workflow::ProjectSourceDetail, "project-source-detail", Both, FlatV1),
             (ProjectComparison, pse_runtime::workflow::ProjectComparison, "project-comparison", Both, FlatV1),
             (ProjectMergeResolution, pse_runtime::workflow::ProjectMergeResolution, "project-merge-resolution", Both, FlatV1),
             (ProjectMergePreview, pse_runtime::workflow::ProjectMergePreview, "project-merge-preview", Both, FlatV1),
