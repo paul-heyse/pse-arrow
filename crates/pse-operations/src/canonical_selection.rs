@@ -15,6 +15,45 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use surrealdb::types::Object;
 
+/// Continuation bound to the original issuing authority and immutable source.
+/// It conveys no payload access or receiving compatibility.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductHeaderCursor {
+    issuing_store: String,
+    problem: String,
+    revision: String,
+    after: String,
+}
+/// Compact original publication provenance. Scientific payloads are never read.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductHeader {
+    /// Original association and request lookup identity.
+    pub key: String,
+    /// Exact original canonical source, not receiving compatibility.
+    pub revision: String,
+    /// Original producer namespace; no runtime qualification is implied.
+    pub producer: String,
+    /// Native scientific interpretation recorded at publication.
+    pub interpretation: String,
+    /// Original content and dependency descriptor reference.
+    pub descriptor: String,
+    /// Original sealed payload identity; no bytes are hydrated.
+    pub content: String,
+    /// Original sealed receipt identity; no bytes are hydrated.
+    pub receipt: String,
+}
+/// One bounded observational page of currently rooted original publications.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductHeaderPage {
+    /// Present original publications. Presence never establishes receiving eligibility.
+    pub rows: Vec<ProductHeader>,
+    /// Continue under this same exact authority/source selection.
+    pub next: Option<ProductHeaderCursor>,
+}
+
 /// Reserved writer role for compiler-issued descriptions eligible for scientific replay.
 pub const SCIENTIFIC_PRODUCER_PREFIX: &str = "pse.qualified-math-producer.v1:";
 
@@ -2136,6 +2175,55 @@ impl CanonicalStore {
         Ok(())
             }).await
     }
+    /// Enumerate only compact rooted publication headers for this exact selected source.
+    /// The protected transaction checks authority, root ownership and pin expiry; it
+    /// neither decodes descriptors nor establishes receiving-host compatibility.
+    pub async fn product_headers(
+        &self,
+        selection: &ProtectedSelection,
+        cursor: Option<&ProductHeaderCursor>,
+    ) -> Result<ProductHeaderPage, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
+            let issuer = self.issuing_store()?;
+            let revision = selection.revision();
+            let after = if let Some(cursor) = cursor {
+                if cursor.issuing_store != issuer || cursor.problem != revision.problem
+                    || cursor.revision != revision.key
+                    || cursor.after.len() > crate::canonical_staging::IDENTITY_BYTES {
+                    return Err(CanonicalError::Configuration("product header cursor differs from selected authority/source".into()));
+                }
+                cursor.after.clone()
+            } else { String::new() };
+            let mut response = self.protected_query(&revision.problem, crate::canonical::QueryEffect::Read,
+                "canonical_selection::product_headers", || Ok(self.db.query(format!(
+                    "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT key, revision, producer, interpretation, descriptor, content, receipt FROM canonical_product_associations WHERE problem = $problem AND revision = $revision AND key > $after AND issuing_store = $issuing_store AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 33 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+                    .bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone()))
+                    .bind(("sequence", crate::canonical_codec::encode_uint(revision.sequence)?))
+                    .bind(("protection", selection.key().to_owned())).bind(("issuing_store", issuer.to_owned()))
+                    .bind(("after", after.clone())).bind(("interpretation", wire::INTERPRETATION.to_owned()))))
+                .await?;
+            let mut rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
+            let more = rows.len() > 32;
+            rows.truncate(32);
+            let text = |row: &Object, field: &str| -> Result<String, CanonicalError> {
+                match row.get(field) {
+                    Some(surrealdb::types::Value::String(value)) if value.len() <= crate::canonical_staging::IDENTITY_BYTES => Ok(value.clone()),
+                    _ => Err(CanonicalError::Configuration(format!("invalid bounded product header {field}"))),
+                }
+            };
+            let rows = rows.iter().map(|row| Ok(ProductHeader {
+                key: text(row, "key")?, revision: text(row, "revision")?, producer: text(row, "producer")?,
+                interpretation: text(row, "interpretation")?, descriptor: text(row, "descriptor")?,
+                content: text(row, "content")?, receipt: text(row, "receipt")?,
+            })).collect::<Result<Vec<_>, CanonicalError>>()?;
+            let next = if more { rows.last().map(|row| ProductHeaderCursor {
+                issuing_store: issuer.to_owned(), problem: revision.problem.clone(), revision: revision.key.clone(), after: row.key.clone(),
+            }) } else { None };
+            Ok(ProductHeaderPage { rows, next })
+        }).await
+    }
+
     /// Probe for one protected product key without decoding its bounded blob descriptor.
     /// This lets a receiving owner decide whether a producer-context check is needed
     /// before it spends that cost; a present key still requires full candidate qualification.
@@ -4922,6 +5010,41 @@ mod canonical_server_unit {
             "released roots never resurrect through acknowledgment"
         );
         assert_eq!(current_head(&store).await, revision.key);
+    }
+
+    #[tokio::test]
+    async fn passive_product_headers_are_bounded_protected_and_do_not_decode_payloads() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "source", &[]).await.unwrap();
+        let selected = read(&store, revision.clone()).await;
+        let mut expected = Vec::new();
+        for index in 0..33 {
+            let mut value = product(&selected, b"immutable recipe");
+            value.request = format!("request-{index}").into_bytes().into();
+            expected.push(store.publish_product(&selected, value).await.unwrap());
+        }
+        expected.sort();
+        store.corrupt_product_descriptor(&expected[0]).await.unwrap();
+        let page = store.product_headers(selected.selection(), None).await.unwrap();
+        assert_eq!(page.rows.len(), 32);
+        assert_eq!(page.rows.iter().map(|row| row.key.clone()).collect::<Vec<_>>(), expected[..32]);
+        assert!(page.rows.iter().all(|row| row.revision == revision.key));
+        let cursor = page.next.unwrap();
+        let tail = store.product_headers(selected.selection(), Some(&cursor)).await.unwrap();
+        assert_eq!(tail.rows.len(), 1);
+        assert_eq!(tail.rows[0].key, expected[32]);
+        assert!(tail.next.is_none());
+        let mut foreign = cursor.clone();
+        foreign.issuing_store = "foreign".into();
+        assert!(store.product_headers(selected.selection(), Some(&foreign)).await.is_err());
+        let next_revision = store.edit("p", Some(&revision.key), "source-next", &[]).await.unwrap();
+        let next = read(&store, next_revision).await;
+        assert!(store.product_headers(next.selection(), None).await.unwrap().rows.is_empty());
+        assert!(store.product_headers(next.selection(), Some(&cursor)).await.is_err());
+        store.release(next.selection()).await.unwrap();
+        store.release(selected.selection()).await.unwrap();
+        assert!(store.product_headers(selected.selection(), None).await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]

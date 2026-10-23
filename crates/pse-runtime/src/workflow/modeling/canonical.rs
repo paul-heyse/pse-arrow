@@ -1881,7 +1881,7 @@ impl ModelingPackage {
             .0
             .clone())
     }
-    fn selection_request(&self, roots: &[DeclarationId]) -> Arc<super::SelectedRequest> {
+    pub(super) fn selection_request(&self, roots: &[DeclarationId]) -> Arc<super::SelectedRequest> {
         Arc::new(super::SelectedRequest {
             roots: roots.to_vec(),
             physical: self.physical.key,
