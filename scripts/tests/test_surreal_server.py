@@ -4857,7 +4857,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 function, encoded = body[len(prefix) :].split("(", 1)
                 suffix = "); LET $value=IF $domain=NONE {NULL} ELSE {$domain};"
                 self.assertTrue(encoded.endswith(suffix))
-                arguments = json.loads("[" + encoded.removesuffix(suffix) + "]")
+                encoded = encoded.removesuffix(suffix)
+                if function == "claim" and encoded.endswith(",NONE"):
+                    encoded = encoded.removesuffix(",NONE") + ",null"
+                arguments = json.loads("[" + encoded + "]")
                 self.assertIs(type(arguments[0]), int)
                 key = (state, str(config["namespace"]), str(config["database"]))
                 previous = domain_owners.get(key)
@@ -7369,6 +7372,28 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             )
         query.assert_not_called()
         payload.assert_not_called()
+
+    def test_generated_claim_preserves_absent_or_exact_original_predecessor(self) -> None:
+        config = self.initialized()
+        expected = {"operation": "operation", "generation": "generation", "phase": "copy"}
+        for previous in (None, expected):
+            with (
+                self.subTest(previous=previous),
+                patch.object(server, "payload_expiry", return_value=123456),
+                patch.object(server, "maintenance_query", return_value={"value": expected}) as query,
+            ):
+                acknowledged = server.maintenance_domain_call(
+                    self.state, config, {}, "claim",
+                    ["operation", "generation", "copy", "NONE", "target", previous],
+                )
+            self.assertEqual(acknowledged, expected)
+            predecessor = "NONE" if previous is None else json.dumps(previous)
+            self.assertEqual(
+                query.call_args.args[3],
+                'LET $domain=fn::pse_maintenance_v1::claim(123456,"operation",'
+                '"generation","copy","NONE","target",' + predecessor
+                + '); LET $value=IF $domain=NONE {NULL} ELSE {$domain};',
+            )
 
     def test_generated_domain_absence_is_explicit_and_missing_ack_refuses(self) -> None:
         config = self.initialized()
