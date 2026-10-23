@@ -258,7 +258,7 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
 
 #[cfg(feature="canonical-tests")]
 #[tokio::test]
-async fn project_portability_descriptive_export_never_hydrates_missing_source_payloads() {
+async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads() {
     let runtime=workflow::durable_tests::durable_runtime();let cancel=crate::CancelSource::new();
     let (physical_documents,documents)=workflow::worker_tests::sources("package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}");
     let physical=Box::pin(runtime.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
@@ -268,21 +268,34 @@ async fn project_portability_descriptive_export_never_hydrates_missing_source_pa
     let project=store.project("descriptive-project").await.unwrap().unwrap();
     Box::pin(runtime.project_fork(&project,"descriptive-main","descriptive-source","descriptive-fork",&source)).await.unwrap();
     let selection=Box::pin(runtime.project_select(&workflow::ProjectSelectRequest{version:Version,reference:workflow::ProjectReference::Branch{key:"descriptive-main".into()}},physical.clone(),&cancel)).await.unwrap();
-    let mut request=ProjectExportRequest{version:Version,selection:selection.clone(),research_selections:vec![],publications:vec![],studies:vec![],results:vec![],artifacts:vec![],reproducers:vec![],descriptive_only:false,omissions:vec![],maximum_output_bytes:16<<20,maximum_document_bytes:16<<20};
+    // Source objects live in the original canonical source-block owner, independently
+    // from FileTier. Create actual selected artifact bytes before withholding files.
+    let revision=store.revision(&selection.revision).await.unwrap().unwrap();
+    let evidence=b"original selected artifact evidence".to_vec();
+    let mut artifact=store.new_artifact(&revision,"descriptive-test-evidence",vec![],1,evidence.len() as u64).await.unwrap();
+    let blocks=vec![pse_operations::canonical_artifacts::artifact_block(&artifact.key,0,"descriptive-test-evidence",evidence.clone(),"original-evidence",0)];
+    pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&[],&blocks,"project",&selection.project);
+    let artifact=store.persist_artifact(&artifact,std::slice::from_ref(&revision),&[],&blocks,"project",&selection.project).await.unwrap();
+    let readable=store.read_artifact(&artifact.key).await.unwrap();assert_eq!(readable.block(0).await.unwrap().payload.as_slice(),evidence);drop(readable);
+    let mut request=ProjectExportRequest{version:Version,selection:selection.clone(),research_selections:vec![],publications:vec![],studies:vec![],results:vec![],artifacts:vec![artifact.key.clone()],reproducers:vec![],descriptive_only:false,omissions:vec![],maximum_output_bytes:16<<20,maximum_document_bytes:16<<20};
     let output=tempfile::tempdir().unwrap();let complete_path=output.path().join("must-refuse");let metadata_path=output.path().join("metadata");
     let manifest=store.with_unavailable_fixture_payloads(async {
-        assert!(Box::pin(runtime.project_export(&complete_path,&request,physical.clone(),&cancel)).await.is_err(),"executable export cannot silently reinterpret missing source files as metadata");
+        let unavailable=store.read_artifact(&artifact.key).await.unwrap();assert!(unavailable.block(0).await.is_err(),"the selected artifact's original sealed bytes are genuinely absent");drop(unavailable);
+        assert!(Box::pin(runtime.project_export(&complete_path,&request,physical.clone(),&cancel)).await.is_err(),"executable export cannot silently reinterpret missing selected artifact bytes as metadata");
         assert!(!complete_path.join("project.json").exists());
         assert!(Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.is_err(),"metadata path requires explicit descriptive selection");
         request.descriptive_only=true;
         let explanation=Box::pin(runtime.project_closure_metadata(&request,&cancel)).await.unwrap();assert!(explanation.manifest.members.is_empty());
         Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()
     }).await.unwrap();
+    let restored=store.read_artifact(&artifact.key).await.unwrap();assert_eq!(restored.block(0).await.unwrap().payload.as_slice(),evidence);drop(restored);
     assert!(manifest.offline_complete);assert!(!manifest.executable_complete);assert!(manifest.members.is_empty());
     assert_eq!(manifest.origin.revision,selection.revision);assert!(manifest.sources[0].replay_source.is_none());
     assert!(manifest.sources[0].source_identity.is_none(),"a selector alone cannot authenticate a scientific source hash without readmission");
     assert_eq!(manifest.source_revisions[0].problem,selection.problem);
     assert!(manifest.omissions.iter().any(|o|o.selection==format!("source:{}",selection.revision)&&o.required_for_execution));
+    assert_eq!(manifest.artifact_origins[0].key,artifact.key);
+    assert!(manifest.omissions.iter().any(|o|o.selection==format!("artifact:{}",artifact.key)&&o.required_for_execution));
     store.close();assert!(store.project("descriptive-project").await.is_err(),"original source caller is unavailable during independent inspection");
     let reader=ProjectBundleReader::open(&metadata_path,16<<20).unwrap();assert!(reader.inspect().descriptive_only);
     assert!(Box::pin(runtime.project_import_issue(&reader,"must-refuse","main")).await.is_err(),"descriptive closure is never editable source admission");
