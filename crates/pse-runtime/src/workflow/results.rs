@@ -129,6 +129,11 @@ impl RunResult {
                 }
             }
         }
+        // Membership is producer-owned qualification evidence, sealed with the original
+        // attempt. An old or intentionally omitted export remains unavailable.
+        if matches!(self.report(), Ok(super::RunReport::Fit(report)) if report.estimate_qualified()) {
+            ids.push(fitted_parameter_cells::RELATION_ID);
+        }
         ids.sort_unstable();
         ids.dedup();
         ids
@@ -446,6 +451,10 @@ impl RunResult {
             accuracy_goal_assessments, candidate_assessments, resolved_numerics, run_lineage,
         };
         let id = projection.relation;
+        if id == pse_relations::generated::runtime::fitted_parameter_cells::RELATION_ID {
+            return self.project_fit_parameters(projection).await;
+        }
+
         if matches!(self.request(), super::RunRequest::Horizon(_)) {
             if super::horizon::prefix::summary_ids().contains(&id)
                 && let Some(report) = &self.horizon_output
