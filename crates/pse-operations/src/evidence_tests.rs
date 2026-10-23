@@ -250,8 +250,16 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
 
 #[test]
 fn evidence_foreign_codec_context_and_sample_membership_refuse() {
-    let mut source=snapshot();source.version=1;assert!(source.validate().is_err());
-    source.version=2;source.codec="foreign-codec".into();assert!(source.validate().is_err());
-    let mut source=snapshot();source.facts[1].context_id=Some("undeclared".into());assert!(source.validate().is_err());
-    let mut source=snapshot();source.facts[1].value_ns=Some(f64::NAN);assert!(source.validate().is_err());
+    let mut source = snapshot();
+    source.version = 1;
+    assert!(source.validate().is_err());
+    source.version = 2;
+    source.codec = "foreign-codec".into();
+    assert!(source.validate().is_err());
+    let mut source = snapshot();
+    source.facts[1].context_id = Some("undeclared".into());
+    assert!(source.validate().is_err());
+    let mut source = snapshot();
+    source.facts[1].value_ns = Some(f64::NAN);
+    assert!(source.validate().is_err());
 }

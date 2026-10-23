@@ -696,7 +696,9 @@ pub async fn cancel_after_artifact_append_ack<F: Future>(
 
 /// Suppress the real project's successful source-activation response so a composed
 /// consumer exercises original-operation settlement. Available only in canonical fixtures.
-#[cfg(feature="canonical-tests")]
-pub async fn lose_project_source_reply<F:Future>(future:F)->F::Output {
-    crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,future).await
+#[cfg(feature = "canonical-tests")]
+pub async fn lose_project_source_reply<F: Future>(future: F) -> F::Output {
+    crate::canonical_projects::PROJECT_REPLY_LOSS
+        .scope(true, future)
+        .await
 }

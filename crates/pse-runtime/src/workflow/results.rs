@@ -131,7 +131,8 @@ impl RunResult {
         }
         // Membership is producer-owned qualification evidence, sealed with the original
         // attempt. An old or intentionally omitted export remains unavailable.
-        if matches!(self.report(), Ok(super::RunReport::Fit(report)) if report.estimate_qualified()) {
+        if matches!(self.report(), Ok(super::RunReport::Fit(report)) if report.estimate_qualified())
+        {
             ids.push(fitted_parameter_cells::RELATION_ID);
         }
         ids.sort_unstable();

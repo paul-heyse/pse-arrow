@@ -45,23 +45,23 @@ pub(crate) fn simulate_reply_loss() -> bool {
 
 /// Exact original protected fit evidence and explicit authored target mapping.
 /// This binding stores identities and decisions, never a second copy of fitted values.
-#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResearchPublicationBinding {
     /// Frozen original research selection.
-    pub selection:String,
+    pub selection: String,
     /// Actual original run.
-    pub run:String,
+    pub run: String,
     /// Actual original attempt.
-    pub attempt:String,
+    pub attempt: String,
     /// Original qualified export set coordinate.
-    pub result_set:String,
+    pub result_set: String,
     /// Exact closed manifest digest selected by protected read.
-    pub manifest_digest:String,
+    pub manifest_digest: String,
     /// Original run's immutable consumed source receipt, independently compared in activation.
-    pub source_selection:Vec<u8>,
+    pub source_selection: Vec<u8>,
     /// Explicit cell/target identities and physical/bound premises.
-    pub mapping:Vec<u8>,
+    pub mapping: Vec<u8>,
 }
 /// Original source-publication intent. Retain it unchanged through uncertain completion.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -87,12 +87,25 @@ pub struct ProjectPublication {
 }
 impl ProjectPublication {
     /// Bind exact original scientific evidence into the ordinary source activation intent.
-    pub fn with_research_publication(mut self,research:ResearchPublicationBinding)->Result<Self,CanonicalError>{
-        if self.kind!="publish"||self.draft.is_some()||research.mapping.len()>131072||research.source_selection.len()>131072{return Err(CanonicalError::PayloadLimit);}
-        self.research=Some(research);self.refresh_request()?;Ok(self)
+    pub fn with_research_publication(
+        mut self,
+        research: ResearchPublicationBinding,
+    ) -> Result<Self, CanonicalError> {
+        if self.kind != "publish"
+            || self.draft.is_some()
+            || research.mapping.len() > 131072
+            || research.source_selection.len() > 131072
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        self.research = Some(research);
+        self.refresh_request()?;
+        Ok(self)
     }
     /// Original scientific binding, if this is a research publication.
-    pub fn research(&self)->Option<&ResearchPublicationBinding>{self.research.as_ref()}
+    pub fn research(&self) -> Option<&ResearchPublicationBinding> {
+        self.research.as_ref()
+    }
 
     /// Bind the complete caller decision before effect issuance.
     pub fn with_context_commitment(mut self, commitment: &str) -> Result<Self, CanonicalError> {
@@ -232,14 +245,30 @@ impl ProjectPublication {
             "branch_generation",
             codec::encode_uint(self.branch_generation)?,
         );
-        let research=if let Some(binding)=&self.research {
-            let mut value=Object::new();
-            for (key,text) in [("selection",&binding.selection),("run",&binding.run),("attempt",&binding.attempt),("result_set",&binding.result_set),("manifest_digest",&binding.manifest_digest)] {value.insert(key,text.clone());}
-            value.insert("source_selection",surrealdb::types::Bytes::from(binding.source_selection.clone()));
-            value.insert("mapping",surrealdb::types::Bytes::from(binding.mapping.clone()));
+        let research = if let Some(binding) = &self.research {
+            let mut value = Object::new();
+            for (key, text) in [
+                ("selection", &binding.selection),
+                ("run", &binding.run),
+                ("attempt", &binding.attempt),
+                ("result_set", &binding.result_set),
+                ("manifest_digest", &binding.manifest_digest),
+            ] {
+                value.insert(key, text.clone());
+            }
+            value.insert(
+                "source_selection",
+                surrealdb::types::Bytes::from(binding.source_selection.clone()),
+            );
+            value.insert(
+                "mapping",
+                surrealdb::types::Bytes::from(binding.mapping.clone()),
+            );
             Value::Object(value)
-        }else{Value::None};
-        row.insert("research",research);
+        } else {
+            Value::None
+        };
+        row.insert("research", research);
         row.insert("kind", self.kind.clone());
         row.insert("branch_name", self.branch_name.clone());
         row.insert(

@@ -5,12 +5,11 @@ use crate::documents;
 mod modeling;
 mod physical_input;
 use documents::DocumentContent;
-mod routes;
 mod research;
+mod routes;
 mod settings;
 mod source_settlement;
 mod study_workbench;
-pub(crate) use study_workbench::{NativeFrozenStudyCohort,NativeStudyKpiAnalysis,NativeStudyObserver};
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
@@ -19,6 +18,9 @@ pub(crate) use modeling::{
     NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
+pub(crate) use study_workbench::{
+    NativeFrozenStudyCohort, NativeStudyKpiAnalysis, NativeStudyObserver,
+};
 mod strategies;
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};
@@ -767,12 +769,31 @@ impl NativeRuntime {
 #[pymethods]
 impl NativeRuntime {
     /// Browse bounded compact metadata, including terminal studies.
-    fn study_workbench_page(&self,py:Python<'_>,request:&[u8])->PyResult<documents::DocumentValue<native::StudyWorkbenchPage>>{self.study_workbench_page_native(py,request)}
+    fn study_workbench_page(
+        &self,
+        py: Python<'_>,
+        request: &[u8],
+    ) -> PyResult<documents::DocumentValue<native::StudyWorkbenchPage>> {
+        self.study_workbench_page_native(py, request)
+    }
     /// Freeze a complete bounded cohort before protected analytical reads.
-    fn freeze_study_cohort(&self,py:Python<'_>,request:&[u8])->PyResult<NativeFrozenStudyCohort>{self.freeze_study_cohort_native(py,request)}
+    fn freeze_study_cohort(
+        &self,
+        py: Python<'_>,
+        request: &[u8],
+    ) -> PyResult<NativeFrozenStudyCohort> {
+        self.freeze_study_cohort_native(py, request)
+    }
     /// Open or reconnect passive observation of one exact selected study.
     #[pyo3(signature=(request,*,cursor=None))]
-    fn observe_study(&self,py:Python<'_>,request:&[u8],cursor:Option<&[u8]>)->PyResult<NativeStudyObserver>{self.observe_study_native(py,request,cursor)}
+    fn observe_study(
+        &self,
+        py: Python<'_>,
+        request: &[u8],
+        cursor: Option<&[u8]>,
+    ) -> PyResult<NativeStudyObserver> {
+        self.observe_study_native(py, request, cursor)
+    }
     /// Release this caller and its aliases while admitted work drains independently.
     fn close(&self) {
         self.inner.close();
@@ -916,14 +937,66 @@ impl NativeRuntime {
             value,
         ))
     }
-    fn research_dataset_create(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchDatasetRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchDataset>>{self.research_dataset_create_native(py,request)}
-    fn research_selection_create(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchSelectionRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchSelection>>{self.research_selection_create_native(py,request)}
-    fn research_read(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchReadRequest>)->PyResult<documents::DocumentValue<native::ResearchReadResult>>{self.research_read_native(py,request)}
-    fn research_dataset_open(&self,py:Python<'_>,key:&str,context:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>)->PyResult<NativeModelingPackage>{self.research_dataset_open_native(py,key,context)}
-    fn research_selection_open(&self,py:Python<'_>,key:&str)->PyResult<NativeModelingPackage>{self.research_selection_open_native(py,key)}
-    fn research_publication_preview(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchPublicationRequest>)->PyResult<documents::DocumentValue<native::ResearchPublicationPreview>>{self.research_publication_preview_native(py,request)}
-    fn research_publish(&self,py:Python<'_>,intent:documents::DocumentInput<native::ResearchPublicationIntent>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchPublication>>{self.research_publish_native(py,intent)}
-    fn research_publication_open(&self,py:Python<'_>,key:&str)->PyResult<NativeModelingPackage>{self.research_publication_open_native(py,key)}
+    fn research_dataset_create(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ResearchDatasetRequest>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchDataset>>
+    {
+        self.research_dataset_create_native(py, request)
+    }
+    fn research_selection_create(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ResearchSelectionRequest>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchSelection>>
+    {
+        self.research_selection_create_native(py, request)
+    }
+    fn research_read(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ResearchReadRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ResearchReadResult>> {
+        self.research_read_native(py, request)
+    }
+    fn research_dataset_open(
+        &self,
+        py: Python<'_>,
+        key: &str,
+        context: documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>,
+    ) -> PyResult<NativeModelingPackage> {
+        self.research_dataset_open_native(py, key, context)
+    }
+    fn research_selection_open(
+        &self,
+        py: Python<'_>,
+        key: &str,
+    ) -> PyResult<NativeModelingPackage> {
+        self.research_selection_open_native(py, key)
+    }
+    fn research_publication_preview(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ResearchPublicationRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ResearchPublicationPreview>> {
+        self.research_publication_preview_native(py, request)
+    }
+    fn research_publish(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<native::ResearchPublicationIntent>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchPublication>>
+    {
+        self.research_publish_native(py, intent)
+    }
+    fn research_publication_open(
+        &self,
+        py: Python<'_>,
+        key: &str,
+    ) -> PyResult<NativeModelingPackage> {
+        self.research_publication_open_native(py, key)
+    }
     /// Load the selected exact source through the normal source owner; no latest lookup.
     fn project_context_package(
         &self,

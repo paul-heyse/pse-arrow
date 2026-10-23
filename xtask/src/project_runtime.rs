@@ -14,9 +14,9 @@ use pse_runtime::{
         CanonicalDeployment, ModelingPackage, OuterAttestation, PhysicalContext,
         PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,
         ProjectMergeIntent, ProjectMergeResolution, ProjectSelectRequest, ProjectSelection,
-        Runtime, ResearchDatasetRequest, ResearchSelectionRequest, ResearchReadRequest,
-        ResearchPublicationRequest, ResearchPublicationIntent, StudyWorkbenchRequest,
-        StudyCohortRequest, StudyKpiRequest, StudyObservationRequest, StudyObservationCursor,
+        ResearchDatasetRequest, ResearchPublicationIntent, ResearchPublicationRequest,
+        ResearchReadRequest, ResearchSelectionRequest, Runtime, StudyCohortRequest,
+        StudyKpiRequest, StudyObservationCursor, StudyObservationRequest, StudyWorkbenchRequest,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -50,19 +50,56 @@ struct Request {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
-    ResearchDatasetCreate { request: ResearchDatasetRequest },
-    ResearchSelectionCreate { request: ResearchSelectionRequest },
-    ResearchRead { request: ResearchReadRequest },
-    ResearchDatasetOpen { key: String, context: ContextSelection },
-    ResearchSelectionOpen { key: String },
-    ResearchPublicationPreview { request: ResearchPublicationRequest },
-    ResearchPublish { intent: ResearchPublicationIntent },
-    ResearchPublicationOpen { key: String },
-    StudyWorkbench { request: StudyWorkbenchRequest },
-    StudyCohort { request: StudyCohortRequest },
-    StudyAnalyze { request: StudyCohortRequest, kpi: StudyKpiRequest, output: PathBuf },
-    StudyResult { request: StudyCohortRequest, member: usize, relation: String, start: u64, end: u64, output: PathBuf, maximum_bytes: u64 },
-    StudyObserve { request: StudyObservationRequest, cursor: Option<StudyObservationCursor>, delay_ms: Option<u64> },
+    ResearchDatasetCreate {
+        request: ResearchDatasetRequest,
+    },
+    ResearchSelectionCreate {
+        request: ResearchSelectionRequest,
+    },
+    ResearchRead {
+        request: ResearchReadRequest,
+    },
+    ResearchDatasetOpen {
+        key: String,
+        context: ContextSelection,
+    },
+    ResearchSelectionOpen {
+        key: String,
+    },
+    ResearchPublicationPreview {
+        request: ResearchPublicationRequest,
+    },
+    ResearchPublish {
+        intent: ResearchPublicationIntent,
+    },
+    ResearchPublicationOpen {
+        key: String,
+    },
+    StudyWorkbench {
+        request: StudyWorkbenchRequest,
+    },
+    StudyCohort {
+        request: StudyCohortRequest,
+    },
+    StudyAnalyze {
+        request: StudyCohortRequest,
+        kpi: StudyKpiRequest,
+        output: PathBuf,
+    },
+    StudyResult {
+        request: StudyCohortRequest,
+        member: usize,
+        relation: String,
+        start: u64,
+        end: u64,
+        output: PathBuf,
+        maximum_bytes: u64,
+    },
+    StudyObserve {
+        request: StudyObservationRequest,
+        cursor: Option<StudyObservationCursor>,
+        delay_ms: Option<u64>,
+    },
     Import {
         documents: ProjectDraftDocuments,
     },
@@ -284,7 +321,10 @@ fn file_documents(
     roots: &[PathBuf],
     cancel: &CancelSource,
 ) -> Result<pse_admission::authoring_driver::document::OwnedDocumentSet> {
-    ensure!((1..=16).contains(&roots.len()), "select 1..=16 explicit package directories");
+    ensure!(
+        (1..=16).contains(&roots.len()),
+        "select 1..=16 explicit package directories"
+    );
     let registry = pse_schema::shared_registry()?;
     let validation = runtime.validation_context();
     let token = cancel.token();
@@ -294,12 +334,21 @@ fn file_documents(
         // The existing package loader owns declared paths, byte/row budgets,
         // symlink refusal, original Parquet decoding and physical admission.
         bundles.push(pse_admission::authoring_driver::document::load_package(
-            root, &registry, Default::default(), &validation,
+            root,
+            &registry,
+            Default::default(),
+            &validation,
         )?);
     }
-    Ok(pse_admission::authoring_driver::document::load_bundles_owned(
-        &bundles, &registry, &shared.pool(), &token, &validation,
-    )?)
+    Ok(
+        pse_admission::authoring_driver::document::load_bundles_owned(
+            &bundles,
+            &registry,
+            &shared.pool(),
+            &token,
+            &validation,
+        )?,
+    )
 }
 async fn selected(
     runtime: &Runtime,
@@ -859,8 +908,10 @@ mod tests {
             std::fs::write(path, body).unwrap();
         }
         let imported = execute(Action::ImportFiles {
-            packages: vec![source_root], physical_packages: vec![physical_root],
-        }).await;
+            packages: vec![source_root],
+            physical_packages: vec![physical_root],
+        })
+        .await;
         let original = imported["canonical_revision"].as_str().unwrap().to_owned();
         store
             .create_project("cli-create", "cli-project", "CLI integration")
@@ -917,18 +968,33 @@ mod tests {
         assert!(discovery["resident"].as_array().unwrap().is_empty());
         let loaded = execute(Action::Load { revision: fork }).await;
         assert_eq!(loaded["canonical_problem"], "cli-problem");
-        let page = execute(Action::StudyWorkbench { request: StudyWorkbenchRequest {
-            filter: Default::default(), maximum: 4, cursor: None,
-        }}).await;
+        let page = execute(Action::StudyWorkbench {
+            request: StudyWorkbenchRequest {
+                filter: Default::default(),
+                maximum: 4,
+                cursor: None,
+            },
+        })
+        .await;
         assert!(page["headers"].as_array().unwrap().is_empty());
-        let cohort = execute(Action::StudyCohort { request: StudyCohortRequest {
-            filter: Default::default(), maximum_studies: 4, maximum_members: 4,
-        }}).await;
+        let cohort = execute(Action::StudyCohort {
+            request: StudyCohortRequest {
+                filter: Default::default(),
+                maximum_studies: 4,
+                maximum_members: 4,
+            },
+        })
+        .await;
         assert_eq!(cohort["complete"], true);
         assert!(cohort["members"].as_array().unwrap().is_empty());
-        let research = execute(Action::ResearchRead { request: ResearchReadRequest::Datasets {
-            project: "cli-project".into(), after: String::new(), limit: 4,
-        }}).await;
+        let research = execute(Action::ResearchRead {
+            request: ResearchReadRequest::Datasets {
+                project: "cli-project".into(),
+                after: String::new(),
+                limit: 4,
+            },
+        })
+        .await;
         assert!(research["rows"].as_array().unwrap().is_empty());
         let meta = store
             .project_metadata(

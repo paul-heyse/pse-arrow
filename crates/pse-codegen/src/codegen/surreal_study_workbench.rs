@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded complete cohort capture shares the selector's one native snapshot.
-pub(super) fn append(ddl:&mut String) {ddl.push_str(r#"
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(r#"
 DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object>,$maximum:int,$frozen:bool,$members:int) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $more=array::len($rows)>$maximum;
@@ -24,4 +25,5 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $result;
 };
-"#);}
+"#);
+}

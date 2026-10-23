@@ -163,7 +163,9 @@ impl RootEvaluation {
         }
     }
     /// Source coordinates can be inspected before any rich event projection.
-    pub(super) fn source_position(&self)->(u64,u64) {(self.stamp.generation,self.stamp.sequence)}
+    pub(super) fn source_position(&self) -> (u64, u64) {
+        (self.stamp.generation, self.stamp.sequence)
+    }
     fn with_metric<T>(&self, field: &Field, consume: impl FnOnce(&Metric) -> T) -> T {
         match field.slot {
             Slot::Fixed => consume(&field.value),
@@ -348,12 +350,19 @@ mod tests {
             assert!(entry.retained_bytes() <= 4096);
         }
         drop(state);
-        let (generation,_)=progress.source_identity();
-        let bounded=progress.snapshot_after(Some(generation),1,1);
-        assert_eq!(bounded.0.len(),1);
-        assert_eq!(bounded.0[0].source.as_ref().unwrap().sequence,2);
-        assert_eq!(bounded.1,1);
-        assert_eq!(progress.snapshot_after(Some(generation),2,1).0[0].source.as_ref().unwrap().sequence,3);
+        let (generation, _) = progress.source_identity();
+        let bounded = progress.snapshot_after(Some(generation), 1, 1);
+        assert_eq!(bounded.0.len(), 1);
+        assert_eq!(bounded.0[0].source.as_ref().unwrap().sequence, 2);
+        assert_eq!(bounded.1, 1);
+        assert_eq!(
+            progress.snapshot_after(Some(generation), 2, 1).0[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .sequence,
+            3
+        );
         assert_eq!(progress.snapshot().1, 1);
         assert_eq!(
             progress

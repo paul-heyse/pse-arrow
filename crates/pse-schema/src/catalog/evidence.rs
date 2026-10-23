@@ -26,7 +26,13 @@ pub const INDEXES: &[super::substrate::NativeIndex] = &[
     super::substrate::NativeIndex {
         name: "evidence_fact_context",
         table: "evidence_facts",
-        fields: &["generation", "kind", "context_id", "population_id", "member"],
+        fields: &[
+            "generation",
+            "kind",
+            "context_id",
+            "population_id",
+            "member",
+        ],
         unique: false,
     },
     super::substrate::NativeIndex {

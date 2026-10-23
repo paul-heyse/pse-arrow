@@ -599,8 +599,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "canonical_runs",
             vec![
                 column("key", text()),
-                column("research_selection",text()).optional(),
-                column("research_dataset",text()).optional(),
+                column("research_selection", text()).optional(),
+                column("research_dataset", text()).optional(),
                 column("problem", text()),
                 column("revision", text()),
                 column("source_sequence", uint()),

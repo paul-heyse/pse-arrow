@@ -138,7 +138,10 @@ def invocation_snapshot(
         }
     ]
     from scripts.evidence_sources import context_fact, inventory_mapping, link_fact
-    mapping = inventory_mapping(inventory, selected=selected) if inventory is not None else {}
+
+    mapping = (
+        inventory_mapping(inventory, selected=selected) if inventory is not None else {}
+    )
     for identity, selection in zip(catalog, selected, strict=True):
         raw = reported.get(identity)
         status = (
@@ -167,24 +170,49 @@ def invocation_snapshot(
         facts.append(fact)
     producer = state.get("producer")
     if isinstance(producer, dict):
-        context = context_fact({"process": {key: producer.get(key) for key in ("pid", "start", "boot")}, "host": producer.get("scope")})
+        context = context_fact(
+            {
+                "process": {key: producer.get(key) for key in ("pid", "start", "boot")},
+                "host": producer.get("scope"),
+            }
+        )
         for fact in facts:
             fact["context_id"] = context["context_id"]
         facts.append(context)
     for offset, action in enumerate(state.get("diagnostic_actions", [])):
         if not isinstance(action, dict) or not isinstance(action.get("sha256"), str):
             raise ValueError("invalid original diagnostic action reference")
-        facts.append(link_fact("diagnostic:" + str(offset), "diagnostic_action", "sha256:" + action["sha256"]))
+        facts.append(
+            link_fact(
+                "diagnostic:" + str(offset),
+                "diagnostic_action",
+                "sha256:" + action["sha256"],
+            )
+        )
     store = resource_store.FileStore(root)
     resource_observations = {}
     for identity in state.get("members", {}):
         try:
-            entry, record = run_inspection.invocation_resource(store, identity, declaration["nonce"])
+            entry, record = run_inspection.invocation_resource(
+                store, identity, declaration["nonce"]
+            )
             resource_observations[identity] = {"phase": entry.phase, "record": record}
-            facts.append({"member": "resource:" + identity, "kind": "resource", "status": entry.phase})
+            facts.append(
+                {
+                    "member": "resource:" + identity,
+                    "kind": "resource",
+                    "status": entry.phase,
+                }
+            )
         except (OSError, ValueError, TypeError):
             resource_observations[identity] = {"status": "unavailable"}
-            facts.append({"member": "resource:" + identity, "kind": "resource", "status": "unavailable"})
+            facts.append(
+                {
+                    "member": "resource:" + identity,
+                    "kind": "resource",
+                    "status": "unavailable",
+                }
+            )
     return {
         "version": 2,
         "authority": "filestore:"
@@ -192,7 +220,12 @@ def invocation_snapshot(
         "codec": "exact-resource-files-invocation-v2",
         "source_id": declaration["nonce"],
         "snapshot_digest": snapshot_digest(
-            {"declaration": declaration, "state": state, "resources": resource_observations, "inventory": inventory.read_text() if inventory is not None else None}
+            {
+                "declaration": declaration,
+                "state": state,
+                "resources": resource_observations,
+                "inventory": inventory.read_text() if inventory is not None else None,
+            }
         ),
         "coverage": "complete" if population_complete else "partial",
         "expected_members": [fact["member"] for fact in facts],

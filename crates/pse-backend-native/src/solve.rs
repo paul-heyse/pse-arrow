@@ -721,11 +721,14 @@ impl StoredEvent {
             Self::Root(event) => event.event(),
         }
     }
-    fn source_position(&self)->Option<(u64,u64)> {
+    fn source_position(&self) -> Option<(u64, u64)> {
         match self {
-            Self::Rich(event)=>event.source.as_ref().map(|source|(source.generation,source.sequence)),
-            #[cfg(any(feature="kinsol",test))]
-            Self::Root(event)=>Some(event.source_position()),
+            Self::Rich(event) => event
+                .source
+                .as_ref()
+                .map(|source| (source.generation, source.sequence)),
+            #[cfg(any(feature = "kinsol", test))]
+            Self::Root(event) => Some(event.source_position()),
         }
     }
     fn retained_bytes(&self) -> usize {
@@ -958,15 +961,31 @@ impl Progress {
     /// Selection inspects stored source stamps before cloning rich events; a foreign
     /// generation starts at available history and leaves continuity to the consumer.
     /// Contention reports unavailable history with loss, as `snapshot` does.
-    pub fn snapshot_after(&self,generation:Option<u64>,sequence:u64,maximum:usize)->(Vec<Event>,u64) {
-        let dropped=self.dropped_count();
+    pub fn snapshot_after(
+        &self,
+        generation: Option<u64>,
+        sequence: u64,
+        maximum: usize,
+    ) -> (Vec<Event>, u64) {
+        let dropped = self.dropped_count();
         self.events.try_lock().map_or_else(
-            |_|(Vec::new(),dropped.saturating_add(1)),
-            |state|(state.recent.iter()
-                .filter(|event|event.source_position().is_none_or(|(g,n)|generation!=Some(g)||n>sequence))
-                .take(maximum)
-                .map(StoredEvent::event)
-                .collect(),dropped),
+            |_| (Vec::new(), dropped.saturating_add(1)),
+            |state| {
+                (
+                    state
+                        .recent
+                        .iter()
+                        .filter(|event| {
+                            event
+                                .source_position()
+                                .is_none_or(|(g, n)| generation != Some(g) || n > sequence)
+                        })
+                        .take(maximum)
+                        .map(StoredEvent::event)
+                        .collect(),
+                    dropped,
+                )
+            },
         )
     }
     /// Snapshot retained recent events and explicit history loss. Observation readers
@@ -996,18 +1015,59 @@ mod progress_contention_tests {
     }
     #[test]
     fn bounded_progress_snapshot_after_preserves_positions_budget_and_known_loss() {
-        let progress=Progress::new(3);
-        for index in 1..=5 {progress.push(Event{source:Some(EventSource::new("bounded",None,None)),phase:format!("step-{index}"),elapsed:Duration::ZERO,values:BTreeMap::new(),incumbent:None});}
-        let (generation,head)=progress.source_identity();assert_eq!(head,5);
-        let (selected,dropped)=progress.snapshot_after(Some(generation),3,1);
-        assert_eq!(selected.len(),1);assert_eq!(selected[0].source.as_ref().unwrap().sequence,4);assert_eq!(dropped,2);
-        assert_eq!(progress.snapshot_after(Some(generation),4,1).0[0].source.as_ref().unwrap().sequence,5);
-        assert!(progress.snapshot_after(Some(generation),5,1).0.is_empty());
-        assert!(progress.snapshot_after(Some(generation),0,0).0.is_empty());
-        assert_eq!(progress.snapshot_after(None,0,1).0[0].source.as_ref().unwrap().sequence,3);
-        assert_eq!(progress.snapshot_after(Some(generation.wrapping_add(1)),u64::MAX,1).0[0].source.as_ref().unwrap().sequence,3);
-        assert_eq!(progress.snapshot().0.len(),3,"existing full-history consumers retain their contract");
-        let _held=progress.events.lock().unwrap();let (empty,loss)=progress.snapshot_after(Some(generation),0,1);assert!(empty.is_empty());assert_eq!(loss,3);
+        let progress = Progress::new(3);
+        for index in 1..=5 {
+            progress.push(Event {
+                source: Some(EventSource::new("bounded", None, None)),
+                phase: format!("step-{index}"),
+                elapsed: Duration::ZERO,
+                values: BTreeMap::new(),
+                incumbent: None,
+            });
+        }
+        let (generation, head) = progress.source_identity();
+        assert_eq!(head, 5);
+        let (selected, dropped) = progress.snapshot_after(Some(generation), 3, 1);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].source.as_ref().unwrap().sequence, 4);
+        assert_eq!(dropped, 2);
+        assert_eq!(
+            progress.snapshot_after(Some(generation), 4, 1).0[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .sequence,
+            5
+        );
+        assert!(progress.snapshot_after(Some(generation), 5, 1).0.is_empty());
+        assert!(progress.snapshot_after(Some(generation), 0, 0).0.is_empty());
+        assert_eq!(
+            progress.snapshot_after(None, 0, 1).0[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .sequence,
+            3
+        );
+        assert_eq!(
+            progress
+                .snapshot_after(Some(generation.wrapping_add(1)), u64::MAX, 1)
+                .0[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .sequence,
+            3
+        );
+        assert_eq!(
+            progress.snapshot().0.len(),
+            3,
+            "existing full-history consumers retain their contract"
+        );
+        let _held = progress.events.lock().unwrap();
+        let (empty, loss) = progress.snapshot_after(Some(generation), 0, 1);
+        assert!(empty.is_empty());
+        assert_eq!(loss, 3);
     }
     #[test]
     fn source_registration_contention_reports_selected_loss_before_mapping() {

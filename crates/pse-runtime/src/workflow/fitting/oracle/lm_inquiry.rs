@@ -224,7 +224,11 @@ async fn fixture_with_physical(
             format!("let y{i}: Scalar = {intercept} + b*{column};")
         })
         .collect::<String>();
-    let downstream=if kind=="research-calibration" {"def Downstream {child fitted:Root=Root(); annotation report fitted.y4(\"published-prediction\");}"}else{""};
+    let downstream = if kind == "research-calibration" {
+        "def Downstream {child fitted:Root=Root(); annotation report fitted.y4(\"published-prediction\");}"
+    } else {
+        ""
+    };
     let mut rows = pse_authoring::language::parse(
         &format!(
             "package p {{ def Root {{ param a: Scalar = 1; param b: Scalar = 1; {outputs} }} {downstream} }}"
@@ -238,22 +242,22 @@ async fn fixture_with_physical(
         .find(|row| row.name == "Root")
         .ok_or_else(|| WorkflowError::Input("fixture Root declaration missing".into()))?
         .declaration_id;
-    if kind=="research-calibration" {
+    if kind == "research-calibration" {
         let readings=(0..4).map(|i|format!("@id(\"{}\") entity reading observation{i} provenance(experiment,role.measured) {{raw={},sigma={}}}",id(40+i as u8),i+1,regression::SIGMA[i])).collect::<String>();
         rows.extend(pse_authoring::language::parse(&format!("package measurements {{entity kind origin provenance {{attribute title:Text;}} entity origin experiment {{title=\"independent affine calibration\"}} enum role {{measured facets(measured)}} entity kind reading {{attribute raw:Scalar;attribute sigma:Scalar;derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require raw>0 : \"positive calibration domain\";}} {readings}}}"),id(222),pse_authoring::language::IdentityPolicy::Named,Default::default())?);
-    }else{
-    rows.extend(measured_rows(
-        &(0..4)
-            .map(|i| {
-                (
-                    id(40 + i as u8),
-                    "Scalar",
-                    Some(regression::Y[i]),
-                    Some(regression::SIGMA[i]),
-                )
-            })
-            .collect::<Vec<_>>(),
-    ));
+    } else {
+        rows.extend(measured_rows(
+            &(0..4)
+                .map(|i| {
+                    (
+                        id(40 + i as u8),
+                        "Scalar",
+                        Some(regression::Y[i]),
+                        Some(regression::SIGMA[i]),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        ));
     }
     let parameters = (0..2)
         .map(|i| {
@@ -1647,171 +1651,761 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
 
 /// SC01-SC03: authored affine calibration, immutable research selection, actual LM,
 /// reopened qualified export and ordinary source publication are one composed journey.
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
-    use crate::workflow::{ResearchDataObject,ResearchDatasetRequest,ResearchSelectionRequest,ResearchObservation,ResearchPublicationRequest,ResearchParameterTarget};
-    use crate::workflow::tests::{id,compiler_profile};
-    use pse_relations::{columnar::RelationRow,generated::runtime::fitted_parameter_cells as cells};
-    let runtime=crate::workflow::tests::durable_runtime();let cancel=crate::CancelSource::new();
-    let (documents,_)=crate::workflow::worker_tests::sources("package p {}");
-    let physical=Box::pin(runtime.physical_from_sources(&documents,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    let mut seed=fixture_with_physical("research-calibration",[1.,2.],runtime.clone(),physical).await.unwrap_or_else(|error|panic!("{error}"));
-    let store=runtime.canonical_store().unwrap();
-    store.create_project("create","research","Calibration publication").await.unwrap_or_else(|error|panic!("{error}"));
-    let project=store.project("research").await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    let revision=Box::pin(runtime.project_fork(&project,"main","research-source","fork",&seed.source)).await.unwrap_or_else(|error|panic!("{error}"));
-    let source=Box::pin(runtime.modeling_revision(revision,seed.source.physical.clone(),Default::default())).await.unwrap_or_else(|error|panic!("{error}"));
-    let project=store.project("research").await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    Box::pin(runtime.project_record_context("original-context",&project,"calibration",&source,0,None,None,false)).await.unwrap_or_else(|error|panic!("{error}"));
-    let cut=store.project_context_cut("research").await.unwrap_or_else(|error|panic!("{error}"));
-    let context=store.select_project_context(&cut,"calibration",10).await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    let root=seed.declaration().experiments[0].case_id;
-    let quantity=source.physical.quantities.neutral_dimensionless().unwrap();
-    let unit=source.physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
-    let rows=source.declarations().await.unwrap_or_else(|error|panic!("{error}"));
-    let derived=rows.iter().find(|r|r.name=="calibrated").unwrap().declaration_id;
-    let sigma=rows.iter().find(|r|r.name=="calibrated_sigma").unwrap().declaration_id;
-    let members=(0..4).map(|i|ResearchDataObject{root,record:id(40+i).into(),attribute:"raw".into(),standard_deviation_attribute:Some("sigma".into()),quantity:quantity.as_id(),acquisition_clock:"synthetic acquisition sequence, no wall-clock accuracy claim".into(),parent_member:None,calibration:vec![]}).collect::<Vec<_>>();
-    let raw=ResearchDatasetRequest{key:"raw-v1".into(),project:project.clone(),context:context.clone(),parent:None,role:"raw".into(),members};
-    let raw_row=Box::pin(runtime.research_dataset_create(&raw,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(Box::pin(runtime.research_dataset_create(&raw,&cancel)).await.unwrap_or_else(|error|panic!("{error}")),raw_row);
-    let mut wrong=raw.clone();wrong.key="wrong-physical".into();wrong.members[0].quantity=id(99);
-    assert!(Box::pin(runtime.research_dataset_create(&wrong,&cancel)).await.is_err());
-    let mut calibrated=raw.clone();calibrated.key="calibrated-v1".into();calibrated.role="derived".into();calibrated.parent=Some(raw.key.clone());
-    for (i,m) in calibrated.members.iter_mut().enumerate(){m.parent_member=Some(i as u64);m.attribute="calibrated".into();m.standard_deviation_attribute=Some("calibrated_sigma".into());m.calibration=vec![derived,sigma];}
-    let mut raw_sigma=calibrated.clone();raw_sigma.key="unsupported-uncertainty-copy".into();raw_sigma.members[0].standard_deviation_attribute=Some("sigma".into());
-    assert!(Box::pin(runtime.research_dataset_create(&raw_sigma,&cancel)).await.is_err(),"raw sigma cannot be silently carried through non-unit-slope calibration");
-    let mut wrong_calibration=calibrated.clone();wrong_calibration.key="wrong-calibration".into();wrong_calibration.members[0].calibration=vec![root];
-    assert!(Box::pin(runtime.research_dataset_create(&wrong_calibration,&cancel)).await.is_err(),"unrelated declarations cannot stand in for actual calibrated attributes");
-    Box::pin(runtime.research_dataset_create(&calibrated,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    let selection=ResearchSelectionRequest{key:"selection-v1".into(),project:project.clone(),context:context.clone(),dataset:calibrated.key.clone(),fit:seed.declaration().fit_id,observations:(0..4).map(|i|ResearchObservation{observation:id(40+i).into(),member:i as u64,reason:"included: y=2x+3; explicitly authored sigma'=2sigma".into()}).collect()};
-    let mut partial=selection.clone();partial.key="partial".into();partial.observations.pop();
-    assert!(Box::pin(runtime.research_selection_create(&partial,&cancel)).await.is_err());
-    Box::pin(runtime.research_selection_create(&selection,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    let (selected,fit)=Box::pin(runtime.research_selection_open(&selection.key,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    seed.source=selected;
-    let mut profile=seed.problem.profile.clone();
-    profile.uncertainty=Some(FitUncertainty{level:Fraction::try_new(0.95).unwrap(),profile:None,predictions:false});
-    let prepared=production_profile(&seed,profile).await.unwrap_or_else(|error|panic!("{error}"));
-    for (i,measurement) in prepared.problem.measurements.iter().enumerate(){
-        assert_eq!(measurement.value,Some(2.*(i+1) as f64+3.));
-        assert_eq!(measurement.sigma,Some(2.*regression::SIGMA[i]));
-        let (residual,weight)=FitOracle::residual(measurement,measurement.value.unwrap()+1.).unwrap();
-        let expected=if i==2{2f64.sqrt()}else{1.}/(2.*regression::SIGMA[i]);
-        assert_eq!(residual,expected,"actual weighted residual uses transformed standard uncertainty");
-        assert_eq!(weight,expected,"actual response weight retains authored importance");
-    }
-    let handle=prepared.start().unwrap();let result=handle.wait().await.unwrap_or_else(|error|panic!("{error}"));
-    assert!(regression::report(&result).estimate_qualified());
-    assert!(matches!(regression::report(&result).covariance.as_ref().unwrap().values,Err(FitWithheld::NonunitImportance(_))),"actual covariance qualification is independent of usable finite point estimates");
-    let exported=cells::Row::rows(&result.export_fit_parameters().unwrap()).unwrap();
-    assert_eq!(exported.len(),2);
-    for c in &exported{let expected=if c.parameter_id==id(1){3.}else{2.};assert!((c.value-expected).abs()<1e-7);}
-    let run=handle.canonical_run_key().unwrap().to_owned();let attempt=handle.canonical_attempt_key().unwrap().to_owned();
-    let header=store.canonical_run(&run).await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    assert_eq!(header.research_selection.as_deref(),Some("selection-v1"));
-    assert_eq!(header.research_dataset.as_deref(),Some("calibrated-v1"));
-    drop(result);drop(handle);drop(prepared);
-    let mut reopened=runtime.results(&run,&attempt,"runtime.fitted_parameter_cells",0,u64::MAX,cancel.token()).await.unwrap_or_else(|error|panic!("{error}"));
-    let mut actual=vec![];while let Some(batch)=reopened.next_relation_batch().await.unwrap_or_else(|error|panic!("{error}")){actual.extend(cells::Row::rows(&batch).unwrap());}
-    assert_eq!(actual,exported,"original producer-qualified cells survive dropping the live result");
-    let branch=store.project_branch("main").await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    let original_bindings=pse_modeling::Bindings{demand:seed.declaration().experiments[0].bindings.iter().map(|binding|binding.path.clone()).collect(),..Default::default()};
-    let original_target=source.prepare(root,id(33).into(),original_bindings,Default::default(),&cancel).await.unwrap_or_else(|error|panic!("{error}"));
-    let targets=[("a",id(1)),("b",id(2))].into_iter().map(|(name,parameter)|{
-        let declaration=rows.iter().find(|r|r.name==name).unwrap().declaration_id;
-        let symbol=original_target.compiled().model.symbols.values().find(|symbol|symbol.lineage.declaration==declaration).unwrap();
-        let path=original_target.compiled().model.paths.iter().find(|(_,member)|**member==symbol.id).unwrap().0.clone();
-        ResearchParameterTarget{parameter,declaration,root,instance:id(33).into(),path,quantity:quantity.as_id(),unit:unit.as_id(),lower_bits:Some((-100f64).to_bits()),upper_bits:Some(100f64.to_bits())}
-    }).collect();
-    let request=ResearchPublicationRequest{operation:"publish-fit".into(),selection:selection.key.clone(),run:run.clone(),attempt:attempt.clone(),project:project.clone(),branch,target:context.clone(),targets};
-    let mut wrong=request.clone();wrong.attempt="absent-attempt".into();assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
-    let mut wrong=request.clone();wrong.targets[0].unit=id(99);assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
-    let mut wrong=request.clone();wrong.targets[0].upper_bits=Some(0f64.to_bits());assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
-    let preview=Box::pin(runtime.research_publication_preview(&request,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(preview.delta.replacements.len(),2);
-    assert_eq!(store.project_branch_revision("main").await.unwrap_or_else(|error|panic!("{error}")).unwrap().key,context.context.revision,"preview admits locally without activating a source head");
-    assert!(store.project_acknowledgement("publish-fit").await.unwrap_or_else(|error|panic!("{error}")).is_none(),"preview cannot claim a source publication receipt");
-    let intent:crate::workflow::ResearchPublicationIntent=serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
-    let receipt=pse_operations::testing::lose_project_source_reply(Box::pin(runtime.research_publish(&intent,&cancel))).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(receipt.run,run);assert_eq!(receipt.attempt,attempt);assert_eq!(receipt.revision,"publish-fit");
-    assert_eq!(Box::pin(runtime.research_publish(&intent,&cancel)).await.unwrap_or_else(|error|panic!("{error}")),receipt,"replay settles original receipt after head changed");
-    let mut stale=request.clone();stale.operation="stale-new-operation".into();
-    let stale=Box::pin(runtime.research_publication_preview(&stale,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    assert!(Box::pin(runtime.research_publish(&stale.intent,&cancel)).await.is_err());
-    let downstream=Box::pin(runtime.research_publication_open("publish-fit",&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(crate::workflow::OperationSource::of(&downstream).research.unwrap().publication.as_deref(),Some("publish-fit"));
-    let downstream_bindings=pse_modeling::Bindings{demand:request.targets.iter().map(|target|target.path.clone()).collect(),..Default::default()};
-    let downstream_model=downstream.prepare(root,id(33).into(),downstream_bindings,Default::default(),&cancel).await.unwrap_or_else(|error|panic!("{error}"));
-    let target=downstream_model.compiled().model.paths[&request.targets[0].path];
-    assert_eq!(downstream_model.compiled().admitted.case().parameters().iter().find(|p|p.id==target).unwrap().quantity,quantity);
-    // A backdated correction changes new discovery, never this old fit's source receipt.
-    Box::pin(runtime.project_record_context("corrected-context",&project,"calibration",&source,0,None,Some("original-context"),false)).await.unwrap_or_else(|error|panic!("{error}"));
-    let latest=store.project_context_cut("research").await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(store.select_project_context(&latest,"calibration",10).await.unwrap_or_else(|error|panic!("{error}")).unwrap().context.key,"corrected-context");
-    assert_eq!(store.research_dataset("raw-v1").await.unwrap_or_else(|error|panic!("{error}")).unwrap(),raw_row);
-    let reopened=runtime.results(&run,&attempt,"runtime.fitted_parameter_cells",0,u64::MAX,cancel.token()).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(reopened.selection().run().revision,context.context.revision);
-    let downstream_root=rows.iter().find(|row|row.name=="Downstream").unwrap().declaration_id;
-    let point=crate::workflow::StudyPoint {
-        operation:crate::workflow::OperationRequest::DeclaredCase(crate::workflow::CaseOperation{case:downstream_root,route:pse_model::generated::enums::ModelingAnalysisRoute::Steady,settings:crate::math::settings::SolveSettings{intent:SolveIntent::FeasiblePoint,..Default::default()}}),
-        preparation:crate::workflow::PreparationSettings{compiler:compiler_profile(),..Default::default()},
-        overlay:Default::default(),
-        policy:crate::workflow::StudyPointPolicy{key:pse_model::study::OccurrenceKey(0),dependencies:vec![],start:pse_model::study::StartPolicy::Fresh,attempt_limit:1},
+    use crate::workflow::tests::{compiler_profile, id};
+    use crate::workflow::{
+        ResearchDataObject, ResearchDatasetRequest, ResearchObservation, ResearchParameterTarget,
+        ResearchPublicationRequest, ResearchSelectionRequest,
     };
-    let local=Box::pin(downstream.admit_study(&crate::workflow::StudyInputs::Explicit(vec![point]),&crate::workflow::StudyOutputDemand::Full{},&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    let definition=Box::pin(runtime.record_study(&local,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(definition.modeling_revision,"publish-fit");
-    assert_eq!(definition.points[0].operation.source.research.as_ref().unwrap().selection,selection.key);
-    let study=Box::pin(runtime.start_recorded_study(definition,&cancel)).await.unwrap_or_else(|error|panic!("{error}"));
-    let study_metadata=study.status().await.unwrap_or_else(|error|panic!("{error}"));
-    let study_header=store.canonical_run(&study_metadata.run).await.unwrap_or_else(|error|panic!("{error}")).unwrap();
-    assert_eq!(study_header.research_selection.as_deref(),Some("selection-v1"));
-    assert_eq!(study_header.research_dataset.as_deref(),Some("calibrated-v1"));
-    for key in [&selection.key,&calibrated.key,&receipt.key] {
-        let page=runtime.study_workbench_page(crate::workflow::StudyWorkbenchRequest{filter:crate::workflow::StudyWorkbenchFilter{research_reference:Some(key.clone()),..Default::default()},maximum:64,cursor:None}).await.unwrap_or_else(|error|panic!("{error}"));
-        assert_eq!(page.headers.len(),1,"actual native research filter {key} retains the downstream study");
-        assert_eq!(page.headers[0].study,study.study_id().to_string());
+    use pse_relations::{
+        columnar::RelationRow, generated::runtime::fitted_parameter_cells as cells,
+    };
+    let runtime = crate::workflow::tests::durable_runtime();
+    let cancel = crate::CancelSource::new();
+    let (documents, _) = crate::workflow::worker_tests::sources("package p {}");
+    let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let mut seed =
+        fixture_with_physical("research-calibration", [1., 2.], runtime.clone(), physical)
+            .await
+            .unwrap_or_else(|error| panic!("{error}"));
+    let store = runtime.canonical_store().unwrap();
+    store
+        .create_project("create", "research", "Calibration publication")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let project = store
+        .project("research")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    let revision =
+        Box::pin(runtime.project_fork(&project, "main", "research-source", "fork", &seed.source))
+            .await
+            .unwrap_or_else(|error| panic!("{error}"));
+    let source = Box::pin(runtime.modeling_revision(
+        revision,
+        seed.source.physical.clone(),
+        Default::default(),
+    ))
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
+    let project = store
+        .project("research")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    Box::pin(runtime.project_record_context(
+        "original-context",
+        &project,
+        "calibration",
+        &source,
+        0,
+        None,
+        None,
+        false,
+    ))
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
+    let cut = store
+        .project_context_cut("research")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let context = store
+        .select_project_context(&cut, "calibration", 10)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    let root = seed.declaration().experiments[0].case_id;
+    let quantity = source.physical.quantities.neutral_dimensionless().unwrap();
+    let unit = source
+        .physical
+        .quantities
+        .quantity_type(quantity)
+        .unwrap()
+        .canonical_unit;
+    let rows = source
+        .declarations()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let derived = rows
+        .iter()
+        .find(|r| r.name == "calibrated")
+        .unwrap()
+        .declaration_id;
+    let sigma = rows
+        .iter()
+        .find(|r| r.name == "calibrated_sigma")
+        .unwrap()
+        .declaration_id;
+    let members = (0..4)
+        .map(|i| ResearchDataObject {
+            root,
+            record: id(40 + i).into(),
+            attribute: "raw".into(),
+            standard_deviation_attribute: Some("sigma".into()),
+            quantity: quantity.as_id(),
+            acquisition_clock: "synthetic acquisition sequence, no wall-clock accuracy claim"
+                .into(),
+            parent_member: None,
+            calibration: vec![],
+        })
+        .collect::<Vec<_>>();
+    let raw = ResearchDatasetRequest {
+        key: "raw-v1".into(),
+        project: project.clone(),
+        context: context.clone(),
+        parent: None,
+        role: "raw".into(),
+        members,
+    };
+    let raw_row = Box::pin(runtime.research_dataset_create(&raw, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        Box::pin(runtime.research_dataset_create(&raw, &cancel))
+            .await
+            .unwrap_or_else(|error| panic!("{error}")),
+        raw_row
+    );
+    let mut wrong = raw.clone();
+    wrong.key = "wrong-physical".into();
+    wrong.members[0].quantity = id(99);
+    assert!(
+        Box::pin(runtime.research_dataset_create(&wrong, &cancel))
+            .await
+            .is_err()
+    );
+    let mut calibrated = raw.clone();
+    calibrated.key = "calibrated-v1".into();
+    calibrated.role = "derived".into();
+    calibrated.parent = Some(raw.key.clone());
+    for (i, m) in calibrated.members.iter_mut().enumerate() {
+        m.parent_member = Some(i as u64);
+        m.attribute = "calibrated".into();
+        m.standard_deviation_attribute = Some("calibrated_sigma".into());
+        m.calibration = vec![derived, sigma];
     }
-    let absent=runtime.study_workbench_page(crate::workflow::StudyWorkbenchRequest{filter:crate::workflow::StudyWorkbenchFilter{research_reference:Some("absent-research-reference".into()),..Default::default()},maximum:64,cursor:None}).await.unwrap_or_else(|error|panic!("{error}"));
-    assert!(absent.headers.is_empty(),"unknown research identity cannot match unrelated studies");
-    for _ in 0..4 {if study.result().await.unwrap_or_else(|error|panic!("{error}")).is_some(){break;} Box::pin(runtime.work_once()).await.unwrap_or_else(|error|panic!("{error}"));}
-    let results=study.result().await.unwrap_or_else(|error|panic!("{error}")).expect("one downstream occurrence completed");
-    assert_eq!(results.points.len(),1);
-    let (_,downstream_run,downstream_attempt)=&results.points[0];
-    let mut reports=runtime.results(downstream_run,downstream_attempt.as_deref().expect("actual downstream attempt"),"runtime.modeling_reports",0,u64::MAX,cancel.token()).await.unwrap_or_else(|error|panic!("{error}"));
-    let mut values=vec![];
-    while let Some(batch)=reports.next_relation_batch().await.unwrap_or_else(|error|panic!("{error}")){values.extend(pse_relations::generated::runtime::modeling_reports::Row::rows(&batch).unwrap());}
-    let prediction=values.iter().find(|report|report.label=="published-prediction").expect("downstream source-produced prediction");
-    assert!((prediction.value-11.).abs()<1e-7,"downstream actually consumes published intercept3 and slope2");
-    assert_eq!(prediction.quantity_id,quantity.as_id());assert_eq!(prediction.unit_id,unit.as_id());
-    let _=fit;
+    let mut raw_sigma = calibrated.clone();
+    raw_sigma.key = "unsupported-uncertainty-copy".into();
+    raw_sigma.members[0].standard_deviation_attribute = Some("sigma".into());
+    assert!(
+        Box::pin(runtime.research_dataset_create(&raw_sigma, &cancel))
+            .await
+            .is_err(),
+        "raw sigma cannot be silently carried through non-unit-slope calibration"
+    );
+    let mut wrong_calibration = calibrated.clone();
+    wrong_calibration.key = "wrong-calibration".into();
+    wrong_calibration.members[0].calibration = vec![root];
+    assert!(
+        Box::pin(runtime.research_dataset_create(&wrong_calibration, &cancel))
+            .await
+            .is_err(),
+        "unrelated declarations cannot stand in for actual calibrated attributes"
+    );
+    Box::pin(runtime.research_dataset_create(&calibrated, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let selection = ResearchSelectionRequest {
+        key: "selection-v1".into(),
+        project: project.clone(),
+        context: context.clone(),
+        dataset: calibrated.key.clone(),
+        fit: seed.declaration().fit_id,
+        observations: (0..4)
+            .map(|i| ResearchObservation {
+                observation: id(40 + i).into(),
+                member: i as u64,
+                reason: "included: y=2x+3; explicitly authored sigma'=2sigma".into(),
+            })
+            .collect(),
+    };
+    let mut partial = selection.clone();
+    partial.key = "partial".into();
+    partial.observations.pop();
+    assert!(
+        Box::pin(runtime.research_selection_create(&partial, &cancel))
+            .await
+            .is_err()
+    );
+    Box::pin(runtime.research_selection_create(&selection, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let (selected, fit) = Box::pin(runtime.research_selection_open(&selection.key, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    seed.source = selected;
+    let mut profile = seed.problem.profile.clone();
+    profile.uncertainty = Some(FitUncertainty {
+        level: Fraction::try_new(0.95).unwrap(),
+        profile: None,
+        predictions: false,
+    });
+    let prepared = production_profile(&seed, profile)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    for (i, measurement) in prepared.problem.measurements.iter().enumerate() {
+        assert_eq!(measurement.value, Some(2. * (i + 1) as f64 + 3.));
+        assert_eq!(measurement.sigma, Some(2. * regression::SIGMA[i]));
+        let (residual, weight) =
+            FitOracle::residual(measurement, measurement.value.unwrap() + 1.).unwrap();
+        let expected = if i == 2 { 2f64.sqrt() } else { 1. } / (2. * regression::SIGMA[i]);
+        assert_eq!(
+            residual, expected,
+            "actual weighted residual uses transformed standard uncertainty"
+        );
+        assert_eq!(
+            weight, expected,
+            "actual response weight retains authored importance"
+        );
+    }
+    let handle = prepared.start().unwrap();
+    let result = handle
+        .wait()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(regression::report(&result).estimate_qualified());
+    assert!(
+        matches!(
+            regression::report(&result)
+                .covariance
+                .as_ref()
+                .unwrap()
+                .values,
+            Err(FitWithheld::NonunitImportance(_))
+        ),
+        "actual covariance qualification is independent of usable finite point estimates"
+    );
+    let exported = cells::Row::rows(&result.export_fit_parameters().unwrap()).unwrap();
+    assert_eq!(exported.len(), 2);
+    for c in &exported {
+        let expected = if c.parameter_id == id(1) { 3. } else { 2. };
+        assert!((c.value - expected).abs() < 1e-7);
+    }
+    let run = handle.canonical_run_key().unwrap().to_owned();
+    let attempt = handle.canonical_attempt_key().unwrap().to_owned();
+    let header = store
+        .canonical_run(&run)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    assert_eq!(header.research_selection.as_deref(), Some("selection-v1"));
+    assert_eq!(header.research_dataset.as_deref(), Some("calibrated-v1"));
+    drop(result);
+    drop(handle);
+    drop(prepared);
+    let mut reopened = runtime
+        .results(
+            &run,
+            &attempt,
+            "runtime.fitted_parameter_cells",
+            0,
+            u64::MAX,
+            cancel.token(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let mut actual = vec![];
+    while let Some(batch) = reopened
+        .next_relation_batch()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+    {
+        actual.extend(cells::Row::rows(&batch).unwrap());
+    }
+    assert_eq!(
+        actual, exported,
+        "original producer-qualified cells survive dropping the live result"
+    );
+    let branch = store
+        .project_branch("main")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    let original_bindings = pse_modeling::Bindings {
+        demand: seed.declaration().experiments[0]
+            .bindings
+            .iter()
+            .map(|binding| binding.path.clone())
+            .collect(),
+        ..Default::default()
+    };
+    let original_target = source
+        .prepare(
+            root,
+            id(33).into(),
+            original_bindings,
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let targets = [("a", id(1)), ("b", id(2))]
+        .into_iter()
+        .map(|(name, parameter)| {
+            let declaration = rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+            let symbol = original_target
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.declaration == declaration)
+                .unwrap();
+            let path = original_target
+                .compiled()
+                .model
+                .paths
+                .iter()
+                .find(|(_, member)| **member == symbol.id)
+                .unwrap()
+                .0
+                .clone();
+            ResearchParameterTarget {
+                parameter,
+                declaration,
+                root,
+                instance: id(33).into(),
+                path,
+                quantity: quantity.as_id(),
+                unit: unit.as_id(),
+                lower_bits: Some((-100f64).to_bits()),
+                upper_bits: Some(100f64.to_bits()),
+            }
+        })
+        .collect();
+    let request = ResearchPublicationRequest {
+        operation: "publish-fit".into(),
+        selection: selection.key.clone(),
+        run: run.clone(),
+        attempt: attempt.clone(),
+        project: project.clone(),
+        branch,
+        target: context.clone(),
+        targets,
+    };
+    let mut wrong = request.clone();
+    wrong.attempt = "absent-attempt".into();
+    assert!(
+        Box::pin(runtime.research_publication_preview(&wrong, &cancel))
+            .await
+            .is_err()
+    );
+    let mut wrong = request.clone();
+    wrong.targets[0].unit = id(99);
+    assert!(
+        Box::pin(runtime.research_publication_preview(&wrong, &cancel))
+            .await
+            .is_err()
+    );
+    let mut wrong = request.clone();
+    wrong.targets[0].upper_bits = Some(0f64.to_bits());
+    assert!(
+        Box::pin(runtime.research_publication_preview(&wrong, &cancel))
+            .await
+            .is_err()
+    );
+    let preview = Box::pin(runtime.research_publication_preview(&request, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(preview.delta.replacements.len(), 2);
+    assert_eq!(
+        store
+            .project_branch_revision("main")
+            .await
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap()
+            .key,
+        context.context.revision,
+        "preview admits locally without activating a source head"
+    );
+    assert!(
+        store
+            .project_acknowledgement("publish-fit")
+            .await
+            .unwrap_or_else(|error| panic!("{error}"))
+            .is_none(),
+        "preview cannot claim a source publication receipt"
+    );
+    let intent: crate::workflow::ResearchPublicationIntent =
+        serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
+    let receipt = pse_operations::testing::lose_project_source_reply(Box::pin(
+        runtime.research_publish(&intent, &cancel),
+    ))
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(receipt.run, run);
+    assert_eq!(receipt.attempt, attempt);
+    assert_eq!(receipt.revision, "publish-fit");
+    assert_eq!(
+        Box::pin(runtime.research_publish(&intent, &cancel))
+            .await
+            .unwrap_or_else(|error| panic!("{error}")),
+        receipt,
+        "replay settles original receipt after head changed"
+    );
+    let mut stale = request.clone();
+    stale.operation = "stale-new-operation".into();
+    let stale = Box::pin(runtime.research_publication_preview(&stale, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(
+        Box::pin(runtime.research_publish(&stale.intent, &cancel))
+            .await
+            .is_err()
+    );
+    let downstream = Box::pin(runtime.research_publication_open("publish-fit", &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        crate::workflow::OperationSource::of(&downstream)
+            .research
+            .unwrap()
+            .publication
+            .as_deref(),
+        Some("publish-fit")
+    );
+    let downstream_bindings = pse_modeling::Bindings {
+        demand: request
+            .targets
+            .iter()
+            .map(|target| target.path.clone())
+            .collect(),
+        ..Default::default()
+    };
+    let downstream_model = downstream
+        .prepare(
+            root,
+            id(33).into(),
+            downstream_bindings,
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let target = downstream_model.compiled().model.paths[&request.targets[0].path];
+    assert_eq!(
+        downstream_model
+            .compiled()
+            .admitted
+            .case()
+            .parameters()
+            .iter()
+            .find(|p| p.id == target)
+            .unwrap()
+            .quantity,
+        quantity
+    );
+    // A backdated correction changes new discovery, never this old fit's source receipt.
+    Box::pin(runtime.project_record_context(
+        "corrected-context",
+        &project,
+        "calibration",
+        &source,
+        0,
+        None,
+        Some("original-context"),
+        false,
+    ))
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
+    let latest = store
+        .project_context_cut("research")
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        store
+            .select_project_context(&latest, "calibration", 10)
+            .await
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap()
+            .context
+            .key,
+        "corrected-context"
+    );
+    assert_eq!(
+        store
+            .research_dataset("raw-v1")
+            .await
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap(),
+        raw_row
+    );
+    let reopened = runtime
+        .results(
+            &run,
+            &attempt,
+            "runtime.fitted_parameter_cells",
+            0,
+            u64::MAX,
+            cancel.token(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        reopened.selection().run().revision,
+        context.context.revision
+    );
+    let downstream_root = rows
+        .iter()
+        .find(|row| row.name == "Downstream")
+        .unwrap()
+        .declaration_id;
+    let point = crate::workflow::StudyPoint {
+        operation: crate::workflow::OperationRequest::DeclaredCase(
+            crate::workflow::CaseOperation {
+                case: downstream_root,
+                route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                settings: crate::math::settings::SolveSettings {
+                    intent: SolveIntent::FeasiblePoint,
+                    ..Default::default()
+                },
+            },
+        ),
+        preparation: crate::workflow::PreparationSettings {
+            compiler: compiler_profile(),
+            ..Default::default()
+        },
+        overlay: Default::default(),
+        policy: crate::workflow::StudyPointPolicy {
+            key: pse_model::study::OccurrenceKey(0),
+            dependencies: vec![],
+            start: pse_model::study::StartPolicy::Fresh,
+            attempt_limit: 1,
+        },
+    };
+    let local = Box::pin(downstream.admit_study(
+        &crate::workflow::StudyInputs::Explicit(vec![point]),
+        &crate::workflow::StudyOutputDemand::Full {},
+        &cancel,
+    ))
+    .await
+    .unwrap_or_else(|error| panic!("{error}"));
+    let definition = Box::pin(runtime.record_study(&local, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(definition.modeling_revision, "publish-fit");
+    assert_eq!(
+        definition.points[0]
+            .operation
+            .source
+            .research
+            .as_ref()
+            .unwrap()
+            .selection,
+        selection.key
+    );
+    let study = Box::pin(runtime.start_recorded_study(definition, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let study_metadata = study
+        .status()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let study_header = store
+        .canonical_run(&study_metadata.run)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap();
+    assert_eq!(
+        study_header.research_selection.as_deref(),
+        Some("selection-v1")
+    );
+    assert_eq!(
+        study_header.research_dataset.as_deref(),
+        Some("calibrated-v1")
+    );
+    for key in [&selection.key, &calibrated.key, &receipt.key] {
+        let page = runtime
+            .study_workbench_page(crate::workflow::StudyWorkbenchRequest {
+                filter: crate::workflow::StudyWorkbenchFilter {
+                    research_reference: Some(key.clone()),
+                    ..Default::default()
+                },
+                maximum: 64,
+                cursor: None,
+            })
+            .await
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(
+            page.headers.len(),
+            1,
+            "actual native research filter {key} retains the downstream study"
+        );
+        assert_eq!(page.headers[0].study, study.study_id().to_string());
+    }
+    let absent = runtime
+        .study_workbench_page(crate::workflow::StudyWorkbenchRequest {
+            filter: crate::workflow::StudyWorkbenchFilter {
+                research_reference: Some("absent-research-reference".into()),
+                ..Default::default()
+            },
+            maximum: 64,
+            cursor: None,
+        })
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(
+        absent.headers.is_empty(),
+        "unknown research identity cannot match unrelated studies"
+    );
+    for _ in 0..4 {
+        if study
+            .result()
+            .await
+            .unwrap_or_else(|error| panic!("{error}"))
+            .is_some()
+        {
+            break;
+        }
+        Box::pin(runtime.work_once())
+            .await
+            .unwrap_or_else(|error| panic!("{error}"));
+    }
+    let results = study
+        .result()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .expect("one downstream occurrence completed");
+    assert_eq!(results.points.len(), 1);
+    let (_, downstream_run, downstream_attempt) = &results.points[0];
+    let mut reports = runtime
+        .results(
+            downstream_run,
+            downstream_attempt
+                .as_deref()
+                .expect("actual downstream attempt"),
+            "runtime.modeling_reports",
+            0,
+            u64::MAX,
+            cancel.token(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let mut values = vec![];
+    while let Some(batch) = reports
+        .next_relation_batch()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+    {
+        values.extend(
+            pse_relations::generated::runtime::modeling_reports::Row::rows(&batch).unwrap(),
+        );
+    }
+    let prediction = values
+        .iter()
+        .find(|report| report.label == "published-prediction")
+        .expect("downstream source-produced prediction");
+    assert!(
+        (prediction.value - 11.).abs() < 1e-7,
+        "downstream actually consumes published intercept3 and slope2"
+    );
+    assert_eq!(prediction.quantity_id, quantity.as_id());
+    assert_eq!(prediction.unit_id, unit.as_id());
+    let _ = fit;
 }
 
 /// SC02's unknown uncertainty and domain refusals stay at the original authored
 /// measurement/fit readers; exclusion remains an explicit retained observation.
 #[tokio::test]
-async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_exclusions(){
-    use crate::workflow::tests::{compiler_profile,id};
-    let seed=fixture("research-calibration",[1.,2.]).await.unwrap_or_else(|error|panic!("{error}"));
-    let cancel=crate::CancelSource::new();
-    let mut declarations=seed.source.fit_declarations().await.unwrap_or_else(|error|panic!("{error}"));
-    declarations.fits[0].observations[0].standard_deviation_attribute=None;
-    let unknown=seed.source.clone().with_fit_declarations(declarations.clone()).await.unwrap_or_else(|error|panic!("{error}"));
-    let error=unknown.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.unwrap_err();
-    assert!(error.to_string().contains("positive difference-unit standard deviations"),"{error}");
-    declarations.fits[0].observations[0].included=false;
-    let excluded=seed.source.clone().with_fit_declarations(declarations).await.unwrap_or_else(|error|panic!("{error}"));
-    let prepared=excluded.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.unwrap_or_else(|error|panic!("{error}"));
-    assert_eq!(prepared.problem.measurements.len(),4);
-    let observation=prepared.problem.measurements.iter().find(|m|m.id==id(40)).unwrap();
-    assert!(!observation.included);assert_eq!(observation.value,Some(5.));assert_eq!(observation.sigma,None);
-    let mut rows=seed.source.declarations().await.unwrap_or_else(|error|panic!("{error}")).to_vec();
-    let record=rows.iter_mut().find(|r|r.declaration_id.as_id()==id(40)).unwrap();
-    record.value.entity.as_mut().unwrap().attributes.iter_mut().find(|a|a.name=="raw").unwrap().value=pse_authoring::language::parse_cell("-1.0").unwrap();
+async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_exclusions() {
+    use crate::workflow::tests::{compiler_profile, id};
+    let seed = fixture("research-calibration", [1., 2.])
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let cancel = crate::CancelSource::new();
+    let mut declarations = seed
+        .source
+        .fit_declarations()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    declarations.fits[0].observations[0].standard_deviation_attribute = None;
+    let unknown = seed
+        .source
+        .clone()
+        .with_fit_declarations(declarations.clone())
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let error = unknown
+        .prepare_fit(
+            id(32).into(),
+            seed.problem.profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("positive difference-unit standard deviations"),
+        "{error}"
+    );
+    declarations.fits[0].observations[0].included = false;
+    let excluded = seed
+        .source
+        .clone()
+        .with_fit_declarations(declarations)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    let prepared = excluded
+        .prepare_fit(
+            id(32).into(),
+            seed.problem.profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(prepared.problem.measurements.len(), 4);
+    let observation = prepared
+        .problem
+        .measurements
+        .iter()
+        .find(|m| m.id == id(40))
+        .unwrap();
+    assert!(!observation.included);
+    assert_eq!(observation.value, Some(5.));
+    assert_eq!(observation.sigma, None);
+    let mut rows = seed
+        .source
+        .declarations()
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+        .to_vec();
+    let record = rows
+        .iter_mut()
+        .find(|r| r.declaration_id.as_id() == id(40))
+        .unwrap();
+    record
+        .value
+        .entity
+        .as_mut()
+        .unwrap()
+        .attributes
+        .iter_mut()
+        .find(|a| a.name == "raw")
+        .unwrap()
+        .value = pse_authoring::language::parse_cell("-1.0").unwrap();
     match seed.source.with_declarations(rows).await {
-        Err(_)=>{},
-        Ok(outside)=>assert!(outside.prepare_fit(id(32).into(),seed.problem.profile.clone(),compiler_profile(),Default::default(),&cancel).await.is_err(),"authored calibration validity domain cannot be bypassed"),
+        Err(_) => {}
+        Ok(outside) => assert!(
+            outside
+                .prepare_fit(
+                    id(32).into(),
+                    seed.problem.profile.clone(),
+                    compiler_profile(),
+                    Default::default(),
+                    &cancel
+                )
+                .await
+                .is_err(),
+            "authored calibration validity domain cannot be bypassed"
+        ),
     }
 }

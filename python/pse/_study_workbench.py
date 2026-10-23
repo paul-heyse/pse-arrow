@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Bounded study browsing, exact frozen populations and passive reconnectable observation."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -29,6 +30,7 @@ from pse.contracts.documents import (
     StudyWorkbenchPageOutput,
     StudyWorkbenchRequest,
 )
+
 if TYPE_CHECKING:
     from pse._runs import RunHandle
 
@@ -36,6 +38,7 @@ if TYPE_CHECKING:
 @attrs.frozen
 class StudyKpiAnalysis:
     """Original population and selected Arrow aggregates; minimum is sample-local."""
+
     _handle: _NativeStudyKpiAnalysis
 
     @property
@@ -58,13 +61,16 @@ class StudyKpiAnalysis:
 @attrs.frozen
 class FrozenStudyCohort:
     """One complete native snapshot with lazy original protected detail."""
+
     _handle: _NativeFrozenStudyCohort
 
     @property
     def document(self) -> StudyCohortDocumentOutput:
         return self._handle.document
 
-    def result(self, member: int, relation: str, *, start: int, end: int) -> TableStream:
+    def result(
+        self, member: int, relation: str, *, start: int, end: int
+    ) -> TableStream:
         return TableStream(self._handle.result(member, relation, start=start, end=end))
 
     def aggregate(self, request: StudyKpiRequest) -> StudyKpiAnalysis:
@@ -74,6 +80,7 @@ class FrozenStudyCohort:
 @attrs.frozen
 class StudyObserver:
     """Observation owns no scientific cancellation authority."""
+
     _handle: _NativeStudyObserver
 
     def poll(self) -> StudyObservationPageOutput:
@@ -92,11 +99,13 @@ class StudyObserver:
         if not 0 <= interval <= 60:
             raise ValueError("observer interval must be between zero and 60 seconds")
         import time
+
         while True:
             page = self.poll()
             yield page
             if page.status.headers[0].terminal and all(
-                source.position.history_complete or source.continuity == "history_unavailable"
+                source.position.history_complete
+                or source.continuity == "history_unavailable"
                 for source in page.sources
             ):
                 return
@@ -108,23 +117,39 @@ class StudyObserver:
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type: type[BaseException] | None,
-                 exc: BaseException | None, tb: TracebackType | None) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         self.close()
 
 
 class StudyWorkbenchMixin:
     """Public runtime composition; the native owner performs selection and admission."""
+
     _handle: _NativeRuntime
 
-    def study_workbench_page(self, request: StudyWorkbenchRequest) -> StudyWorkbenchPageOutput:
+    def study_workbench_page(
+        self, request: StudyWorkbenchRequest
+    ) -> StudyWorkbenchPageOutput:
         return self._handle.study_workbench_page(codec.encode_json(request))
 
     def freeze_study_cohort(self, request: StudyCohortRequest) -> FrozenStudyCohort:
-        return FrozenStudyCohort(self._handle.freeze_study_cohort(codec.encode_json(request)))
+        return FrozenStudyCohort(
+            self._handle.freeze_study_cohort(codec.encode_json(request))
+        )
 
-    def observe_study(self, request: StudyObservationRequest, *,
-                      cursor: StudyObservationCursor | StudyObservationCursorOutput | None = None) -> StudyObserver:
-        return StudyObserver(self._handle.observe_study(
-            codec.encode_json(request), cursor=None if cursor is None else codec.encode_json(cursor)
-        ))
+    def observe_study(
+        self,
+        request: StudyObservationRequest,
+        *,
+        cursor: StudyObservationCursor | StudyObservationCursorOutput | None = None,
+    ) -> StudyObserver:
+        return StudyObserver(
+            self._handle.observe_study(
+                codec.encode_json(request),
+                cursor=None if cursor is None else codec.encode_json(cursor),
+            )
+        )

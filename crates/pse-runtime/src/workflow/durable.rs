@@ -1216,9 +1216,14 @@ impl DurableAttempt {
         let identity = identities(request)?;
         let sources = request_source_selections(request);
         for source in &sources {
-            if let Some(research)=&source.research {
-                let package=request_packages_for_research(request).into_iter().find(|p|super::OperationSource::of(p)==*source).ok_or_else(||contract("research request source absent"))?;
-                runtime.restore_research_source(&mut package.clone(),Some(research)).await?;
+            if let Some(research) = &source.research {
+                let package = request_packages_for_research(request)
+                    .into_iter()
+                    .find(|p| super::OperationSource::of(p) == *source)
+                    .ok_or_else(|| contract("research request source absent"))?;
+                runtime
+                    .restore_research_source(&mut package.clone(), Some(research))
+                    .await?;
             }
         }
         for context in sources.iter().filter_map(|source| source.context.as_ref()) {
@@ -1270,7 +1275,9 @@ impl DurableAttempt {
             .ok_or_else(|| contract("horizon source absent"))?
             .physical;
         for package in packages {
-            runtime.restore_research_source(&mut package.clone(),package.research_source.as_ref()).await?;
+            runtime
+                .restore_research_source(&mut package.clone(), package.research_source.as_ref())
+                .await?;
         }
         let selected_sources = packages
             .iter()
@@ -2366,14 +2373,16 @@ fn identities(
 }
 /// Preserve each actual input position's exact historical attribution, including fitting.
 /// Scientific source deduplication must not discard distinct context cuts over one source.
-fn request_packages_for_research<'a>(request:&'a RunRequest<'a>)->Vec<&'a super::ModelingPackage>{
+fn request_packages_for_research<'a>(
+    request: &'a RunRequest<'a>,
+) -> Vec<&'a super::ModelingPackage> {
     match request {
-        RunRequest::Modeling(steps)=>steps.iter().map(|step|&step.source).collect(),
-        RunRequest::Horizon(horizon)=>horizon.sources.iter().collect(),
-        RunRequest::Simulation(simulation)=>vec![&simulation.source],
-        RunRequest::Fit(fit)=>vec![&fit.source],
-        #[cfg(feature="solver-diffsol")]
-        RunRequest::Shooting{problem,..}=>vec![&problem.simulation.source],
+        RunRequest::Modeling(steps) => steps.iter().map(|step| &step.source).collect(),
+        RunRequest::Horizon(horizon) => horizon.sources.iter().collect(),
+        RunRequest::Simulation(simulation) => vec![&simulation.source],
+        RunRequest::Fit(fit) => vec![&fit.source],
+        #[cfg(feature = "solver-diffsol")]
+        RunRequest::Shooting { problem, .. } => vec![&problem.simulation.source],
     }
 }
 fn request_source_selections(request: &RunRequest<'_>) -> Vec<super::OperationSource> {

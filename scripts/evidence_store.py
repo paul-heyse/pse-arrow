@@ -16,7 +16,14 @@ import tempfile
 import time
 from pathlib import Path
 
-from scripts import evidence_detail, evidence_projection, evidence_sources, host_admission, resource_store, surreal_server
+from scripts import (
+    evidence_detail,
+    evidence_projection,
+    evidence_sources,
+    host_admission,
+    resource_store,
+    surreal_server,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -163,13 +170,32 @@ def parser() -> argparse.ArgumentParser:
         selected = commands.add_parser(command)
         selected.add_argument("invocation")
         selected.add_argument("--registry", type=Path)
-        selected.add_argument("--source-kind", choices=("invocation", "assessment", "diagnostic", "measurement", "host"), default="invocation")
+        selected.add_argument(
+            "--source-kind",
+            choices=("invocation", "assessment", "diagnostic", "measurement", "host"),
+            default="invocation",
+        )
         selected.add_argument("--inventory", type=Path)
-        selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
-        selected.add_argument("--invocations", action="append", default=[], metavar="CASE=JSONL")
+        selected.add_argument(
+            "--criterion", action="append", default=[], metavar="CASE=CSV"
+        )
+        selected.add_argument(
+            "--invocations", action="append", default=[], metavar="CASE=JSONL"
+        )
     for command in ("offline", "analyze"):
         selected = commands.add_parser(command)
-        selected.add_argument("--operation", choices=("subjects", "failures", "missing", "distribution", "diagnostics", "measurements"), default="subjects")
+        selected.add_argument(
+            "--operation",
+            choices=(
+                "subjects",
+                "failures",
+                "missing",
+                "distribution",
+                "diagnostics",
+                "measurements",
+            ),
+            default="subjects",
+        )
         selected.add_argument("--crate-name")
         selected.add_argument("--context-id")
         selected.add_argument("--status")
@@ -181,12 +207,22 @@ def parser() -> argparse.ArgumentParser:
             selected.add_argument("--invocation", action="append", default=[])
             selected.add_argument("--registry", type=Path)
             selected.add_argument("--inventory", type=Path)
-            selected.add_argument("--assessment", type=Path, action="append", default=[])
-            selected.add_argument("--diagnostic", type=Path, action="append", default=[])
-            selected.add_argument("--measurement", type=Path, action="append", default=[])
+            selected.add_argument(
+                "--assessment", type=Path, action="append", default=[]
+            )
+            selected.add_argument(
+                "--diagnostic", type=Path, action="append", default=[]
+            )
+            selected.add_argument(
+                "--measurement", type=Path, action="append", default=[]
+            )
             selected.add_argument("--host", type=Path, action="append", default=[])
-            selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
-            selected.add_argument("--invocations", action="append", default=[], metavar="CASE=JSONL")
+            selected.add_argument(
+                "--criterion", action="append", default=[], metavar="CASE=CSV"
+            )
+            selected.add_argument(
+                "--invocations", action="append", default=[], metavar="CASE=JSONL"
+            )
         else:
             selected.add_argument("--generation", action="append", required=True)
     detail = commands.add_parser("detail")
@@ -223,14 +259,20 @@ def criterion_selection(values: list[str]) -> dict[str, Path]:
 
 def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceSnapshot:
     if args.source_kind == "invocation":
-        return evidence_projection.invocation_snapshot(args.invocation, registry=args.registry, inventory=args.inventory)
+        return evidence_projection.invocation_snapshot(
+            args.invocation, registry=args.registry, inventory=args.inventory
+        )
     path = Path(args.invocation)
     if args.source_kind == "assessment":
         return evidence_sources.assessment_snapshot(path)
     if args.source_kind == "diagnostic":
         return evidence_sources.diagnostic_snapshot(path)
     if args.source_kind == "measurement":
-        return evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion), invocations=criterion_selection(args.invocations))
+        return evidence_sources.measurement_snapshot(
+            path,
+            criterion=criterion_selection(args.criterion),
+            invocations=criterion_selection(args.invocations),
+        )
     return evidence_sources.host_snapshot(path)
 
 
@@ -238,13 +280,36 @@ def run_offline(tool: Path, arguments: list[str], *, deadline: float) -> int:
     """Dispatch an explicitly built tool without configuration, service or build effects."""
     information = tool.stat()
     if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
-        raise ValueError("Evidence tool unavailable; use independent snapshot/detail inspection or explicitly run just evidence-build")
-    environment = {key: value for key, value in os.environ.items() if key not in {"SURREAL_USER", "SURREAL_PASS", "PSE_TOOLING_ACTIVITY_FD", "PSE_TOOLING_SERVICE_INSTANCE_ID"}}
-    return subprocess.run([str(tool), "evidence", "offline", *arguments], check=False, timeout=surreal_server.remaining(deadline), env=environment).returncode
+        raise ValueError(
+            "Evidence tool unavailable; use independent snapshot/detail inspection or explicitly run just evidence-build"
+        )
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key
+        not in {
+            "SURREAL_USER",
+            "SURREAL_PASS",
+            "PSE_TOOLING_ACTIVITY_FD",
+            "PSE_TOOLING_SERVICE_INSTANCE_ID",
+        }
+    }
+    return subprocess.run(
+        [str(tool), "evidence", "offline", *arguments],
+        check=False,
+        timeout=surreal_server.remaining(deadline),
+        env=environment,
+    ).returncode
 
 
 def analyze(args: argparse.Namespace, *, deadline: float) -> int:
-    question = {"operation": args.operation, "crate_name": args.crate_name, "context_id": args.context_id, "status": args.status, "limit": args.limit}
+    question = {
+        "operation": args.operation,
+        "crate_name": args.crate_name,
+        "context_id": args.context_id,
+        "status": args.status,
+        "limit": args.limit,
+    }
     with tempfile.TemporaryDirectory(prefix="pse-evidence-query-") as directory:
         root = Path(directory)
         question_path = root / "question.json"
@@ -257,14 +322,30 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
         if args.command == "analyze":
             for generation in args.generation:
                 arguments += ["--generation", generation]
-            return run_native(args.state.absolute(), args.tool.absolute(), ["analyze", *arguments], deadline=deadline)
-        snapshots = [evidence_projection.invocation_snapshot(handle, registry=args.registry, inventory=args.inventory) for handle in args.invocation]
+            return run_native(
+                args.state.absolute(),
+                args.tool.absolute(),
+                ["analyze", *arguments],
+                deadline=deadline,
+            )
+        snapshots = [
+            evidence_projection.invocation_snapshot(
+                handle, registry=args.registry, inventory=args.inventory
+            )
+            for handle in args.invocation
+        ]
         for path in args.assessment:
             snapshots.append(evidence_sources.assessment_snapshot(path))
         for path in args.diagnostic:
             snapshots.append(evidence_sources.diagnostic_snapshot(path))
         for path in args.measurement:
-            snapshots.append(evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion), invocations=criterion_selection(args.invocations)))
+            snapshots.append(
+                evidence_sources.measurement_snapshot(
+                    path,
+                    criterion=criterion_selection(args.criterion),
+                    invocations=criterion_selection(args.invocations),
+                )
+            )
         for path in args.host:
             snapshots.append(evidence_sources.host_snapshot(path, deadline=deadline))
         inputs = list(args.input)
@@ -299,13 +380,28 @@ def main(argv: list[str] | None = None) -> int:
             if args.tail < 0:
                 raise ValueError("nonnegative detail tail required")
             if args.invocation is not None:
-                value = evidence_detail.invocation_detail(args.invocation, registry=args.registry, subject=args.subject, tail=args.tail)
+                value = evidence_detail.invocation_detail(
+                    args.invocation,
+                    registry=args.registry,
+                    subject=args.subject,
+                    tail=args.tail,
+                )
             elif args.member is None:
                 raise ValueError("--member is required for diagnostic or copied detail")
             elif args.diagnostic is not None:
-                value = evidence_detail.diagnostic_detail(args.diagnostic, args.member, tail=args.tail, expected_digest=args.expected_digest)
+                value = evidence_detail.diagnostic_detail(
+                    args.diagnostic,
+                    args.member,
+                    tail=args.tail,
+                    expected_digest=args.expected_digest,
+                )
             else:
-                value = evidence_detail.copied_detail(args.copy, args.member, tail=args.tail, expected_digest=args.expected_digest)
+                value = evidence_detail.copied_detail(
+                    args.copy,
+                    args.member,
+                    tail=args.tail,
+                    expected_digest=args.expected_digest,
+                )
             print(json.dumps(value, sort_keys=True, allow_nan=False))
             return 0
         if args.command == "offline":
@@ -344,7 +440,14 @@ def main(argv: list[str] | None = None) -> int:
                 if value is not None:
                     arguments += ["--" + name, str(value)]
         return run_native(state, args.tool.absolute(), arguments, deadline=deadline)
-    except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ) as error:
         print(f"evidence-store: {error}", file=sys.stderr)
         return 1
 

@@ -82,8 +82,10 @@ pub struct RunHandle {
 }
 impl RunHandle {
     /// Passive study observation borrows only telemetry, never a cancellation lease.
-    pub(super) fn study_progress_source(&self)->Option<(String,String,Arc<Progress>)> {
-        self.canonical_keys.as_ref().map(|(run,attempt)|(run.clone(),attempt.clone(),self.progress.clone()))
+    pub(super) fn study_progress_source(&self) -> Option<(String, String, Arc<Progress>)> {
+        self.canonical_keys
+            .as_ref()
+            .map(|(run, attempt)| (run.clone(), attempt.clone(), self.progress.clone()))
     }
     /// Passive current/cumulative/recent operation reader; dropping it never cancels this run.
     pub fn observations(&self) -> Option<pse_diagnostics::observation::OperationReader> {

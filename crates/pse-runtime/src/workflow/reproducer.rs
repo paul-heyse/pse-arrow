@@ -1071,7 +1071,8 @@ mod tests {
             operation: None,
             selection: Default::default(),
             sources: vec![super::super::ReviewSourceDocument {
-            research: None,                context: None,
+                research: None,
+                context: None,
                 identity: replay.identity,
                 interpretation: replay.interpretation,
                 build: replay.build,

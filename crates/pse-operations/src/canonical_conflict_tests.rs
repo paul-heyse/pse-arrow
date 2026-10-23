@@ -155,7 +155,9 @@ async fn finish(store: &CanonicalStore, revision: &Revision, key: &str) -> Strin
 }
 fn study(revision: &Revision, key: &str, run: &str) -> crate::canonical_studies::Study {
     crate::canonical_studies::Study {
-        physical_revision: None, physical_identity: None, context: None,
+        physical_revision: None,
+        physical_identity: None,
+        context: None,
         key: key.into(),
         run: run.into(),
         problem: revision.problem.clone(),

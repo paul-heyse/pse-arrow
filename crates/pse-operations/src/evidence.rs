@@ -302,9 +302,13 @@ pub struct EvidenceFact {
     pub value_ns: Option<f64>,
 }
 impl EvidenceFact {
-    pub(crate) fn to_row(&self, generation: &str) -> Result<pse_model::generated::runtime::evidence_facts::Row, EvidenceError> {
+    pub(crate) fn to_row(
+        &self,
+        generation: &str,
+    ) -> Result<pse_model::generated::runtime::evidence_facts::Row, EvidenceError> {
         Ok(pse_model::generated::runtime::evidence_facts::Row {
-            key: hex(serde_json::to_vec(&(generation, &self.member)).map_err(|e| config(e.to_string()))?),
+            key: hex(serde_json::to_vec(&(generation, &self.member))
+                .map_err(|e| config(e.to_string()))?),
             generation: generation.to_owned(),
             member: self.member.clone(),
             kind: self.kind.clone(),
@@ -371,7 +375,15 @@ impl EvidenceSnapshot {
                 "invalid evidence identity, version, digest or coverage",
             ));
         }
-        if !matches!(self.codec.as_str(), "exact-resource-files-invocation-v2" | "assessment-v5" | "active-diagnostic-action-v1" | "process-cost-v5" | "host-admission-ledger-v1" | "case-smoke-v1") {
+        if !matches!(
+            self.codec.as_str(),
+            "exact-resource-files-invocation-v2"
+                | "assessment-v5"
+                | "active-diagnostic-action-v1"
+                | "process-cost-v5"
+                | "host-admission-ledger-v1"
+                | "case-smoke-v1"
+        ) {
             return Err(config("unsupported original evidence source codec"));
         }
         let expected = self.expected_members.iter().collect::<BTreeSet<_>>();
@@ -392,25 +404,60 @@ impl EvidenceSnapshot {
         let mut samples = BTreeSet::new();
         for f in &self.facts {
             if let Some(value) = &f.context_json {
-                if f.kind != "context" { return Err(config("context declaration has wrong category")); }
-                let value: std::collections::BTreeMap<String, serde_json::Value> = serde_json::from_str(value).map_err(|e| config(e.to_string()))?;
-                let fields = ["workload", "input", "revision", "build", "profile", "features", "provider", "isa", "capture", "host", "environment", "source", "mode", "process"];
-                if value.keys().any(|key| !fields.contains(&key.as_str())) || value.len() != fields.len() {
+                if f.kind != "context" {
+                    return Err(config("context declaration has wrong category"));
+                }
+                let value: std::collections::BTreeMap<String, serde_json::Value> =
+                    serde_json::from_str(value).map_err(|e| config(e.to_string()))?;
+                let fields = [
+                    "workload",
+                    "input",
+                    "revision",
+                    "build",
+                    "profile",
+                    "features",
+                    "provider",
+                    "isa",
+                    "capture",
+                    "host",
+                    "environment",
+                    "source",
+                    "mode",
+                    "process",
+                ];
+                if value.keys().any(|key| !fields.contains(&key.as_str()))
+                    || value.len() != fields.len()
+                {
                     return Err(config("undeclared or missing compact context field"));
                 }
-                let id = f.context_id.as_ref().ok_or_else(|| config("context identity required"))?;
-                if contexts.insert(id.clone(), value).is_some() { return Err(config("duplicate context declaration")); }
+                let id = f
+                    .context_id
+                    .as_ref()
+                    .ok_or_else(|| config("context identity required"))?;
+                if contexts.insert(id.clone(), value).is_some() {
+                    return Err(config("duplicate context declaration"));
+                }
             }
-            if f.kind == "declared_link" && (f.link_relation.is_none() || f.link_target.is_none()) { return Err(config("declared link lacks exact relation or target")); }
+            if f.kind == "declared_link" && (f.link_relation.is_none() || f.link_target.is_none()) {
+                return Err(config("declared link lacks exact relation or target"));
+            }
             if f.kind == "criterion_sample" {
-                if f.sample_id.is_none() || f.population_id.is_none() || f.value_ns.is_none() { return Err(config("sample lacks actual population, membership or value")); }
-                if !samples.insert((&f.population_id, &f.sample_id)) { return Err(config("duplicate actual sample membership")); }
+                if f.sample_id.is_none() || f.population_id.is_none() || f.value_ns.is_none() {
+                    return Err(config(
+                        "sample lacks actual population, membership or value",
+                    ));
+                }
+                if !samples.insert((&f.population_id, &f.sample_id)) {
+                    return Err(config("duplicate actual sample membership"));
+                }
             }
 
             if f.member.is_empty() || f.kind.is_empty() || f.status.is_empty() {
                 return Err(config("fact identity/kind/status required"));
             }
-            if f.value_ns.is_some_and(|v| !v.is_finite() || v < 0.0) { return Err(config("measurement must be finite nonnegative nanoseconds")); }
+            if f.value_ns.is_some_and(|v| !v.is_finite() || v < 0.0) {
+                return Err(config("measurement must be finite nonnegative nanoseconds"));
+            }
             for value in [
                 Some(&f.member),
                 Some(&f.kind),
@@ -425,7 +472,6 @@ impl EvidenceSnapshot {
                 f.link_target.as_ref(),
                 f.population_id.as_ref(),
                 f.sample_id.as_ref(),
-
             ]
             .into_iter()
             .flatten()
@@ -436,7 +482,13 @@ impl EvidenceSnapshot {
             }
         }
         for fact in &self.facts {
-            if fact.context_id.as_ref().is_some_and(|id| !contexts.contains_key(id)) { return Err(config("fact refers to undeclared context")); }
+            if fact
+                .context_id
+                .as_ref()
+                .is_some_and(|id| !contexts.contains_key(id))
+            {
+                return Err(config("fact refers to undeclared context"));
+            }
         }
         let bytes = serde_json::to_vec(self).map_err(|e| config(e.to_string()))?;
         if bytes.len() > canonical::PAYLOAD_BYTES {
@@ -924,7 +976,6 @@ COMMIT;"#;
                 population_id: row.population_id,
                 sample_id: row.sample_id,
                 value_ns: row.value_ns,
-
             });
         }
         let more = facts.len() > limit;
@@ -953,32 +1004,78 @@ COMMIT;"#;
     }
     /// Materialize only caller-selected immutable activated generations. No latest-pointer
     /// inference can turn one imported invocation into a cross-run population.
-    pub async fn source_cut(&self, generations: &[String], history: bool) -> Result<Vec<EvidenceSnapshot>, EvidenceError> {
-        if generations.is_empty() || generations.len() > 64 { return Err(config("select 1..=64 explicit activated generation IDs")); }
+    pub async fn source_cut(
+        &self,
+        generations: &[String],
+        history: bool,
+    ) -> Result<Vec<EvidenceSnapshot>, EvidenceError> {
+        if generations.is_empty() || generations.len() > 64 {
+            return Err(config("select 1..=64 explicit activated generation IDs"));
+        }
         let mut unique = BTreeSet::new();
         let mut sources = BTreeSet::new();
         let mut snapshots = Vec::new();
         for id in generations {
-            if id.len() != 64 || !id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) { return Err(config("exact lower-case generation identity required")); }
-            if !unique.insert(id) { continue; }
+            if id.len() != 64
+                || !id
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(config("exact lower-case generation identity required"));
+            }
+            if !unique.insert(id) {
+                continue;
+            }
             let row = self.generation(id).await?;
             if row.state != pse_model::generated::enums::EvidenceGenerationState::Active {
-                return Err(EvidenceError::Unavailable(format!("generation {id} is staged, not activated")));
+                return Err(EvidenceError::Unavailable(format!(
+                    "generation {id} is staged, not activated"
+                )));
             }
-            let identity = (row.authority.clone(), row.codec.clone(), row.source_id.clone());
-            if !history && !sources.insert(identity) { return Err(config("ambiguous source versions; select one or explicitly request history")); }
+            let identity = (
+                row.authority.clone(),
+                row.codec.clone(),
+                row.source_id.clone(),
+            );
+            if !history && !sources.insert(identity) {
+                return Err(config(
+                    "ambiguous source versions; select one or explicitly request history",
+                ));
+            }
             let mut facts = Vec::new();
             let mut cursor = None;
             loop {
-                let page = self.select(&EvidenceQuery { generation: Some(id.clone()), cursor, ..EvidenceQuery::default() }).await?;
+                let page = self
+                    .select(&EvidenceQuery {
+                        generation: Some(id.clone()),
+                        cursor,
+                        ..EvidenceQuery::default()
+                    })
+                    .await?;
                 facts.extend(page.facts);
                 cursor = page.next;
-                if cursor.is_none() { break; }
+                if cursor.is_none() {
+                    break;
+                }
             }
-            if u64::try_from(facts.len()).ok() != Some(row.expected_members) { return Err(EvidenceError::Unavailable("activated membership differs".into())); }
-            let snapshot = EvidenceSnapshot { version: 2, authority: row.authority, codec: row.codec, source_id: row.source_id, snapshot_digest: row.snapshot_digest,
-                coverage: row.coverage.as_str().to_owned(), expected_members: facts.iter().map(|f| f.member.clone()).collect(), facts };
-            if snapshot.identity()?.1 != row.content_digest { return Err(EvidenceError::Reused); }
+            if u64::try_from(facts.len()).ok() != Some(row.expected_members) {
+                return Err(EvidenceError::Unavailable(
+                    "activated membership differs".into(),
+                ));
+            }
+            let snapshot = EvidenceSnapshot {
+                version: 2,
+                authority: row.authority,
+                codec: row.codec,
+                source_id: row.source_id,
+                snapshot_digest: row.snapshot_digest,
+                coverage: row.coverage.as_str().to_owned(),
+                expected_members: facts.iter().map(|f| f.member.clone()).collect(),
+                facts,
+            };
+            if snapshot.identity()?.1 != row.content_digest {
+                return Err(EvidenceError::Reused);
+            }
             snapshots.push(snapshot);
         }
         Ok(snapshots)

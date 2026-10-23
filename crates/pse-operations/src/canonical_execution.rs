@@ -3680,54 +3680,159 @@ fn decode_run_summary(mut row: Object) -> Result<RunSummary, CanonicalError> {
 
 // Compact discoverability is projected only from the current exact original source
 // receipt. It never grants payload lifetime or infers scientific qualification.
-#[derive(Deserialize,PartialEq,Eq)]
+#[derive(Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct ResearchInputSource {
-    issuing_store:String,
-    selection:String,
-    dataset:String,
-    revision:String,
-    physical_context:String,
-    publication:Option<String>,
+    issuing_store: String,
+    selection: String,
+    dataset: String,
+    revision: String,
+    physical_context: String,
+    publication: Option<String>,
 }
-#[derive(Deserialize,PartialEq,Eq)]
+#[derive(Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct ResearchOperationSource {
-    research:Option<ResearchInputSource>,
-    context:Option<crate::canonical_contexts::ContextSelection>,
-    revision:pse_ids::roles::SourceRevisionHash,
-    physical_context:pse_ids::ContentHash,
+    research: Option<ResearchInputSource>,
+    context: Option<crate::canonical_contexts::ContextSelection>,
+    revision: pse_ids::roles::SourceRevisionHash,
+    physical_context: pse_ids::ContentHash,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ResearchPhysicalSource { revision:String,identity:pse_ids::ContentHash }
-fn projected_research_input(request:&RunRequest)->Result<(Option<String>,Option<String>),CanonicalError>{
-    let Ok(value)=serde_json::from_slice::<serde_json::Value>(&request.source_selection) else{return Ok((None,None));};
-    let Some(array)=value.as_array() else{return Ok((None,None));};
-    if array.first().and_then(serde_json::Value::as_u64)!=Some(3){return Ok((None,None));}
-    if array.get(2).is_some_and(serde_json::Value::is_object) {
-        let (_version,revision,physical,context,research):(u8,String,ResearchPhysicalSource,Option<crate::canonical_contexts::ContextSelection>,Option<ResearchInputSource>)=serde_json::from_value(value).map_err(|e|CanonicalError::Configuration(format!("original study source selection: {e}")))?;
-        let Some(research)=research else{return Ok((None,None));};
-        for key in [&research.issuing_store,&research.selection,&research.dataset,&research.revision,&research.physical_context,&physical.revision]{identity(key)?;}
-        if revision!=request.revision.key||research.revision!=revision||!request.sources.iter().any(|source|source.key==physical.revision){return Err(CanonicalError::Configuration("research study source or physical reference differs".into()));}
-        pse_ids::ContentHash::parse_hex(&research.physical_context).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
-        if let Some(publication)=&research.publication {if publication!=&research.revision{return Err(CanonicalError::Configuration("research study publication source differs".into()));}}
-        else if context.as_ref().is_none_or(|c|c.context.revision!=revision||c.context.physical_context!=research.physical_context||c.context.physical_revision!=physical.revision||c.context.physical_source_identity!=physical.identity.to_string()){return Err(CanonicalError::Configuration("research study historical physical context differs".into()));}
-        return Ok((Some(research.selection),Some(research.dataset)));
+struct ResearchPhysicalSource {
+    revision: String,
+    identity: pse_ids::ContentHash,
+}
+fn projected_research_input(
+    request: &RunRequest,
+) -> Result<(Option<String>, Option<String>), CanonicalError> {
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&request.source_selection) else {
+        return Ok((None, None));
+    };
+    let Some(array) = value.as_array() else {
+        return Ok((None, None));
+    };
+    if array.first().and_then(serde_json::Value::as_u64) != Some(3) {
+        return Ok((None, None));
     }
-    if !array.get(2).is_some_and(serde_json::Value::is_string){return Ok((None,None));}
-    let (_version,_identity,physical,_provenance,sources):(u8,serde_json::Value,pse_ids::ContentHash,serde_json::Value,Vec<ResearchOperationSource>)=serde_json::from_value(value).map_err(|e|CanonicalError::Configuration(format!("original scientific source selection: {e}")))?;
-    let mut unique=Vec::new();
-    for source in &sources {if !unique.contains(&source){unique.push(source);}}
+    if array.get(2).is_some_and(serde_json::Value::is_object) {
+        let (_version, revision, physical, context, research): (
+            u8,
+            String,
+            ResearchPhysicalSource,
+            Option<crate::canonical_contexts::ContextSelection>,
+            Option<ResearchInputSource>,
+        ) = serde_json::from_value(value).map_err(|e| {
+            CanonicalError::Configuration(format!("original study source selection: {e}"))
+        })?;
+        let Some(research) = research else {
+            return Ok((None, None));
+        };
+        for key in [
+            &research.issuing_store,
+            &research.selection,
+            &research.dataset,
+            &research.revision,
+            &research.physical_context,
+            &physical.revision,
+        ] {
+            identity(key)?;
+        }
+        if revision != request.revision.key
+            || research.revision != revision
+            || !request
+                .sources
+                .iter()
+                .any(|source| source.key == physical.revision)
+        {
+            return Err(CanonicalError::Configuration(
+                "research study source or physical reference differs".into(),
+            ));
+        }
+        pse_ids::ContentHash::parse_hex(&research.physical_context)
+            .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
+        if let Some(publication) = &research.publication {
+            if publication != &research.revision {
+                return Err(CanonicalError::Configuration(
+                    "research study publication source differs".into(),
+                ));
+            }
+        } else if context.as_ref().is_none_or(|c| {
+            c.context.revision != revision
+                || c.context.physical_context != research.physical_context
+                || c.context.physical_revision != physical.revision
+                || c.context.physical_source_identity != physical.identity.to_string()
+        }) {
+            return Err(CanonicalError::Configuration(
+                "research study historical physical context differs".into(),
+            ));
+        }
+        return Ok((Some(research.selection), Some(research.dataset)));
+    }
+    if !array.get(2).is_some_and(serde_json::Value::is_string) {
+        return Ok((None, None));
+    }
+    let (_version, _identity, physical, _provenance, sources): (
+        u8,
+        serde_json::Value,
+        pse_ids::ContentHash,
+        serde_json::Value,
+        Vec<ResearchOperationSource>,
+    ) = serde_json::from_value(value).map_err(|e| {
+        CanonicalError::Configuration(format!("original scientific source selection: {e}"))
+    })?;
+    let mut unique = Vec::new();
+    for source in &sources {
+        if !unique.contains(&source) {
+            unique.push(source);
+        }
+    }
     // One compact column cannot represent a mixed input population. Preserve the
     // actual execution and complete original receipt with explicit absent metadata.
-    if unique.len()!=1{return Ok((None,None));}
-    let source=unique[0];let Some(research)=source.research.as_ref() else{return Ok((None,None));};
-    for key in [&research.issuing_store,&research.selection,&research.dataset,&research.revision,&research.physical_context]{identity(key)?;}
-    if research.revision!=request.revision.key||source.physical_context!=physical||research.physical_context!=physical.to_string(){return Err(CanonicalError::Configuration("research source receipt revision or physical meaning differs".into()));}
-    if let Some(publication)=&research.publication {if publication!=&research.revision{return Err(CanonicalError::Configuration("research publication source differs".into()));}}
-    else if source.context.as_ref().is_none_or(|c|c.context.revision!=research.revision||c.context.physical_context!=research.physical_context||c.context.source_identity!=source.revision.to_string()){return Err(CanonicalError::Configuration("research observation context differs".into()));}
-    Ok((Some(research.selection.clone()),Some(research.dataset.clone())))
+    if unique.len() != 1 {
+        return Ok((None, None));
+    }
+    let source = unique[0];
+    let Some(research) = source.research.as_ref() else {
+        return Ok((None, None));
+    };
+    for key in [
+        &research.issuing_store,
+        &research.selection,
+        &research.dataset,
+        &research.revision,
+        &research.physical_context,
+    ] {
+        identity(key)?;
+    }
+    if research.revision != request.revision.key
+        || source.physical_context != physical
+        || research.physical_context != physical.to_string()
+    {
+        return Err(CanonicalError::Configuration(
+            "research source receipt revision or physical meaning differs".into(),
+        ));
+    }
+    if let Some(publication) = &research.publication {
+        if publication != &research.revision {
+            return Err(CanonicalError::Configuration(
+                "research publication source differs".into(),
+            ));
+        }
+    } else if source.context.as_ref().is_none_or(|c| {
+        c.context.revision != research.revision
+            || c.context.physical_context != research.physical_context
+            || c.context.source_identity != source.revision.to_string()
+    }) {
+        return Err(CanonicalError::Configuration(
+            "research observation context differs".into(),
+        ));
+    }
+    Ok((
+        Some(research.selection.clone()),
+        Some(research.dataset.clone()),
+    ))
 }
 
 // One owning encoding for immutable run meaning, shared by publication and
@@ -3741,7 +3846,7 @@ fn run_request_receipt(
     bounded(&request.request, crate::canonical::PAYLOAD_BYTES)?;
     bounded(&request.source_selection, crate::canonical::PAYLOAD_BYTES)?;
     bounded(&request.attestation, EXECUTION_METADATA_BYTES)?;
-    let (research_selection,research_dataset)=projected_research_input(request)?;
+    let (research_selection, research_dataset) = projected_research_input(request)?;
     let row = CanonicalRun {
         research_selection,
         research_dataset,
@@ -5754,45 +5859,71 @@ mod review_attempt_metadata_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used,reason="exact current source receipt projection assertions")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "exact current source receipt projection assertions"
+)]
 mod research_projection_tests {
     use super::*;
-    fn request()->RunRequest {
-        let physical=pse_ids::ContentHash::from_bytes([1;32]);
-        let identity=pse_ids::ContentHash::from_bytes([2;32]);
+    fn request() -> RunRequest {
+        let physical = pse_ids::ContentHash::from_bytes([1; 32]);
+        let identity = pse_ids::ContentHash::from_bytes([2; 32]);
         RunRequest{key:"run".into(),revision:crate::canonical::Revision{key:"published".into(),problem:"problem".into(),sequence:1,parent:None,operation:"published".into(),request:vec![].into(),interpretation:wire::INTERPRETATION.into()},sources:vec![],request:vec![],attestation:vec![],source_selection:serde_json::to_vec(&(3u8,identity,physical,serde_json::Value::Null,vec![serde_json::json!({"revision":identity,"physical_context":physical,"context":null,"research":{"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}})])).unwrap()}
     }
     #[test]
-    fn research_run_projection_retains_exact_original_research_and_refuses_context_differences(){
-        let original=request();
-        assert_eq!(projected_research_input(&original).unwrap(),(Some("selected".into()),Some("data-v1".into())));
-        let mut wrong=request();wrong.revision.key="other-source".into();assert!(projected_research_input(&wrong).is_err());
-        let mut wrong=request();let mut value:serde_json::Value=serde_json::from_slice(&wrong.source_selection).unwrap();value[4][0]["physical_context"]=serde_json::json!(pse_ids::ContentHash::from_bytes([3;32]));wrong.source_selection=serde_json::to_vec(&value).unwrap();assert!(projected_research_input(&wrong).is_err());
-        let mut old=request();old.source_selection=vec![2];assert_eq!(projected_research_input(&old).unwrap(),(None,None));
+    fn research_run_projection_retains_exact_original_research_and_refuses_context_differences() {
+        let original = request();
+        assert_eq!(
+            projected_research_input(&original).unwrap(),
+            (Some("selected".into()), Some("data-v1".into()))
+        );
+        let mut wrong = request();
+        wrong.revision.key = "other-source".into();
+        assert!(projected_research_input(&wrong).is_err());
+        let mut wrong = request();
+        let mut value: serde_json::Value = serde_json::from_slice(&wrong.source_selection).unwrap();
+        value[4][0]["physical_context"] =
+            serde_json::json!(pse_ids::ContentHash::from_bytes([3; 32]));
+        wrong.source_selection = serde_json::to_vec(&value).unwrap();
+        assert!(projected_research_input(&wrong).is_err());
+        let mut old = request();
+        old.source_selection = vec![2];
+        assert_eq!(projected_research_input(&old).unwrap(), (None, None));
     }
     #[test]
-    fn research_study_parent_projection_uses_original_exact_physical_source_and_research(){
-        let mut request=request();
-        let physical=pse_ids::ContentHash::from_bytes([4;32]);
-        let mut physical_revision=request.revision.clone();physical_revision.key="physical".into();request.sources.push(physical_revision);
+    fn research_study_parent_projection_uses_original_exact_physical_source_and_research() {
+        let mut request = request();
+        let physical = pse_ids::ContentHash::from_bytes([4; 32]);
+        let mut physical_revision = request.revision.clone();
+        physical_revision.key = "physical".into();
+        request.sources.push(physical_revision);
         request.source_selection=serde_json::to_vec(&(3u8,"published",serde_json::json!({"revision":"physical","identity":physical}),serde_json::Value::Null,serde_json::json!({"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}))).unwrap();
-        assert_eq!(projected_research_input(&request).unwrap(),(Some("selected".into()),Some("data-v1".into())));
-        request.sources.clear();assert!(projected_research_input(&request).is_err());
+        assert_eq!(
+            projected_research_input(&request).unwrap(),
+            (Some("selected".into()), Some("data-v1".into()))
+        );
+        request.sources.clear();
+        assert!(projected_research_input(&request).is_err());
     }
 
     #[test]
-    fn research_projection_deduplicates_repeated_inputs_and_preserves_mixed_executions(){
-        let mut request=request();
-        let mut value:serde_json::Value=serde_json::from_slice(&request.source_selection).unwrap();
-        let repeated=value[4][0].clone();value[4].as_array_mut().unwrap().push(repeated);
-        request.source_selection=serde_json::to_vec(&value).unwrap();
-        assert_eq!(projected_research_input(&request).unwrap(),(Some("selected".into()),Some("data-v1".into())));
-        value[4][1]["research"]=serde_json::Value::Null;
-        request.source_selection=serde_json::to_vec(&value).unwrap();
-        assert_eq!(projected_research_input(&request).unwrap(),(None,None));
-        value[4][1]=value[4][0].clone();value[4][1]["research"]["selection"]=serde_json::json!("different-selection");
-        request.source_selection=serde_json::to_vec(&value).unwrap();
-        assert_eq!(projected_research_input(&request).unwrap(),(None,None));
+    fn research_projection_deduplicates_repeated_inputs_and_preserves_mixed_executions() {
+        let mut request = request();
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&request.source_selection).unwrap();
+        let repeated = value[4][0].clone();
+        value[4].as_array_mut().unwrap().push(repeated);
+        request.source_selection = serde_json::to_vec(&value).unwrap();
+        assert_eq!(
+            projected_research_input(&request).unwrap(),
+            (Some("selected".into()), Some("data-v1".into()))
+        );
+        value[4][1]["research"] = serde_json::Value::Null;
+        request.source_selection = serde_json::to_vec(&value).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(), (None, None));
+        value[4][1] = value[4][0].clone();
+        value[4][1]["research"]["selection"] = serde_json::json!("different-selection");
+        request.source_selection = serde_json::to_vec(&value).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(), (None, None));
     }
-
 }

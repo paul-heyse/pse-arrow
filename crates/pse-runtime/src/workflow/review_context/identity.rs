@@ -265,7 +265,8 @@ mod tests {
         assert!(document.validate().is_err());
         document.facts[0].path = "/steps/2/context".into();
         document.sources.push(ReviewSourceDocument {
-            research: None,            context: None,
+            research: None,
+            context: None,
             identity: ContentHash::from_bytes([7; 32]),
             interpretation: "source".into(),
             build: ContentHash::from_bytes([8; 32]),

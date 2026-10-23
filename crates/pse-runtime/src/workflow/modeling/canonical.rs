@@ -2634,8 +2634,10 @@ impl ModelingPackage {
         receiver: &Runtime,
         cancel: &crate::CancelSource,
     ) -> Result<String, WorkflowError> {
-        if let Some(research)=&self.research_source {
-            receiver.restore_research_source(&mut self.clone(),Some(research)).await?;
+        if let Some(research) = &self.research_source {
+            receiver
+                .restore_research_source(&mut self.clone(), Some(research))
+                .await?;
             return Ok(research.revision.clone());
         }
         if let Some(selected) = &self.project_context {

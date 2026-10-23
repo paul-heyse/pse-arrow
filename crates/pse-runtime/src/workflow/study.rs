@@ -561,7 +561,8 @@ impl Runtime {
                 .await?;
                 self.restore_project_context(&mut package, definition.context.as_ref())
                     .await?;
-                self.restore_research_source(&mut package,definition.research.as_ref()).await?;
+                self.restore_research_source(&mut package, definition.research.as_ref())
+                    .await?;
                 // Binding/role admission reuses structure. Explicit starts also validate
                 // compatibility against one prepared target before study activation.
                 let study_id: StudyId = pse_operations::mint_id();
@@ -930,7 +931,8 @@ impl Runtime {
                 .await?;
             self.restore_project_context(&mut package, metadata.context.as_ref())
                 .await?;
-            self.restore_research_source(&mut package,metadata.research.as_ref()).await?;
+            self.restore_research_source(&mut package, metadata.research.as_ref())
+                .await?;
             lazy.variants.source.check(&package)?;
             lane.input = Some(StudyVariantOwner {
                 study: point.study.clone(),
@@ -1116,7 +1118,11 @@ impl Runtime {
                         definition.operation.source.context.as_ref(),
                     )
                     .await?;
-                    self.restore_research_source(&mut package,definition.operation.source.research.as_ref()).await?;
+                    self.restore_research_source(
+                        &mut package,
+                        definition.operation.source.research.as_ref(),
+                    )
+                    .await?;
                     lane.source = Some((actual_revision.into(), physical, package));
                 }
                 let package = lane
@@ -2838,7 +2844,8 @@ mod creation_authority_tests {
         )]);
         let identity = pse_admission::authoring_driver::document::package_checksum(&sources);
         let definition = StudyDefinition {
-            research: None,            context: None,
+            research: None,
+            context: None,
             variants: None,
             version: Version,
             physical: super::super::PhysicalSource {

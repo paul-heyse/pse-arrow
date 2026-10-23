@@ -825,7 +825,9 @@ impl CanonicalStore {
                             problem: run.revision.problem.clone(),
                             revision: run.revision.key.clone(),
                             metadata: metadata.to_vec().into(),
-                            physical_revision, physical_identity, context,
+                            physical_revision,
+                            physical_identity,
+                            context,
                             interpretation: wire::INTERPRETATION.into(),
                             point_count: points.len() as u64,
                             dependency_count: points.iter().try_fold(0_u64, |total, point| {
@@ -2420,25 +2422,70 @@ mod canonical_studies_server_unit {
     #[tokio::test]
     async fn workbench_native_capture_is_complete_bounded_and_keeps_failed_unattempted_members() {
         use crate::canonical_study_workbench::StudyWorkbenchFilter;
-        let (store,_,revision)=fixture().await;
-        let points=(0..3).map(|n|occurrence(&revision,n,vec![])).collect::<Vec<_>>();
-        store.create_study("workbench-native",&request(&revision,"workbench-parent"),&[],&points,&||false).await.unwrap();
-        let scope=store.study_scope(&point_key("workbench-native",OccurrenceKey(0))).await.unwrap();
-        let claim=store.claim_study_point(&scope,None,"workbench-claim","worker",Duration::from_secs(60)).await.unwrap();
-        fail(&store,&claim).await;
-        let filter=StudyWorkbenchFilter{source:Some(revision.key.clone()),..Default::default()};
-        let headers=store.select_study_workbench(&filter,None,1,None).await.unwrap();
-        assert_eq!(headers.headers.len(),1);assert!(headers.members.is_empty());
-        let frozen=store.select_study_workbench(&filter,None,1,Some(3)).await.unwrap();
-        assert!(!frozen.has_more);assert_eq!(frozen.members.len(),3);
-        assert_eq!(frozen.members[0].facts.lifecycle,StudyPointState::Failed);
+        let (store, _, revision) = fixture().await;
+        let points = (0..3)
+            .map(|n| occurrence(&revision, n, vec![]))
+            .collect::<Vec<_>>();
+        store
+            .create_study(
+                "workbench-native",
+                &request(&revision, "workbench-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let scope = store
+            .study_scope(&point_key("workbench-native", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let claim = store
+            .claim_study_point(
+                &scope,
+                None,
+                "workbench-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        fail(&store, &claim).await;
+        let filter = StudyWorkbenchFilter {
+            source: Some(revision.key.clone()),
+            ..Default::default()
+        };
+        let headers = store
+            .select_study_workbench(&filter, None, 1, None)
+            .await
+            .unwrap();
+        assert_eq!(headers.headers.len(), 1);
+        assert!(headers.members.is_empty());
+        let frozen = store
+            .select_study_workbench(&filter, None, 1, Some(3))
+            .await
+            .unwrap();
+        assert!(!frozen.has_more);
+        assert_eq!(frozen.members.len(), 3);
+        assert_eq!(frozen.members[0].facts.lifecycle, StudyPointState::Failed);
         assert!(frozen.members[0].attempt.is_some());
         assert!(frozen.members[1].attempt.is_none());
-        assert_eq!(frozen.members[1].facts.lifecycle,StudyPointState::Pending);
-        assert!(store.select_study_workbench(&filter,None,1,Some(2)).await.is_err());
-        let empty=StudyWorkbenchFilter{study:Some("absent-study".into()),..Default::default()};
-        let empty=store.select_study_workbench(&empty,None,1,Some(1)).await.unwrap();
-        assert!(empty.headers.is_empty()&&empty.members.is_empty()&&!empty.has_more);
+        assert_eq!(frozen.members[1].facts.lifecycle, StudyPointState::Pending);
+        assert!(
+            store
+                .select_study_workbench(&filter, None, 1, Some(2))
+                .await
+                .is_err()
+        );
+        let empty = StudyWorkbenchFilter {
+            study: Some("absent-study".into()),
+            ..Default::default()
+        };
+        let empty = store
+            .select_study_workbench(&empty, None, 1, Some(1))
+            .await
+            .unwrap();
+        assert!(empty.headers.is_empty() && empty.members.is_empty() && !empty.has_more);
         store.remove_isolated_fixture().await.unwrap();
     }
 

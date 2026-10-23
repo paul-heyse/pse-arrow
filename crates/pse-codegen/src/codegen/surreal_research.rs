@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Research reference admission composes original context and source protections.
-pub(super) fn append(registry:&crate::Registry,ddl: &mut String) -> Result<(),crate::SchemaError> {
-    let relation=registry.relation("runtime.fitted_parameter_cells").ok_or_else(||crate::SchemaError::Codegen{language:"surreal",reason:"qualified fitted cell relation absent".into()})?;
-    ddl.push_str(&FUNCTIONS.replace("/* FITTED_CELLS_ID */",&relation.id.to_string()));Ok(())
+pub(super) fn append(
+    registry: &crate::Registry,
+    ddl: &mut String,
+) -> Result<(), crate::SchemaError> {
+    let relation = registry
+        .relation("runtime.fitted_parameter_cells")
+        .ok_or_else(|| crate::SchemaError::Codegen {
+            language: "surreal",
+            reason: "qualified fitted cell relation absent".into(),
+        })?;
+    ddl.push_str(&FUNCTIONS.replace("/* FITTED_CELLS_ID */", &relation.id.to_string()));
+    Ok(())
 }
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_research_v1::context($expiry:int,$row:object) -> bool {

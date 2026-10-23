@@ -182,17 +182,35 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
         .checked_add(Duration::from_millis(args.timeout_ms))
         .context("original allowance overflow")?;
     // Offline is a first-class path, before state/config/credentials/service activity.
-    if let EvidenceCommand::Offline { input, question, history, observations } = &args.command {
-        let snapshots = input.iter().map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path)).collect::<Result<Vec<_>, _>>()?;
-        let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, *history)?;
+    if let EvidenceCommand::Offline {
+        input,
+        question,
+        history,
+        observations,
+    } = &args.command
+    {
+        let snapshots = input
+            .iter()
+            .map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut analysis =
+            pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, *history)?;
         let question = read_question(question)?;
         let observations = read_observations(observations.as_deref())?;
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
-        let output = runtime.block_on(evidence::within_allowance(deadline, analysis.ask(&question, &observations)))?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let output = runtime.block_on(evidence::within_allowance(
+            deadline,
+            analysis.ask(&question, &observations),
+        ))?;
         println!("{}", serde_json::to_string(&output)?);
         return Ok(());
     }
-    let state = args.state.as_deref().context("--state is required for service operations")?;
+    let state = args
+        .state
+        .as_deref()
+        .context("--state is required for service operations")?;
     let options = ToolingOptions::from_state(state)?;
     let _activity = activity_guard(state, &options)?;
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -226,13 +244,26 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 let result = async {
                     match command {
                         EvidenceCommand::Status => store.status().await,
-                        EvidenceCommand::Analyze { generation, question, history, observations } => {
+                        EvidenceCommand::Analyze {
+                            generation,
+                            question,
+                            history,
+                            observations,
+                        } => {
                             let sources = store.source_cut(&generation, history).await?;
-                            let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(sources, history)?;
-                            let question = read_question(&question).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
-                            let observations = read_observations(observations.as_deref()).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
+                            let mut analysis =
+                                pse_operations::evidence_query::EvidenceAnalysis::new(
+                                    sources, history,
+                                )?;
+                            let question = read_question(&question).map_err(|e| {
+                                evidence::EvidenceError::Configuration(e.to_string())
+                            })?;
+                            let observations =
+                                read_observations(observations.as_deref()).map_err(|e| {
+                                    evidence::EvidenceError::Configuration(e.to_string())
+                                })?;
                             analysis.ask(&question, &observations).await
-                        },
+                        }
                         EvidenceCommand::Import { input } => {
                             let metadata = std::fs::metadata(&input).map_err(|e| {
                                 evidence::EvidenceError::Configuration(e.to_string())
@@ -314,11 +345,18 @@ fn read_question(path: &Path) -> Result<pse_operations::evidence_query::Evidence
     let bytes = supplied_document(path, 65536)?;
     Ok(serde_json::from_slice(&bytes)?)
 }
-fn read_observations(path: Option<&Path>) -> Result<Vec<pse_operations::evidence_query::EvidenceSourceObservation>> {
-    path.map(|path| Ok(serde_json::from_slice(&supplied_document(path, 262144)?)?)).transpose().map(|value| value.unwrap_or_default())
+fn read_observations(
+    path: Option<&Path>,
+) -> Result<Vec<pse_operations::evidence_query::EvidenceSourceObservation>> {
+    path.map(|path| Ok(serde_json::from_slice(&supplied_document(path, 262144)?)?))
+        .transpose()
+        .map(|value| value.unwrap_or_default())
 }
 fn supplied_document(path: &Path, limit: u64) -> Result<Vec<u8>> {
     let metadata = std::fs::symlink_metadata(path)?;
-    anyhow::ensure!(metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= limit, "bounded explicit document required");
+    anyhow::ensure!(
+        metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= limit,
+        "bounded explicit document required"
+    );
     Ok(std::fs::read(path)?)
 }
