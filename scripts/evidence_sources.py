@@ -19,6 +19,7 @@ from scripts import (
     active_diagnostics,
     case_measure,
     host_admission,
+    storage_health,
     validation_receipts,
     validation_result,
 )
@@ -294,7 +295,7 @@ def diagnostic_snapshot(directory: Path) -> EvidenceSnapshot:
         )
     if isinstance(record.get("operation"), str):
         facts.append(link_fact("link:operation", "operation", record["operation"]))
-    # Storage-health is absent unless its actual owner supplied a reference. No LC04 collector.
+    # Links remain original owner declarations, never proximity or causal inference.
     for key in ("storage_health", "run", "attempt", "provider"):
         if isinstance(record.get(key), str):
             facts.append(link_fact("link:" + key, key, record[key]))
@@ -320,6 +321,56 @@ def diagnostic_snapshot(directory: Path) -> EvidenceSnapshot:
         record,
         facts,
         complete=record.get("status") not in {None, "incomplete"},
+    )
+
+
+def storage_health_snapshot(path: Path) -> EvidenceSnapshot:
+    """Project one original health snapshot; never inspect live service or engine files."""
+    import msgspec  # noqa: PLC0415 -- host codec remains independent of product/native API
+
+    record = storage_health.read(path)
+    original = msgspec.to_builtins(record)
+    reference = "storage-health:sha256:" + snapshot_digest(original)
+    identity = record.service.identity
+    context = context_fact(
+        {
+            "process": msgspec.to_builtins(record.observer),
+            "host": compact(msgspec.to_builtins(record.host)),
+            "capture": {
+                "started_unix_ns": record.started_unix_ns,
+                "finished_unix_ns": record.finished_unix_ns,
+                "service": msgspec.to_builtins(identity),
+                "correspondence": record.correspondence,
+            },
+        }
+    )
+    facts: list[EvidenceFact] = [
+        context,
+        {"member": "health", "kind": "diagnostic_tool", "status": record.tool_outcome, "detail_ref": reference},
+        {"member": "service", "kind": "diagnostic_target", "status": record.service_outcome},
+        {"member": "science", "kind": "diagnostic_science", "status": record.scientific_outcome},
+        link_fact("link:storage_health", "storage_health", reference),
+    ]
+    if identity is not None:
+        facts.append(link_fact("link:service", "service", "selected-service:sha256:" + snapshot_digest(msgspec.to_builtins(identity))))
+    for process in record.cgroup.processes:
+        owner = process.identity
+        target = f"process:{owner.boot}:{owner.pid}:{owner.start}"
+        facts.append(link_fact("link:" + target, "process", target))
+    for name, field in record.metrics.items():
+        facts.append({"member": "metric:" + name, "kind": "storage_health_field", "status": field.status, "detail_ref": reference})
+    for scope, fields in (("host", record.host), ("configuration", record.configuration), ("cgroup", record.cgroup.fields)):
+        for name, field in fields.items():
+            facts.append({"member": scope + ":" + name, "kind": "storage_health_field", "status": field.status, "detail_ref": reference})
+    for fact in facts:
+        fact["context_id"] = context["context_id"]
+    return source_snapshot(
+        "storage-health:" + record.requested_state,
+        storage_health.SCHEMA,
+        str(path.absolute()),
+        original,
+        facts,
+        complete=record.tool_outcome == "complete",
     )
 
 
