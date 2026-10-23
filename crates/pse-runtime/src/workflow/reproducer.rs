@@ -373,6 +373,7 @@ impl DiagnosticReproducer {
             ));
         }
         let source = ReplaySourceDocument {
+            context: recorded.context.clone(),
             identity: recorded.identity,
             interpretation: recorded.interpretation.clone(),
             build: recorded.build,
@@ -1069,6 +1070,7 @@ mod tests {
             operation: None,
             selection: Default::default(),
             sources: vec![super::super::ReviewSourceDocument {
+                context: None,
                 identity: replay.identity,
                 interpretation: replay.interpretation,
                 build: replay.build,
