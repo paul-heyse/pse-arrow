@@ -292,7 +292,8 @@ fn document(value: &impl serde::Serialize) -> Result<Vec<u8>, WorkflowError> {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StudyMetadata {
-    version: Version<3>,
+    context: Option<pse_operations::canonical_contexts::ContextSelection>,
+    version: Version<4>,
     physical: super::PhysicalSource,
     variants: Option<super::LazyStudyDefinition>,
     pub(super) diagnostics: Option<super::study_diagnostics::ManagedDetailSelection>,
@@ -484,6 +485,7 @@ impl Runtime {
                     lazy.variants.retain_parent(&science.modeling_revision);
                 }
                 Ok(StudyDefinition {
+                    context: local.package.project_context.clone(),
                     version: Version,
                     physical,
                     modeling_revision: science.modeling_revision,
@@ -559,11 +561,12 @@ impl Runtime {
                 let physical = definition.physical.clone();
                 let context =
                     creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
-                let package = creation_effect(
+                let mut package = creation_effect(
                     cancel,
                     self.modeling_revision(revision.clone(), context, BTreeMap::new()),
                 )
                 .await?;
+                self.restore_project_context(&mut package, definition.context.as_ref()).await?;
                 // Binding/role admission reuses structure. Explicit starts also validate
                 // compatibility against one prepared target before study activation.
                 let study_id: StudyId = pse_operations::mint_id();
@@ -665,7 +668,7 @@ impl Runtime {
                         .ok_or_else(|| contract("canonical physical source absent"))?;
                 let attestation = self.canonical()?.attestation();
                 let attestation = document(&(attestation.source, attestation.build))?;
-                let source_selection = document(&(1_u8, &definition.modeling_revision, &physical))?;
+                let source_selection = document(&(2_u8, &definition.modeling_revision, &physical, &definition.context))?;
                 let request = StoredRequest {
                     key: run,
                     revision: revision.clone(),
@@ -690,7 +693,8 @@ impl Runtime {
                         }),
                 );
                 let metadata = document(&StudyMetadata {
-                    version: Version::<3>,
+                    version: Version::<4>,
+                    context: definition.context.clone(),
                     physical: physical.clone(),
                     variants: definition.variants.clone(),
                     diagnostics,
@@ -919,9 +923,10 @@ impl Runtime {
                 .revision(&study.revision)
                 .await?
                 .ok_or_else(|| contract("lazy base revision absent"))?;
-            let package = self
+            let mut package = self
                 .modeling_revision(base_revision, physical, BTreeMap::new())
                 .await?;
+            self.restore_project_context(&mut package, metadata.context.as_ref()).await?;
             lazy.variants.source.check(&package)?;
             lane.input = Some(StudyVariantOwner {
                 study: point.study.clone(),
@@ -1068,6 +1073,7 @@ impl Runtime {
                     .await?
                     .ok_or_else(|| contract("study header absent"))?;
                 let StudyMetadata {
+                    context: historical_context,
                     physical,
                     diagnostics,
                     ..
@@ -1086,9 +1092,14 @@ impl Runtime {
                         .revision(actual_revision)
                         .await?
                         .ok_or_else(|| contract("study revision absent"))?;
-                    let package = self
+                    let mut package = self
                         .modeling_revision(revision, context, BTreeMap::new())
                         .await?;
+                    // Variant sources carry their own exact OperationSource; parent attribution
+                    // attaches only when the scientific source remains that original source.
+                    if historical_context.as_ref().is_some_and(|c| c.context.revision == actual_revision) {
+                        self.restore_project_context(&mut package, historical_context.as_ref()).await?;
+                    }
                     lane.source = Some((actual_revision.into(), physical, package));
                 }
                 let package = lane
@@ -2387,13 +2398,15 @@ pub struct StudyPlan {
     pub inputs: super::StudyInputs,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 12;
+const STUDY_DEFINITION_VERSION: u32 = 13;
 
-/// Version 11 of a study's definition: the store's `definition` document and the content of
+/// Version 13 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
+    /// Exact historical source context selected before admission, never a latest query.
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Document version.
     pub version: Version<STUDY_DEFINITION_VERSION>,
     /// The source bundle of the physical package.
@@ -2806,6 +2819,7 @@ mod creation_authority_tests {
         )]);
         let identity = pse_admission::authoring_driver::document::package_checksum(&sources);
         let definition = StudyDefinition {
+            context: None,
             variants: None,
             version: Version,
             physical: super::super::PhysicalSource {

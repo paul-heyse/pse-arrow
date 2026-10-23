@@ -160,6 +160,8 @@ impl ReviewProviderDescriptor {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReviewSourceDocument {
+    /// Exact historical engineering attribution, when selected before execution.
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Exact original source identity.
     pub identity: pse_ids::ContentHash,
     /// Registry interpretation of these source facts.

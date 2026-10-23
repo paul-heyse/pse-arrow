@@ -45,6 +45,10 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    ProjectContextInvalid: "project_context_invalid" => (Invariant, "context coordinates or correction differ"),
+    ProjectContextUnavailable: "project_context_unavailable" => (Fence, "exact historical context unavailable"),
+    ProjectContextAmbiguous: "project_context_ambiguous" => (Invariant, "overlapping context selection is ambiguous"),
+    ProjectContextBound: "project_context_bound" => (Admission, "historical context selection bound"),
     ProjectIssuingAuthorityChanged: "project_issuing_authority_changed" => (Identity, "project metadata issuing authority changed"),
     ProjectOperationIdentityChanged: "project_operation_identity_changed" => (Identity, "project operation identity was reused for different inputs"),
     ProjectGenerationChanged: "project_generation_changed" => (Fence, "selected project generation changed"),

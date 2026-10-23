@@ -12,7 +12,7 @@ pub(in crate::workflow::modeling) struct Parent {
     pub(in crate::workflow::modeling) rows: Vec<Declaration>,
     pub(super) frame: IngressFrame,
     pub(super) physical: PhysicalScope,
-    pub(super) documents: BTreeMap<SemanticId, document_wire::Row>,
+    pub(in crate::workflow::modeling) documents: BTreeMap<SemanticId, document_wire::Row>,
     pub(super) members: BTreeMap<String, SourceMember>,
     pub(super) fields: BTreeMap<DeclarationId, FieldSpans>,
     pub(super) _leases: Vec<Arc<pse_columnar::AllocationLease>>,
@@ -391,6 +391,20 @@ impl ModelingPackage {
                 self.apply_delta_parent(delta, parent, &scoped, None).await
             })
             .await
+    }
+
+    /// Admit a proposal without publishing a durable source head. Project merge and undo
+    /// issue their separately retained publication intent only after this succeeds.
+    pub(crate) async fn project_admit_delta(
+        &self,
+        delta: &SourceDelta,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        if delta.parent != self.revision_id() {
+            return Err(contract("project delta names a different exact parent"));
+        }
+        let parent = self.delta_parent(cancel).await?;
+        self.apply_delta_parent_ordered_mode(delta.clone(), parent, cancel, None, None, false).await
     }
 
     pub(super) async fn apply_delta_parent(
@@ -1068,7 +1082,7 @@ impl ModelingPackage {
         parent.members = revision.admitted.objects.values().map(|object| (object.logical.clone(), SourceMember::from(object.as_ref()))).collect();
         let next_products = Arc::new(Products { parent, index, data: new_data, dependencies, extent, #[cfg(test)] work });
         let _ = revision.delta_products.set(next_products);
-        Ok(Self {revision,held_preparation:None,..self.clone()})
+        Ok(Self {revision,held_preparation:None,project_context:None,..self.clone()})
 
         }).await
     }

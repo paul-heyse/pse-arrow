@@ -128,7 +128,7 @@ pub(super) fn relations<'a>(
             let readonly = if name == "key"
                 || matches!(
                     table,
-                    "canonical_project_operations" | "canonical_research_references"
+                    "canonical_project_operations" | "canonical_research_references" | "canonical_project_contexts" | "canonical_context_ancestry" | "canonical_project_draft_versions" | "canonical_project_ancestry" | "canonical_draft_diagnostics"
                 )
                 || (table == "canonical_project_branches"
                     && matches!(name, "project" | "problem" | "origin_revision"))
@@ -270,6 +270,7 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
     let indexes = pse_schema::catalog::substrate::INDEXES
         .iter()
         .chain(pse_schema::catalog::projects::NATIVE_INDEXES)
+        .chain(pse_schema::catalog::project_contexts::NATIVE_INDEXES)
         .copied()
         .collect::<Vec<_>>();
     let (mut ddl, codecs) = relations(
@@ -303,6 +304,7 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     );
     super::surreal_execution::append(&mut ddl);
     super::surreal_projects::append(&mut ddl);
+    super::surreal_contexts::append(&mut ddl);
     super::surreal_files::append(&mut ddl);
     super::surreal_maintenance::append(&mut ddl);
     super::surreal_studies::append(&mut ddl);

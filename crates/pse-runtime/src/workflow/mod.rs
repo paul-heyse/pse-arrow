@@ -196,6 +196,7 @@ mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
 mod projects;
+mod project_contexts;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
@@ -204,12 +205,14 @@ pub use modeling::documents::{
     LinearDiagnosticControls, ModelingInspection, PureConformanceControls, SourceDelta,
     SourceDocumentDelta, SourceFitDelta,
 };
-pub use projects::{ProjectDraftDocuments, ProjectDraftSaveIntent};
+pub use projects::{ProjectDraftDocuments, ProjectDraftDelta, ProjectDraftSaveIntent};
 pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
+    PreparationDiscoveryRequest,PreparationDiscoveryReport,PreparationProductKind,PreparationEligibility,ResidentPreparation,
+    ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent,
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
