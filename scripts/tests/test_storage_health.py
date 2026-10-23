@@ -235,7 +235,7 @@ class StorageHealthTests(unittest.TestCase):
         self.assertEqual(value["snapshot"]["schema"], health.SCHEMA)
         action = value["owner_actions"][1]
         self.assertEqual(action["action"], "recover-maintenance")
-        self.assertEqual(action["command"], ["python", "-m", "scripts.surreal_server", "recover-maintenance", "--state", str(self.state)])
+        self.assertEqual(action["command"], ["just", "surreal", "recover-maintenance", "--state", str(self.state)])
         self.assertIn("exact effect settlement", action["effect"])
         self.assertFalse(self.state.exists())
 
@@ -243,7 +243,7 @@ class StorageHealthTests(unittest.TestCase):
         record = fixture(self.state)
         record.configuration["pending_maintenance"] = health.Observation("available", "rebuild:disposing")
         action = health.owner_actions(record)[1]
-        self.assertEqual(action["command"][3], "recover-maintenance")
+        self.assertEqual(action["command"][2], "recover-maintenance")
         with (
             patch.object(server, "lifecycle_reservation", return_value=contextlib.nullcontext()) as reserve,
             patch.object(server, "config_for", return_value={"surrealkit_rollout_pending": True}) as current,
@@ -267,6 +267,7 @@ class StorageHealthTests(unittest.TestCase):
                 self.assertEqual(facts["service"]["status"], "observed" if available else "unavailable")
                 self.assertEqual(facts["metric:approx_data_bytes"]["status"], "approximate" if available else "unavailable")
                 self.assertEqual(facts["link:storage_health"]["link_target"], facts["health"]["detail_ref"])
+                self.assertEqual(facts["health"]["detail_ref"], health.presentation(record)["reference"])
                 links = [f["link_relation"] for f in projection["facts"] if f["kind"] == "declared_link"]
                 self.assertNotIn("invocation", links)
                 self.assertEqual("service" in links, available)

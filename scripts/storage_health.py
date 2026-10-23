@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 import socket
@@ -222,7 +224,11 @@ def process_identity(pid: int) -> ProcessIdentity:
 
 def independent_host(state: Path) -> dict[str, Observation]:
     """Inspect kernel metadata and statvfs only; never open or enumerate engine files."""
-    fields = {"hostname": Observation("available", socket.gethostname())}
+    try:
+        hostname = Observation("available", socket.gethostname())
+    except OSError:
+        hostname = unavailable("hostname unavailable")
+    fields = {"hostname": hostname}
     for name in ("MemTotal", "MemAvailable", "SwapTotal", "SwapFree"):
         fields[name + "_bytes"] = unavailable("meminfo field unavailable")
     try:
@@ -387,7 +393,7 @@ def read(path: Path) -> HealthSnapshot:
 
 def owner_actions(snapshot: HealthSnapshot) -> list[dict[str, object]]:
     """Inert finite command suggestions: the original owner rechecks every action."""
-    base = ["python", "-m", "scripts.surreal_server"]
+    base = ["just", "surreal"]
     state = ["--state", snapshot.requested_state]
     actions: list[dict[str, object]] = [{
         "action": "inspect-service", "command": base + ["status", *state],
@@ -404,5 +410,11 @@ def owner_actions(snapshot: HealthSnapshot) -> list[dict[str, object]]:
     return actions
 
 
+def reference(snapshot: HealthSnapshot) -> str:
+    """The original owner's immutable content reference, never a live protection grant."""
+    raw = json.dumps(msgspec.to_builtins(snapshot), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    return "storage-health:sha256:" + hashlib.sha256(raw).hexdigest()
+
+
 def presentation(snapshot: HealthSnapshot) -> dict[str, object]:
-    return {"snapshot": msgspec.to_builtins(snapshot), "limits": list(LIMITS), "owner_actions": owner_actions(snapshot)}
+    return {"snapshot": msgspec.to_builtins(snapshot), "reference": reference(snapshot), "limits": list(LIMITS), "owner_actions": owner_actions(snapshot)}
