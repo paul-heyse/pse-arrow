@@ -701,7 +701,6 @@ impl ModelingPackage {
 
     /// Admit a proposal without publishing a durable source head. Project merge and undo
     /// issue their separately retained publication intent only after this succeeds.
-    #[cfg(test)]
     pub(crate) async fn project_admit_delta(
         &self,
         delta: &SourceDelta,

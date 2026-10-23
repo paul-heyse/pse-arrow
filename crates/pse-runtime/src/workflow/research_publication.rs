@@ -131,7 +131,7 @@ impl Runtime {
             delta.replacements.push(declaration);
         }
         // Ordinary admission resolves quantities, parameter domains and retained source constraints.
-        let admitted=target.with_delta(delta.clone(),cancel).await?;
+        let admitted=target.project_admit_delta(&delta,cancel).await?;
         Ok((admitted,delta,binding,reader))
     }
     /// Preview the actual authored delta after reading original protected qualified cells.
