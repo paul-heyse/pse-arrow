@@ -15,6 +15,8 @@ pub struct PreparationDiscoveryRequest {
     /// Exact specialization premises, including demand and formulation.
     pub bindings: Bindings,
     /// Exact specialization limits.
+    #[serde(with = "crate::workflow::study_operations::LimitsWire")]
+    #[schemars(with = "crate::workflow::study_operations::LimitsWire")]
     pub limits: Limits,
     /// Continue durable publication headers under the same immutable source.
     pub durable_after: Option<ProductHeaderCursor>,
