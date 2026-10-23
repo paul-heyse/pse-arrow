@@ -5,9 +5,16 @@ use clap::{Parser, Subcommand};
 #[path = "../evidence_tools.rs"]
 mod evidence_tools;
 #[derive(Parser)]
-struct Cli { #[command(subcommand)] command: Command }
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
 #[derive(Subcommand)]
-enum Command { Evidence(evidence_tools::EvidenceArgs) }
+enum Command {
+    Evidence(evidence_tools::EvidenceArgs),
+}
 fn main() -> anyhow::Result<()> {
-    match Cli::parse().command { Command::Evidence(args) => evidence_tools::run(args) }
+    match Cli::parse().command {
+        Command::Evidence(args) => evidence_tools::run(args),
+    }
 }

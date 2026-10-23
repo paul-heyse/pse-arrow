@@ -5,9 +5,16 @@ use clap::{Parser, Subcommand};
 #[path = "../project_tools.rs"]
 mod project_tools;
 #[derive(Parser)]
-struct Cli { #[command(subcommand)] command: Command }
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
 #[derive(Subcommand)]
-enum Command { Project(project_tools::ProjectArgs) }
+enum Command {
+    Project(project_tools::ProjectArgs),
+}
 fn main() -> anyhow::Result<()> {
-    match Cli::parse().command { Command::Project(args) => project_tools::run(args) }
+    match Cli::parse().command {
+        Command::Project(args) => project_tools::run(args),
+    }
 }

@@ -328,7 +328,8 @@ impl CanonicalError {
             Self::Timeout | Self::IncompleteResponse | Self::WorkerLost { .. } => true,
             Self::AnalysisUnsettled { .. }
             | Self::ArtifactUnsettled { .. }
-            | Self::SourceEditUnsettled { .. } | Self::ProjectUnsettled { .. } => true,
+            | Self::SourceEditUnsettled { .. }
+            | Self::ProjectUnsettled { .. } => true,
             Self::PhysicalClose { source } | Self::ProtectionRelease { source } => {
                 source.effect_is_unknown()
             }
@@ -1604,9 +1605,19 @@ impl CanonicalStore {
             .await
     }
     pub(crate) async fn edit_project_authorized(
-        &self, intent: &crate::canonical_projects::ProjectPublication, edits: &[ObjectEdit],
+        &self,
+        intent: &crate::canonical_projects::ProjectPublication,
+        edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
-        self.edit_authorized(intent.problem(), intent.expected(), intent.operation(), edits, None, Some(intent)).await
+        self.edit_authorized(
+            intent.problem(),
+            intent.expected(),
+            intent.operation(),
+            edits,
+            None,
+            Some(intent),
+        )
+        .await
     }
     async fn edit_authorized(
         &self,
@@ -1628,9 +1639,14 @@ impl CanonicalStore {
                         .await?
                     {
                         crate::canonical_staging::StageOutcome::Acknowledged(revision) => {
-                            if let Some(intent)=project {
-                                let ack=self.project_acknowledgement(operation).await?.ok_or(CanonicalError::OperationReused)?;
-                                if ack.request.as_slice()!=intent.request() {return Err(CanonicalError::OperationReused);}
+                            if let Some(intent) = project {
+                                let ack = self
+                                    .project_acknowledgement(operation)
+                                    .await?
+                                    .ok_or(CanonicalError::OperationReused)?;
+                                if ack.request.as_slice() != intent.request() {
+                                    return Err(CanonicalError::OperationReused);
+                                }
                             }
                             return Ok(revision);
                         }

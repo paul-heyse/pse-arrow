@@ -818,64 +818,287 @@ impl NativeRuntime {
         ))
     }
     /// Create project organization using an original caller-issued command identity.
-    fn project_create(&self,py:Python<'_>,operation:&str,project:&str,title:&str)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>> {
-        let stop=CancelSource::new();
-        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.create_project(operation,project,title).await?)}),||stop.cancel())?;
+    fn project_create(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        project: &str,
+        title: &str,
+    ) -> PyResult<
+        documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>,
+    > {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime
+                    .canonical_store()?
+                    .create_project(operation, project, title)
+                    .await?)
+            }),
+            || stop.cancel(),
+        )?;
         Ok(documents::DocumentValue(value))
     }
     /// Read one compact project record without hydrating scientific payloads.
-    fn project_record(&self,py:Python<'_>,project:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Project>>> {
-        let stop=CancelSource::new();
-        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project(project).await?)}),||stop.cancel())?;
+    fn project_record(
+        &self,
+        py: Python<'_>,
+        project: &str,
+    ) -> PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Project>>>
+    {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime.canonical_store()?.project(project).await?)
+            }),
+            || stop.cancel(),
+        )?;
         Ok(value.map(documents::DocumentValue))
     }
-    fn project_branch_record(&self,py:Python<'_>,branch:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Branch>>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_branch(branch).await?)}),||stop.cancel())?;Ok(value.map(documents::DocumentValue))
+    fn project_branch_record(
+        &self,
+        py: Python<'_>,
+        branch: &str,
+    ) -> PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Branch>>>
+    {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime.canonical_store()?.project_branch(branch).await?)
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(value.map(documents::DocumentValue))
     }
     #[pyo3(signature=(project, *, cursor=None))]
-    fn project_branches(&self,py:Python<'_>,project:&str,cursor:Option<documents::DocumentInput<pse_operations::canonical_projects::ProjectCursor>>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::BranchPage>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_branches(project,cursor.as_ref().map(|v|&v.0)).await?)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    fn project_branches(
+        &self,
+        py: Python<'_>,
+        project: &str,
+        cursor: Option<documents::DocumentInput<pse_operations::canonical_projects::ProjectCursor>>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_projects::BranchPage>> {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime
+                    .canonical_store()?
+                    .project_branches(project, cursor.as_ref().map(|v| &v.0))
+                    .await?)
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(documents::DocumentValue(value))
     }
-    fn project_fork(&self,py:Python<'_>,project:&str,branch:&str,problem:&str,operation:&str,source:&NativeModelingPackage)->PyResult<String> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
-            let project=runtime.canonical_store()?.project(project).await?.ok_or_else(||native::WorkflowError::Input("project unavailable".into()))?;
-            runtime.project_fork(&project,branch,problem,operation,&source.inner).await
-        }),||stop.cancel())?;Ok(value.key)
+    fn project_fork(
+        &self,
+        py: Python<'_>,
+        project: &str,
+        branch: &str,
+        problem: &str,
+        operation: &str,
+        source: &NativeModelingPackage,
+    ) -> PyResult<String> {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                let project = runtime
+                    .canonical_store()?
+                    .project(project)
+                    .await?
+                    .ok_or_else(|| native::WorkflowError::Input("project unavailable".into()))?;
+                runtime
+                    .project_fork(&project, branch, problem, operation, &source.inner)
+                    .await
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(value.key)
     }
     #[pyo3(signature=(project,branch,expected,operation,*,draft=None))]
-    fn project_publication_intent(&self,py:Python<'_>,project:&str,branch:&str,expected:&str,operation:&str,draft:Option<&str>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectPublication>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{
-            let store=runtime.canonical_store()?;let project=store.project(project).await?.ok_or_else(||native::WorkflowError::Input("project unavailable".into()))?;
-            let branch=store.project_branch(branch).await?.ok_or_else(||native::WorkflowError::Input("branch unavailable".into()))?;
-            let draft=match draft {Some(key)=>Some(store.project_draft(key).await?.ok_or_else(||native::WorkflowError::Input("draft unavailable".into()))?),None=>None};
-            Ok(store.project_publication_intent(&project,&branch,expected,draft.as_ref(),operation)?)
-        }),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    fn project_publication_intent(
+        &self,
+        py: Python<'_>,
+        project: &str,
+        branch: &str,
+        expected: &str,
+        operation: &str,
+        draft: Option<&str>,
+    ) -> PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectPublication>>
+    {
+        let stop = CancelSource::new();
+        let value =
+            blocking(
+                py,
+                &self.owner,
+                self.recording_operation(&stop, |runtime| async move {
+                    let store = runtime.canonical_store()?;
+                    let project = store.project(project).await?.ok_or_else(|| {
+                        native::WorkflowError::Input("project unavailable".into())
+                    })?;
+                    let branch = store
+                        .project_branch(branch)
+                        .await?
+                        .ok_or_else(|| native::WorkflowError::Input("branch unavailable".into()))?;
+                    let draft = match draft {
+                        Some(key) => Some(store.project_draft(key).await?.ok_or_else(|| {
+                            native::WorkflowError::Input("draft unavailable".into())
+                        })?),
+                        None => None,
+                    };
+                    Ok(store.project_publication_intent(
+                        &project,
+                        &branch,
+                        expected,
+                        draft.as_ref(),
+                        operation,
+                    )?)
+                }),
+                || stop.cancel(),
+            )?;
+        Ok(documents::DocumentValue(value))
     }
     #[pyo3(signature=(operation,project,branch,key,base,content,*,expected=None))]
-    fn project_draft_save_intent(&self,py:Python<'_>,operation:&str,project:&str,branch:&str,key:&str,base:&str,content:&[u8],expected:Option<u64>)->PyResult<documents::DocumentValue<native::ProjectDraftSaveIntent>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{
-            let store=runtime.canonical_store()?;let project=store.project(project).await?.ok_or_else(||native::WorkflowError::Input("project unavailable".into()))?;
-            let branch=store.project_branch(branch).await?.ok_or_else(||native::WorkflowError::Input("branch unavailable".into()))?;
-            runtime.project_draft_save_intent(operation,&project,&branch,key,base,expected,content).await
-        }),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    fn project_draft_save_intent(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        project: &str,
+        branch: &str,
+        key: &str,
+        base: &str,
+        content: &[u8],
+        expected: Option<u64>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectDraftSaveIntent>> {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                let store = runtime.canonical_store()?;
+                let project = store
+                    .project(project)
+                    .await?
+                    .ok_or_else(|| native::WorkflowError::Input("project unavailable".into()))?;
+                let branch = store
+                    .project_branch(branch)
+                    .await?
+                    .ok_or_else(|| native::WorkflowError::Input("branch unavailable".into()))?;
+                runtime
+                    .project_draft_save_intent(
+                        operation, &project, &branch, key, base, expected, content,
+                    )
+                    .await
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(documents::DocumentValue(value))
     }
-    fn project_draft_save(&self,py:Python<'_>,intent:documents::DocumentInput<native::ProjectDraftSaveIntent>,content:&[u8])->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_save_draft_intent(&intent.0,content).await}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    fn project_draft_save(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<native::ProjectDraftSaveIntent>,
+        content: &[u8],
+    ) -> PyResult<
+        documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>,
+    > {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                runtime.project_save_draft_intent(&intent.0, content).await
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(documents::DocumentValue(value))
     }
-    fn project_draft_record(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Draft>>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_draft(key).await?)}),||stop.cancel())?;Ok(value.map(documents::DocumentValue))
+    fn project_draft_record(
+        &self,
+        py: Python<'_>,
+        key: &str,
+    ) -> PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::Draft>>> {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime.canonical_store()?.project_draft(key).await?)
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(value.map(documents::DocumentValue))
     }
-    fn project_draft_bytes<'py>(&self,py:Python<'py>,key:&str)->PyResult<Bound<'py,pyo3::types::PyBytes>> {
-        let stop=CancelSource::new();let body=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_draft_bytes(key).await}),||stop.cancel())?;
-        Ok(pyo3::types::PyBytes::new(py,&body))
+    fn project_draft_bytes<'py>(
+        &self,
+        py: Python<'py>,
+        key: &str,
+    ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let stop = CancelSource::new();
+        let body = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                runtime.project_draft_bytes(key).await
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(pyo3::types::PyBytes::new(py, &body))
     }
-    fn project_acknowledgement(&self,py:Python<'_>,operation:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>>> {
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_acknowledgement(operation).await?)}),||stop.cancel())?;Ok(value.map(documents::DocumentValue))
+    fn project_acknowledgement(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+    ) -> PyResult<
+        Option<
+            documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>,
+        >,
+    > {
+        let stop = CancelSource::new();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                Ok(runtime
+                    .canonical_store()?
+                    .project_acknowledgement(operation)
+                    .await?)
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(value.map(documents::DocumentValue))
     }
-    fn project_publish_draft(&self,py:Python<'_>,intent:documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
-        let stop=CancelSource::new();let publication_stop=&stop;
-        let value=source_settlement::blocking_source(py,&self.owner,self.recording_operation(&stop,|runtime|async move {runtime.project_publish_draft(&intent.0,physical.inner.clone(),publication_stop).await}),||stop.cancel())?;
-        Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+    fn project_publish_draft(
+        &self,
+        py: Python<'_>,
+        intent: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        physical: &NativePhysicalContext,
+    ) -> PyResult<NativeModelingPackage> {
+        let stop = CancelSource::new();
+        let publication_stop = &stop;
+        let value = source_settlement::blocking_source(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                runtime
+                    .project_publish_draft(&intent.0, physical.inner.clone(), publication_stop)
+                    .await
+            }),
+            || stop.cancel(),
+        )?;
+        Ok(NativeModelingPackage::from_revision(
+            self.owner.clone(),
+            value,
+        ))
     }
     fn modeling_from_documents(
         &self,

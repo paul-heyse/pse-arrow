@@ -33,17 +33,6 @@ from pse._strategies import (
     PreparedStrategy,
 )
 from pse.contracts.documents import (
-    ProjectRecord,
-    ProjectBranchRecordOutput,
-    ProjectDraftRecordOutput,
-    ProjectAcknowledgementOutput,
-    ProjectBranchPageOutput,
-    ProjectCursor,
-    ProjectCursorBody,
-    ProjectPublication,
-    ProjectPublicationOutput,
-    ProjectDraftSaveIntent,
-    ProjectDraftSaveIntentOutput,
     AnalysisControls,
     AnalysisDocument,
     AnalysisDocumentOutput,
@@ -62,6 +51,17 @@ from pse.contracts.documents import (
     PackExportRequest,
     PackIndexOutput,
     ParameterCovarianceOutput,
+    ProjectAcknowledgementOutput,
+    ProjectBranchPageOutput,
+    ProjectBranchRecordOutput,
+    ProjectCursor,
+    ProjectCursorBody,
+    ProjectDraftRecordOutput,
+    ProjectDraftSaveIntent,
+    ProjectDraftSaveIntentOutput,
+    ProjectPublication,
+    ProjectPublicationOutput,
+    ProjectRecord,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
@@ -501,7 +501,10 @@ class Runtime:
     ) -> str:
         """Fork an exact admitted source closure into an independent writable branch."""
         return self._handle.project_fork(
-            project, branch, problem, operation,
+            project,
+            branch,
+            problem,
+            operation,
             source._handle,  # noqa: SLF001 - same native boundary
         )
 
@@ -567,9 +570,12 @@ class Runtime:
         physical: "PhysicalContext",
     ) -> ModelingPackage:
         """Admit the saved document container, then atomically publish its exact generation."""
-        return ModelingPackage(self._handle.project_publish_draft(
-            intent, physical._handle,  # noqa: SLF001 - same native boundary
-        ))
+        return ModelingPackage(
+            self._handle.project_publish_draft(
+                intent,
+                physical._handle,  # noqa: SLF001 - same native boundary
+            )
+        )
 
     def physical_input_schema(self, kind: PhysicalInputKind) -> ArrowSchema:
         """Return the registered Arrow schema for a physical input role.

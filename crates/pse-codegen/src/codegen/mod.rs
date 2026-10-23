@@ -29,8 +29,8 @@ pub mod rust;
 mod surreal;
 mod surreal_analyses;
 mod surreal_artifacts;
-mod surreal_execution;
 mod surreal_evidence;
+mod surreal_execution;
 mod surreal_files;
 mod surreal_history;
 mod surreal_maintenance;
@@ -184,19 +184,34 @@ mod tests {
 
     #[test]
     fn evidence_family_does_not_change_canonical_installation() {
-        use crate::model::{Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass};
+        use crate::model::{
+            Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass,
+        };
         let original = crate::catalog::assemble().expect("platform declarations");
         let mut builder = crate::RegistryBuilder::new();
         crate::catalog::declare(&mut builder);
         builder.declare_relation(
-            RelationDecl::new(Namespace::Runtime, "evidence_installation_fixture", 1,
-                Authority::Derived, SnapshotClass::Derived, "Independent tooling-only extension.")
-                .pk(&["key"])
-                .columns(vec![FieldContract::payload("key", FieldContract::native(arrow_schema::DataType::Utf8), "Fixture identity.")])
-                .granularity(DerivationGranularity::Row),
+            RelationDecl::new(
+                Namespace::Runtime,
+                "evidence_installation_fixture",
+                1,
+                Authority::Derived,
+                SnapshotClass::Derived,
+                "Independent tooling-only extension.",
+            )
+            .pk(&["key"])
+            .columns(vec![FieldContract::payload(
+                "key",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Fixture identity.",
+            )])
+            .granularity(DerivationGranularity::Row),
         );
         let extended = builder.build().expect("extended declarations");
-        assert_eq!(canonical_schema(&original).unwrap(), canonical_schema(&extended).unwrap());
+        assert_eq!(
+            canonical_schema(&original).unwrap(),
+            canonical_schema(&extended).unwrap()
+        );
         let before = generate(&original, Language::Surreal).unwrap();
         let after = generate(&extended, Language::Surreal).unwrap();
         let canonical = PathBuf::from("crates/pse-operations/src/generated/surreal.rs");

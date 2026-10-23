@@ -1,24 +1,146 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-fn snapshot()->EvidenceSnapshot{EvidenceSnapshot{version:1,authority:"original-host-owner".into(),codec:"owner-v1".into(),source_id:"invocation-1".into(),snapshot_digest:"a".repeat(64),coverage:"partial".into(),expected_members:vec!["invocation".into(),"binary::unreported".into()],facts:vec![EvidenceFact{member:"invocation".into(),kind:"invocation".into(),status:"command_failed".into(),crate_name:None,test_id:None,detail_ref:Some("owner:invocation-1".into())},EvidenceFact{member:"binary::unreported".into(),kind:"test".into(),status:"unreported".into(),crate_name:Some("pse-example".into()),test_id:Some("binary::unreported".into()),detail_ref:None}]}}
+fn snapshot() -> EvidenceSnapshot {
+    EvidenceSnapshot {
+        version: 1,
+        authority: "original-host-owner".into(),
+        codec: "owner-v1".into(),
+        source_id: "invocation-1".into(),
+        snapshot_digest: "a".repeat(64),
+        coverage: "partial".into(),
+        expected_members: vec!["invocation".into(), "binary::unreported".into()],
+        facts: vec![
+            EvidenceFact {
+                member: "invocation".into(),
+                kind: "invocation".into(),
+                status: "command_failed".into(),
+                crate_name: None,
+                test_id: None,
+                detail_ref: Some("owner:invocation-1".into()),
+            },
+            EvidenceFact {
+                member: "binary::unreported".into(),
+                kind: "test".into(),
+                status: "unreported".into(),
+                crate_name: Some("pse-example".into()),
+                test_id: Some("binary::unreported".into()),
+                detail_ref: None,
+            },
+        ],
+    }
+}
 #[test]
-fn evidence_exact_membership_and_canonical_import_identity(){let source=snapshot();source.validate().unwrap();let id=source.identity().unwrap();let mut reordered=source.clone();reordered.facts.reverse();reordered.expected_members.reverse();assert_eq!(id,reordered.identity().unwrap());let mut missing=source.clone();missing.facts.pop();assert!(missing.validate().is_err());let mut duplicate=source.clone();duplicate.facts.push(duplicate.facts[0].clone());assert!(duplicate.validate().is_err());let mut oversized=source.clone();oversized.authority="a".repeat(4097);assert!(oversized.validate().is_err());let mut changed=source;changed.facts[0].status="failed".into();let changed=changed.identity().unwrap();assert_eq!(id.0,changed.0);assert_ne!(id.1,changed.1);}
+fn evidence_exact_membership_and_canonical_import_identity() {
+    let source = snapshot();
+    source.validate().unwrap();
+    let id = source.identity().unwrap();
+    let mut reordered = source.clone();
+    reordered.facts.reverse();
+    reordered.expected_members.reverse();
+    assert_eq!(id, reordered.identity().unwrap());
+    let mut missing = source.clone();
+    missing.facts.pop();
+    assert!(missing.validate().is_err());
+    let mut duplicate = source.clone();
+    duplicate.facts.push(duplicate.facts[0].clone());
+    assert!(duplicate.validate().is_err());
+    let mut oversized = source.clone();
+    oversized.authority = "a".repeat(4097);
+    assert!(oversized.validate().is_err());
+    let mut changed = source;
+    changed.facts[0].status = "failed".into();
+    let changed = changed.identity().unwrap();
+    assert_eq!(id.0, changed.0);
+    assert_ne!(id.1, changed.1);
+}
 #[test]
-fn evidence_generated_codec_retains_exact_uint64_and_rejects_foreign_record(){let row=pse_model::generated::runtime::evidence_generations::Row{key:"g".into(),authority:"a".into(),codec:"c".into(),source_id:"s".into(),snapshot_digest:"a".repeat(64),content_digest:"b".repeat(64),coverage:pse_model::generated::enums::EvidenceCoverage::Partial,expected_members:u64::MAX,state:pse_model::generated::enums::EvidenceGenerationState::Staged};let mut object=wire::encode_evidence_generations(&row).unwrap();assert_eq!(wire::decode_evidence_generations(object.clone()).unwrap().expected_members,u64::MAX);let mut bad_coverage=object.clone();bad_coverage.insert("coverage",Value::String("contradictory".into()));assert!(wire::decode_evidence_generations(bad_coverage).is_err());let mut bad_state=object.clone();bad_state.insert("state",Value::String("unfinished_but_complete".into()));assert!(wire::decode_evidence_generations(bad_state).is_err());object.insert("id",crate::canonical_codec::record_link("canonical_runs","g"));assert!(wire::decode_evidence_generations(object).is_err());}
+fn evidence_generated_codec_retains_exact_uint64_and_rejects_foreign_record() {
+    let row = pse_model::generated::runtime::evidence_generations::Row {
+        key: "g".into(),
+        authority: "a".into(),
+        codec: "c".into(),
+        source_id: "s".into(),
+        snapshot_digest: "a".repeat(64),
+        content_digest: "b".repeat(64),
+        coverage: pse_model::generated::enums::EvidenceCoverage::Partial,
+        expected_members: u64::MAX,
+        state: pse_model::generated::enums::EvidenceGenerationState::Staged,
+    };
+    let mut object = wire::encode_evidence_generations(&row).unwrap();
+    assert_eq!(
+        wire::decode_evidence_generations(object.clone())
+            .unwrap()
+            .expected_members,
+        u64::MAX
+    );
+    let mut bad_coverage = object.clone();
+    bad_coverage.insert("coverage", Value::String("contradictory".into()));
+    assert!(wire::decode_evidence_generations(bad_coverage).is_err());
+    let mut bad_state = object.clone();
+    bad_state.insert("state", Value::String("unfinished_but_complete".into()));
+    assert!(wire::decode_evidence_generations(bad_state).is_err());
+    object.insert(
+        "id",
+        crate::canonical_codec::record_link("canonical_runs", "g"),
+    );
+    assert!(wire::decode_evidence_generations(object).is_err());
+}
 #[test]
-fn evidence_config_debug_does_not_disclose_secrets(){let options=ToolingOptions{endpoint:"grpc://127.0.0.1:8000".into(),namespace:"pse_tooling".into(),database:"evidence".into(),service_instance_id:"service-1".into(),credentials:Credentials{reader_username:"reader".into(),reader_password:"secret-reader".into(),importer_username:"importer".into(),importer_password:"secret-importer".into()}};assert!(!format!("{options:?}").contains("secret"));assert!(options.address().is_ok());let mut foreign=options;foreign.endpoint="grpc://192.0.2.1:8000".into();assert!(foreign.address().is_err());}
-#[cfg(feature="canonical-tests")]
+fn evidence_config_debug_does_not_disclose_secrets() {
+    let options = ToolingOptions {
+        endpoint: "grpc://127.0.0.1:8000".into(),
+        namespace: "pse_tooling".into(),
+        database: "evidence".into(),
+        service_instance_id: "service-1".into(),
+        credentials: Credentials {
+            reader_username: "reader".into(),
+            reader_password: "secret-reader".into(),
+            importer_username: "importer".into(),
+            importer_password: "secret-importer".into(),
+        },
+    };
+    assert!(!format!("{options:?}").contains("secret"));
+    assert!(options.address().is_ok());
+    let mut foreign = options;
+    foreign.endpoint = "grpc://192.0.2.1:8000".into();
+    assert!(foreign.address().is_err());
+}
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
-async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences(){
-    let state=std::path::PathBuf::from(std::env::var("PSE_SURREAL_STATE").expect("explicit selected service required"));
-    let deployment:serde_json::Value=serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
-    let credentials:serde_json::Value=serde_json::from_slice(&std::fs::read(deployment["credentials_file"].as_str().unwrap()).unwrap()).unwrap();
-    let username=credentials["username"].as_str().unwrap();let password=credentials["password"].as_str().unwrap();
-    let options=ToolingOptions{endpoint:deployment["endpoint"].as_str().unwrap().into(),namespace:format!("pse_tooling_test_{}",uuid::Uuid::new_v4().simple()),database:"evidence".into(),service_instance_id:deployment["instance_id"].as_str().unwrap().into(),credentials:Credentials{reader_username:"reader".into(),reader_password:uuid::Uuid::new_v4().to_string(),importer_username:"importer".into(),importer_password:uuid::Uuid::new_v4().to_string()}};
-    eprintln!("owned evidence fixture namespace {}",options.namespace);
-    assert!(EvidenceStore::open(&options,EvidenceAccess::Reader).await.is_err());
-    EvidenceStore::initialize(&options,username,password).await.unwrap();
+async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
+    let state = std::path::PathBuf::from(
+        std::env::var("PSE_SURREAL_STATE").expect("explicit selected service required"),
+    );
+    let deployment: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
+    let credentials: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(deployment["credentials_file"].as_str().unwrap()).unwrap(),
+    )
+    .unwrap();
+    let username = credentials["username"].as_str().unwrap();
+    let password = credentials["password"].as_str().unwrap();
+    let options = ToolingOptions {
+        endpoint: deployment["endpoint"].as_str().unwrap().into(),
+        namespace: format!("pse_tooling_test_{}", uuid::Uuid::new_v4().simple()),
+        database: "evidence".into(),
+        service_instance_id: deployment["instance_id"].as_str().unwrap().into(),
+        credentials: Credentials {
+            reader_username: "reader".into(),
+            reader_password: uuid::Uuid::new_v4().to_string(),
+            importer_username: "importer".into(),
+            importer_password: uuid::Uuid::new_v4().to_string(),
+        },
+    };
+    eprintln!("owned evidence fixture namespace {}", options.namespace);
+    assert!(
+        EvidenceStore::open(&options, EvidenceAccess::Reader)
+            .await
+            .is_err()
+    );
+    EvidenceStore::initialize(&options, username, password)
+        .await
+        .unwrap();
     use futures_util::FutureExt as _;
     let result=std::panic::AssertUnwindSafe(async{
         let importer=EvidenceStore::open(&options,EvidenceAccess::Importer).await?;
@@ -80,7 +202,32 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences(){
         assert!(matches!(importer.generations(None,64).await,Err(EvidenceError::Unavailable(_))),"history selection must retain the original issuing authority");
         reader.disconnect().await?;importer.disconnect().await?;Ok::<_,EvidenceError>(())
     }).catch_unwind().await;
-    EvidenceStore::drop_database(&options,username,password).await.unwrap();
-    let admin=EvidenceStore::client(&options).await.unwrap();admin.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await.unwrap();admin.query(format!("REMOVE NAMESPACE `{}`;",options.namespace)).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await.unwrap().check().unwrap();admin.disconnect().await.unwrap();
-    match result{Ok(result)=>result.unwrap(),Err(panic)=>std::panic::resume_unwind(panic)}
+    EvidenceStore::drop_database(&options, username, password)
+        .await
+        .unwrap();
+    let admin = EvidenceStore::client(&options).await.unwrap();
+    admin
+        .signin(surrealdb::opt::auth::Root {
+            username: username.into(),
+            password: password.into(),
+        })
+        .request_context(RequestContext::control(
+            original_deadline(canonical::REQUEST_TIMEOUT).into_std(),
+        ))
+        .await
+        .unwrap();
+    admin
+        .query(format!("REMOVE NAMESPACE `{}`;", options.namespace))
+        .request_context(RequestContext::control(
+            original_deadline(canonical::REQUEST_TIMEOUT).into_std(),
+        ))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    admin.disconnect().await.unwrap();
+    match result {
+        Ok(result) => result.unwrap(),
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
 }

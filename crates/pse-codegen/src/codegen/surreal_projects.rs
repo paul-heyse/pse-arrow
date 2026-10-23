@@ -2,8 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Atomic project guards compose with the sole canonical source activation path.
 pub(super) fn append(ddl: &mut String) {
-    let maximum=pse_schema::catalog::substrate::SOURCE_PACKAGE_EDITS;
-    ddl.push_str(&FUNCTIONS.replace("/* SOURCE_EDIT_SCAN */",&(maximum+1).to_string()).replace("/* SOURCE_EDIT_LIMIT */",&maximum.to_string()));
+    let maximum = pse_schema::catalog::substrate::SOURCE_PACKAGE_EDITS;
+    ddl.push_str(
+        &FUNCTIONS
+            .replace("/* SOURCE_EDIT_SCAN */", &(maximum + 1).to_string())
+            .replace("/* SOURCE_EDIT_LIMIT */", &maximum.to_string()),
+    );
 }
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_project_v1::authority($expiry:int,$issuing:string) -> bool {

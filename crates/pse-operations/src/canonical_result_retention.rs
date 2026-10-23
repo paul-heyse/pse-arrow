@@ -326,14 +326,39 @@ mod canonical_result_retention_server_unit {
     }
     #[tokio::test]
     async fn project_research_reference_retains_exact_closed_results() {
-        let (store,_database)=fixture().await;
-        let request=request(&store,"project-reference").await;
-        let attempt=finish(&store,&request).await;
-        store.create_project("create-project","project","Research").await.unwrap();
-        let project=store.project("project").await.unwrap().unwrap();
-        store.retain_research_reference("reference",&project,"research",&request.revision.key,Some((&request.key,&attempt)),None).await.unwrap();
-        assert!(matches!(store.forget_run_results(&request.key).await,Err(CanonicalError::Refused{code:crate::canonical::RefusalCode::ProjectResearchRetainsResults,..})));
-        assert!(store.canonical_result_manifest(&attempt).await.unwrap().is_some());
+        let (store, _database) = fixture().await;
+        let request = request(&store, "project-reference").await;
+        let attempt = finish(&store, &request).await;
+        store
+            .create_project("create-project", "project", "Research")
+            .await
+            .unwrap();
+        let project = store.project("project").await.unwrap().unwrap();
+        store
+            .retain_research_reference(
+                "reference",
+                &project,
+                "research",
+                &request.revision.key,
+                Some((&request.key, &attempt)),
+                None,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            store.forget_run_results(&request.key).await,
+            Err(CanonicalError::Refused {
+                code: crate::canonical::RefusalCode::ProjectResearchRetainsResults,
+                ..
+            })
+        ));
+        assert!(
+            store
+                .canonical_result_manifest(&attempt)
+                .await
+                .unwrap()
+                .is_some()
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]

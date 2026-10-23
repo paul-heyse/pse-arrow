@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Project custody and publication exercise the real typed Python boundary."""
+
 from pathlib import Path
 
 import msgspec
@@ -24,7 +25,10 @@ def test_project_saved_draft_admission_publish_and_reopen(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    original = {"package.toml": manifest, "models/model.pse": "package p {param value:Scalar=1;}"}
+    original = {
+        "package.toml": manifest,
+        "models/model.pse": "package p {param value:Scalar=1;}",
+    }
     context = physical(runtime)
     source = runtime.modeling_from_documents([original], context)
     runtime.project_create("create", "project", "Engineering study")
@@ -51,9 +55,12 @@ def test_project_saved_draft_admission_publish_and_reopen(
     assert runtime.project_acknowledgement("publish-invalid") is None
 
     modified = {**original, "models/model.pse": "package p {param value:Scalar=2;}"}
-    content = codec.encode_json(ProjectDraftDocuments(
-        packages=({path: tuple(text.encode()) for path, text in modified.items()},), version=1
-    ))
+    content = codec.encode_json(
+        ProjectDraftDocuments(
+            packages=({path: tuple(text.encode()) for path, text in modified.items()},),
+            version=1,
+        )
+    )
     save = runtime.project_draft_save_intent(
         "save-valid", "project", "main", "draft", base, content, expected=2
     )
@@ -75,13 +82,23 @@ def test_project_saved_draft_admission_publish_and_reopen(
 
     # An immutable accepted publication settles before any later mutable draft read.
     advanced = runtime.project_draft_save_intent(
-        "advance-draft", "project", "main", "draft", "publish-valid", b"later invalid body", expected=3
+        "advance-draft",
+        "project",
+        "main",
+        "draft",
+        "publish-valid",
+        b"later invalid body",
+        expected=3,
     )
     runtime.project_draft_save(advanced, b"later invalid body")
     replayed = runtime.project_publish_draft(intent, context)
     assert replayed.canonical_revision == "publish-valid"
-    for field, value in (("draft", "other-draft"), ("project", "other-project"),
-                         ("expected", "other-base"), ("kind", "fork")):
+    for field, value in (
+        ("draft", "other-draft"),
+        ("project", "other-project"),
+        ("expected", "other-base"),
+        ("kind", "fork"),
+    ):
         forged = msgspec.structs.replace(intent, **{field: value})
         with pytest.raises(pse.InspectionError):
             runtime.project_publish_draft(forged, context)

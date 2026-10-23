@@ -805,7 +805,16 @@ pub(super) async fn persist_with_project(
         }
     }
     checkpoint(cancel)?;
-    admit_revision_authorized(runtime, previous, identity, &edits, &typed, Some(cancel), project).await
+    admit_revision_authorized(
+        runtime,
+        previous,
+        identity,
+        &edits,
+        &typed,
+        Some(cancel),
+        project,
+    )
+    .await
 }
 
 /// Stage complete local ownership before issuing the existing durable effect.
@@ -850,12 +859,21 @@ async fn admit_revision_authorized(
             }
             let recorded = if let Some(intent) = project {
                 store.edit_project(intent, edits).await.map_err(|source| {
-                    crate::workflow::source_settlement::source_edit_error(intent.problem().into(), intent.operation().into(), source)
+                    crate::workflow::source_settlement::source_edit_error(
+                        intent.problem().into(),
+                        intent.operation().into(),
+                        source,
+                    )
                 })?
             } else {
-                store.edit(&problem, old.map(|old| old.key.as_str()), &operation, edits).await.map_err(|source| {
-                    crate::workflow::source_settlement::source_edit_error(problem, operation, source)
-                })?
+                store
+                    .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
+                    .await
+                    .map_err(|source| {
+                        crate::workflow::source_settlement::source_edit_error(
+                            problem, operation, source,
+                        )
+                    })?
             };
             Some(recorded)
         }

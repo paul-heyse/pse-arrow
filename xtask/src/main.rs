@@ -35,11 +35,11 @@ mod codegen;
 mod dependency_ceilings;
 #[cfg(feature = "evidence-tools")]
 mod evidence_tools;
-#[cfg(feature = "canonical-tools")]
-mod project_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
+#[cfg(feature = "canonical-tools")]
+mod project_tools;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 

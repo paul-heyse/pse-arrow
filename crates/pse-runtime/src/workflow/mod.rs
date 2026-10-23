@@ -196,7 +196,6 @@ mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
 mod projects;
-pub use projects::{ProjectDraftDocuments,ProjectDraftSaveIntent};
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
@@ -205,6 +204,7 @@ pub use modeling::documents::{
     LinearDiagnosticControls, ModelingInspection, PureConformanceControls, SourceDelta,
     SourceDocumentDelta, SourceFitDelta,
 };
+pub use projects::{ProjectDraftDocuments, ProjectDraftSaveIntent};
 pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;

@@ -15,13 +15,13 @@ pub mod canonical_explanations;
 pub mod canonical_files;
 pub mod canonical_history;
 pub mod canonical_projects;
-pub mod evidence;
 pub mod canonical_result_retention;
 pub mod canonical_results;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
 pub mod canonical_studies;
+pub mod evidence;
 mod ids;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
