@@ -12,7 +12,7 @@ impl CanonicalStore {
     pub async fn create_research_dataset(&self, project:&crate::canonical_projects::Project, mut row:ResearchDataset)->Result<ResearchDataset,CanonicalError>{
         for key in [&row.key,&row.project,&row.revision,&row.context,&row.physical_context]{identity(key)?;}
         if row.project!=project.key || row.members.len()>131072{return Err(CanonicalError::PayloadLimit);}
-        row.request=encode(&("research-dataset-v1",self.issuing_store()?,project.generation,&row.key,&row.project,&row.revision,&row.physical_context,&row.context,&row.parent,&row.role,&row.members))?;
+        row.request=encode(&("research-dataset-v1",self.issuing_store()?,project.generation,&row.key,&row.project,&row.revision,&row.physical_context,&row.context,&row.parent,&row.role,&row.members))?.into();
         let object=wire::encode_canonical_research_datasets(&row)?;
         let activity=self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
@@ -27,7 +27,7 @@ impl CanonicalStore {
     pub async fn create_research_selection(&self, project:&crate::canonical_projects::Project,mut row:ResearchSelection)->Result<ResearchSelection,CanonicalError>{
         for key in [&row.key,&row.project,&row.dataset,&row.revision,&row.context,&row.fit]{identity(key)?;}
         if row.project!=project.key||row.selection.len()>131072{return Err(CanonicalError::PayloadLimit);}
-        row.request=encode(&("research-selection-v1",self.issuing_store()?,project.generation,&row.key,&row.project,&row.dataset,&row.revision,&row.physical_context,&row.context,&row.fit,&row.selection))?;
+        row.request=encode(&("research-selection-v1",self.issuing_store()?,project.generation,&row.key,&row.project,&row.dataset,&row.revision,&row.physical_context,&row.context,&row.fit,&row.selection))?.into();
         let object=wire::encode_canonical_research_selections(&row)?;
         let activity=self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
