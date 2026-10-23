@@ -445,7 +445,10 @@ impl Runtime {
                 if page.is_empty(){break;}
                 for point in page {
                     if point.ordinal!=points.len() as u64 || points.len()>=MAXIMUM_STUDY_POINTS {return Err(contract("study definition membership incomplete or excessive"));}
-                    after=Some(point.ordinal);points.push(definition_of(&point)?);
+                    after=Some(point.ordinal);
+                    let definition=optional_definition(point.descriptor.as_slice(),point.admission.as_ref(),point.policy)?.ok_or_else(||contract("selected scientific admission absent or refused"))?;
+                    if point.admitted_seed_need.is_some_and(|need|need!=definition.policy.seed_need) {return Err(contract("stored scientific admission capability differs"));}
+                    points.push(definition);
                 }
             }
             if points.len() as u64!=study.point_count {return Err(contract("study definition membership incomplete"));}
