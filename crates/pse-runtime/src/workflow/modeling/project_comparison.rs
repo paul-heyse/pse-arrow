@@ -637,6 +637,54 @@ mod native_tests {
         runtime.project_publish_admitted(&intent,&local,&CancelSource::new()).await.unwrap()
     }
     #[tokio::test]
+    async fn native_merge_and_undo_refuse_foreign_issuer_despite_exact_revision_key_collision() {
+        let runtime=crate::workflow::tests::durable_runtime();
+        let foreign=crate::workflow::tests::durable_runtime();
+        let store=runtime.canonical_store().unwrap();
+        let foreign_store=foreign.canonical_store().unwrap();
+        let physical=crate::workflow::tests::physical();
+        let cancel=CancelSource::new();
+        assert_ne!(store.issuing_store().unwrap(),foreign_store.issuing_store().unwrap());
+        let origin=runtime.modeling_package(rows(),physical.clone()).await.unwrap();
+        store.create_project("create-issuer","issuer-project","Issuer collision control").await.unwrap();
+        let project=store.project("issuer-project").await.unwrap().unwrap();
+        let revision=runtime.project_fork(&project,"issuer-branch","issuer-problem","shared-exact-revision",&origin).await.unwrap();
+        let local_base=runtime.modeling_revision(revision,physical.clone(),BTreeMap::new()).await.unwrap();
+        let project=store.project("issuer-project").await.unwrap().unwrap();
+        let branch=store.project_branch("issuer-branch").await.unwrap().unwrap();
+
+        let mut foreign_rows=rows();
+        foreign_rows.iter_mut().find(|row|row.name=="a").unwrap().value.binding.as_mut().unwrap().expression=Some("99".into());
+        let foreign_content=foreign.modeling_package(foreign_rows,physical.clone()).await.unwrap();
+        let edits=foreign_content.revision.admitted.objects.values().map(|object|object.edit()).collect::<Vec<_>>();
+        // Both databases genuinely accept the same caller-selected immutable key.
+        // The scientific contents and issuing authorities are deliberately different.
+        let collision=foreign_store.edit("foreign-collision",None,&local_base.recorded_revision().unwrap().key,&edits).await.unwrap();
+        let foreign_base=foreign.modeling_revision(collision,physical,BTreeMap::new()).await.unwrap();
+        assert_eq!(local_base.recorded_revision().unwrap().key,foreign_base.recorded_revision().unwrap().key);
+        assert_ne!(local_base.revision.identity(),foreign_base.revision.identity());
+        assert_eq!(foreign_base.declarations().await.unwrap().iter().find(|row|row.name=="a").unwrap().value.binding.as_ref().unwrap().expression.as_deref(),Some("99"));
+
+        let publication=store.project_publication_intent(&project,&branch,&local_base.recorded_revision().unwrap().key,None,"foreign-must-not-issue").unwrap();
+        for (base,target,proposal) in [
+            (&foreign_base,&local_base,&local_base),
+            (&local_base,&foreign_base,&local_base),
+            (&local_base,&local_base,&foreign_base),
+        ] {
+            let error=runtime.project_merge_intent(publication.clone(),base,target,proposal,vec![],&cancel).await.unwrap_err();
+            assert!(error.to_string().contains("issuing authority"),"{error}");
+        }
+        let error=runtime.project_undo_intent(publication.clone(),&local_base,&foreign_base,&cancel).await.unwrap_err();
+        assert!(error.to_string().contains("issuing authority"),"{error}");
+        // A local no-op decision still issues: neither ancestry nor source content
+        // mismatch accidentally substitutes for the explicit issuer requirement.
+        runtime.project_merge_intent(publication,&local_base,&local_base,&local_base,vec![],&cancel).await.unwrap().validate().unwrap();
+        assert!(store.project_acknowledgement("foreign-must-not-issue").await.unwrap().is_none());
+        assert_eq!(store.project_branch_revision("issuer-branch").await.unwrap().unwrap(),*local_base.recorded_revision().unwrap());
+        foreign_store.remove_isolated_fixture().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn native_document_saved_proposal_merge_and_exact_text_undo() {
         let runtime=crate::workflow::tests::durable_runtime();let store=runtime.canonical_store().unwrap();let physical=crate::workflow::tests::physical();let cancel=CancelSource::new();
         let originals=super::tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=2;}");
