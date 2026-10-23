@@ -3,7 +3,6 @@
 //! One real occurrence proves editing cancellation and compensating publication custody.
 //! Public operation futures are boxed so this compound consumer does not sum large polling frames.
 use super::*;
-use pse_model::document::Version;
 use pse_model::study::{OccurrenceKey, StartPolicy};
 use std::collections::BTreeMap;
 
@@ -46,9 +45,15 @@ async fn project_admitted_draft_run_cancellation_and_undo_preserve_original_reco
     let original=Box::pin(runtime.modeling_revision(base.clone(),physical.clone(),BTreeMap::new())).await.unwrap();
     let project=store.project("project").await.unwrap().unwrap();
     let branch=store.project_branch("main").await.unwrap().unwrap();
-    let mut modified=original_documents;
-    modified.insert("models/root.pse".into(),b"package algebraic { def Fixed { param x:Scalar=3; eq fixed:x==3; annotation report x(\"value\"); } }".to_vec());
-    let body=serde_json::to_vec(&ProjectDraftDocuments {version:Version,packages:vec![modified]}).unwrap();
+    let declarations=original.declarations().await.unwrap();
+    let mut parameter=declarations.iter().find(|row|row.name=="x").unwrap().clone();
+    parameter.value.binding.as_mut().unwrap().expression=Some("3".into());
+    let mut equation=declarations.iter().find(|row|row.name=="fixed").unwrap().clone();
+    equation.value.equation.as_mut().unwrap().expression="x==3".into();
+    let content=runtime.project_draft_delta(&original,SourceDelta {
+        parent:original.revision_id().into(),replacements:vec![parameter,equation],..Default::default()
+    }).unwrap();
+    let body=serde_json::to_vec(&content).unwrap();
     Box::pin(runtime.project_save_draft("save",&project,&branch,"draft",&base.key,None,&body)).await.unwrap();
     let admitted=Box::pin(runtime.project_admit_draft("admit","draft",physical.clone(),&cancel)).await.unwrap();
     assert!(admitted.canonical_revision().is_none(),"raw admission creates no branch publication");
