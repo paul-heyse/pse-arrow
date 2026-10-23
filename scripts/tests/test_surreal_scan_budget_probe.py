@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,24 @@ class ScanProbePreparationTests(unittest.TestCase):
             f"running 1 test\ntest {probe.TEST} ... ok\ntest result: ok. 1 passed; 0 failed;"
         ))
 
+    def test_git_environment_cannot_redirect_probe_operations(self) -> None:
+        with patch.dict("os.environ", {"GIT_DIR": "/unrelated/git", "GIT_WORK_TREE": "/unrelated", "GIT_INDEX_FILE": "/unrelated/index"}):
+            environment = probe.git_environment()
+        self.assertNotIn("GIT_DIR", environment)
+        self.assertNotIn("GIT_WORK_TREE", environment)
+        self.assertNotIn("GIT_INDEX_FILE", environment)
+
+    def test_missing_instrumentation_refuses_before_compiler(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            copied = Path(temporary) / "source"
+            btree = copied / "surrealdb/core/src/exec/index/iterator/btree.rs"
+            btree.parent.mkdir(parents=True)
+            btree.write_text("no probe here")
+            with patch.object(probe.subprocess, "run") as compiler:
+                with self.assertRaisesRegex(ValueError, "lacks the exact test-only"):
+                    probe.run(Path(temporary), {})
+            compiler.assert_not_called()
+
     def test_source_and_scratch_must_be_disjoint(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary)
@@ -30,6 +49,9 @@ class ScanProbePreparationTests(unittest.TestCase):
     def test_copies_inputs_without_target_or_hard_links_and_preserves_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
+            subprocess.run(["git", "init", "--quiet", "--template=", str(base)],
+                           env=probe.git_environment(), check=True)
+            (base / "fixture").write_text("ancestor must stay unchanged\n")
             source = base / "selected"
             source.mkdir()
             (source / "Cargo.toml").write_text('surrealmx = "=1.0.0"\n')
@@ -52,6 +74,8 @@ class ScanProbePreparationTests(unittest.TestCase):
             with patch.object(probe, "git", side_effect=git), patch.object(probe, "PATCH", fixture_patch):
                 receipt = probe.prepare(source, base / "scratch")
             copied = Path(str(receipt["copy"]))
+            self.assertEqual((base / "fixture").read_text(), "ancestor must stay unchanged\n")
+            self.assertTrue((copied / ".git").is_dir())
             self.assertEqual((source / "fixture").read_text(), "original\n")
             self.assertEqual((copied / "fixture").read_text(), "instrumented\n")
             self.assertNotEqual((source / "Cargo.lock").stat().st_ino, (copied / "Cargo.lock").stat().st_ino)
