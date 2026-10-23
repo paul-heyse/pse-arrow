@@ -197,6 +197,8 @@ pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
 mod projects;
 mod project_contexts;
+#[cfg(all(test, feature = "canonical-tests"))]
+mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
