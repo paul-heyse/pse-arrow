@@ -2552,6 +2552,15 @@ impl ModelingPackage {
         receiver: &Runtime,
         cancel: &crate::CancelSource,
     ) -> Result<String, WorkflowError> {
+        if let Some(selected) = &self.project_context {
+            receiver.canonical_store()?.validate_project_context(selected).await?;
+            if selected.context.source_identity != self.revision.identity().to_string()
+                || selected.context.physical_context != self.physical.identity().to_string()
+            { return Err(contract("historical study source no longer matches frozen context")); }
+            // Keep the original canonical source, rather than restaging an identical copy
+            // and losing the exact retained context-to-source relationship.
+            return Ok(selected.context.revision.clone());
+        }
         let extent = self.revision.admitted.retained_bytes();
         let _owner = receiver
             .shared
@@ -2703,6 +2712,7 @@ impl ModelingPackage {
         use crate::workflow::replay::{ReplayProvider, ReplaySourceDocument};
         let source = self.review_source()?;
         Ok(ReplaySourceDocument {
+            context: self.project_context.clone(),
             identity: source.identity,
             interpretation: source.interpretation,
             build: source.build,
@@ -2739,6 +2749,7 @@ impl ModelingPackage {
     /// Exact retained premises for operation-local coalescing, never a durable identity.
     pub(in crate::workflow) fn same_replay_source(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.revision.admitted, &other.revision.admitted)
+            && self.project_context == other.project_context
             && self.physical.same_sources(&other.physical)
             && Arc::ptr_eq(&self.providers, &other.providers)
             && Arc::ptr_eq(&self.accelerators, &other.accelerators)
@@ -3023,7 +3034,20 @@ impl Runtime {
         checkpoint(cancel)?;
         let admitted = AdmittedModelRevision::apply_inputs(self, None, &edits, &typed, None)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
-        let package = self.package_from_revision(revision, physical, providers)?;
+        let mut package = self.package_from_revision(revision, physical, providers)?;
+        if let Some(selected) = &document.context {
+            if selected.context.source_identity != package.revision.identity().to_string()
+                || selected.context.physical_context != package.physical.identity().to_string()
+                || selected.context.project != selected.cut.project
+                || selected.context.recorded_sequence > selected.cut.sequence
+                || selected.context.effective_from_us > selected.effective_at_us
+                || selected.context.effective_to_us.is_some_and(|to| to <= selected.effective_at_us)
+                || selected.context.deleted
+            { return Err(contract("portable context differs from actual source or original selection")); }
+            // Portable replay preserves attribution; native context authority is checked again
+            // by any later durable recording, not fabricated by embedded metadata.
+            package.project_context = Some(selected.clone());
+        }
         rebind::admit_rows(&package, self, &validation, cancel)?;
         checkpoint(cancel)?;
         Ok(package)

@@ -27,7 +27,7 @@ use surrealdb::types::{Object, Value};
 pub struct Draft { #[doc="Selected mutable editing head."] pub head: DraftHead, #[doc="Original immutable raw version."] pub version: DraftVersion }
 impl std::ops::Deref for Draft { type Target=DraftHead; fn deref(&self)->&DraftHead {&self.head} }
 #[cfg(all(test, feature = "canonical-tests"))]
-tokio::task_local! { static PROJECT_REPLY_LOSS: bool; }
+tokio::task_local! { pub(crate) static PROJECT_REPLY_LOSS: bool; }
 #[cfg(all(test, feature = "canonical-tests"))]
 pub(crate) fn simulate_reply_loss() -> bool {
     PROJECT_REPLY_LOSS.try_with(|value| *value).unwrap_or(false)

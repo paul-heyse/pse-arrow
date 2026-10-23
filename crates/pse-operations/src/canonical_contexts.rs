@@ -85,3 +85,66 @@ impl CanonicalStore {
         if encoded(&selected)?!=encoded(selection)?{return Err(CanonicalError::OperationReused);}Ok(())
     }
 }
+
+#[cfg(all(test,feature="canonical-tests"))]
+mod tests {
+    #![allow(clippy::unwrap_used,clippy::expect_used,reason="isolated history fixtures assert original effects and exact selection")]
+    use super::*;
+    async fn fixture()->CanonicalStore {
+        let state=std::env::var("PSE_SURREAL_STATE").expect("canonical fixture service");
+        let mut options=crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database=format!("canonical_test_contexts_{}",uuid::Uuid::new_v4().simple());
+        crate::testing::canonical_fixture_with_options(&options,true).unwrap()
+    }
+    async fn source(store:&CanonicalStore,key:&str)->crate::canonical::Revision {
+        store.edit("science",None,key,&[]).await.unwrap()
+    }
+    #[tokio::test]
+    async fn project_context_corrections_preserve_original_cuts_and_half_open_intervals(){
+        let store=fixture().await;let source=source(&store,"source").await;
+        store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
+        store.append_project_context("original",&project,"calibration",&source.key,"source-hash","physical",0,None,None,false).await.unwrap();
+        let old=store.project_context_cut("project").await.unwrap();
+        let retained=store.select_project_context(&old,"calibration",26).await.unwrap().unwrap();
+        store.append_project_context("correction",&project,"calibration",&source.key,"corrected-hash","physical",20,Some(40),Some("original"),false).await.unwrap();
+        let corrected=store.project_context_cut("project").await.unwrap();
+        store.append_project_context("deletion",&project,"calibration",&source.key,"corrected-hash","physical",25,Some(30),Some("correction"),true).await.unwrap();
+        let deleted=store.project_context_cut("project").await.unwrap();
+        assert_eq!(store.select_project_context(&old,"calibration",26).await.unwrap().unwrap().context.key,"original");
+        assert_eq!(store.select_project_context(&corrected,"calibration",26).await.unwrap().unwrap().context.key,"correction");
+        assert!(store.select_project_context(&deleted,"calibration",26).await.unwrap().is_none());
+        for (at,key) in [(19,"original"),(20,"correction"),(30,"correction"),(39,"correction"),(40,"original")] {assert_eq!(store.select_project_context(&deleted,"calibration",at).await.unwrap().unwrap().context.key,key);}
+        store.validate_project_context(&retained).await.unwrap();
+        assert_eq!(retained.context.key,"original");
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn project_context_refuses_unrelated_overlap_foreign_cut_and_forged_record(){
+        let store=fixture().await;let source=source(&store,"source").await;
+        store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
+        store.append_project_context("a",&project,"scope",&source.key,"hash","physical",-100,None,None,false).await.unwrap();let cut=store.project_context_cut("project").await.unwrap();
+        let original=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
+        let mut forged=original.clone();forged.context.source_identity="forged".into();assert!(store.validate_project_context(&forged).await.is_err());
+        let mut foreign=cut.clone();foreign.issuing_store="foreign".into();assert!(store.select_project_context(&foreign,"scope",0).await.is_err());
+        store.append_project_context("b",&project,"scope",&source.key,"other","physical",0,None,None,false).await.unwrap();
+        let cut=store.project_context_cut("project").await.unwrap();assert!(matches!(store.select_project_context(&cut,"scope",0).await,Err(CanonicalError::Refused{code:crate::canonical::RefusalCode::ProjectContextAmbiguous,..})));
+        assert!(store.append_project_context("bad",&project,"other",&source.key,"hash","physical",0,None,Some("a"),false).await.is_err());
+        store.validate_project_context(&original).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn project_context_exact_replay_settles_once_and_released_source_is_unavailable(){
+        let store=fixture().await;let source=source(&store,"source").await;
+        store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
+        let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false)).await.unwrap();
+        let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false).await.unwrap();assert_eq!(row,replay);
+        assert_eq!(store.project_context_cut("project").await.unwrap().sequence,1);
+        assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",0,None,None,false).await.is_err());
+        let cut=store.project_context_cut("project").await.unwrap();let frozen=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
+        // Exercise the source owner's declared unavailable-range gate, not current-value fallback.
+        bounded_query(store.db.query("CREATE canonical_reclaimed_ranges:released CONTENT {key:'released',problem:$problem,from_sequence:$from,to_sequence:$to};").bind(("problem",source.problem.clone())).bind(("from",codec::encode_uint(source.sequence).unwrap())).bind(("to",codec::encode_uint(source.sequence+1).unwrap()))).await.unwrap();
+        assert!(store.validate_project_context(&frozen).await.is_err());
+        assert!(store.project_context_record("a").await.unwrap().is_some());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+}
