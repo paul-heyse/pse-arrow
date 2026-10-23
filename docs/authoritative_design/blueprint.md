@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 248
+revision: 249
 date: 2026-10-22
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 249 | 2026-10-22 | ADR-0217: exact project editing, compensating undo, UTC context corrections and passive preparation discovery (§14.3/§20.5–§20.6/§21.1). | Maintainer-authorized Plan51b execution; PSE_DESIGN_EDIT=1 authorizes target publication; qualification remains at Plan51. |
 | 248 | 2026-10-22 | ADR-0216: keep project/branch source ownership canonical and tooling evidence independently attested/derived (§20.5–§20.6/§24.1), retaining shared MX service and protected sealed payloads. | Maintainer-authorized Plan51a execution; .design-edit records publication; implementation/qualification remain at Plan51. |
 | 247 | 2026-10-22 | Select explicit invocation abandonment membership closure distinct from authentic terminal reconciliation (§24.1), preserving exact release/drain/uncertainty protection. | Maintainer-selected Plan50 C05 extension; proposed ADR-0174 amendment, .design-edit authorizes target publication before implementation. |
 | 246 | 2026-10-22 | Publish selected Plan49d–49e constructor/projection, explicit fitting policies, runtime/native and composed acceptance with qualification limits (§14.3.2/§24.2). | Maintainer-authorized remaining 49d–49e execution; PSE_DESIGN_EDIT=1 authorizes publication; proposed ADR-0215 status unchanged. |

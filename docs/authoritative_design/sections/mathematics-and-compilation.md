@@ -560,6 +560,14 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; Plan51b owns passive discovery implementation).
+
+Preparation discovery exposes bounded metadata from existing resident products and canonical
+persisted product associations. Presence, compatibility and receiving qualification are distinct;
+absent explanations remain unknown. Passive discovery performs no solver execution, native
+compilation, provider transfer or portable-body reconstruction, and creates no competing catalogue.
+
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Pure compiler annotation/view products and pure study-start policy have one owner. All relevant runtime consumers migrate before old policy copies retire; values and native effects remain outside tracked queries.

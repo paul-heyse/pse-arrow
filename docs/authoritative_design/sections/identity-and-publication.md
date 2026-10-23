@@ -887,6 +887,18 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).
 
+> Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; maintainer-authorized Plan51b target).
+
+Stable project/branch identities are distinct from mutable presentation names. Draft heads select
+immutable raw versions and savepoints; admission is explicit. Object-based merge uses exact base,
+target and proposal selections and the existing source CAS. Undo creates a compensating revision.
+Historical engineering context has UTC half-open effective intervals, explicit correction ancestry
+and a project-scoped recorded cut independent of source or membership generations. Ambiguous
+selection refuses; tombstones do not silently resurrect a superseded value. Recorded studies/fits
+retain their exact selected context and actual scientific source/physical closure. Current hidden
+or corrected context does not rewrite that original consumption. Payload and scientific closure
+release remain at their existing owners.
+
 A project organizes exact admitted source and research references. Each writable branch names its
 own canonical source problem; the existing problem head remains the sole mutable source head.
 Project publication checks branch/draft generations and source head and publishes its exact
