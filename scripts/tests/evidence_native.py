@@ -58,7 +58,12 @@ class EvidenceNativeTests(unittest.TestCase):
         self.environment["SYMBOLICA_LICENSE"] = ""
         self.environment["PSE_SURREAL_STATE"] = str(self.root / "absent-service")
 
-    def native(self, snapshots: list[dict], operation: str, **filters: object) -> dict:
+    def native(
+        self,
+        snapshots: list[evidence_projection.EvidenceSnapshot],
+        operation: str,
+        **filters: object,
+    ) -> dict:
         question = self.root / "question.json"
         question.write_text(json.dumps({"operation": operation, **filters}))
         arguments = [

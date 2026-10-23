@@ -13,16 +13,22 @@ import hashlib
 import json
 import math
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import (
     active_diagnostics,
     case_measure,
+    evidence_projection,
     host_admission,
+    test_run,
     validation_receipts,
     validation_result,
 )
-from scripts.evidence_projection import EvidenceFact, EvidenceSnapshot, snapshot_digest
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from scripts.evidence_projection import EvidenceFact, EvidenceSnapshot
 
 # These are declarations, not a free-form container for raw reports or logs.
 CONTEXT_FIELDS = (
@@ -54,7 +60,7 @@ def context_fact(value: dict[str, object]) -> EvidenceFact:
     )
     if len(encoded) > 4096:
         raise ValueError("context exceeds compact metadata bound")
-    identity = snapshot_digest(json.loads(encoded))
+    identity = evidence_projection.snapshot_digest(json.loads(encoded))
     return {
         "member": "context:" + identity,
         "kind": "context",
@@ -66,7 +72,7 @@ def context_fact(value: dict[str, object]) -> EvidenceFact:
 
 def compact(value: object) -> str | None:
     """Retain an exact content identity for bulky owner context, never raw logs."""
-    return None if value is None else snapshot_digest(value)
+    return None if value is None else evidence_projection.snapshot_digest(value)
 
 
 def source_snapshot(
@@ -85,7 +91,7 @@ def source_snapshot(
         "authority": authority,
         "codec": codec,
         "source_id": source_id,
-        "snapshot_digest": snapshot_digest(original),
+        "snapshot_digest": evidence_projection.snapshot_digest(original),
         "coverage": "complete" if complete else "partial",
         "expected_members": [fact["member"] for fact in facts],
         "facts": facts,
@@ -110,15 +116,13 @@ def inventory_mapping(
     """Use the owner's actual nextest decoder and explicit suite package-name only."""
     inventory = validation_receipts.native_inventory(path.read_text())
     if selected is not None:
-        from scripts.test_run import rust_selected
-
         original = {
             (item["binary_id"], item["name"], item.get("executable"))
             for item in selected
         }
         supplied = {
             (item["binary_id"], item["name"], item.get("executable"))
-            for item in rust_selected(inventory)
+            for item in test_run.rust_selected(inventory)
         }
         # An original declaration can omit executable paths, but not subject identity.
         if {(b, n) for b, n, _ in original} != {(b, n) for b, n, _ in supplied} or any(
@@ -186,7 +190,7 @@ def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
             )
         selected = check.get("selected", [])
         if not isinstance(selected, list):
-            raise ValueError("invalid assessment selection")
+            raise TypeError("invalid assessment selection")
 
         def identity(row: dict) -> str:
             if isinstance(row.get("nodeid"), str):
@@ -200,7 +204,7 @@ def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
             raise ValueError("duplicate assessment selection")
         reports = check.get("results", [])
         if not isinstance(reports, list):
-            raise ValueError("invalid assessment results")
+            raise TypeError("invalid assessment results")
         reports_by_id = {identity(item): item for item in reports}
         if len(reports_by_id) != len(reports):
             raise ValueError("duplicate assessment report")
@@ -284,7 +288,7 @@ def diagnostic_snapshot(directory: Path) -> EvidenceSnapshot:
         if not isinstance(association.get("registry"), str) or not isinstance(
             association.get("identity"), str
         ):
-            raise ValueError("invalid diagnostic invocation association")
+            raise TypeError("invalid diagnostic invocation association")
         facts.append(
             link_fact(
                 "link:invocation",
@@ -484,7 +488,7 @@ def measurement_snapshot(
         )
         statistics = case.get("criterion_statistics", {})
         if not isinstance(statistics, dict):
-            raise ValueError("invalid original Criterion statistics")
+            raise TypeError("invalid original Criterion statistics")
         for name in (
             "mean_nanoseconds",
             "sample_mean_nanoseconds",
@@ -573,7 +577,7 @@ def measurement_snapshot(
                 )
                 status = record.get("outcome", "unknown")
                 if not isinstance(status, str):
-                    raise ValueError("invalid invocation outcome")
+                    raise TypeError("invalid invocation outcome")
                 fact: EvidenceFact = {
                     "member": population + ":invocation:" + member,
                     "kind": "harness_invocation",

@@ -360,6 +360,34 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
         return run_offline(args.tool.absolute(), arguments, deadline=deadline)
 
 
+def selected_detail(args: argparse.Namespace) -> dict:
+    """Validate exact detail coordinates and dispatch to their original reader."""
+    if args.tail < 0:
+        raise ValueError("nonnegative detail tail required")
+    if args.invocation is not None:
+        return evidence_detail.invocation_detail(
+            args.invocation,
+            registry=args.registry,
+            subject=args.subject,
+            tail=args.tail,
+        )
+    if args.member is None:
+        raise ValueError("--member is required for diagnostic or copied detail")
+    if args.diagnostic is not None:
+        return evidence_detail.diagnostic_detail(
+            args.diagnostic,
+            args.member,
+            tail=args.tail,
+            expected_digest=args.expected_digest,
+        )
+    return evidence_detail.copied_detail(
+        args.copy,
+        args.member,
+        tail=args.tail,
+        expected_digest=args.expected_digest,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     cli = parser()
     args = cli.parse_args(argv)
@@ -377,31 +405,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "detail":
-            if args.tail < 0:
-                raise ValueError("nonnegative detail tail required")
-            if args.invocation is not None:
-                value = evidence_detail.invocation_detail(
-                    args.invocation,
-                    registry=args.registry,
-                    subject=args.subject,
-                    tail=args.tail,
-                )
-            elif args.member is None:
-                raise ValueError("--member is required for diagnostic or copied detail")
-            elif args.diagnostic is not None:
-                value = evidence_detail.diagnostic_detail(
-                    args.diagnostic,
-                    args.member,
-                    tail=args.tail,
-                    expected_digest=args.expected_digest,
-                )
-            else:
-                value = evidence_detail.copied_detail(
-                    args.copy,
-                    args.member,
-                    tail=args.tail,
-                    expected_digest=args.expected_digest,
-                )
+            value = selected_detail(args)
             print(json.dumps(value, sort_keys=True, allow_nan=False))
             return 0
         if args.command == "offline":
