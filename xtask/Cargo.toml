@@ -36,13 +36,14 @@ default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
 evidence-tools = ["dep:pse-operations"]
+project-tools = ["canonical-tools", "physical-admission", "product-schemas"]
 canonical-tools = [
   "dep:pse-diagnostics",
   "dep:pse-model",
   "dep:pse-operations",
   "pse-operations/canonical-maintenance",
 ]
-canonical-tests = ["package-fixtures", "pse-runtime/canonical-tests"]
+canonical-tests = ["package-fixtures", "pse-runtime/canonical-tests", "pse-operations/test-support"]
 thermodynamic-oracles = [
   "dep:feos",
   "dep:feos-core",
@@ -136,7 +137,7 @@ required-features = ["evidence-tools"]
 [[bin]]
 name = "pse-project"
 path = "src/bin/pse-project.rs"
-required-features = ["canonical-tools"]
+required-features = ["project-tools"]
 
 [[bin]]
 name = "pse-worker"
