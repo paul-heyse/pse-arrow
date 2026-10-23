@@ -525,6 +525,7 @@ def open_context_admission(state: Path) -> None:
 def require_borrowers_drained(state: Path) -> None:
     """Native-free registered contexts also own an admitted service lifetime."""
     owner = service_directory(state)
+    require_tooling_drained(owner)
     for record in test_resources.resource_status().values():
         if not isinstance(record, dict):
             raise SupervisorError("Unresolved service resource registry entry")
@@ -1031,6 +1032,106 @@ def service_directory(state: Path, *, deadline: float | None = None) -> Path:
     if result / ".receivers" not in state.parents:
         raise SupervisorError("Receiver state is not owned by the recorded service")
     return result
+
+
+def service_config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
+    """Attest service identity without opening scientific interpretation or workers."""
+    if (
+        not state.is_absolute()
+        or ".." in state.parts
+        or any(path.is_symlink() for path in (state, *state.parents))
+    ):
+        raise SupervisorError("Service state must be an exact absolute owned directory")
+    information = state.stat()
+    if not stat.S_ISDIR(information.st_mode) or information.st_uid != os.getuid() or information.st_mode & 0o077:
+        raise SupervisorError("Service state must be a private owned directory")
+    config = object_mapping(json.loads(private_record_bytes(state / "config.json", deadline, maximum_bytes=1024 * 1024)))
+    if config.get("owner") != OWNER or config.get("profile_version") != 3 or config.get("service_state") is not None:
+        raise SupervisorError("Tooling requires the selected service root")
+    try:
+        uuid.UUID(str(config.get("instance_id")))
+    except ValueError as error:
+        raise SupervisorError("Invalid selected service identity") from error
+    port = integer(config.get("port"))
+    if not 1 <= port <= 65535 or config.get("endpoint") != f"grpc://127.0.0.1:{port}":
+        raise SupervisorError("Tooling requires the recorded authenticated loopback service")
+    receipt = object_mapping(config.get("server"))
+    if receipt.get("inputs") != surreal_source.inputs() or receipt.get("surrealmx_version") != surreal_source.ENGINE:
+        raise SupervisorError("Tooling service is not the admitted MX generation")
+    if (state / "fresh-engine-pending.json").exists():
+        raise SupervisorError("Fresh-engine initialization is incomplete")
+    return config
+
+
+@contextlib.contextmanager
+def tooling_activity(state: Path, *, deadline: float) -> Generator[tuple[dict[str, object], int], None, None]:
+    """Register an exact service-only lifetime, inherited by the foreground tool.
+
+    Only this activity's kernel lock survives RPC work. The service metadata lock
+    is released before yielding. An inherited descriptor retains the lifetime if
+    the wrapper dies; inactive markers are collected by lifecycle drain.
+    """
+    descriptor = None
+    path = None
+    try:
+        with state_lock(state, deadline=deadline):
+            config = service_config_for(state, deadline=deadline)
+            lifecycle = state / "lifecycle-owner.json"
+            if lifecycle.exists() and reservation_live(read_json(lifecycle, deadline=deadline)):
+                raise SupervisorError("Service lifecycle operation has closed tooling admission")
+            if config.get("admission") != "open" or config.get("accepting_writes") is not True:
+                raise SupervisorError("Service tooling admission is closed")
+            directory = state / ".tooling" / ".activities"
+            host_admission.protected(state / ".tooling")
+            host_admission.protected(directory)
+            path = directory / (uuid.uuid4().hex + ".json")
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            os.write(descriptor, json.dumps({"version": 1, "service_instance_id": config["instance_id"]}).encode())
+            os.fsync(descriptor)
+        yield config, descriptor
+    finally:
+        if descriptor is not None:
+            # Do not LOCK_UN: the child may still hold this open description.
+            os.close(descriptor)
+        if path is not None:
+            # Remove normally finished activities promptly. If an inherited
+            # child is still running or the original clock expired, preserve
+            # the marker for the existing lifecycle drain to inspect.
+            with contextlib.suppress(OSError, DeadlineExpiredError):
+                with state_lock(state, deadline=deadline):
+                    finished = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+                    try:
+                        fcntl.flock(finished, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        path.unlink()
+                    finally:
+                        os.close(finished)
+
+
+def require_tooling_drained(state: Path) -> None:
+    """Called under the existing lifecycle reservation before any service effect."""
+    directory = state / ".tooling" / ".activities"
+    if not directory.exists():
+        return
+    if any(path.is_symlink() for path in (directory, directory.parent)):
+        raise SupervisorError("Tooling activity directory changed")
+    for selected in (directory.parent, directory):
+        information = selected.lstat()
+        if not stat.S_ISDIR(information.st_mode) or information.st_uid != os.getuid() or information.st_mode & 0o077:
+            raise SupervisorError("Tooling activity directory must be private and owned")
+    for path in directory.iterdir():
+        if not re.fullmatch(r"[a-f0-9]{32}\.json", path.name):
+            raise SupervisorError("Unknown service tooling activity")
+        descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+        try:
+            host_admission.validate_private_file(os.fstat(descriptor), "tooling activity")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise SupervisorError("A live tooling command still borrows this service") from error
+            path.unlink()
+        finally:
+            os.close(descriptor)
 
 
 def config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
