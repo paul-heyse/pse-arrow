@@ -153,8 +153,7 @@ impl ProjectPublication {
             &self.kind,
             &self.branch_name,
             &self.extra_parents,
-            &self.context_commitment,
-            &self.research,
+            (&self.context_commitment, &self.research),
         ))
     }
 

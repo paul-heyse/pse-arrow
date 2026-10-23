@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "171729e5f8316585d6e2c0ffec48ae7c250f70bf20e09679e0d26fc919284b60";
+pub const SCHEMA_DIGEST: &str = "9a21be47a5c90b175e57160da0899e3b79cae8c5151526f0eda03e32473adaee";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.

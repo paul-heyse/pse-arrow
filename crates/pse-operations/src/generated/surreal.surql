@@ -1517,11 +1517,13 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
             IF $draft=NONE OR $draft.deleted OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
         };
     };
+    fn::pse_research_v1::publication_guard($expiry,$operation,$intent);
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
+    fn::pse_research_v1::publication_ack($expiry,$operation,$intent);
     FOR $parent IN $intent.extra_parents {
         fn::pse_project_v1::root($expiry,$parent,'project-ancestry:'+$operation+':'+$parent);
         LET $edge=<string>string::len($operation)+':'+$operation+$parent;
@@ -1699,6 +1701,30 @@ DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generati
     IF $dataset=NONE OR $dataset.project!=$row.project OR $dataset.revision!=$row.revision OR $dataset.context!=$row.context OR $dataset.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
     IF bytes::len($row.selection)>131072 OR bytes::len($row.request)>262144 {THROW 'PSE_REFUSAL:research_bound';};
     RETURN CREATE ONLY type::record('canonical_research_selections',$row.key) CONTENT $row;
+};
+
+DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:string,$intent:object) -> bool {
+    IF $intent.research=NONE {RETURN true;};
+    LET $e=$intent.research;
+    LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
+    LET $run=SELECT * FROM ONLY type::record('canonical_runs',$e.run);
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$e.attempt);
+    LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest);
+    LET $set=SELECT * FROM ONLY type::record('canonical_result_sets',$e.result_set);
+    IF $selection=NONE OR $selection.project!=$intent.project OR $run=NONE OR $run.revision!=$selection.revision OR $run.source_selection!=$e.source_selection OR $attempt=NONE OR $attempt.run!=$e.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $manifest=NONE OR $manifest.attempt!=$e.attempt OR $manifest.generation!=$attempt.generation OR $manifest.digest!=$e.manifest_digest OR $set=NONE OR $set.attempt!=$e.attempt OR $set.name!='3fb8ba5757961e1b7ddec1d1ff603bae' OR $set.row_count=0dec {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF bytes::len($e.mapping)>131072 OR bytes::len($e.source_selection)>131072 {THROW 'PSE_REFUSAL:research_bound';};
+    fn::pse_project_v1::root($expiry,$selection.revision,'research-fit-source:'+$operation);
+    fn::pse_history_v1::retain($expiry,'project-research:research-publication:'+$operation,'run',$e.run,'audit',$intent.project);
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:string,$intent:object) -> bool {
+    IF $intent.research=NONE {RETURN true;};
+    LET $e=$intent.research;
+    LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
+    CREATE ONLY type::record('canonical_research_publications',$operation) CONTENT {key:$operation,project:$intent.project,selection:$e.selection,run:$e.run,attempt:$e.attempt,revision:$operation,parent:$intent.expected,mapping:$e.mapping,request:$intent.request};
+    LET $reference='research-publication:'+$operation;
+    CREATE ONLY type::record('canonical_research_references',$reference) CONTENT {key:$reference,project:$intent.project,revision:$selection.revision,run:$e.run,attempt:$e.attempt,request:$intent.request};
+    RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_files_v1::admission($expiry:int,$incarnation:string,$collecting:bool) -> object {
@@ -2294,6 +2320,11 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> obje
     fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$row.run);
     LET $run = SELECT * FROM ONLY type::record('canonical_runs', $row.run);
     IF $run = NONE OR $run.problem != $row.problem OR $run.revision != $row.revision { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    IF $row.physical_revision!=NONE AND array::len(SELECT key FROM canonical_run_sources WHERE run=$row.run AND revision=$row.physical_revision LIMIT 1)!=1 { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    IF $row.context!=NONE {
+        LET $context=SELECT revision,physical_revision,physical_source_identity FROM ONLY type::record('canonical_project_contexts',$row.context);
+        IF $context=NONE OR $context.revision!=$row.revision OR $context.physical_revision!=$row.physical_revision OR $context.physical_source_identity!=$row.physical_identity { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    };
     fn::pse_history_v1::associate($rpc_expiry,$row.key,$row.run,NONE);
     LET $rpc_result = CREATE ONLY type::record('canonical_studies', $row.key) CONTENT $row;
     fn::pse_study_v1::readiness_cursor($rpc_expiry,$row.key,true);
