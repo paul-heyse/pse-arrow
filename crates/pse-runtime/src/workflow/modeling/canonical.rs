@@ -881,6 +881,40 @@ async fn admit_revision_authorized(
     SourceRevision::admitted(admitted, identity, origin, previous)
 }
 
+/// Publish the already admitted immutable result through the sole canonical edit path.
+/// Receiving admission belongs to `project_admit_delta`; this helper cannot accept raw edits.
+pub(super) async fn publish_admitted_project(
+    runtime: &Runtime,
+    intent: &pse_operations::canonical_projects::ProjectPublication,
+    parent: &ModelingPackage,
+    admitted: &ModelingPackage,
+    cancel: &crate::CancelSource,
+) -> Result<ModelingPackage, WorkflowError> {
+    intent.validate()?;
+    if intent.expected() != Some(parent.recorded_revision()?.key.as_str())
+        || parent.physical.key != admitted.physical.key
+    {
+        return Err(contract("project publication exact parent or physical context differs"));
+    }
+    let mut edits = Vec::new();
+    for object in admitted.revision.admitted.objects.values() {
+        if parent.revision.admitted.objects.get(&object.logical).is_none_or(|old| old.value != object.value) {
+            edits.push(object.edit());
+        }
+    }
+    for old in parent.revision.admitted.objects.values() {
+        if !admitted.revision.admitted.objects.contains_key(&old.logical) {
+            edits.push(ObjectEdit { logical: old.logical.clone(), scope: old.scope.clone(), name: old.name.clone(), version: None, references: Vec::new() });
+        }
+    }
+    checkpoint(cancel)?;
+    let recorded = runtime.canonical_store()?.edit_project(intent, &edits).await.map_err(|source| {
+        crate::workflow::source_settlement::source_edit_error(intent.problem().into(), intent.operation().into(), source)
+    })?;
+    let revision = SourceRevision::admitted(admitted.revision.admitted.clone(), admitted.revision.identity, Some(recorded), Some(&parent.revision))?;
+    Ok(ModelingPackage { runtime: runtime.clone(), revision, held_preparation: None, project_context: None, ..admitted.clone() })
+}
+
 /// Active eligibility belongs to this call, never to retained admission.
 #[derive(Debug)]
 pub(super) struct CheckedSelection {
