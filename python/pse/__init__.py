@@ -71,6 +71,7 @@ from pse._runs import (
     StudyResults,
 )
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
+from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver
 from pse._transfer import FieldTransfer
 from pse._workflow import (
     PhysicalContext,
@@ -189,6 +190,7 @@ __all__ = [
     "FlowConnectionDocument",
     "FlowGraphDocument",
     "FlowSelectionDocument",
+    "FrozenStudyCohort",
     "HighsSettings",
     "IdasSettings",
     "IncumbentDocument",
@@ -262,12 +264,11 @@ __all__ = [
     "StrategyResult",
     "StudyCancel",
     "StudyHandle",
-    "FrozenStudyCohort",
-    "StudyKpiAnalysis",
-    "StudyObserver",
     "StudyInputs",
     "StudyInputsExplicit",
     "StudyInputsLazy",
+    "StudyKpiAnalysis",
+    "StudyObserver",
     "StudyPointStatus",
     "StudyReport",
     "StudyResults",
@@ -305,5 +306,3 @@ __version__: str = _resolve_version()
 # Cheap boundary compatibility; exhaustive annotation lint is an explicit check.
 _check_native_compatibility(__version__, SCHEMA_SET_FINGERPRINT)
 extension_types.register_all()
-
-from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver

@@ -8,9 +8,7 @@ from pathlib import Path
 import attrs
 
 from pse import codec
-from pse._study_workbench import StudyWorkbenchMixin
 from pse._analyses import Analysis
-from pse._research import ResearchRuntime
 from pse._artifacts import (
     ArtifactOwnerKind,
     ArtifactSettlement,
@@ -25,6 +23,7 @@ from pse._build import (
 from pse._inspection import TableStream
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
 from pse._physical import ArrowSchema
+from pse._research import ResearchRuntime
 from pse._runs import (
     PreparedOperation,
     ProgressStream,
@@ -34,6 +33,7 @@ from pse._runs import (
 from pse._strategies import (
     PreparedStrategy,
 )
+from pse._study_workbench import StudyWorkbenchMixin
 from pse.contracts.documents import (
     AnalysisControls,
     AnalysisDocument,
@@ -508,7 +508,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     def project_context_package(
         self,
         selection: ContextSelection | ContextSelectionOutput,
-        physical: PhysicalContext,
+        physical: "PhysicalContext",
     ) -> ModelingPackage:
         """Load this exact selection through ordinary source admission; never select latest."""
         return ModelingPackage(
