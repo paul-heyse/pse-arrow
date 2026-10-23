@@ -314,7 +314,7 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> obje
     fn::pse_execution_v1::touch($rpc_expiry, 'study:' + $row.key);
     LET $old = SELECT * FROM ONLY type::record('canonical_studies', $row.key);
     IF $old != NONE {
-        IF $old.run != $row.run OR $old.revision != $row.revision OR $old.problem != $row.problem OR $old.metadata != $row.metadata OR $old.point_count != $row.point_count OR $old.dependency_count != $row.dependency_count OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:study_identity_reused'; };
+        IF $old.run != $row.run OR $old.revision != $row.revision OR $old.problem != $row.problem OR $old.metadata != $row.metadata OR $old.physical_revision != $row.physical_revision OR $old.physical_identity != $row.physical_identity OR $old.context != $row.context OR $old.point_count != $row.point_count OR $old.dependency_count != $row.dependency_count OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:study_identity_reused'; };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;

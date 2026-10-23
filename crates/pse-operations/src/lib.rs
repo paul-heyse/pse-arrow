@@ -22,6 +22,7 @@ pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
 pub mod canonical_studies;
+pub mod canonical_study_workbench;
 pub mod evidence;
 mod ids;
 /// Registry-generated native schema and codec contracts.
