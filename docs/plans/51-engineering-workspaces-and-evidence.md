@@ -218,17 +218,17 @@ none of the remaining implementation.
 | PJ04 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | Implemented exact three-way decisions, private original-text proof, derived checksum composition and compensating undo; Tested conflicts, replay, ancestry, foreign issuers and unchanged old receipts |
 | PJ05 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ05) | Implemented UTC/cut/correction selection and protected authored/physical reopen; Tested native history, actual recorded study/lane and reopened native fit receipts retaining original context |
 | PJ06 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ06) | Implemented bounded passive inspection with existing eligibility owners; Tested no recency/counter/compilation effects and issuer/revision-scoped headers |
-| SC01 | planned | [51c](51c-scientific-data-studies-and-results.md#SC01) | Dataset/measurement versions and admitted source bridge |
-| SC02 | planned | [51c](51c-scientific-data-studies-and-results.md#SC02) | Explicit calibration and observation selection |
-| SC03 | planned | [51c](51c-scientific-data-studies-and-results.md#SC03) | Qualified fit-to-parameter-source publication |
-| SC04 | planned | [51c](51c-scientific-data-studies-and-results.md#SC04) | Cohort/result query and lazy detail consumer |
-| SC05 | planned | [51c](51c-scientific-data-studies-and-results.md#SC05) | Study progress observer and reconnect |
-| SC06 | planned | [51c](51c-scientific-data-studies-and-results.md#SC06) | Explicit external-acquisition disposition |
+| SC01 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC01) | Dataset/measurement versions and admitted source bridge |
+| SC02 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC02) | Explicit calibration and observation selection |
+| SC03 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC03) | Qualified fit-to-parameter-source publication |
+| SC04 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC04) | Cohort/result query and lazy detail consumer |
+| SC05 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC05) | Study progress observer and reconnect |
+| SC06 | complete | [51c](51c-scientific-data-studies-and-results.md#SC06) | Batch/file admission selected; no external producer or control effects; I09 retains the observable revisit trigger |
 | EV01 | in-progress | [51d](51d-development-and-research-evidence.md#EV01) | 51a supplies authentic FileStore invocation snapshots and coverage; other source adapters/mappings remain |
-| EV02 | planned | [51d](51d-development-and-research-evidence.md#EV02) | Supplied-only offline columnar query |
+| EV02 | in-progress | [51d](51d-development-and-research-evidence.md#EV02) | Supplied-only offline columnar query |
 | EV03 | in-progress | [51d](51d-development-and-research-evidence.md#EV03) | 51a supplies isolated index and CLI import/query/history; broader evidence workbench composition remains |
-| EV04 | planned | [51d](51d-development-and-research-evidence.md#EV04) | Linked and standalone diagnostics with protected details |
-| EV05 | planned | [51d](51d-development-and-research-evidence.md#EV05) | Comparable performance populations |
+| EV04 | in-progress | [51d](51d-development-and-research-evidence.md#EV04) | Linked and standalone diagnostics with protected details |
+| EV05 | in-progress | [51d](51d-development-and-research-evidence.md#EV05) | Comparable performance populations |
 | LC01 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
 | LC02 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
 | LC03 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
@@ -303,3 +303,9 @@ dependencies until Q04. This handoff does not authorize 51c–51g execution or c
 ## 51c/51d execution checkpoint
 
 The maintainer authorized all SC01–SC06 and EV01–EV05 on 2026-10-23. Shared scientific and derived-evidence contracts precede independent research/publication, cohort/observer and evidence-query streams. SC06 adopts explicit file/batch admission; I09 records that choice. Targeted functional acceptance belongs to the companions, whole-series hygiene/qualification remains Q01–Q04. Other plans retain their existing scope.
+
+Integration checkpoint: research/source publication, native frozen cohorts and passive observation,
+public Rust/Python/CLI adapters, and offline/persistent evidence workbench implementations are
+merged into main. Targeted acceptance is running; original scientific fixtures and synchronized
+Python catalogues remain under correction. Host-side and actual offline evidence controls pass.
+No assembled Plan51 or measured benefit claim is made.

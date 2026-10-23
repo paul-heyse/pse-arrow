@@ -170,5 +170,9 @@ No full project rebuild or heavyweight native study is needed to validate offlin
 
 A new test runner adds an authentic adapter and declared inventory mapping. A new diagnostic tool
 adds original action/artifact facts. Neither changes terminal/resource authority, scientific
-result storage or the existing product execution route. Current checkpoint: authored design only;
-all package progress stays at the coordinator.
+result storage or the existing product execution route. Current checkpoint (2026-10-23): authentic
+source adapters, supplied-only DataFusion analysis, explicit persistent source cuts, diagnostic
+closure selection and measurement populations are integrated. Host adapter and actual offline
+executable controls pass; targeted native query/generation controls pass within the current
+combined selection. Whole-series static/assembled qualification remains 51g. The coordinator
+owns package disposition; no performance benefit is claimed.

@@ -208,6 +208,10 @@ before implementation. Do not add a speculative acquisition framework or real-ti
 qualify numerical behavior. Parameter publication requires the existing scientific outcome checks,
 not new assertions about a solver based on metadata success.
 
-Current checkpoint: source assessment and proposed integration only. SC01's source/data slice
-can progress with PJ01, SC04 can use existing study records before all research lineage exists,
-and SC05 is independent of SC03. No new scientific capability has been tested or measured here.
+Current checkpoint (2026-10-23): SC01–SC05 implementations and Rust/Python/CLI consumers are
+integrated. Targeted acceptance is in progress: native workbench/observer and original-source
+attribution controls pass, while scientific publication/Parquet fixtures are being repaired and
+public Python verification awaits synchronized generated/native document catalogues. This is
+not assembled qualification. SC06 resolves to explicit file/batch admission through the existing
+typed package loader; revisit only a named producer with defined clock, calibration, ordering,
+idempotence and loss semantics. No external streaming/control integration is adopted.
