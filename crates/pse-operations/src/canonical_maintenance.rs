@@ -582,6 +582,17 @@ mod tests {
     async fn generated_maintenance_pages_fence_generations_and_replay_exact_effects() {
         use crate::canonical::RefusalCode;
         let store = crate::testing::canonical_fixture_store().unwrap();
+        let revision = store
+            .edit("zz-maintenance-protected", None, "source", &[])
+            .await
+            .unwrap();
+        let selection = store
+            .protect(revision, std::time::Duration::from_secs(300))
+            .await
+            .unwrap();
+        let guards = (0..65)
+            .map(|ordinal| format!("retention:maintenance-{ordinal:03}"))
+            .collect::<Vec<_>>();
         async fn call(store: &CanonicalStore, expression: &str) -> Result<Value, CanonicalError> {
             let mut response = bounded_query(
                 store
@@ -617,10 +628,11 @@ mod tests {
         ));
         bounded_query(store.db.query(
             "BEGIN; UPDATE ONLY canonical_file_admission:current SET frozen=true,gc_frozen=true; \
-            FOR $key IN ['retention:maintenance-a','retention:maintenance-b','retention:maintenance-c'] { \
+            FOR $key IN $guards { \
                 CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=0dec,incarnation=string::concat('original:',$key); \
             }; COMMIT;"
-        )).await.unwrap();
+        ).bind(("guards",guards.clone()))
+        ).await.unwrap();
         let first_owner = call(&store, &claim("g1", "NONE")).await.unwrap();
         assert!(matches!(
             call(&store, &claim("g2", "NONE")).await,
@@ -636,7 +648,24 @@ mod tests {
                 serde_json::to_string(after).unwrap()
             )
         };
+        assert!(matches!(
+            call(&store, &page("g1", "")).await,
+            Err(CanonicalError::Refused {
+                code: RefusalCode::MaintenanceProtectedSource,
+                ..
+            })
+        ));
+        store.release(&selection).await.unwrap();
         let first_page = call(&store, &page("g1", "")).await.unwrap();
+        let Value::Object(first_page_fields) = &first_page else {
+            panic!("maintenance page must be an object")
+        };
+        let next = crate::canonical_codec::decode_string(
+            first_page_fields.get("after").unwrap().clone(),
+        )
+        .unwrap();
+        assert_eq!(next, guards[63]);
+        assert_eq!(first_page_fields.get("complete"), Some(&Value::Bool(false)));
         let inventory = "RETURN SELECT key,generation,incarnation FROM canonical_guards \
             WHERE string::starts_with(key,'retention:maintenance-') ORDER BY key;";
         let mut response = bounded_query(store.db.query(inventory)).await.unwrap();
@@ -668,7 +697,7 @@ mod tests {
         let Value::Array(rows) = first_effect else {
             panic!("guard inventory must be an array")
         };
-        assert_eq!(rows.len(), 3);
+        assert_eq!(rows.len(), 65);
         for row in rows {
             let Value::Object(mut row) = row else {
                 panic!("guard row must be an object")
@@ -676,12 +705,38 @@ mod tests {
             let key = crate::canonical_codec::decode_string(row.remove("key").unwrap()).unwrap();
             assert_eq!(
                 crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(),
-                1
+                u64::from(key != guards[64])
             );
-            assert_ne!(
-                crate::canonical_codec::decode_string(row.remove("incarnation").unwrap()).unwrap(),
-                format!("original:{key}")
-            );
+            let incarnation = crate::canonical_codec::decode_string(
+                row.remove("incarnation").unwrap(),
+            ).unwrap();
+            assert_eq!(incarnation == format!("original:{key}"), key == guards[64]);
+        }
+        // Resume the remaining page after a generation handoff. Replaying the
+        // original first page above did not rotate any guard a second time.
+        let tail = call(&store, &page("g2", &next)).await.unwrap();
+        assert_eq!(call(&store, &page("g2", &next)).await.unwrap(), tail);
+        let Value::Object(tail_fields) = tail else {
+            panic!("maintenance tail must be an object")
+        };
+        let after = crate::canonical_codec::decode_string(
+            tail_fields.get("after").unwrap().clone(),
+        ).unwrap();
+        let terminal = call(&store, &page("g2", &after)).await.unwrap();
+        let Value::Object(terminal_fields) = &terminal else {
+            panic!("maintenance completion must be an object")
+        };
+        assert_eq!(terminal_fields.get("complete"), Some(&Value::Bool(true)));
+        assert_eq!(call(&store, &page("g2", &after)).await.unwrap(), terminal);
+        let mut response = bounded_query(store.db.query(inventory)).await.unwrap();
+        let Value::Array(rows) = response.take::<Value>(0).unwrap() else {
+            panic!("guard inventory must be an array")
+        };
+        for row in rows {
+            let Value::Object(mut row) = row else {
+                panic!("guard row must be an object")
+            };
+            assert_eq!(crate::canonical_codec::decode_uint(row.remove("generation").unwrap()).unwrap(),1);
         }
         let Value::Object(mut expected) = first_owner else {
             panic!("maintenance owner must be an object")
