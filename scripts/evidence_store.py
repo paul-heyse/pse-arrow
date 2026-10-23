@@ -166,6 +166,7 @@ def parser() -> argparse.ArgumentParser:
         selected.add_argument("--source-kind", choices=("invocation", "assessment", "diagnostic", "measurement", "host"), default="invocation")
         selected.add_argument("--inventory", type=Path)
         selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
+        selected.add_argument("--invocations", action="append", default=[], metavar="CASE=JSONL")
     for command in ("offline", "analyze"):
         selected = commands.add_parser(command)
         selected.add_argument("--operation", choices=("subjects", "failures", "missing", "distribution", "diagnostics", "measurements"), default="subjects")
@@ -185,6 +186,7 @@ def parser() -> argparse.ArgumentParser:
             selected.add_argument("--measurement", type=Path, action="append", default=[])
             selected.add_argument("--host", type=Path, action="append", default=[])
             selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
+            selected.add_argument("--invocations", action="append", default=[], metavar="CASE=JSONL")
         else:
             selected.add_argument("--generation", action="append", required=True)
     detail = commands.add_parser("detail")
@@ -196,6 +198,7 @@ def parser() -> argparse.ArgumentParser:
     detail.add_argument("--subject")
     detail.add_argument("--member")
     detail.add_argument("--tail", type=int, default=20)
+    detail.add_argument("--expected-digest")
     query = commands.add_parser("query")
     query.add_argument("--limit", type=int)
     query.add_argument("--kind")
@@ -227,7 +230,7 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
     if args.source_kind == "diagnostic":
         return evidence_sources.diagnostic_snapshot(path)
     if args.source_kind == "measurement":
-        return evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion))
+        return evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion), invocations=criterion_selection(args.invocations))
     return evidence_sources.host_snapshot(path)
 
 
@@ -261,7 +264,7 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
         for path in args.diagnostic:
             snapshots.append(evidence_sources.diagnostic_snapshot(path))
         for path in args.measurement:
-            snapshots.append(evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion)))
+            snapshots.append(evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion), invocations=criterion_selection(args.invocations)))
         for path in args.host:
             snapshots.append(evidence_sources.host_snapshot(path, deadline=deadline))
         inputs = list(args.input)
@@ -300,9 +303,9 @@ def main(argv: list[str] | None = None) -> int:
             elif args.member is None:
                 raise ValueError("--member is required for diagnostic or copied detail")
             elif args.diagnostic is not None:
-                value = evidence_detail.diagnostic_detail(args.diagnostic, args.member, tail=args.tail)
+                value = evidence_detail.diagnostic_detail(args.diagnostic, args.member, tail=args.tail, expected_digest=args.expected_digest)
             else:
-                value = evidence_detail.copied_detail(args.copy, args.member, tail=args.tail)
+                value = evidence_detail.copied_detail(args.copy, args.member, tail=args.tail, expected_digest=args.expected_digest)
             print(json.dumps(value, sort_keys=True, allow_nan=False))
             return 0
         if args.command == "offline":

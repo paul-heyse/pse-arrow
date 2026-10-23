@@ -70,6 +70,11 @@ pub struct EvidenceAnalysis {
     // Retain the same native assembly/pool for the entire selected analysis.
     _factory: EngineFactory,
 }
+impl std::fmt::Debug for EvidenceAnalysis {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("EvidenceAnalysis").field("sources", &self.snapshots.len()).field("history", &self.history).finish_non_exhaustive()
+    }
+}
 impl EvidenceAnalysis {
     /// Read only an explicitly supplied compact snapshot. Never follow its references.
     pub fn read_snapshot(path: &Path) -> Result<EvidenceSnapshot, EvidenceError> {
@@ -123,6 +128,11 @@ impl EvidenceAnalysis {
         for text in [&question.crate_name, &question.context_id, &question.status].into_iter().flatten() {
             if text.len() > 4096 { return Err(invalid("query text exceeds compact identity bound")); }
         }
+        let mut observed_sources = BTreeSet::new();
+        for observation in observations {
+            if !observed_sources.insert((&observation.authority, &observation.codec, &observation.source_id)) { return Err(invalid("ambiguous supplied source freshness observations")); }
+            if observation.snapshot_digest.as_ref().is_some_and(|digest| digest.len()!=64 || !digest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))) { return Err(invalid("supplied source observation needs an exact digest or explicit missing state")); }
+        }
         let mut selected = self.context.table("evidence").await.map_err(invalid)?;
         if let Some(value) = &question.crate_name { selected = selected.filter(col("crate_name").eq(lit(value.clone()))).map_err(invalid)?; }
         if let Some(value) = &question.context_id { selected = selected.filter(col("context_id").eq(lit(value.clone()))).map_err(invalid)?; }
@@ -154,6 +164,8 @@ impl EvidenceAnalysis {
             output["populations"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,member,context_id,population_id,status FROM selected WHERE kind='measurement_population' ORDER BY generation,member LIMIT 10001").await?)?).map_err(invalid)?;
             output["association"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,population_id,status FROM selected WHERE kind='measurement_association' LIMIT 10001").await?)?).map_err(invalid)?;
             output["capture_costs"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,population_id,value_ns,status FROM selected WHERE kind='capture_cost' LIMIT 10001").await?)?).map_err(invalid)?;
+            output["invocation_distributions"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,context_id,population_id,status,count(*) AS invocation_count,count(value_ns) AS timed_invocations,min(value_ns) AS min_ns,max(value_ns) AS max_ns,avg(value_ns) AS mean_ns FROM selected WHERE kind='harness_invocation' GROUP BY generation,context_id,population_id,status ORDER BY generation,context_id,population_id,status LIMIT 10001").await?)?).map_err(invalid)?;
+            output["reported_statistics"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,context_id,population_id,member,status,value_ns FROM selected WHERE kind='measurement_summary' ORDER BY generation,member LIMIT 10001").await?)?).map_err(invalid)?;
             output["comparability"] = self.comparability();
             output["scope"] = "actual supplied CSV samples per original source/context/population; no invocation-membership, regression or causality inference".into();
         }

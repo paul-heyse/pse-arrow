@@ -115,6 +115,7 @@ def invocation_snapshot(
             raise ValueError("Invalid or duplicate original subject report")
         reported[identity] = status
     complete = bool(frozen and frozen.get("complete") is True)
+    population_complete = complete and set(reported) == set(catalog)
     code = evidence.get("workload_exit")
     command_status = (
         "complete_pass"
@@ -193,7 +194,7 @@ def invocation_snapshot(
         "snapshot_digest": snapshot_digest(
             {"declaration": declaration, "state": state, "resources": resource_observations, "inventory": inventory.read_text() if inventory is not None else None}
         ),
-        "coverage": "complete" if complete else "partial",
+        "coverage": "complete" if population_complete else "partial",
         "expected_members": [fact["member"] for fact in facts],
         "facts": facts,
     }

@@ -371,7 +371,7 @@ impl EvidenceSnapshot {
                 "invalid evidence identity, version, digest or coverage",
             ));
         }
-        if !matches!(self.codec.as_str(), "exact-resource-files-invocation-v2" | "assessment-v5" | "active-diagnostic-action-v1" | "process-cost-v5" | "host-admission-ledger-v1") {
+        if !matches!(self.codec.as_str(), "exact-resource-files-invocation-v2" | "assessment-v5" | "active-diagnostic-action-v1" | "process-cost-v5" | "host-admission-ledger-v1" | "case-smoke-v1") {
             return Err(config("unsupported original evidence source codec"));
         }
         let expected = self.expected_members.iter().collect::<BTreeSet<_>>();
