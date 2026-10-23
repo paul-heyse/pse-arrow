@@ -22,7 +22,9 @@ pub struct StudyWorkbenchFilter {
     pub context: Option<String>,
     /// Original canonical terminal class, independent from scientific usability.
     pub outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome>,
-    /// Exact original research reference key; never a floating latest query.
+    /// Dataset/selection keys select consumed ancestry; publication operation keys
+    /// select the exact resulting parameter source. Existing ResearchReference keys
+    /// select their explicitly named source/run neighborhood, without proving consumption.
     pub research_reference: Option<String>,
 }
 /// Compact immutable attribution and current header facts. No definitions or trajectories.
@@ -134,7 +136,7 @@ pub fn workbench_sql(filter:&StudyWorkbenchFilter, frozen:bool)->String {
         (filter.branch.is_some(),"problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$branch)).problem"),
         (filter.project.is_some(),"problem IN $problems"),
         (filter.outcome.is_some(),"type::record('canonical_runs',run).terminal_class=$outcome"),
-        (filter.research_reference.is_some(),"(type::record('canonical_runs',run).research_selection=$research_reference OR type::record('canonical_runs',run).research_dataset=$research_reference OR run=type::record('canonical_research_references',$research_reference).run OR revision=type::record('canonical_research_references',$research_reference).revision OR (type::record('canonical_research_publications',$research_reference).selection!=NONE AND type::record('canonical_runs',run).research_selection=type::record('canonical_research_publications',$research_reference).selection))"),
+        (filter.research_reference.is_some(),"(type::record('canonical_runs',run).research_selection=$research_reference OR type::record('canonical_runs',run).research_dataset=$research_reference OR run=type::record('canonical_research_references',$research_reference).run OR revision=type::record('canonical_research_references',$research_reference).revision OR (type::record('canonical_research_publications',$research_reference).selection!=NONE AND revision=type::record('canonical_research_publications',$research_reference).revision AND type::record('canonical_runs',run).research_selection=type::record('canonical_research_publications',$research_reference).selection))"),
     ] { if present {predicates.push(predicate.into());} }
     let sql=format!("LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; RETURN fn::pse_workbench_v1::capture($pse_rpc_expires_at,$rows,$maximum,{},$members);",predicates.join(" AND "),if frozen{"true"}else{"false"});
     format!("BEGIN; {prelude}{sql} COMMIT;")
