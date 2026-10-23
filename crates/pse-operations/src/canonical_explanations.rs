@@ -1160,6 +1160,15 @@ mod server_tests {
             revision: "changed".into(),
         };
         assert!(store.graph_explanation(&request).await.is_err());
+        request.anchor=GraphAnchor::AnalysisNode{analysis:input_consumers[1].clone(),node:nodes[0].key.clone(),revision:revision.key.clone()};
+        assert!(store.graph_explanation(&request).await.is_err(),"an existing node cannot be selected under another analysis");
+        request.anchor=GraphAnchor::AnalysisNode{analysis:analysis.key.clone(),node:nodes[0].key.clone(),revision:"changed".into()};
+        assert!(store.graph_explanation(&request).await.is_err());
+        request.anchor=GraphAnchor::AnalysisNode{analysis:analysis.key.clone(),node:nodes[0].key.clone(),revision:revision.key.clone()};
+        // Deliberately corrupt the sentinel through the fixture owner's raw database
+        // connection. The immutable writer never creates this cross-analysis row.
+        crate::canonical::bounded_query(store.db.query("UPDATE type::record('canonical_analysis_edges',$key) SET analysis=$analysis RETURN NONE;").bind(("key",edges[1].key.clone())).bind(("analysis",input_consumers[1].clone()))).await.unwrap();
+        assert!(store.graph_explanation(&request).await.is_err(),"a corrupt sentinel must refuse the whole page");
         store.remove_isolated_fixture().await.unwrap();
     }
 }
