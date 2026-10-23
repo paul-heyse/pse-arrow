@@ -45,12 +45,35 @@ impl Runtime {
         if request.selection.issuing_store!=store.issuing_store()? || request.selection.physical_context!=physical.identity() {return Err(contract("project closure authority or physical identity differs"));}
         let selected=self.project_boxed(self.project_open_selection(&request.selection,physical.clone(),cancel))?.await?;
         let mut closure=ResolvedClosure{
-            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),members:Vec::new(),omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
+            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),members:Vec::new(),maximum_copy_bytes:request.maximum_output_bytes,omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
             documents:Vec::new(),results:Vec::new(),artifacts:Vec::new(),protections:Vec::new(),_owners:Vec::new(),
         };
         let mut packages=BTreeMap::new(); packages.insert(request.selection.revision.clone(),selected);
         let mut selections=request.research_selections.clone(); let mut revisions=BTreeSet::new(); let mut datasets=Vec::new(); let mut contexts=BTreeSet::new();
-        for key in &request.publications {
+        if let Some(research)=packages.values().next().and_then(|p|p.research_source.as_ref()) {selections.push(research.selection.clone());}
+
+        for key in &request.studies {
+            let definition=self.project_boxed(self.portable_study_definition(key,cancel))?.await?;
+            let physical=self.project_boxed(self.physical_source(&definition.physical,cancel))?.await?;
+            if !packages.contains_key(&definition.modeling_revision) {
+                let revision=store.revision(&definition.modeling_revision).await?.ok_or_else(||contract("study source unavailable"))?;
+                let package=self.project_boxed(self.modeling_revision(revision,physical,BTreeMap::new()))?.await?;
+                packages.insert(definition.modeling_revision.clone(),package);
+            }
+            closure.manifest.studies.push(ProjectStudyClosure{key:key.clone(),definition});
+        }
+        let mut publications=request.publications.clone();
+        if store.research_publication(&request.selection.revision).await?.is_some(){publications.push(request.selection.revision.clone());}
+        for study in &closure.manifest.studies {
+            if let Some(research)=&study.definition.research {
+                if research.issuing_store!=store.issuing_store()? {return Err(contract("study research origin authority differs"));}
+                selections.push(research.selection.clone());
+                if let Some(publication)=&research.publication {publications.push(publication.clone());}
+            }
+            if let Some(context)=&study.definition.context {contexts.insert(context.context.key.clone());}
+        }
+        publications.sort();publications.dedup();
+        for key in &publications {
             let row=store.research_publication(key).await?.ok_or_else(||contract("selected parameter publication unavailable"))?;
             if row.project!=request.selection.project {return Err(contract("publication belongs to another project"));}
             selections.push(row.selection.clone()); revisions.insert(row.revision.clone());revisions.insert(row.parent.clone());
@@ -76,18 +99,6 @@ impl Runtime {
             let selection=pse_operations::canonical_contexts::ContextSelection{cut:pse_operations::canonical_contexts::ContextCut{issuing_store:store.issuing_store()?.into(),project:row.project.clone(),sequence:row.recorded_sequence},effective_at_us:row.effective_from_us,context:row.clone()};
             let package=self.project_boxed(self.project_context_reopen(&selection,cancel))?.await?;
             packages.insert(row.revision.clone(),package);closure.manifest.contexts.push(row);
-        }
-        for key in &request.studies {
-            let row=store.canonical_study(key).await?.ok_or_else(||contract("selected study definition unavailable"))?;
-            let definition:super::StudyDefinition=serde_json::from_slice(row.metadata.as_slice()).map_err(|e|contract(format!("study definition codec: {e}")))?;
-            if definition.modeling_revision!=row.revision {return Err(contract("study definition source differs"));}
-            let physical=self.project_boxed(self.physical_source(&definition.physical,cancel))?.await?;
-            if !packages.contains_key(&row.revision) {
-                let revision=store.revision(&row.revision).await?.ok_or_else(||contract("study source unavailable"))?;
-                let package=self.project_boxed(self.modeling_revision(revision,physical,BTreeMap::new()))?.await?;
-                packages.insert(row.revision.clone(),package);
-            }
-            closure.manifest.studies.push(ProjectStudyClosure{key:key.clone(),definition});
         }
         let (result_descriptors,result_owner)=self.review_result_selections(&request.results,&cancel.token()).await?;
         for (request,descriptor) in request.results.iter().zip(result_descriptors) {
@@ -123,7 +134,8 @@ impl Runtime {
             let replay=package.replay_source()?;
             for provider in &replay.providers {
                 let name=provider.name.clone();
-                if !closure.manifest.providers.iter().any(|p|p.name==name) {closure.manifest.providers.push(ProjectProviderRequirement{name,identity:pse_ids::encoding_checksum(&encode(provider,request.maximum_document_bytes)?).content_hash().to_hex(),supported:false});}
+                let identity=pse_ids::encoding_checksum(&encode(provider,request.maximum_document_bytes)?).content_hash().to_hex();
+                if !closure.manifest.providers.iter().any(|p|p.name==name && p.identity==identity) {closure.manifest.providers.push(ProjectProviderRequirement{name,identity,supported:false});}
             }
             let replay_id=format!("source-{ordinal}");
             closure.documents.push((replay_id.clone(),encode(&replay,request.maximum_document_bytes)?));
@@ -137,7 +149,7 @@ impl Runtime {
             }
             let mut documents=Vec::new();
             // Typed edits can deliberately invalidate loader text. The exact replay source remains the ordinary source owner.
-            if let Ok(sources)=package.portability_documents(cancel).await {
+            if let Some(sources)=package.portability_documents(cancel).await? {
                 for (package_index,bundle) in sources.iter().enumerate() {for (index,(path,bytes)) in bundle.iter().enumerate() {
                     let id=format!("document-{ordinal}-{package_index}-{index}");
                     documents.push(ProjectDocumentMember{package:package_index,path:path.clone(),member:id.clone()});

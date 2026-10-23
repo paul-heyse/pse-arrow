@@ -59,6 +59,7 @@ native-solvers = [
 ]
 
 [dependencies]
+tempfile.workspace = true
 datafusion-pruning.workspace = true
 levenberg-marquardt.workspace = true
 nalgebra.workspace = true
@@ -126,7 +127,6 @@ flatbuffers.workspace = true
 egobox-doe.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
-tempfile.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 url.workspace = true
 pse-testkit.workspace = true

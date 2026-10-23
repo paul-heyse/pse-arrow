@@ -147,7 +147,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
 DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$request:bytes,$project:string,$generation:decimal,$action:object) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE {RETURN $old;};
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$project) FOR UPDATE;
-    IF $p=NONE OR $p.generation!=$generation OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
+    IF $p=NONE OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($project) OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
     IF $action.kind='project_title' {UPDATE ONLY type::record('canonical_projects',$project) SET title=$action.name;}
     ELSE IF $action.kind='project_visibility' {UPDATE ONLY type::record('canonical_projects',$project) SET deleted=$action.deleted;}
     ELSE IF $action.kind='branch_name' {
@@ -182,10 +182,10 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
 };
 DEFINE FUNCTION fn::pse_project_v1::diagnostic($expiry:int,$operation:string,$version:string,$message:string,$admitted:bool) -> object {
     IF string::len($message)>65536 {THROW 'PSE_REFUSAL:project_metadata_bound';};
-    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$version);
-    IF $v=NONE {THROW 'PSE_REFUSAL:project_draft_changed';};
     LET $old=SELECT * FROM ONLY type::record('canonical_draft_diagnostics',$operation);
     IF $old!=NONE {IF $old.version!=$version OR $old.message!=$message OR $old.admitted!=$admitted {THROW 'PSE_REFUSAL:project_operation_identity_changed';};RETURN $old;};
+    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$version);
+    IF $v=NONE OR $v.retired OR !fn::pse_project_import_v1::available($v.project) {THROW 'PSE_REFUSAL:project_draft_changed';};
     fn::pse_execution_v1::deadline($expiry);
     RETURN CREATE ONLY type::record('canonical_draft_diagnostics',$operation) CONTENT {key:$operation,version:$version,message:$message,admitted:$admitted};
 };
