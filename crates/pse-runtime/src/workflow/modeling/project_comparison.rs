@@ -696,18 +696,18 @@ mod native_tests {
     #[tokio::test]
     async fn native_document_saved_proposal_merge_and_exact_text_undo() {
         let runtime=crate::workflow::tests::durable_runtime();let store=runtime.canonical_store().unwrap();let physical=crate::workflow::tests::physical();let cancel=CancelSource::new();
-        let originals=super::tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=2;}");
+        let originals=tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=2;}");
         let origin=runtime.package_from_sources(&[originals],physical.clone(),&cancel).await.unwrap();
         store.create_project("create-doc","project-doc","Document composition").await.unwrap();let project=store.project("project-doc").await.unwrap().unwrap();
         let base=runtime.project_fork(&project,"main-doc","doc-problem","fork-doc",&origin).await.unwrap();
         let base=runtime.modeling_revision(base,physical.clone(),BTreeMap::new()).await.unwrap();
         let project=store.project("project-doc").await.unwrap().unwrap();let branch=store.project_branch("main-doc").await.unwrap().unwrap();
-        let target_body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![super::tests::source_documents("package p {param a:Scalar=3;}","package q {param b:Scalar=2;}")]}).unwrap();
+        let target_body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![tests::source_documents("package p {param a:Scalar=3;}","package q {param b:Scalar=2;}")]}).unwrap();
         runtime.project_save_draft("save-target-doc",&project,&branch,"target-doc",&base.recorded_revision().unwrap().key,None,&target_body).await.unwrap();
         let draft=store.project_draft("target-doc").await.unwrap().unwrap();
         let publication=store.project_publication_intent(&project,&branch,&base.recorded_revision().unwrap().key,Some(&draft),"publish-target-doc").unwrap();
         let target=runtime.project_publish_draft(&publication,physical.clone(),&cancel).await.unwrap();
-        let body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![super::tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=4;}")]}).unwrap();
+        let body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=4;}")]}).unwrap();
         runtime.project_save_draft("save-proposal-doc",&project,&branch,"proposal-doc",&base.recorded_revision().unwrap().key,None,&body).await.unwrap();
         let version=store.project_draft("proposal-doc").await.unwrap().unwrap().version;
         let branch=store.project_branch("main-doc").await.unwrap().unwrap();
