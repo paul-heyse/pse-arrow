@@ -198,6 +198,8 @@ pub(crate) mod modeling;
 mod project_contexts;
 mod projects;
 mod research;
+mod research_publication;
+pub use research_publication::{ResearchParameterTarget,ResearchPublicationRequest,ResearchPublicationIntent,ResearchPublicationPreview};
 pub use research::{ResearchSource,ResearchDataObject,ResearchDatasetRequest,ResearchObservation,ResearchSelectionRequest,ResearchReadRequest,ResearchReadResult};
 #[cfg(all(test, feature = "canonical-tests"))]
 mod projects_consumer_tests;

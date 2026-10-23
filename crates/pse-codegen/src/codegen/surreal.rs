@@ -312,7 +312,7 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     super::surreal_execution::append(&mut ddl);
     super::surreal_projects::append(&mut ddl);
     super::surreal_contexts::append(&mut ddl);
-    super::surreal_research::append(&mut ddl);
+    super::surreal_research::append(registry,&mut ddl)?;
     super::surreal_files::append(&mut ddl);
     super::surreal_maintenance::append(&mut ddl);
     super::surreal_studies::append(&mut ddl);

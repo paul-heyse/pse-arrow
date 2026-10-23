@@ -74,11 +74,13 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
             IF $draft=NONE OR $draft.deleted OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
         };
     };
+    fn::pse_research_v1::publication_guard($expiry,$operation,$intent);
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
+    fn::pse_research_v1::publication_ack($expiry,$operation,$intent);
     FOR $parent IN $intent.extra_parents {
         fn::pse_project_v1::root($expiry,$parent,'project-ancestry:'+$operation+':'+$parent);
         LET $edge=<string>string::len($operation)+':'+$operation+$parent;
