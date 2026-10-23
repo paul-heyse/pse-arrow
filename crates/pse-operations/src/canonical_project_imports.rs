@@ -78,6 +78,26 @@ impl CanonicalStore {
             Err(error)=>if self.project_import_record(intent).await?.is_some_and(|r|r.artifact.as_ref().is_some_and(|b|b.as_slice()==bytes.as_slice())) {Ok(())} else {Err(error)},
         }
     }
+    /// CAS the exact collected original occurrence out of this import, retaining its immutable receipt.
+    pub async fn project_import_retire_artifact(&self,intent:&ProjectImportIntent,original:&Artifact)->Result<ProjectImport,CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
+            intent.validate()?;self.ensure_writes()?;
+            let row=self.project_import_record(intent).await?.ok_or(CanonicalError::IncompleteResponse)?;
+            let mut retired:Vec<Artifact>=row.retired_artifacts.as_ref().map(|b|serde_json::from_slice(b.as_slice()).map_err(|e|CanonicalError::Configuration(e.to_string()))).transpose()?.unwrap_or_default();
+            if retired.iter().any(|a|a==original) {return Ok(row);}
+            if row.complete || retired.len()>=64 {return Err(CanonicalError::OperationReused);}
+            let bytes=serde_json::to_vec(original).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
+            if row.artifact.as_ref().is_none_or(|b|b.as_slice()!=bytes.as_slice()) {return Err(CanonicalError::OperationReused);}
+            retired.push(original.clone());let next=serde_json::to_vec(&retired).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
+            if next.len()>131072 {return Err(CanonicalError::PayloadLimit);}
+            let previous=row.retired_artifacts.as_ref().map(|b|Value::Bytes(surrealdb::types::Bytes::from(b.as_slice().to_vec()))).unwrap_or(Value::None);
+            let result=protected_query("canonical_project_imports::retire_artifact",||Ok(self.project_query("RETURN fn::pse_project_import_v1::retire_artifact($pse_rpc_expires_at,$key,$request,$original,$bytes,$previous,$next);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("original",Value::Object(wire::encode_canonical_artifacts(original)?))).bind(("bytes",surrealdb::types::Bytes::from(bytes.clone()))).bind(("previous",previous.clone())).bind(("next",surrealdb::types::Bytes::from(next.clone()))))).await;
+            let settled=self.project_import_record(intent).await?.ok_or(CanonicalError::IncompleteResponse)?;
+            if settled.retired_artifacts.as_ref().is_some_and(|b|b.as_slice()==next.as_slice()) {return Ok(settled);}
+            result?;Err(CanonicalError::IncompleteResponse)
+        })).await
+    }
     /// Make project availability true only after exact canonical copied membership is active and owned.
     pub async fn finish_project_import(&self,intent:&ProjectImportIntent)->Result<ProjectImport,CanonicalError> {
         let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),self.finish_project_import_inner(intent))).await

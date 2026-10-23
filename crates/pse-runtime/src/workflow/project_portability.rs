@@ -98,6 +98,23 @@ pub struct ProjectProviderRequirement {
     /// Current bundle admission supports this provider without ambient installation.
     pub supported: bool,
 }
+/// Original artifact block interpretation and scientific extent, preserved independently of copied integrity.
+#[derive(Clone,Debug,Serialize,Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectArtifactBlockMetadata {
+    /// Original relation or opaque capsule label.
+    pub relation:String,
+    /// Original producer-framed payload digest; distinct from the plain copied-byte checksum.
+    pub payload_digest:String,
+    /// Original producer encoding provenance, never replaced with a new qualification.
+    pub original_digest:String,
+    /// Original scientific row extent, independent of copied bytes.
+    pub rows:u64,
+    /// Original sealed-file encoding.
+    pub encoding:String,
+    /// Original registry schema identity; empty for opaque bytes/JSON.
+    pub schema:String,
+}
 /// Exact contained member extent and codec, independently verified before publication.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -116,6 +133,8 @@ pub struct ProjectBundleMember {
     pub result: Option<super::PackResultSelection>,
     /// Original evidence artifact identity and selected ordinal, if applicable.
     pub artifact: Option<(String, u64)>,
+    /// Original block codec, digest and scientific qualifiers.
+    pub artifact_metadata: Option<ProjectArtifactBlockMetadata>,
 }
 /// Standalone versioned logical exchange manifest, distinct from diagnostic PackIndex v2.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -141,6 +160,8 @@ pub struct ProjectManifest {
     pub reproducers: Vec<super::DiagnosticReproducer>,
     /// External implementation requirements; inspection never installs them.
     pub providers: Vec<ProjectProviderRequirement>,
+    /// Exact original selected artifact headers, preserved as origin evidence.
+    pub artifact_origins: Vec<pse_operations::canonical_artifacts::Artifact>,
     /// Complete copied selected membership.
     pub members: Vec<ProjectBundleMember>,
     /// Original configured finite copied-payload allowance, separate from document decoding limits.
@@ -213,6 +234,11 @@ impl ProjectBundleReader {
             if file.metadata().map_err(io)?.len()!=member.copied_bytes { return Err(contract("project member extent differs")); }
             let (bytes,digest)=checksum(file,member.copied_bytes)?;
             if bytes!=member.copied_bytes || digest!=member.digest { return Err(contract("project member digest differs")); }
+            if let Some(metadata)=&member.artifact_metadata {
+                let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);hash.str("pse.execution.result-payload.v1");
+                hash.part_reader(member.copied_bytes,&mut contained_copy::open_contained(&directory,&member.relative_path).map_err(io)?,&||Ok(())).map_err(io)?;
+                if hash.finish_hash().to_hex()!=metadata.payload_digest {return Err(contract("original artifact payload digest differs"));}
+            }
         }
         let reader=Self{directory,manifest,digest,maximum_document_bytes};
         reader.validate_sources()?;Ok(reader)
@@ -294,6 +320,19 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
         if !member.relative_path.starts_with("members/") || !matches!(member.codec.as_str(),"authored-document.v1"|"replay-source.v1"|"arrow-ipc-stream.v1"|"artifact-block.v1"|"diagnostic-review-pack.v2") { return Err(contract("unknown project member codec")); }
         if member.codec=="arrow-ipc-stream.v1" && member.result.is_none() { return Err(contract("result member lacks original qualifiers")); }
         pse_ids::ContentHash::parse_hex(&member.digest).map_err(|e|contract(e.to_string()))?;
+        match (&member.artifact,&member.artifact_metadata) {
+            (Some((artifact,ordinal)),Some(metadata))=>{
+                if member.codec!="artifact-block.v1" || manifest.artifact_origins.iter().find(|a|&a.key==artifact).is_none_or(|a|*ordinal>=a.block_count) || metadata.relation.is_empty() {return Err(contract("original artifact membership or qualifiers missing"));}
+                match metadata.encoding.as_str() {
+                    pse_operations::canonical_files::ARROW_IPC_FILE=>{pse_ids::SemanticId::parse_hex(&metadata.schema).map_err(|e|contract(e.to_string()))?;},
+                    pse_operations::canonical_files::OPAQUE_BYTES|pse_operations::canonical_files::OPAQUE_JSON if metadata.schema.is_empty()=>{},
+                    _=>return Err(contract("unsupported original artifact encoding/schema")),
+                }
+                pse_ids::ContentHash::parse_hex(&metadata.payload_digest).map_err(|e|contract(e.to_string()))?;
+            },
+            (None,None) if member.codec!="artifact-block.v1"=>{},
+            _=>return Err(contract("artifact codec or original qualifiers incomplete")),
+        }
     }
     let mut revisions=BTreeSet::new();
     for source in &manifest.sources {
@@ -366,6 +405,8 @@ impl Runtime {
                 super::study::creation_checkpoint(cancel)?;
                 let block=read.block(ordinal).await?;
                 let id=format!("artifact-{artifact_index}-{ordinal}");
+                let selected=closure.manifest.members.iter_mut().find(|m|m.id==id).ok_or_else(||contract("unselected artifact member"))?;
+                selected.artifact_metadata=Some(ProjectArtifactBlockMetadata{relation:block.relation.clone(),payload_digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows,encoding:block.encoding().into(),schema:block.schema().into()});
                 let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(root.join(".staging").join(&id)).map_err(io)?;
                 contained_copy::copy_exact(&mut block.payload.as_slice(),&mut file,block.payload.len() as u64,||if token.is_cancelled(){Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"project copy cancelled"))}else{Ok(())}).map_err(io)?;
                 file.sync_all().map_err(io)?;drop(file);finish_member(&root,&mut closure.manifest,&mut total,request.maximum_output_bytes,&token,&id,block.payload.len() as u64)?;
@@ -405,10 +446,36 @@ pub struct ProjectImportReport {
     pub bundle_digest:String,
     /// Current project-owned copied evidence; independent of original pack lifetime.
     pub evidence_artifacts:Vec<String>,
+    /// Original current creation intent, retained unchanged for exact recovery after uncertain completion.
+    pub artifact_intent:Option<pse_operations::canonical_artifacts::Artifact>,
+    /// Original collected occurrences; these receipts never become receiving run authority.
+    pub retired_originals:Vec<pse_operations::canonical_artifacts::Artifact>,
     /// Source effect has acknowledged; this alone is not project availability.
     pub source_admitted:bool,
     /// Exact artifact membership finished and project is publicly available.
     pub project_complete:bool,
+}
+/// Explicit original-occurrence recovery outcome; pending cleanup never means a ready project.
+#[derive(Clone,Copy,Debug,Serialize,Deserialize,schemars::JsonSchema,PartialEq,Eq)]
+#[serde(rename_all="snake_case")]
+pub enum ProjectImportRecoveryState {
+    /// The original active artifact settled and the project is available.
+    ProjectComplete,
+    /// No current artifact was issued; the caller can deliberately retry copying under the same import intent.
+    ReadyForArtifact,
+    /// Original allowance or bounded original-owner cleanup has not settled.
+    OriginalCleanupPending,
+    /// The exact original was collected and its immutable receipt is retained.
+    OriginalCollected,
+}
+/// Exact recovery receipt, including current project availability and retired original headers.
+#[derive(Clone,Debug,Serialize,Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectImportRecoveryReport {
+    /// Current original import checkpoint and availability.
+    pub import:ProjectImportReport,
+    /// Exact state; no omitted header is interpreted as cleanup completion.
+    pub state:ProjectImportRecoveryState,
 }
 impl ProjectBundleReader {
     fn manifest_bytes(&self)->Result<Vec<u8>,WorkflowError> {
@@ -453,7 +520,8 @@ impl ProjectBundleReader {
 fn import_report(row:&pse_operations::canonical_project_imports::ProjectImport)->Result<ProjectImportReport,WorkflowError> {
     let origin:ProjectSelection=serde_json::from_slice(row.origin.as_slice()).map_err(|e|contract(format!("import origin codec: {e}")))?;
     let artifact=row.artifact.as_ref().map(|b|serde_json::from_slice::<pse_operations::canonical_artifacts::Artifact>(b.as_slice()).map_err(|e|contract(e.to_string()))).transpose()?;
-    Ok(ProjectImportReport{project:row.project.clone(),branch:row.branch.clone(),problem:row.problem.clone(),revision:row.revision.clone(),origin,bundle_digest:row.bundle_digest.clone(),evidence_artifacts:artifact.into_iter().map(|a|a.key).collect(),source_admitted:true,project_complete:row.complete})
+    let retired_originals=row.retired_artifacts.as_ref().map(|b|serde_json::from_slice::<Vec<pse_operations::canonical_artifacts::Artifact>>(b.as_slice()).map_err(|e|contract(e.to_string()))).transpose()?.unwrap_or_default();
+    Ok(ProjectImportReport{project:row.project.clone(),branch:row.branch.clone(),problem:row.problem.clone(),revision:row.revision.clone(),origin,bundle_digest:row.bundle_digest.clone(),evidence_artifacts:artifact.iter().map(|a|a.key.clone()).collect(),artifact_intent:artifact,retired_originals,source_admitted:true,project_complete:row.complete})
 }
 impl Runtime {
     /// Issue one immutable receiving intent with fresh project, branch, source and operation IDs.
@@ -476,6 +544,14 @@ impl Runtime {
         // Settle the original source effect before any mutable preflight or renewed artifact intent.
         let prior=store.project_import_record(intent).await?;
         if let Some(row)=prior.as_ref().filter(|row|row.complete) {return import_report(row);}
+        if let Some(bytes)=prior.as_ref().and_then(|row|row.artifact.as_ref()) {
+            let original:pse_operations::canonical_artifacts::Artifact=serde_json::from_slice(bytes.as_slice()).map_err(|e|contract(e.to_string()))?;
+            let status=store.artifact_creation_status(&original).await?;
+            if status.header.as_ref().is_some_and(|a|a.active && !a.retiring) {
+                return import_report(&store.finish_project_import(intent).await?);
+            }
+            if !status.window_open {return Err(contract("original import artifact allowance closed; explicitly recover its unchanged original artifact intent before a fresh copy"));}
+        }
         let archive_extent=bundle.archive_extent()?;
         let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES;
         let _archive_owner=self.shared.math().reserve("project:import-copied-chunk",chunk.checked_mul(4).ok_or_else(||contract("import chunk extent"))?)?;
@@ -519,6 +595,26 @@ impl Runtime {
         store.persist_artifact_stream(&header,std::slice::from_ref(&revision),&[],&mut load_block,"project",intent.operation()).await?;
         let completed=store.finish_project_import(intent).await?;
         import_report(&completed)
+    }
+    /// Explicitly settle or collect this exact original artifact; never abort or renew an active occurrence.
+    pub async fn project_import_recover(&self,intent:&ProjectImportIntent,original:&pse_operations::canonical_artifacts::Artifact,cancel:&crate::CancelSource)->Result<ProjectImportRecoveryReport,WorkflowError> {
+        intent.validate()?;super::study::creation_checkpoint(cancel)?;
+        let store=self.canonical_store()?;
+        let row=store.project_import_record(intent).await?.ok_or_else(||contract("import source has not acknowledged"))?;
+        let report=import_report(&row)?;
+        if report.retired_originals.iter().any(|a|a==original) {return Ok(ProjectImportRecoveryReport{import:report,state:ProjectImportRecoveryState::OriginalCollected});}
+        if report.artifact_intent.as_ref()!=Some(original) {return Err(contract("recovery requires the unchanged original import artifact intent"));}
+        if row.complete {return Ok(ProjectImportRecoveryReport{import:report,state:ProjectImportRecoveryState::ProjectComplete});}
+        let status=store.artifact_creation_status(original).await?;
+        if let Some(header)=status.header.as_ref().filter(|a|a.active) {
+            if header.retiring {return Err(contract("active retiring artifact requires its explicit owner settlement"));}
+            let complete=store.finish_project_import(intent).await?;
+            return Ok(ProjectImportRecoveryReport{import:import_report(&complete)?,state:ProjectImportRecoveryState::ProjectComplete});
+        }
+        if status.window_open || !store.collect_artifact(original).await? {return Ok(ProjectImportRecoveryReport{import:report,state:ProjectImportRecoveryState::OriginalCleanupPending});}
+        super::study::creation_checkpoint(cancel)?;
+        let settled=store.project_import_retire_artifact(intent,original).await?;
+        Ok(ProjectImportRecoveryReport{import:import_report(&settled)?,state:ProjectImportRecoveryState::OriginalCollected})
     }
     /// Reopen current copied local source and physical closure after completed import, without the supplied pack.
     pub async fn project_import_open(&self,intent:&ProjectImportIntent,cancel:&crate::CancelSource)->Result<super::ModelingPackage,WorkflowError> {
