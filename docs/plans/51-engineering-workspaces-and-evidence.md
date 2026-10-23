@@ -24,12 +24,13 @@ This series captures the complete [functional review](../functional_reviews/surr
 O01–O21, RC01–RC07, alternative realizations, investigations and delivery scenarios. The
 maintainer selected full coverage with the review's delivery/investigation/conditional distinctions
 preserved, and storage/payload choices settled during authoring. The maintainer subsequently
-authorized 51a and 51b execution. Both are complete at targeted acceptance. Later production
-scope still requires maintainer authorization; these documents alone do not authorize it.
+authorized 51a/51b, 51c/51d and the complete remaining 51e–51g execution in separate requests.
+Their actual acceptance conditions are recorded in the companion Outcomes; planning documents
+alone authorize no new work.
 
-Existing plan documents and their index are deliberately unchanged. This coordinator records
-dependencies and the post-implementation reconciliation obligation; it does not reopen Plan50
-or close independent Plans32/40/49. Companions own design and package explanations; only this
+At authoring, existing plan documents and their index were deliberately unchanged. After
+implementation, Q04 reconciles delivered overlap with their existing owners; it neither reopens
+Plan50 nor closes independent Plans32/40/49. Companions own design and package explanations; only this
 coordinator owns opportunity disposition, inquiry outcomes, package state and completion.
 
 ## Foundation assessment and selected design
@@ -135,8 +136,8 @@ The review lists conditional impacts, not seven required waivers. The selected t
 the backend/payload/resource-authority replacements. No unaccepted rule change is used to make
 the design work. Maintainer selections of 2026-10-22 authorize full planning coverage and authoring-
 time design selection, not a blanket waiver. Subsequent explicit execution requests authorize
-51a–51d; targeted evidence lives in their companions, without changing later package authorization
-or the rule decisions. A newly discovered actual change must be presented with its consequence and confirmed before the dependent target is revised.
+51a–51g; targeted and assembled evidence lives in the companions without waiving the rule
+decisions. A newly discovered actual change must be presented with its consequence and confirmed before the dependent target is revised.
 
 | Review item | Plan disposition | Route / consequence |
 | --- | --- | --- |
@@ -360,3 +361,39 @@ The maintainer selected these bounded inquiry outcomes during execution preparat
 These decisions close their bounded questions; delivery and qualification of the selected
 native/offline alternative remain with LC01/DL01/DL02/Q02. They do not establish host
 confidentiality, distributed isolation or supported browser persistence.
+
+
+## Outcome — series integration, 2026-10-23
+
+**Implemented:** all selected ST/PJ/SC/EV/LC/DL functionality is integrated through the original
+scientific/source/project/result/artifact owners and public Rust/Python/CLI consumers. The
+O01–O21 and I01–I11 tables retain their single dispositions, including selected no-adopt outcomes
+and observable revisit triggers. Enduring contracts are at blueprint §14.3/§19.4/§20.6/§24.1;
+operator workflows are in the substrate, diagnostics and environment guides. Proposed
+ADR-0216–0220 decision status remains unchanged.
+
+**Tested:** [51g's assembled Outcome](51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23)
+owns actual commands, conditions, initial failures and repaired reruns. Its 100-case Rust
+selection combines 73 passes at 16 concurrent tests with the exact affected 27 passing at four;
+it is not a monolithic pass or 16-concurrent-startup qualification. Fourteen native-Python
+component cases, four affected frozen-context units, selected host/offline executable controls,
+actual calibrated numerical fit/import/edit/study and nonempty disposable recovery establish
+only their named scope. Final feature-matrix and publication work remains Q03/Q04 until the
+same owner records its actual result.
+
+**Mistakes corrected:** initial import visibility and descriptive traversal crossed ownership
+boundaries; the original pending source checkpoint and narrow owner projections now govern
+availability and selected copying. Actual nonempty recovery exposed pinned SurrealQL projection,
+maintenance-return/predecessor and allocation-before-effects issues, repaired at their original
+owners. The health collector now separates service identity from bounded metric availability.
+The scope-end matrix also exposed an omitted taskdump build configuration and temporary
+merge markers read during a running check; the original adapter and exact affected reruns own
+those repairs rather than a changed zero baseline.
+
+**Deliberate deviations:** retained sealed payloads, native/offline explicit exchange and local
+filesystem custody are the selected target. No browser persistence, application crypto, live
+synchronization, second numerical/backend route or historical-data migration is adopted.
+Quantitative speed/capacity, confidentiality and unexercised platform/whole-product scientific
+claims are not established. Plan32 WC05/WC06, Plan40e and Plan49f–h/TOOL08 retain their independent
+scope; no canceled campaign is reopened. All implementation worktrees were merged and removed,
+with final ancestry merges verified to preserve the qualified main tree exactly.

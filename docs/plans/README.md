@@ -12,7 +12,7 @@ inquiry and opportunity dispositions.
 is complete for all 32 packages and O01–O20 selected routes. Its
 [Outcome](50-codex-effectiveness-and-diagnostics.md#outcome) owns inquiry decisions, actual
 composed acceptance, corrected zero-target checks and coverage limits. Enduring workflows live
-in the environment, substrate, diagnostic and qualification guides. The highest-numbered
+in the environment, substrate, diagnostic and qualification guides. Its
 coordinator and consumed companions/source review remain retained for qualification and proposed
 ADR readers; they authorize no new work. The native graph-work cap remains with Plan49g TOOL08;
 Plans32, 40 and 49 keep their independent scope and status.
