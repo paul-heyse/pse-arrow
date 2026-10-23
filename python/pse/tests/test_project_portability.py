@@ -18,6 +18,7 @@ from pse.contracts.documents import (
     ProjectReferenceBranch,
     ProjectSelectRequest,
     ProjectSelection,
+    ProjectSelectionBody,
 )
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.test_modeling_kernel import on_primitives, physical
@@ -44,6 +45,17 @@ def selected_project(
         ProjectSelectRequest(reference=ProjectReferenceBranch(key="portable-branch")),
         context,
     )
+
+
+def assert_origin(actual: ProjectSelectionBody, expected: ProjectSelection) -> None:
+    # Nested bodies intentionally omit the root document header.
+    assert actual.issuing_store == expected.issuing_store
+    assert actual.project == expected.project
+    assert actual.reference == expected.reference
+    assert actual.problem == expected.problem
+    assert actual.revision == expected.revision
+    assert actual.source_identity == expected.source_identity
+    assert actual.physical_context == expected.physical_context
 
 
 def export_request(
@@ -75,7 +87,7 @@ def test_selected_pack_offline_python_and_actual_cli_preserve_original_science(
     selection = selected_project(runtime, context)
     request = export_request(selection)
     closure = runtime.project_closure(request, context)
-    assert closure.manifest.origin == selection
+    assert_origin(closure.manifest.origin, selection)
     assert closure.known_source_bytes > 0
     assert not closure.result_bytes_known
     destination = tmp_path / "selected-pack"
@@ -87,7 +99,7 @@ def test_selected_pack_offline_python_and_actual_cli_preserve_original_science(
     # Both readers operate on copied membership after closing the original runtime.
     bundle = pse.ProjectBundle(destination)
     manifest = bundle.manifest
-    assert manifest.origin == selection
+    assert_origin(manifest.origin, selection)
     assert manifest == published
     selected = next(s for s in manifest.sources if s.revision == selection.revision)
     assert selected.source_identity == f"blake3:{selection.source_identity.hex()}"
@@ -147,7 +159,7 @@ def test_import_retry_fresh_ownership_and_reopen_after_supplied_pack_is_removed(
     imported = receiver.project_import(bundle, intent)
     assert imported.source_admitted
     assert imported.project_complete
-    assert imported.origin == origin
+    assert_origin(imported.origin, origin)
     assert imported.bundle_digest == bundle.digest
     assert imported.project != origin.project
     assert imported.problem != origin.problem

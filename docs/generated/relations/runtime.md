@@ -544,6 +544,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `owner` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
 | `outcome` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
 | `complete` | `Boolean` | false | `payload` | — | — |
 | `after_locator` | `Utf8` | true | `payload` | — | — |
 
@@ -808,6 +810,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `content` | `Binary` | false | `payload` | — | — |
 | `artifact` | `Utf8` | true | `payload` | — | — |
+| `retired` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_project_drafts`
 
@@ -823,6 +826,27 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `version` | `Utf8` | false | `payload` | — | — |
 | `deleted` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_project_imports`
+
+Original immutable fresh-authority import intent; source admission is pending until exact copied evidence artifact ownership finishes. Historical terminals remain origin evidence only.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `bundle_digest` | `Utf8` | false | `payload` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `branch` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `origin` | `Binary` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `artifact` | `Binary` | true | `payload` | — | — |
+| `retired_artifacts` | `Binary` | true | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_project_operations`
 

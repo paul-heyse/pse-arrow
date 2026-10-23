@@ -269,6 +269,10 @@ pub enum FactBatch {
     r#RuntimeCanonicalProjectDrafts(
         Vec<super::r#runtime::r#canonical_project_drafts::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalProjectImports)]
+    r#RuntimeCanonicalProjectImports(
+        Vec<super::r#runtime::r#canonical_project_imports::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalProjectOperations)]
     r#RuntimeCanonicalProjectOperations(
         Vec<super::r#runtime::r#canonical_project_operations::Row>,
@@ -1092,6 +1096,12 @@ impl FactBatch {
                     78u8, 252u8, 149u8, 58u8, 168u8,
                 ])
             }
+            Self::r#RuntimeCanonicalProjectImports(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    71u8, 108u8, 133u8, 136u8, 217u8, 71u8, 243u8, 245u8, 123u8, 61u8,
+                    170u8, 154u8, 61u8, 101u8, 104u8, 218u8,
+                ])
+            }
             Self::r#RuntimeCanonicalProjectOperations(_) => {
                 pse_ids::SemanticId::from_bytes([
                     85u8, 39u8, 145u8, 1u8, 188u8, 73u8, 97u8, 125u8, 8u8, 73u8, 149u8,
@@ -1788,6 +1798,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalProjectContexts(rows) => rows.len(),
             Self::r#RuntimeCanonicalProjectDraftVersions(rows) => rows.len(),
             Self::r#RuntimeCanonicalProjectDrafts(rows) => rows.len(),
+            Self::r#RuntimeCanonicalProjectImports(rows) => rows.len(),
             Self::r#RuntimeCanonicalProjectOperations(rows) => rows.len(),
             Self::r#RuntimeCanonicalProjectSavepoints(rows) => rows.len(),
             Self::r#RuntimeCanonicalProjects(rows) => rows.len(),
@@ -2351,6 +2362,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalProjectDrafts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalProjectImports(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3266,6 +3282,10 @@ impl FactBatch {
             Self::r#RuntimeCanonicalProjectDrafts(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalProjectDrafts(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalProjectImports(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalProjectImports(vec![row.clone()]))
             }
             Self::r#RuntimeCanonicalProjectOperations(rows) => {
                 rows.get(index)
@@ -4667,6 +4687,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalProjectDrafts(left),
                 Self::r#RuntimeCanonicalProjectDrafts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProjectImports(left),
+                Self::r#RuntimeCanonicalProjectImports(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6373,6 +6404,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalProjectDrafts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalProjectImports(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -8170,6 +8208,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalProjectDrafts(left),
                 Self::r#RuntimeCanonicalProjectDrafts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProjectImports(left),
+                Self::r#RuntimeCanonicalProjectImports(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -10012,6 +10061,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalProjectImports(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalProjectOperations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -11127,6 +11180,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalProjectImports(left),
+                Self::r#RuntimeCanonicalProjectImports(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalProjectOperations(left),
                 Self::r#RuntimeCanonicalProjectOperations(mut right),
             ) => {
@@ -12013,6 +12073,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalProjectDrafts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalProjectImports(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalProjectOperations(rows) => {

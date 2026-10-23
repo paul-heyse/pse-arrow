@@ -51,6 +51,10 @@
         "project": {
           "description": "project",
           "type": "string"
+        },
+        "retired": {
+          "description": "retired",
+          "type": "boolean"
         }
       },
       "required": [
@@ -61,7 +65,8 @@
         "base_revision",
         "generation",
         "content",
-        "artifact"
+        "artifact",
+        "retired"
       ],
       "type": "object"
     },

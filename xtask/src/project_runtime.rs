@@ -79,6 +79,10 @@ enum Action {
         #[serde(default = "project_document_bytes")]
         maximum_document_bytes: usize,
     },
+    ProjectImportRecover {
+        intent: ProjectImportIntent,
+        original: pse_operations::canonical_artifacts::Artifact,
+    },
     ProjectImportOpen {
         intent: ProjectImportIntent,
     },
@@ -503,6 +507,9 @@ pub(crate) async fn run(
                     let bundle = ProjectBundleReader::open(&input, maximum_document_bytes)?;
                     cancel.token().checkpoint()?;
                     value(runtime.project_import(&bundle, &intent, cancel).await?)
+                })?,
+                Action::ProjectImportRecover { intent, original } => boxed(shared, async move {
+                    value(runtime.project_import_recover(&intent, &original, cancel).await?)
                 })?,
                 Action::ProjectImportOpen { intent } => boxed(shared, async move {
                     package(&runtime.project_import_open(&intent, cancel).await?)

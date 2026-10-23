@@ -559,6 +559,38 @@ impl crate::documents::DocumentType for pse_runtime::workflow::LeasePolicy {
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
+impl crate::documents::DocumentType
+for pse_operations::canonical_lifecycle::LifecycleExplanation {
+    const INPUT_NAME: &'static str = "LifecycleExplanation";
+    const OUTPUT_NAME: &'static str = "LifecycleExplanationOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_lifecycle::LifecycleRelease {
+    const INPUT_NAME: &'static str = "LifecycleRelease";
+    const OUTPUT_NAME: &'static str = "LifecycleReleaseOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_lifecycle::LifecycleSelection {
+    const INPUT_NAME: &'static str = "LifecycleSelection";
+    const OUTPUT_NAME: &'static str = "LifecycleSelectionOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_lifecycle::LifecycleTarget {
+    const INPUT_NAME: &'static str = "LifecycleTarget";
+    const OUTPUT_NAME: &'static str = "LifecycleTarget";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::LinearDiagnosticControls {
     const INPUT_NAME: &'static str = "LinearDiagnosticControls";
     const OUTPUT_NAME: &'static str = "LinearDiagnosticControlsOutput";
@@ -786,6 +818,14 @@ impl crate::documents::DocumentType for pse_operations::canonical_projects::Bran
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType
+for pse_runtime::workflow::ProjectClosureExplanation {
+    const INPUT_NAME: &'static str = "ProjectClosureExplanation";
+    const OUTPUT_NAME: &'static str = "ProjectClosureExplanationOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::ProjectComparison {
     const INPUT_NAME: &'static str = "ProjectComparison";
     const OUTPUT_NAME: &'static str = "ProjectComparisonOutput";
@@ -844,6 +884,42 @@ for pse_operations::canonical_projects::DraftVersion {
     const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectExportRequest {
+    const INPUT_NAME: &'static str = "ProjectExportRequest";
+    const OUTPUT_NAME: &'static str = "ProjectExportRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectImportIntent {
+    const INPUT_NAME: &'static str = "ProjectImportIntent";
+    const OUTPUT_NAME: &'static str = "ProjectImportIntentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::ProjectImportRecoveryReport {
+    const INPUT_NAME: &'static str = "ProjectImportRecoveryReport";
+    const OUTPUT_NAME: &'static str = "ProjectImportRecoveryReportOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectImportReport {
+    const INPUT_NAME: &'static str = "ProjectImportReport";
+    const OUTPUT_NAME: &'static str = "ProjectImportReportOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectManifest {
+    const INPUT_NAME: &'static str = "ProjectManifest";
+    const OUTPUT_NAME: &'static str = "ProjectManifestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::ProjectMergeIntent {
     const INPUT_NAME: &'static str = "ProjectMergeIntent";

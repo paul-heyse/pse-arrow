@@ -272,6 +272,14 @@ mod canonical_lifecycle_tests {
         assert_eq!(receipt.physical_reclaimed_bytes,None);
         assert!(store.canonical_run("run").await.unwrap().is_some(),"original summary survives raw release");
         assert!(store.read_results("run",fence.attempt()).await.is_err());
+        let history=store.lifecycle_select(&LifecycleTarget{kind:LifecycleKind::RunHistory,key:"run".into()}).await.unwrap();
+        let mut complete=false;
+        for _ in 0..16 {if store.lifecycle_release(&history).await.unwrap().complete {complete=true;break;}}
+        assert!(complete,"bounded history detail is collected");
+        assert!(store.lifecycle_release(&history).await.unwrap().complete,"lost final reply settles original retirement after header deletion");
+        assert!(store.lifecycle_explain(&history).await.unwrap().detail_released);
+        let mut stale=history.clone();stale.generation+=1;
+        assert!(store.lifecycle_release(&stale).await.is_err(),"retained retirement authenticates original generation");
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]

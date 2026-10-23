@@ -197,6 +197,11 @@ pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
 mod project_contexts;
 mod projects;
+mod project_closure;
+mod project_portability;
+mod lifecycle;
+pub use lifecycle::*;
+pub use project_portability::*;
 mod research;
 mod research_publication;
 pub use research::{

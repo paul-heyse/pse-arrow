@@ -261,7 +261,7 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF array::len($unsettled)!=0 { THROW 'PSE_REFUSAL:study_history_requires_all_linked_run_payloads_settled'; };
     };
     LET $outcome=IF $kind='run' {$header.terminal_class ?? 'not-executed'} ELSE {IF $header.cancelled {'cancelled'} ELSE {'terminal'}};
-    LET $result=CREATE ONLY type::record('canonical_history_retirements',$key) SET key=$key,owner_kind=$kind,owner=$owner,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,outcome=$outcome,complete=false,after_locator=NONE;
+    LET $result=CREATE ONLY type::record('canonical_history_retirements',$key) SET key=$key,owner_kind=$kind,owner=$owner,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,outcome=$outcome,revision=$header.revision,generation=IF $kind='run' {$header.current_generation} ELSE {$header.generation},complete=false,after_locator=NONE;
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };

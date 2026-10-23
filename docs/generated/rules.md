@@ -150,6 +150,7 @@
 | `runtime.canonical_project_contexts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_contexts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_draft_versions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_draft_versions" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_drafts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_drafts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_imports` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_imports" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_savepoints` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_savepoints" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_projects` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_projects" s GROUP BY s."key" HAVING COUNT(*) > 1` |

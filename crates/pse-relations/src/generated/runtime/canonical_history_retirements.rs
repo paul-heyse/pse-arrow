@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    250u8, 68u8, 64u8, 249u8, 116u8, 17u8, 16u8, 63u8, 165u8, 22u8, 83u8, 193u8, 28u8,
-    175u8, 76u8, 173u8, 86u8, 85u8, 121u8, 168u8, 81u8, 16u8, 44u8, 222u8, 30u8, 87u8,
-    248u8, 194u8, 108u8, 216u8, 139u8, 251u8,
+    250u8, 117u8, 177u8, 176u8, 70u8, 91u8, 6u8, 160u8, 152u8, 249u8, 132u8, 94u8, 0u8,
+    151u8, 132u8, 124u8, 13u8, 6u8, 113u8, 249u8, 223u8, 193u8, 47u8, 100u8, 28u8, 80u8,
+    133u8, 44u8, 206u8, 89u8, 40u8, 250u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalHistoryRetirementsRow {
     fn append(
@@ -46,12 +46,20 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalHistoryRetirementsRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#outcome, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#complete,
+            &self.r#revision,
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#after_locator,
+            &self.r#generation,
             children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#complete,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#after_locator,
+            children[8usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -68,10 +76,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalHistoryRetirementsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -102,14 +112,22 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalHistoryRetirementsRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#complete: <bool as crate::columnar::ArrowValue>::read(
+            r#revision: <String as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#generation: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#complete: <bool as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#after_locator: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -179,10 +197,15 @@ impl crate::columnar::RelationRow for RuntimeCanonicalHistoryRetirementsRow {
             columns[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#outcome, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#complete, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#revision, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#generation,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#complete, columns[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#after_locator,
-            columns[6usize].as_mut(),
+            columns[8usize].as_mut(),
         )?;
         Ok(())
     }
@@ -223,10 +246,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalHistoryRetirementsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        18_432_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -249,6 +272,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalHistoryRetirementsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#outcome).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#revision).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -275,7 +306,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -303,13 +334,23 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "complete",
+        name: "revision",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "after_locator",
+        name: "generation",
         position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "complete",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "after_locator",
+        position: 8usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -324,10 +365,14 @@ pub mod columns {
     pub const ISSUING_STORE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///outcome
     pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///revision
+    pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///generation
+    pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///complete
-    pub const COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///after_locator
-    pub const AFTER_LOCATOR: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const AFTER_LOCATOR: crate::columnar::ColumnReference = super::COLUMNS[8usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -340,6 +385,8 @@ pub struct RuntimeCanonicalHistoryRetirementsView<'a> {
     owner_column: &'a arrow_array::StringArray,
     issuing_store_column: &'a arrow_array::StringArray,
     outcome_column: &'a arrow_array::StringArray,
+    revision_column: &'a arrow_array::StringArray,
+    generation_column: &'a arrow_array::UInt64Array,
     complete_column: &'a arrow_array::BooleanArray,
     after_locator_column: &'a arrow_array::StringArray,
 }
@@ -401,12 +448,18 @@ impl<'a> RuntimeCanonicalHistoryRetirementsView<'a> {
             outcome_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
+            revision_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
+            generation_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(6usize).as_ref())?,
             complete_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             after_locator_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -483,6 +536,30 @@ impl<'a> RuntimeCanonicalHistoryRetirementsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "revision",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn revision_column(&self) -> &'a arrow_array::StringArray {
+        self.revision_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "revision", "`.")]
+    pub fn revision_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "generation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn generation_column(&self) -> &'a arrow_array::UInt64Array {
+        self.generation_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "generation", "`.")]
+    pub fn generation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "complete",
         "`, including its offsets and validity bitmap.",
     )]
@@ -491,7 +568,7 @@ impl<'a> RuntimeCanonicalHistoryRetirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "complete", "`.")]
     pub fn complete_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -503,7 +580,7 @@ impl<'a> RuntimeCanonicalHistoryRetirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "after_locator", "`.")]
     pub fn after_locator_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -528,6 +605,11 @@ impl<'a> RuntimeCanonicalHistoryRetirementsView<'a> {
                 index,
             )?,
             r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
+            r#revision: crate::columnar::ArrowValue::read(self.revision_column, index)?,
+            r#generation: crate::columnar::ArrowValue::read(
+                self.generation_column,
+                index,
+            )?,
             r#complete: crate::columnar::ArrowValue::read(self.complete_column, index)?,
             r#after_locator: crate::columnar::ArrowValue::read(
                 self.after_locator_column,

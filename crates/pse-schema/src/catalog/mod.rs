@@ -31,6 +31,7 @@ mod normalization;
 mod operations;
 mod products;
 pub mod project_contexts;
+pub mod project_imports;
 pub mod projects;
 pub mod research;
 mod row_checks;
@@ -105,6 +106,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     projects::declare(builder);
     research::declare(builder);
     project_contexts::declare(builder);
+    project_imports::declare(builder);
     evidence::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);

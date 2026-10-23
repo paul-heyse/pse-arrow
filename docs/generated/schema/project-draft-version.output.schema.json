@@ -57,6 +57,10 @@
     "project": {
       "description": "project",
       "type": "string"
+    },
+    "retired": {
+      "description": "retired",
+      "type": "boolean"
     }
   },
   "required": [
@@ -68,6 +72,7 @@
     "generation",
     "content",
     "artifact",
+    "retired",
     "document_version"
   ],
   "title": "ProjectDraftVersionOutput",

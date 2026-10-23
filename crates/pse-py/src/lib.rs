@@ -117,7 +117,7 @@ mod _native {
         registry_fingerprint,
         workflow::{
             ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeArtifactSettlement,
-            NativeAttempt, NativeFrozenStudyCohort, NativeLiveSimulationCursor,
+            NativeAttempt, NativeFrozenStudyCohort, NativeProjectBundle, NativeLiveSimulationCursor,
             NativeLiveSimulationEvent, NativeLocalStudy, NativeModelingConformance,
             NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,

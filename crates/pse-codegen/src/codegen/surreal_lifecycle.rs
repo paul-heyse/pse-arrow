@@ -36,11 +36,13 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::selection($expiry:int,$issuer:string,$kind
         ELSE IF $kind='evidence_artifact' { SELECT * FROM ONLY type::record('canonical_artifacts',$key) }
         ELSE IF $kind='draft_version' { SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key) }
         ELSE { THROW 'PSE_REFUSAL:project_metadata_bound'; };
-    IF $row=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
+    LET $retirement=IF $kind IN ['run_history','study_history'] {SELECT * FROM ONLY type::record('canonical_history_retirements',IF $kind='run_history' {'run:'+$key} ELSE {'study:'+$key})} ELSE {NONE};
+    IF $row=NONE AND $retirement=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
+    IF $retirement!=NONE AND $retirement.issuing_store!=$issuer {THROW 'PSE_REFUSAL:project_issuing_authority_changed';};
     LET $project=IF $kind='draft_version' {SELECT * FROM ONLY type::record('canonical_projects',$row.project)} ELSE {NONE};
     LET $draft=IF $kind='draft_version' {SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft)} ELSE {NONE};
-    LET $revision=IF $kind='source_history' {$key} ELSE IF $kind='draft_version' {$row.base_revision} ELSE {$row.revision};
-    LET $generation=IF $kind='source_history' {$row.sequence} ELSE IF $kind IN ['run_results','run_history'] {$row.current_generation} ELSE IF $kind='evidence_artifact' {$row.creation_expires_at} ELSE {$row.generation};
+    LET $revision=IF $kind='source_history' {$key} ELSE IF $kind='draft_version' {$row.base_revision} ELSE {$row.revision ?? $retirement.revision};
+    LET $generation=IF $kind='source_history' {$row.sequence} ELSE IF $kind IN ['run_results','run_history'] {$row.current_generation ?? $retirement.generation} ELSE IF $kind='evidence_artifact' {$row.creation_expires_at} ELSE {$row.generation ?? $retirement.generation};
     RETURN {issuing_store:$issuer,kind:$kind,key:$key,revision:$revision,generation:$generation,project_generation:$project.generation ?? NONE,draft_generation:$draft.generation ?? NONE};
 };
 DEFINE FUNCTION fn::pse_lifecycle_v1::check($expiry:int,$expected:object) -> object {
@@ -93,7 +95,8 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     LET $logical=IF $draft!=NONE {IF $draft.retired {0dec} ELSE IF $draft.artifact=NONE {<decimal>bytes::len($draft.content)} ELSE {NONE}}
         ELSE IF $evidence!=NONE {$evidence.payload_bytes}
         ELSE IF $s.kind='run_results' AND array::len($batches)<65 {<decimal>math::sum($batches.payload_bytes)} ELSE {NONE};
-    RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? false};
+    LET $retired=IF $s.kind IN ['run_history','study_history'] {SELECT * FROM ONLY type::record('canonical_history_retirements',IF $s.kind='run_history' {'run:'+$s.key} ELSE {'study:'+$s.key})} ELSE IF $s.kind='run_results' {SELECT * FROM ONLY type::record('canonical_result_retirements',$s.key)} ELSE IF $s.kind='study_results' {SELECT * FROM ONLY type::record('canonical_study_retirements',$s.key)} ELSE {NONE};
+    RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
 };
 DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) -> object {
     fn::pse_lifecycle_v1::check($expiry,$s);

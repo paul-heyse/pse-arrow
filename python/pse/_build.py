@@ -40,6 +40,7 @@ _NativeScientificArtifact = _native.NativeScientificArtifact
 _NativeArtifactSettlement = _native.NativeArtifactSettlement
 _NativePhysicalContext = _native.NativePhysicalContext
 _NativeRuntime = _native.NativeRuntime
+_NativeProjectBundle = _native.NativeProjectBundle
 _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis
 _NativeModelingNonlinearExplanation = _native.NativeModelingNonlinearExplanation
 _NativeModelingElasticAttempt = _native.NativeModelingElasticAttempt

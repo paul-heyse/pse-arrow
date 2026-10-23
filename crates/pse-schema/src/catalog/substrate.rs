@@ -712,6 +712,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("owner", text()),
                 column("issuing_store", text()),
                 column("outcome", text()),
+                column("revision", text()),
+                column("generation", uint()),
                 column("complete", flag()),
                 column("after_locator", text()).optional(),
             ],

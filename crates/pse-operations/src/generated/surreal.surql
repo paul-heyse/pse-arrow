@@ -216,6 +216,8 @@ DEFINE FIELD owner_kind ON canonical_history_retirements TYPE string;
 DEFINE FIELD owner ON canonical_history_retirements TYPE string;
 DEFINE FIELD issuing_store ON canonical_history_retirements TYPE string;
 DEFINE FIELD outcome ON canonical_history_retirements TYPE string;
+DEFINE FIELD revision ON canonical_history_retirements TYPE string READONLY;
+DEFINE FIELD generation ON canonical_history_retirements TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD complete ON canonical_history_retirements TYPE bool;
 DEFINE FIELD after_locator ON canonical_history_retirements TYPE option<string>;
 DEFINE TABLE canonical_interpretations SCHEMAFULL;
@@ -354,8 +356,9 @@ DEFINE FIELD project ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD branch ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD base_revision ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD generation ON canonical_project_draft_versions TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD content ON canonical_project_draft_versions TYPE bytes READONLY;
+DEFINE FIELD content ON canonical_project_draft_versions TYPE bytes ASSERT $before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0);
 DEFINE FIELD artifact ON canonical_project_draft_versions TYPE option<string> READONLY;
+DEFINE FIELD retired ON canonical_project_draft_versions TYPE bool DEFAULT false ASSERT ($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0);
 DEFINE TABLE canonical_project_drafts SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_drafts TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD project ON canonical_project_drafts TYPE string;
@@ -363,6 +366,19 @@ DEFINE FIELD branch ON canonical_project_drafts TYPE string;
 DEFINE FIELD generation ON canonical_project_drafts TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD version ON canonical_project_drafts TYPE string;
 DEFINE FIELD deleted ON canonical_project_drafts TYPE bool;
+DEFINE TABLE canonical_project_imports SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_imports TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD issuing_store ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD bundle_digest ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD project ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD branch ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD problem ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD revision ON canonical_project_imports TYPE string READONLY;
+DEFINE FIELD origin ON canonical_project_imports TYPE bytes READONLY;
+DEFINE FIELD request ON canonical_project_imports TYPE bytes READONLY;
+DEFINE FIELD artifact ON canonical_project_imports TYPE option<bytes> ASSERT $before=NONE OR $before=$value;
+DEFINE FIELD retired_artifacts ON canonical_project_imports TYPE option<bytes>;
+DEFINE FIELD complete ON canonical_project_imports TYPE bool DEFAULT false ASSERT ($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE);
 DEFINE TABLE canonical_project_operations SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_operations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD kind ON canonical_project_operations TYPE string READONLY;
@@ -788,6 +804,8 @@ DEFINE INDEX project_branch_order ON canonical_project_branches FIELDS project, 
 DEFINE INDEX project_branch_problem ON canonical_project_branches FIELDS problem UNIQUE;
 DEFINE INDEX project_draft_order ON canonical_project_drafts FIELDS branch, key;
 DEFINE INDEX project_research_order ON canonical_research_references FIELDS project, key;
+DEFINE INDEX project_import_project ON canonical_project_imports FIELDS project UNIQUE;
+DEFINE INDEX project_import_problem ON canonical_project_imports FIELDS problem UNIQUE;
 DEFINE INDEX project_context_scope ON canonical_project_contexts FIELDS project, scope, recorded_sequence;
 DEFINE INDEX project_context_ancestor ON canonical_context_ancestry FIELDS descendant, ancestor UNIQUE;
 DEFINE INDEX research_dataset_project ON canonical_research_datasets FIELDS project, key;
@@ -1472,7 +1490,7 @@ DEFINE FUNCTION fn::pse_project_v1::ack($expiry:int,$operation:string,$request:b
 DEFINE FUNCTION fn::pse_project_v1::project($expiry:int,$key:string,$generation:decimal) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$key);
-    IF $p=NONE OR $p.deleted OR $p.generation!=$generation { THROW 'PSE_REFUSAL:project_generation_changed'; };
+    IF $p=NONE OR $p.deleted OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($key) { THROW 'PSE_REFUSAL:project_generation_changed'; };
     RETURN $p;
 };
 DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:string) -> bool {
@@ -1497,12 +1515,17 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
     IF $intent!=NONE {fn::pse_project_v1::authority($expiry,$intent.issuing_store);};
     LET $owners=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2;
     IF $intent=NONE { IF array::len($owners)!=0 { THROW 'PSE_REFUSAL:project_publication_guard_required'; }; RETURN true; };
-    IF $intent.kind NOT IN ['fork','publish'] { THROW 'PSE_REFUSAL:project_branch_changed'; };
+    IF $intent.kind NOT IN ['fork','publish','import'] { THROW 'PSE_REFUSAL:project_branch_changed'; };
     LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation);
     IF $stage=NONE OR ($stage.expected_head ?? NONE)!=($intent.expected ?? NONE) { THROW 'PSE_REFUSAL:project_branch_changed'; };
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$intent.request);
     IF $ack!=NONE { THROW 'PSE_REFUSAL:project_operation_already_committed'; };
-    fn::pse_project_v1::project($expiry,$intent.project,$intent.project_generation);
+    IF $intent.kind='import' {
+        IF $intent.import=NONE OR $intent.expected!=NONE OR $intent.origin_revision!=NONE OR array::len($owners)!=0 OR (SELECT * FROM ONLY type::record('canonical_projects',$intent.project))!=NONE OR (SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch))!=NONE OR (SELECT * FROM ONLY type::record('canonical_project_imports',$operation))!=NONE {THROW 'PSE_REFUSAL:project_import_destination_exists';};
+        CREATE ONLY type::record('canonical_projects',$intent.project) CONTENT {key:$intent.project,title:$intent.import.title,deleted:false,generation:0dec};
+        CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,name:$intent.branch_name,generation:0dec};
+        CREATE ONLY type::record('canonical_project_imports',$operation) CONTENT {key:$operation,issuing_store:$intent.issuing_store,bundle_digest:$intent.import.bundle_digest,project:$intent.project,branch:$intent.branch,problem:$problem,revision:$operation,origin:$intent.import.origin,request:$intent.request,complete:false};
+    } ELSE {fn::pse_project_v1::project($expiry,$intent.project,$intent.project_generation);};
     IF $intent.kind='fork' {
         IF array::len($owners)!=0 OR (SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch))!=NONE { THROW 'PSE_REFUSAL:project_branch_changed'; };
         IF $intent.origin_revision=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
@@ -1513,13 +1536,13 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
         IF array::len($source)!=array::len($changes) OR array::len($source)>8192 { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
         IF $source!=$changes { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
         CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,name:$intent.branch_name,origin_revision:$intent.origin_revision,generation:0dec};
-    } ELSE {
+    } ELSE IF $intent.kind='publish' {
         LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch) FOR UPDATE;
         IF array::len($owners)!=1 OR $branch=NONE OR $branch.problem!=$problem OR $branch.project!=$intent.project OR $branch.generation!=$intent.branch_generation { THROW 'PSE_REFUSAL:project_branch_changed'; };
         IF $intent.draft!=NONE {
             LET $draft=SELECT * FROM ONLY type::record('canonical_project_drafts',$intent.draft) FOR UPDATE;
             LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$draft.version);
-            IF $draft=NONE OR $draft.deleted OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
+            IF $draft=NONE OR $draft.deleted OR $version.retired OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
         };
     };
     fn::pse_research_v1::publication_guard($expiry,$operation,$intent);
@@ -1548,7 +1571,7 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
     IF $revision=NONE OR $revision.problem!=$branch.problem { THROW 'PSE_REFUSAL:project_source_unavailable'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft) FOR UPDATE;
     IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.deleted OR $old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
-    IF $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
+    IF $row.retired!=false OR $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);
         IF $artifact=NONE OR $artifact.revision!=$row.base_revision OR $artifact.kind!='project-draft' { THROW 'PSE_REFUSAL:project_source_unavailable'; };
@@ -1590,7 +1613,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
 DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$request:bytes,$project:string,$generation:decimal,$action:object) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE {RETURN $old;};
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$project) FOR UPDATE;
-    IF $p=NONE OR $p.generation!=$generation OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
+    IF $p=NONE OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($project) OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
     IF $action.kind='project_title' {UPDATE ONLY type::record('canonical_projects',$project) SET title=$action.name;}
     ELSE IF $action.kind='project_visibility' {UPDATE ONLY type::record('canonical_projects',$project) SET deleted=$action.deleted;}
     ELSE IF $action.kind='branch_name' {
@@ -1603,7 +1626,7 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
     } ELSE IF $action.kind='savepoint' {
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
         LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$action.version);
-        IF $head=NONE OR $version=NONE OR $head.project!=$project OR $version.draft!=$head.key OR $head.generation!=$action.generation OR $head.version!=$version.key {THROW 'PSE_REFUSAL:project_draft_changed';};
+        IF $head=NONE OR $version=NONE OR $version.retired OR $head.project!=$project OR $version.draft!=$head.key OR $head.generation!=$action.generation OR $head.version!=$version.key {THROW 'PSE_REFUSAL:project_draft_changed';};
         CREATE ONLY type::record('canonical_project_savepoints',$action.key) CONTENT {key:$action.key,project:$project,draft:$head.key,version:$version.key,name:$action.name,deleted:false};
     } ELSE IF $action.kind='draft_visibility' {
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.key) FOR UPDATE;
@@ -1616,7 +1639,7 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
     } ELSE IF $action.kind='restore' {
         LET $point=SELECT * FROM ONLY type::record('canonical_project_savepoints',$action.key);
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
-        IF $point=NONE OR $head=NONE OR $point.deleted OR $point.project!=$project OR $point.draft!=$head.key OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
+        IF $point=NONE OR $head=NONE OR (SELECT retired FROM ONLY type::record('canonical_project_draft_versions',$point.version)).retired OR $point.deleted OR $point.project!=$project OR $point.draft!=$head.key OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
         UPDATE ONLY type::record('canonical_project_drafts',$head.key) SET version=$point.version,deleted=false,generation+=1dec;
     } ELSE {THROW 'PSE_REFUSAL:project_metadata_bound';};
     LET $new=UPDATE ONLY type::record('canonical_projects',$project) SET generation+=1dec;
@@ -1625,12 +1648,197 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
 };
 DEFINE FUNCTION fn::pse_project_v1::diagnostic($expiry:int,$operation:string,$version:string,$message:string,$admitted:bool) -> object {
     IF string::len($message)>65536 {THROW 'PSE_REFUSAL:project_metadata_bound';};
-    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$version);
-    IF $v=NONE {THROW 'PSE_REFUSAL:project_draft_changed';};
     LET $old=SELECT * FROM ONLY type::record('canonical_draft_diagnostics',$operation);
     IF $old!=NONE {IF $old.version!=$version OR $old.message!=$message OR $old.admitted!=$admitted {THROW 'PSE_REFUSAL:project_operation_identity_changed';};RETURN $old;};
+    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$version);
+    IF $v=NONE OR $v.retired OR !fn::pse_project_import_v1::available($v.project) {THROW 'PSE_REFUSAL:project_draft_changed';};
     fn::pse_execution_v1::deadline($expiry);
     RETURN CREATE ONLY type::record('canonical_draft_diagnostics',$operation) CONTENT {key:$operation,version:$version,message:$message,admitted:$admitted};
+};
+
+DEFINE FUNCTION fn::pse_project_import_v1::available($project:string) -> bool {
+    LET $pending=SELECT key FROM canonical_project_imports WITH INDEX project_import_project WHERE project=$project AND complete=false LIMIT 1;
+    RETURN array::len($pending)=0;
+};
+DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$provenance:bytes) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
+    IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
+    IF $row.artifact!=NONE {IF $row.artifact!=$bytes {THROW 'PSE_REFUSAL:project_import_artifact_differs';}; RETURN $row;};
+    IF $row.complete OR $artifact.kind!='project-import-evidence' OR $artifact.revision!=$row.revision OR $artifact.primary_problem!=$row.problem OR $artifact.active OR $artifact.retiring OR $artifact.provenance!=$provenance OR bytes::len($bytes)>131072 {THROW 'PSE_REFUSAL:project_import_artifact_differs';};
+    RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=$bytes;
+};
+DEFINE FUNCTION fn::pse_project_import_v1::retire_artifact($expiry:int,$key:string,$request:bytes,$original:object,$bytes:bytes,$previous:option<bytes>,$next:bytes) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
+    IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
+    IF $row.retired_artifacts=$next {RETURN $row;};
+    IF $row.complete OR $row.artifact!=$bytes OR ($row.retired_artifacts ?? NONE)!=$previous OR bytes::len($next)>131072 {THROW 'PSE_REFUSAL:project_import_artifact_differs';};
+    LET $actual=SELECT * FROM ONLY type::record('canonical_artifacts',$original.key) FOR UPDATE;
+    IF $actual!=NONE AND $actual.active {THROW 'PSE_REFUSAL:project_import_artifact_differs';};
+    LET $settled=fn::pse_artifact_v1::collect($expiry,$original);
+    IF !$settled.complete {THROW 'PSE_REFUSAL:project_import_artifact_unavailable';};
+    RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=NONE,retired_artifacts=$next;
+};
+DEFINE FUNCTION fn::pse_project_import_v1::finish($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$obligation:object) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
+    IF $row=NONE OR $row.request!=$request OR $row.artifact=NONE OR $row.artifact!=$bytes {THROW 'PSE_REFUSAL:project_import_intent_differs';};
+    IF $row.complete {RETURN $row;};
+    LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$row.branch) FOR UPDATE;
+    LET $head=SELECT * FROM ONLY type::record('canonical_problems',$row.problem) FOR UPDATE;
+    IF $branch=NONE OR $branch.project!=$row.project OR $branch.problem!=$row.problem OR $head.head!=$row.revision {THROW 'PSE_REFUSAL:project_import_source_changed';};
+    LET $actual=SELECT * FROM ONLY type::record('canonical_artifacts',$artifact.key);
+    IF $actual=NONE OR !$actual.active OR object::remove($actual,['id','active'])!=object::remove($artifact,['active']) OR $actual.retiring OR $actual.kind!='project-import-evidence' OR $actual.revision!=$row.revision {THROW 'PSE_REFUSAL:project_import_artifact_unavailable';};
+    IF $obligation.artifact!=$actual.key OR $obligation.owner_kind!='project' OR $obligation.owner!=$key OR (SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key))=NONE {THROW 'PSE_REFUSAL:project_import_artifact_unowned';};
+    fn::pse_execution_v1::deadline($expiry);
+    RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET complete=true;
+};
+
+DEFINE FUNCTION fn::pse_retention_v1::drop_source_root($expiry:int,$problem:string,$revision:string,$root:string,$owner_kind:string,$owner:string) -> bool {
+IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'PSE_REFUSAL:lifecycle_roots_are_released_only_by_their_owning_retirement'; };
+LET $guard = type::record('canonical_guards', 'retention:' + $problem);
+SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($expiry);
+LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
+IF $old != NONE {
+    IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'PSE_REFUSAL:retained_owner_selection_changed'; };
+    DELETE ONLY type::record('canonical_roots', $root);
+    IF $owner_kind = 'product' {
+        LET $association = SELECT * FROM ONLY type::record('canonical_product_associations',$root);
+        IF $association != NONE {
+            LET $descriptor = SELECT * FROM ONLY type::record('canonical_product_descriptors',$association.descriptor) FOR UPDATE;
+            IF $descriptor != NONE {
+                IF $descriptor.issuing_store != $association.issuing_store OR $descriptor.problem != $association.problem OR $descriptor.request != $association.request OR $descriptor.payload != $association.payload OR $descriptor.dependencies != $association.dependencies OR $descriptor.content != $association.content OR $descriptor.receipt != $association.receipt OR $descriptor.producer != $association.producer OR $descriptor.interpretation != $association.interpretation { THROW 'PSE_REFUSAL:released_association_descriptor_equality_differs'; };
+                LET $remaining = SELECT key FROM canonical_product_associations WHERE descriptor = $association.descriptor AND issuing_store = $association.issuing_store AND problem = $association.problem AND request = $association.request AND payload = $association.payload AND dependencies = $association.dependencies AND content = $association.content AND receipt = $association.receipt AND producer = $association.producer AND interpretation = $association.interpretation AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key ORDER BY key LIMIT 1;
+                UPDATE type::record('canonical_product_descriptors',$association.descriptor) SET association = IF array::len($remaining) = 0 { NONE } ELSE { $remaining[0].key };
+            };
+        };
+    };
+};
+fn::pse_execution_v1::touch($expiry,'source-creators:'+$problem);
+fn::pse_execution_v1::deadline($expiry);
+RETURN true;
+};
+DEFINE FUNCTION fn::pse_lifecycle_v1::selection($expiry:int,$issuer:string,$kind:string,$key:string) -> object {
+    fn::pse_project_v1::authority($expiry,$issuer);
+    IF $key='' OR string::len($key)>4096 { THROW 'PSE_REFUSAL:project_metadata_bound'; };
+    LET $row=IF $kind='source_history' { SELECT * FROM ONLY type::record('canonical_revisions',$key) }
+        ELSE IF $kind IN ['run_results','run_history'] { SELECT * FROM ONLY type::record('canonical_runs',$key) }
+        ELSE IF $kind IN ['study_results','study_history'] { SELECT * FROM ONLY type::record('canonical_studies',$key) }
+        ELSE IF $kind='evidence_artifact' { SELECT * FROM ONLY type::record('canonical_artifacts',$key) }
+        ELSE IF $kind='draft_version' { SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key) }
+        ELSE { THROW 'PSE_REFUSAL:project_metadata_bound'; };
+    LET $retirement=IF $kind IN ['run_history','study_history'] {SELECT * FROM ONLY type::record('canonical_history_retirements',IF $kind='run_history' {'run:'+$key} ELSE {'study:'+$key})} ELSE {NONE};
+    IF $row=NONE AND $retirement=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
+    IF $retirement!=NONE AND $retirement.issuing_store!=$issuer {THROW 'PSE_REFUSAL:project_issuing_authority_changed';};
+    LET $project=IF $kind='draft_version' {SELECT * FROM ONLY type::record('canonical_projects',$row.project)} ELSE {NONE};
+    LET $draft=IF $kind='draft_version' {SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft)} ELSE {NONE};
+    LET $revision=IF $kind='source_history' {$key} ELSE IF $kind='draft_version' {$row.base_revision} ELSE {$row.revision ?? $retirement.revision};
+    LET $generation=IF $kind='source_history' {$row.sequence} ELSE IF $kind IN ['run_results','run_history'] {$row.current_generation ?? $retirement.generation} ELSE IF $kind='evidence_artifact' {$row.creation_expires_at} ELSE {$row.generation ?? $retirement.generation};
+    RETURN {issuing_store:$issuer,kind:$kind,key:$key,revision:$revision,generation:$generation,project_generation:$project.generation ?? NONE,draft_generation:$draft.generation ?? NONE};
+};
+DEFINE FUNCTION fn::pse_lifecycle_v1::check($expiry:int,$expected:object) -> object {
+    LET $current=fn::pse_lifecycle_v1::selection($expiry,$expected.issuing_store,$expected.kind,$expected.key);
+    IF $current!=$expected { THROW 'PSE_REFUSAL:project_generation_changed'; };
+    RETURN $current;
+};
+DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> object {
+    LET $s=fn::pse_lifecycle_v1::check($expiry,$selection);
+    LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$s.revision);
+    LET $roots=SELECT key,owner_kind FROM canonical_roots WHERE revision=$s.revision AND owner_kind!='history' ORDER BY key LIMIT 65;
+    LET $pins=SELECT key FROM canonical_protections WHERE revision=$s.revision AND released=false AND (expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65;
+    LET $stages=SELECT key FROM canonical_stages WHERE problem=$revision.problem AND activated=false AND abandoned=false ORDER BY key LIMIT 65;
+    LET $project_refs=SELECT key FROM canonical_research_references WHERE revision=$s.revision ORDER BY key LIMIT 65;
+    LET $imports=SELECT key FROM canonical_project_imports WHERE complete=false AND (revision=$s.revision OR ($s.kind='draft_version' AND project=type::record('canonical_project_draft_versions',$s.key).project)) ORDER BY key LIMIT 65;
+    LET $borrowers=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_result_protections WHERE run=$s.key AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
+    LET $attempts=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_attempts WHERE run=$s.key AND phase NOT IN ['terminal','terminal_compacted'] ORDER BY key LIMIT 65} ELSE {[]};
+    LET $studies=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_studies WHERE run=$s.key AND (SELECT * FROM ONLY type::record('canonical_study_retirements',key))=NONE ORDER BY key LIMIT 65} ELSE {[]};
+    LET $members=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_study_points WHERE run=$s.key AND (SELECT * FROM ONLY type::record('canonical_study_retirements',study))=NONE ORDER BY key LIMIT 65} ELSE {[]};
+    LET $transfers=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_artifact_staging_inputs WHERE run=$s.key ORDER BY key LIMIT 65} ELSE {[]};
+    LET $obligations=IF $s.kind IN ['run_history','study_history'] {SELECT key FROM canonical_history_obligations WHERE owner=$s.key AND owner_kind=IF $s.kind='run_history' {'run'} ELSE {'study'} ORDER BY key LIMIT 65} ELSE {[]};
+    LET $evidence=IF $s.kind='evidence_artifact' {SELECT * FROM ONLY type::record('canonical_artifacts',$s.key)} ELSE {NONE};
+    LET $evidence_owners=IF $evidence!=NONE {SELECT key FROM canonical_artifact_obligations WHERE artifact=$s.key ORDER BY key LIMIT 65} ELSE {[]};
+    LET $evidence_reads=IF $evidence!=NONE {SELECT key FROM canonical_artifact_reads WHERE artifact=$s.key AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
+    LET $draft=IF $s.kind='draft_version' {SELECT * FROM ONLY type::record('canonical_project_draft_versions',$s.key)} ELSE {NONE};
+    LET $head=IF $draft!=NONE {SELECT * FROM ONLY type::record('canonical_project_drafts',$draft.draft)} ELSE {NONE};
+    LET $savepoints=IF $draft!=NONE {SELECT key FROM canonical_project_savepoints WHERE version=$s.key ORDER BY key LIMIT 65} ELSE {[]};
+    LET $other_versions=IF $draft.artifact!=NONE {SELECT key FROM canonical_project_draft_versions WHERE artifact=$draft.artifact AND key!=$s.key AND retired=false ORDER BY key LIMIT 65} ELSE {[]};
+    LET $artifact_reads=IF $draft.artifact!=NONE {SELECT key FROM canonical_artifact_reads WHERE artifact=$draft.artifact AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
+    LET $blockers=[
+        IF $s.kind='source_history' {$roots.map(|$r| {kind:'retained_source_owner',identity:$r.key})} ELSE {[]},
+        $pins.map(|$r| {kind:'active_source_protection',identity:$r.key}),
+        $stages.map(|$r| {kind:'unsettled_source_stage',identity:$r.key}),
+        $imports.map(|$r| {kind:'incomplete_project_import',identity:$r.key}),
+        IF $s.kind IN ['source_history','run_results','run_history'] {$project_refs.map(|$r| {kind:'project_research_reference',identity:$r.key})} ELSE {[]},
+        $borrowers.map(|$r| {kind:'active_result_borrower',identity:$r.key}),
+        $attempts.map(|$r| {kind:'unsettled_attempt',identity:$r.key}),
+        $studies.map(|$r| {kind:'retained_study',identity:$r.key}),
+        $members.map(|$r| {kind:'retained_study_point',identity:$r.key}),
+        $transfers.map(|$r| {kind:'unsettled_artifact_transfer',identity:$r.key}),
+        $obligations.map(|$r| {kind:'history_obligation',identity:$r.key}),
+        $savepoints.map(|$r| {kind:'retained_savepoint',identity:$r.key}),
+        $other_versions.map(|$r| {kind:'shared_draft_artifact',identity:$r.key}),
+        $artifact_reads.map(|$r| {kind:'active_artifact_borrower',identity:$r.key}),
+        $evidence_reads.map(|$r| {kind:'active_artifact_borrower',identity:$r.key}),
+        $evidence_owners.map(|$r| {kind:'retained_artifact_obligation',identity:$r.key}),
+        IF $evidence!=NONE AND $evidence.creation_expires_at>time::micros() {[{kind:'original_creation_window_unsettled',identity:$s.key}]} ELSE {[]},
+        IF $head!=NONE AND $head.version=$s.key {[{kind:'current_draft_head',identity:$head.key}]} ELSE {[]}].fold([],|$all,$rows|array::concat($all,$rows));
+    LET $batches=IF $s.kind='run_results' {SELECT payload_bytes FROM canonical_result_batches WHERE type::record('canonical_attempts',attempt).run=$s.key LIMIT 65} ELSE {[]};
+    LET $logical=IF $draft!=NONE {IF $draft.retired {0dec} ELSE IF $draft.artifact=NONE {<decimal>bytes::len($draft.content)} ELSE {NONE}}
+        ELSE IF $evidence!=NONE {$evidence.payload_bytes}
+        ELSE IF $s.kind='run_results' AND array::len($batches)<65 {<decimal>math::sum($batches.payload_bytes)} ELSE {NONE};
+    LET $retired=IF $s.kind IN ['run_history','study_history'] {SELECT * FROM ONLY type::record('canonical_history_retirements',IF $s.kind='run_history' {'run:'+$s.key} ELSE {'study:'+$s.key})} ELSE IF $s.kind='run_results' {SELECT * FROM ONLY type::record('canonical_result_retirements',$s.key)} ELSE IF $s.kind='study_results' {SELECT * FROM ONLY type::record('canonical_study_retirements',$s.key)} ELSE {NONE};
+    RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
+};
+DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) -> object {
+    fn::pse_lifecycle_v1::check($expiry,$s);
+    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$s.key) FOR UPDATE;
+    LET $p=SELECT * FROM ONLY type::record('canonical_projects',$v.project) FOR UPDATE;
+    LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$v.draft) FOR UPDATE;
+    IF $p.generation!=$s.project_generation OR $head.generation!=$s.draft_generation OR $v.generation!=$s.generation {THROW 'PSE_REFUSAL:project_generation_changed';};
+    IF $v.retired {RETURN {complete:true};};
+    LET $explanation=fn::pse_lifecycle_v1::explain($expiry,$s);
+    IF array::len($explanation.blockers)!=0 {THROW 'PSE_REFUSAL:project_draft_changed';};
+    LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$v.base_revision);
+    fn::pse_execution_v1::source_creator($expiry,$revision.problem,'project-draft-version:'+$v.key);
+    LET $root=SELECT * FROM ONLY type::record('canonical_roots','project-draft-version:'+$v.key) FOR UPDATE;
+    IF $root=NONE OR $root.problem!=$revision.problem OR $root.revision!=$v.base_revision OR $root.owner_kind!='project' OR $root.owner!='project-draft-version:'+$v.key {THROW 'PSE_REFUSAL:retained_owner_selection_changed';};
+    IF $v.artifact!=NONE {
+        LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$v.artifact) FOR UPDATE;
+        IF $artifact=NONE OR $artifact.kind!='project-draft' OR $artifact.revision!=$v.base_revision OR !$artifact.active OR $artifact.retiring {THROW 'PSE_REFUSAL:project_source_unavailable';};
+        LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$v.artifact AND owner_kind='project' AND owner=$v.draft LIMIT 65;
+        IF array::len($owners)!=1 {THROW 'PSE_REFUSAL:project_draft_changed';};
+        FOR $owner IN $owners {fn::pse_artifact_v1::release($expiry,object::remove($owner,['id']));};
+    };
+    DELETE ONLY type::record('canonical_roots','project-draft-version:'+$v.key);
+    UPDATE ONLY type::record('canonical_project_draft_versions',$v.key) SET retired=true,content=encoding::base64::decode('');
+    fn::pse_execution_v1::deadline($expiry); RETURN {complete:true};
+};
+DEFINE FUNCTION fn::pse_lifecycle_v1::release($expiry:int,$s:object) -> object {
+    fn::pse_lifecycle_v1::check($expiry,$s);
+    // Explanation is advisory. The original owner checks live guards in this
+    // same effect transaction; no prior explanation is a deletion capability.
+    LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$s.revision);
+    LET $pending_import=SELECT key FROM canonical_project_imports WHERE complete=false AND (revision=$s.revision OR ($s.kind='draft_version' AND project=type::record('canonical_project_draft_versions',$s.key).project)) LIMIT 1;
+    IF array::len($pending_import)!=0 {THROW 'PSE_REFUSAL:project_source_unavailable';};
+    IF $s.kind='run_results' {
+        LET $retirement=fn::pse_retention_v1::forget_run($expiry,$s.key);
+        IF $retirement.pending ?? false {RETURN {complete:false};};
+        RETURN {complete:(fn::pse_retention_v1::collect_run($expiry,$s.key)).complete};
+    } ELSE IF $s.kind='study_results' {RETURN {complete:fn::pse_retention_v1::forget_study($expiry,$s.key)};}
+    ELSE IF $s.kind IN ['run_history','study_history'] {
+        LET $kind=IF $s.kind='run_history' {'run'} ELSE {'study'};
+        fn::pse_history_v1::release($expiry,$kind,$s.key);
+        RETURN {complete:(fn::pse_history_v1::collect($expiry,$kind,$s.key)).complete};
+    } ELSE IF $s.kind='draft_version' {RETURN fn::pse_project_v1::retire_draft_version($expiry,$s);}
+    ELSE IF $s.kind='source_history' {
+        SELECT * FROM ONLY type::record('canonical_guards','retention:'+$revision.problem) FOR UPDATE;
+        LET $explanation=fn::pse_lifecycle_v1::explain($expiry,$s);
+        IF array::len($explanation.blockers)!=0 {THROW 'PSE_REFUSAL:retained_owner_selection_changed';};
+        fn::pse_retention_v1::drop_source_root($expiry,$revision.problem,$s.key,'history:'+$s.key,'history',$s.key);
+        RETURN {complete:true};
+    };
+    THROW 'PSE_REFUSAL:project_metadata_bound';
 };
 
 DEFINE FUNCTION fn::pse_context_v1::available($expiry:int,$revision:string) -> bool {
@@ -3590,7 +3798,7 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF array::len($unsettled)!=0 { THROW 'PSE_REFUSAL:study_history_requires_all_linked_run_payloads_settled'; };
     };
     LET $outcome=IF $kind='run' {$header.terminal_class ?? 'not-executed'} ELSE {IF $header.cancelled {'cancelled'} ELSE {'terminal'}};
-    LET $result=CREATE ONLY type::record('canonical_history_retirements',$key) SET key=$key,owner_kind=$kind,owner=$owner,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,outcome=$outcome,complete=false,after_locator=NONE;
+    LET $result=CREATE ONLY type::record('canonical_history_retirements',$key) SET key=$key,owner_kind=$kind,owner=$owner,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,outcome=$outcome,revision=$header.revision,generation=IF $kind='run' {$header.current_generation} ELSE {$header.generation},complete=false,after_locator=NONE;
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };

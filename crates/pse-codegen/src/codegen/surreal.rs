@@ -132,10 +132,12 @@ pub(super) fn relations<'a>(
                         | "canonical_research_references"
                         | "canonical_project_contexts"
                         | "canonical_context_ancestry"
-                        | "canonical_project_draft_versions"
                         | "canonical_project_ancestry"
                         | "canonical_draft_diagnostics"
                 )
+                || (table == "canonical_history_retirements" && matches!(name, "revision" | "generation"))
+                || (table == "canonical_project_draft_versions" && !matches!(name, "content" | "retired"))
+                || (table == "canonical_project_imports" && !matches!(name, "artifact" | "complete" | "retired_artifacts"))
                 || (table == "canonical_project_branches"
                     && matches!(name, "project" | "problem" | "origin_revision"))
                 || (table == "canonical_attempts"
@@ -147,7 +149,15 @@ pub(super) fn relations<'a>(
             } else {
                 ""
             };
-            let assertion = if table == "canonical_attempts" && name == "phase" {
+            let assertion = if table == "canonical_project_draft_versions" && name == "retired" {
+                " DEFAULT false ASSERT ($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0)".to_owned()
+            } else if table == "canonical_project_draft_versions" && name == "content" {
+                " ASSERT $before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0)".to_owned()
+            } else if table == "canonical_project_imports" && name == "complete" {
+                " DEFAULT false ASSERT ($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE)".to_owned()
+            } else if table == "canonical_project_imports" && name == "artifact" {
+                " ASSERT $before=NONE OR $before=$value".to_owned()
+            } else if table == "canonical_attempts" && name == "phase" {
                 let transitions = pse_schema::catalog::substrate::ATTEMPT_TRANSITIONS
                     .iter()
                     .map(|(before, after)| format!("($before='{before}' AND $value='{after}')"))
@@ -276,6 +286,7 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
     let indexes = pse_schema::catalog::substrate::INDEXES
         .iter()
         .chain(pse_schema::catalog::projects::NATIVE_INDEXES)
+        .chain(pse_schema::catalog::project_imports::NATIVE_INDEXES)
         .chain(pse_schema::catalog::project_contexts::NATIVE_INDEXES)
         .chain(pse_schema::catalog::research::NATIVE_INDEXES)
         .chain(pse_schema::catalog::study_workbench::NATIVE_INDEXES)
@@ -312,6 +323,8 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     );
     super::surreal_execution::append(&mut ddl);
     super::surreal_projects::append(&mut ddl);
+    super::surreal_project_imports::append(&mut ddl);
+    ddl.push_str(super::surreal_lifecycle::functions());
     super::surreal_contexts::append(&mut ddl);
     super::surreal_research::append(registry, &mut ddl)?;
     super::surreal_files::append(&mut ddl);

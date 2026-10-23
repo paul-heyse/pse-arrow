@@ -19,6 +19,10 @@ pub struct RuntimeCanonicalHistoryRetirementsRow {
     pub r#issuing_store: String,
     ///outcome
     pub r#outcome: String,
+    ///revision
+    pub r#revision: String,
+    ///generation
+    pub r#generation: u64,
     ///complete
     pub r#complete: bool,
     ///after_locator
@@ -33,6 +37,8 @@ impl crate::SemanticEq for RuntimeCanonicalHistoryRetirementsRow {
                 &self.r#issuing_store,
                 &other.r#issuing_store,
             ) && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
             && crate::SemanticEq::semantic_eq(&self.r#complete, &other.r#complete)
             && crate::SemanticEq::semantic_eq(
                 &self.r#after_locator,
@@ -59,6 +65,10 @@ impl crate::SemanticFrame for RuntimeCanonicalHistoryRetirementsRow {
         crate::SemanticFrame::frame(&self.r#issuing_store, hash);
         hash.str(stringify!(r#outcome));
         crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#generation));
+        crate::SemanticFrame::frame(&self.r#generation, hash);
         hash.str(stringify!(r#complete));
         crate::SemanticFrame::frame(&self.r#complete, hash);
         hash.str(stringify!(r#after_locator));
@@ -73,6 +83,8 @@ impl crate::HeapUsage for RuntimeCanonicalHistoryRetirementsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issuing_store))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#complete))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#after_locator))
     }

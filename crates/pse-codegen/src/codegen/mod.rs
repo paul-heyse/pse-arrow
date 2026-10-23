@@ -36,6 +36,8 @@ mod surreal_files;
 mod surreal_history;
 mod surreal_maintenance;
 mod surreal_projects;
+mod surreal_project_imports;
+mod surreal_lifecycle;
 mod surreal_research;
 mod surreal_retention;
 mod surreal_studies;

@@ -62,6 +62,37 @@
       ],
       "type": "object"
     },
+    "ImportBinding": {
+      "additionalProperties": false,
+      "description": "Original bundle and presentation commitment, carried privately by source activation.",
+      "properties": {
+        "branch_name": {
+          "type": "string"
+        },
+        "bundle_digest": {
+          "type": "string"
+        },
+        "origin": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bundle_digest",
+        "origin",
+        "title",
+        "branch_name"
+      ],
+      "type": "object"
+    },
     "ProjectBranchRecordBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -238,6 +269,16 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "import": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImportBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "issuing_store": {
           "type": "string"

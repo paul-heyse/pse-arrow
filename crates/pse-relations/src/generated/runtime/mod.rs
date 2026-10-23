@@ -99,6 +99,8 @@ pub mod r#canonical_project_draft_versions;
 ///Generated relation contract.
 pub mod r#canonical_project_drafts;
 ///Generated relation contract.
+pub mod r#canonical_project_imports;
+///Generated relation contract.
 pub mod r#canonical_project_operations;
 ///Generated relation contract.
 pub mod r#canonical_project_savepoints;

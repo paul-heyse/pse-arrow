@@ -43,7 +43,12 @@ def test_referenced_source_explanation_is_not_a_foreign_or_stale_release_grant(
     revision = project_source(runtime)
     selected = runtime.lifecycle_select(LifecycleTarget(kind=LifecycleKind.SOURCE_HISTORY, key=revision))
     explanation = runtime.lifecycle_explain(selected)
-    assert explanation.selection == selected
+    assert explanation.selection.issuing_store == selected.issuing_store
+    assert explanation.selection.target == selected.target
+    assert explanation.selection.revision == selected.revision
+    assert explanation.selection.generation == selected.generation
+    assert explanation.selection.project_generation == selected.project_generation
+    assert explanation.selection.draft_generation == selected.draft_generation
     assert any(blocker.kind == "retained_source_owner" for blocker in explanation.blockers)
     assert not explanation.blockers_complete
     assert explanation.bytes.physical is None
@@ -99,7 +104,12 @@ def test_historical_draft_release_rechecks_head_and_project_generation_and_keeps
         runtime.lifecycle_release(historical)
     selected = runtime.lifecycle_select(target)
     receipt = runtime.lifecycle_release(selected)
-    assert receipt.selection == selected
+    assert receipt.selection.issuing_store == selected.issuing_store
+    assert receipt.selection.target == selected.target
+    assert receipt.selection.revision == selected.revision
+    assert receipt.selection.generation == selected.generation
+    assert receipt.selection.project_generation == selected.project_generation
+    assert receipt.selection.draft_generation == selected.draft_generation
     assert receipt.complete
     assert receipt.physical_reclaimed_bytes is None
     summary = runtime.project_draft_version("first-raw")

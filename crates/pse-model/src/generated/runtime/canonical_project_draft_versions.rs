@@ -26,6 +26,8 @@ pub struct RuntimeCanonicalProjectDraftVersionsRow {
     pub r#content: crate::Bytes,
     ///artifact
     pub r#artifact: Option<String>,
+    ///retired
+    pub r#retired: bool,
 }
 impl crate::SemanticEq for RuntimeCanonicalProjectDraftVersionsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -39,6 +41,7 @@ impl crate::SemanticEq for RuntimeCanonicalProjectDraftVersionsRow {
             ) && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
             && crate::SemanticEq::semantic_eq(&self.r#content, &other.r#content)
             && crate::SemanticEq::semantic_eq(&self.r#artifact, &other.r#artifact)
+            && crate::SemanticEq::semantic_eq(&self.r#retired, &other.r#retired)
     }
 }
 impl PartialEq for RuntimeCanonicalProjectDraftVersionsRow {
@@ -66,6 +69,8 @@ impl crate::SemanticFrame for RuntimeCanonicalProjectDraftVersionsRow {
         crate::SemanticFrame::frame(&self.r#content, hash);
         hash.str(stringify!(r#artifact));
         crate::SemanticFrame::frame(&self.r#artifact, hash);
+        hash.str(stringify!(r#retired));
+        crate::SemanticFrame::frame(&self.r#retired, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalProjectDraftVersionsRow {
@@ -79,5 +84,6 @@ impl crate::HeapUsage for RuntimeCanonicalProjectDraftVersionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#content))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifact))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#retired))
     }
 }

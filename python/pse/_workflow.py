@@ -19,6 +19,7 @@ from pse._build import (
     EngineSettings,
     _NativePhysicalContext,
     _NativeRuntime,
+    _NativeProjectBundle,
 )
 from pse._inspection import TableStream
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
@@ -36,9 +37,23 @@ from pse._strategies import (
 from pse._study_workbench import StudyWorkbenchMixin
 from pse.contracts.documents import (
     AnalysisControls,
+    ProjectExportRequest,
+    ProjectManifestOutput,
+    ProjectClosureExplanationOutput,
+    ProjectImportIntent,
+    ProjectImportIntentOutput,
+    ProjectImportReportOutput,
+    LifecycleTarget,
+    LifecycleSelection,
+    LifecycleSelectionOutput,
+    LifecycleExplanationOutput,
+    LifecycleReleaseOutput,
+
     AnalysisDocument,
     AnalysisDocumentOutput,
     ArtifactIntent,
+    ArtifactIntentBody,
+    ProjectImportRecoveryReportOutput,
     BackendSettings,
     ConicRequest,
     ContextCut,
@@ -108,6 +123,30 @@ from pse.contracts.identities import (
 )
 from pse.contracts.values import ContentHash, SemanticId
 from pse.diagnostics import Diagnostics
+
+
+@attrs.frozen(init=False)
+class ProjectBundle:
+    """Offline reader of a copied, digest-checked selected project closure."""
+
+    _handle: _NativeProjectBundle
+
+    def __init__(self, path: Path, *, maximum_document_bytes: int = 16 << 20) -> None:
+        object.__setattr__(self, "_handle", _NativeProjectBundle(path, maximum_document_bytes=maximum_document_bytes))
+
+    @property
+    def manifest(self) -> ProjectManifestOutput:
+        """Read the original manifest without connecting to a service."""
+        return self._handle.manifest
+
+    @property
+    def digest(self) -> str:
+        """Exact copied manifest digest used to bind an import intent."""
+        return self._handle.digest
+
+    def member_bytes(self, member: str, *, maximum_bytes: int = 16 << 20) -> bytes:
+        """Inspect one bounded selected member, verifying its consumed bytes."""
+        return bytes(self._handle.member_bytes(member, maximum_bytes=maximum_bytes))
 
 
 @attrs.frozen(init=False)
@@ -639,6 +678,47 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     def project_draft_bytes(self, key: str) -> bytes:
         """Read this exact raw body through its current protection owner."""
         return bytes(self._handle.project_draft_bytes(key))
+
+    def project_closure(self, request: ProjectExportRequest, physical: "PhysicalContext") -> ProjectClosureExplanationOutput:
+        """Explain exact selected membership through the original owners."""
+        return self._handle.project_closure(request, physical._handle)  # noqa: SLF001
+
+    def project_export(self, destination: Path, request: ProjectExportRequest, physical: "PhysicalContext") -> ProjectManifestOutput:
+        """Copy a protected selected closure for offline inspection and fresh import."""
+        return self._handle.project_export(destination, request, physical._handle)  # noqa: SLF001
+
+    def project_import_issue(self, bundle: ProjectBundle, *, title: str, branch_name: str = "main") -> ProjectImportIntentOutput:
+        """Issue a retryable intent bound to this receiving authority and exact pack."""
+        return self._handle.project_import_issue(bundle._handle, title, branch_name)  # noqa: SLF001
+
+    def project_import_status(self, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ProjectImportReportOutput | None:
+        """Settle the original intent and distinguish admitted source from a complete project."""
+        return self._handle.project_import_status(intent)
+
+    def project_import(self, bundle: ProjectBundle, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ProjectImportReportOutput:
+        """Admit fresh source coordinates and complete copied evidence before availability."""
+        return self._handle.project_import(bundle._handle, intent)  # noqa: SLF001
+
+    def project_import_recover(self, intent: ProjectImportIntent | ProjectImportIntentOutput, original: ArtifactIntent | ArtifactIntentBody) -> ProjectImportRecoveryReportOutput:
+        """Settle or collect only the named original occurrence; never renew its clock."""
+        record = original if isinstance(original, ArtifactIntent) else codec.convert_document(codec.document_builtins(original), ArtifactIntent)
+        return self._handle.project_import_recover(intent, record)
+
+    def project_import_open(self, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ModelingPackage:
+        """Reopen owned imported science without the originally supplied pack."""
+        return ModelingPackage(self._handle.project_import_open(intent))
+
+    def lifecycle_select(self, target: LifecycleTarget) -> LifecycleSelectionOutput:
+        """Freeze original issuing authority and current owner generations."""
+        return self._handle.lifecycle_select(target)
+
+    def lifecycle_explain(self, selection: LifecycleSelection | LifecycleSelectionOutput) -> LifecycleExplanationOutput:
+        """Observe references and known bytes without granting disposal authority."""
+        return self._handle.lifecycle_explain(selection)
+
+    def lifecycle_release(self, selection: LifecycleSelection | LifecycleSelectionOutput) -> LifecycleReleaseOutput:
+        """Recheck and dispatch release to its original owner."""
+        return self._handle.lifecycle_release(selection)
 
     def project_select(
         self, request: ProjectSelectRequest, physical: "PhysicalContext"

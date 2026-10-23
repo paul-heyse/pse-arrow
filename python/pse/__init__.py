@@ -75,6 +75,7 @@ from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObser
 from pse._transfer import FieldTransfer
 from pse._workflow import (
     PhysicalContext,
+    ProjectBundle,
     Runtime,
     SolverCapability,
 )
@@ -230,6 +231,7 @@ __all__ = [
     "NumericalStrategyDocument",
     "OperationObservations",
     "PhysicalContext",
+    "ProjectBundle",
     "PhysicalFitRequest",
     "PounceSettings",
     "PreparedFlow",

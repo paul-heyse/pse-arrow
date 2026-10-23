@@ -11,6 +11,16 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 #[macro_export]
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
+            (ProjectExportRequest, pse_runtime::workflow::ProjectExportRequest, "project-export-request", Both, Native),
+            (ProjectManifest, pse_runtime::workflow::ProjectManifest, "project-manifest", Both, Native),
+            (ProjectClosureExplanation, pse_runtime::workflow::ProjectClosureExplanation, "project-closure-explanation", Both, FlatV1),
+            (ProjectImportIntent, pse_runtime::workflow::ProjectImportIntent, "project-import-intent", Both, FlatV1),
+            (ProjectImportRecoveryReport, pse_runtime::workflow::ProjectImportRecoveryReport, "project-import-recovery-report", Both, FlatV1),
+            (ProjectImportReport, pse_runtime::workflow::ProjectImportReport, "project-import-report", Both, FlatV1),
+            (LifecycleTarget, pse_operations::canonical_lifecycle::LifecycleTarget, "lifecycle-target", Both, FlatV1),
+            (LifecycleSelection, pse_operations::canonical_lifecycle::LifecycleSelection, "lifecycle-selection", Both, FlatV1),
+            (LifecycleExplanation, pse_operations::canonical_lifecycle::LifecycleExplanation, "lifecycle-explanation", Both, FlatV1),
+            (LifecycleRelease, pse_operations::canonical_lifecycle::LifecycleRelease, "lifecycle-release", Both, FlatV1),
             (ResearchPublicationRequest, pse_runtime::workflow::ResearchPublicationRequest, "research-publication-request", Both, FlatV1),
             (ResearchPublicationIntent, pse_runtime::workflow::ResearchPublicationIntent, "research-publication-intent", Both, FlatV1),
             (ResearchPublicationPreview, pse_runtime::workflow::ResearchPublicationPreview, "research-publication-preview", Both, FlatV1),

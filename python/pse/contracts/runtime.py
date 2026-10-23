@@ -549,11 +549,13 @@ class RuntimeCanonicalHistoryRetirementsRow:
     owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     outcome: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
     after_locator: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.owner_kind), v.scalar_key(self.owner), v.scalar_key(self.issuing_store), v.scalar_key(self.outcome), v.scalar_key(self.complete), v.optional_key(v.scalar_key)(self.after_locator),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.owner_kind), v.scalar_key(self.owner), v.scalar_key(self.issuing_store), v.scalar_key(self.outcome), v.scalar_key(self.revision), v.scalar_key(self.generation), v.scalar_key(self.complete), v.optional_key(v.scalar_key)(self.after_locator),))
 
 
 @attrs.frozen(kw_only=True)
@@ -813,9 +815,10 @@ class RuntimeCanonicalProjectDraftVersionsRow:
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     content: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     artifact: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    retired: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.draft), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.base_revision), v.scalar_key(self.generation), v.scalar_key(self.content), v.optional_key(v.scalar_key)(self.artifact),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.draft), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.base_revision), v.scalar_key(self.generation), v.scalar_key(self.content), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.retired),))
 
 
 @attrs.frozen(kw_only=True)
@@ -831,6 +834,27 @@ class RuntimeCanonicalProjectDraftsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.generation), v.scalar_key(self.version), v.scalar_key(self.deleted),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectImportsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    bundle_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    branch: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    problem: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    origin: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    request: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    artifact: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
+    retired_artifacts: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
+    complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.bundle_digest), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.origin), v.scalar_key(self.request), v.optional_key(v.scalar_key)(self.artifact), v.optional_key(v.scalar_key)(self.retired_artifacts), v.scalar_key(self.complete),))
 
 
 @attrs.frozen(kw_only=True)
