@@ -155,6 +155,7 @@ impl EvidenceAnalysis {
         let truncated = rows.len() > limit;
         rows.truncate(limit);
         let mut output = serde_json::json!({"operation":question.operation,"denominator":denominator,"rows":rows,"truncated":truncated,"limit":limit,"history":self.history,"sources":self.sources(observations),"detail_access":"separate explicit owner or supplied-copy selection"});
+        output["contexts"] = serde_json::to_value(json_rows(&self.sql("SELECT DISTINCT generation,context_id,context_json FROM evidence WHERE kind='context' AND context_id IN (SELECT DISTINCT context_id FROM selected WHERE context_id IS NOT NULL) ORDER BY generation,context_id LIMIT 10001").await?)?).map_err(invalid)?;
         if matches!(question.operation, EvidenceOperation::Diagnostics) {
             output["declared_links"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,member,link_relation,link_target,status FROM evidence WHERE kind='declared_link' ORDER BY generation,member LIMIT 10001").await?)?).map_err(invalid)?;
             output["linked_actions"] = serde_json::to_value(json_rows(&self.sql("SELECT l.generation AS referring_generation, d.generation AS diagnostic_generation, d.status AS tool_outcome FROM evidence l JOIN evidence d ON l.link_target=d.detail_ref WHERE l.kind='declared_link' AND l.link_relation='diagnostic_action' AND d.kind='diagnostic_tool' ORDER BY referring_generation,diagnostic_generation LIMIT 10001").await?)?).map_err(invalid)?;
