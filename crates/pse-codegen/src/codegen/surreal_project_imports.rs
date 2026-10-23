@@ -15,15 +15,16 @@ DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request
     IF $row.complete OR $artifact.kind!='project-import-evidence' OR $artifact.revision!=$row.revision OR $artifact.primary_problem!=$row.problem OR $artifact.active OR $artifact.retiring OR $artifact.provenance!=$provenance OR bytes::len($bytes)>131072 {THROW 'PSE_REFUSAL:project_import_artifact_differs';};
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=$bytes;
 };
-DEFINE FUNCTION fn::pse_project_import_v1::finish($expiry:int,$key:string,$request:bytes,$artifact:object,$obligation:object) -> object {
+DEFINE FUNCTION fn::pse_project_import_v1::finish($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$obligation:object) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
-    IF $row=NONE OR $row.request!=$request OR $row.artifact=NONE {THROW 'PSE_REFUSAL:project_import_intent_differs';};
+    IF $row=NONE OR $row.request!=$request OR $row.artifact=NONE OR $row.artifact!=$bytes {THROW 'PSE_REFUSAL:project_import_intent_differs';};
+    IF $row.complete {RETURN $row;};
     LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$row.branch) FOR UPDATE;
     LET $head=SELECT * FROM ONLY type::record('canonical_problems',$row.problem) FOR UPDATE;
     IF $branch=NONE OR $branch.project!=$row.project OR $branch.problem!=$row.problem OR $head.head!=$row.revision {THROW 'PSE_REFUSAL:project_import_source_changed';};
     LET $actual=SELECT * FROM ONLY type::record('canonical_artifacts',$artifact.key);
-    IF $actual=NONE OR $actual!=object::extend($artifact,{id:$actual.id,active:true}) OR $actual.retiring OR $actual.kind!='project-import-evidence' OR $actual.revision!=$row.revision {THROW 'PSE_REFUSAL:project_import_artifact_unavailable';};
+    IF $actual=NONE OR !$actual.active OR object::remove($actual,['id','active'])!=object::remove($artifact,['active']) OR $actual.retiring OR $actual.kind!='project-import-evidence' OR $actual.revision!=$row.revision {THROW 'PSE_REFUSAL:project_import_artifact_unavailable';};
     IF $obligation.artifact!=$actual.key OR $obligation.owner_kind!='project' OR $obligation.owner!=$key OR (SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key))=NONE {THROW 'PSE_REFUSAL:project_import_artifact_unowned';};
     fn::pse_execution_v1::deadline($expiry);
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET complete=true;

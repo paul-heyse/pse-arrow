@@ -431,6 +431,27 @@ impl Runtime {
             .ok_or(WorkflowError::RecordingUnavailable)
     }
 
+    /// Freeze original scientific definitions without treating historical execution receipts as new work.
+    pub(in crate::workflow) async fn portable_study_definition(&self,key:&str,cancel:&crate::CancelSource)->Result<StudyDefinition,WorkflowError> {
+        let store=self.canonical_store()?;
+        let study=store.canonical_study(key).await?.ok_or_else(||contract("selected study unavailable"))?;
+        let metadata:StudyMetadata=serde_json::from_slice(study.metadata.as_slice()).map_err(|e|contract(format!("study metadata codec: {e}")))?;
+        let mut points=Vec::new();
+        if metadata.variants.is_none() {
+            let mut after=None;
+            loop {
+                creation_checkpoint(cancel)?;
+                let page=store.study_definition_page(key,after).await?;
+                if page.is_empty(){break;}
+                for point in page {
+                    if point.ordinal!=points.len() as u64 || points.len()>=MAXIMUM_STUDY_POINTS {return Err(contract("study definition membership incomplete or excessive"));}
+                    after=Some(point.ordinal);points.push(definition_of(&point)?);
+                }
+            }
+            if points.len() as u64!=study.point_count {return Err(contract("study definition membership incomplete"));}
+        }
+        Ok(StudyDefinition{research:metadata.research,context:metadata.context,version:Version,physical:metadata.physical,modeling_revision:study.revision,variants:metadata.variants,points})
+    }
     /// Publish the exact retained scientific inputs, without repeating admission or
     /// expanding lazy variants. Missing byte owners or sinks refuse before effects.
     pub async fn record_study(

@@ -4,7 +4,7 @@
 use super::{Runtime, WorkflowError, PhysicalContext, ProjectSelection, contract};
 use pse_model::document::Version;
 use serde::{Serialize, Deserialize};
-use std::{collections::{BTreeMap, BTreeSet}, fs::File, io::{Read, Write}, path::Path};
+use std::{collections::{BTreeMap, BTreeSet}, fs::File, io::{Read, Write, Seek, SeekFrom}, path::Path};
 use crate::tooling::contained_copy;
 
 pub use pse_operations::canonical_project_imports::ProjectImportIntent;
@@ -143,6 +143,8 @@ pub struct ProjectManifest {
     pub providers: Vec<ProjectProviderRequirement>,
     /// Complete copied selected membership.
     pub members: Vec<ProjectBundleMember>,
+    /// Original configured finite copied-payload allowance, separate from document decoding limits.
+    pub maximum_copy_bytes: u64,
     /// Intentional omissions.
     pub omissions: Vec<ProjectOmission>,
     /// All selected required offline evidence is present and verified.
@@ -212,7 +214,24 @@ impl ProjectBundleReader {
             let (bytes,digest)=checksum(file,member.copied_bytes)?;
             if bytes!=member.copied_bytes || digest!=member.digest { return Err(contract("project member digest differs")); }
         }
-        Ok(Self{directory,manifest,digest,maximum_document_bytes})
+        let reader=Self{directory,manifest,digest,maximum_document_bytes};
+        reader.validate_sources()?;Ok(reader)
+    }
+    fn validate_sources(&self)->Result<(),WorkflowError> {
+        for source in &self.manifest.sources {
+            let document:super::ReplaySourceDocument=decode(self.member_bytes(&source.replay_source,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)?;
+            if document.identity.to_string()!=source.source_identity || document.physical_identity.to_string()!=source.physical_context {return Err(contract("source codec identity differs from selected manifest"));}
+            if self.manifest.members.iter().find(|m|m.id==source.replay_source).is_none_or(|m|m.codec!="replay-source.v1") {return Err(contract("source codec differs from selected manifest"));}
+            let names=document.objects.iter().map(|o|(&o.scope,&o.name)).collect::<BTreeSet<_>>();
+            let logicals=document.objects.iter().map(|o|&o.logical).collect::<BTreeSet<_>>();
+            if names.len()!=document.objects.len() || logicals.len()!=document.objects.len() || !logicals.iter().any(|s|s.as_str()=="modeling:context") || !logicals.iter().any(|s|s.as_str()=="modeling:physical-scope") || !logicals.iter().any(|s|s.as_str()=="source:ingress-frame:v1")
+                || document.objects.iter().flat_map(|o|&o.references).any(|(scope,name)|!names.contains(&(scope,name))) {return Err(contract("copied source object/reference closure is incomplete"));}
+            for provider in &document.providers {
+                let identity=pse_ids::encoding_checksum(&encode(provider,self.maximum_document_bytes)?).content_hash().to_hex();
+                if !self.manifest.providers.iter().any(|p|p.name==provider.name && p.identity==identity && !p.supported) {return Err(contract("provider requirement is missing or unsupported capability is overstated"));}
+            }
+        }
+        Ok(())
     }
     /// Original exact membership and independent completeness/qualification claims.
     pub fn inspect(&self)->&ProjectManifest { &self.manifest }
@@ -227,6 +246,14 @@ impl ProjectBundleReader {
         use std::io::{Seek,SeekFrom};
         let mut file=file; file.seek(SeekFrom::Start(0)).map_err(io)?;
         Ok(file.take(member.copied_bytes))
+    }
+    /// Read a bounded member and verify the bytes actually consumed, including changes after open().
+    pub fn member_bytes(&self,id:&str,maximum_bytes:usize)->Result<Vec<u8>,WorkflowError> {
+        let member=self.manifest.members.iter().find(|m|m.id==id).ok_or_else(||contract("unindexed project member"))?;
+        if member.copied_bytes>maximum_bytes as u64 {return Err(contract("project member read allowance exhausted"));}
+        let mut bytes=Vec::new();self.open_member(id)?.take(maximum_bytes as u64+1).read_to_end(&mut bytes).map_err(io)?;
+        if bytes.len() as u64!=member.copied_bytes || pse_ids::encoding_checksum(&bytes).content_hash().to_hex()!=member.digest {return Err(contract("consumed project member digest differs"));}
+        Ok(bytes)
     }
     /// Select a contained supported request for explicit new execution via Runtime::run_reproducer.
     pub fn reproducer(&self,index:usize)->Result<super::DiagnosticReproducer,WorkflowError> {
@@ -246,7 +273,7 @@ impl ProjectBundleReader {
                 let member=reader.manifest.members.iter().find(|m|m.id==record.member).ok_or_else(||contract("document member absent"))?;
                 total=total.checked_add(usize::try_from(member.copied_bytes).map_err(|_|contract("document extent"))?).ok_or_else(||contract("document extent"))?;
                 if total>reader.maximum_document_bytes { return Err(contract("source admission document allowance exhausted")); }
-                let mut bytes=Vec::new(); reader.open_member(&record.member)?.read_to_end(&mut bytes).map_err(io)?;
+                let bytes=reader.member_bytes(&record.member,reader.maximum_document_bytes)?;
                 if bundles[record.package].insert(record.path.clone(),bytes).is_some() { return Err(contract("ambiguous project loader path")); }
             }
             Ok(bundles)
@@ -258,6 +285,8 @@ impl ProjectBundleReader {
 }
 pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowError> {
     if manifest.members.len()>65536 || manifest.sources.len()>1024 || manifest.sources.is_empty() || !manifest.offline_complete { return Err(contract("incomplete or excessive logical project closure")); }
+    let copied=manifest.members.iter().try_fold(0u64,|total,m|total.checked_add(m.copied_bytes).ok_or_else(||contract("project payload extent")))?;
+    if copied>manifest.maximum_copy_bytes {return Err(contract("project copied payload exceeds original allowance"));}
     let mut ids=BTreeSet::new(); let mut paths=BTreeSet::new();
     for member in &manifest.members {
         if member.id.is_empty() || !ids.insert(member.id.as_str()) || !paths.insert(member.relative_path.as_str()) { return Err(contract("duplicate project member")); }
@@ -279,6 +308,7 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
         }
     }
     if !revisions.contains(&manifest.origin.revision) { return Err(contract("selected source closure absent")); }
+    if manifest.sources.iter().find(|s|s.revision==manifest.origin.revision).is_none_or(|s|s.source_identity!=manifest.origin.source_identity.to_string() || s.physical_context!=manifest.origin.physical_context.to_string()) {return Err(contract("selected source identity differs from origin"));}
     let executable=!manifest.descriptive_only && !manifest.omissions.iter().any(|o|o.required_for_execution) && manifest.providers.iter().all(|p|p.supported);
     if manifest.executable_complete!=executable { return Err(contract("project execution completeness contradicts selected closure")); }
     for dataset in &manifest.datasets {
@@ -308,7 +338,7 @@ impl Runtime {
             *total=total.checked_add(bytes).ok_or_else(||contract("project copied extent"))?;
             if *total>maximum {return Err(contract("project output allowance exhausted"));}
             let m=manifest.members.iter_mut().find(|m|m.id==id).ok_or_else(||contract("unselected project member"))?;
-            let staged=root.join(".staging").join(id);
+            let staged=root.join(".staging").join(id.as_str());
             let (actual,digest)=checksum(File::open(&staged).map_err(io)?,bytes)?;
             if actual!=bytes {return Err(contract("short copied project member"));}
             File::open(&staged).map_err(io)?.sync_all().map_err(io)?;
@@ -318,12 +348,12 @@ impl Runtime {
         }
         for (id,bytes) in &closure.documents {
             super::study::creation_checkpoint(cancel)?;
-            let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(root.join(".staging").join(id)).map_err(io)?;
+            let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(root.join(".staging").join(id.as_str())).map_err(io)?;
             contained_copy::copy_exact(&mut bytes.as_slice(),&mut file,bytes.len() as u64,||if token.is_cancelled(){Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"project copy cancelled"))}else{Ok(())}).map_err(io)?;
             file.sync_all().map_err(io)?;drop(file);finish_member(&root,&mut closure.manifest,&mut total,request.maximum_output_bytes,&token,id,bytes.len() as u64)?;
         }
         for (id,reader) in &mut closure.results {
-            let staging=root.join(".staging").join(id);
+            let staging=root.join(".staging").join(id.as_str());
             let remaining=request.maximum_output_bytes.saturating_sub(total);
             let bytes=match reader {
                 super::project_closure::ResultMember::Full(r)=>r.export_ipc_bounded(&staging,remaining,&token).await?,
@@ -380,36 +410,44 @@ pub struct ProjectImportReport {
     /// Exact artifact membership finished and project is publicly available.
     pub project_complete:bool,
 }
-const MAXIMUM_IMPORT_BYTES:usize=256<<20;
 impl ProjectBundleReader {
     fn manifest_bytes(&self)->Result<Vec<u8>,WorkflowError> {
         let mut bytes=Vec::new();contained_copy::open_contained(&self.directory,"project.json").map_err(io)?.take(self.maximum_document_bytes as u64+1).read_to_end(&mut bytes).map_err(io)?;
         if bytes.len()>self.maximum_document_bytes || pse_ids::encoding_checksum(&bytes).content_hash().to_hex()!=self.digest {return Err(contract("project manifest changed after inspection"));}
         Ok(bytes)
     }
-    fn archive_extent(&self)->Result<usize,WorkflowError> {
-        self.manifest.members.iter().try_fold(self.manifest_bytes()?.len().saturating_add(8),|total,m|total.checked_add(usize::try_from(m.copied_bytes).map_err(|_|contract("import member extent"))?).filter(|n|*n<=MAXIMUM_IMPORT_BYTES).ok_or_else(||contract("import closure exceeds finite owned artifact allowance")))
+    fn archive_extent(&self)->Result<u64,WorkflowError> {
+        self.manifest.members.iter().try_fold(self.manifest_bytes()?.len() as u64+8,|total,m|total.checked_add(m.copied_bytes).ok_or_else(||contract("import member extent")))
     }
-    fn archive(&self,cancel:&crate::CancelSource)->Result<Vec<u8>,WorkflowError> {
+    fn archive(&self,cancel:&crate::CancelSource)->Result<File,WorkflowError> {
+        struct Output<'a>{file:&'a mut File,hash:pse_ids::EncodingHasher}
+        impl Write for Output<'_> {
+            fn write(&mut self,b:&[u8])->std::io::Result<usize>{let n=self.file.write(b)?;self.hash.update(&b[..n]);Ok(n)}
+            fn flush(&mut self)->std::io::Result<()>{self.file.flush()}
+        }
         let manifest=self.manifest_bytes()?;
-        let mut bytes=Vec::with_capacity(self.archive_extent()?);
-        bytes.extend_from_slice(&(manifest.len() as u64).to_le_bytes());bytes.extend_from_slice(&manifest);
+        let mut file=tempfile::tempfile().map_err(io)?;
+        file.write_all(&(manifest.len() as u64).to_le_bytes()).map_err(io)?;file.write_all(&manifest).map_err(io)?;
         for member in &self.manifest.members {
             super::study::creation_checkpoint(cancel)?;
-            let start=bytes.len();
             let mut source=self.open_member(&member.id)?;
-            contained_copy::copy_exact(&mut source,&mut bytes,member.copied_bytes,||if cancel.token().is_cancelled(){Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"import copy cancelled"))}else{Ok(())}).map_err(io)?;
-            if pse_ids::encoding_checksum(&bytes[start..]).content_hash().to_hex()!=member.digest {return Err(contract("consumed import member digest differs"));}
+            let mut output=Output{file:&mut file,hash:pse_ids::EncodingHasher::new()};
+            contained_copy::copy_exact(&mut source,&mut output,member.copied_bytes,||if cancel.token().is_cancelled(){Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"import copy cancelled"))}else{Ok(())}).map_err(io)?;
+            if output.hash.finish().content_hash().to_hex()!=member.digest {return Err(contract("consumed import member digest differs"));}
         }
-        Ok(bytes)
+        file.sync_all().map_err(io)?;file.seek(SeekFrom::Start(0)).map_err(io)?;Ok(file)
     }
     fn replay_source(&self)->Result<super::ReplaySourceDocument,WorkflowError> {
         let selected=self.manifest.sources.iter().find(|s|s.revision==self.manifest.origin.revision).ok_or_else(||contract("selected source absent"))?;
-        decode(self.open_member(&selected.replay_source)?,self.maximum_document_bytes)
+        decode(self.member_bytes(&selected.replay_source,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)
     }
     fn physical_documents(&self)->Result<BTreeMap<String,Vec<u8>>,WorkflowError> {
         let selected=self.manifest.sources.iter().find(|s|s.revision==self.manifest.origin.revision).ok_or_else(||contract("selected source absent"))?;
-        let sources=self.source_documents(selected)?;Ok(sources.physical)
+        let mut documents=BTreeMap::new();
+        for document in &selected.physical_documents {
+            if document.package!=0 || documents.insert(document.path.clone(),self.member_bytes(&document.member,self.maximum_document_bytes)?).is_some() {return Err(contract("ambiguous selected physical package"));}
+        }
+        Ok(documents)
     }
 }
 fn import_report(row:&pse_operations::canonical_project_imports::ProjectImport)->Result<ProjectImportReport,WorkflowError> {
@@ -433,19 +471,23 @@ impl Runtime {
     /// Stage copied bytes and ordinary admission, then settle this exact guarded source/artifact activation.
     pub async fn project_import(&self,bundle:&ProjectBundleReader,intent:&ProjectImportIntent,cancel:&crate::CancelSource)->Result<ProjectImportReport,WorkflowError> {
         intent.validate()?;
-        if bundle.digest()!=intent.bundle_digest() {return Err(contract("import intent bundle digest differs"));}
+        if bundle.digest()!=intent.bundle_digest() || encode(&bundle.inspect().origin,131072)?.as_slice()!=intent.origin_bytes() {return Err(contract("import intent bundle digest differs"));}
         let store=self.canonical_store()?;
         // Settle the original source effect before any mutable preflight or renewed artifact intent.
         let prior=store.project_import_record(intent).await?;
         if let Some(row)=prior.as_ref().filter(|row|row.complete) {return import_report(row);}
         let archive_extent=bundle.archive_extent()?;
-        let _archive_owner=self.shared.math().reserve("project:import-copied-closure",archive_extent.checked_mul(3).ok_or_else(||contract("import archive extent"))?)?;
-        let archive=bundle.archive(cancel)?;
+        let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES;
+        let _archive_owner=self.shared.math().reserve("project:import-copied-chunk",chunk.checked_mul(4).ok_or_else(||contract("import chunk extent"))?)?;
+        let mut archive=bundle.archive(cancel)?;
         let revision=if let Some(row)=&prior {
             store.revision(&row.revision).await?.ok_or_else(||contract("original import source unavailable"))?
         } else {
             if !bundle.inspect().executable_complete {return Err(contract("unsupported or incomplete executable project closure"));}
-            let local=self.with_durability(super::DurabilitySelection::Ephemeral)?;
+            let selected_source=bundle.inspect().sources.iter().find(|s|s.revision==bundle.inspect().origin.revision).ok_or_else(||contract("selected import source absent"))?;
+            let source_extent=bundle.inspect().members.iter().filter(|m|m.id==selected_source.replay_source || selected_source.physical_documents.iter().any(|d|d.member==m.id)).try_fold(0usize,|total,m|total.checked_add(usize::try_from(m.copied_bytes).map_err(|_|contract("import source extent"))?).ok_or_else(||contract("import source extent")))?;
+            let _source_owner=self.shared.math().reserve("project:import-source-admission",source_extent.checked_mul(4).ok_or_else(||contract("import source extent"))?)?;
+            let local=self.clone().with_durability(super::DurabilitySelection::Ephemeral)?;
             let physical=self.project_boxed(local.physical_from_sources(&bundle.physical_documents()?,cancel))?.await?;
             let replay=bundle.replay_source()?;
             let admitted=replay.reconstruct(&local,physical,BTreeMap::new(),cancel)?;
@@ -453,21 +495,28 @@ impl Runtime {
             package.canonical_revision().cloned().ok_or_else(||contract("import source was not recorded"))?
         };
         let row=store.project_import_record(intent).await?.ok_or_else(||contract("import source checkpoint unavailable"))?;
-        let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES;
         let provenance=encode(&(1u8,intent.bundle_digest()),131072)?;
         let mut header=if let Some(bytes)=&row.artifact {
             serde_json::from_slice::<pse_operations::canonical_artifacts::Artifact>(bytes.as_slice()).map_err(|e|contract(format!("import artifact intent codec: {e}")))?
         } else {
-            store.new_artifact(&revision,"project-import-evidence",provenance.clone(),archive.len().div_ceil(chunk) as u64,archive.len() as u64).await?
+            store.new_artifact(&revision,"project-import-evidence",provenance.clone(),archive_extent.div_ceil(chunk as u64),archive_extent).await?
         };
-        let blocks=archive.chunks(chunk).enumerate().map(|(ordinal,bytes)|pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,"project-import-evidence",bytes.to_vec(),intent.bundle_digest(),0)).collect::<Vec<_>>();
         let original=header.clone();
-        pse_operations::canonical_artifacts::seal_artifact_request(&mut header,std::slice::from_ref(&revision),&[],&blocks,"project",intent.operation());
+        let artifact_key=header.key.clone();
+        let mut load_block=|ordinal:u64|->Result<pse_operations::canonical_artifacts::ArtifactBlock,pse_operations::canonical::CanonicalError> {
+            if cancel.token().is_cancelled(){return Err(pse_operations::canonical::CanonicalError::Configuration("import chunk copy cancelled".into()));}
+            let start=ordinal.checked_mul(chunk as u64).ok_or(pse_operations::canonical::CanonicalError::PayloadLimit)?;
+            if start>=archive_extent {return Err(pse_operations::canonical::CanonicalError::PayloadLimit);}
+            let size=usize::try_from((archive_extent-start).min(chunk as u64)).map_err(|_|pse_operations::canonical::CanonicalError::PayloadLimit)?;
+            let mut bytes=vec![0u8;size];archive.seek(SeekFrom::Start(start)).and_then(|_|archive.read_exact(&mut bytes)).map_err(|e|pse_operations::canonical::CanonicalError::Configuration(e.to_string()))?;
+            Ok(pse_operations::canonical_artifacts::artifact_block(&artifact_key,ordinal,"project-import-evidence",bytes,intent.bundle_digest(),0))
+        };
+        pse_operations::canonical_artifacts::seal_artifact_stream_request(&mut header,std::slice::from_ref(&revision),&[],&mut load_block,"project",intent.operation())?;
         if row.artifact.is_some() && header!=original {return Err(contract("original import artifact intent differs"));}
-        if header.provenance.as_slice()!=provenance || header.revision!=revision.key || header.payload_bytes!=archive.len() as u64 || header.block_count!=blocks.len() as u64 {return Err(contract("import artifact membership differs"));}
+        if header.provenance.as_slice()!=provenance || header.revision!=revision.key || header.payload_bytes!=archive_extent || header.block_count!=archive_extent.div_ceil(chunk as u64) {return Err(contract("import artifact membership differs"));}
         store.project_import_bind_artifact(intent,&header).await?;
         // Original header is durable before copy. A lost copy/activation reply retries these same keys.
-        store.persist_artifact(&header,std::slice::from_ref(&revision),&[],&blocks,"project",intent.operation()).await?;
+        store.persist_artifact_stream(&header,std::slice::from_ref(&revision),&[],&mut load_block,"project",intent.operation()).await?;
         let completed=store.finish_project_import(intent).await?;
         import_report(&completed)
     }
@@ -477,36 +526,47 @@ impl Runtime {
         let row=store.project_import_record(intent).await?.filter(|r|r.complete).ok_or_else(||contract("project import membership is incomplete"))?;
         let header:pse_operations::canonical_artifacts::Artifact=serde_json::from_slice(row.artifact.as_ref().ok_or_else(||contract("import copied evidence absent"))?.as_slice()).map_err(|e|contract(e.to_string()))?;
         let read=store.read_artifact(&header.key).await?;
-        let extent=usize::try_from(read.header().payload_bytes).map_err(|_|contract("import artifact extent"))?;
-        if extent>MAXIMUM_IMPORT_BYTES {return Err(contract("import artifact exceeds finite reopen allowance"));}
-        let _owner=self.shared.math().reserve("project:import-reopen",extent.checked_mul(3).ok_or_else(||contract("import reopen extent"))?)?;
-        let mut archive=Vec::with_capacity(extent);
-        for ordinal in 0..read.header().block_count {super::study::creation_checkpoint(cancel)?;archive.extend_from_slice(read.block(ordinal).await?.payload.as_slice());}
-        let (manifest,members)=decode_archive(&archive,intent.bundle_digest())?;
+        let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES;
+        let _owner=self.shared.math().reserve("project:import-reopen-chunk",chunk.checked_mul(4).ok_or_else(||contract("import reopen extent"))?)?;
+        let prefix=artifact_range(&read,0,8,8,cancel).await?;
+        let length=u64::from_le_bytes(prefix.as_slice().try_into().map_err(|_|contract("invalid imported archive prefix"))?);
+        if length>64<<20 {return Err(contract("imported manifest allowance exhausted"));}
+        let _manifest_owner=self.shared.math().reserve("project:import-manifest",(length as usize).checked_mul(4).ok_or_else(||contract("import manifest extent"))?)?;
+        let manifest_bytes=artifact_range(&read,8,8+length,64<<20,cancel).await?;
+        if pse_ids::encoding_checksum(&manifest_bytes).content_hash().to_hex()!=intent.bundle_digest() {return Err(contract("imported manifest digest differs"));}
+        let manifest:ProjectManifest=serde_json::from_slice(&manifest_bytes).map_err(|e|contract(e.to_string()))?;validate_manifest(&manifest)?;
         let source=manifest.sources.iter().find(|s|s.revision==manifest.origin.revision).ok_or_else(||contract("import source closure absent"))?;
+        let mut ranges=BTreeMap::new();let mut position=8+length;
+        for member in &manifest.members {let end=position.checked_add(member.copied_bytes).ok_or_else(||contract("import archive extent"))?;ranges.insert(member.id.as_str(),(position,end,member));position=end;}
+        if position!=read.header().payload_bytes {return Err(contract("imported archive extent differs"));}
+        let physical_bytes=source.physical_documents.iter().try_fold(0usize,|total,d|{let (start,end,_)=ranges.get(d.member.as_str()).ok_or_else(||contract("physical member absent"))?;total.checked_add(usize::try_from(end-start).map_err(|_|contract("physical extent"))?).ok_or_else(||contract("physical extent"))})?;
+        let _physical_owner=self.shared.math().reserve("project:import-physical-documents",physical_bytes.checked_mul(4).ok_or_else(||contract("physical extent"))?)?;
         let mut physical_documents=BTreeMap::new();
-        for document in &source.physical_documents {physical_documents.insert(document.path.clone(),members.get(document.member.as_str()).ok_or_else(||contract("import physical member absent"))?.to_vec());}
+        for document in &source.physical_documents {
+            let (start,end,member)=ranges.get(document.member.as_str()).ok_or_else(||contract("import physical member absent"))?;
+            let bytes=artifact_range(&read,*start,*end,64<<20,cancel).await?;
+            if pse_ids::encoding_checksum(&bytes).content_hash().to_hex()!=member.digest {return Err(contract("import physical digest differs"));}
+            physical_documents.insert(document.path.clone(),bytes);
+        }
         let physical=self.project_boxed(self.physical_from_sources(&physical_documents,cancel))?.await?;
         let revision=store.project_branch_revision(&row.branch).await?.ok_or_else(||contract("imported current branch source unavailable"))?;
         self.project_boxed(self.modeling_revision(revision,physical,BTreeMap::new()))?.await
     }
 }
-fn decode_archive<'a>(archive:&'a [u8],digest:&str)->Result<(ProjectManifest,BTreeMap<String,&'a [u8]>),WorkflowError> {
-    let length=u64::from_le_bytes(archive.get(..8).ok_or_else(||contract("short imported archive"))?.try_into().map_err(|_|contract("invalid archive frame"))?);
-    let length=usize::try_from(length).map_err(|_|contract("archive manifest extent"))?;
-    if length>64<<20 {return Err(contract("archive manifest allowance exhausted"));}
-    let mut position=8usize.checked_add(length).ok_or_else(||contract("archive manifest extent"))?;
-    let manifest_bytes=archive.get(8..position).ok_or_else(||contract("incomplete archive manifest"))?;
-    if pse_ids::encoding_checksum(manifest_bytes).content_hash().to_hex()!=digest {return Err(contract("imported archive manifest digest differs"));}
-    let manifest:ProjectManifest=serde_json::from_slice(manifest_bytes).map_err(|e|contract(e.to_string()))?;
-    validate_manifest(&manifest)?;
-    let mut members=BTreeMap::new();
-    for member in &manifest.members {
-        let end=position.checked_add(usize::try_from(member.copied_bytes).map_err(|_|contract("archive member extent"))?).ok_or_else(||contract("archive member extent"))?;
-        let bytes=archive.get(position..end).ok_or_else(||contract("incomplete imported archive member"))?;
-        if pse_ids::encoding_checksum(bytes).content_hash().to_hex()!=member.digest {return Err(contract("imported archive member digest differs"));}
-        members.insert(member.id.clone(),bytes);position=end;
+async fn artifact_range(read:&pse_operations::canonical_artifacts::ArtifactRead,start:u64,end:u64,maximum:usize,cancel:&crate::CancelSource)->Result<Vec<u8>,WorkflowError> {
+    if end<start || end>read.header().payload_bytes || end-start>maximum as u64 {return Err(contract("selected imported artifact range exceeds allowance"));}
+    let chunk=pse_operations::canonical_files::FILE_TARGET_BYTES as u64;
+    let mut result=Vec::with_capacity((end-start) as usize);let mut position=start;
+    while position<end {
+        super::study::creation_checkpoint(cancel)?;
+        let ordinal=position/chunk;let block=read.block(ordinal).await?;
+        let offset=(position%chunk) as usize;let length=(end-position).min(block.payload.len().saturating_sub(offset) as u64) as usize;
+        if length==0 {return Err(contract("short imported artifact chunk"));}
+        result.extend_from_slice(&block.payload[offset..offset+length]);position+=length as u64;
     }
-    if position!=archive.len() {return Err(contract("unselected trailing imported archive bytes"));}
-    Ok((manifest,members))
+    Ok(result)
 }
+
+#[cfg(test)]
+#[path="project_portability_tests.rs"]
+mod tests;

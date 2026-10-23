@@ -194,39 +194,30 @@ pub fn seal_artifact_request(
     header.creation_request_digest =
         request_digest(header, sources, inputs, blocks, owner_kind, owner);
 }
-fn request_digest(
-    header: &Artifact,
-    sources: &[Revision],
-    inputs: &[ResultRead],
-    blocks: &[ArtifactBlock],
-    owner_kind: &str,
-    owner: &str,
-) -> String {
-    let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-    hash.str("pse.artifact.complete-request.v1")
-        .str(owner_kind)
-        .str(owner);
-    let mut row = header.clone();
-    row.creation_request_digest.clear();
-    row.active = false;
-    row.retiring = false;
-    row.frame(&mut hash);
-    hash.u64(sources.len() as u64);
-    for source in sources {
-        source.frame(&mut hash);
-    }
-    hash.u64(inputs.len() as u64);
-    for input in inputs {
-        input.run().frame(&mut hash);
-        input.attempt().frame(&mut hash);
-        input.manifest().frame(&mut hash);
-        hash.str(input.protected_selection().key());
-    }
-    hash.u64(blocks.len() as u64);
-    for block in blocks {
-        block.frame(&mut hash);
-    }
-    hash.finish_hash().to_hex()
+fn block_commitment(block:&ArtifactBlock)->(String,String,String,String,String,String,u64,u64,usize) {
+    (block.key.clone(),block.artifact.clone(),block.relation.clone(),block.digest.clone(),block.original_digest.clone(),format!("{}:{}",block.encoding,block.schema),block.rows,block.batch_count,block.payload.len())
+}
+fn request_hasher(header:&Artifact,sources:&[Revision],inputs:&[ResultRead],block_count:u64,owner_kind:&str,owner:&str)->FramedHasher {
+    let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);
+    hash.str("pse.artifact.complete-request.v1").str(owner_kind).str(owner);
+    let mut row=header.clone();row.creation_request_digest.clear();row.active=false;row.retiring=false;row.frame(&mut hash);
+    hash.u64(sources.len() as u64);for source in sources {source.frame(&mut hash);}
+    hash.u64(inputs.len() as u64);for input in inputs {input.run().frame(&mut hash);input.attempt().frame(&mut hash);input.manifest().frame(&mut hash);hash.str(input.protected_selection().key());}
+    hash.u64(block_count);hash
+}
+fn request_digest(header:&Artifact,sources:&[Revision],inputs:&[ResultRead],blocks:&[ArtifactBlock],owner_kind:&str,owner:&str)->String {
+    let mut hash=request_hasher(header,sources,inputs,blocks.len() as u64,owner_kind,owner);
+    for block in blocks {block.frame(&mut hash);} hash.finish_hash().to_hex()
+}
+/// Frame the original complete artifact request while retaining at most one bounded block.
+/// The callback must return the same immutable ordinal on every later persistence pass.
+pub fn seal_artifact_stream_request(
+    header:&mut Artifact,sources:&[Revision],inputs:&[ResultRead],
+    load_block:&mut impl FnMut(u64)->Result<ArtifactBlock,CanonicalError>,owner_kind:&str,owner:&str,
+)->Result<(),CanonicalError> {
+    let mut hash=request_hasher(header,sources,inputs,header.block_count,owner_kind,owner);
+    for ordinal in 0..header.block_count {load_block(ordinal)?.frame(&mut hash);}
+    header.creation_request_digest=hash.finish_hash().to_hex();Ok(())
 }
 fn invalid(message: &str) -> CanonicalError {
     CanonicalError::Configuration(message.into())
@@ -430,26 +421,34 @@ impl CanonicalStore {
     }
     /// Stage bounded content and transfer exact producer closure to independent ownership atomically.
     pub async fn persist_artifact(
-        &self,
-        header: &Artifact,
-        sources: &[Revision],
-        inputs: &[ResultRead],
-        blocks: &[ArtifactBlock],
-        owner_kind: &str,
-        owner: &str,
-    ) -> Result<Artifact, CanonicalError> {
+        &self,header:&Artifact,sources:&[Revision],inputs:&[ResultRead],blocks:&[ArtifactBlock],owner_kind:&str,owner:&str,
+    )->Result<Artifact,CanonicalError> {
+        if header.block_count!=blocks.len() as u64 {return Err(invalid("artifact block count differs"));}
+        self.persist_artifact_stream(header,sources,inputs,&mut |ordinal|blocks.get(ordinal as usize).cloned().ok_or(CanonicalError::PayloadLimit),owner_kind,owner).await
+    }
+    /// Original artifact staging/append/activation with bounded repeatable block supply.
+    /// No bulk bytes enter catalogue transactions; the complete original request remains unchanged.
+    pub async fn persist_artifact_stream(
+        &self,header:&Artifact,sources:&[Revision],inputs:&[ResultRead],
+        load_block:&mut (impl FnMut(u64)->Result<ArtifactBlock,CanonicalError> + Send),owner_kind:&str,owner:&str,
+    )->Result<Artifact,CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-            if header.creation_request_digest!=request_digest(header,sources,inputs,blocks,owner_kind,owner) { return Err(CanonicalError::OperationReused); }
+            let mut checked=header.clone();seal_artifact_stream_request(&mut checked,sources,inputs,load_block,owner_kind,owner)?;
+            if header.creation_request_digest!=checked.creation_request_digest {return Err(CanonicalError::OperationReused);}
             let result=async {
                 self.ensure_writes()?;
-                if header.active || header.retiring || header.interpretation!=wire::INTERPRETATION || header.block_count!=blocks.len() as u64 || sources.is_empty() || sources.len()>65 || inputs.len()>64 || inputs.iter().any(|input|!input.belongs_to(self)) { return Err(invalid("artifact exact closure differs")); }
-                let total=blocks.iter().enumerate().try_fold(0u64,|total,(ordinal,block)|{
-                    let mut copied=artifact_block(&header.key,ordinal as u64,&block.relation,block.payload.to_vec(),&block.original_digest,block.rows);
+                if header.active || header.retiring || header.interpretation!=wire::INTERPRETATION || header.block_count==0 || sources.is_empty() || sources.len()>65 || inputs.len()>64 || inputs.iter().any(|input|!input.belongs_to(self)) { return Err(invalid("artifact exact closure differs")); }
+                let mut total=0u64;
+                let mut commitments=Vec::new();
+                for ordinal in 0..header.block_count {
+                    let block=load_block(ordinal)?;
+                    let mut copied=artifact_block(&header.key,ordinal,&block.relation,block.payload.to_vec(),&block.original_digest,block.rows);
                     if block.encoding==crate::canonical_files::ARROW_IPC_FILE {copied=copied.native_file(&block.schema)?;} else if block.payload.starts_with(b"ARROW1") {return Err(invalid("native artifact file requires explicit schema binding"));}
-                    if block!=&copied || block.payload.len()>wire::RESULT_BLOCK_BYTES { return Err(invalid("artifact block admission differs")); }
-                    total.checked_add(block.payload.len() as u64).ok_or(CanonicalError::PayloadLimit)
-                })?;
+                    if block!=copied || block.payload.len()>wire::RESULT_BLOCK_BYTES {return Err(invalid("artifact block admission differs"));}
+                    total=total.checked_add(block.payload.len() as u64).ok_or(CanonicalError::PayloadLimit)?;
+                    commitments.push(block_commitment(&block));
+                }
                 if total!=header.payload_bytes { return Err(invalid("artifact payload extent differs")); }
                 let mut roots=Vec::with_capacity(sources.len());
                 for source in sources {
@@ -464,7 +463,9 @@ impl CanonicalStore {
                 let row=wire::encode_canonical_artifacts(header)?;
                 protected_query("canonical_artifacts::begin",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,$inputs); COMMIT;").bind(("row",row.clone())).bind(("sources",roots.clone())).bind(("inputs",selected.clone())))).await?;
                 let mut metadata = Vec::new();
-                for block in blocks {
+                for ordinal in 0..header.block_count {
+                    let block=load_block(ordinal)?;
+                    if commitments.get(ordinal as usize)!=Some(&block_commitment(&block)) {return Err(CanonicalError::OperationReused);}
                     let intent=self.reserve_artifact_file(&header.key,&format!("artifact-file:{}",block.key),&header.creation_request_digest).await?;
                     let sealed=self.seal_file(&intent,block.payload.as_slice(),&block.encoding,block.batch_count,&block.schema).await?;
                     let descriptor=sealed.descriptor();
@@ -483,6 +484,8 @@ impl CanonicalStore {
                     }
                 }
                 if !metadata.is_empty() { self.append_artifact_metadata(&header.key, &metadata).await?; }
+                let mut finished=header.clone();seal_artifact_stream_request(&mut finished,sources,inputs,load_block,owner_kind,owner)?;
+                if finished.creation_request_digest!=header.creation_request_digest {return Err(CanonicalError::OperationReused);}
                 let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&header.key,owner_kind,owner))?;
                 let mut response=protected_query("canonical_artifacts::activate",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::activate($pse_rpc_expires_at,$key,$obligation); COMMIT;").bind(("key",header.key.clone())).bind(("obligation",obligation.clone())))).await?;
                 Ok(wire::decode_canonical_artifacts(object(&mut response)?)?)
@@ -588,6 +591,31 @@ mod canonical_artifact_tests {
             .await
             .unwrap();
         (store, revision)
+    }
+    #[tokio::test]
+    async fn canonical_artifact_stream_keeps_original_slice_identity_and_exact_copy() {
+        let (store,revision)=fixture().await;
+        let (intent,blocks)=content(&store,&revision,"project","stream-owner").await;
+        let mut streamed=intent.clone();
+        seal_artifact_stream_request(&mut streamed,std::slice::from_ref(&revision),&[],&mut |ordinal|Ok(blocks[ordinal as usize].clone()),"project","stream-owner").unwrap();
+        assert_eq!(streamed,intent,"streaming retains the original artifact request codec");
+        let saved=store.persist_artifact_stream(&intent,std::slice::from_ref(&revision),&[],&mut |ordinal|Ok(blocks[ordinal as usize].clone()),"project","stream-owner").await.unwrap();
+        let read=store.read_artifact(&saved.key).await.unwrap();
+        assert_eq!(read.block(0).await.unwrap().payload,blocks[0].payload);
+        read.release().await.unwrap();store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_artifact_stream_refuses_changed_copy_before_activation() {
+        let (store,revision)=fixture().await;
+        let (intent,blocks)=content(&store,&revision,"project","mutable-stream").await;
+        let mut calls=0;
+        let result=store.persist_artifact_stream(&intent,std::slice::from_ref(&revision),&[],&mut |ordinal|{
+            calls+=1;let mut block=blocks[ordinal as usize].clone();
+            if calls==3 {block=artifact_block(&intent.key,ordinal,&block.relation,vec![9],&block.original_digest,block.rows);}
+            Ok(block)
+        },"project","mutable-stream").await;
+        assert!(result.is_err());assert!(store.artifact(&intent.key).await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
     }
     async fn content(
         store: &CanonicalStore,

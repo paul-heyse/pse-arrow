@@ -1224,6 +1224,14 @@ impl CanonicalStore {
             })
             .await
     }
+    /// Bounded original immutable definition inventory, independent of execution/outcome settlement.
+    pub async fn study_definition_page(&self,study:&str,after:Option<u64>)->Result<Vec<StudyPoint>,CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
+            let mut response=protected_query("canonical_studies::study_definition_page",||Ok(self.db.query(crate::canonical_history::study_query("SELECT * FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+            response.take::<Vec<Object>>(0)?.into_iter().map(wire::decode_canonical_study_points).collect::<Result<Vec<_>,_>>().map_err(Into::into)
+        })).await
+    }
     /// Read one requested occurrence's immutable operation and current observation.
     pub async fn canonical_study_point(
         &self,
