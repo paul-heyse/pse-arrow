@@ -28,6 +28,33 @@ use std::{
 };
 use surrealdb::types::{Bytes, Object, ToSql, Value};
 
+/// Original immutable definition fields and admission capability; excludes scientific outcomes and starts.
+#[derive(Clone,Debug)]
+pub struct StudyDefinitionPoint {
+    /// Original membership order.
+    pub ordinal:u64,
+    /// Original admitted point policy.
+    pub policy:PointPolicy,
+    /// Original selected authored operation and binding.
+    pub descriptor:pse_model::Bytes,
+    /// Original lazy admission, if present.
+    pub admission:Option<pse_model::Bytes>,
+    /// Capability required by the original policy facts.
+    pub admitted_seed_need:Option<pse_model::study::SeedNeed>,
+}
+const STUDY_DEFINITION_SQL:&str="SELECT ordinal,occurrence,policy,descriptor,admission,facts,revision FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;";
+fn decode_definition_point(mut row:Object)->Result<StudyDefinitionPoint,CanonicalError> {
+    let ordinal=codec::decode_uint(codec::required(&mut row,"ordinal")?)?;
+    let occurrence=codec::decode_uint(codec::required(&mut row,"occurrence")?)?;
+    let revision=codec::decode_uint(codec::required(&mut row,"revision")?)?;
+    let policy=codec::decode_bytes(codec::required(&mut row,"policy")?)?;
+    let facts=codec::decode_bytes(codec::required(&mut row,"facts")?)?;
+    let descriptor=codec::decode_bytes(codec::required(&mut row,"descriptor")?)?;
+    let admission=row.remove("admission").filter(|v|!matches!(v,Value::None|Value::Null)).map(codec::decode_bytes).transpose()?;
+    if !row.is_empty(){return Err(codec::CodecError::UnknownFields.into());}
+    Ok(StudyDefinitionPoint{ordinal,policy:decode_point_policy(&policy,occurrence)?,descriptor,admission,admitted_seed_need:decode_point_facts(&facts,occurrence,revision)?.admitted_seed_need})
+}
+
 /// Actual production readiness access path, shared by dispatch and diagnostics.
 const READINESS_CANDIDATES_SQL_LINE: u32 = line!() + 1;
 const READINESS_CANDIDATES_SQL: &str = "SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64";
@@ -1225,11 +1252,11 @@ impl CanonicalStore {
             .await
     }
     /// Bounded original immutable definition inventory, independent of execution/outcome settlement.
-    pub async fn study_definition_page(&self,study:&str,after:Option<u64>)->Result<Vec<StudyPoint>,CanonicalError> {
+    pub async fn study_definition_page(&self,study:&str,after:Option<u64>)->Result<Vec<StudyDefinitionPoint>,CanonicalError> {
         let activity=self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=protected_query("canonical_studies::study_definition_page",||Ok(self.db.query(crate::canonical_history::study_query("SELECT * FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
-            response.take::<Vec<Object>>(0)?.into_iter().map(wire::decode_canonical_study_points).collect::<Result<Vec<_>,_>>().map_err(Into::into)
+            let mut response=protected_query("canonical_studies::study_definition_page",||Ok(self.db.query(crate::canonical_history::study_query(STUDY_DEFINITION_SQL,"study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+            response.take::<Vec<Object>>(0)?.into_iter().map(decode_definition_point).collect()
         })).await
     }
     /// Read one requested occurrence's immutable operation and current observation.
@@ -2366,6 +2393,14 @@ mod outcome_projection_tests {
         reason = "summary projection controls construct exact typed original bytes"
     )]
     use super::*;
+    #[test]
+    fn project_study_definition_projection_excludes_outcomes_and_starts() {
+        let sql=crate::canonical_history::study_query(STUDY_DEFINITION_SQL,"study");
+        assert!(sql.contains("fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study)"));
+        assert!(sql.contains("SELECT ordinal,occurrence,policy,descriptor,admission,facts,revision FROM"));
+        assert!(sql.contains("ORDER BY ordinal LIMIT 4"));
+        for forbidden in ["SELECT *","outcome","start","completion"] {assert!(!sql.contains(forbidden),"original definition projection includes {forbidden}");}
+    }
     #[test]
     fn summary_projection_refuses_unsettled_missing_and_foreign_outcomes() {
         let original = PointOutcome {

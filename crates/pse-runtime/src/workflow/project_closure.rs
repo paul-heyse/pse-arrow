@@ -137,11 +137,10 @@ impl Runtime {
                 super::study::creation_checkpoint(cancel)?;
                 if selected.row_start>selected.row_end || self.registry().relation(&selected.relation).is_none() {return Err(contract("invalid descriptive result relation or range"));}
                 if let Some(output)=&selected.output {output.bounds()?;}
-                let run=store.canonical_run(&selected.run).await?.ok_or_else(||contract("selected original result run metadata unavailable"))?;
-                let attempt=store.canonical_attempt(&selected.attempt).await?.ok_or_else(||contract("selected original result attempt metadata unavailable"))?;
-                if attempt.run!=run.key {return Err(contract("selected result attempt belongs to another run"));}
-                revisions.insert(run.revision.clone());
-                closure.manifest.result_metadata.push(ProjectResultMetadata{selection:selected.clone(),source_revision:run.revision,generation:attempt.generation,phase:attempt.phase.as_str().into(),terminal_class:attempt.outcome.map(|o|o.as_str().into()),closed_manifest:attempt.closed_manifest});
+                let origin=store.canonical_result_origin(&selected.run,&selected.attempt).await?.ok_or_else(||contract("selected original result metadata unavailable"))?;
+                if origin.run!=selected.run || origin.key!=selected.attempt {return Err(contract("selected result attempt belongs to another run"));}
+                revisions.insert(origin.source_revision.clone());
+                closure.manifest.result_metadata.push(ProjectResultMetadata{selection:selected.clone(),source_revision:origin.source_revision,generation:origin.generation,phase:origin.phase,terminal_class:origin.outcome,closed_manifest:origin.closed_manifest});
                 closure.manifest.omissions.push(ProjectOmission{selection:format!("result:{}",selected.member),reason:"descriptive-only selection copies original run/attempt metadata; result rows, manifests and execution seed authority were not requested".into(),required_for_execution:true});
             }
             for key in &request.artifacts {
