@@ -13,15 +13,15 @@ import pytest
 
 import pse
 from pse import codec
-from pse.contracts.values import ContentHash, SemanticId
 from pse.contracts.documents import (
     ProjectExportRequest,
     ProjectReferenceBranch,
-    ProjectSelectRequest,
     ProjectSelection,
     ProjectSelectionBody,
+    ProjectSelectRequest,
     SourceDelta,
 )
+from pse.contracts.values import ContentHash, SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.test_modeling_kernel import on_primitives, physical
 
@@ -41,7 +41,11 @@ def selected_project(
     source = runtime.modeling_from_documents([documents], context)
     runtime.project_create("portable-create", "portable-project", "Portable source")
     runtime.project_fork(
-        "portable-project", "portable-branch", "portable-problem", "portable-fork", source
+        "portable-project",
+        "portable-branch",
+        "portable-problem",
+        "portable-fork",
+        source,
     )
     return runtime.project_select(
         ProjectSelectRequest(reference=ProjectReferenceBranch(key="portable-branch")),
@@ -65,9 +69,12 @@ def export_request(
 ) -> ProjectExportRequest:
     return ProjectExportRequest(
         selection=ProjectSelectionBody(
-            issuing_store=selection.issuing_store, project=selection.project,
-            reference=selection.reference, problem=selection.problem,
-            revision=selection.revision, source_identity=selection.source_identity,
+            issuing_store=selection.issuing_store,
+            project=selection.project,
+            reference=selection.reference,
+            problem=selection.problem,
+            revision=selection.revision,
+            source_identity=selection.source_identity,
             physical_context=selection.physical_context,
         ),
         research_selections=(),
@@ -112,7 +119,9 @@ def test_selected_pack_offline_python_and_actual_cli_preserve_original_science(
     assert selected.source_identity == selection.source_identity.hex()
     assert selected.physical_context == selection.physical_context.hex()
     document = next(d for d in selected.documents if d.path == "models/root.pse")
-    assert bundle.member_bytes(document.member, maximum_bytes=1 << 20) == SOURCE.encode()
+    assert (
+        bundle.member_bytes(document.member, maximum_bytes=1 << 20) == SOURCE.encode()
+    )
     with pytest.raises(pse.InspectionError):
         bundle.member_bytes(document.member, maximum_bytes=1)
     with pytest.raises(pse.InspectionError):
@@ -127,7 +136,13 @@ def test_selected_pack_offline_python_and_actual_cli_preserve_original_science(
     }
     environment["PSE_SURREAL_STATE"] = str(absent_state)
     completed = subprocess.run(
-        [str(ROOT / "target/debug/pse-project"), "project", "inspect-pack", "--input", str(destination)],
+        [
+            str(ROOT / "target/debug/pse-project"),
+            "project",
+            "inspect-pack",
+            "--input",
+            str(destination),
+        ],
         cwd=ROOT,
         env=environment,
         capture_output=True,
@@ -140,7 +155,9 @@ def test_selected_pack_offline_python_and_actual_cli_preserve_original_science(
     assert envelope["version"] == 1
     result = envelope["result"]
     assert isinstance(result, dict)
-    expected_origin = msgspec.json.decode(codec.encode_json(selection), type=dict[str, object])
+    expected_origin = msgspec.json.decode(
+        codec.encode_json(selection), type=dict[str, object]
+    )
     expected_origin.pop("document_version")
     assert result["origin"] == expected_origin
     assert result["offline_complete"] is True
@@ -162,7 +179,9 @@ def test_import_retry_fresh_ownership_and_reopen_after_supplied_pack_is_removed(
     exporting.close()
     bundle = pse.ProjectBundle(destination)
     receiver = canonical_substrate.runtime(inspection_settings)
-    intent = receiver.project_import_issue(bundle, title="Imported project", branch_name="working")
+    intent = receiver.project_import_issue(
+        bundle, title="Imported project", branch_name="working"
+    )
     imported = receiver.project_import(bundle, intent)
     assert imported.source_admitted
     assert imported.project_complete
@@ -225,14 +244,24 @@ def test_import_retry_fresh_ownership_and_reopen_after_supplied_pack_is_removed(
     )
     delta = receiver.project_draft_delta(reopened, edit)
     body = codec.encode_json(delta)
-    save = receiver.project_draft_save_intent("import-edit-save", imported.project, imported.branch, "import-edit", imported.revision, body)
+    save = receiver.project_draft_save_intent(
+        "import-edit-save",
+        imported.project,
+        imported.branch,
+        "import-edit",
+        imported.revision,
+        body,
+    )
     receiver.project_draft_save(save, body)
-    edited = receiver.project_admit_draft("import-edit-admit", "import-edit", reopened.physical_context)
+    edited = receiver.project_admit_draft(
+        "import-edit-admit", "import-edit", reopened.physical_context
+    )
     assert edited.canonical_revision is None
     assert edited.revision_id != reopened.revision_id
     assert any(row.name == "renamed_value" for row in edited.declarations())
     assert reopened.declarations() == original
-    # Reopening is still an explicit original import operation, independent of the removed pack.
+    # Reopening is still an explicit original import operation, independent of the
+    # removed pack.
     assert receiver.project_import_open(intent).canonical_revision == imported.revision
 
 
@@ -246,13 +275,17 @@ def test_descriptive_pack_is_inspectable_but_not_executable_import_authority(
     context = physical(runtime)
     selection = selected_project(runtime, context)
     destination = tmp_path / "descriptive-pack"
-    runtime.project_export(destination, export_request(selection, descriptive_only=True))
+    runtime.project_export(
+        destination, export_request(selection, descriptive_only=True)
+    )
     bundle = pse.ProjectBundle(destination)
     assert bundle.manifest.offline_complete
     assert bundle.manifest.descriptive_only
     assert not bundle.manifest.members
     assert bundle.manifest.source_revisions
-    assert any(omission.required_for_execution for omission in bundle.manifest.omissions)
+    assert any(
+        omission.required_for_execution for omission in bundle.manifest.omissions
+    )
     assert not bundle.manifest.executable_complete
     with pytest.raises(pse.InspectionError):
         runtime.project_import_issue(bundle, title="Must not become executable")
@@ -272,7 +305,9 @@ def test_pack_refuses_missing_or_same_extent_changed_required_member(
     destination = tmp_path / "damaged-pack"
     runtime.project_export(destination, export_request(selection), context)
     bundle = pse.ProjectBundle(destination)
-    source = next(s for s in bundle.manifest.sources if s.revision == selection.revision)
+    source = next(
+        s for s in bundle.manifest.sources if s.revision == selection.revision
+    )
     document = next(d for d in source.documents if d.path == "models/root.pse")
     member = next(m for m in bundle.manifest.members if m.id == document.member)
     payload = destination / member.relative_path
@@ -281,7 +316,8 @@ def test_pack_refuses_missing_or_same_extent_changed_required_member(
     else:
         before = payload.read_bytes()
         changed = before.replace(b"value:Scalar=1", b"value:Scalar=2")
-        assert changed != before and len(changed) == len(before)
+        assert changed != before
+        assert len(changed) == len(before)
         payload.write_bytes(changed)
     # Even an already opened reader rechecks its exact member before returning bytes.
     with pytest.raises(pse.InspectionError):

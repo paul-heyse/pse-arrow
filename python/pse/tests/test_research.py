@@ -60,7 +60,9 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
                         "attribute": "value",
                         "standard_deviation_attribute": "sigma",
                         "quantity": quantity,
-                        "acquisition_clock": "independently authored known-length fixture",
+                        "acquisition_clock": (
+                            "independently authored known-length fixture"
+                        ),
                         "parent_member": None,
                         "calibration": [],
                     }
@@ -77,6 +79,7 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
             d.ResearchReadRequest,
         )
     )
+    assert isinstance(page, d.ResearchReadResultOutputDatasets)
     assert tuple(row.key for row in page.rows) == (created.key,)
     assert (
         runtime.research_dataset_open(created.key, selected).canonical_revision
@@ -111,7 +114,9 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
                     {
                         "observation": identity(157),
                         "member": 0,
-                        "reason": "included known length and authored standard uncertainty",
+                        "reason": (
+                            "included known length and authored standard uncertainty"
+                        ),
                     }
                 ],
             }
@@ -128,6 +133,7 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
             d.ResearchReadRequest,
         )
     )
+    assert isinstance(exact, d.ResearchReadResultOutputSelection)
     assert {key: bytes(value) for key, value in _body(exact.row).items()} == {
         key: bytes(value) for key, value in _body(frozen).items()
     }
@@ -142,6 +148,7 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
             d.ResearchReadRequest,
         )
     )
+    assert isinstance(detail, d.ResearchReadResultOutputDataset)
     assert detail.members is not None
     assert detail.members[0].attribute == "value"
     # A later context correction does not retarget the old selection.

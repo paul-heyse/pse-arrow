@@ -225,7 +225,7 @@ def test_optional_source_recording_retain_result_and_context_readback_relocates(
             selected.leave()
             repeated = selected.retain_result(result)
             context = documents.ReviewContextDocument(
-                version=1,
+                version=2,
                 run_id=None,
                 attempt_id=None,
                 operation=acknowledgement.operation,

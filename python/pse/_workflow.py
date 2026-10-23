@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Typed declarations and owned handles over the single native computation pipeline."""
+"""Bounded study browsing and passive reconnectable observation."""
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -17,8 +17,8 @@ from pse._artifacts import (
 )
 from pse._build import (
     EngineSettings,
-    _NativeRuntime,
     _NativeProjectBundle,
+    _NativeRuntime,
 )
 from pse._inspection import TableStream
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
@@ -36,23 +36,10 @@ from pse._strategies import (
 from pse._study_workbench import StudyWorkbenchMixin
 from pse.contracts.documents import (
     AnalysisControls,
-    ProjectExportRequest,
-    ProjectManifestOutput,
-    ProjectClosureExplanationOutput,
-    ProjectImportIntent,
-    ProjectImportIntentOutput,
-    ProjectImportReportOutput,
-    LifecycleTarget,
-    LifecycleSelection,
-    LifecycleSelectionOutput,
-    LifecycleExplanationOutput,
-    LifecycleReleaseOutput,
-
     AnalysisDocument,
     AnalysisDocumentOutput,
     ArtifactIntent,
     ArtifactIntentBody,
-    ProjectImportRecoveryReportOutput,
     BackendSettings,
     ConicRequest,
     ContextCut,
@@ -67,12 +54,18 @@ from pse.contracts.documents import (
     HistoryObligation,
     HistoryOwner,
     HistoryReclamationPage,
+    LifecycleExplanationOutput,
+    LifecycleReleaseOutput,
+    LifecycleSelection,
+    LifecycleSelectionOutput,
+    LifecycleTarget,
     PackExportRequest,
     PackIndexOutput,
     ParameterCovarianceOutput,
     ProjectAcknowledgementOutput,
     ProjectBranchPageOutput,
     ProjectBranchRecordOutput,
+    ProjectClosureExplanationOutput,
     ProjectContextOutput,
     ProjectCursor,
     ProjectCursorBody,
@@ -82,6 +75,12 @@ from pse.contracts.documents import (
     ProjectDraftSaveIntentOutput,
     ProjectDraftVersion,
     ProjectDraftVersionOutput,
+    ProjectExportRequest,
+    ProjectImportIntent,
+    ProjectImportIntentOutput,
+    ProjectImportRecoveryReportOutput,
+    ProjectImportReportOutput,
+    ProjectManifestOutput,
     ProjectMergeIntent,
     ProjectMergeIntentOutput,
     ProjectMergePreview,
@@ -120,7 +119,7 @@ from pse.contracts.identities import (
     SolutionId,
     StudyId,
 )
-from pse.contracts.values import ContentHash, SemanticId
+from pse.contracts.values import SemanticId
 from pse.diagnostics import Diagnostics
 
 
@@ -131,7 +130,11 @@ class ProjectBundle:
     _handle: _NativeProjectBundle
 
     def __init__(self, path: Path, *, maximum_document_bytes: int = 16 << 20) -> None:
-        object.__setattr__(self, "_handle", _NativeProjectBundle(path, maximum_document_bytes=maximum_document_bytes))
+        object.__setattr__(
+            self,
+            "_handle",
+            _NativeProjectBundle(path, maximum_document_bytes=maximum_document_bytes),
+        )
 
     @property
     def manifest(self) -> ProjectManifestOutput:
@@ -145,7 +148,7 @@ class ProjectBundle:
 
     def member_bytes(self, member: str, *, maximum_bytes: int = 16 << 20) -> bytes:
         """Inspect one bounded selected member, verifying its consumed bytes."""
-        return bytes(self._handle.member_bytes(member, maximum_bytes=maximum_bytes))
+        return self._handle.member_bytes(member, maximum_bytes=maximum_bytes)
 
 
 @attrs.frozen(init=False)
@@ -524,7 +527,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         )
 
     def project_context_cut(self, project: str) -> ContextCut:
-        """Capture the project's recorded context position, independent of source sequence."""
+        """Capture recorded context independently of the source sequence."""
         return self._handle.project_context_cut(project)
 
     def project_context_select(
@@ -534,13 +537,13 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         return self._handle.project_context_select(cut, scope, effective_at_us)
 
     def project_context_record(self, key: str) -> ProjectContextOutput | None:
-        """Read original immutable metadata, including tombstones and hidden projects."""
+        """Read immutable metadata, including hidden or deleted records."""
         return self._handle.project_context_record(key)
 
     def project_context_reopen(
         self, selection: ContextSelection | ContextSelectionOutput
     ) -> ModelingPackage:
-        """Reopen original persisted source and physical closures without supplied documents."""
+        """Reopen the original persisted source and physical closure."""
         return ModelingPackage(self._handle.project_context_reopen(selection))
 
     def project_context_package(
@@ -548,7 +551,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         selection: ContextSelection | ContextSelectionOutput,
         physical: "PhysicalContext",
     ) -> ModelingPackage:
-        """Load this exact selection through ordinary source admission; never select latest."""
+        """Admit this exact source selection without selecting latest."""
         return ModelingPackage(
             self._handle.project_context_package(
                 selection,
@@ -568,10 +571,11 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         corrects: str | None = None,
         deleted: bool = False,
     ) -> ProjectContextOutput:
-        """Append an exact source reference with UTC half-open interval and correction ancestry.
+        """Append an exact source, effective interval and correction ancestry.
 
-        Retain the original project descriptor and operation through uncertain completion.
-        Scientific values remain in the admitted source, not this context record.
+        Retain the original project descriptor and operation through uncertain
+        completion. Scientific values remain in the admitted source, not this context
+        record.
         """
         return self._handle.project_context_append(
             operation,
@@ -655,7 +659,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     ) -> ProjectDraftSaveIntentOutput:
         """Read-only issue of raw custody; content may be malformed or empty.
 
-        Keep this original intent until its artifact and project acknowledgements settle.
+        Keep the original intent until artifact and project acknowledgements settle.
         Scientific publication separately requires the ProjectDraftDocuments codec.
         """
         return self._handle.project_draft_save_intent(
@@ -667,7 +671,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         intent: ProjectDraftSaveIntent | ProjectDraftSaveIntentOutput,
         content: bytes,
     ) -> ProjectAcknowledgementOutput:
-        """Save only original issued bytes; retries preserve artifact/operation identity."""
+        """Save original bytes while retaining artifact and operation identity."""
         return self._handle.project_draft_save(intent, content)
 
     def project_draft_record(self, key: str) -> ProjectDraftRecordOutput | None:
@@ -676,34 +680,72 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
 
     def project_draft_bytes(self, key: str) -> bytes:
         """Read this exact raw body through its current protection owner."""
-        return bytes(self._handle.project_draft_bytes(key))
+        return self._handle.project_draft_bytes(key)
 
-    def project_closure(self, request: ProjectExportRequest, physical: PhysicalContext | None = None) -> ProjectClosureExplanationOutput:
+    def project_closure(
+        self, request: ProjectExportRequest, physical: PhysicalContext | None = None
+    ) -> ProjectClosureExplanationOutput:
         """Explain exact selected membership through the original owners."""
-        return self._handle.project_closure(request, None if physical is None else physical._handle)  # noqa: SLF001
+        return self._handle.project_closure(
+            request,
+            None if physical is None else physical._handle,  # noqa: SLF001 -- package-native facade composition
+        )
 
-    def project_export(self, destination: Path, request: ProjectExportRequest, physical: PhysicalContext | None = None) -> ProjectManifestOutput:
+    def project_export(
+        self,
+        destination: Path,
+        request: ProjectExportRequest,
+        physical: PhysicalContext | None = None,
+    ) -> ProjectManifestOutput:
         """Copy a protected selected closure for offline inspection and fresh import."""
-        return self._handle.project_export(destination, request, None if physical is None else physical._handle)  # noqa: SLF001
+        return self._handle.project_export(
+            destination,
+            request,
+            None if physical is None else physical._handle,  # noqa: SLF001 -- package-native facade composition
+        )
 
-    def project_import_issue(self, bundle: ProjectBundle, *, title: str, branch_name: str = "main") -> ProjectImportIntentOutput:
+    def project_import_issue(
+        self, bundle: ProjectBundle, *, title: str, branch_name: str = "main"
+    ) -> ProjectImportIntentOutput:
         """Issue a retryable intent bound to this receiving authority and exact pack."""
-        return self._handle.project_import_issue(bundle._handle, title=title, branch_name=branch_name)  # noqa: SLF001
+        return self._handle.project_import_issue(
+            bundle._handle,  # noqa: SLF001 -- package-native facade composition
+            title=title,
+            branch_name=branch_name,
+        )
 
-    def project_import_status(self, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ProjectImportReportOutput | None:
-        """Settle the original intent and distinguish admitted source from a complete project."""
+    def project_import_status(
+        self, intent: ProjectImportIntent | ProjectImportIntentOutput
+    ) -> ProjectImportReportOutput | None:
+        """Distinguish admitted source from complete copied project custody."""
         return self._handle.project_import_status(intent)
 
-    def project_import(self, bundle: ProjectBundle, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ProjectImportReportOutput:
-        """Admit fresh source coordinates and complete copied evidence before availability."""
+    def project_import(
+        self,
+        bundle: ProjectBundle,
+        intent: ProjectImportIntent | ProjectImportIntentOutput,
+    ) -> ProjectImportReportOutput:
+        """Admit fresh source and copied evidence before project availability."""
         return self._handle.project_import(bundle._handle, intent)  # noqa: SLF001
 
-    def project_import_recover(self, intent: ProjectImportIntent | ProjectImportIntentOutput, original: ArtifactIntent | ArtifactIntentBody) -> ProjectImportRecoveryReportOutput:
-        """Settle or collect only the named original occurrence; never renew its clock."""
-        record = original if isinstance(original, ArtifactIntent) else codec.convert_document(codec.document_builtins(original), ArtifactIntent)
+    def project_import_recover(
+        self,
+        intent: ProjectImportIntent | ProjectImportIntentOutput,
+        original: ArtifactIntent | ArtifactIntentBody,
+    ) -> ProjectImportRecoveryReportOutput:
+        """Settle the original occurrence without renewing its clock."""
+        record = (
+            original
+            if isinstance(original, ArtifactIntent)
+            else codec.convert_document(
+                codec.document_builtins(original), ArtifactIntent
+            )
+        )
         return self._handle.project_import_recover(intent, record)
 
-    def project_import_open(self, intent: ProjectImportIntent | ProjectImportIntentOutput) -> ModelingPackage:
+    def project_import_open(
+        self, intent: ProjectImportIntent | ProjectImportIntentOutput
+    ) -> ModelingPackage:
         """Reopen owned imported science without the originally supplied pack."""
         return ModelingPackage(self._handle.project_import_open(intent))
 
@@ -711,18 +753,22 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         """Freeze original issuing authority and current owner generations."""
         return self._handle.lifecycle_select(target)
 
-    def lifecycle_explain(self, selection: LifecycleSelection | LifecycleSelectionOutput) -> LifecycleExplanationOutput:
+    def lifecycle_explain(
+        self, selection: LifecycleSelection | LifecycleSelectionOutput
+    ) -> LifecycleExplanationOutput:
         """Observe references and known bytes without granting disposal authority."""
         return self._handle.lifecycle_explain(selection)
 
-    def lifecycle_release(self, selection: LifecycleSelection | LifecycleSelectionOutput) -> LifecycleReleaseOutput:
+    def lifecycle_release(
+        self, selection: LifecycleSelection | LifecycleSelectionOutput
+    ) -> LifecycleReleaseOutput:
         """Recheck and dispatch release to its original owner."""
         return self._handle.lifecycle_release(selection)
 
     def project_select(
         self, request: ProjectSelectRequest, physical: "PhysicalContext"
     ) -> ProjectSelection:
-        """Freeze an exact branch or bookmark source with its physical closure identity."""
+        """Freeze source and physical identities for a branch or bookmark."""
         return self._handle.project_select(request, physical._handle)  # noqa: SLF001
 
     def project_open_selection(
@@ -748,7 +794,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     def project_metadata(
         self, request: ProjectMetadataRequest | ProjectMetadataRequestOutput
     ) -> ProjectMetadataPageOutput:
-        """Read bounded live headers; raw bodies and scientific payloads stay separate."""
+        """Read bounded headers separately from raw or scientific payloads."""
         return self._handle.project_metadata(request)
 
     def project_draft_version(self, key: str) -> ProjectDraftVersionOutput | None:
@@ -757,12 +803,12 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
 
     def project_draft_version_bytes(self, key: str) -> bytes:
         """Read original raw custody without moving a current draft head."""
-        return bytes(self._handle.project_draft_version_bytes(key))
+        return self._handle.project_draft_version_bytes(key)
 
     def project_draft_delta(
         self, source: ModelingPackage, delta: SourceDelta | SourceDeltaOutput
     ) -> ProjectDraftDeltaOutput:
-        """Capture typed edits against their original exact source and physical context."""
+        """Capture typed edits against the exact source and physical context."""
         return self._handle.project_draft_delta(source._handle, delta)  # noqa: SLF001
 
     def project_admit_draft(
@@ -789,7 +835,10 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     ) -> ProjectMergePreview:
         """Inspect three-way logical conflicts before issuing a publication decision."""
         return self._handle.project_merge_preview(
-            base._handle, target._handle, proposal._handle, list(resolutions)
+            base._handle,  # noqa: SLF001 -- package-native facade composition
+            target._handle,  # noqa: SLF001 -- package-native facade composition
+            proposal._handle,  # noqa: SLF001 -- package-native facade composition
+            list(resolutions),
         )
 
     def project_merge_intent(
@@ -804,9 +853,9 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         """Retain exact admitted revision selections and explicit conflict choices."""
         return self._handle.project_merge_intent(
             publication,
-            base._handle,
-            target._handle,
-            proposal._handle,
+            base._handle,  # noqa: SLF001 -- package-native facade composition
+            target._handle,  # noqa: SLF001 -- package-native facade composition
+            proposal._handle,  # noqa: SLF001 -- package-native facade composition
             list(resolutions),
         )
 
@@ -819,9 +868,13 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         *,
         resolutions: Sequence[ProjectMergeResolution] = (),
     ) -> ProjectMergeIntentOutput:
-        """Merge an exact saved version without publishing a temporary source revision."""
+        """Merge a saved version without a temporary source publication."""
         return self._handle.project_merge_draft_intent(
-            publication, base._handle, target._handle, version, list(resolutions)
+            publication,
+            base._handle,  # noqa: SLF001 -- package-native facade composition
+            target._handle,  # noqa: SLF001 -- package-native facade composition
+            version,
+            list(resolutions),
         )
 
     def project_undo_intent(
@@ -832,7 +885,9 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     ) -> ProjectMergeIntentOutput:
         """Retain an ordinary compensating source publication, never a head rewind."""
         return self._handle.project_undo_intent(
-            publication, target._handle, restore._handle
+            publication,
+            target._handle,  # noqa: SLF001 -- package-native facade composition
+            restore._handle,  # noqa: SLF001 -- package-native facade composition
         )
 
     def project_publish_merge(
@@ -842,7 +897,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     ) -> ModelingPackage:
         """Publish or settle the original immutable merge/undo decision."""
         return ModelingPackage(
-            self._handle.project_publish_merge(intent, physical._handle)
+            self._handle.project_publish_merge(intent, physical._handle)  # noqa: SLF001 -- package-native facade composition
         )
 
     def project_publish_draft(
@@ -850,7 +905,7 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         intent: ProjectPublication | ProjectPublicationOutput,
         physical: "PhysicalContext",
     ) -> ModelingPackage:
-        """Admit the saved document container, then atomically publish its exact generation."""
+        """Admit saved documents and publish their exact generation."""
         return ModelingPackage(
             self._handle.project_publish_draft(
                 intent,
@@ -913,4 +968,3 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
                 controls=None if controls is None else codec.encode_json(controls),
             )
         )
-

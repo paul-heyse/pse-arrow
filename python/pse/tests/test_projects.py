@@ -9,7 +9,14 @@ import pytest
 
 import pse
 from pse import codec
-from pse.contracts.documents import ProjectDraftDocuments
+from pse.contracts.documents import (
+    ProjectDraftDocuments,
+    ProjectMetadataRequest,
+    ProjectNavigationRequest,
+    ProjectSelectRequest,
+    SourceDelta,
+)
+from pse.contracts.enums import ProjectMetadataKind
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.test_modeling_kernel import on_primitives, physical
 
@@ -104,7 +111,8 @@ def test_project_saved_draft_admission_publish_and_reopen(
             runtime.project_publish_draft(forged, context)
 
     # Larger malformed custody uses the existing opaque sealed artifact path, and
-    # replay retains the original issued physical occurrence rather than minting another.
+    # replay retains the original issued physical occurrence rather than minting
+    # another.
     large = b"[malformed raw draft" * 10_000
     large_intent = runtime.project_draft_save_intent(
         "save-large", "project", "main", "large-draft", "publish-valid", large
@@ -133,15 +141,6 @@ def test_project_saved_draft_admission_publish_and_reopen(
 def test_project_versions_local_admission_and_retained_selection(
     inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    import json
-
-    from pse.contracts.documents import (
-        ProjectMetadataRequest,
-        ProjectNavigationRequest,
-        ProjectSelectRequest,
-        SourceDelta,
-    )
-
     runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     manifest = on_primitives(
@@ -173,7 +172,8 @@ def test_project_versions_local_admission_and_retained_selection(
         project = runtime.project_record("versioned")
         assert project is not None
         request = codec.decode_json(
-            json.dumps({"version": 1, "action": action}), ProjectNavigationRequest
+            codec.encode_json({"version": 1, "action": action}),
+            ProjectNavigationRequest,
         )
         runtime.project_navigate(operation, project, request)
 
@@ -184,7 +184,9 @@ def test_project_versions_local_admission_and_retained_selection(
     with pytest.raises(pse.InspectionError):
         runtime.project_admit_draft("admit-invalid", "raw", context)
     diagnostics = runtime.project_metadata(
-        ProjectMetadataRequest(kind="diagnostics", owner="raw-one", cursor=None)
+        ProjectMetadataRequest(
+            kind=ProjectMetadataKind.DIAGNOSTICS, owner="raw-one", cursor=None
+        )
     )
     assert len(diagnostics.diagnostics) == 1
     assert not diagnostics.diagnostics[0].admitted

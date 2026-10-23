@@ -24,7 +24,10 @@ from pse.contracts.documents import (
 class ResearchRuntime:
     """Typed facade composed into the ordinary Runtime; no separate engine."""
 
-    _handle: _NativeRuntime
+    @property
+    def _handle(self) -> _NativeRuntime:
+        """Read-only native owner supplied by the concrete Runtime facade."""
+        raise NotImplementedError
 
     def research_dataset_create(
         self, request: ResearchDatasetRequest

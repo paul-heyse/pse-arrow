@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Bounded study browsing, exact frozen populations and passive reconnectable observation."""
+"""Bounded study browsing and passive reconnectable observation."""
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from types import TracebackType
+import time
 from typing import TYPE_CHECKING, Self
 
 import attrs
@@ -19,20 +18,23 @@ from pse._build import (
     _NativeStudyObserver,
 )
 from pse._inspection import TableStream
-from pse.contracts.documents import (
-    StudyCohortDocumentOutput,
-    StudyCohortRequest,
-    StudyKpiRequest,
-    StudyObservationCursor,
-    StudyObservationCursorOutput,
-    StudyObservationPageOutput,
-    StudyObservationRequest,
-    StudyWorkbenchPageOutput,
-    StudyWorkbenchRequest,
-)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from types import TracebackType
+
     from pse._runs import RunHandle
+    from pse.contracts.documents import (
+        StudyCohortDocumentOutput,
+        StudyCohortRequest,
+        StudyKpiRequest,
+        StudyObservationCursor,
+        StudyObservationCursorOutput,
+        StudyObservationPageOutput,
+        StudyObservationRequest,
+        StudyWorkbenchPageOutput,
+        StudyWorkbenchRequest,
+    )
 
 
 @attrs.frozen
@@ -54,7 +56,7 @@ class StudyKpiAnalysis:
         return tuple(self._handle.unavailable)
 
     def batches(self) -> tuple[pa.RecordBatch, ...]:
-        """Return only the selected native aggregation, preserving actual quantity/unit columns."""
+        """Return selected aggregates with original quantity and unit columns."""
         return tuple(pa.record_batch(batch) for batch in self._handle.batches())
 
 
@@ -92,14 +94,13 @@ class StudyObserver:
 
     def attach_run(self, run: RunHandle) -> None:
         """Attach original local telemetry after a poll discovers its exact attempt."""
-        self._handle.attach_run(run._handle)
+        self._handle.attach_run(run._handle)  # noqa: SLF001 -- package-native facade composition
 
     def follow(self, *, interval: float = 0.1) -> Iterator[StudyObservationPageOutput]:
         """Poll selected owners; stopping iteration never cancels the study."""
         if not 0 <= interval <= 60:
-            raise ValueError("observer interval must be between zero and 60 seconds")
-        import time
-
+            message = "observer interval must be between zero and 60 seconds"
+            raise ValueError(message)
         while True:
             page = self.poll()
             yield page
@@ -129,7 +130,10 @@ class StudyObserver:
 class StudyWorkbenchMixin:
     """Public runtime composition; the native owner performs selection and admission."""
 
-    _handle: _NativeRuntime
+    @property
+    def _handle(self) -> _NativeRuntime:
+        """Read-only native owner supplied by the concrete Runtime facade."""
+        raise NotImplementedError
 
     def study_workbench_page(
         self, request: StudyWorkbenchRequest

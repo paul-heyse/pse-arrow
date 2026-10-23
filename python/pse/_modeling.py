@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Owned generic modeling operations over registry-generated source and result rows."""
+"""Bounded study browsing and passive reconnectable observation."""
 
 from collections.abc import Mapping, Sequence
 
@@ -55,7 +55,7 @@ from pse.contracts.documents import (
     ManagedStudyDiagnosticsDocumentOutput,
     ModelingNonlinearPolicy,
     ModelingSourceMapDocumentOutput,
-    OperationSource,
+    OperationSourceOutput,
     PhysicalFitRequest,
     PointOverlay,
     PreparationCounts,
@@ -674,7 +674,7 @@ class ModelingPackage:
         return PhysicalContext(self._handle.physical_context)
 
     @property
-    def operation_source(self) -> OperationSource:
+    def operation_source(self) -> OperationSourceOutput:
         """Exact source and physical identity for reconstructible study inputs."""
         return self._handle.operation_source
 
@@ -867,13 +867,13 @@ class ModelingPackage:
     def project_compare(
         self, other: "ModelingPackage", *, source_only: bool = False
     ) -> ProjectComparisonOutput:
-        """Compare exact admitted logical objects without preparing a numerical model."""
-        return self._handle.project_compare(other._handle, source_only=source_only)
+        """Compare admitted objects without numerical preparation."""
+        return self._handle.project_compare(other._handle, source_only=source_only)  # noqa: SLF001 -- package-native facade composition
 
     def project_source_detail(
         self, logical: Sequence[str]
     ) -> tuple[ProjectSourceDetailOutput, ...]:
-        """Read selected authored detail; binary data remains an exact content identity."""
+        """Read authored detail and exact binary content identities."""
         return tuple(self._handle.project_source_detail(list(logical)))
 
     def source_tables(self) -> dict[SemanticId, TableStream]:
