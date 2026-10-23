@@ -12,12 +12,13 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object
         LET $run=SELECT terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
         RETURN object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
     });
-    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR math::sum($selected.point_count)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $total=math::sum($selected.point_count) ?? 0;
+    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR $total>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $points=IF $frozen {
         LET $selected_keys=$selected.key;
         SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected_keys ORDER BY study,ordinal LIMIT 129
     } ELSE {[]};
-    IF $frozen AND (array::len($points)!=(math::sum($selected.point_count) ?? 0) OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    IF $frozen AND (array::len($points)!=$total OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $result={headers:$headers,members:$points,has_more:$more};
     IF bytes::len(encoding::cbor::encode($result))>1048576 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
