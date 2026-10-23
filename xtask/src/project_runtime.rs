@@ -148,6 +148,7 @@ pub(crate) async fn run(store:&CanonicalStore,args:RuntimeArgs,deadline:Instant)
 
 #[cfg(all(test,feature="canonical-tests"))]
 mod tests {
+    #![allow(clippy::unwrap_used, reason = "the disposable native CLI fixture requires exact successful setup and inspected outcomes")]
     use super::*;
     #[tokio::test]
     async fn project_cli_runtime_import_fork_compare_and_passive_discovery() {
@@ -157,7 +158,7 @@ mod tests {
         let physical_root=root.join("tests/fixtures/packages/physical-primitives");
         let physical=ProjectDraftDocuments{version:Default::default(),packages:vec![["package.toml","materials/physical.yaml","materials/time.yaml"].into_iter().map(|path|(path.into(),std::fs::read(physical_root.join(path)).unwrap())).collect()]};
         let mut source=std::fs::read_to_string(root.join("tests/fixtures/packages/minimal_named/package.toml")).unwrap();
-        source=source.replace("dependencies = []",r#"dependencies = [{ name = "physical-primitives", package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#);
+        source=source.replace("dependencies = []",r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#);
         let docs=ProjectDraftDocuments{version:Default::default(),packages:vec![BTreeMap::from([("package.toml".into(),source.into_bytes()),("models/root.pse".into(),b"package minimal_named {param k:Scalar=1; def Root {var x:Scalar; eq e:x*x==k;}}".to_vec())])]};
         let execute=async |action:Action| {
             let path=directory.path().join("request.json");
