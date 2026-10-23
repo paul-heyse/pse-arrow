@@ -15,6 +15,8 @@
 mod cache;
 mod declarations;
 mod diagnostic_evidence;
+pub mod evidence;
+pub mod projects;
 pub mod documents;
 pub mod enums_platform;
 pub mod inv;
@@ -97,6 +99,8 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     products::declare(builder);
     operations::declare(builder);
     substrate::declare(builder);
+    projects::declare(builder);
+    evidence::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     normalization::declare(builder);
