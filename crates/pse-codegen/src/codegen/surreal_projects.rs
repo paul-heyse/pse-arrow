@@ -100,7 +100,7 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
     IF $revision=NONE OR $revision.problem!=$branch.problem { THROW 'PSE_REFUSAL:project_source_unavailable'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft) FOR UPDATE;
     IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.deleted OR $old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
-    IF $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
+    IF $row.retired!=false OR $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);
         IF $artifact=NONE OR $artifact.revision!=$row.base_revision OR $artifact.kind!='project-draft' { THROW 'PSE_REFUSAL:project_source_unavailable'; };
