@@ -373,7 +373,8 @@ impl DiagnosticReproducer {
             ));
         }
         let source = ReplaySourceDocument {
-            research: None,            context: recorded.context.clone(),
+            research: recorded.research.clone(),
+            context: recorded.context.clone(),
             identity: recorded.identity,
             interpretation: recorded.interpretation.clone(),
             build: recorded.build,

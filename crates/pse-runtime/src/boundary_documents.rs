@@ -11,6 +11,10 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 #[macro_export]
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
+            (ResearchPublicationRequest, pse_runtime::workflow::ResearchPublicationRequest, "research-publication-request", Both, FlatV1),
+            (ResearchPublicationIntent, pse_runtime::workflow::ResearchPublicationIntent, "research-publication-intent", Both, FlatV1),
+            (ResearchPublicationPreview, pse_runtime::workflow::ResearchPublicationPreview, "research-publication-preview", Both, FlatV1),
+            (ResearchPublication, pse_operations::canonical_research::ResearchPublication, "research-publication", Both, FlatV1),
             (ResearchDatasetRequest, pse_runtime::workflow::ResearchDatasetRequest, "research-dataset-request", Both, FlatV1),
             (ResearchSelectionRequest, pse_runtime::workflow::ResearchSelectionRequest, "research-selection-request", Both, FlatV1),
             (ResearchReadRequest, pse_runtime::workflow::ResearchReadRequest, "research-read-request", Both, FlatV1),
