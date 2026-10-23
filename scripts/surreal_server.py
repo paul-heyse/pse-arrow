@@ -6203,7 +6203,8 @@ def unsealed_payload_descriptor(instance: dict[str, object]) -> bool:
 
 
 def verify_payload_inventory(
-    state: Path, config: dict[str, object], inventory: list[dict[str, object]]
+    state: Path, config: dict[str, object], inventory: list[dict[str, object]],
+    *, read_only_source: bool = False,
 ) -> None:
     """Delegate canonical content hashing to the existing native identity owner."""
     selected = []
@@ -6231,7 +6232,9 @@ def verify_payload_inventory(
         raise SupervisorError(
             "Sealed backup/restore requires --payload-verifier for the exact native verifier artifact"
         )
-    descriptor, raw = tempfile.mkstemp(prefix=".payload-verification-", dir=state)
+    descriptor, raw = tempfile.mkstemp(
+        prefix=".payload-verification-", dir=None if read_only_source else state,
+    )
     path = Path(raw)
     try:
         with os.fdopen(descriptor, "w") as stream:
@@ -6827,10 +6830,15 @@ def validate_application_inventory(value: object) -> dict[str, object]:
     return selected
 
 
-def inspect_backup(source: Path, interpretation: str) -> dict[str, object]:
+def inspect_backup(
+    source: Path, interpretation: str, verifier: Path | None = None,
+) -> dict[str, object]:
     """Read-only inspection shares the exact restore verifier and performs no repair."""
     try:
         manifest, config, payloads = validated_restore_backup(source, interpretation)
+        if verifier is not None:
+            config = {**config, "payload_verifier": payload_verifier(verifier)}
+        verify_payload_inventory(source, config, payloads, read_only_source=True)
     except (SupervisorError, OSError, ValueError) as error:
         return {
             "backup": str(source), "complete": False, "restorable": False,
@@ -10129,7 +10137,7 @@ def _dispatch(args: argparse.Namespace) -> int:
     elif args.command == "inspect-backup":
         if args.source is None:
             raise SupervisorError("inspect-backup requires --source")
-        output = inspect_backup(args.source.absolute(), args.interpretation or SUBSTRATE_INTERPRETATION)
+        output = inspect_backup(args.source.absolute(), args.interpretation or SUBSTRATE_INTERPRETATION, args.payload_verifier)
     elif args.command == "restore":
         if args.source is None:
             raise SupervisorError("restore requires --source")
