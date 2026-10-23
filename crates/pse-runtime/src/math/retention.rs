@@ -339,6 +339,60 @@ impl ModelingCache {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
         }
     }
+    /// Observational metadata only: no lookup hit/miss counters, recency promotion,
+    /// solver handles or newly constructed preparation products.
+    pub(crate) fn inspect_preparations(
+        &self,
+        request: &crate::workflow::modeling::SelectedRequest,
+        selection: &crate::workflow::modeling::PreparationDiscoveryRequest,
+        source: &crate::workflow::modeling::AdmittedModelRevision,
+        cancel: &crate::CancelSource,
+    ) -> Result<(Vec<crate::workflow::modeling::ResidentPreparation>, bool), crate::workflow::WorkflowError> {
+        use crate::workflow::modeling::{PreparationEligibility as Eligibility, PreparationProductKind as Kind, ResidentPreparation};
+        let (rows, truncated) = self.entries.inspect(32, |key, value, retained_bytes| {
+            let description = match (key, value) {
+                (Key::Selected(original), Product::Selected(candidates)) if original.includes_root(selection.root) => {
+                    let mut compatible = false;
+                    for candidate in candidates.iter() {
+                        match candidate.dependencies.matches_scoped(source, cancel) {
+                            Ok(matches) => compatible |= original.as_ref() == request && matches,
+                            Err(error) => return Some(Err(error)),
+                        }
+                    }
+                    Some((Kind::SelectedAdmission, compatible))
+                }
+                (Key::Basis(key), Product::Basis(_)) | (Key::Frontier(key), Product::Frontier(_)) => {
+                    match key.inspection_matches(request, selection, source, cancel) {
+                        Ok(Some(compatible)) => Some((if matches!(value, Product::Basis(_)) { Kind::Basis } else { Kind::Frontier }, compatible)),
+                        Ok(None) => None,
+                        Err(error) => return Some(Err(error)),
+                    }
+                }
+                _ => None,
+            };
+            description.map(|(kind, compatible)| Ok(ResidentPreparation {
+                kind,
+                eligibility: if compatible { Eligibility::Compatible } else { Eligibility::Incompatible },
+                retained_bytes,
+                semantic_identity: None,
+            }))
+        });
+        let mut rows = rows.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let (bodies, bodies_truncated) = self.entries.inspect(32 - rows.len(), |key, value, retained_bytes| {
+            match (key, value) {
+                (Key::Body(identity), Product::Body(_)) | (Key::EncodedBody(identity), Product::EncodedBody(_)) => Some(ResidentPreparation {
+                    kind: if matches!(value, Product::Body(_)) { Kind::Body } else { Kind::EncodedBody },
+                    eligibility: Eligibility::Unchecked,
+                    retained_bytes,
+                    semantic_identity: Some(identity.as_id().to_hex()),
+                }),
+                _ => None,
+            }
+        });
+        rows.extend(bodies);
+        Ok((rows, truncated || bodies_truncated))
+    }
+
     pub(crate) fn result_projection(
         &self,
         key: &crate::workflow::result_export::ProjectionKey,
@@ -632,7 +686,7 @@ impl ModelingCache {
     ) {
         self.put(generation, Key::Package(key), Product::Package(Arc::new(p)));
     }
-    pub(super) fn report(&self, active_loads: usize) -> pse_engine::cache_service::CacheReport {
+    pub(crate) fn report(&self, active_loads: usize) -> pse_engine::cache_service::CacheReport {
         pse_engine::cache_service::CacheReport {
             name: self.entries.name(),
             capacity_bytes: 0,

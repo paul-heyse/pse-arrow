@@ -32,6 +32,8 @@ pub(in crate::workflow) type StudyBindingKey = (ContentHash, Vec<String>, Vec<Se
 )]
 #[serde(deny_unknown_fields)]
 pub struct OperationSource {
+    /// Original effective-time and recorded-cut selection, if explicitly selected.
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Immutable modeling revision, including included scientific data.
     pub revision: pse_ids::roles::SourceRevisionHash,
     /// Complete admitted physical context identity.
@@ -42,6 +44,7 @@ impl OperationSource {
     pub fn of(package: &ModelingPackage) -> Self {
         Self {
             revision: package.revision.identity(),
+            context: package.project_context.clone(),
             physical_context: package.physical.identity(),
         }
     }
@@ -116,7 +119,7 @@ struct EvaluationWire {
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(remote = "Limits", deny_unknown_fields)]
-struct LimitsWire {
+pub(in crate::workflow) struct LimitsWire {
     depth: usize,
     items: usize,
     members: usize,
@@ -1527,6 +1530,7 @@ mod study_operation_unit {
             output: crate::workflow::StudyOutputDemand::Full {},
             version: Version,
             source: OperationSource {
+                context: None,
                 revision: ContentHash::from_bytes([3; 32]).into(),
                 physical_context: ContentHash::from_bytes([4; 32]),
             },

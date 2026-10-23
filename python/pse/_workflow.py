@@ -39,6 +39,9 @@ from pse.contracts.documents import (
     ArtifactIntent,
     BackendSettings,
     ConicRequest,
+    ContextCut,
+    ContextSelection,
+    ProjectContext,
     DiagnosticExecutionDocumentOutput,
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
@@ -56,6 +59,15 @@ from pse.contracts.documents import (
     ProjectBranchRecordOutput,
     ProjectCursor,
     ProjectCursorBody,
+    ProjectDraftDelta,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
+    ProjectMetadataRequest,
+    ProjectMetadataRequestOutput,
+    ProjectMetadataPageOutput,
+    ProjectNavigationRequest,
+    SourceDelta,
+    SourceDeltaOutput,
     ProjectDraftRecordOutput,
     ProjectDraftSaveIntent,
     ProjectDraftSaveIntentOutput,
@@ -69,6 +81,7 @@ from pse.contracts.documents import (
     ProjectMergeResolution,
     ProjectMergeResolutionOutput,
     ProjectRecord,
+    ProjectRecordOutput,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
@@ -471,6 +484,58 @@ class Runtime:
             )
         )
 
+    def project_context_cut(self, project: str) -> ContextCut:
+        """Capture the project's recorded context position, independent of source sequence."""
+        return self._handle.project_context_cut(project)
+
+    def project_context_select(
+        self, cut: ContextCut, scope: str, effective_at_us: int
+    ) -> ContextSelection | None:
+        """Select at an explicit UTC microsecond instant and original recorded cut."""
+        return self._handle.project_context_select(cut, scope, effective_at_us)
+
+    def project_context_record(self, key: str) -> ProjectContext | None:
+        """Read original immutable metadata, including tombstones and hidden projects."""
+        return self._handle.project_context_record(key)
+
+    def project_context_reopen(self, selection: ContextSelection) -> ModelingPackage:
+        """Reopen original persisted source and physical closures without supplied documents."""
+        return ModelingPackage(self._handle.project_context_reopen(selection))
+
+    def project_context_package(
+        self, selection: ContextSelection, physical: PhysicalContext
+    ) -> ModelingPackage:
+        """Load this exact selection through ordinary source admission; never select latest."""
+        return ModelingPackage(
+            self._handle.project_context_package(
+                selection, physical._handle  # noqa: SLF001 - same native boundary
+            )
+        )
+
+    def project_context_append(
+        self,
+        operation: str,
+        project: ProjectRecord,
+        scope: str,
+        source: ModelingPackage,
+        effective_from_us: int,
+        *,
+        effective_to_us: int | None = None,
+        corrects: str | None = None,
+        deleted: bool = False,
+    ) -> ProjectContext:
+        """Append an exact source reference with UTC half-open interval and correction ancestry.
+
+        Retain the original project descriptor and operation through uncertain completion.
+        Scientific values remain in the admitted source, not this context record.
+        """
+        return self._handle.project_context_append(
+            operation, project, scope,
+            source._handle,  # noqa: SLF001 - same native boundary
+            effective_from_us, effective_to_us=effective_to_us,
+            corrects=corrects, deleted=deleted,
+        )
+
     def project_create(
         self, operation: str, project: str, title: str
     ) -> ProjectAcknowledgementOutput:
@@ -564,6 +629,42 @@ class Runtime:
     def project_draft_bytes(self, key: str) -> bytes:
         """Read this exact raw body through its current protection owner."""
         return bytes(self._handle.project_draft_bytes(key))
+
+    def project_navigate(
+        self,
+        operation: str,
+        project: ProjectRecord | ProjectRecordOutput,
+        request: ProjectNavigationRequest,
+    ) -> ProjectAcknowledgementOutput:
+        """Apply an explicit name, bookmark, savepoint or visibility operation.
+
+        Keep the original project generation and request when settling a retry.
+        """
+        return self._handle.project_navigate(operation, project, request)
+
+    def project_metadata(
+        self, request: ProjectMetadataRequest | ProjectMetadataRequestOutput
+    ) -> ProjectMetadataPageOutput:
+        """Read bounded live headers; raw bodies and scientific payloads stay separate."""
+        return self._handle.project_metadata(request)
+
+    def project_draft_version(self, key: str) -> ProjectDraftVersionOutput | None:
+        """Select an exact immutable raw version after later head changes."""
+        return self._handle.project_draft_version(key)
+
+    def project_draft_delta(
+        self, source: ModelingPackage, delta: SourceDelta | SourceDeltaOutput
+    ) -> ProjectDraftDelta:
+        """Capture typed edits against their original exact source and physical context."""
+        return self._handle.project_draft_delta(source._handle, delta)  # noqa: SLF001
+
+    def project_admit_draft(
+        self, operation: str, key: str, physical: "PhysicalContext"
+    ) -> ModelingPackage:
+        """Admit locally and retain diagnostics; the branch head stays unchanged."""
+        return ModelingPackage(
+            self._handle.project_admit_draft(operation, key, physical._handle)  # noqa: SLF001
+        )
 
     def project_acknowledgement(
         self, operation: str

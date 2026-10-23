@@ -144,6 +144,7 @@ indexes! {
     protection_revision: canonical_protections [revision, expires_at] false,
     root_revision: canonical_roots [revision] false,
     root_owner: canonical_roots [owner_kind, owner, key] false,
+    product_revision_discovery: canonical_product_associations [problem, revision, key] false,
     product_discovery: canonical_product_associations [problem, producer, key] false,
     product_descriptor_association: canonical_product_associations [descriptor, key] false,
     product_content_association: canonical_product_associations [content, key] false,

@@ -722,6 +722,17 @@ impl NativeModelingPackage {
             owner: local.owner.clone(),
         })
     }
+    fn preparation_discovery(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::PreparationDiscoveryRequest>,
+    ) -> PyResult<documents::DocumentValue<native::PreparationDiscoveryReport>> {
+        let cancel = CancelSource::new();
+        let report = blocking(py, &self.owner,
+            self.inner.preparation_discovery(&request.0, &cancel), || cancel.cancel())?;
+        Ok(documents::DocumentValue(report))
+    }
+
     fn inspect(
         &self,
         py: Python<'_>,

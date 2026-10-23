@@ -59,6 +59,9 @@ from pse.contracts.documents import (
     PhysicalFitRequest,
     PointOverlay,
     PreparationCounts,
+    PreparationDiscoveryRequest,
+    PreparationDiscoveryRequestOutput,
+    PreparationDiscoveryReportOutput,
     ProjectComparisonOutput,
     ProjectSourceDetailOutput,
     PreparationSettings,
@@ -874,6 +877,16 @@ class ModelingPackage:
             relation: TableStream(stream)
             for relation, stream in self._handle.source_tables().items()
         }
+
+    def preparation_discovery(
+        self, request: PreparationDiscoveryRequest | PreparationDiscoveryRequestOutput
+    ) -> PreparationDiscoveryReportOutput:
+        """Observe retained preparations and publication headers without preparing them.
+
+        Availability is observational. Durable presence leaves receiving eligibility
+        unchecked, and an absent row supplies no cache-miss explanation.
+        """
+        return self._handle.preparation_discovery(request)
 
     def inspect(
         self, case_id: DeclarationId, settings: SolveSettings

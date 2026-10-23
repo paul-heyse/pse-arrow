@@ -381,6 +381,7 @@ mod tests {
         StudyVariants {
             version: Version,
             source: OperationSource {
+                context: None,
                 revision: hash.into(),
                 physical_context: hash,
             },

@@ -109,6 +109,18 @@ DEFINE FIELD bytes ON canonical_body_contents TYPE decimal ASSERT $value = NONE 
 DEFINE FIELD producer ON canonical_body_contents TYPE string;
 DEFINE FIELD interpretation ON canonical_body_contents TYPE string;
 DEFINE FIELD format ON canonical_body_contents TYPE string;
+DEFINE TABLE canonical_context_ancestry SCHEMAFULL;
+DEFINE FIELD key ON canonical_context_ancestry TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD descendant ON canonical_context_ancestry TYPE string READONLY;
+DEFINE FIELD ancestor ON canonical_context_ancestry TYPE string READONLY;
+DEFINE TABLE canonical_context_journals SCHEMAFULL;
+DEFINE FIELD key ON canonical_context_journals TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD sequence ON canonical_context_journals TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_draft_diagnostics SCHEMAFULL;
+DEFINE FIELD key ON canonical_draft_diagnostics TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD version ON canonical_draft_diagnostics TYPE string READONLY;
+DEFINE FIELD message ON canonical_draft_diagnostics TYPE string READONLY;
+DEFINE FIELD admitted ON canonical_draft_diagnostics TYPE bool READONLY;
 DEFINE TABLE canonical_edges SCHEMAFULL;
 DEFINE FIELD key ON canonical_edges TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD source_version ON canonical_edges TYPE string;
@@ -304,20 +316,53 @@ DEFINE FIELD payload ON canonical_products TYPE bytes;
 DEFINE FIELD dependencies ON canonical_products TYPE bytes;
 DEFINE FIELD producer ON canonical_products TYPE string;
 DEFINE FIELD interpretation ON canonical_products TYPE string;
+DEFINE TABLE canonical_project_ancestry SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_ancestry TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD revision ON canonical_project_ancestry TYPE string READONLY;
+DEFINE FIELD parent ON canonical_project_ancestry TYPE string READONLY;
+DEFINE TABLE canonical_project_bookmarks SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_bookmarks TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_project_bookmarks TYPE string;
+DEFINE FIELD revision ON canonical_project_bookmarks TYPE string;
+DEFINE FIELD name ON canonical_project_bookmarks TYPE string;
 DEFINE TABLE canonical_project_branches SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_branches TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD project ON canonical_project_branches TYPE string READONLY;
 DEFINE FIELD problem ON canonical_project_branches TYPE string READONLY;
+DEFINE FIELD name ON canonical_project_branches TYPE string;
 DEFINE FIELD origin_revision ON canonical_project_branches TYPE option<string> READONLY;
 DEFINE FIELD generation ON canonical_project_branches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_project_contexts SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_contexts TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD scope ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD revision ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD source_identity ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD physical_context ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD physical_revision ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD physical_source_identity ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD effective_from_us ON canonical_project_contexts TYPE int READONLY;
+DEFINE FIELD effective_to_us ON canonical_project_contexts TYPE option<int> READONLY;
+DEFINE FIELD recorded_sequence ON canonical_project_contexts TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD corrects ON canonical_project_contexts TYPE option<string> READONLY;
+DEFINE FIELD deleted ON canonical_project_contexts TYPE bool READONLY;
+DEFINE FIELD request ON canonical_project_contexts TYPE bytes READONLY;
+DEFINE TABLE canonical_project_draft_versions SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_draft_versions TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD draft ON canonical_project_draft_versions TYPE string READONLY;
+DEFINE FIELD project ON canonical_project_draft_versions TYPE string READONLY;
+DEFINE FIELD branch ON canonical_project_draft_versions TYPE string READONLY;
+DEFINE FIELD base_revision ON canonical_project_draft_versions TYPE string READONLY;
+DEFINE FIELD generation ON canonical_project_draft_versions TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD content ON canonical_project_draft_versions TYPE bytes READONLY;
+DEFINE FIELD artifact ON canonical_project_draft_versions TYPE option<string> READONLY;
 DEFINE TABLE canonical_project_drafts SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_drafts TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD project ON canonical_project_drafts TYPE string;
 DEFINE FIELD branch ON canonical_project_drafts TYPE string;
-DEFINE FIELD base_revision ON canonical_project_drafts TYPE string;
 DEFINE FIELD generation ON canonical_project_drafts TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD content ON canonical_project_drafts TYPE bytes;
-DEFINE FIELD artifact ON canonical_project_drafts TYPE option<string>;
+DEFINE FIELD version ON canonical_project_drafts TYPE string;
+DEFINE FIELD deleted ON canonical_project_drafts TYPE bool;
 DEFINE TABLE canonical_project_operations SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_operations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD kind ON canonical_project_operations TYPE string READONLY;
@@ -326,9 +371,17 @@ DEFINE FIELD branch ON canonical_project_operations TYPE option<string> READONLY
 DEFINE FIELD request ON canonical_project_operations TYPE bytes READONLY;
 DEFINE FIELD revision ON canonical_project_operations TYPE option<string> READONLY;
 DEFINE FIELD generation ON canonical_project_operations TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_project_savepoints SCHEMAFULL;
+DEFINE FIELD key ON canonical_project_savepoints TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_project_savepoints TYPE string;
+DEFINE FIELD draft ON canonical_project_savepoints TYPE string;
+DEFINE FIELD version ON canonical_project_savepoints TYPE string;
+DEFINE FIELD name ON canonical_project_savepoints TYPE string;
+DEFINE FIELD deleted ON canonical_project_savepoints TYPE bool;
 DEFINE TABLE canonical_projects SCHEMAFULL;
 DEFINE FIELD key ON canonical_projects TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD title ON canonical_projects TYPE string;
+DEFINE FIELD deleted ON canonical_projects TYPE bool;
 DEFINE FIELD generation ON canonical_projects TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE TABLE canonical_protections SCHEMAFULL;
 DEFINE FIELD key ON canonical_protections TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -613,6 +666,7 @@ DEFINE INDEX revision_sequence ON canonical_revisions FIELDS problem, sequence U
 DEFINE INDEX protection_revision ON canonical_protections FIELDS revision, expires_at;
 DEFINE INDEX root_revision ON canonical_roots FIELDS revision;
 DEFINE INDEX root_owner ON canonical_roots FIELDS owner_kind, owner, key;
+DEFINE INDEX product_revision_discovery ON canonical_product_associations FIELDS problem, revision, key;
 DEFINE INDEX product_discovery ON canonical_product_associations FIELDS problem, producer, key;
 DEFINE INDEX product_descriptor_association ON canonical_product_associations FIELDS descriptor, key;
 DEFINE INDEX product_content_association ON canonical_product_associations FIELDS content, key;
@@ -684,11 +738,21 @@ DEFINE INDEX artifact_staging_owner ON canonical_artifact_staging_inputs FIELDS 
 DEFINE INDEX study_inputs ON canonical_study_inputs FIELDS study, solution UNIQUE;
 DEFINE INDEX analysis_inputs ON canonical_analysis_inputs FIELDS analysis, key;
 DEFINE INDEX analysis_input_artifact ON canonical_analysis_inputs FIELDS artifact, analysis;
+DEFINE INDEX project_branch_name ON canonical_project_branches FIELDS project, name UNIQUE;
+DEFINE INDEX project_bookmark_name ON canonical_project_bookmarks FIELDS project, name UNIQUE;
+DEFINE INDEX project_bookmark_order ON canonical_project_bookmarks FIELDS project, key;
+DEFINE INDEX project_savepoint_name ON canonical_project_savepoints FIELDS draft, name UNIQUE;
+DEFINE INDEX project_savepoint_order ON canonical_project_savepoints FIELDS draft, key;
+DEFINE INDEX project_ancestry ON canonical_project_ancestry FIELDS revision, parent UNIQUE;
+DEFINE INDEX project_version_order ON canonical_project_draft_versions FIELDS draft, key;
+DEFINE INDEX draft_diagnostic_order ON canonical_draft_diagnostics FIELDS version, key;
 DEFINE INDEX project_research_run ON canonical_research_references FIELDS run, key;
 DEFINE INDEX project_branch_order ON canonical_project_branches FIELDS project, key;
 DEFINE INDEX project_branch_problem ON canonical_project_branches FIELDS problem UNIQUE;
 DEFINE INDEX project_draft_order ON canonical_project_drafts FIELDS branch, key;
 DEFINE INDEX project_research_order ON canonical_research_references FIELDS project, key;
+DEFINE INDEX project_context_scope ON canonical_project_contexts FIELDS project, scope, recorded_sequence;
+DEFINE INDEX project_context_ancestor ON canonical_context_ancestry FIELDS descendant, ancestor UNIQUE;
 DEFINE EVENT pse_attempt_terminal_publication_immutable ON canonical_attempts WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND ($before.seed_manifest!=$after.seed_manifest) THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; };
 
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
@@ -1362,7 +1426,7 @@ DEFINE FUNCTION fn::pse_project_v1::ack($expiry:int,$operation:string,$request:b
 DEFINE FUNCTION fn::pse_project_v1::project($expiry:int,$key:string,$generation:decimal) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$key);
-    IF $p=NONE OR $p.generation!=$generation { THROW 'PSE_REFUSAL:project_generation_changed'; };
+    IF $p=NONE OR $p.deleted OR $p.generation!=$generation { THROW 'PSE_REFUSAL:project_generation_changed'; };
     RETURN $p;
 };
 DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:string) -> bool {
@@ -1377,7 +1441,7 @@ DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:str
 DEFINE FUNCTION fn::pse_project_v1::create($expiry:int,$operation:string,$request:bytes,$project:string,$title:string) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE { RETURN $old; };
     IF $project='' OR string::len($project)>4096 OR string::len($title)>4096 { THROW 'PSE_REFUSAL:project_metadata_bound'; };
-    CREATE ONLY type::record('canonical_projects',$project) CONTENT {key:$project,title:$title,generation:0dec};
+    CREATE ONLY type::record('canonical_projects',$project) CONTENT {key:$project,title:$title,deleted:false,generation:0dec};
     LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'create',project:$project,request:$request,generation:0dec};
     RETURN $ack;
 };
@@ -1402,13 +1466,14 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
         LET $changes=SELECT logical,scope,name,version FROM canonical_staged_edits WHERE stage=$operation ORDER BY logical LIMIT 8193;
         IF array::len($source)!=array::len($changes) OR array::len($source)>8192 { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
         IF $source!=$changes { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
-        CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,origin_revision:$intent.origin_revision,generation:0dec};
+        CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,name:$intent.branch_name,origin_revision:$intent.origin_revision,generation:0dec};
     } ELSE {
         LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch) FOR UPDATE;
         IF array::len($owners)!=1 OR $branch=NONE OR $branch.problem!=$problem OR $branch.project!=$intent.project OR $branch.generation!=$intent.branch_generation { THROW 'PSE_REFUSAL:project_branch_changed'; };
         IF $intent.draft!=NONE {
             LET $draft=SELECT * FROM ONLY type::record('canonical_project_drafts',$intent.draft) FOR UPDATE;
-            IF $draft=NONE OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $draft.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
+            LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$draft.version);
+            IF $draft=NONE OR $draft.deleted OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
         };
     };
     RETURN true;
@@ -1416,6 +1481,11 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
 DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
+    FOR $parent IN $intent.extra_parents {
+        fn::pse_project_v1::root($expiry,$parent,'project-ancestry:'+$operation+':'+$parent);
+        LET $edge=<string>string::len($operation)+':'+$operation+$parent;
+        CREATE ONLY type::record('canonical_project_ancestry',$edge) CONTENT {key:$edge,revision:$operation,parent:$parent};
+    };
     UPDATE ONLY type::record('canonical_project_branches',$intent.branch) SET generation+=1dec;
     LET $project=IF $intent.kind='fork' { UPDATE ONLY type::record('canonical_projects',$intent.project) SET generation+=1dec } ELSE { SELECT * FROM ONLY type::record('canonical_projects',$intent.project) };
     CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:$intent.kind,project:$intent.project,branch:$intent.branch,request:$intent.request,revision:$operation,generation:$project.generation};
@@ -1428,17 +1498,18 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
     IF $branch=NONE OR $branch.project!=$row.project { THROW 'PSE_REFUSAL:project_branch_changed'; };
     LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$row.base_revision);
     IF $revision=NONE OR $revision.problem!=$branch.problem { THROW 'PSE_REFUSAL:project_source_unavailable'; };
-    LET $old=SELECT * FROM ONLY type::record('canonical_project_drafts',$row.key) FOR UPDATE;
-    IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft) FOR UPDATE;
+    IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.deleted OR $old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);
         IF $artifact=NONE OR $artifact.revision!=$row.base_revision OR $artifact.kind!='project-draft' { THROW 'PSE_REFUSAL:project_source_unavailable'; };
-        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.key { THROW 'PSE_REFUSAL:project_draft_changed'; };
+        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.draft { THROW 'PSE_REFUSAL:project_draft_changed'; };
         fn::pse_artifact_v1::attach($expiry,$row.artifact,$obligation,true);
     };
-    fn::pse_project_v1::root($expiry,$row.base_revision,'project-draft:'+$row.key);
-    UPSERT ONLY type::record('canonical_project_drafts',$row.key) CONTENT $row;
+    fn::pse_project_v1::root($expiry,$row.base_revision,'project-draft-version:'+$row.key);
+    CREATE ONLY type::record('canonical_project_draft_versions',$row.key) CONTENT $row;
+    UPSERT ONLY type::record('canonical_project_drafts',$row.draft) CONTENT {key:$row.draft,project:$row.project,branch:$row.branch,generation:$row.generation,version:$row.key,deleted:false};
     LET $project=SELECT * FROM ONLY type::record('canonical_projects',$row.project);
     LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'draft',project:$row.project,branch:$row.branch,request:$request,generation:$project.generation};
     fn::pse_execution_v1::deadline($expiry); RETURN $ack;
@@ -1467,6 +1538,96 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
     LET $project=SELECT * FROM ONLY type::record('canonical_projects',$row.project);
     LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'research',project:$row.project,request:$request,generation:$project.generation};
     fn::pse_execution_v1::deadline($expiry); RETURN $ack;
+};
+DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$request:bytes,$project:string,$generation:decimal,$action:object) -> object {
+    LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE {RETURN $old;};
+    LET $p=SELECT * FROM ONLY type::record('canonical_projects',$project) FOR UPDATE;
+    IF $p=NONE OR $p.generation!=$generation OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
+    IF $action.kind='project_title' {UPDATE ONLY type::record('canonical_projects',$project) SET title=$action.name;}
+    ELSE IF $action.kind='project_visibility' {UPDATE ONLY type::record('canonical_projects',$project) SET deleted=$action.deleted;}
+    ELSE IF $action.kind='branch_name' {
+        LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$action.key) FOR UPDATE;
+        IF $branch=NONE OR $branch.project!=$project {THROW 'PSE_REFUSAL:project_branch_changed';};
+        UPDATE ONLY type::record('canonical_project_branches',$action.key) SET name=$action.name,generation+=1dec;
+    } ELSE IF $action.kind='bookmark' {
+        fn::pse_project_v1::root($expiry,$action.revision,'project-bookmark:'+$action.key);
+        CREATE ONLY type::record('canonical_project_bookmarks',$action.key) CONTENT {key:$action.key,project:$project,name:$action.name,revision:$action.revision};
+    } ELSE IF $action.kind='savepoint' {
+        LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
+        LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$action.version);
+        IF $head=NONE OR $version=NONE OR $head.project!=$project OR $version.draft!=$head.key OR $head.generation!=$action.generation OR $head.version!=$version.key {THROW 'PSE_REFUSAL:project_draft_changed';};
+        CREATE ONLY type::record('canonical_project_savepoints',$action.key) CONTENT {key:$action.key,project:$project,draft:$head.key,version:$version.key,name:$action.name,deleted:false};
+    } ELSE IF $action.kind='draft_visibility' {
+        LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.key) FOR UPDATE;
+        IF $head=NONE OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
+        UPDATE ONLY type::record('canonical_project_drafts',$action.key) SET deleted=$action.deleted,generation+=1dec;
+    } ELSE IF $action.kind='savepoint_visibility' {
+        LET $point=SELECT * FROM ONLY type::record('canonical_project_savepoints',$action.key);
+        IF $point=NONE OR $point.project!=$project {THROW 'PSE_REFUSAL:project_draft_changed';};
+        UPDATE ONLY type::record('canonical_project_savepoints',$action.key) SET deleted=$action.deleted;
+    } ELSE IF $action.kind='restore' {
+        LET $point=SELECT * FROM ONLY type::record('canonical_project_savepoints',$action.key);
+        LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
+        IF $point=NONE OR $head=NONE OR $point.deleted OR $point.project!=$project OR $point.draft!=$head.key OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
+        UPDATE ONLY type::record('canonical_project_drafts',$head.key) SET version=$point.version,deleted=false,generation+=1dec;
+    } ELSE {THROW 'PSE_REFUSAL:project_metadata_bound';};
+    LET $new=UPDATE ONLY type::record('canonical_projects',$project) SET generation+=1dec;
+    LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'navigate',project:$project,request:$request,generation:$new.generation};
+    fn::pse_execution_v1::deadline($expiry);RETURN $ack;
+};
+DEFINE FUNCTION fn::pse_project_v1::diagnostic($expiry:int,$operation:string,$version:string,$message:string,$admitted:bool) -> object {
+    IF string::len($message)>65536 {THROW 'PSE_REFUSAL:project_metadata_bound';};
+    LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$version);
+    IF $v=NONE {THROW 'PSE_REFUSAL:project_draft_changed';};
+    LET $old=SELECT * FROM ONLY type::record('canonical_draft_diagnostics',$operation);
+    IF $old!=NONE {IF $old.version!=$version OR $old.message!=$message OR $old.admitted!=$admitted {THROW 'PSE_REFUSAL:project_operation_identity_changed';};RETURN $old;};
+    fn::pse_execution_v1::deadline($expiry);
+    RETURN CREATE ONLY type::record('canonical_draft_diagnostics',$operation) CONTENT {key:$operation,version:$version,message:$message,admitted:$admitted};
+};
+
+DEFINE FUNCTION fn::pse_context_v1::available($expiry:int,$revision:string) -> bool {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $r=SELECT * FROM ONLY type::record('canonical_revisions',$revision);
+    IF $r=NONE {THROW 'PSE_REFUSAL:project_context_unavailable';};
+    LET $lost=SELECT key FROM canonical_reclaimed_ranges WHERE problem=$r.problem AND from_sequence<=$r.sequence AND to_sequence>$r.sequence LIMIT 1;
+    IF array::len($lost)!=0 {THROW 'PSE_REFUSAL:project_context_unavailable';}; RETURN true;
+};
+DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:decimal) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $old=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.key);
+    IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
+    fn::pse_project_v1::project($expiry,$row.project,$generation);
+    LET $p=SELECT * FROM ONLY type::record('canonical_projects',$row.project);
+    IF $p.deleted {THROW 'PSE_REFUSAL:project_context_unavailable';};
+    IF $row.effective_to_us!=NONE AND $row.effective_to_us<=$row.effective_from_us {THROW 'PSE_REFUSAL:project_context_invalid';};
+    IF $row.corrects!=NONE {
+        LET $parent=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.corrects);
+        IF $parent=NONE OR $parent.project!=$row.project OR $parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
+        LET $ancestors=SELECT * FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant=$row.corrects LIMIT 257;
+        IF array::len($ancestors)>=256 {THROW 'PSE_REFUSAL:project_context_bound';};
+        FOR $a IN $ancestors { LET $edge=<string>string::len($row.key)+':'+$row.key+$a.ancestor; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$a.ancestor};};
+        LET $edge=<string>string::len($row.key)+':'+$row.key+$row.corrects; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$row.corrects};
+    } ELSE {IF $row.deleted {THROW 'PSE_REFUSAL:project_context_invalid';};};
+    fn::pse_project_v1::root($expiry,$row.revision,'project-context:'+$row.key);
+    fn::pse_project_v1::root($expiry,$row.physical_revision,'project-context-physical:'+$row.key);
+    LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$row.project) FOR UPDATE;
+    LET $sequence=($journal.sequence ?? 0dec)+1dec;
+    UPSERT ONLY type::record('canonical_context_journals',$row.project) CONTENT {key:$row.project,sequence:$sequence};
+    LET $new=CREATE ONLY type::record('canonical_project_contexts',$row.key) CONTENT object::extend($row,{recorded_sequence:$sequence});
+    fn::pse_execution_v1::deadline($expiry); RETURN $new;
+};
+DEFINE FUNCTION fn::pse_context_v1::select($expiry:int,$project:string,$scope:string,$effective:int,$cut:decimal) -> option<object> {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$project);
+    IF $cut>($journal.sequence ?? 0dec) {THROW 'PSE_REFUSAL:project_context_invalid';};
+    LET $candidates=SELECT * FROM canonical_project_contexts WITH INDEX project_context_scope WHERE project=$project AND scope=$scope AND recorded_sequence<=$cut AND effective_from_us<=$effective AND (effective_to_us=NONE OR effective_to_us>$effective) LIMIT 257;
+    IF array::len($candidates)>256 {THROW 'PSE_REFUSAL:project_context_bound';};
+    LET $superseded=SELECT VALUE ancestor FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant IN $candidates.key LIMIT 65537;
+    IF array::len($superseded)>65536 {THROW 'PSE_REFUSAL:project_context_bound';};
+    LET $selected=$candidates.filter(|$c| $c.key NOT IN $superseded);
+    IF array::len($selected)>1 {THROW 'PSE_REFUSAL:project_context_ambiguous';};
+    IF array::len($selected)=0 OR $selected[0].deleted {RETURN NONE;};
+    RETURN $selected[0];
 };
 
 DEFINE FUNCTION fn::pse_files_v1::admission($expiry:int,$incarnation:string,$collecting:bool) -> object {

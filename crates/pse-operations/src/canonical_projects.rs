@@ -11,14 +11,23 @@ use crate::{
     generated::surreal as wire,
 };
 pub use pse_model::generated::runtime::{
-    canonical_project_branches::Row as Branch, canonical_project_drafts::Row as Draft,
+    canonical_project_branches::Row as Branch, canonical_project_drafts::Row as DraftHead,
+    canonical_project_draft_versions::Row as DraftVersion,
+    canonical_project_bookmarks::Row as Bookmark,
+    canonical_project_savepoints::Row as Savepoint,
+    canonical_draft_diagnostics::Row as DraftDiagnostic,
     canonical_project_operations::Row as ProjectAcknowledgement,
     canonical_projects::Row as Project, canonical_research_references::Row as ResearchReference,
 };
 use surrealdb::types::{Object, Value};
 
+/// One atomic draft-head and immutable-version selection.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Draft { #[doc="Selected mutable editing head."] pub head: DraftHead, #[doc="Original immutable raw version."] pub version: DraftVersion }
+impl std::ops::Deref for Draft { type Target=DraftHead; fn deref(&self)->&DraftHead {&self.head} }
 #[cfg(all(test, feature = "canonical-tests"))]
-tokio::task_local! { static PROJECT_REPLY_LOSS: bool; }
+tokio::task_local! { pub(crate) static PROJECT_REPLY_LOSS: bool; }
 #[cfg(all(test, feature = "canonical-tests"))]
 pub(crate) fn simulate_reply_loss() -> bool {
     PROJECT_REPLY_LOSS.try_with(|value| *value).unwrap_or(false)
@@ -41,8 +50,29 @@ pub struct ProjectPublication {
     operation: String,
     kind: String,
     request: Vec<u8>,
+    branch_name: String,
+    extra_parents: Vec<String>,
+    context_commitment: Option<String>,
 }
 impl ProjectPublication {
+    /// Bind the complete caller decision before effect issuance.
+    pub fn with_context_commitment(mut self, commitment:&str)->Result<Self,CanonicalError>{
+        identity(commitment)?; self.context_commitment=Some(commitment.into());self.refresh_request()?;Ok(self)
+    }
+    /// Original caller decision digest, independent of the source content identity.
+    pub fn context_commitment(&self)->Option<&str>{self.context_commitment.as_deref()}
+    /// Retain exact additional merge ancestry through the canonical owner.
+    pub fn with_merge_ancestry(mut self, base:&str, proposal:&str)->Result<Self,CanonicalError>{
+        identity(base)?;identity(proposal)?;if self.kind!="publish"{return Err(CanonicalError::OperationReused);}
+        self.extra_parents=vec![base.into(),proposal.into()];self.extra_parents.sort();self.extra_parents.dedup(); self.refresh_request()?;Ok(self)
+    }
+    /// Fork presentation name; identity remains the caller-selected branch key.
+    pub fn with_branch_name(mut self,name:&str)->Result<Self,CanonicalError>{identity(name)?;if self.kind!="fork"{return Err(CanonicalError::OperationReused);}self.branch_name=name.into();self.refresh_request()?;Ok(self)}
+    fn refresh_request(&mut self)->Result<(),CanonicalError>{self.request=self.canonical_request()?;Ok(())}
+    fn canonical_request(&self)->Result<Vec<u8>,CanonicalError>{
+        request(&(2u8,&self.issuing_store,&self.project,self.project_generation,&self.branch,self.branch_generation,&self.problem,&self.expected,&self.origin_revision,&self.draft,self.draft_generation,&self.operation,&self.kind,&self.branch_name,&self.extra_parents,&self.context_commitment))
+    }
+
     /// Exact independently owned source problem.
     pub fn problem(&self) -> &str {
         &self.problem
@@ -71,60 +101,16 @@ impl ProjectPublication {
         ] {
             identity(key)?;
         }
-        let expected = match self.kind.as_str() {
-            "fork" => {
-                if self.expected.is_some()
-                    || self.draft.is_some()
-                    || self.draft_generation.is_some()
-                    || self.branch_generation != 0
-                {
-                    return Err(CanonicalError::OperationReused);
-                }
-                let origin = self
-                    .origin_revision
-                    .as_deref()
-                    .ok_or(CanonicalError::OperationReused)?;
-                identity(origin)?;
-                request(&(
-                    "fork",
-                    &self.issuing_store,
-                    &self.project,
-                    self.project_generation,
-                    &self.branch,
-                    &self.problem,
-                    origin,
-                    &self.operation,
-                ))?
-            }
-            "publish" => {
-                if self.origin_revision.is_some()
-                    || self.draft.is_some() != self.draft_generation.is_some()
-                {
-                    return Err(CanonicalError::OperationReused);
-                }
-                let parent = self
-                    .expected
-                    .as_deref()
-                    .ok_or(CanonicalError::OperationReused)?;
-                identity(parent)?;
-                if let Some(draft) = &self.draft {
-                    identity(draft)?;
-                }
-                request(&(
-                    "publish",
-                    &self.issuing_store,
-                    &self.project,
-                    self.project_generation,
-                    &self.branch,
-                    self.branch_generation,
-                    &self.problem,
-                    parent,
-                    self.draft.as_deref().zip(self.draft_generation),
-                    &self.operation,
-                ))?
-            }
-            _ => return Err(CanonicalError::OperationReused),
-        };
+        identity(&self.branch_name)?;
+        if self.extra_parents.len()>2 {return Err(CanonicalError::PayloadLimit);}
+        for parent in &self.extra_parents {identity(parent)?;}
+        if let Some(commitment)=&self.context_commitment {identity(commitment)?;}
+        match self.kind.as_str(){
+            "fork" if self.expected.is_none() && self.origin_revision.is_some() && self.draft.is_none() && self.draft_generation.is_none() && self.branch_generation==0 && self.extra_parents.is_empty()=>{},
+            "publish" if self.origin_revision.is_none() && self.expected.is_some() && self.draft.is_some()==self.draft_generation.is_some()=>{},
+            _=>return Err(CanonicalError::OperationReused),
+        }
+        let expected=self.canonical_request()?;
         if self.request != expected {
             return Err(CanonicalError::OperationReused);
         }
@@ -148,6 +134,8 @@ impl ProjectPublication {
             codec::encode_uint(self.branch_generation)?,
         );
         row.insert("kind", self.kind.clone());
+        row.insert("branch_name",self.branch_name.clone());
+        row.insert("extra_parents",Value::Array(self.extra_parents.iter().cloned().map(Value::String).collect()));
         row.insert(
             "request",
             surrealdb::types::Bytes::from(self.request.clone()),
@@ -406,7 +394,7 @@ impl CanonicalStore {
             &origin.key,
             operation,
         ))?;
-        Ok(ProjectPublication {
+        let mut intent=ProjectPublication {
             issuing_store: self.issuing_store()?.into(),
             project: project.key.clone(),
             project_generation: project.generation,
@@ -420,7 +408,8 @@ impl CanonicalStore {
             operation: operation.into(),
             kind: "fork".into(),
             request,
-        })
+            branch_name: branch.into(), extra_parents:Vec::new(), context_commitment:None,
+        }; intent.refresh_request()?;Ok(intent)
     }
     /// Capture one exact branch publication, optionally requiring a saved draft generation.
     pub fn project_publication_intent(
@@ -432,7 +421,7 @@ impl CanonicalStore {
         operation: &str,
     ) -> Result<ProjectPublication, CanonicalError> {
         if branch.project != project.key
-            || draft.is_some_and(|d| d.branch != branch.key || d.base_revision != expected)
+            || draft.is_some_and(|d| d.branch != branch.key || d.version.base_revision != expected)
         {
             return Err(CanonicalError::Configuration(
                 "project publication context differs".into(),
@@ -452,7 +441,7 @@ impl CanonicalStore {
             draft.map(|d| (&d.key, d.generation)),
             operation,
         ))?;
-        Ok(ProjectPublication {
+        let mut intent=ProjectPublication {
             issuing_store: self.issuing_store()?.into(),
             project: project.key.clone(),
             project_generation: project.generation,
@@ -466,7 +455,8 @@ impl CanonicalStore {
             operation: operation.into(),
             kind: "publish".into(),
             request,
-        })
+            branch_name: branch.name.clone(), extra_parents:Vec::new(), context_commitment:None,
+        }; intent.refresh_request()?;Ok(intent)
     }
     pub(crate) async fn verify_project_publication_ack(
         &self,
@@ -581,8 +571,9 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let row = Draft {
-            key: key.into(),
+        let row = DraftVersion {
+            key: operation.into(),
+            draft: key.into(),
             project: project.key.clone(),
             branch: branch.key.clone(),
             base_revision: base.into(),
@@ -597,7 +588,7 @@ impl CanonicalStore {
             "draft",
             self.issuing_store()?,
             operation,
-            &row.key,
+            &row.draft,
             &row.project,
             &row.branch,
             &row.base_revision,
@@ -606,31 +597,34 @@ impl CanonicalStore {
             crate::canonical_execution::result_payload_digest(content),
             artifact,
         ))?;
-        let encoded = wire::encode_canonical_project_drafts(&row)?;
+        let encoded = wire::encode_canonical_project_draft_versions(&row)?;
         let obligation = obligation(artifact, key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::draft",||Ok(self.project_query("BEGIN; RETURN fn::pse_project_v1::draft($pse_rpc_expires_at,$operation,$request,$row,$expected,$project_generation,$obligation); COMMIT;")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("row",encoded.clone())).bind(("expected",expected.map(codec::encode_uint).transpose()?.unwrap_or(Value::None))).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
     }
-    /// Read raw draft custody; source admission is deliberately a separate command.
-    pub async fn project_draft(&self, key: &str) -> Result<Option<Draft>, CanonicalError> {
-        identity(key)?;
-        let activity = self.admit_activity()?;
-        activity
-            .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                let mut response = bounded_query(
-                    self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_drafts',$key);",
-                    )?
-                    .bind(("key", key.to_owned())),
-                )
-                .await?;
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
-                    .map(wire::decode_canonical_project_drafts)
-                    .transpose()
-                    .map_err(Into::into)
-            }))
-            .await
+    /// Read the head and exact immutable version in one short snapshot.
+    pub async fn project_draft(&self,key:&str)->Result<Option<Draft>,CanonicalError>{
+        identity(key)?;let activity=self.admit_activity()?;
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut response=bounded_query(self.project_query("LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$key); RETURN IF $head=NONE {NONE} ELSE {{head:$head,version:(SELECT * FROM ONLY type::record('canonical_project_draft_versions',$head.version))}};")?.bind(("key",key.to_owned()))).await?;
+            let value=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
+            value.map(|mut row|Ok(Draft{head:wire::decode_canonical_project_drafts(object(codec::required(&mut row,"head")?)?)?,version:wire::decode_canonical_project_draft_versions(object(codec::required(&mut row,"version")?)?)?})).transpose()
+        })).await
+    }
+    /// Read one exact original draft version, independent of later head movement.
+    pub async fn project_draft_version(&self,key:&str)->Result<Option<DraftVersion>,CanonicalError>{
+        identity(key)?;let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut response=bounded_query(self.project_query("SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key);")?.bind(("key",key.to_owned()))).await?;
+            response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_project_draft_versions).transpose().map_err(Into::into)
+        })).await
+    }
+    /// Bounded exact ancestry: canonical parent, branch origin and additional accepted merge parents.
+    pub async fn project_revision_parents(&self,revision:&Revision)->Result<Vec<String>,CanonicalError>{
+        let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut response=bounded_query(self.project_query("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3; RETURN {parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra};")?.bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
+            let mut row=final_object(&mut response)?;let mut result=Vec::new();for field in ["parent","origin"]{if let Some(value)=row.remove(field){if value!=Value::None && value!=Value::Null {result.push(codec::decode_string(value)?);}}}
+            let extra=codec::required(&mut row,"extra")?;if let Value::Array(items)=extra {for item in items{if let Value::String(v)=item {result.push(v);}}}result.sort();result.dedup();Ok(result)
+        })).await
     }
     /// Retain exact original source/result lineage without copying scientific values.
     pub async fn retain_research_reference(
@@ -672,6 +666,106 @@ impl CanonicalStore {
     }
 }
 
+/// Presentation and draft visibility commands, bound to an exact project generation.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(tag="kind",rename_all="snake_case",deny_unknown_fields)]
+pub enum ProjectNavigation {
+    /// Rename a project label.
+    ProjectTitle {#[doc="Presentation name within its owner namespace."] name:String},
+    /// Soft deletion never releases scientific closure.
+    ProjectVisibility {#[doc="Visibility flag; closure custody is unchanged."] deleted:bool},
+    /// Rename a branch within its project namespace.
+    BranchName {#[doc="Stable record identity."] key:String,#[doc="Presentation name within its owner namespace."] name:String},
+    /// Retain an exact admitted revision under a name.
+    Bookmark {#[doc="Stable record identity."] key:String,#[doc="Presentation name within its owner namespace."] name:String,#[doc="Exact admitted source revision."] revision:String},
+    /// Pin the selected immutable raw version.
+    Savepoint {#[doc="Stable record identity."] key:String,#[doc="Presentation name within its owner namespace."] name:String,#[doc="Stable draft identity."] draft:String,#[doc="Exact immutable raw version."] version:String,#[doc="Expected mutable head generation."] generation:u64},
+    /// Change draft visibility under its expected head generation.
+    DraftVisibility {#[doc="Stable record identity."] key:String,#[doc="Expected mutable head generation."] generation:u64,#[doc="Visibility flag; closure custody is unchanged."] deleted:bool},
+    /// Change savepoint visibility.
+    SavepointVisibility {#[doc="Stable record identity."] key:String,#[doc="Visibility flag; closure custody is unchanged."] deleted:bool},
+    /// Restore an exact savepoint as a new head generation.
+    Restore {#[doc="Stable record identity."] key:String,#[doc="Stable draft identity."] draft:String,#[doc="Expected mutable head generation."] generation:u64},
+}
+/// Versioned public command transport; the action carries no scientific authority.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectNavigationRequest {
+    /// Command codec version.
+    pub version:pse_model::document::Version<1>,
+    /// Explicit presentation or visibility change.
+    pub action:ProjectNavigation,
+}
+/// Finite metadata page selector; cursor is scoped to the issuing store and owner.
+#[derive(Clone,Copy,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(rename_all="snake_case")]
+pub enum ProjectMetadataKind {#[doc="All project headers."] Projects,#[doc="Drafts of a branch."] Drafts,#[doc="Bookmarks of a project."] Bookmarks,#[doc="Savepoints of a draft."] Savepoints,#[doc="Diagnostics of a version."] Diagnostics}
+/// Continuation of a live metadata listing, not a historical snapshot.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectMetadataCursor {issuing_store:String,kind:ProjectMetadataKind,owner:String,after:String}
+/// Exact owner and optional continuation for a bounded live metadata listing.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectMetadataRequest {
+    /// Header collection to inspect.
+    pub kind:ProjectMetadataKind,
+    /// Project, branch, draft or version according to kind; empty for all projects.
+    pub owner:String,
+    /// Original continuation from the same store and collection.
+    pub cursor:Option<ProjectMetadataCursor>,
+}
+/// Bounded metadata only; selected raw bodies are fetched separately.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectMetadataPage {#[doc="Project metadata."] pub projects:Vec<Project>,#[doc="Draft head metadata without raw bodies."] pub drafts:Vec<DraftHead>,#[doc="Exact source bookmark metadata."] pub bookmarks:Vec<Bookmark>,#[doc="Exact saved draft-version references."] pub savepoints:Vec<Savepoint>,#[doc="Version-linked admission outcomes."] pub diagnostics:Vec<DraftDiagnostic>,#[doc="Continuation of this live metadata listing."] pub next:Option<ProjectMetadataCursor>}
+impl CanonicalStore {
+    /// Execute one original presentation/editing command; settle its exact receipt on retry.
+    pub async fn project_navigate(&self,operation:&str,project:&Project,action:&ProjectNavigation)->Result<ProjectAcknowledgement,CanonicalError>{
+        identity(operation)?;identity(&project.key)?;
+        // Use the same typed codec as generated native integers, never lossy JSON numbers.
+        let mut encoded=Object::new();
+        let (kind,name)=match action {
+            ProjectNavigation::ProjectTitle{name} => ("project_title",Some(name)),
+            ProjectNavigation::ProjectVisibility{deleted}=>{encoded.insert("deleted",*deleted);("project_visibility",None)},
+            ProjectNavigation::BranchName{key,name}=>{identity(key)?;encoded.insert("key",key.clone());("branch_name",Some(name))},
+            ProjectNavigation::Bookmark{key,name,revision}=>{identity(key)?;identity(revision)?;encoded.insert("key",key.clone());encoded.insert("revision",revision.clone());("bookmark",Some(name))},
+            ProjectNavigation::Savepoint{key,name,draft,version,generation}=>{for id in [key,draft,version]{identity(id)?;}encoded.insert("key",key.clone());encoded.insert("draft",draft.clone());encoded.insert("version",version.clone());encoded.insert("generation",codec::encode_uint(*generation)?);("savepoint",Some(name))},
+            ProjectNavigation::DraftVisibility{key,generation,deleted}=>{identity(key)?;encoded.insert("key",key.clone());encoded.insert("generation",codec::encode_uint(*generation)?);encoded.insert("deleted",*deleted);("draft_visibility",None)},
+            ProjectNavigation::SavepointVisibility{key,deleted}=>{identity(key)?;encoded.insert("key",key.clone());encoded.insert("deleted",*deleted);("savepoint_visibility",None)},
+            ProjectNavigation::Restore{key,draft,generation}=>{identity(key)?;identity(draft)?;encoded.insert("key",key.clone());encoded.insert("draft",draft.clone());encoded.insert("generation",codec::encode_uint(*generation)?);("restore",None)},
+        };encoded.insert("kind",kind);if let Some(name)=name{identity(name)?;encoded.insert("name",name.clone());}
+        let request=request(&("navigation-v1",self.issuing_store()?,operation,&project.key,project.generation,action))?;
+        let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            self.ensure_writes()?;let result=protected_query("canonical_projects::navigate",||Ok(self.project_query("RETURN fn::pse_project_v1::navigate($pse_rpc_expires_at,$operation,$request,$project,$generation,$action);")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("project",project.key.clone())).bind(("generation",codec::encode_uint(project.generation)?)).bind(("action",encoded.clone())))).await;
+            self.settle_project_effect(operation,&request,result).await
+        })).await
+    }
+    /// Inspect bounded indexed headers. Deleted entries remain explicit and restorable.
+    pub async fn project_metadata(&self,kind:ProjectMetadataKind,owner:&str,cursor:Option<&ProjectMetadataCursor>)->Result<ProjectMetadataPage,CanonicalError>{
+        if kind!=ProjectMetadataKind::Projects {identity(owner)?;}
+        if cursor.is_some_and(|c|c.issuing_store!=self.issuing_store().unwrap_or("")||c.kind!=kind||c.owner!=owner){return Err(CanonicalError::OperationReused);}
+        let (table,index,field)=match kind {ProjectMetadataKind::Projects=>("canonical_projects","",""),ProjectMetadataKind::Drafts=>("canonical_project_drafts","project_draft_order","branch"),ProjectMetadataKind::Bookmarks=>("canonical_project_bookmarks","project_bookmark_order","project"),ProjectMetadataKind::Savepoints=>("canonical_project_savepoints","project_savepoint_order","draft"),ProjectMetadataKind::Diagnostics=>("canonical_draft_diagnostics","draft_diagnostic_order","version")};
+        let clause=if field.is_empty(){"".into()}else{format!("{field}=$owner AND ")};let index=if index.is_empty(){String::new()}else{format!(" WITH INDEX {index}")};
+        let sql=format!("SELECT * FROM {table}{index} WHERE {clause}key>$after ORDER BY key LIMIT 65;");
+        let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut response=bounded_query(self.project_query(&sql)?.bind(("owner",owner.to_owned())).bind(("after",cursor.map_or("",|c|c.after.as_str()).to_owned()))).await?;
+            let mut rows=response.take::<Vec<Object>>(response.num_statements().saturating_sub(2))?;let more=rows.len()>64;rows.truncate(64);
+            let after=rows.last().and_then(|r|r.get("key")).cloned().map(codec::decode_string).transpose()?;
+            let mut result=ProjectMetadataPage{projects:Vec::new(),drafts:Vec::new(),bookmarks:Vec::new(),savepoints:Vec::new(),diagnostics:Vec::new(),next:if more{Some(ProjectMetadataCursor{issuing_store:self.issuing_store()?.into(),kind,owner:owner.into(),after:after.ok_or(CanonicalError::IncompleteResponse)?})}else{None}};
+            for row in rows{match kind{ProjectMetadataKind::Projects=>result.projects.push(wire::decode_canonical_projects(row)?),ProjectMetadataKind::Drafts=>result.drafts.push(wire::decode_canonical_project_drafts(row)?),ProjectMetadataKind::Bookmarks=>result.bookmarks.push(wire::decode_canonical_project_bookmarks(row)?),ProjectMetadataKind::Savepoints=>result.savepoints.push(wire::decode_canonical_project_savepoints(row)?),ProjectMetadataKind::Diagnostics=>result.diagnostics.push(wire::decode_canonical_draft_diagnostics(row)?),}}Ok(result)
+        })).await
+    }
+    /// Retain the outcome of explicit admission against the immutable raw version.
+    pub async fn project_record_diagnostic(&self,operation:&str,version:&str,message:&str,admitted:bool)->Result<DraftDiagnostic,CanonicalError>{
+        identity(operation)?;identity(version)?;if message.len()>65536{return Err(CanonicalError::PayloadLimit);}
+        let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            self.ensure_writes()?;let mut response=protected_query("canonical_projects::diagnostic",||Ok(self.project_query("RETURN fn::pse_project_v1::diagnostic($pse_rpc_expires_at,$operation,$version,$message,$admitted);")?.bind(("operation",operation.to_owned())).bind(("version",version.to_owned())).bind(("message",message.to_owned())).bind(("admitted",admitted)))).await?;
+            wire::decode_canonical_draft_diagnostics(final_object(&mut response)?).map_err(Into::into)
+        })).await
+    }
+}
+
 #[cfg(all(test, feature = "canonical-tests"))]
 mod tests {
     #![allow(
@@ -680,6 +774,47 @@ mod tests {
         reason = "isolated native project fixtures assert exact owned effects"
     )]
     use super::*;
+    #[tokio::test]
+    async fn project_navigation_versions_savepoints_and_visibility_are_exact() {
+        let store=fixture().await;
+        let source=store.edit("origin",None,"origin-rev",&[]).await.unwrap();
+        store.create_project("create-nav","project-nav","Before").await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let fork=store.project_fork_intent(&project,"branch-id","branch-owner",&source,"fork-nav").unwrap().with_branch_name("main").unwrap();
+        let head=store.edit_project(&fork,&[]).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let branch=store.project_branch("branch-id").await.unwrap().unwrap();
+        assert_eq!(branch.name,"main");
+        store.save_project_draft("save-one",&project,&branch,"draft-nav",&head.key,None,b"[[malformed",None).await.unwrap();
+        let first=store.project_draft("draft-nav").await.unwrap().unwrap();
+        assert_eq!(first.version.key,"save-one");
+        store.project_navigate("point-one",&project,&ProjectNavigation::Savepoint{key:"point-id".into(),name:"first".into(),draft:first.key.clone(),version:first.version.key.clone(),generation:first.generation}).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.save_project_draft("save-two",&project,&branch,"draft-nav",&head.key,Some(1),b"new malformed",None).await.unwrap();
+        assert!(store.save_project_draft("save-race",&project,&branch,"draft-nav",&head.key,Some(1),b"loser",None).await.is_err());
+        assert_eq!(store.project_draft_version("save-one").await.unwrap().unwrap(),first.version);
+        store.project_navigate("restore-one",&project,&ProjectNavigation::Restore{key:"point-id".into(),draft:"draft-nav".into(),generation:2}).await.unwrap();
+        let restored=store.project_draft("draft-nav").await.unwrap().unwrap();
+        assert_eq!(restored.generation,3);assert_eq!(restored.version.key,"save-one");
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("bookmark-one",&project,&ProjectNavigation::Bookmark{key:"bookmark-id".into(),name:"baseline".into(),revision:head.key.clone()}).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("rename-branch",&project,&ProjectNavigation::BranchName{key:"branch-id".into(),name:"renamed".into()}).await.unwrap();
+        let page=store.project_metadata(ProjectMetadataKind::Bookmarks,"project-nav",None).await.unwrap();
+        assert_eq!(page.bookmarks[0].revision,head.key);
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let delete=ProjectNavigation::ProjectVisibility{deleted:true};
+        store.project_navigate("delete-project",&project,&delete).await.unwrap();
+        assert!(store.project("project-nav").await.unwrap().unwrap().deleted);
+        assert!(store.save_project_draft("deleted-save",&project,&branch,"draft-nav",&head.key,Some(3),b"no",None).await.is_err());
+        // Lost-response settlement uses original coordinates even after later membership changes.
+        assert_eq!(store.project_navigate("delete-project",&project,&delete).await.unwrap().key,"delete-project");
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("restore-project",&project,&ProjectNavigation::ProjectVisibility{deleted:false}).await.unwrap();
+        assert!(!store.project("project-nav").await.unwrap().unwrap().deleted);
+        assert_eq!(store.project_metadata(ProjectMetadataKind::Drafts,"branch-id",None).await.unwrap().drafts[0].version,"save-one");
+        store.disconnect().await.unwrap();
+    }
     async fn fixture() -> CanonicalStore {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
@@ -794,7 +929,7 @@ mod tests {
             .await
             .unwrap();
         let draft = store.project_draft("draft").await.unwrap().unwrap();
-        assert!(draft.content.is_empty());
+        assert!(draft.version.content.is_empty());
         let publication = store
             .project_publication_intent(&project, &branch, &revision.key, Some(&draft), "publish")
             .unwrap();
