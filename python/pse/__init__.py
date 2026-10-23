@@ -262,6 +262,9 @@ __all__ = [
     "StrategyResult",
     "StudyCancel",
     "StudyHandle",
+    "FrozenStudyCohort",
+    "StudyKpiAnalysis",
+    "StudyObserver",
     "StudyInputs",
     "StudyInputsExplicit",
     "StudyInputsLazy",
@@ -302,3 +305,5 @@ __version__: str = _resolve_version()
 # Cheap boundary compatibility; exhaustive annotation lint is an explicit check.
 _check_native_compatibility(__version__, SCHEMA_SET_FINGERPRINT)
 extension_types.register_all()
+
+from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver

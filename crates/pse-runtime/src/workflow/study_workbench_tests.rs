@@ -9,7 +9,7 @@ use pse_model::{study::{PointPolicy,OccurrenceKey,StartPolicy,SeedNeed,PointOutc
 use pse_relations::generated::runtime::simulation_samples;
 use std::time::Duration;
 fn request(revision:&Revision,physical:&Revision,key:&str)->RunRequest {RunRequest{key:key.into(),revision:revision.clone(),sources:vec![physical.clone()],request:vec![1],source_selection:vec![2],attestation:vec![3]}}
-async fn create(runtime:&Runtime,study:&str,source:&Revision,physical:&flow::PhysicalSource,points:u32) {
+pub(in crate::workflow) async fn create(runtime:&Runtime,study:&str,source:&Revision,physical:&flow::PhysicalSource,points:u32) {
     let store=runtime.canonical_store().unwrap();
     let physical_row=store.revision(&physical.revision).await.unwrap().unwrap();
     let points=(0..points).map(|key|NewOccurrence{policy:PointPolicy{key:OccurrenceKey(key),dependencies:vec![],start:StartPolicy::Fresh,seed_need:SeedNeed::NotNeeded,attempt_limit:1},descriptor:vec![42],run:request(source,&physical_row,&format!("{study}-point-{key}"))}).collect::<Vec<_>>();
