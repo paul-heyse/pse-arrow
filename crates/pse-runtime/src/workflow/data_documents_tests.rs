@@ -661,7 +661,7 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
     let text=r#"package minimal_named {
         entity kind source provenance {} entity source acquisition {}
         enum role {measured facets(measured)}
-        entity kind reading {key number:Integer;attribute raw:Scalar;attribute sigma:Scalar;derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require sigma>0 : "positive standard uncertainty";}
+        entity kind reading {key number:Integer;attribute raw:Scalar storage {1};attribute sigma:Scalar storage {1};derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require sigma>0 : "positive standard uncertainty";}
         dataset measurements:reading provenance(acquisition,role.measured) from "data/bank.parquet";
         def FitExperiment {}
     }"#;
