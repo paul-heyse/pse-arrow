@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -24,6 +25,8 @@ from scripts import (
     active_diagnostics,
     evidence_projection,
     evidence_sources,
+    storage_health,
+    surreal_server,
     test_resources,
     test_run,
 )
@@ -246,6 +249,38 @@ class EvidenceNativeTests(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(json.loads(completed.stdout)["status"], "missing")
+
+    def test_storage_health_original_offline_source_keeps_real_links_and_unknown_science(self) -> None:
+        # Capture actual independent kernel/host fields with no service available.
+        with (
+            patch.object(surreal_server, "config_for", side_effect=surreal_server.SupervisorError("service unavailable")),
+            patch.object(surreal_server, "metric_snapshot", side_effect=surreal_server.SupervisorError("service unavailable")),
+        ):
+            record = storage_health.capture(self.root / "absent-service", time.monotonic() + 5)
+        original = self.root / "original-health.json"
+        import msgspec  # noqa: PLC0415 -- original host codec, no native extension
+
+        original.write_bytes(msgspec.json.encode(record))
+        snapshot = evidence_sources.storage_health_snapshot(original)
+        reference = next(f["detail_ref"] for f in snapshot["facts"] if f["kind"] == "diagnostic_tool")
+        directory = self.root / "linked-health-action"
+        directory.mkdir(mode=0o700)
+        active_diagnostics.publish(directory, {
+            "schema": active_diagnostics.SCHEMA,
+            "action": "control", "status": "tool_failure",
+            "target_outcome": "unknown", "storage_health": reference,
+        })
+        snapshots = [snapshot, evidence_sources.diagnostic_snapshot(directory)]
+        result = self.native(snapshots, "diagnostics")
+        tools = [row for row in result["rows"] if row["kind"] == "diagnostic_tool"]
+        self.assertEqual({row["status"] for row in tools}, {"partial", "tool_failure"})
+        self.assertTrue(all(row["status"] == "unknown" for row in result["rows"] if row["kind"] == "diagnostic_science"))
+        self.assertEqual(result["linked_actions"], [], "a storage-health link is not a test/invocation association")
+        links = result["declared_links"]
+        self.assertEqual(len([row for row in links if row["link_relation"] == "storage_health" and row["link_target"] == reference]), 2)
+        self.assertFalse(any(row["link_relation"] in {"service", "process", "invocation"} for row in links))
+        self.assertEqual(record.host["MemTotal_bytes"].status, "available")
+        self.assertFalse((self.root / "absent-service").exists())
 
     def test_real_native_measurement_contexts_actual_samples_and_unknown_membership(
         self,

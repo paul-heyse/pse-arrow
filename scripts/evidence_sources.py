@@ -330,7 +330,7 @@ def storage_health_snapshot(path: Path) -> EvidenceSnapshot:
 
     record = storage_health.read(path)
     original = msgspec.to_builtins(record)
-    reference = "storage-health:sha256:" + snapshot_digest(original)
+    reference = storage_health.reference(record)
     identity = record.service.identity
     context = context_fact(
         {
