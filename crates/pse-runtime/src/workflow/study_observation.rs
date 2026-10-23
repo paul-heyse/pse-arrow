@@ -95,6 +95,8 @@ pub struct StudyObservedSource {
     pub checkpoint:Option<ProgressCheckpointDocument>,
     /// Original terminal writer coverage when available.
     pub coverage:Option<super::ProgressCoverage>,
+    /// Original canonical refusal when retained terminal history is unavailable.
+    pub history_refusal:Option<String>,
 }
 /// One bounded read-only poll and its exact reconnect position.
 #[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
@@ -187,10 +189,17 @@ impl StudyObserver {
         let mut output=Vec::new(); let mut remaining=self.cursor.request.maximum_events;
         for (attempt,_) in attempts {
             let position=self.cursor.sources.iter_mut().find(|p|p.run==attempt.run&&p.attempt==attempt.key).ok_or_else(||contract("observed attempt position absent"))?;
-            let mut events=Vec::new(); let mut checkpoint=None; let mut coverage=None;
+            let mut events=Vec::new(); let mut checkpoint=None; let mut coverage=None; let mut history_refusal=None;
             let mut continuity=StudyObservationContinuity::CatchUp;
             if attempt.terminal && !position.history_complete && remaining>0 {
-                let mut history=self.runtime.progress(&position.run,&position.attempt,self.cancel.child_token()).await?;
+                let history=match self.runtime.progress(&position.run,&position.attempt,self.cancel.child_token()).await {
+                    Ok(history)=>Some(history),
+                    Err(error)=>match unavailable_history(&error) {
+                        Some(code)=>{history_refusal=Some(code);continuity=StudyObservationContinuity::HistoryUnavailable;None},
+                        None=>return Err(error),
+                    },
+                };
+                if let Some(mut history)=history {
                 coverage=Some(history.coverage().clone()); history.resume_batch(position.batch)?;
                 if let Some(page)=history.next_page().await? {
                     let length=page.len();
@@ -206,6 +215,7 @@ impl StudyObserver {
                     else {position.offset=finish;}
                 } else {position.history_complete=true;if matches!(history.coverage(),super::ProgressCoverage::Unknown{}) {continuity=StudyObservationContinuity::HistoryUnavailable;}}
                 history.close();
+                }
             } else if !attempt.terminal {
                 if let Some(progress)=self.live.get(&(position.run.clone(),position.attempt.clone())) {
                     let (page,dropped)=progress.snapshot();
@@ -221,9 +231,17 @@ impl StudyObserver {
                     if events.is_empty() && head>position.source_sequence {continuity=StudyObservationContinuity::GapCurrentResync;}
                 }else{continuity=StudyObservationContinuity::LiveNumericsUnavailable;}
             }
-            output.push(StudyObservedSource{position:position.clone(),continuity,events,checkpoint,coverage});
+            output.push(StudyObservedSource{position:position.clone(),continuity,events,checkpoint,coverage,history_refusal});
         }
         Ok(StudyObservationPage{status:status.document().clone(),sources:output,cursor:self.cursor.clone()})
+    }
+}
+fn unavailable_history(error:&WorkflowError)->Option<String> {
+    use pse_operations::canonical::CanonicalError;
+    use pse_schema::catalog::canonical_refusals::RefusalCode as C;
+    match error {
+        WorkflowError::Canonical(CanonicalError::Refused{code,..}) if matches!(code,C::ExecutionResultsExplicitlyRetired|C::ResultProtectionRetiredOrManifestUnavailable|C::TerminalResultSelectionUnavailable|C::HistoryExplicitlyRetiredDetailedResponseUnavailable)=>Some(code.wire().to_owned()),
+        _=>None,
     }
 }
 impl Drop for StudyObserver {fn drop(&mut self){self.close();}}

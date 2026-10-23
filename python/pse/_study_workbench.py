@@ -95,7 +95,8 @@ class StudyObserver:
             page = self.poll()
             yield page
             if page.status.headers[0].terminal and all(
-                source.position.history_complete for source in page.sources
+                source.position.history_complete or source.continuity == "history_unavailable"
+                for source in page.sources
             ):
                 return
             time.sleep(interval)

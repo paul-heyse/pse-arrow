@@ -121,6 +121,17 @@ fn member(mut row:Object)->Result<StudyCohortMember,CanonicalError> {
 }
 /// Bound original values separately from generated SQL. Every supplied predicate is native.
 pub fn workbench_sql(filter:&StudyWorkbenchFilter, frozen:bool)->String {
+    let mut prelude=String::new();
+    if filter.project.is_some() {
+        prelude.push_str("LET $problems=SELECT VALUE problem FROM canonical_project_branches WHERE project=$project LIMIT 65; IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; }; ");
+    }
+    if filter.outcome.is_some() {
+        let mut run_predicates=vec!["terminal_class=$outcome"];
+        if filter.source.is_some(){run_predicates.push("revision=$source");}
+        if filter.project.is_some(){run_predicates.push("problem IN $problems");}
+        if filter.branch.is_some(){run_predicates.push("problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$branch)).problem");}
+        prelude.push_str(&format!("LET $outcome_runs=SELECT VALUE key FROM canonical_runs WHERE {} LIMIT 65; IF array::len($outcome_runs)>64 {{ THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; }}; ",run_predicates.join(" AND ")));
+    }
     let mut predicates=vec!["key>$after".to_owned()];
     for (present,predicate) in [
         (filter.study.is_some(),"key=$study"),
@@ -128,12 +139,12 @@ pub fn workbench_sql(filter:&StudyWorkbenchFilter, frozen:bool)->String {
         (filter.physical_revision.is_some(),"physical_revision=$physical_revision"),
         (filter.context.is_some(),"context=$context"),
         (filter.branch.is_some(),"problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$branch)).problem"),
-        (filter.project.is_some(),"problem IN (SELECT VALUE problem FROM canonical_project_branches WHERE project=$project)"),
-        (filter.outcome.is_some(),"run IN (SELECT VALUE key FROM canonical_runs WHERE terminal_class=$outcome)"),
+        (filter.project.is_some(),"problem IN $problems"),
+        (filter.outcome.is_some(),"run IN $outcome_runs"),
         (filter.research_reference.is_some(),"(run=(SELECT run FROM ONLY type::record('canonical_research_references',$research_reference)).run OR revision=(SELECT revision FROM ONLY type::record('canonical_research_references',$research_reference)).revision)"),
     ] { if present {predicates.push(predicate.into());} }
     let sql=format!("LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; RETURN fn::pse_workbench_v1::capture($pse_rpc_expires_at,$rows,$maximum,{},$members);",predicates.join(" AND "),if frozen{"true"}else{"false"});
-    format!("BEGIN; {sql} COMMIT;")
+    format!("BEGIN; {prelude}{sql} COMMIT;")
 }
 impl CanonicalStore {
     /// Select one live browsing page or one complete frozen population in one short SSI read.
