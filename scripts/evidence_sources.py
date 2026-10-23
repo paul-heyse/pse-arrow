@@ -149,6 +149,8 @@ def diagnostic_snapshot(directory: Path) -> EvidenceSnapshot:
         name = artifact["member"]
         digest = artifact.get("sha256")
         facts.append({"member": "artifact:" + name, "kind": "diagnostic_artifact", "status": "declared" if isinstance(digest, str) else "unavailable", "detail_ref": "sha256:" + digest if isinstance(digest, str) else "unavailable"})
+    for fact in facts:
+        fact["context_id"] = ctx["context_id"]
     return source_snapshot("diagnostic-action:" + str(directory.absolute()), active_diagnostics.SCHEMA, str(directory.absolute()), record, facts, complete=record.get("status") not in {None, "incomplete"})
 
 
