@@ -2710,7 +2710,19 @@ mod canonical_studies_server_unit {
             authored.extend([(131,predecessor,"ordering",GraphEdgeRole::Ordering),(131,predecessor,"usable",GraphEdgeRole::UsableResult)]);
         }
         points.push(occurrence(&revision,131,dependencies));
-        store.create_study("graph-dense",&request(&revision,"graph-dense-parent"),&[],&points,&||false).await.unwrap();
+        let mut parent=request(&revision,"graph-dense-parent");
+        for ordinal in 0..64 {
+            parent.sources.push(store.edit(&format!("graph-dense-source-{ordinal:03}"),None,"source",&[]).await.unwrap());
+        }
+        store.create_study("graph-dense",&parent,&[],&points,&||false).await.unwrap();
+        let mut expected_sources=vec![(parent.key.clone(),GraphEdge{identity:format!("canonical_run_sources:{}",parent.key),source:format!("canonical_runs:{}",parent.key),target:format!("canonical_revisions:{}",revision.key),role:GraphEdgeRole::RecordedSource,evidence:None})];
+        for source in &parent.sources {
+            let mut hash=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+            hash.str("canonical.execution.run-source.v1").part(parent.key.as_bytes()).part(source.problem.as_bytes()).part(source.key.as_bytes());
+            let key=hash.finish_hash().to_hex();
+            expected_sources.push((key.clone(),GraphEdge{identity:format!("canonical_run_sources:{key}"),source:format!("canonical_runs:{}",parent.key),target:format!("canonical_revisions:{}",source.key),role:GraphEdgeRole::RecordedSource,evidence:None}));
+        }
+        qualify_graph_seek_pages(&store,&CanonicalGraphRequest{anchor:GraphAnchor::Run{run:parent.key.clone(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},expected_sources).await;
         for (ordinal,scope) in [(131,GraphScope::ImmediateBlockers),(131,GraphScope::RecordedSources),(0,GraphScope::RetainedConsumers),(64,GraphScope::RecordedSources),(64,GraphScope::RetainedConsumers)] {
             let selected=store.study_scope(&point_key("graph-dense",OccurrenceKey(ordinal))).await.unwrap();
             let expected=authored.iter().filter(|(dependent,predecessor,_,_)| if scope==GraphScope::RetainedConsumers {*predecessor==ordinal} else {*dependent==ordinal}).map(|(dependent,predecessor,kind,role)| {
