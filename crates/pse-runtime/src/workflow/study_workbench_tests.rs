@@ -13,7 +13,7 @@ async fn create(runtime:&Runtime,study:&str,source:&Revision,physical:&flow::Phy
     let store=runtime.canonical_store().unwrap();
     let physical_row=store.revision(&physical.revision).await.unwrap().unwrap();
     let points=(0..points).map(|key|NewOccurrence{policy:PointPolicy{key:OccurrenceKey(key),dependencies:vec![],start:StartPolicy::Fresh,seed_need:SeedNeed::NotNeeded,attempt_limit:1},descriptor:vec![42],run:request(source,&physical_row,&format!("{study}-point-{key}"))}).collect::<Vec<_>>();
-    let metadata=serde_json::to_vec(&serde_json::json!({"version":4,"physical":physical,"context":null,"variants":null,"diagnostics":null})).unwrap();
+    let metadata=serde_json::to_vec(&serde_json::json!({"version":5,"physical":physical,"context":null,"variants":null,"diagnostics":null})).unwrap();
     store.create_study(study,&request(source,&physical_row,&format!("{study}-parent")),&metadata,&points,&||false).await.unwrap();
 }
 async fn finish(runtime:&Runtime,study:&str,key:u32,quantity:pse_ids::SemanticId,unit:pse_ids::SemanticId,owner:pse_ids::SemanticId,value:Option<f64>) {

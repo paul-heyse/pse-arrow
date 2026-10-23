@@ -292,8 +292,9 @@ fn document(value: &impl serde::Serialize) -> Result<Vec<u8>, WorkflowError> {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StudyMetadata {
+    research: Option<super::ResearchSource>,
     context: Option<pse_operations::canonical_contexts::ContextSelection>,
-    version: Version<4>,
+    version: Version<5>,
     physical: super::PhysicalSource,
     variants: Option<super::LazyStudyDefinition>,
     pub(super) diagnostics: Option<super::study_diagnostics::ManagedDetailSelection>,
@@ -693,7 +694,8 @@ impl Runtime {
                         }),
                 );
                 let metadata = document(&StudyMetadata {
-                    version: Version::<4>,
+                    version: Version::<5>,
+                    research: definition.research.clone(),
                     context: definition.context.clone(),
                     physical: physical.clone(),
                     variants: definition.variants.clone(),

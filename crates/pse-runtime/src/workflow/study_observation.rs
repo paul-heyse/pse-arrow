@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn study_observer_retains_telemetry_without_acquiring_scientific_cancellation() {
         let progress=Arc::new(Progress::new(1));
-        let mut live=BTreeMap::new();live.insert(("run".into(),"attempt".into()),progress.clone());
+        let mut live=BTreeMap::<(String,String),Arc<pse_backend_native::solve::Progress>>::new();live.insert(("run".into(),"attempt".into()),progress.clone());
         drop(live);
         assert_eq!(event(&progress).source.unwrap().sequence,1);
         assert_eq!(event(&progress).source.unwrap().sequence,2);

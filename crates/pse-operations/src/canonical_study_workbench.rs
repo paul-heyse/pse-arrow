@@ -94,7 +94,7 @@ pub struct NativeStudySelection {
 /// Legacy opaque metadata has no invented physical/context attribution.
 pub(crate) fn index_metadata(bytes: &[u8]) -> Result<(Option<String>, Option<String>, Option<String>), CanonicalError> {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else { return Ok((None,None,None)); };
-    if value.get("version").and_then(serde_json::Value::as_u64)!=Some(4) {return Ok((None,None,None));}
+    if value.get("version").and_then(serde_json::Value::as_u64)!=Some(5) {return Ok((None,None,None));}
     let string = |v: Option<&serde_json::Value>| -> Result<Option<String>,CanonicalError> {
         v.filter(|v|!v.is_null()).map(|v| v.as_str().filter(|s| !s.is_empty() && s.len()<=4096).map(str::to_owned).ok_or_else(||CanonicalError::Configuration("invalid compact study attribution".into()))).transpose()
     };
@@ -174,6 +174,6 @@ mod tests {
     #[test]
     fn index_attribution_is_exact_optional_and_not_invented_for_opaque_metadata() {
         assert_eq!(index_metadata(&[9]).unwrap(),(None,None,None));
-        assert_eq!(index_metadata(br#"{"version":4,"physical":{"revision":"p","identity":"hash"},"context":{"context":{"key":"cut"}}}"#).unwrap(),(Some("p".into()),Some("hash".into()),Some("cut".into())));
+        assert_eq!(index_metadata(br#"{"version":5,"physical":{"revision":"p","identity":"hash"},"context":{"context":{"key":"cut"}}}"#).unwrap(),(Some("p".into()),Some("hash".into()),Some("cut".into())));
     }
 }
