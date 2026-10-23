@@ -7398,7 +7398,12 @@ def maintenance_domain_call(
         "validation_reads",
     }:
         raise SupervisorError("Unknown generated maintenance operation")
-    encoded = ",".join(json.dumps(value, allow_nan=False) for value in arguments)
+    # Generated option<object> arguments use Surreal NONE for absence; JSON NULL
+    # is a distinct value and cannot satisfy the original first-claim guard.
+    encoded = ",".join(
+        "NONE" if value is None else json.dumps(value, allow_nan=False)
+        for value in arguments
+    )
     call = (
         f"fn::pse_maintenance_v1::{function}({payload_expiry()}"
         + ("," + encoded if encoded else "")
