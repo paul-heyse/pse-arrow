@@ -46,8 +46,9 @@ need() {
 stage_venv() {
   need uv "https://docs.astral.sh/uv/"
   say "Syncing ${UV_PROJECT_ENVIRONMENT} from uv.lock (platform set + dev groups)"
-  # uv creates the venv on the interpreter from .python-version, installs the locked
-  # dependency set, and builds the extension via maturin (PEP 517, editable).
+  # The compiler wrapper runs in this checkout's venv even when Maturin uses an
+  # isolated build environment. Install its locked dependencies before invoking it.
+  uv sync --locked --no-install-project
   uv sync --locked
 }
 

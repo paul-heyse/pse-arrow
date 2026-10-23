@@ -383,6 +383,7 @@ impl EvidenceSnapshot {
                 | "process-cost-v5"
                 | "host-admission-ledger-v1"
                 | "case-smoke-v1"
+                | "storage-health-v1"
         ) {
             return Err(config("unsupported original evidence source codec"));
         }
