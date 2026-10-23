@@ -1753,6 +1753,10 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert_eq!(definition.modeling_revision,"publish-fit");
     assert_eq!(definition.points[0].operation.source.research.as_ref().unwrap().selection,selection.key);
     let study=Box::pin(runtime.start_recorded_study(definition,&cancel)).await.unwrap();
+    let study_metadata=study.status().await.unwrap();
+    let study_header=store.canonical_run(&study_metadata.run).await.unwrap().unwrap();
+    assert_eq!(study_header.research_selection.as_deref(),Some("selection-v1"));
+    assert_eq!(study_header.research_dataset.as_deref(),Some("calibrated-v1"));
     for _ in 0..4 {if study.result().await.unwrap().is_some(){break;} Box::pin(runtime.work_once()).await.unwrap();}
     let results=study.result().await.unwrap().expect("one downstream occurrence completed");
     assert_eq!(results.points.len(),1);

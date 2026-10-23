@@ -3698,10 +3698,24 @@ struct ResearchOperationSource {
     revision:pse_ids::roles::SourceRevisionHash,
     physical_context:pse_ids::ContentHash,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResearchPhysicalSource { revision:String,identity:pse_ids::ContentHash }
 fn projected_research_input(request:&RunRequest)->Result<(Option<String>,Option<String>),CanonicalError>{
     let Ok(value)=serde_json::from_slice::<serde_json::Value>(&request.source_selection) else{return Ok((None,None));};
     let Some(array)=value.as_array() else{return Ok((None,None));};
-    if array.first().and_then(serde_json::Value::as_u64)!=Some(3)||!array.get(2).is_some_and(serde_json::Value::is_string){return Ok((None,None));}
+    if array.first().and_then(serde_json::Value::as_u64)!=Some(3){return Ok((None,None));}
+    if array.get(2).is_some_and(serde_json::Value::is_object) {
+        let (_version,revision,physical,context,research):(u8,String,ResearchPhysicalSource,Option<crate::canonical_contexts::ContextSelection>,Option<ResearchInputSource>)=serde_json::from_value(value).map_err(|e|CanonicalError::Configuration(format!("original study source selection: {e}")))?;
+        let Some(research)=research else{return Ok((None,None));};
+        for key in [&research.issuing_store,&research.selection,&research.dataset,&research.revision,&research.physical_context,&physical.revision]{identity(key)?;}
+        if revision!=request.revision.key||research.revision!=revision||!request.sources.iter().any(|source|source.key==physical.revision){return Err(CanonicalError::Configuration("research study source or physical reference differs".into()));}
+        pse_ids::ContentHash::parse_hex(&research.physical_context).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
+        if let Some(publication)=&research.publication {if publication!=&research.revision{return Err(CanonicalError::Configuration("research study publication source differs".into()));}}
+        else if context.as_ref().is_none_or(|c|c.context.revision!=revision||c.context.physical_context!=research.physical_context||c.context.physical_revision!=physical.revision||c.context.physical_source_identity!=physical.identity.to_string()){return Err(CanonicalError::Configuration("research study historical physical context differs".into()));}
+        return Ok((Some(research.selection),Some(research.dataset)));
+    }
+    if !array.get(2).is_some_and(serde_json::Value::is_string){return Ok((None,None));}
     let (_version,_identity,physical,_provenance,sources):(u8,serde_json::Value,pse_ids::ContentHash,serde_json::Value,Vec<ResearchOperationSource>)=serde_json::from_value(value).map_err(|e|CanonicalError::Configuration(format!("original scientific source selection: {e}")))?;
     let selected=sources.iter().filter(|s|s.research.is_some()).collect::<Vec<_>>();
     if selected.is_empty(){return Ok((None,None));}
@@ -5754,4 +5768,14 @@ mod research_projection_tests {
         let mut wrong=request();let mut value:serde_json::Value=serde_json::from_slice(&wrong.source_selection).unwrap();value[4][0]["physical_context"]=serde_json::json!(pse_ids::ContentHash::from_bytes([3;32]));wrong.source_selection=serde_json::to_vec(&value).unwrap();assert!(projected_research_input(&wrong).is_err());
         let mut old=request();old.source_selection=vec![2];assert_eq!(projected_research_input(&old).unwrap(),(None,None));
     }
+    #[test]
+    fn research_study_parent_projection_uses_original_exact_physical_source_and_research(){
+        let mut request=request();
+        let physical=pse_ids::ContentHash::from_bytes([4;32]);
+        let mut physical_revision=request.revision.clone();physical_revision.key="physical".into();request.sources.push(physical_revision);
+        request.source_selection=serde_json::to_vec(&(3u8,"published",serde_json::json!({"revision":"physical","identity":physical}),serde_json::Value::Null,serde_json::json!({"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}))).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(),(Some("selected".into()),Some("data-v1".into())));
+        request.sources.clear();assert!(projected_research_input(&request).is_err());
+    }
+
 }
