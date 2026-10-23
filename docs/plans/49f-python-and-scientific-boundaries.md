@@ -1,6 +1,6 @@
 ---
 title: Python and scientific boundary remediation
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -12,14 +12,16 @@ doc_topics: [design, libraries, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused; original authoring baselines and receipts retain their dates.
+Delivered scope and evidence: [the Outcome](#outcome--2026-10-23). Combined qualification and
+publication remain with [the coordinator's final Outcome](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+The maintainer authorized the complete remaining scope on 2026-10-23, including reconciliation
+against current code. Original authoring baselines and receipts retain their dates and limits.
 
 This companion develops R17, R18 and R20/F10 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
 and [recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
 The [coordinator](49-library-native-remediation.md) owns rule decisions, live package status,
-finding disposition and combined qualification. This **Proposed** implementation is governed
+finding disposition and combined qualification. The selected implementation is governed
 by the recorded target decisions, including RC14 and RC18. It consumes the
 runtime request owner from [49e](49e-runtime-and-native-execution.md) and the schema catalogue
 and tooling contracts developed by [49g](49g-contracts-maintenance-and-tooling.md); it does not
@@ -54,9 +56,51 @@ physical units, current native capability and source/start permission stay with 
 owners. Never expose Z3 AST/context objects or treat a logical candidate as a qualified solution.
 This new feature cannot be smuggled into BND05 as an already accepted boundary correction.
 
+### Current execution remainder — 2026-10-23
+
+This checkpoint records the selected pre-execution remainder. The [Outcome](#outcome--2026-10-23)
+dispositions that work; the future-tense clauses below preserve its acceptance specification.
+
+**Interface-checked:** source `f29333aaa` and current callers. Strict enum extraction with
+separate vocabulary caches, standalone/versioned documents, semantic identity hooks and
+registry-governed physical schemas already exist. `workflow::physical_values` admits owned
+snapshots for starts, populated stages, diagnostic samples, tolerances and scales. Public
+bindings already consume Arrow batches and return typed primal batches. No repeated boundary
+implementation or speculative deletion of a positional API is scheduled from the older prose.
+
+**Implemented:** exact fit covariance hydration/reconciliation and explicit external origin are
+present. Scale-normalized faer PSD admission prepays matrix/eigenvalue/scratch storage, uses
+sequential library execution and retains its allowance until return. Existing controls cover
+indefinite/asymmetric, zero/singular/mixed-scale, tolerance, overflow/capacity/cancellation and
+negative propagated variance. Their actual execution evidence remains at the coordinator's
+Outcomes; source presence or test discovery alone is not a new pass.
+
+The remaining work is public consumer acceptance and any concrete defect it exposes:
+
+- BND01 joins existing vocabulary/identity controls to current generated documents and actual
+  source/context membership. TOOL01 separately supplies the missing boundary-schema mismatch
+  negative control; matching extension import alone does not establish refusal.
+- BND02 extends existing primal mutation/drop evidence to populated stages, diagnostic samples,
+  tolerances and parameter/output scales where assertions are absent. Include physical conversion,
+  operation-specific coverage, signed/sub-microsecond time and output Arrow C field metadata.
+- BND03/BND04 complete one real Python fit → retained/reopened covariance → downstream solve
+  journey. Use existing `parameter_covariance`, `bind_parameter_covariance`, `fit_covariance` and
+  `covariance_source` consumers. Check altered content/order/units/scales, missing/withheld evidence,
+  and independent propagated values without promoting external origin or PSD admission to
+  statistical certification.
+- BND05 completes the scientific consumer inventory and the catalogue/physical/covariance joins,
+  including affected Plan51 project/research/import consumers and typed graph explanations.
+  TOOL08's semantic producer exists; its native work bound remains owned by 49g.
+
+The coordinator owns package state. Targeted units accompany functional changes; 49h selects
+remaining assembled acceptance after integration. No new public API, wire interpretation,
+dependency or numerical tolerance is selected merely to close this package. Existing Plan51
+evidence is reused at its original scope, and completed inquiries stay closed.
+
 ## Inspected foundations and evidence limits
 
-Static inspection used HEAD `e08b1f1dd` on 2026-10-21 and the current audited review. No product
+The following historical baseline used HEAD `e08b1f1dd` on 2026-10-21 and the audited review.
+It describes original defects, not current missing mechanisms. No product
 tests, builds or probes were run while authoring. Relevant enduring contracts are blueprint §8,
 §19.8 and §21 in the [physical](../authoritative_design/sections/physical-semantics.md) and
 [workflow](../authoritative_design/sections/workflows-and-results.md) owners. The applied standard
@@ -250,11 +294,11 @@ behavioral units and required consumers, leaving local names and implementation 
 
 | Package | Required product | Delivered contract and retirement |
 |---|---|---|
-| BND01 — vocabularies and identities | Registry-owned enum/identity declarations shared with store; catalogue keyword support | Strict enum inputs/outputs, per-type cached lookup, retained SemanticId hooks and generated static role hints; delete hand vocabulary/hex parsing at migrated boundaries. |
-| BND02 — physical Arrow boundary | Registry relation contracts; runtime admitted-input interface from RUN03 | Owned keyed starts/settings/diagnostic inputs and typed primal output; migrate every affected side route and retire positional/float/list entry paths they replace. |
-| BND03 — covariance content and origin | Coordinator RC18 decision; fit result hydration/availability contract; catalogue version evolution | Qualified content lookup/reconciliation and explicit external origin, carried through settings, propagation, results and Python codecs; remove id-only provenance assumptions. |
-| BND04 — mathematical covariance validity | BND03 origin/validity types; explicit scale and numerical tolerance policy | faer PSD admission preserving singular matrices, resource/failure handling and unchanged identity-aligned propagation; remove diagonal-only acceptance as a sufficient covariance guarantee. |
-| BND05 — scientific boundary adoption | TOOL01's working catalogue/fingerprint/typed returns plus BND01–BND04 products and runtime preparation entry | All affected scientific document/table consumers expose truthful availability/provenance and physical custody through Rust and Python; remove remaining local scientific-input interpretations. |
+| BND01 — vocabularies and identities | Implemented registry declarations, strict extraction, identity hooks and catalogue | Complete cold-order/type/membership and actual generated-consumer acceptance; remove only demonstrated duplicate interpretations. |
+| BND02 — physical Arrow boundary | Implemented relation contracts, snapshot admission and public Arrow routes | Complete all affected side-route custody/conversion/metadata/time controls; repair concrete gaps without recreating snapshots or assuming legacy APIs survive. |
+| BND03 — covariance content and origin | Implemented exact fit hydration/reconciliation and explicit external origin | Complete real retained/canonical Python covariance handoff, tampering/unavailable refusal and downstream provenance/validity. |
+| BND04 — mathematical covariance validity | Implemented scale/tolerance policy and prepaid sequential faer PSD admission | Complete public propagation join with independent values, singular support, failure/withholding and separation from statistical certification. |
+| BND05 — scientific boundary adoption | Working TOOL01 catalogue, BND01–BND04/runtime consumers and existing TOOL08 semantic producer | Close actual Rust/Python scientific/document/table consumer acceptance, including affected Plan51 consumers; retire only proven replaced interpretations. |
 
 BND01 can establish strict enum conversion before the full catalogue arrives; identity-role
 generation needs its actual keyword contract. BND02 needs a working runtime custody/admission
@@ -276,10 +320,13 @@ inputs whose physical context and conversions are already owned.
 
 ## Verification and qualification limits
 
-The following checks are **Proposed** acceptance, with zero failures as the baseline. The
-historical msgspec hook probe is **Tested** only on its recorded pinned selective conditions;
-the faer method is **Interface-checked**, and the PSD tolerance/integration remains **Proposed**.
-No runtime or scientific qualification is claimed by writing these documents.
+The following checks specify acceptance distinctions, with zero failures as the baseline.
+Credit applicable existing evidence and run uncovered or changed behavior rather than treating
+the historical baseline as a fresh implementation list. The
+historical msgspec hook probe is **Tested** only on its recorded pinned selective conditions.
+The PSD integration and current public consumers have the focused **Tested** evidence in the
+Outcome; the numerical tolerance is a declared policy, not a universal error bound. Writing
+this document adds no runtime or scientific qualification.
 
 | Scope | Targeted independent controls |
 |---|---|
@@ -299,3 +346,84 @@ static/manual checks and any required measurements after all functional scope is
 The assembled controls must exercise a real fit-to-solve covariance journey and a Python keyed
 input through asynchronous/native ownership, not only codec or matrix helpers. Latency, copying
 and capacity benefits remain unmeasured until a named representative workload is compared.
+
+## Outcome — 2026-10-23
+
+### Delivered contracts
+
+**Implemented:** BND01–BND05 are complete at the selected implementation and consumer-acceptance
+boundary. Reconciliation used integrated source through `285b7a8b1` and the final target-revision
+fixture repair `42db023d7`. The already implemented enum, identity, immutable physical snapshot,
+fit-content and faer PSD owners were retained. New public acceptance exercises their composition;
+it does not introduce a second decoder, scientific policy or covariance API.
+
+The inspected side routes were `with_primal_start` and stored starts, populated block-initialization
+stages, diagnostic samples, state tolerances, parameter scales, output tolerances and native attempt
+primals. Runtime `physical_values`, PyO3 workflow/modeling/strategy bindings and their Python
+facades already use the keyed owned contracts. No remaining legacy scientific ingress was found
+within those owners; no speculative compatibility deletion or replacement was made. The added
+controls demonstrate reordered keys, sparse/empty stage and sample semantics, centimetre-to-metre
+conversion, membership/coverage/quantity refusal and retained primal field metadata through Arrow
+C transport. Producer buffers are mutated and released after admission, including while the
+stream is being drained, before the admitted consumer completes native execution.
+
+Physical time remains signed binary64 seconds. The public trajectory control retains a negative
+origin, a one-nanosecond initial step and sub-microsecond samples, with strict independent state
+and terminal-integral oracles. Output tolerances address the generated quadrature parameter by
+its typed role. Whole-domain integral reports remain terminal products rather than prefix samples.
+Wall budgets retain their distinct duration rounding and invalid-extent refusal.
+
+The actual weighted regression covariance crosses `parameter_covariance`, retained-result
+binding, canonical `Runtime.fit_covariance` reopening and downstream `covariance_source` admission.
+The downstream optimization preserves the actual parameter identities; the independent
+`J=[1,-1]` oracle checks propagation. Altered values, parameter order, quantities, units and scales
+cannot inherit fit authority. Missing/withheld inputs remain unavailable, singular external PSD
+input remains external and indefinite input refuses when its lazy Arrow product is consumed.
+TOOL01/TOOL08 supply the shared versioned catalogue and graph consumer without another boundary
+membership list.
+
+### Verification and limits
+
+**Tested, 2026-10-23; zero-failure target:** the installed linked Python extension with explicit
+`force-validate` passed 32 selected native-local physical/scientific, standalone-document,
+identity/vocabulary and conformance controls in 4.54 seconds (invocation
+`d2205e99ec254c4a9607c08deab011e0`; `/tmp/pse49fgh-python-boundary-acceptance.log`). This run
+used ephemeral runtimes and establishes no canonical-store journey by itself.
+
+**Tested:** after the final target-revision fixture repair, the three scientific integration
+tests in `test_scientific_boundary_adoption.py` passed in 1.08 seconds (invocation
+`c5de63e4c85047069f0e2107d3d915e5`). The exact canonical
+`test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_reference` then passed
+in 41.80 seconds against the supervised current service (invocation
+`cb78e1c03cba4d53a64259a864e2056f`; `/tmp/pse49fgh-python-covariance-final.log`). It exercises
+actual fit publication, close/reopen, hydration, downstream propagation and content refusals.
+
+**Tested, mixed aggregate with failures retained:** the explicitly validated selected Rust
+`pse-runtime`/`pse-operations` nextest run executed 73 tests: 70 passed and three graph controls
+failed (invocation `0aacb7791611466087bdb977a7cdc3e2`). Its boundary/PSD/custody/propagation
+controls passed; this is not a 73-test clean pass. The repaired graph selection belongs to
+[49g's Outcome](49g-contracts-maintenance-and-tooling.md#outcome--2026-10-23). Exact commands,
+composed acceptance, static results and reused Plan51 evidence are owned by
+[the coordinator](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+No latency, copy-count, general capacity or whole-platform qualification is claimed here.
+
+### Mistakes corrected and deliberate deviations
+
+Initial public fixtures incorrectly requested covariance propagation from a Root solve, then
+added an objective to the fit experiment, which correctly refused it. The final fixture leaves
+the fit objective-free and publishes one downstream optimization revision with unchanged
+parameter identities. Reusing the original parent for every negative case also correctly
+triggered canonical head CAS refusal; all preparations now reuse that one edited target, so
+content refusals reach their intended owner. CAS and provenance assertions were not weakened.
+
+Nested Arrow extensions could not be rebuilt from Python dictionaries; the fixture now uses
+the actual typed buffers. Integral inspection exposed authored/flux lets and the generated
+parameter with shared lineage; role-based selection replaces ambiguous name-only selection.
+Lazy PSD refusal is asserted by consuming the stream, and strict relative-zero assertions
+prevent ordinary approximate-equality defaults from hiding sub-microsecond errors.
+
+Deliberately, this increment completed revealing consumer acceptance rather than rewriting
+working foundations. It uses fresh-process vocabulary controls within the supported PyO3
+lifecycle, keeps PSD admission at the requested product boundary, and reuses original Plan51
+evidence at its original conditions. Final architecture publication and retirement remain with
+49h and the coordinator.
