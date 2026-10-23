@@ -215,8 +215,14 @@ def test_external_covariance_singular_psd_and_indefinite_public_assessments(
     assert row["covariance_label"] == "declared singular"
     assert row["covariance_assumptions"] == ["common error"]
     # Symmetric, finite and positive on the diagonal is insufficient: JΣJᵀ=-2.
+    indefinite = downstream(
+        package, case, ids,
+        msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)),
+    ).start().wait()
+    # Propagation is an explicitly requested lazy projection of the joined solve.
+    # Its mathematical refusal must be observed at the actual product boundary.
     with pytest.raises(pse.InspectionError, match="negative eigenvalue"):
-        downstream(package, case, ids, msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)))
+        indefinite.table("runtime.propagated_covariances")
 
 
 @pytest.mark.integration
