@@ -95,6 +95,15 @@ impl EvidenceAnalysis {
         let one = std::num::NonZeroUsize::new(1).ok_or_else(|| invalid("invalid query budget"))?;
         let factory = EngineFactory::new(runtime, pool, ExecutionSettings::default(), ThreadBudget { pool_threads: one, target_partitions: one }, native_engine_profile()).map_err(invalid)?;
         let context = SessionContext::new_with_state(factory.native_state().clone());
+        // The common engine deliberately disables automatic namespace creation.
+        // This supplied-only analysis owns exactly one empty catalog/schema.
+        use datafusion::catalog::{CatalogProvider, MemoryCatalogProvider, MemorySchemaProvider};
+        let defaults = &context.state().config_options().catalog;
+        let catalog_name = defaults.default_catalog.clone();
+        let schema_name = defaults.default_schema.clone();
+        let catalog = Arc::new(MemoryCatalogProvider::new());
+        catalog.register_schema(&schema_name, Arc::new(MemorySchemaProvider::new())).map_err(invalid)?;
+        context.register_catalog(&catalog_name, catalog);
         let registry = pse_schema::registry().map_err(invalid)?;
         let validation = pse_relations::validate::ValidationContext::new(registry, pse_engine::validation::NativeValidation(factory.native_state().clone()));
         let mut builder = pse_relations::columnar::RowBuilder::<pse_model::generated::runtime::evidence_facts::Row>::new(&validation).map_err(invalid)?;
@@ -271,6 +280,33 @@ mod tests {
         assert_eq!(result["rows"].as_array().unwrap().len(),2);
         assert_eq!(result["linked_actions"].as_array().unwrap().len(),1);
         assert_eq!(result["linked_actions"][0]["tool_outcome"],"tool_failure");
+    }
+    #[tokio::test]
+    async fn evidence_query_context_keeps_all_action_outcomes_and_only_selected_links() {
+        let mut sources = Vec::new();
+        for name in ["first", "other"] {
+            let mut action = source(name);
+            action.codec = "active-diagnostic-action-v1".into();
+            action.facts = ["diagnostic_tool", "diagnostic_target", "diagnostic_science", "diagnostic_artifact"].into_iter().map(|kind| EvidenceFact {
+                member: kind.into(), kind: kind.into(), status: "unknown".into(), context_id: Some(name.into()),
+                detail_ref: (kind == "diagnostic_tool").then(|| format!("sha256:{name}")), ..Default::default()
+            }).collect();
+            action.facts.push(EvidenceFact {member:"context".into(),kind:"context".into(),status:"declared".into(),context_id:Some(name.into()),context_json:Some(format!(r#"{{"capture":{{"action":"{name}"}}}}"#)),..Default::default()});
+            action.facts.push(EvidenceFact {member:"link".into(),kind:"declared_link".into(),status:"declared".into(),context_id:Some(name.into()),link_relation:Some("run".into()),link_target:Some(format!("run:{name}")),..Default::default()});
+            action.expected_members = action.facts.iter().map(|f|f.member.clone()).collect();
+            sources.push(action);
+        }
+        let mut invocation = source("invocation");
+        invocation.facts.push(EvidenceFact {member:"diagnostic".into(),kind:"declared_link".into(),status:"declared".into(),link_relation:Some("diagnostic_action".into()),link_target:Some("sha256:first".into()),..Default::default()});
+        invocation.expected_members.push("diagnostic".into());
+        sources.push(invocation);
+        let mut analysis = EvidenceAnalysis::new(sources, false).unwrap();
+        let result = analysis.ask(&EvidenceQuestion {operation:EvidenceOperation::Diagnostics,context_id:Some("first".into()),..Default::default()}, &[]).await.unwrap();
+        assert_eq!(result["rows"].as_array().unwrap().len(), 4);
+        assert_eq!(result["linked_actions"].as_array().unwrap().len(), 1);
+        assert_eq!(result["declared_links"].as_array().unwrap().len(), 2);
+        assert_eq!(result["contexts"][0]["context_id"], "first");
+        assert!(!result["declared_links"].as_array().unwrap().iter().any(|r| r["link_target"] == "run:other"));
     }
     #[tokio::test]
     async fn evidence_query_measurements_keep_censored_populations_and_source_context() {
