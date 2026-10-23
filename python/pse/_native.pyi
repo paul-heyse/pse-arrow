@@ -107,6 +107,16 @@ from pse.contracts.documents import (
     ProgressCheckpointDocumentOutput,
     ProgressCoverage,
     ProgressEventDocumentOutput,
+    ProjectAcknowledgementOutput,
+    ProjectBranchPageOutput,
+    ProjectBranchRecordOutput,
+    ProjectCursor,
+    ProjectDraftRecordOutput,
+    ProjectDraftSaveIntent,
+    ProjectDraftSaveIntentOutput,
+    ProjectPublication,
+    ProjectPublicationOutput,
+    ProjectRecord,
     ReplayDocument,
     ReproducerCommandRequestOutput,
     ReproducerExtractionRequest,
@@ -1070,6 +1080,64 @@ class NativeRuntime:
         settings: SolveSettings | SolveSettingsOutput,
     ) -> NativePreparedStrategy: ...
     def progress(self, /, run: str, attempt: str) -> NativeProgressStream: ...
+    def project_acknowledgement(
+        self, /, operation: str
+    ) -> ProjectAcknowledgementOutput | None: ...
+    def project_branch_record(
+        self, /, branch: str
+    ) -> ProjectBranchRecordOutput | None: ...
+    def project_branches(
+        self, /, project: str, *, cursor: ProjectCursor | None = None
+    ) -> ProjectBranchPageOutput: ...
+    def project_create(
+        self, /, operation: str, project: str, title: str
+    ) -> ProjectAcknowledgementOutput: ...
+    def project_draft_bytes(self, /, key: str) -> bytes: ...
+    def project_draft_record(self, /, key: str) -> ProjectDraftRecordOutput | None: ...
+    def project_draft_save(
+        self,
+        /,
+        intent: ProjectDraftSaveIntent | ProjectDraftSaveIntentOutput,
+        content: bytes,
+    ) -> ProjectAcknowledgementOutput: ...
+    def project_draft_save_intent(
+        self,
+        /,
+        operation: str,
+        project: str,
+        branch: str,
+        key: str,
+        base: str,
+        content: bytes,
+        *,
+        expected: int | None = None,
+    ) -> ProjectDraftSaveIntentOutput: ...
+    def project_fork(
+        self,
+        /,
+        project: str,
+        branch: str,
+        problem: str,
+        operation: str,
+        source: NativeModelingPackage,
+    ) -> str: ...
+    def project_publication_intent(
+        self,
+        /,
+        project: str,
+        branch: str,
+        expected: str,
+        operation: str,
+        *,
+        draft: str | None = None,
+    ) -> ProjectPublicationOutput: ...
+    def project_publish_draft(
+        self,
+        /,
+        intent: ProjectPublication | ProjectPublicationOutput,
+        physical: NativePhysicalContext,
+    ) -> NativeModelingPackage: ...
+    def project_record(self, /, project: str) -> ProjectRecord | None: ...
     def promote_scientific_artifact(
         self,
         /,

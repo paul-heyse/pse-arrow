@@ -951,6 +951,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `rising` | `` | false |
 | `falling` | `` | false |
 
+## `EvidenceCoverage`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `complete` | `` | false |
+| `partial` | `` | false |
+
+## `EvidenceGenerationState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `staged` | `` | false |
+| `active` | `` | false |
+
 ## `EvidenceUnavailableReason`
 
 | Member | IDAES name | Deprecated |

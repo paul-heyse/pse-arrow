@@ -141,8 +141,13 @@
 | `runtime.canonical_product_associations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_product_associations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_product_descriptors` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_product_descriptors" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_products` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_products" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_branches` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_branches" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_drafts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_drafts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_projects` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_projects" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_reclaimed_ranges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_reclaimed_ranges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_research_references` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_research_references" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_batches` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_batches" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_block_outputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_block_outputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_blocks` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_blocks" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -180,6 +185,9 @@
 | `runtime.diagnostic_query_results` | `unique:pk` | `SELECT s."member" FROM "runtime"."diagnostic_query_results" s GROUP BY s."member" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_samples` | `unique:pk` | `SELECT s."sample_id" FROM "runtime"."diagnostic_samples" s GROUP BY s."sample_id" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |
+| `runtime.evidence_facts` | `unique:pk` | `SELECT s."key" FROM "runtime"."evidence_facts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.evidence_generations` | `unique:pk` | `SELECT s."key" FROM "runtime"."evidence_generations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.evidence_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."evidence_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.execution_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."execution_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
 | `runtime.fit_constraints` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."row_id" FROM "runtime"."fit_constraints" s GROUP BY s."run_id", s."experiment_id", s."row_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_observations` | `unique:pk` | `SELECT s."run_id", s."observation_id" FROM "runtime"."fit_observations" s GROUP BY s."run_id", s."observation_id" HAVING COUNT(*) > 1` |

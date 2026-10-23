@@ -693,6 +693,64 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `producer` | `Utf8` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_project_branches`
+
+One independent canonical source problem per writable project branch. Origin is ancestry, never a second head.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `origin_revision` | `Utf8` | true | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_project_drafts`
+
+Original raw draft bytes, possibly malformed or empty. Larger bodies have an owned opaque artifact; content then contains no body. Saving grants no scientific admission.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `branch` | `Utf8` | false | `payload` | — | — |
+| `base_revision` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `content` | `Binary` | false | `payload` | — | — |
+| `artifact` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_project_operations`
+
+Immutable exact operation acknowledgement, including original input digest/coordinates; settlement never infers success from the current head.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `branch` | `Utf8` | true | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `revision` | `Utf8` | true | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_projects`
+
+Project organization only; source heads remain in canonical_problems.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `title` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+
 ## `canonical_protections`
 
 Protected immutable read/preparation selection; expiry fences further use.
@@ -723,6 +781,22 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `problem` | `Utf8` | false | `payload` | — | — |
 | `from_sequence` | `UInt64` | false | `payload` | — | — |
 | `to_sequence` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_research_references`
+
+Explicit source/result lineage reference. Source roots and selected artifact obligations preserve the exact original closure; no numerical value is copied as a new scientific authority.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `artifact` | `Utf8` | true | `payload` | — | — |
+| `run` | `Utf8` | true | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
 
 ## `canonical_result_batches`
 
@@ -1326,6 +1400,56 @@ Version: 1. Snapshot class: `derived`. Primary key: `finding_id`.
 | `message` | `Utf8` | false | `payload` | — | — |
 | `next_steps` | `List` | false | `payload` | — | — |
 | `next_steps.item` | `Utf8` | false | `payload` | — | — |
+
+## `evidence_facts`
+
+Compact owner-adapted fact. Original status and membership remain explicit; detail references are descriptive and grant neither file custody nor protection.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `member` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `status` | `Utf8` | false | `payload` | — | — |
+| `crate_name` | `Utf8` | true | `payload` | — | — |
+| `test_id` | `Utf8` | true | `payload` | — | — |
+| `detail_ref` | `Utf8` | true | `payload` | — | — |
+
+## `evidence_generations`
+
+An immutable authentic-source snapshot identity and reconciled compact projection. Staged imports remain distinct from complete activated generations; partial source coverage is explicit.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `authority` | `Utf8` | false | `payload` | — | — |
+| `codec` | `Utf8` | false | `payload` | — | — |
+| `source_id` | `Utf8` | false | `payload` | — | — |
+| `snapshot_digest` | `Utf8` | false | `payload` | — | — |
+| `content_digest` | `Utf8` | false | `payload` | — | — |
+| `coverage` | `enum:EvidenceCoverage` | false | `payload` | — | — |
+| `expected_members` | `UInt64` | false | `payload` | — | — |
+| `state` | `enum:EvidenceGenerationState` | false | `payload` | — | — |
+
+## `evidence_interpretations`
+
+Tooling-only compatibility and issuing identity. Active generation grants no raw artifact lifetime or scientific authority.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `schema_digest` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `service_instance_id` | `Utf8` | false | `payload` | — | — |
+| `active_generation` | `Utf8` | true | `payload` | — | — |
 
 ## `execution_statistics`
 

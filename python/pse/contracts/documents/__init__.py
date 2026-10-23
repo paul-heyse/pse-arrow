@@ -1013,6 +1013,42 @@ class ArtifactIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.active), v.scalar_key(self.block_count), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.payload_bytes), v.scalar_key(self.primary_authority), v.scalar_key(self.primary_problem), v.sequence_key(v.scalar_key)(self.provenance), v.scalar_key(self.retiring), v.scalar_key(self.revision),))
 
 
+class ArtifactIntentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: active
+    active: bool
+    #: block_count
+    block_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: creation_expires_at
+    creation_expires_at: Annotated[int, msgspec.Meta(ge=0)]
+    #: creation_nonce
+    creation_nonce: str
+    #: creation_request_digest
+    creation_request_digest: str
+    #: interpretation
+    interpretation: str
+    #: key
+    key: str
+    #: kind
+    kind: str
+    #: payload_bytes
+    payload_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: primary_authority
+    primary_authority: str
+    #: primary_problem
+    primary_problem: str
+    #: provenance
+    provenance: Bytes
+    #: retiring
+    retiring: bool
+    #: revision
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.block_count), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.payload_bytes), v.scalar_key(self.primary_authority), v.scalar_key(self.primary_problem), v.sequence_key(v.scalar_key)(self.provenance), v.scalar_key(self.retiring), v.scalar_key(self.revision),))
+
+
 class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Per-case bounds, distinct from a local derivative artifact's resource budget."""
 
@@ -15976,6 +16012,400 @@ class ProgressWriterOutcomeMemoryRefused(msgspec.Struct, frozen=True, forbid_unk
         return (type(self), ())
 
 
+class ProjectAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: branch
+    branch: str | None = None
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: kind
+    kind: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.branch), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.scalar_key)(self.revision),))
+
+
+class ProjectAcknowledgementOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: branch
+    branch: str | None
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: kind
+    kind: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.branch), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.scalar_key)(self.revision),))
+
+
+class ProjectBranchPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact metadata selection. It carries no protected payload lifetime."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Ordered branch headers, with heads obtainable only from their canonical source owner.
+    branches: tuple[ProjectBranchRecordBody, ...]
+    #: More branch membership remains; it is fenced against generation/authority changes.
+    next: ProjectCursorBody | None = None
+    #: Exact selected project metadata.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.branches), v.optional_key(v.record_key)(self.next), v.record_key(self.project),))
+
+
+class ProjectBranchPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact metadata selection. It carries no protected payload lifetime."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Ordered branch headers, with heads obtainable only from their canonical source owner.
+    branches: tuple[ProjectBranchRecordBodyOutput, ...]
+    #: More branch membership remains; it is fenced against generation/authority changes.
+    next: ProjectCursorBody | None
+    #: Exact selected project metadata.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.branches), v.optional_key(v.record_key)(self.next), v.record_key(self.project),))
+
+
+class ProjectBranchRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: origin_revision
+    origin_revision: str | None = None
+    #: problem
+    problem: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+
+
+class ProjectBranchRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: origin_revision
+    origin_revision: str | None = None
+    #: problem
+    problem: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+
+
+class ProjectBranchRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: origin_revision
+    origin_revision: str | None
+    #: problem
+    problem: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+
+
+class ProjectBranchRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: origin_revision
+    origin_revision: str | None
+    #: problem
+    problem: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+
+
+class ProjectCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded branch continuation tied to its issuing authority and project membership generation."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    after: str
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    issuing_store: str
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.project),))
+
+
+class ProjectCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded branch continuation tied to its issuing authority and project membership generation."""
+
+    after: str
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    issuing_store: str
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.project),))
+
+
+class ProjectDraftDocuments(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;
+    only scientific publication decodes it and invokes the ordinary package loader.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: This explicit original-byte container's version.
+    version: Literal[1] = 1
+    #: Complete packages in original package order, with original relative paths/bytes.
+    packages: tuple[dict[str, tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.mapping_key(v.scalar_key, v.sequence_key(v.scalar_key)))(self.packages),))
+
+
+class ProjectDraftRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None = None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectDraftRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectDraftSaveIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original, read-only issued large-draft custody intent. Preserve this value unchanged
+    until exact project and artifact receipts settle; it grants no scientific execution.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    artifact: ArtifactIntentBody | None = None
+    base: str
+    branch: ProjectBranchRecordBody
+    bytes: Annotated[int, msgspec.Meta(ge=0)]
+    digest: str
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    issuing_store: str
+    key: str
+    operation: str
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectDraftSaveIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original, read-only issued large-draft custody intent. Preserve this value unchanged
+    until exact project and artifact receipts settle; it grants no scientific execution.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    artifact: ArtifactIntentBody | None
+    base: str
+    branch: ProjectBranchRecordBodyOutput
+    bytes: Annotated[int, msgspec.Meta(ge=0)]
+    digest: str
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None
+    issuing_store: str
+    key: str
+    operation: str
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source-publication intent. Retain it unchanged through uncertain completion."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    branch: str
+    branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    draft: str | None = None
+    draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    expected: str | None = None
+    issuing_store: str
+    kind: str
+    operation: str
+    origin_revision: str | None = None
+    problem: str
+    project: str
+    project_generation: Annotated[int, msgspec.Meta(ge=0)]
+    request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+
+
+class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source-publication intent. Retain it unchanged through uncertain completion."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    branch: str
+    branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    draft: str | None
+    draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None
+    expected: str | None
+    issuing_store: str
+    kind: str
+    operation: str
+    origin_revision: str | None
+    problem: str
+    project: str
+    project_generation: Annotated[int, msgspec.Meta(ge=0)]
+    request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+
+
+class ProjectRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: title
+    title: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
+
+
+class ProjectRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: title
+    title: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
+
+
 class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
     step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
@@ -17954,6 +18384,58 @@ class ReproductionPredicateOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.code), v.mapping_key(v.scalar_key, v.record_key)(self.conditions), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class ResearchReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None = None
+    #: attempt
+    attempt: str | None = None
+    #: key
+    key: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: run
+    run: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.key), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.run),))
+
+
+class ResearchReferenceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None
+    #: attempt
+    attempt: str | None
+    #: key
+    key: str
+    #: project
+    project: str
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: run
+    run: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.key), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.run),))
 
 
 class ResidualLmCriteria(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23621,6 +24103,7 @@ __all__ = [
     "ArithmeticSourceDocumentOutput",
     "ArrivalDocument",
     "ArtifactIntent",
+    "ArtifactIntentBody",
     "AssemblyLimits",
     "AttemptDecision",
     "AttemptDecisionOutput",
@@ -24489,6 +24972,25 @@ __all__ = [
     "ProgressWriterOutcomeFailed",
     "ProgressWriterOutcomeJoinFailed",
     "ProgressWriterOutcomeMemoryRefused",
+    "ProjectAcknowledgement",
+    "ProjectAcknowledgementOutput",
+    "ProjectBranchPage",
+    "ProjectBranchPageOutput",
+    "ProjectBranchRecord",
+    "ProjectBranchRecordBody",
+    "ProjectBranchRecordBodyOutput",
+    "ProjectBranchRecordOutput",
+    "ProjectCursor",
+    "ProjectCursorBody",
+    "ProjectDraftDocuments",
+    "ProjectDraftRecord",
+    "ProjectDraftRecordOutput",
+    "ProjectDraftSaveIntent",
+    "ProjectDraftSaveIntentOutput",
+    "ProjectPublication",
+    "ProjectPublicationOutput",
+    "ProjectRecord",
+    "ProjectRecordBody",
     "Propagation",
     "PropagationOutput",
     "PseudoTime",
@@ -24623,6 +25125,8 @@ __all__ = [
     "ReproductionStatusBody",
     "RequiredFact",
     "RequirementStatus",
+    "ResearchReference",
+    "ResearchReferenceOutput",
     "ResidualLmCriteria",
     "ResidualLmStopping",
     "ResourceConsumer",
@@ -24926,4 +25430,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:7ad3f09237fcf13f3ac232a8f7dd7d0cbd6785b12f3c728cfa98d3549dd645d8"
+SCHEMA_SET_FINGERPRINT = "blake3:e74aa8844c4d9e2b19f8f3fa0a2403a4184bd1f4fee99cef86dbabb4bc42a62f"

@@ -39,6 +39,11 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
             "runtime.canonical_result_seeds".into(),
             "runtime.canonical_result_manifests".into(),
             "runtime.canonical_artifacts".into(),
+            "runtime.canonical_projects".into(),
+            "runtime.canonical_project_branches".into(),
+            "runtime.canonical_project_drafts".into(),
+            "runtime.canonical_project_operations".into(),
+            "runtime.canonical_research_references".into(),
         ])
         .collect()
 }

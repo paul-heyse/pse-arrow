@@ -733,6 +733,72 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ProgressEventDocu
     const VERSION: Option<u32> = Some(2);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectAcknowledgement {
+    const INPUT_NAME: &'static str = "ProjectAcknowledgement";
+    const OUTPUT_NAME: &'static str = "ProjectAcknowledgementOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_operations::canonical_projects::BranchPage {
+    const INPUT_NAME: &'static str = "ProjectBranchPage";
+    const OUTPUT_NAME: &'static str = "ProjectBranchPageOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_operations::canonical_projects::Branch {
+    const INPUT_NAME: &'static str = "ProjectBranchRecord";
+    const OUTPUT_NAME: &'static str = "ProjectBranchRecordOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectCursor {
+    const INPUT_NAME: &'static str = "ProjectCursor";
+    const OUTPUT_NAME: &'static str = "ProjectCursor";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectDraftDocuments {
+    const INPUT_NAME: &'static str = "ProjectDraftDocuments";
+    const OUTPUT_NAME: &'static str = "ProjectDraftDocuments";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_operations::canonical_projects::Draft {
+    const INPUT_NAME: &'static str = "ProjectDraftRecord";
+    const OUTPUT_NAME: &'static str = "ProjectDraftRecordOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectDraftSaveIntent {
+    const INPUT_NAME: &'static str = "ProjectDraftSaveIntent";
+    const OUTPUT_NAME: &'static str = "ProjectDraftSaveIntentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectPublication {
+    const INPUT_NAME: &'static str = "ProjectPublication";
+    const OUTPUT_NAME: &'static str = "ProjectPublicationOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_operations::canonical_projects::Project {
+    const INPUT_NAME: &'static str = "ProjectRecord";
+    const OUTPUT_NAME: &'static str = "ProjectRecord";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::PureConformanceControls {
     const INPUT_NAME: &'static str = "PureConformanceControls";
     const OUTPUT_NAME: &'static str = "PureConformanceControlsOutput";
@@ -816,6 +882,14 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ReproductionStatu
     const INPUT_NAME: &'static str = "ReproductionStatus";
     const OUTPUT_NAME: &'static str = "ReproductionStatus";
     const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ResearchReference {
+    const INPUT_NAME: &'static str = "ResearchReference";
+    const OUTPUT_NAME: &'static str = "ResearchReferenceOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }

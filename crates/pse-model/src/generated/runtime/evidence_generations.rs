@@ -22,11 +22,11 @@ pub struct RuntimeEvidenceGenerationsRow {
     ///content_digest
     pub r#content_digest: String,
     ///coverage
-    pub r#coverage: String,
+    pub r#coverage: crate::generated::enums::EvidenceCoverage,
     ///expected_members
     pub r#expected_members: u64,
     ///state
-    pub r#state: String,
+    pub r#state: crate::generated::enums::EvidenceGenerationState,
 }
 impl crate::SemanticEq for RuntimeEvidenceGenerationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

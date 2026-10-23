@@ -4,7 +4,7 @@
 /// Independent tooling interpretation.
 pub const INTERPRETATION: &str = "pse-tooling-evidence-v1";
 /// Tooling-only schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "abc9512bb802687d000ab162341a567e8e6b8560dcfc02fc37771238875df1f1";
+pub const SCHEMA_DIGEST: &str = "e1845fccdda672bd28e1b5d1d1d053e134e7550971e7b9ae4e63e7ae52d5e890";
 /// Tooling-only registry declarations.
 pub const SCHEMA: &str = include_str!("evidence.surql");
 ///Encode the registry row using native exact values.
@@ -115,14 +115,18 @@ pub fn encode_evidence_generations(
     object
         .insert(
             "coverage",
-            crate::canonical_codec::encode_string(row.r#coverage.clone())?,
+            crate::canonical_codec::encode_string(row.r#coverage.as_str().to_owned())?,
         );
     object
         .insert(
             "expected_members",
             crate::canonical_codec::encode_uint(row.r#expected_members)?,
         );
-    object.insert("state", crate::canonical_codec::encode_string(row.r#state.clone())?);
+    object
+        .insert(
+            "state",
+            crate::canonical_codec::encode_string(row.r#state.as_str().to_owned())?,
+        );
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -153,14 +157,18 @@ pub fn decode_evidence_generations(
             crate::canonical_codec::required(&mut object, "content_digest")?,
         )?,
         r#coverage: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "coverage")?,
-        )?,
+                crate::canonical_codec::required(&mut object, "coverage")?,
+            )?
+            .parse::<pse_model::generated::enums::EvidenceCoverage>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("coverage"))?,
         r#expected_members: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "expected_members")?,
         )?,
         r#state: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "state")?,
-        )?,
+                crate::canonical_codec::required(&mut object, "state")?,
+            )?
+            .parse::<pse_model::generated::enums::EvidenceGenerationState>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("state"))?,
     };
     if let Some(native_id) = native_id {
         crate::canonical_codec::check_record_identity(

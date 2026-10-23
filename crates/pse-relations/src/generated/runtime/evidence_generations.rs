@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    189u8, 1u8, 209u8, 54u8, 206u8, 194u8, 16u8, 8u8, 36u8, 150u8, 196u8, 247u8, 11u8,
-    87u8, 243u8, 56u8, 67u8, 7u8, 217u8, 23u8, 227u8, 114u8, 190u8, 226u8, 40u8, 74u8,
-    118u8, 45u8, 171u8, 234u8, 194u8, 8u8,
+    167u8, 143u8, 204u8, 180u8, 98u8, 82u8, 164u8, 81u8, 35u8, 53u8, 0u8, 103u8, 191u8,
+    202u8, 120u8, 237u8, 174u8, 193u8, 236u8, 55u8, 28u8, 48u8, 120u8, 144u8, 21u8,
+    177u8, 125u8, 122u8, 233u8, 134u8, 254u8, 159u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeEvidenceGenerationsRow {
     fn append(
@@ -77,9 +77,13 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceGenerationsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <crate::generated::enums::EvidenceCoverage as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
         <u64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::EvidenceGenerationState as crate::columnar::ArrowValue>::append_null(
+            children[8usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -114,7 +118,7 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceGenerationsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#coverage: <String as crate::columnar::ArrowValue>::read(
+            r#coverage: <crate::generated::enums::EvidenceCoverage as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
@@ -122,7 +126,7 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceGenerationsRow {
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#state: <String as crate::columnar::ArrowValue>::read(
+            r#state: <crate::generated::enums::EvidenceGenerationState as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
@@ -274,7 +278,7 @@ impl crate::columnar::RelationRow for RuntimeEvidenceGenerationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#coverage).len())?,
+            crate::columnar::allocation_add(8, (self.r#coverage).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -282,7 +286,7 @@ impl crate::columnar::RelationRow for RuntimeEvidenceGenerationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#state).len())?,
+            crate::columnar::allocation_add(8, (self.r#state).as_str().len())?,
         )?;
         Ok(bytes)
     }

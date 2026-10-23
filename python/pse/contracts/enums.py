@@ -951,6 +951,20 @@ class EventDirection(StrEnum):
     FALLING = "falling"
 
 
+class EvidenceCoverage(StrEnum):
+    """The declared EvidenceCoverage enumeration."""
+
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+
+
+class EvidenceGenerationState(StrEnum):
+    """The declared EvidenceGenerationState enumeration."""
+
+    STAGED = "staged"
+    ACTIVE = "active"
+
+
 class EvidenceUnavailableReason(StrEnum):
     """The declared EvidenceUnavailableReason enumeration."""
 

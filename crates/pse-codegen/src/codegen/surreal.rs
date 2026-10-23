@@ -126,6 +126,8 @@ pub(super) fn relations<'a>(
                 ""
             };
             let readonly = if name == "key"
+                || matches!(table, "canonical_project_operations" | "canonical_research_references")
+                || (table == "canonical_project_branches" && matches!(name, "project" | "problem" | "origin_revision"))
                 || (table == "canonical_attempts"
                     && pse_schema::catalog::substrate::IMMUTABLE_ATTEMPT_FIELDS.contains(&name))
                 || (table == "canonical_studies"
@@ -289,6 +291,7 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
 "#,
     );
     super::surreal_execution::append(&mut ddl);
+    super::surreal_projects::append(&mut ddl);
     super::surreal_files::append(&mut ddl);
     super::surreal_maintenance::append(&mut ddl);
     super::surreal_studies::append(&mut ddl);

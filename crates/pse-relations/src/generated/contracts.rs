@@ -2226,14 +2226,14 @@ static EXPECTED: &[pse_schema::resolved_contract::ExpectedContract] = &[
         version: 1u32,
         semantic_version: 2u32,
         semantics: pse_ids::ContentHash::from_bytes([
-            189u8, 1u8, 209u8, 54u8, 206u8, 194u8, 16u8, 8u8, 36u8, 150u8, 196u8, 247u8,
-            11u8, 87u8, 243u8, 56u8, 67u8, 7u8, 217u8, 23u8, 227u8, 114u8, 190u8, 226u8,
-            40u8, 74u8, 118u8, 45u8, 171u8, 234u8, 194u8, 8u8,
+            167u8, 143u8, 204u8, 180u8, 98u8, 82u8, 164u8, 81u8, 35u8, 53u8, 0u8, 103u8,
+            191u8, 202u8, 120u8, 237u8, 174u8, 193u8, 236u8, 55u8, 28u8, 48u8, 120u8,
+            144u8, 21u8, 177u8, 125u8, 122u8, 233u8, 134u8, 254u8, 159u8,
         ]),
         encoding: pse_ids::ContentHash::from_bytes([
-            67u8, 156u8, 85u8, 104u8, 31u8, 108u8, 214u8, 120u8, 89u8, 141u8, 13u8, 2u8,
-            222u8, 158u8, 249u8, 244u8, 120u8, 77u8, 244u8, 20u8, 134u8, 178u8, 201u8,
-            0u8, 223u8, 66u8, 208u8, 215u8, 54u8, 147u8, 157u8, 53u8,
+            119u8, 252u8, 45u8, 190u8, 194u8, 205u8, 218u8, 126u8, 174u8, 166u8, 95u8,
+            116u8, 132u8, 15u8, 250u8, 4u8, 190u8, 87u8, 66u8, 118u8, 57u8, 103u8, 234u8,
+            167u8, 97u8, 39u8, 99u8, 2u8, 162u8, 176u8, 214u8, 2u8,
         ]),
     },
     pse_schema::resolved_contract::ExpectedContract {

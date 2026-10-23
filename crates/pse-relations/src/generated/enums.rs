@@ -17,13 +17,13 @@ pub use pse_model::generated::r#enums::{
     DerivedQuantity, Determinism, DiagnosticCode, DiagnosticNonfiniteObservation,
     DiagnosticObservationKind, DiagnosticRule, DiagnosticSeverity, DiagnosticStage,
     DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
-    EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
-    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
-    FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
-    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
-    KinsolOrthogonalization, KinsolStrategy, LiveSimulationEventKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
+    EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection, EvidenceCoverage,
+    EvidenceGenerationState, EvidenceUnavailableReason, ExternalDerivativeSource,
+    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
+    HessianMode, HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy,
+    InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind,
+    IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy, LiveSimulationEventKind,
+    MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
     ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
     ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
     ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
@@ -1711,6 +1711,64 @@ impl crate::columnar::ArrowValue for EventDirection {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(EventDirection).to_owned(),
                 enumeration: stringify!(EventDirection).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for EvidenceCoverage {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(EvidenceCoverage).to_owned(),
+                enumeration: stringify!(EvidenceCoverage).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for EvidenceGenerationState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(EvidenceGenerationState).to_owned(),
+                enumeration: stringify!(EvidenceGenerationState).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
