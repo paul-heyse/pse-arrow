@@ -168,6 +168,7 @@ def test_fit_covariance_public_binding_preserves_content_and_refuses_tampering(
     assert covariance.origin.run_id == fitted.run_id
     assert covariance.origin.record is None
     decoded = covariance_input(covariance)
+    assert isinstance(decoded.origin, d.CovarianceOriginQualifiedFit)
     with pytest.raises(pse.InspectionError, match="decoded in-process covariance"):
         downstream(package, case, ids, decoded)
     prepared = downstream(package, case, ids, decoded, source=fitted)
@@ -245,6 +246,7 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
     runtime.close()
     reopened = canonical_substrate.runtime(inspection_settings)
     actual = reopened.fit_covariance(run, attempt)
+    assert isinstance(actual.origin, d.CovarianceOriginOutputQualifiedFit)
     assert actual == covariance
     assert actual.values == pytest.approx(analytic_covariance(), abs=1e-7)
     package, case, _fit_id, ids = regression(reopened)
