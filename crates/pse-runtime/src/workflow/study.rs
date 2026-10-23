@@ -1047,15 +1047,15 @@ impl Runtime {
                     .await?
                     .ok_or_else(|| contract("study header absent"))?;
                 let StudyMetadata {
-                    context: historical_context,
                     physical,
                     diagnostics,
                     ..
                 } = serde_json::from_slice(study.metadata.as_slice())
                     .map_err(|error| contract(format!("study interpretation: {error}")))?;
                 let actual_revision = selected_revision.as_deref().unwrap_or(&study.revision);
-                let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, _)| {
+                let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, retained)| {
                     revision == actual_revision && receipt == &physical
+                        && retained.project_context == definition.operation.source.context
                 });
                 if !same_source {
                     lane.preparation.close().await?;
@@ -1069,11 +1069,9 @@ impl Runtime {
                     let mut package = self
                         .modeling_revision(revision, context, BTreeMap::new())
                         .await?;
-                    // Variant sources carry their own exact OperationSource; parent attribution
-                    // attaches only when the scientific source remains that original source.
-                    if historical_context.as_ref().is_some_and(|c| c.context.source_identity == package.revision.identity().to_string()) {
-                        self.restore_project_context(&mut package, historical_context.as_ref()).await?;
-                    }
+                    // The admitted point owns exact attribution, including no-op variants and
+                    // a different cut over the same scientific source in a later study.
+                    self.restore_project_context(&mut package, definition.operation.source.context.as_ref()).await?;
                     lane.source = Some((actual_revision.into(), physical, package));
                 }
                 let package = lane
