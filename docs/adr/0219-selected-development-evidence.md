@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-06, DP-09]
 blueprint: [§24.1, §23.1]
 review: "not-required: New relation families and composed workflows within existing scientific, source, result and tooling decisions; maintainer authorized the detailed Plan51c/51d execution approach."
-evidence: "Tested: native evidence query/generation controls, 48 host adapter/lifecycle controls and three actual supplied-only executable controls on Linux with force-validated native queries; assembled qualification remains Plan51g."
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete selected evidence question requires source authority replacement or cannot be answered from authentic supplied facts and explicit cuts.
@@ -50,6 +50,8 @@ Declarations generate storage and public contracts. New consumers carry exact id
 Original immutable intents, issuing-authority checks, short guarded transactions, bounded selection and protected detail reads preserve existing failure and lifetime semantics.
 
 ### Confirmation
+
+Tested: native evidence query/generation controls, 48 host adapter/lifecycle controls and three actual supplied-only executable controls on Linux with force-validated native queries; assembled qualification remains Plan51g.
 
 Implemented and targeted-tested through authentic owner adapters, actual supplied-only native queries with unavailable service/product context, explicit persistent generations/cuts, declared diagnostic associations and selected released/copied detail. Measurement controls retain genuine samples, censoring, actual/unknown context and unsupported membership. The owning plan records exact commands, corrected failures and support limits. No assembled qualification or performance measurement is claimed.
 

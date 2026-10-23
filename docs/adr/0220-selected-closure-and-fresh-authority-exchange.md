@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-06, DP-09, PS-10]
 blueprint: [§19.3, §20.6, §24.1]
 review: "not-required: New declaration families and composed workflows within existing scientific, source-publication, artifact, recovery and tooling decisions; maintainer authorized the detailed Plan51e–51g execution approach."
-evidence: "Interface-checked: current review-pack publication, original source/project CAS and acknowledgement, protected result readers, application backup/recovery and selected native metrics at 66bfbc369; implementation and qualification remain at Plan51."
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A selected closure or import cannot preserve origin identity, protected membership, original scientific qualification or effect settlement through these owners.
@@ -50,6 +50,8 @@ New contracts generate through existing declaration owners. Bulk work remains ou
 Use exact origin namespaces, private imported publication bindings, original immutable acknowledgements, current borrower guards, finite selected copy allowances and independently verified destination membership. Unsupported/incomplete closure never becomes an executable or newly qualified result.
 
 ### Confirmation
+
+Interface-checked: current review-pack publication, original source/project CAS and acknowledgement, protected result readers, application backup/recovery and selected native metrics at 66bfbc369; implementation and qualification remain at Plan51.
 
 Targeted controls and assembled Rust/Python/CLI/offline journeys remain required by the owning plans. No test, security, speed or whole-series completion claim follows from this proposal.
 

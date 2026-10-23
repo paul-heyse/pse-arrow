@@ -356,7 +356,7 @@ def storage_health_snapshot(path: Path) -> EvidenceSnapshot:
         link_fact("link:storage_health", "storage_health", reference),
     ]
     if identity is not None:
-        facts.append(link_fact("link:service", "service", "selected-service:sha256:" + snapshot_digest(msgspec.to_builtins(identity))))
+        facts.append(link_fact("link:service", "service", "selected-service:sha256:" + evidence_projection.snapshot_digest(msgspec.to_builtins(identity))))
     for process in record.cgroup.processes:
         owner = process.identity
         target = f"process:{owner.boot}:{owner.pid}:{owner.start}"
