@@ -1679,6 +1679,10 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert!(Box::pin(runtime.research_dataset_create(&wrong,&cancel)).await.is_err());
     let mut calibrated=raw.clone();calibrated.key="calibrated-v1".into();calibrated.role="derived".into();calibrated.parent=Some(raw.key.clone());
     for (i,m) in calibrated.members.iter_mut().enumerate(){m.parent_member=Some(i as u64);m.attribute="calibrated".into();m.standard_deviation_attribute=Some("calibrated_sigma".into());m.calibration=vec![derived,sigma];}
+    let mut raw_sigma=calibrated.clone();raw_sigma.key="unsupported-uncertainty-copy".into();raw_sigma.members[0].standard_deviation_attribute=Some("sigma".into());
+    assert!(Box::pin(runtime.research_dataset_create(&raw_sigma,&cancel)).await.is_err(),"raw sigma cannot be silently carried through non-unit-slope calibration");
+    let mut wrong_calibration=calibrated.clone();wrong_calibration.key="wrong-calibration".into();wrong_calibration.members[0].calibration=vec![root];
+    assert!(Box::pin(runtime.research_dataset_create(&wrong_calibration,&cancel)).await.is_err(),"unrelated declarations cannot stand in for actual calibrated attributes");
     Box::pin(runtime.research_dataset_create(&calibrated,&cancel)).await.unwrap();
     let selection=ResearchSelectionRequest{key:"selection-v1".into(),project:project.clone(),context:context.clone(),dataset:calibrated.key.clone(),fit:seed.declaration().fit_id,observations:(0..4).map(|i|ResearchObservation{observation:id(40+i).into(),member:i as u64,reason:"included: y=2x+3; explicitly authored sigma'=2sigma".into()}).collect()};
     let mut partial=selection.clone();partial.key="partial".into();partial.observations.pop();

@@ -152,7 +152,16 @@ impl Runtime {
             } else if member.parent_member.is_some()||!member.calibration.is_empty(){return Err(contract("raw data cannot claim calibration ancestry"));}
             let mut roots=vec![member.root,member.record];roots.extend(&member.calibration);
             let revision=package.selected_revision_roots(&roots,cancel).await?;
-            let measured=revision.checked().measurement(member.root,member.record,&member.attribute,member.standard_deviation_attribute.as_deref()).map_err(|e|contract(e.to_string()))?;
+            let checked=revision.checked();
+            if request.role=="derived" {
+                let mut attributes=vec![member.attribute.as_str()];
+                if let Some(sigma)=&member.standard_deviation_attribute {attributes.push(sigma);}
+                for attribute in attributes {
+                    let declaration=checked.measurement_attribute_declaration(member.record,attribute).map_err(|e|contract(e.to_string()))?;
+                    if !member.calibration.contains(&declaration)||checked.declaration(declaration).and_then(|d|d.value.attribute.as_ref()).is_none_or(|a|a.derived.is_none()) {return Err(contract("calibrated values and selected standard uncertainty require their actual authored derived declarations"));}
+                }
+            }
+            let measured=checked.measurement(member.root,member.record,&member.attribute,member.standard_deviation_attribute.as_deref()).map_err(|e|contract(e.to_string()))?;
             if measured.quantity.as_id()!=member.quantity{return Err(contract("research member quantity/basis differs"));}
             if measured.value.is_some_and(|v|!v.is_finite())||measured.standard_deviation.is_some_and(|v|!v.is_finite()||v<=0.){return Err(contract("research measurement or standard uncertainty invalid"));}
         }
