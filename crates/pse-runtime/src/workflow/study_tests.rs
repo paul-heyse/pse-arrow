@@ -5705,6 +5705,15 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
         .await
         .unwrap()
         .unwrap();
+    assert_eq!(
+        before.physical_revision.as_deref(),
+        Some(original.context.physical_revision.as_str())
+    );
+    assert_eq!(
+        before.physical_identity.as_deref(),
+        Some(original.context.physical_source_identity.as_str()),
+        "canonical study attribution uses the original physical checksum, not its JSON prefix"
+    );
     // One worker lane must refresh historical attribution even when science and
     // physical source are byte-for-byte identical in two independent studies.
     runtime
