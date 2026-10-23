@@ -132,6 +132,8 @@ macro_rules! for_each_boundary_document {
             (ProjectDraftDelta, pse_runtime::workflow::ProjectDraftDelta, "project-draft-delta", Both, Native),
             (PreparationDiscoveryRequest, pse_runtime::workflow::PreparationDiscoveryRequest, "preparation-discovery-request", Both, FlatV1),
             (PreparationDiscoveryReport, pse_runtime::workflow::PreparationDiscoveryReport, "preparation-discovery-report", Both, FlatV1),
+            (ProjectSelectRequest, pse_runtime::workflow::ProjectSelectRequest, "project-select-request", Both, Native),
+            (ProjectSelection, pse_runtime::workflow::ProjectSelection, "project-selection", Both, FlatV1),
             (ProjectPublication, pse_operations::canonical_projects::ProjectPublication, "project-publication", Both, FlatV1),
             (ProjectCursor, pse_operations::canonical_projects::ProjectCursor, "project-cursor", Both, FlatV1),
             (ProjectRecord, pse_operations::canonical_projects::Project, "project-record", Both, FlatV1),

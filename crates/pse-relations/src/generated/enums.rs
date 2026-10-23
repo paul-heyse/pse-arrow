@@ -55,18 +55,20 @@ pub use pse_model::generated::r#enums::{
     ObservationTimeBasis, Opcode, OperationEffect, OperationOutcome, PackageKind,
     PardisoMatching, PardisoOrdering, PhysicalInputKind, PounceFdColoring,
     PounceFdPattern, PounceMethod, PouncePartitionedElements, PouncePartitionedUpdate,
-    Preconditioner, PresolvePass, PresolvePolicyKind, QuantityAdditionKind,
-    QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
-    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, Relationship,
-    ReusePolicy, RowActivity, ScaleKind, ScientificArtifactFamily,
-    ScientificArtifactKind, SensitivityCorrector, Severity, ShootingMethod,
-    SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
-    StatementKind, StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
-    StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState, StudyResultRole,
-    StudyRetryFailure, StudySeedNeed, StudySeedRole, StudySeedUnavailable,
-    StudyStartKind, StudyState, StudyUnavailableSeedPolicy, SubjectRule, TearMethod,
-    TearPolicy, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization, WithheldReason,
+    Preconditioner, PreparationEligibility, PreparationProductKind, PresolvePass,
+    PresolvePolicyKind, ProjectChangeImpact, ProjectMergeChoice,
+    ProjectMergeConflictKind, ProjectMergeMode, ProjectMetadataKind,
+    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
+    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
+    ReferenceStateKind, Relationship, ReusePolicy, RowActivity, ScaleKind,
+    ScientificArtifactFamily, ScientificArtifactKind, SensitivityCorrector, Severity,
+    ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
+    StateSign, StatementKind, StructuralScopeKind, StudyAvailability,
+    StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
+    StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
+    StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
+    SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind, TrajectoryTermination,
+    TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -5602,6 +5604,64 @@ impl crate::columnar::ArrowValue for Preconditioner {
             })
     }
 }
+impl crate::columnar::ArrowValue for PreparationEligibility {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PreparationEligibility).to_owned(),
+                enumeration: stringify!(PreparationEligibility).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for PreparationProductKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PreparationProductKind).to_owned(),
+                enumeration: stringify!(PreparationProductKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for PresolvePass {
     fn append(
         &self,
@@ -5652,6 +5712,151 @@ impl crate::columnar::ArrowValue for PresolvePolicyKind {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(PresolvePolicyKind).to_owned(),
                 enumeration: stringify!(PresolvePolicyKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProjectChangeImpact {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProjectChangeImpact).to_owned(),
+                enumeration: stringify!(ProjectChangeImpact).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProjectMergeChoice {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProjectMergeChoice).to_owned(),
+                enumeration: stringify!(ProjectMergeChoice).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProjectMergeConflictKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProjectMergeConflictKind).to_owned(),
+                enumeration: stringify!(ProjectMergeConflictKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProjectMergeMode {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProjectMergeMode).to_owned(),
+                enumeration: stringify!(ProjectMergeMode).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProjectMetadataKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProjectMetadataKind).to_owned(),
+                enumeration: stringify!(ProjectMetadataKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

@@ -26,18 +26,7 @@ pub struct ProjectComparisonSelection {
     pub physical: String,
 }
 /// Conservative impacts from authored meaning, not a claim of numerical equivalence.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectChangeImpact {
-    /// Original authored bytes or presentation attribution changed.
-    Source,
-    /// A known numeric literal parameter initializer changed with unchanged shape.
-    Value,
-    /// Authored structure, binding, type, equation or domain changed.
-    Structural,
-    /// Available mapping does not establish the scientific effect.
-    Unknown,
-}
+pub use pse_model::generated::enums::ProjectChangeImpact;
 /// One changed logical object. Values are available only by selected detail request.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -68,7 +57,7 @@ pub struct ProjectComparison {
 }
 /// One explicitly selected admitted authored object, retaining its native typed shape.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case",deny_unknown_fields)]
 pub enum ProjectSourceObject {
     /// Admitted modeling declaration with its stable identity.
     Declaration(Declaration),
@@ -98,18 +87,7 @@ pub struct ProjectSourceDetail {
     pub object: Option<ProjectSourceObject>,
 }
 /// Explicit resolution of an actual conflict. Delete is never inferred from missing input.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectMergeChoice {
-    /// Keep the original target object, including its explicit absence.
-    Target,
-    /// Keep the original proposal object, including its explicit absence.
-    Proposal,
-    /// Restore the exact common ancestor object, including its absence.
-    Base,
-    /// Explicitly remove the conflicting object.
-    Delete,
-}
+pub use pse_model::generated::enums::ProjectMergeChoice;
 /// An explicit conflict decision for one stable logical object.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -129,16 +107,7 @@ pub struct ProjectMergeConflict {
     pub kind: ProjectMergeConflictKind,
 }
 /// The authored evidence that prevents an automatic object merge.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectMergeConflictKind {
-    /// One side removed an object changed by the other side.
-    DeleteEdit,
-    /// Both sides added different objects with the same logical identity.
-    ConflictingAddition,
-    /// Both sides changed an existing logical object differently.
-    DifferentEdits,
-}
+pub use pse_model::generated::enums::ProjectMergeConflictKind;
 /// Whether an affected document keeps an authenticated exact source-text preimage.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -160,14 +129,7 @@ pub struct ProjectMergePreview {
     pub changes: Vec<ProjectObjectChange>,
 }
 /// Whether the retained decision composes edits or compensates a prior state.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectMergeMode {
-    /// Compose changes from a declared common ancestor.
-    Merge,
-    /// Publish a compensating revision containing a selected earlier state.
-    Undo,
-}
+pub use pse_model::generated::enums::ProjectMergeMode;
 /// Original admitted proposal ownership, independent of later branch or draft heads.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]

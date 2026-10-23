@@ -59,6 +59,9 @@ from pse.contracts.documents import (
     ProjectBranchRecordOutput,
     ProjectCursor,
     ProjectCursorBody,
+    ProjectSelectRequest,
+    ProjectSelection,
+    ProjectSelectionOutput,
     ProjectDraftDelta,
     ProjectDraftVersion,
     ProjectDraftVersionOutput,
@@ -629,6 +632,20 @@ class Runtime:
     def project_draft_bytes(self, key: str) -> bytes:
         """Read this exact raw body through its current protection owner."""
         return bytes(self._handle.project_draft_bytes(key))
+
+    def project_select(
+        self, request: ProjectSelectRequest, physical: "PhysicalContext"
+    ) -> ProjectSelectionOutput:
+        """Freeze an exact branch or bookmark source with its physical closure identity."""
+        return self._handle.project_select(request, physical._handle)  # noqa: SLF001
+
+    def project_open_selection(
+        self, selection: ProjectSelection | ProjectSelectionOutput, physical: "PhysicalContext"
+    ) -> ModelingPackage:
+        """Reopen retained science after labels or the branch head have changed."""
+        return ModelingPackage(
+            self._handle.project_open_selection(selection, physical._handle)  # noqa: SLF001
+        )
 
     def project_navigate(
         self,

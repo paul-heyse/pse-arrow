@@ -50,6 +50,14 @@ pub const NATIVE_INDEXES: &[NativeIndex] = &[
     },
 ];
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    super::declarations::enumeration(b,"ProjectMetadataKind",["projects", "drafts", "bookmarks", "savepoints", "diagnostics"]);
+    super::declarations::enumeration(b,"ProjectChangeImpact",["source", "value", "structural", "unknown"]);
+    super::declarations::enumeration(b,"ProjectMergeChoice",["target", "proposal", "base", "delete"]);
+    super::declarations::enumeration(b,"ProjectMergeConflictKind",["delete_edit", "conflicting_addition", "different_edits"]);
+    super::declarations::enumeration(b,"ProjectMergeMode",["merge", "undo"]);
+    super::declarations::enumeration(b,"PreparationProductKind",["selected_admission", "body", "encoded_body", "frontier", "basis"]);
+    super::declarations::enumeration(b,"PreparationEligibility",["compatible", "incompatible", "unchecked"]);
+
     let text = || T::native(D::Utf8);
     let uint = || T::native(D::UInt64);
     let bytes = || T::native(D::Binary);

@@ -618,6 +618,13 @@ impl CanonicalStore {
             response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_project_draft_versions).transpose().map_err(Into::into)
         })).await
     }
+    /// Open one immutable bookmark, without hydrating scientific payloads.
+    pub async fn project_bookmark(&self,key:&str)->Result<Option<Bookmark>,CanonicalError>{
+        identity(key)?;let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
+            let mut response=bounded_query(self.project_query("SELECT * FROM ONLY type::record('canonical_project_bookmarks',$key);")?.bind(("key",key.to_owned()))).await?;
+            response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_project_bookmarks).transpose().map_err(Into::into)
+        })).await
+    }
     /// Bounded exact ancestry: canonical parent, branch origin and additional accepted merge parents.
     pub async fn project_revision_parents(&self,revision:&Revision)->Result<Vec<String>,CanonicalError>{
         let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
@@ -697,9 +704,7 @@ pub struct ProjectNavigationRequest {
     pub action:ProjectNavigation,
 }
 /// Finite metadata page selector; cursor is scoped to the issuing store and owner.
-#[derive(Clone,Copy,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
-#[serde(rename_all="snake_case")]
-pub enum ProjectMetadataKind {#[doc="All project headers."] Projects,#[doc="Drafts of a branch."] Drafts,#[doc="Bookmarks of a project."] Bookmarks,#[doc="Savepoints of a draft."] Savepoints,#[doc="Diagnostics of a version."] Diagnostics}
+pub use pse_model::generated::enums::ProjectMetadataKind;
 /// Continuation of a live metadata listing, not a historical snapshot.
 #[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -980,7 +985,7 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap()
-                .content
+                .version.content
                 .as_slice(),
             b"malformed [["
         );

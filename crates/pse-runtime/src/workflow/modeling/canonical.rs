@@ -882,7 +882,7 @@ async fn admit_revision_authorized(
 }
 
 /// Publish the already admitted immutable result through the sole canonical edit path.
-/// Receiving admission belongs to `project_admit_delta`; this helper cannot accept raw edits.
+/// Receiving admission belongs to the ordinary typed admission owner; this helper cannot accept raw edits.
 pub(super) async fn publish_admitted_project(
     runtime: &Runtime,
     intent: &pse_operations::canonical_projects::ProjectPublication,

@@ -1102,6 +1102,12 @@ impl NativeRuntime {
         )?;
         Ok(pyo3::types::PyBytes::new(py, &body))
     }
+    fn project_select(&self,py:Python<'_>,request:documents::DocumentInput<native::ProjectSelectRequest>,physical:&NativePhysicalContext)->PyResult<documents::DocumentValue<native::ProjectSelection>>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async{runtime.project_select(&request.0,physical.inner.clone(),&stop).await}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    }
+    fn project_open_selection(&self,py:Python<'_>,selection:documents::DocumentInput<native::ProjectSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async{runtime.project_open_selection(&selection.0,physical.inner.clone(),&stop).await}),||stop.cancel())?;Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+    }
     fn project_navigate(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,request:documents::DocumentInput<pse_operations::canonical_projects::ProjectNavigationRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>>{
         let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_navigate(operation,&project.0,&request.0.action).await?)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
     }
