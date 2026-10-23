@@ -2178,7 +2178,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         },
     };
     let local = Box::pin(downstream.admit_study(
-        &crate::workflow::StudyInputs::Explicit(vec![point]),
+        &crate::workflow::StudyInputs::Explicit(vec![point.clone()]),
         &crate::workflow::StudyOutputDemand::Full {},
         &cancel,
     ))
@@ -2305,6 +2305,140 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     );
     assert_eq!(prediction.quantity_id, quantity.as_id());
     assert_eq!(prediction.unit_id, unit.as_id());
+    // LC01/51f extends this same scientific journey: the selected closure retains
+    // its original calibration, fit qualification, publication and downstream result.
+    let origin = Box::pin(runtime.project_select(
+        &crate::workflow::ProjectSelectRequest {
+            version: Default::default(),
+            reference: crate::workflow::ProjectReference::Branch { key: "main".into() },
+        },
+        downstream.physical.clone(),
+        &cancel,
+    )).await.unwrap();
+    assert_eq!(origin.revision, "publish-fit");
+    let directory = tempfile::tempdir().unwrap();
+    let pack = directory.path().join("calibrated-project");
+    let export_request = crate::workflow::ProjectExportRequest {
+        version: Default::default(),
+        selection: origin.clone(),
+        research_selections: vec![selection.key.clone()],
+        publications: vec![receipt.key.clone()],
+        studies: vec![study.study_id().to_string()],
+        results: vec![
+            crate::workflow::ReviewScientificSelection {
+                member: "original-fit-cells".into(), run: run.clone(), attempt: attempt.clone(),
+                relation: "runtime.fitted_parameter_cells".into(), row_start: 0, row_end: exported.len() as u64, output: None,
+            },
+            crate::workflow::ReviewScientificSelection {
+                member: "original-prediction".into(), run: downstream_run.clone(),
+                attempt: downstream_attempt.clone().unwrap(), relation: "runtime.modeling_reports".into(),
+                row_start: 0, row_end: values.len() as u64, output: None,
+            },
+        ],
+        artifacts: vec![], reproducers: vec![], descriptive_only: false, omissions: vec![],
+        maximum_output_bytes: 64 << 20, maximum_document_bytes: 16 << 20,
+    };
+    let manifest = Box::pin(runtime.project_export(&pack, &export_request, downstream.physical.clone(), &cancel)).await.unwrap();
+    assert!(manifest.offline_complete && manifest.executable_complete);
+    assert!(manifest.datasets.iter().any(|dataset| dataset.key == "raw-v1"));
+    assert!(manifest.datasets.iter().any(|dataset| dataset.key == "calibrated-v1" && dataset.parent.as_deref() == Some("raw-v1")));
+    assert!(manifest.research_selections.iter().any(|selected| selected.key == selection.key));
+    assert!(manifest.publications.iter().any(|publication| publication.key == receipt.key && publication.run == run && publication.attempt == attempt));
+    assert_eq!(manifest.studies.len(), 1);
+    assert_eq!(manifest.studies[0].key, study.study_id().to_string());
+    assert_eq!(manifest.studies[0].definition.modeling_revision, "publish-fit");
+    let bundle = crate::workflow::ProjectBundleReader::open(&pack, 16 << 20).unwrap();
+    assert_eq!(bundle.inspect().origin.source_identity, downstream.revision.identity());
+    assert_eq!(bundle.inspect().origin.physical_context, downstream.physical.identity());
+    let copied_cells = datafusion::arrow::ipc::reader::StreamReader::try_new(bundle.open_member("original-fit-cells").unwrap(), None).unwrap()
+        .map(|batch| cells::Row::rows(&batch.unwrap()).unwrap()).collect::<Vec<_>>().concat();
+    assert_eq!(copied_cells, exported, "copied cells preserve the exact original qualified fit values and identities");
+    let copied_predictions = datafusion::arrow::ipc::reader::StreamReader::try_new(bundle.open_member("original-prediction").unwrap(), None).unwrap()
+        .map(|batch| pse_relations::generated::runtime::modeling_reports::Row::rows(&batch.unwrap()).unwrap()).collect::<Vec<_>>().concat();
+    assert_eq!(copied_predictions, values, "copied Arrow evidence keeps original result membership and values");
+    assert!(bundle.inspect().members.iter().any(|member| member.result.as_ref().is_some_and(|result| result.run == run && result.attempt == attempt && result.relation == "runtime.fitted_parameter_cells")));
+
+    // A distinct canonical database is a fresh receiving authority, never the
+    // original run/research receipt owner merely because those bytes were copied.
+    let receiver = crate::workflow::tests::durable_runtime();
+    let receiving_store = receiver.canonical_store().unwrap();
+    assert_ne!(receiving_store.issuing_store().unwrap(), origin.issuing_store.as_str());
+    let import_intent = Box::pin(receiver.project_import_issue(&bundle, "Imported calibrated project", "working")).await.unwrap();
+    let imported = Box::pin(receiver.project_import(&bundle, &import_intent, &cancel)).await.unwrap();
+    assert!(imported.source_admitted && imported.project_complete);
+    assert_eq!(imported.bundle_digest, bundle.digest());
+    assert_eq!(imported.origin.issuing_store, origin.issuing_store);
+    assert_eq!(imported.origin.source_identity, origin.source_identity);
+    assert_ne!(imported.project, origin.project);
+    assert_ne!(imported.problem, origin.problem);
+    assert_ne!(imported.revision, origin.revision);
+    let repeated = Box::pin(receiver.project_import(&bundle, &import_intent, &cancel)).await.unwrap();
+    assert_eq!(repeated.project, imported.project);
+    assert_eq!(repeated.revision, imported.revision);
+    assert_eq!(repeated.evidence_artifacts, imported.evidence_artifacts);
+    assert!(!imported.evidence_artifacts.is_empty());
+    for original_run in [&run, downstream_run, &study_metadata.run] {
+        assert!(receiving_store.canonical_run(original_run).await.unwrap().is_none(), "copied historical run {original_run} must not become a local execution receipt");
+    }
+    assert!(receiving_store.canonical_study(&study.study_id().to_string()).await.unwrap().is_none());
+    assert!(receiving_store.result_seed_page(&attempt, None).await.unwrap().is_empty());
+    assert!(receiving_store.result_seed_page(downstream_attempt.as_deref().unwrap(), None).await.unwrap().is_empty());
+    assert!(receiving_store.research_dataset("raw-v1").await.unwrap().is_none());
+    assert!(receiving_store.research_selection(&selection.key).await.unwrap().is_none());
+    assert!(receiving_store.research_publication(&receipt.key).await.unwrap().is_none());
+    drop(bundle);
+    std::fs::remove_dir_all(&pack).unwrap();
+    assert!(!pack.exists());
+    let imported_source = Box::pin(receiver.project_import_open(&import_intent, &cancel)).await.unwrap();
+    assert_eq!(imported_source.canonical_revision().unwrap().key, imported.revision);
+    assert_eq!(imported_source.canonical_revision().unwrap().problem, imported.problem);
+    assert_eq!(imported_source.revision.identity(), origin.source_identity);
+    assert_eq!(imported_source.physical.identity(), origin.physical_context);
+    assert!(crate::workflow::OperationSource::of(&imported_source).research.is_none(), "original research attribution is retained evidence, not a receiving execution grant");
+
+    // A normal exact-parent typed edit is newly admitted locally. It creates a
+    // new receiving study and result; the copied terminal does not seed it.
+    let declarations = imported_source.declarations().await.unwrap();
+    let mut intercept = declarations.iter().find(|row| row.declaration_id == request.targets[0].declaration).unwrap().clone();
+    assert_eq!(intercept.name, "a");
+    intercept.value.binding.as_mut().unwrap().expression = Some("4".into());
+    let edited = Box::pin(imported_source.with_delta(crate::workflow::SourceDelta {
+        parent: imported_source.revision_id().into(), replacements: vec![intercept], ..Default::default()
+    }, &cancel)).await.unwrap();
+    assert_ne!(edited.revision.identity(), imported_source.revision.identity());
+    let edited_local = Box::pin(edited.admit_study(
+        &crate::workflow::StudyInputs::Explicit(vec![point]),
+        &crate::workflow::StudyOutputDemand::Full {}, &cancel,
+    )).await.unwrap();
+    let edited_definition = Box::pin(receiver.record_study(&edited_local, &cancel)).await.unwrap();
+    assert_ne!(edited_definition.modeling_revision, imported.revision);
+    assert!(edited_definition.research.is_none());
+    let edited_study = Box::pin(receiver.start_recorded_study(edited_definition, &cancel)).await.unwrap();
+    for _ in 0..4 {
+        if edited_study.result().await.unwrap().is_some() { break; }
+        Box::pin(receiver.work_once()).await.unwrap();
+    }
+    let edited_results = edited_study.result().await.unwrap().expect("one newly executed receiving occurrence completed");
+    assert_eq!(edited_results.points.len(), 1);
+    let (_, edited_run, edited_attempt) = &edited_results.points[0];
+    assert_ne!(edited_run, downstream_run);
+    let mut edited_reports = receiver.results(edited_run, edited_attempt.as_deref().unwrap(), "runtime.modeling_reports", 0, u64::MAX, cancel.token()).await.unwrap();
+    let mut edited_values = vec![];
+    while let Some(batch) = edited_reports.next_relation_batch().await.unwrap() {
+        edited_values.extend(pse_relations::generated::runtime::modeling_reports::Row::rows(&batch).unwrap());
+    }
+    let edited_prediction = edited_values.iter().find(|report| report.label == "published-prediction").expect("new receiving source-produced prediction");
+    assert!((edited_prediction.value - 12.).abs() < 1e-7, "new receiving study consumes edited intercept4 and original slope2");
+    assert_eq!(edited_prediction.quantity_id, quantity.as_id());
+    assert_eq!(edited_prediction.unit_id, unit.as_id());
+    let mut original_reports = runtime.results(downstream_run, downstream_attempt.as_deref().unwrap(), "runtime.modeling_reports", 0, u64::MAX, cancel.token()).await.unwrap();
+    let mut original_values = vec![];
+    while let Some(batch) = original_reports.next_relation_batch().await.unwrap() {
+        original_values.extend(pse_relations::generated::runtime::modeling_reports::Row::rows(&batch).unwrap());
+    }
+    assert_eq!(original_values, values, "new import/edit/execution never replaces original canonical result rows");
+    assert!((original_values.iter().find(|report| report.label == "published-prediction").unwrap().value - 11.).abs() < 1e-7);
+    assert_eq!(Box::pin(receiver.project_import_open(&import_intent, &cancel)).await.unwrap().revision.identity(), origin.source_identity, "ordinary local edit never overwrites the receiving branch's original source");
     let _ = fit;
 }
 
