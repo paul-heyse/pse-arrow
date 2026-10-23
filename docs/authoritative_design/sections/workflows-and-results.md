@@ -947,6 +947,16 @@ ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
 ### 19.4 Parameter estimation
 
+> Decision: [ADR-0218](../../adr/0218-scientific-research-workbench.md) (proposed; maintainer-authorized Plan51c target).
+
+Research dataset versions reference existing admitted measurements and data objects. Calibrated
+observation selections retain explicit transformed uncertainty, provenance and frozen temporal
+context. Qualified fit cells and their original eligibility are retained by the fit result owner
+for exact reopening and deliberate parameter-source publication. Source activation, publication
+receipt and ancestry share the existing source CAS. Bounded frozen cohorts distinguish missing
+outcomes; read-only study observation reports source gaps without cancelling science. Explicit
+file/batch acquisition is selected; no external streaming producer is adopted.
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Residual LM uses three explicit library-relative algorithm criteria: relative cost, relative

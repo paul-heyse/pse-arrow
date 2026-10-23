@@ -2,7 +2,7 @@
 title: "Plan 51: Engineering workspaces and evidence"
 status: in-progress
 date: 2026-10-22
-adrs: [ADR-0216, ADR-0217]
+adrs: [ADR-0216, ADR-0217, ADR-0218, ADR-0219]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan
@@ -190,7 +190,7 @@ Resolved here can close an authoring choice without claiming product implementat
 | I06 | open: bounded browser decision | DL03 | Check actual pinned worker/Tree/persistence support and a concrete offline inspection/edit consumer; adopt with explicit supported scope or no-adopt with a new observable trigger. |
 | I07 | open: bounded confidentiality decision | LC05 | Compare full payload/metadata/key coverage against the selected exchange/local-use threat; no partial KV-only protection claim. |
 | I08 | open: bounded collaboration decision | DL04 | Decide whether any multi-writer/server synchronization is needed beyond explicit logical import and objectwise merge. No CRDT/replication assumption. |
-| I09 | open: bounded acquisition decision | SC06 | Identify a real external observation producer and clock/calibration contract; no native real-time control selected. |
+| I09 | resolved: file/batch admission selected | SC06 | Maintainer selected explicit file/batch observation import on 2026-10-23. No external streaming acquisition; revisit a named producer with defined clock, calibration, ordering and loss semantics. |
 | I10 | resolved: owner-based observation | SC05 | Selected gRPC has streaming mechanisms; live resume uses no durable cursor. Own catch-up/gaps from admitted source/progress sequences. |
 | I11 | resolved: no inferred sample joins | EV05 | Existing case_measure declares unavailable Criterion membership; retain actual population rather than fabricate it. |
 
@@ -298,3 +298,8 @@ in [51b verification](51b-projects-revisions-and-temporal-context.md#verificatio
 Whole-series assembled/static qualification remains Q01–Q04. Enduring project/history/preparation
 contracts are published at blueprint §14.3/§20.6 with proposed ADR-0217. 51a/51b stay retained
 dependencies until Q04. This handoff does not authorize 51c–51g execution or close older plan series.
+
+
+## 51c/51d execution checkpoint
+
+The maintainer authorized all SC01–SC06 and EV01–EV05 on 2026-10-23. Shared scientific and derived-evidence contracts precede independent research/publication, cohort/observer and evidence-query streams. SC06 adopts explicit file/batch admission; I09 records that choice. Targeted functional acceptance belongs to the companions, whole-series hygiene/qualification remains Q01–Q04. Other plans retain their existing scope.

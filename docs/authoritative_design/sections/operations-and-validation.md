@@ -503,6 +503,15 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
+> Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
+
+Selected authentic owner snapshots support supplied-only Arrow/DataFusion evidence queries and
+explicit cuts over the independently disposable tooling index. Contexts, declared links and
+measurement populations extend the existing evidence family; terminal/resource owners remain
+independently readable. Index presence grants no raw-detail custody or current freshness.
+Diagnostic tool, target and scientific outcomes stay distinct, and unknown sample associations
+or comparability remain explicit. Offline inspection requires no service or product extension.
+
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a evidence catalogue).
 
 Imported evidence is a derived projection with original authority/codec/identity, snapshot and

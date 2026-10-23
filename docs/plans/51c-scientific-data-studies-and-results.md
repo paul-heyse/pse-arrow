@@ -1,8 +1,8 @@
 ---
 title: "Plan 51c: Scientific data, studies and results"
-status: draft
+status: in-progress
 date: 2026-10-22
-adrs: []
+adrs: [ADR-0218]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan

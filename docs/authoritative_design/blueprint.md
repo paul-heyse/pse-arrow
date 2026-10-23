@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 250
-date: 2026-10-22
+revision: 251
+date: 2026-10-23
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 251 | 2026-10-23 | ADR-0218/0219: selected scientific research, original fit-publication evidence, bounded cohort/observer and authentic offline/indexed development evidence targets (§19.4/§24.1). | Maintainer-authorized Plan51c/51d execution; PSE_DESIGN_EDIT=1 authorizes target publication; implementation/targeted evidence stay at their plans, assembled qualification at Plan51g. |
 | 250 | 2026-10-22 | Publish Plan51b exact source selections, immutable raw version recovery, merge preimage/issuer controls, protected authored/physical historical consumption and passive preparation metadata (§14.3/§20.6). | Maintainer-authorized Plan51b implementation; PSE_DESIGN_EDIT=1 authorizes enduring publication; targeted evidence at Plan51b, assembled qualification remains Plan51g; ADR-0217 remains proposed. |
 | 249 | 2026-10-22 | ADR-0217: exact project editing, compensating undo, UTC context corrections and passive preparation discovery (§14.3/§20.5–§20.6/§21.1). | Maintainer-authorized Plan51b execution; PSE_DESIGN_EDIT=1 authorizes target publication; qualification remains at Plan51. |
 | 248 | 2026-10-22 | ADR-0216: keep project/branch source ownership canonical and tooling evidence independently attested/derived (§20.5–§20.6/§24.1), retaining shared MX service and protected sealed payloads. | Maintainer-authorized Plan51a execution; .design-edit records publication; implementation/qualification remain at Plan51. |
