@@ -3,7 +3,7 @@
 //! One real occurrence proves editing cancellation and compensating publication custody.
 use super::*;
 use pse_model::document::Version;
-use pse_model::study::{OccurrenceKey, StartPolicy, StudyState};
+use pse_model::study::{OccurrenceKey, StartPolicy};
 use std::collections::BTreeMap;
 
 async fn recorded(runtime:&Runtime,package:&ModelingPackage)->StudyHandle {
