@@ -142,7 +142,7 @@ def centimetres(batch: pa.RecordBatch) -> pa.RecordBatch:
     # Preserve the original list/struct/extension children: PyArrow cannot rebuild
     # these nested extension arrays from Python dictionaries.
     quantity_values = batch.column("values").values.field("value")
-    units = quantity_values.storage.field("unit_id").storage
+    units = quantity_values.storage.field("unit_id")
     buffer = units.buffers()[1]
     assert buffer.is_mutable
     memory = memoryview(buffer).cast("B")
@@ -254,7 +254,8 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
      }
      case run fixture {dof 0; route integrated; procedure integrate;
       integrate samples(-0.0000002{s},0{s},0.0000002{s}) relative(1e-8)
-       normalized_absolute(1e-8) step(0.000000001{s});
+       normalized_absolute(1e-8) step(0.000000001{s})
+       quadrature_relative(1e-8) quadrature_absolute(root.area=1e-12{s});
      } {child root:D=D();}
     }"""
     package = runtime.modeling_from_documents([package_documents(source)], physical_context(runtime))

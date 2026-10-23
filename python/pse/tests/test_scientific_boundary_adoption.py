@@ -36,17 +36,14 @@ def boundary_runtime(inspection_settings: pse.EngineSettings) -> Iterator[pse.Ru
         runtime.close()
 
 
-def regression(
-    runtime: pse.Runtime, *, importance: float = 1.0
-) -> tuple[pse.ModelingPackage, DeclarationId, FitId, tuple[SemanticId, ...]]:
-    """Reuse the Rust regression oracle's X/Y/sigma and declared parameter scales."""
+def regression_documents(*, objective: bool = False) -> dict[str, str]:
+    """Keep the fit experiment objective-free; only downstream optimization adds one."""
     observed = (3.1, 4.9, 7.2, 8.8)
     sigma = (0.5, 1.0, 0.5, 2.0)
     source = """package regression {
  def Root {
   param a:Scalar=1; param b:Scalar=1;
   var z:Scalar; eq contrast:z==a-b; annotation start z(0);
-  let cost:Scalar=0.5*z*z; annotation objective cost(minimize);
   let y1:Scalar=a+b; let y2:Scalar=a+2*b;
   let y3:Scalar=a+3*b; let y4:Scalar=a+4*b;
  }
@@ -62,8 +59,20 @@ def regression(
             f"{{value={value},sigma={deviation}}}\n"
         )
     source += "}"
+    if objective:
+        source = source.replace(
+            "annotation start z(0);",
+            "annotation start z(0); let cost:Scalar=0.5*z*z; annotation objective cost(minimize);",
+        )
+    return package_documents(source)
+
+
+def regression(
+    runtime: pse.Runtime, *, importance: float = 1.0
+) -> tuple[pse.ModelingPackage, DeclarationId, FitId, tuple[SemanticId, ...]]:
+    """Reuse the Rust regression oracle's X/Y/sigma and declared parameter scales."""
     package = runtime.modeling_from_documents(
-        [package_documents(source)], physical_context(runtime)
+        [regression_documents()], physical_context(runtime)
     )
     case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
     ids = tuple(member(package, case, name) for name in ("a", "b", "z"))
@@ -118,7 +127,14 @@ def downstream(
     ids: tuple[SemanticId, ...], covariance: d.ParameterCovariance,
     *, source: pse.RunResult | None = None,
 ) -> pse.PreparedOperation:
-    return package.prepare_solve(
+    # Reload the complete source inventory against the exact fitted parent. The
+    # added objective changes the use of z, while a/b/z retain their actual IDs.
+    # The original fit experiment remains objective-free and usable independently.
+    optimized = package.reload_from_parent([regression_documents(objective=True)])
+    assert optimized.canonical_problem == package.canonical_problem
+    assert optimized.revision_id != package.revision_id
+    assert tuple(member(optimized, case, name) for name in ("a", "b", "z")) == ids
+    return optimized.prepare_solve(
         case,
         pse.SolveSettings(
             intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT,
