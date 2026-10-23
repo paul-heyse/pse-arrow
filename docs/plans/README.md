@@ -1,12 +1,13 @@
 # Current work and plans
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)
-owns the engineering/research and selected development-evidence workbench series. Its
-[package state](51-engineering-workspaces-and-evidence.md#package-state-and-execution-route)
-and linked companion Outcomes distinguish delivered project/research/evidence, lifecycle and
-portable-exchange scope from remaining assembled qualification/publication at 51g. Completed
-companions remain retained for qualification and proposed ADR readers; the coordinator owns
-inquiry and opportunity dispositions.
+is complete at the selected project/research/evidence, lifecycle, recovery and portable-exchange
+boundaries. Its [assembled Outcome](51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23)
+owns actual qualification, repaired failures and limits, including the mixed-concurrency Rust
+result and composed feature-check evidence. Enduring meaning lives in the architecture and
+operator guides. The highest-numbered coordinator and consumed companions/source review remain
+retained for qualification and proposed ADR readers; they authorize no new work. Plans32/40/49
+keep their independent remaining scope.
 
 [Plan50: Codex effectiveness and diagnostic tooling](50-codex-effectiveness-and-diagnostics.md)
 is complete for all 32 packages and O01–O20 selected routes. Its

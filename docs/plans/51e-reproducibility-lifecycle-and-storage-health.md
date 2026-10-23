@@ -198,13 +198,13 @@ its server was stopped afterwards. Capture on the larger primary retained verifi
 cgroup identity while reporting the unchanged 4 MiB metric-response limit precisely. No truncated
 prefix became a complete metric population. Host adapters passed 322 tests; affected health
 controls passed after the final observation repair. [51g](51g-qualification-and-publication.md)
-owns exact commands, final assembled conditions, scope-end checks and remaining qualification.
+owns exact commands, completed assembled/scope-end checks and qualification limits.
 
 ## Outcome
 
 LC01–LC05 are complete at their selected functional boundary. Enduring meaning lives in
-blueprint §20.6/§24.1 and the substrate/diagnostic guides. Whole-series acceptance remains owned
-by 51g; this companion does not qualify an unexercised native/provider/platform combination.
+blueprint §20.6/§24.1 and the substrate/diagnostic guides. Whole-series acceptance is recorded
+at 51g; this companion does not qualify an unexercised native/provider/platform combination.
 **Measured:** no speedup, physical reclaimed bytes or full-artifact confidentiality is claimed.
 
 **Mistakes corrected:** the first recovery fixture fork omitted the original source closure;

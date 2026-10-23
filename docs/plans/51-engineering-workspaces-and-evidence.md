@@ -1,6 +1,6 @@
 ---
 title: "Plan 51: Engineering workspaces and evidence"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0216, ADR-0217, ADR-0218, ADR-0219, ADR-0220]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,9 +14,11 @@ doc_topics: [current-work, design, storage, libraries, diagnostics, validation]
 
 ## Purpose, scope and authority
 
-**Proposed:** deliver a headless engineering workbench over exact projects, source revisions,
+**Implemented and Tested:** the series delivers a headless engineering workbench over exact projects,
+source revisions,
 scientific data and studies, and a queryable evidence workbench over selected test, diagnostic
-and measurement histories. Rust, Python and CLI consumers come before a graphical frontend.
+and measurement histories, at the exact qualification conditions in the series Outcome.
+Rust, Python and CLI consumers come before a graphical frontend.
 Keep scientific evidence, derived discovery and operational authority distinct while making
 their actual relationships easier to navigate.
 
@@ -239,8 +241,8 @@ remaining scope. Completed companions stay retained dependencies until the aggre
 | DL04 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL04) | Collaboration/synchronization decision |
 | Q01 | complete | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
 | Q02 | complete | [51g](51g-qualification-and-publication.md#Q02) | Composed representative journeys |
-| Q03 | in progress | [51g](51g-qualification-and-publication.md#Q03) | Zero-target scope-end checks |
-| Q04 | in progress | [51g](51g-qualification-and-publication.md#Q04) | Enduring publication and post-implementation existing-plan reconciliation |
+| Q03 | complete | [51g](51g-qualification-and-publication.md#Q03) | Zero-target scope-end checks |
+| Q04 | complete | [51g](51g-qualification-and-publication.md#Q04) | Enduring publication and post-implementation existing-plan reconciliation |
 
 1. ST01 fixes declaration ownership and short ADR work; ST02's project-head and selected-source
    contracts unblock PJ01/PJ02. ST03's imported-generation contract is independent of project UX.
@@ -292,6 +294,11 @@ documents are unchanged. Implementation requires subsequent maintainer authoriza
 
 ## Execution handoff
 
+The following handoffs retain what was and was not exercised at their original boundaries.
+The package table and final series Outcome own current state; 51g owns the later assembled checks.
+
+### 51b execution handoff
+
 **Implemented and Tested:** 51b's PJ01–PJ06 are complete at the targeted boundary documented
 in [51b verification](51b-projects-revisions-and-temporal-context.md#verification-and-handoff).
 Whole-series assembled/static qualification remains Q01–Q04. Enduring project/history/preparation
@@ -333,7 +340,7 @@ Older plan scope and formal ADR acceptance are unchanged.
 
 The maintainer authorized the complete remaining series on 2026-10-23. LC01–LC04 and
 DL01–DL02 are implemented and targeted-tested through original source, artifact, project, recovery
-and evidence owners under proposed ADR-0220. Their companions own the functional Outcomes. Q01/Q02 are complete at the composed conditions in the 51g Outcome; Q03/Q04 remain in progress.
+and evidence owners under proposed ADR-0220. Their companions own the functional Outcomes. Q01–Q04 are complete at the composed conditions in the 51g Outcome.
 The 16-concurrent-test startup failures remain explicitly unqualified; their exact affected
 selection passes at four concurrent tests. No generated-data migration or historical preservation
 campaign is required.
@@ -378,8 +385,9 @@ selection combines 73 passes at 16 concurrent tests with the exact affected 27 p
 it is not a monolithic pass or 16-concurrent-startup qualification. Fourteen native-Python
 component cases, four affected frozen-context units, selected host/offline executable controls,
 actual calibrated numerical fit/import/edit/study and nonempty disposable recovery establish
-only their named scope. Final feature-matrix and publication work remains Q03/Q04 until the
-same owner records its actual result.
+only their named scope. The full 476-case feature matrix, all 34 no-default checks and all 25
+affected repairs are complete at that owner's exact composite conditions; original failed records
+retain their results.
 
 **Mistakes corrected:** initial import visibility and descriptive traversal crossed ownership
 boundaries; the original pending source checkpoint and narrow owner projections now govern
@@ -397,3 +405,13 @@ Quantitative speed/capacity, confidentiality and unexercised platform/whole-prod
 claims are not established. Plan32 WC05/WC06, Plan40e and Plan49f–h/TOOL08 retain their independent
 scope; no canceled campaign is reopened. All implementation worktrees were merged and removed,
 with final ancestry merges verified to preserve the qualified main tree exactly.
+
+
+**Implemented and Tested — final scope-end publication:** Q03/Q04 close with the repaired
+hygiene/default/no-default/native/optional-tool checks, complete feature enumeration and affected
+reruns, native Python/CLI/recovery consumers, and enduring publication recorded at 51g. No
+16-concurrent-startup, full scientific recovery, statistical speedup, host confidentiality,
+whole-product/parity, wheel/distribution or other-platform claim is added. Retirement preflight
+retains this highest-numbered coordinator and currently consumed companion/review evidence;
+current-work navigation no longer treats this series as active. Formal ADR acceptance and
+independent older-plan scope are unchanged. Mechanical final check results remain at 51g.

@@ -174,7 +174,7 @@ retains the concrete browser-operation and multiwriter/automatic-exchange revisi
 DL01–DL04 are complete at their selected functional boundary. Blueprint §20.6 and the substrate
 guide own enduring formats, commands, fresh-authority and recovery limits. **Measured:** no
 performance, browser persistence, distributed isolation or new receiving scientific qualification
-follows from copying historical evidence. Series acceptance remains owned by 51g.
+follows from copying historical evidence. Series acceptance is recorded at 51g.
 
 **Mistakes corrected:** a public test put attrs relation rows into a document-row constructor;
 it now uses the declared strict row-to-document conversion. An imported recorded branch cannot

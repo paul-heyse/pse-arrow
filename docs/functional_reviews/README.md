@@ -2,7 +2,9 @@
 
 The [SurrealKV and SurrealMX review](surrealkv-surrealmx-functional-extensions-2026-10-22.md)
 explores project, scientific-data, evidence-analysis, storage-topology and delivery capabilities.
-Its opportunities are proposals; selected implementation scope belongs to the normal plan route.
+Its opportunities are proposals; the [Plan51 coordinator](../plans/51-engineering-workspaces-and-evidence.md)
+owns the completed selected scope, inquiry decisions and qualification limits. This review remains
+source evidence rather than current implementation status.
 
 Reviews here explore valuable additions or improvements to product, developer, operator and
 research capabilities. The operator selects an outcome, workflow, subsystem or tooling/library

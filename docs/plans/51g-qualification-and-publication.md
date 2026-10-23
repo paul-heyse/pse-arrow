@@ -1,6 +1,6 @@
 ---
 title: "Plan 51g: Qualification and publication"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0220]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,9 +14,10 @@ doc_topics: [current-work, design, validation, documentation]
 
 ## Completion meaning
 
-**Proposed:** establish the assembled behavior of the selected workbenches, close bounded inquiries
-with honest outcomes, complete relevant zero-target checks and publish enduring contracts before
-retiring resolved planning material. The [coordinator](51-engineering-workspaces-and-evidence.md)
+**Implemented and Tested:** the selected assembled scope is complete at the exact composite
+conditions in the Outcome below. Bounded inquiries have explicit outcomes, required checks have
+been exercised and repaired, and enduring contracts are published. This does not qualify the
+unexercised conditions stated in that Outcome. The [coordinator](51-engineering-workspaces-and-evidence.md)
 is the single owner of package state, O01–O21 dispositions and I01–I11 inquiry outcomes.
 
 Plan authoring and document checks implement none of these packages. Interface-checked source
@@ -138,10 +139,11 @@ history is the archive. Do not fabricate an implementation Outcome during docume
 
 ## Current checkpoint
 
-All selected functional scope and original-consumer reconciliation are implemented. The representative
-Rust, installed Python, actual offline executable and disposable recovery journeys have run. The
-scope-end feature matrix is still running; final publication and worktree retirement remain Q03/Q04.
-The coordinator owns package, opportunity and inquiry state; this record owns assembled evidence.
+Q01–Q04 are complete at their selected boundaries. The representative Rust, installed Python,
+actual executable and disposable recovery journeys, repaired scope-end checks and enduring
+publication are recorded below. The coordinator owns package/opportunity/inquiry state; this
+record owns assembled evidence. The original failed runs remain failed records, accompanied
+by their successful affected reruns. No new work is authorized by closing this series.
 
 ## Verification and Outcome — assembled execution, 2026-10-23
 
@@ -269,8 +271,15 @@ startup failure prompted an environment-shaped investigation and again after the
 repair (doctor 1.5 s; no environment failure). Ready also retained explicit deferred cleanup
 notices for historical unsupported fixture profiles. Those unrelated records were preserved;
 a ready pass is not a claim that the host contains no legacy cleanup obligations. The documentation build passed
-617 chapters before final prose. Feature powerset/no-default, final executable controls,
-retirement preflight and final publication results remain to be recorded before Q03/Q04 close.
+617 chapters before final prose. `just features-powerset` completed the full **476-case depth-two
+matrix** and **34 no-default checks**. The original matrix passed 451 and failed 25; its gate
+and outer bundle correctly retain exit 1. The exact affected ten taskdump and fifteen
+merge-interrupted cases all passed their repaired reruns. All 34 no-default checks passed
+(50.8 s), with no source warnings. The matrix's seven “build failed, waiting” messages belong
+to the original failures, not new source warnings. This is composed coverage of every enumerated
+case, not a clean monolithic powerset invocation or a waived zero baseline. Original assessment:
+`build/assessment/20261023T083408.680158Z-features-powerset-1282321-cba8b1/`.
+Final publication/turn-end results are recorded in the closeout below.
 
 The rebuilt dedicated `pse-project`/`pse-evidence` binaries passed their actual public controls:
 `PSE_EVIDENCE_TEST_TOOL=<rebuilt-tool> .venv/bin/python -m unittest
@@ -346,3 +355,30 @@ other platforms, full scientific backup campaign and 16-concurrent-test startup 
 causal diagnosis is claimed. Primary metrics above the finite capture bound remain unavailable.
 Plan32 WC05/WC06, Plan40e campaigns and Plan49f–h/TOOL08 keep their own remaining obligations;
 this series neither reopens canceled historical campaigns nor settles a strict native edge-work cap.
+
+
+### Publication and closeout
+
+**Implemented:** enduring contracts and selected support limits are published at blueprint
+§14.3/§19.4/§20.6/§24.1–§24.2 and the substrate, diagnostics and environment guides. Architecture
+revision255 records the maintainer-authorized publication route; ADR-0216–0220 remain proposed.
+Post-implementation reconciliation updates Plans32/40/49 only for delivered overlap and preserves
+their independent obligations. Plan51 is removed from the current-work search selection.
+
+The three clean implementation worktrees/branches are merged and removed. All real contributions
+were integrated; final ancestry merges were checked to preserve the qualified main tree exactly.
+The user's unrelated `history.txt` edit remains outside this work. Source review and retirement
+preflight retain the highest-numbered coordinator and consumed companions/review: proposed ADRs,
+current qualification and operator readers still use their mechanisms and exact targeted evidence.
+They are completed evidence, not an active backlog. No archive tree or parallel status ledger is
+created; document retention does not release scientific artifacts.
+
+**Tested (zero failure baseline):** final `just turn-end` passed: ADR index 1.5 s and formatting
+27.9 s. The formatter touched 54 owned source files; Python ASTs were unchanged and no generated
+tree changed. Final `just lint-py typecheck` reports Ruff clean and zero Pyrefly diagnostics
+(three existing explicit suppressions). `just docs` publishes all 617 chapters with scoped search.
+`document_lifecycle validate` reports zero errors; the bound Plan51 `scope --state open` returns
+zero rows. Final retirement preflight finds all eight plan documents complete, with surviving
+qualification/proposed-ADR/operator references and no owner release; none is deleted. These
+are mechanical/document checks, not additional scientific or performance qualification.
+No product rerun is required by these documentation-only closeout edits.
