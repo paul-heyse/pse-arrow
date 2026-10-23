@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import os
+import subprocess
 import tempfile
 import time
 import unittest
@@ -102,6 +102,17 @@ class StorageHealthTests(unittest.TestCase):
         self.assertEqual(record.correspondence, "unknown")
         self.assertFalse(self.state.exists())
         self.assertEqual(health.read(self.save(record)), record)
+
+    def test_failed_service_control_keeps_independent_host_observation(self) -> None:
+        with (
+            patch.object(server, "config_for", side_effect=server.SupervisorError("absent")),
+            patch.object(server, "metric_snapshot", side_effect=subprocess.TimeoutExpired("systemctl", 1)),
+        ):
+            record = health.capture(self.state, time.monotonic() + 5)
+        self.assertEqual(record.service.status, "unavailable")
+        self.assertEqual(record.host["MemTotal_bytes"].status, "available")
+        self.assertEqual(record.correspondence, "unknown")
+        self.assertFalse(self.state.exists())
 
     def original_metrics(self, identity: dict | None = None) -> dict:
         return {
