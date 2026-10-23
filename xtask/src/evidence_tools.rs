@@ -14,7 +14,7 @@ use std::{
 pub(crate) struct EvidenceArgs {
     /// Selected service state; only its private tooling configuration is opened normally.
     #[arg(long)]
-    state: PathBuf,
+    state: Option<PathBuf>,
     /// Remaining original command allowance, shared by every stage and retry.
     #[arg(long, default_value_t = 30000)]
     timeout_ms: u64,
@@ -23,6 +23,28 @@ pub(crate) struct EvidenceArgs {
 }
 #[derive(Debug, Subcommand)]
 enum EvidenceCommand {
+    /// Supplied-only query; dispatches before deployment configuration or service activity.
+    Offline {
+        #[arg(long, required = true)]
+        input: Vec<PathBuf>,
+        #[arg(long)]
+        question: PathBuf,
+        #[arg(long)]
+        history: bool,
+        #[arg(long)]
+        observations: Option<PathBuf>,
+    },
+    /// Ask the same finite question over explicit activated multi-source generations.
+    Analyze {
+        #[arg(long, required = true)]
+        generation: Vec<String>,
+        #[arg(long)]
+        question: PathBuf,
+        #[arg(long)]
+        history: bool,
+        #[arg(long)]
+        observations: Option<PathBuf>,
+    },
     /// Explicit root-only initialization of the disposable tooling database.
     Init,
     /// Attest tooling interpretation and report the imported source cut.
@@ -159,22 +181,34 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     let deadline = Instant::now()
         .checked_add(Duration::from_millis(args.timeout_ms))
         .context("original allowance overflow")?;
-    let options = ToolingOptions::from_state(&args.state)?;
-    let _activity = activity_guard(&args.state, &options)?;
+    // Offline is a first-class path, before state/config/credentials/service activity.
+    if let EvidenceCommand::Offline { input, question, history, observations } = &args.command {
+        let snapshots = input.iter().map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path)).collect::<Result<Vec<_>, _>>()?;
+        let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, *history)?;
+        let question = read_question(question)?;
+        let observations = read_observations(observations.as_deref())?;
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+        let output = runtime.block_on(evidence::within_allowance(deadline, analysis.ask(&question, &observations)))?;
+        println!("{}", serde_json::to_string(&output)?);
+        return Ok(());
+    }
+    let state = args.state.as_deref().context("--state is required for service operations")?;
+    let options = ToolingOptions::from_state(state)?;
+    let _activity = activity_guard(state, &options)?;
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
     let output = rt.block_on(evidence::within_allowance(deadline, async {
         match args.command {
             EvidenceCommand::Init => {
-                let (user, password) = root_credentials(&args.state)
+                let (user, password) = root_credentials(state)
                     .map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
                 EvidenceStore::initialize(&options, &user, &password).await?;
                 Ok(serde_json::json!({"initialized":true}))
             }
             EvidenceCommand::Drop | EvidenceCommand::Rebuild => {
                 let rebuild = matches!(args.command, EvidenceCommand::Rebuild);
-                let (user, password) = root_credentials(&args.state)
+                let (user, password) = root_credentials(state)
                     .map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
                 EvidenceStore::drop_database(&options, &user, &password).await?;
                 if rebuild {
@@ -192,6 +226,13 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 let result = async {
                     match command {
                         EvidenceCommand::Status => store.status().await,
+                        EvidenceCommand::Analyze { generation, question, history, observations } => {
+                            let sources = store.source_cut(&generation, history).await?;
+                            let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(sources, history)?;
+                            let question = read_question(&question).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
+                            let observations = read_observations(observations.as_deref()).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
+                            analysis.ask(&question, &observations).await
+                        },
                         EvidenceCommand::Import { input } => {
                             let metadata = std::fs::metadata(&input).map_err(|e| {
                                 evidence::EvidenceError::Configuration(e.to_string())
@@ -267,4 +308,17 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     }))?;
     println!("{}", serde_json::to_string(&output)?);
     Ok(())
+}
+
+fn read_question(path: &Path) -> Result<pse_operations::evidence_query::EvidenceQuestion> {
+    let bytes = supplied_document(path, 65536)?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+fn read_observations(path: Option<&Path>) -> Result<Vec<pse_operations::evidence_query::EvidenceSourceObservation>> {
+    path.map(|path| Ok(serde_json::from_slice(&supplied_document(path, 262144)?)?)).transpose().map(|value| value.unwrap_or_default())
+}
+fn supplied_document(path: &Path, limit: u64) -> Result<Vec<u8>> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    anyhow::ensure!(metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= limit, "bounded explicit document required");
+    Ok(std::fs::read(path)?)
 }

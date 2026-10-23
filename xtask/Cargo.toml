@@ -35,7 +35,7 @@ native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
-evidence-tools = ["dep:pse-operations"]
+evidence-tools = ["dep:pse-operations", "pse-operations/evidence-query"]
 project-tools = ["canonical-tools", "physical-admission", "product-schemas"]
 canonical-tools = [
   "dep:pse-diagnostics",

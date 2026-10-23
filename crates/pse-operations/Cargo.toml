@@ -19,10 +19,13 @@ workspace = true
 [features]
 force-validate = [
   "pse-codegen/force-validate",
+  "pse-engine?/force-validate",
+  "pse-columnar?/force-validate",
   "pse-schema/force-validate",
   "pse-relations/force-validate",
 ]
 default = []
+evidence-query = ["dep:pse-engine", "dep:datafusion", "dep:pse-columnar"]
 # Isolated databases with the generated schema for tests in other crates.
 test-support = []
 # Explicit remote mechanism fixture; ordinary unit selection does not start a server.
@@ -31,6 +34,9 @@ canonical-tests = []
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 
 [dependencies]
+pse-engine = { workspace = true, optional = true }
+datafusion = { workspace = true, optional = true }
+pse-columnar = { workspace = true, optional = true }
 libc.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
