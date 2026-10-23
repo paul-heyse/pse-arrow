@@ -8,6 +8,12 @@ use pse_operations::{canonical::Revision,canonical_execution::{RunRequest,Termin
 use pse_model::{study::{PointPolicy,OccurrenceKey,StartPolicy,SeedNeed,PointOutcome,ScientificFacts},generated::enums::StudyPointState};
 use pse_relations::generated::runtime::simulation_samples;
 use std::time::Duration;
+pub(in crate::workflow) async fn physical(runtime:&Runtime)->flow::PhysicalSource {
+    let (documents,_)=flow::worker_tests::sources("package fixture { param x:Scalar=1; }");
+    let cancel=crate::CancelSource::new();
+    let admitted=runtime.physical_from_sources(&documents,&cancel).await.unwrap();
+    runtime.record_physical_source(&admitted,&cancel).await.unwrap()
+}
 fn request(revision:&Revision,physical:&Revision,key:&str)->RunRequest {RunRequest{key:key.into(),revision:revision.clone(),sources:vec![physical.clone()],request:vec![1],source_selection:vec![2],attestation:vec![3]}}
 pub(in crate::workflow) async fn create(runtime:&Runtime,study:&str,source:&Revision,physical:&flow::PhysicalSource,points:u32) {
     let store=runtime.canonical_store().unwrap();
@@ -44,7 +50,7 @@ fn cohort(physical:&flow::PhysicalSource)->StudyCohortRequest{StudyCohortRequest
 async fn workbench_public_cohort_retains_population_compares_value_variants_and_refuses_incompatible_quantity() {
     use datafusion::arrow::array::{Array,Float64Array,Int64Array};
     let runtime=flow::durable_tests::durable_runtime();
-    let physical=runtime.record_physical_source(&flow::tests::physical(),&crate::CancelSource::new()).await.unwrap();
+    let physical=physical(&runtime).await;
     let store=runtime.canonical_store().unwrap();
     let source=store.edit("workbench-model",None,"first",&[]).await.unwrap();
     create(&runtime,"study-a",&source,&physical,3).await;
@@ -78,7 +84,7 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
 #[tokio::test]
 async fn study_observer_public_reconnect_checks_authority_and_exit_preserves_science() {
     let runtime=flow::durable_tests::durable_runtime();
-    let physical=runtime.record_physical_source(&flow::tests::physical(),&crate::CancelSource::new()).await.unwrap();
+    let physical=physical(&runtime).await;
     let store=runtime.canonical_store().unwrap();let source=store.edit("observer-model",None,"source",&[]).await.unwrap();
     create(&runtime,"observed-study",&source,&physical,1).await;
     let scope=store.study_scope(&point_key("observed-study",OccurrenceKey(0))).await.unwrap();

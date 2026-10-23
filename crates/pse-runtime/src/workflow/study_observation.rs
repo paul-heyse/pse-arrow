@@ -301,7 +301,7 @@ mod canonical_tests {
     async fn study_observer_public_disconnect_reconnect_reads_full_history_or_reports_missing_prefix() {
         for missing_prefix in [false,true] {
             let runtime=crate::workflow::durable_tests::durable_runtime();
-            let physical=runtime.record_physical_source(&crate::workflow::tests::physical(),&crate::CancelSource::new()).await.unwrap();
+            let physical=crate::workflow::study_workbench::canonical_tests::physical(&runtime).await;
             let store=runtime.canonical_store().unwrap();let source=store.edit("observed-source",None,"source",&[]).await.unwrap();
             crate::workflow::study_workbench::canonical_tests::create(&runtime,"observed",&source,&physical,1).await;
             let scope=store.study_scope(&point_key("observed",OccurrenceKey(0))).await.unwrap();
