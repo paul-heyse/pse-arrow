@@ -1155,6 +1155,60 @@ impl NativeRuntime {
             value,
         ))
     }
+    fn project_merge_preview(
+        &self, py: Python<'_>, base: &NativeModelingPackage, target: &NativeModelingPackage,
+        proposal: &NativeModelingPackage,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergePreview>> {
+        let stop = CancelSource::new();
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.inner.project_merge_preview(&base.inner,&target.inner,&proposal.inner,&resolutions,&stop),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_merge_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        base: &NativeModelingPackage, target: &NativeModelingPackage, proposal: &NativeModelingPackage,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_merge_intent(publication.0,&base.inner,&target.inner,&proposal.inner,resolutions,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_merge_draft_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        base: &NativeModelingPackage, target: &NativeModelingPackage,
+        version: documents::DocumentInput<pse_operations::canonical_projects::DraftVersion>,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_merge_draft_intent(publication.0,&base.inner,&target.inner,&version.0,resolutions,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_undo_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        target: &NativeModelingPackage, restore: &NativeModelingPackage,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_undo_intent(publication.0,&target.inner,&restore.inner,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_publish_merge(
+        &self, py: Python<'_>, intent: documents::DocumentInput<native::ProjectMergeIntent>, physical: &NativePhysicalContext,
+    ) -> PyResult<NativeModelingPackage> {
+        let stop = CancelSource::new(); let publication_stop=&stop;
+        let value = source_settlement::blocking_source(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_publish_merge(&intent.0,physical.inner.clone(),publication_stop).await
+        }),||stop.cancel())?;
+        Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+    }
     fn modeling_from_documents(
         &self,
         py: Python<'_>,

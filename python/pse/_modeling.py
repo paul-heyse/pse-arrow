@@ -62,6 +62,8 @@ from pse.contracts.documents import (
     PreparationDiscoveryRequest,
     PreparationDiscoveryRequestOutput,
     PreparationDiscoveryReportOutput,
+    ProjectComparisonOutput,
+    ProjectSourceDetailOutput,
     PreparationSettings,
     PreparationSettingsOutput,
     PureConformanceControls,
@@ -856,6 +858,18 @@ class ModelingPackage:
         return ModelingPackage(
             self._handle.reload_from_parent([dict(bundle) for bundle in documents])
         )
+
+    def project_compare(
+        self, other: "ModelingPackage", *, source_only: bool = False
+    ) -> ProjectComparisonOutput:
+        """Compare exact admitted logical objects without preparing a numerical model."""
+        return self._handle.project_compare(other._handle, source_only=source_only)
+
+    def project_source_detail(
+        self, logical: Sequence[str]
+    ) -> tuple[ProjectSourceDetailOutput, ...]:
+        """Read selected authored detail; binary data remains an exact content identity."""
+        return tuple(self._handle.project_source_detail(list(logical)))
 
     def source_tables(self) -> dict[SemanticId, TableStream]:
         """Export the complete immutable source inventory as explicit Arrow tables."""

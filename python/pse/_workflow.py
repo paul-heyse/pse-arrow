@@ -73,6 +73,13 @@ from pse.contracts.documents import (
     ProjectDraftSaveIntentOutput,
     ProjectPublication,
     ProjectPublicationOutput,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
+    ProjectMergeIntent,
+    ProjectMergeIntentOutput,
+    ProjectMergePreviewOutput,
+    ProjectMergeResolution,
+    ProjectMergeResolutionOutput,
     ProjectRecord,
     ProjectRecordOutput,
     ReproductionDocumentOutput,
@@ -660,6 +667,52 @@ class Runtime:
     ) -> ProjectAcknowledgementOutput | None:
         """Observe the original immutable receipt; absence does not prove rollback."""
         return self._handle.project_acknowledgement(operation)
+
+    def project_merge_preview(
+        self, base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergePreviewOutput:
+        """Inspect three-way logical conflicts before issuing a publication decision."""
+        return self._handle.project_merge_preview(
+            base._handle, target._handle, proposal._handle, list(resolutions)
+        )
+
+    def project_merge_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergeIntentOutput:
+        """Retain exact admitted revision selections and explicit conflict choices."""
+        return self._handle.project_merge_intent(
+            publication, base._handle, target._handle, proposal._handle, list(resolutions)
+        )
+
+    def project_merge_draft_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage, target: ModelingPackage,
+        version: ProjectDraftVersion | ProjectDraftVersionOutput,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergeIntentOutput:
+        """Merge an exact saved version without publishing a temporary source revision."""
+        return self._handle.project_merge_draft_intent(
+            publication, base._handle, target._handle, version, list(resolutions)
+        )
+
+    def project_undo_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        target: ModelingPackage, restore: ModelingPackage,
+    ) -> ProjectMergeIntentOutput:
+        """Retain an ordinary compensating source publication, never a head rewind."""
+        return self._handle.project_undo_intent(
+            publication, target._handle, restore._handle
+        )
+
+    def project_publish_merge(
+        self, intent: ProjectMergeIntent | ProjectMergeIntentOutput,
+        physical: "PhysicalContext",
+    ) -> ModelingPackage:
+        """Publish or settle the original immutable merge/undo decision."""
+        return ModelingPackage(self._handle.project_publish_merge(intent, physical._handle))
 
     def project_publish_draft(
         self,

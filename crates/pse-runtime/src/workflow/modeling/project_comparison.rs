@@ -6,86 +6,196 @@ use super::{ModelingPackage, Runtime, PhysicalContext, WorkflowError, contract};
 use crate::{CancelSource, workflow::SourceDelta};
 use pse_authoring::language::{Declaration};
 use pse_model::generated::{authored::{documents, fit_cases, packages}, enums::ModelingDeclarationKind as Kind};
-use pse_operations::canonical_projects::ProjectPublication;
+use pse_operations::canonical_projects::{ProjectPublication, DraftVersion};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Exact source identity used by a comparison; local tokens never stand in for durable keys.
+/// Compact changes between exact admitted authored inventories.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectComparisonSelection {
+    /// Original canonical issuing authority, absent for a local source.
     pub issuing_store: Option<String>,
+    /// Exact durable source revision, when recorded.
     pub revision: Option<String>,
+    /// Exact process-local parent token of the admitted package.
     pub local_revision: String,
+    /// Scientific source identity carried by the admitted package.
     pub source: String,
+    /// Exact physical closure identity used for semantic interpretation.
     pub physical: String,
 }
 /// Conservative impacts from authored meaning, not a claim of numerical equivalence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ProjectChangeImpact { Source, Value, Structural, Unknown }
+pub enum ProjectChangeImpact {
+    /// Original authored bytes or presentation attribution changed.
+    Source,
+    /// A known numeric literal parameter initializer changed with unchanged shape.
+    Value,
+    /// Authored structure, binding, type, equation or domain changed.
+    Structural,
+    /// Available mapping does not establish the scientific effect.
+    Unknown,
+}
 /// One changed logical object. Values are available only by selected detail request.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectObjectChange {
+    /// Stable authored logical identity.
     pub logical: String,
+    /// The object is absent from the original selection.
     pub added: bool,
+    /// The object is absent from the proposed selection.
     pub removed: bool,
+    /// Conservative source and scientific impacts supported by authored evidence.
     pub impacts: Vec<ProjectChangeImpact>,
+    /// Changed top-level typed fields; detailed values require explicit selection.
     pub fields: Vec<String>,
 }
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectComparison {
+    /// Original exact admitted source selection.
     pub from: ProjectComparisonSelection,
+    /// Compared exact admitted source selection.
     pub to: ProjectComparisonSelection,
+    /// Whether this operation requested and established matching physical context.
     pub semantic_context_matches: bool,
+    /// Only changed logical objects, ordered by stable logical identity.
     pub changes: Vec<ProjectObjectChange>,
 }
 /// One explicitly selected admitted authored object, retaining its native typed shape.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
-pub enum ProjectSourceObject { Declaration(Declaration), Document(ProjectDocumentSource), Fit(fit_cases::Row), Package(packages::Row) }
+pub enum ProjectSourceObject {
+    /// Admitted modeling declaration with its stable identity.
+    Declaration(Declaration),
+    /// Admitted document metadata and exact data identity.
+    Document(ProjectDocumentSource),
+    /// Admitted fitting declaration.
+    Fit(fit_cases::Row),
+    /// Package ownership metadata; automatic package-manifest merging is unsupported.
+    Package(packages::Row),
+}
 /// Source metadata plus exact data identity. Passive comparison does not copy binary payloads.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectDocumentSource {
+    /// Original document metadata and optional text, without binary content.
     pub document: documents::Row,
+    /// Exact admitted data object version, absent for a text-only document.
     pub content_digest: Option<String>,
 }
+/// One selected authored object without implicit full source export.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectSourceDetail { pub logical: String, pub object: Option<ProjectSourceObject> }
+pub struct ProjectSourceDetail {
+    /// Requested stable logical identity.
+    pub logical: String,
+    /// Selected admitted object, or explicit absence at this revision.
+    pub object: Option<ProjectSourceObject>,
+}
 /// Explicit resolution of an actual conflict. Delete is never inferred from missing input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ProjectMergeChoice { Target, Proposal, Base, Delete }
+pub enum ProjectMergeChoice {
+    /// Keep the original target object, including its explicit absence.
+    Target,
+    /// Keep the original proposal object, including its explicit absence.
+    Proposal,
+    /// Restore the exact common ancestor object, including its absence.
+    Base,
+    /// Explicitly remove the conflicting object.
+    Delete,
+}
+/// An explicit conflict decision for one stable logical object.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectMergeResolution { pub logical: String, pub choice: ProjectMergeChoice }
+pub struct ProjectMergeResolution {
+    /// The actual conflicting logical identity.
+    pub logical: String,
+    /// Explicit selected original side or deletion.
+    pub choice: ProjectMergeChoice,
+}
+/// A typed conflict between two changes of one logical object.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectMergeConflict { pub logical: String, pub kind: ProjectMergeConflictKind }
+pub struct ProjectMergeConflict {
+    /// Conflicting stable authored logical identity.
+    pub logical: String,
+    /// Conflict evidence requiring an explicit resolution.
+    pub kind: ProjectMergeConflictKind,
+}
+/// The authored evidence that prevents an automatic object merge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ProjectMergeConflictKind { DeleteEdit, ConflictingAddition, DifferentEdits }
+pub enum ProjectMergeConflictKind {
+    /// One side removed an object changed by the other side.
+    DeleteEdit,
+    /// Both sides added different objects with the same logical identity.
+    ConflictingAddition,
+    /// Both sides changed an existing logical object differently.
+    DifferentEdits,
+}
+/// Prospective target changes and conflicts without any publication effect.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectMergePreview { pub conflicts: Vec<ProjectMergeConflict>, pub changes: Vec<ProjectObjectChange> }
+pub struct ProjectMergePreview {
+    /// Unresolved objects; these prevent issuing a publication intent.
+    pub conflicts: Vec<ProjectMergeConflict>,
+    /// Changes against the target after applying explicit resolutions.
+    pub changes: Vec<ProjectObjectChange>,
+}
+/// Whether the retained decision composes edits or compensates a prior state.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ProjectMergeMode { Merge, Undo }
+pub enum ProjectMergeMode {
+    /// Compose changes from a declared common ancestor.
+    Merge,
+    /// Publish a compensating revision containing a selected earlier state.
+    Undo,
+}
+/// Original admitted proposal ownership, independent of later branch or draft heads.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ProjectMergeProposal {
+    /// An exact recorded admitted source revision.
+    Revision {
+        /// Original immutable canonical revision identity.
+        revision: String,
+    },
+    /// An exact immutable saved raw version, admitted before publication.
+    Draft {
+        /// Full original version descriptor authenticated by its storage owner.
+        version: DraftVersion,
+    },
+}
+impl ProjectMergeProposal {
+    fn ancestor(&self) -> &str {
+        match self { Self::Revision { revision } => revision, Self::Draft { version } => &version.base_revision }
+    }
+}
 /// Complete immutable decision retained before issuing a source effect.
 /// The canonical request binds its commitment and additional ancestry in the source transaction.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectMergeIntent {
+    /// Closed original decision document version.
     pub version: pse_model::document::Version<1>,
+    /// Original canonical source CAS and immutable decision commitment.
     pub publication: ProjectPublication,
+    /// Three-way composition or compensating undo.
     pub mode: ProjectMergeMode,
+    /// Exact admitted common ancestor revision.
     pub base: String,
+    /// Exact original source head receiving the result.
     pub target: String,
-    pub proposal: String,
+    /// Original admitted source or immutable saved draft version.
+    pub proposal: ProjectMergeProposal,
+    /// Exact physical closure required for admission and publication.
     pub physical: String,
+    /// Complete explicit original conflict choices.
     pub resolutions: Vec<ProjectMergeResolution>,
 }
 struct Snapshot {
@@ -93,6 +203,10 @@ struct Snapshot {
     objects: BTreeMap<String, ProjectSourceObject>,
     // Decoded clones remain accounted to this exact observation.
     _owner: std::sync::Arc<pse_columnar::AllocationLease>,
+}
+fn operation_deadline(cancel: &CancelSource) -> std::time::Instant {
+    let limit = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+    cancel.deadline().map_or(limit, |deadline| deadline.min(limit))
 }
 fn checkpoint(cancel: &CancelSource) -> Result<(), WorkflowError> {
     cancel.token().checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -133,10 +247,10 @@ impl ModelingPackage {
     }
     /// Compact authored-object comparison. A physical mismatch refuses semantic interpretation.
     pub async fn project_compare(&self, other: &Self, cancel: &CancelSource) -> Result<ProjectComparison, WorkflowError> {
-        self.runtime.scope_activity(async {
+        self.runtime.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             if self.physical.key != other.physical.key { return Err(contract("semantic comparison physical contexts differ; request source-only comparison explicitly")); }
             self.project_compare_mode(other, true, cancel).await
-        }).await
+        })).await
     }
     /// Explicit source-only view across contexts, never a scientific compatibility claim.
     pub async fn project_compare_source(&self, other: &Self, cancel: &CancelSource) -> Result<ProjectComparison, WorkflowError> {
@@ -151,11 +265,11 @@ impl ModelingPackage {
     }
     /// Fetch only caller-selected typed object detail; unknown identities remain explicit absences.
     pub async fn project_source_detail(&self, logical: &[String], cancel: &CancelSource) -> Result<Vec<ProjectSourceDetail>, WorkflowError> {
-        self.runtime.scope_activity(async {
+        self.runtime.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             if logical.len() > 256 || logical.iter().any(|k| k.len() > 4096) { return Err(contract("project selected detail request exceeds bounds")); }
             let snapshot = self.project_snapshot(cancel).await?;
             Ok(logical.iter().map(|key| ProjectSourceDetail { logical: key.clone(), object: snapshot.objects.get(key).cloned() }).collect())
-        }).await
+        })).await
     }
 }
 fn fields(a: &ProjectSourceObject, b: &ProjectSourceObject) -> Result<Vec<String>, WorkflowError> {
@@ -259,9 +373,10 @@ impl ProjectMergeIntent {
         let bytes = serde_json::to_vec(&(1u8, &self.mode, &self.base, &self.target, &self.proposal, &self.physical, &self.resolutions)).map_err(|e| contract(e.to_string()))?;
         Ok(pse_operations::canonical_execution::result_payload_digest(&bytes))
     }
+    /// Validate the complete decision against its original canonical request commitment.
     pub fn validate(&self) -> Result<(), WorkflowError> {
         self.publication.validate()?;
-        if self.base.is_empty() || self.proposal.is_empty() || self.target.is_empty() || self.physical.is_empty() || self.publication.expected() != Some(self.target.as_str()) || self.publication.context_commitment() != Some(self.commitment()?.as_str()) {
+        if self.base.is_empty() || self.proposal.ancestor().is_empty() || self.target.is_empty() || self.physical.is_empty() || self.publication.expected() != Some(self.target.as_str()) || self.publication.context_commitment() != Some(self.commitment()?.as_str()) {
             return Err(pse_operations::canonical::CanonicalError::OperationReused.into());
         }
         Ok(())
@@ -308,55 +423,75 @@ impl Runtime {
         }
         Ok(false)
     }
+    /// Inspect exact logical-object composition and unresolved conflicts without effects.
     pub async fn project_merge_preview(&self, base: &ModelingPackage, target: &ModelingPackage, proposal: &ModelingPackage, resolutions: &[ProjectMergeResolution], cancel: &CancelSource) -> Result<ProjectMergePreview, WorkflowError> {
-        self.scope_activity(async {
+        self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             if base.physical.key != target.physical.key || proposal.physical.key != target.physical.key { return Err(contract("merge physical contexts differ")); }
             let (b,t,p) = (base.project_snapshot(cancel).await?, target.project_snapshot(cancel).await?, proposal.project_snapshot(cancel).await?);
             let (merged,conflicts) = merge_objects(&b,&t,&p,resolutions)?;
             Ok(ProjectMergePreview { conflicts, changes: compare(&t.objects,&merged)? })
-        }).await
+        })).await
     }
-    /// Retain an exact decision before publication; unresolved conflicts issue no intent.
+    /// Retain an exact admitted revision decision before publication.
     pub async fn project_merge_intent(&self, publication: ProjectPublication, base: &ModelingPackage, target: &ModelingPackage, proposal: &ModelingPackage, resolutions: Vec<ProjectMergeResolution>, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
-        self.scope_activity(async {
-            let (base_key,target_key,proposal_key) = (&base.recorded_revision()?.key,&target.recorded_revision()?.key,&proposal.recorded_revision()?.key);
+        let descriptor = ProjectMergeProposal::Revision { revision: proposal.recorded_revision()?.key.clone() };
+        self.project_merge_decision(publication,base,target,proposal,descriptor,resolutions,cancel).await
+    }
+    /// Retain one immutable saved version, without publishing a temporary source revision.
+    pub async fn project_merge_draft_intent(&self, publication: ProjectPublication, base: &ModelingPackage, target: &ModelingPackage, version: &DraftVersion, resolutions: Vec<ProjectMergeResolution>, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
+        self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
+            let proposal = self.project_admit_draft_version(version,target.physical.clone(),cancel).await?;
+            self.project_merge_decision(publication,base,target,&proposal,ProjectMergeProposal::Draft { version: version.clone() },resolutions,cancel).await
+        })).await
+    }
+    async fn project_merge_decision(&self, publication: ProjectPublication, base: &ModelingPackage, target: &ModelingPackage, proposal: &ModelingPackage, descriptor: ProjectMergeProposal, resolutions: Vec<ProjectMergeResolution>, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
+        self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
+            let (base_key,target_key,proposal_key) = (&base.recorded_revision()?.key,&target.recorded_revision()?.key,descriptor.ancestor());
             if publication.expected() != Some(target_key.as_str()) || !self.project_is_ancestor(base_key,target_key,cancel).await? || !self.project_is_ancestor(base_key,proposal_key,cancel).await? { return Err(contract("merge base is not an ancestor of both exact selections")); }
             let preview = self.project_merge_preview(base,target,proposal,&resolutions,cancel).await?;
             if !preview.conflicts.is_empty() { return Err(contract("merge has unresolved logical-object conflicts")); }
-            let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(base_key,proposal_key)?, mode: ProjectMergeMode::Merge, base: base_key.clone(), target: target_key.clone(), proposal: proposal_key.clone(), physical: target.physical.key.to_string(), resolutions };
+            let publication = publication.with_merge_ancestry(base_key,proposal_key)?;
+            let mut intent = ProjectMergeIntent { version: Default::default(), publication, mode: ProjectMergeMode::Merge, base: base_key.clone(), target: target_key.clone(), proposal: descriptor, physical: target.physical.key.to_string(), resolutions };
             let commitment = intent.commitment()?;
             intent.publication = intent.publication.with_context_commitment(&commitment)?;
             intent.validate()?;
             Ok(intent)
-        }).await
+        })).await
     }
     /// Undo means a new admitted source revision with the chosen earlier authored state.
     pub async fn project_undo_intent(&self, publication: ProjectPublication, target: &ModelingPackage, restore: &ModelingPackage, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
-        self.scope_activity(async {
+        self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             let target_key = &target.recorded_revision()?.key; let restore_key = &restore.recorded_revision()?.key;
             if publication.expected() != Some(target_key.as_str()) || target.physical.key != restore.physical.key || !self.project_is_ancestor(restore_key,target_key,cancel).await? { return Err(contract("undo source is not a compatible exact ancestor")); }
-            let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(restore_key,restore_key)?, mode: ProjectMergeMode::Undo, base: restore_key.clone(), target: target_key.clone(), proposal: restore_key.clone(), physical: target.physical.key.to_string(), resolutions: Vec::new() };
+            let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(restore_key,restore_key)?, mode: ProjectMergeMode::Undo, base: restore_key.clone(), target: target_key.clone(), proposal: ProjectMergeProposal::Revision { revision: restore_key.clone() }, physical: target.physical.key.to_string(), resolutions: Vec::new() };
             let commitment = intent.commitment()?;
             intent.publication = intent.publication.with_context_commitment(&commitment)?;
             intent.validate()?; Ok(intent)
-        }).await
+        })).await
     }
     /// Settle original acknowledgement first; never reinterpret a later head or draft as this intent.
     pub async fn project_publish_merge(&self, intent: &ProjectMergeIntent, physical: PhysicalContext, cancel: &CancelSource) -> Result<ModelingPackage, WorkflowError> {
-        self.scope_activity(async {
+        self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             intent.validate()?;
             if physical.key.to_string() != intent.physical { return Err(contract("merge receiving physical context differs")); }
             let store = self.canonical_store()?;
             if let Some(revision) = store.settled_project_publication(&intent.publication).await? { return self.modeling_revision(revision,physical,BTreeMap::new()).await; }
             let mut packages = Vec::new();
-            for key in [&intent.base,&intent.target,&intent.proposal] {
+            for key in [&intent.base,&intent.target] {
                 let revision = store.revision(key).await?.ok_or_else(|| contract("merge original source unavailable"))?;
                 packages.push(self.modeling_revision(revision,physical.clone(),BTreeMap::new()).await?);
             }
-            let (base,target,proposal) = (&packages[0],&packages[1],&packages[2]);
-            if !self.project_is_ancestor(&intent.base,&intent.target,cancel).await? || !self.project_is_ancestor(&intent.base,&intent.proposal,cancel).await? { return Err(contract("retained merge ancestry differs")); }
+            let proposal = match &intent.proposal {
+                ProjectMergeProposal::Revision { revision } => {
+                    let selected = store.revision(revision).await?.ok_or_else(|| contract("merge proposal source unavailable"))?;
+                    self.modeling_revision(selected,physical.clone(),BTreeMap::new()).await?
+                }
+                ProjectMergeProposal::Draft { version } => self.project_admit_draft_version(version,physical.clone(),cancel).await?,
+            };
+            let (base,target,proposal) = (&packages[0],&packages[1],&proposal);
+            if !self.project_is_ancestor(&intent.base,&intent.target,cancel).await? || !self.project_is_ancestor(&intent.base,intent.proposal.ancestor(),cancel).await? { return Err(contract("retained merge ancestry differs")); }
             let (b,t,p) = (base.project_snapshot(cancel).await?,target.project_snapshot(cancel).await?,proposal.project_snapshot(cancel).await?);
-            let (merged,conflicts) = match intent.mode { ProjectMergeMode::Merge => merge_objects(&b,&t,&p,&intent.resolutions)?, ProjectMergeMode::Undo => { if intent.base != intent.proposal || !intent.resolutions.is_empty() { return Err(contract("undo decision shape differs")); } (p.objects.clone(),Vec::new()) } };
+            let (merged,conflicts) = match intent.mode { ProjectMergeMode::Merge => merge_objects(&b,&t,&p,&intent.resolutions)?, ProjectMergeMode::Undo => { if !matches!(&intent.proposal,ProjectMergeProposal::Revision { revision } if revision == &intent.base) || !intent.resolutions.is_empty() { return Err(contract("undo decision shape differs")); } (p.objects.clone(),Vec::new()) } };
             if !conflicts.is_empty() { return Err(contract("retained merge has unresolved conflicts")); }
             // Package metadata changes cannot be smuggled through declaration/document merging.
             for source in [base,proposal] {
@@ -366,7 +501,7 @@ impl Runtime {
             let delta = delta_to(target,&t,&merged,&p.order,&[target,proposal,base]).await?;
             let admitted = target.project_admit_delta(&delta,cancel).await?;
             super::canonical::publish_admitted_project(self,&intent.publication,target,&admitted,cancel).await
-        }).await
+        })).await
     }
 }
 
@@ -441,5 +576,58 @@ mod tests {
         assert_eq!(&*admitted.declarations().await.unwrap(),next.as_slice());
         assert!(admitted.canonical_revision().is_none());
         assert!(package.project_admit_delta(&SourceDelta { parent:"unrelated".into(),..Default::default() },&CancelSource::new()).await.is_err());
+    }
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+mod native_tests {
+    use super::*;
+    fn rows() -> Vec<Declaration> { pse_authoring::language::parse("package p { param a:Scalar=1; param b:Scalar=2; }",pse_ids::SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap() }
+    async fn change(runtime: &Runtime, package: &ModelingPackage, name: &str, value: &str, operation: &str, branch_key: &str) -> ModelingPackage {
+        let mut row = package.declarations().await.unwrap().iter().find(|r|r.name==name).unwrap().clone(); row.value.binding.as_mut().unwrap().expression = Some(value.into());
+        let local = package.project_admit_delta(&SourceDelta { parent: package.revision_id().into(), replacements:vec![row],..Default::default() },&CancelSource::new()).await.unwrap();
+        let store = runtime.canonical_store().unwrap();
+        let project = store.project("project").await.unwrap().unwrap(); let branch=store.project_branch(branch_key).await.unwrap().unwrap();
+        let intent = store.project_publication_intent(&project,&branch,&package.recorded_revision().unwrap().key,None,operation).unwrap();
+        runtime.project_publish_admitted(&intent,&local,&CancelSource::new()).await.unwrap()
+    }
+    #[tokio::test]
+    async fn native_merge_undo_exact_replay_and_head_conflict() {
+        let runtime = crate::workflow::tests::durable_runtime(); let store = runtime.canonical_store().unwrap(); let physical = crate::workflow::tests::physical(); let cancel = CancelSource::new();
+        let base = runtime.modeling_package(rows(),physical.clone()).await.unwrap();
+        store.create_project("create","project","Experiment").await.unwrap();
+        let project = store.project("project").await.unwrap().unwrap();
+        let a = runtime.project_fork(&project,"a","problem-a","fork-a",&base).await.unwrap();
+        let project = store.project("project").await.unwrap().unwrap();
+        let b = runtime.project_fork(&project,"b","problem-b","fork-b",&base).await.unwrap();
+        let a = runtime.modeling_revision(a,physical.clone(),BTreeMap::new()).await.unwrap(); let b = runtime.modeling_revision(b,physical.clone(),BTreeMap::new()).await.unwrap();
+        let target = change(&runtime,&a,"a","3","edit-a","a").await;
+        let proposal = change(&runtime,&b,"b","4","edit-b","b").await;
+        let project = store.project("project").await.unwrap().unwrap(); let branch = store.project_branch("a").await.unwrap().unwrap();
+        let publication = store.project_publication_intent(&project,&branch,&target.recorded_revision().unwrap().key,None,"merge").unwrap();
+        let intent = runtime.project_merge_intent(publication,&base,&target,&proposal,vec![],&cancel).await.unwrap();
+        let merged = runtime.project_publish_merge(&intent,physical.clone(),&cancel).await.unwrap();
+        let again = runtime.project_publish_merge(&intent,physical.clone(),&cancel).await.unwrap();
+        assert_eq!(merged.canonical_revision(),again.canonical_revision());
+        let merged_rows = merged.declarations().await.unwrap();
+        for (name,value) in [("a","3"),("b","4")] { assert_eq!(merged_rows.iter().find(|r|r.name==name).unwrap().value.binding.as_ref().unwrap().expression.as_deref(),Some(value)); }
+        let mut forged=intent.clone(); forged.resolutions.push(ProjectMergeResolution { logical:"unrelated".into(),choice:ProjectMergeChoice::Delete });
+        assert!(runtime.project_publish_merge(&forged,physical.clone(),&cancel).await.is_err());
+        let branch=store.project_branch("a").await.unwrap().unwrap();
+        let undo_publication=store.project_publication_intent(&project,&branch,&merged.recorded_revision().unwrap().key,None,"undo").unwrap();
+        let undo=runtime.project_undo_intent(undo_publication,&merged,&a,&cancel).await.unwrap();
+        let restored=runtime.project_publish_merge(&undo,physical.clone(),&cancel).await.unwrap();
+        assert_eq!(restored.recorded_revision().unwrap().parent,Some(merged.recorded_revision().unwrap().key.clone()));
+        assert_eq!(&*restored.declarations().await.unwrap(),&*a.declarations().await.unwrap());
+        // The original branch and accepted merge remain independently readable after undo.
+        assert_eq!(&*runtime.modeling_revision(merged.recorded_revision().unwrap().clone(),physical.clone(),BTreeMap::new()).await.unwrap().declarations().await.unwrap(),&*merged_rows);
+        assert_eq!(runtime.project_publish_merge(&intent,physical.clone(),&cancel).await.unwrap().canonical_revision(),merged.canonical_revision());
+        let branch=store.project_branch("a").await.unwrap().unwrap();
+        let stale_publication=store.project_publication_intent(&project,&branch,&restored.recorded_revision().unwrap().key,None,"stale-merge").unwrap();
+        let stale=runtime.project_merge_intent(stale_publication,&base,&restored,&proposal,vec![],&cancel).await.unwrap();
+        let moved=change(&runtime,&restored,"a","8","move-a","a").await;
+        assert!(runtime.project_publish_merge(&stale,physical,&cancel).await.is_err());
+        assert_eq!(store.project_branch_revision("a").await.unwrap().unwrap(),*moved.recorded_revision().unwrap());
+        store.remove_isolated_fixture().await.unwrap();
     }
 }
