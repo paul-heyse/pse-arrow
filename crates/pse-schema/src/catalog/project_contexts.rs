@@ -19,6 +19,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ("canonical_project_contexts", vec![
             column("key", text()), column("project", text()), column("scope", text()),
             column("revision", text()), column("source_identity", text()), column("physical_context", text()),
+            column("physical_revision", text()), column("physical_source_identity", text()),
             column("effective_from_us", instant()), column("effective_to_us", instant()).optional(),
             column("recorded_sequence", uint()), column("corrects", text()).optional(),
             column("deleted", T::native(D::Boolean)), column("request", T::native(D::Binary)),

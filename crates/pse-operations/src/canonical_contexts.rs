@@ -42,12 +42,12 @@ impl CanonicalStore {
     }
     /// Append one immutable record. Retry the original operation and all original coordinates.
     #[allow(clippy::too_many_arguments,reason="immutable context append binds complete original source, effective interval and ancestry")]
-    pub async fn append_project_context(&self,operation:&str,project:&crate::canonical_projects::Project,scope:&str,revision:&str,source_identity:&str,physical_context:&str,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->Result<ProjectContext,CanonicalError>{
-        for value in [operation,&project.key,scope,revision,source_identity,physical_context]{identity(value)?;}
+    pub async fn append_project_context(&self,operation:&str,project:&crate::canonical_projects::Project,scope:&str,revision:&str,source_identity:&str,physical_context:&str,physical_revision:&str,physical_source_identity:&str,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->Result<ProjectContext,CanonicalError>{
+        for value in [operation,&project.key,scope,revision,source_identity,physical_context,physical_revision,physical_source_identity]{identity(value)?;}
         if let Some(parent)=corrects{identity(parent)?;}
         if effective_to_us.is_some_and(|to|to<=effective_from_us)||deleted&&corrects.is_none(){return Err(CanonicalError::Configuration("invalid context interval or tombstone ancestry".into()));}
-        let request=encoded(&("context-v1",self.issuing_store()?,operation,&project.key,project.generation,scope,revision,source_identity,physical_context,effective_from_us,effective_to_us,corrects,deleted))?;
-        let row=ProjectContext{key:operation.into(),project:project.key.clone(),scope:scope.into(),revision:revision.into(),source_identity:source_identity.into(),physical_context:physical_context.into(),effective_from_us,effective_to_us,recorded_sequence:0,corrects:corrects.map(str::to_owned),deleted,request:request.clone().into()};
+        let request=encoded(&("context-v1",self.issuing_store()?,operation,&project.key,project.generation,scope,revision,source_identity,physical_context,physical_revision,physical_source_identity,effective_from_us,effective_to_us,corrects,deleted))?;
+        let row=ProjectContext{key:operation.into(),project:project.key.clone(),scope:scope.into(),revision:revision.into(),source_identity:source_identity.into(),physical_context:physical_context.into(),physical_revision:physical_revision.into(),physical_source_identity:physical_source_identity.into(),effective_from_us,effective_to_us,recorded_sequence:0,corrects:corrects.map(str::to_owned),deleted,request:request.clone().into()};
         let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             self.ensure_writes()?;
             let response=protected_query("canonical_contexts::append",||Ok(self.context_query("RETURN fn::pse_context_v1::append($pse_rpc_expires_at,$row,$generation);")?.bind(("row",wire::encode_canonical_project_contexts(&row)?)).bind(("generation",codec::encode_uint(project.generation)?)))).await;
@@ -73,7 +73,7 @@ impl CanonicalStore {
     /// Resolve a UTC effective instant at the original recorded cut. Unrelated overlaps refuse.
     pub async fn select_project_context(&self,cut:&ContextCut,scope:&str,effective_at_us:i64)->Result<Option<ContextSelection>,CanonicalError>{
         self.check_cut(cut)?;identity(scope)?;let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision);}; RETURN $selected;")?.bind(("project",cut.project.clone())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
+            let mut response=bounded_query(self.context_query("LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.clone())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
             Ok(final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose()?.map(|context|ContextSelection{cut:cut.clone(),effective_at_us,context}))
         })).await
     }
@@ -103,12 +103,12 @@ mod tests {
     async fn project_context_corrections_preserve_original_cuts_and_half_open_intervals(){
         let store=fixture().await;let source=source(&store,"source").await;
         store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
-        store.append_project_context("original",&project,"calibration",&source.key,"source-hash","physical",0,None,None,false).await.unwrap();
+        store.append_project_context("original",&project,"calibration",&source.key,"source-hash","physical",&source.key,"physical-source-hash",0,None,None,false).await.unwrap();
         let old=store.project_context_cut("project").await.unwrap();
         let retained=store.select_project_context(&old,"calibration",26).await.unwrap().unwrap();
-        store.append_project_context("correction",&project,"calibration",&source.key,"corrected-hash","physical",20,Some(40),Some("original"),false).await.unwrap();
+        store.append_project_context("correction",&project,"calibration",&source.key,"corrected-hash","physical",&source.key,"physical-source-hash",20,Some(40),Some("original"),false).await.unwrap();
         let corrected=store.project_context_cut("project").await.unwrap();
-        store.append_project_context("deletion",&project,"calibration",&source.key,"corrected-hash","physical",25,Some(30),Some("correction"),true).await.unwrap();
+        store.append_project_context("deletion",&project,"calibration",&source.key,"corrected-hash","physical",&source.key,"physical-source-hash",25,Some(30),Some("correction"),true).await.unwrap();
         let deleted=store.project_context_cut("project").await.unwrap();
         assert_eq!(store.select_project_context(&old,"calibration",26).await.unwrap().unwrap().context.key,"original");
         assert_eq!(store.select_project_context(&corrected,"calibration",26).await.unwrap().unwrap().context.key,"correction");
@@ -122,13 +122,13 @@ mod tests {
     async fn project_context_refuses_unrelated_overlap_foreign_cut_and_forged_record(){
         let store=fixture().await;let source=source(&store,"source").await;
         store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
-        store.append_project_context("a",&project,"scope",&source.key,"hash","physical",-100,None,None,false).await.unwrap();let cut=store.project_context_cut("project").await.unwrap();
+        store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&source.key,"physical-source-hash",-100,None,None,false).await.unwrap();let cut=store.project_context_cut("project").await.unwrap();
         let original=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
         let mut forged=original.clone();forged.context.source_identity="forged".into();assert!(store.validate_project_context(&forged).await.is_err());
         let mut foreign=cut.clone();foreign.issuing_store="foreign".into();assert!(store.select_project_context(&foreign,"scope",0).await.is_err());
-        store.append_project_context("b",&project,"scope",&source.key,"other","physical",0,None,None,false).await.unwrap();
+        store.append_project_context("b",&project,"scope",&source.key,"other","physical",&source.key,"physical-source-hash",0,None,None,false).await.unwrap();
         let cut=store.project_context_cut("project").await.unwrap();assert!(matches!(store.select_project_context(&cut,"scope",0).await,Err(CanonicalError::Refused{code:crate::canonical::RefusalCode::ProjectContextAmbiguous,..})));
-        assert!(store.append_project_context("bad",&project,"other",&source.key,"hash","physical",0,None,Some("a"),false).await.is_err());
+        assert!(store.append_project_context("bad",&project,"other",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,Some("a"),false).await.is_err());
         store.validate_project_context(&original).await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -136,17 +136,17 @@ mod tests {
     async fn project_context_exact_replay_settles_once_and_released_source_is_unavailable(){
         let store=fixture().await;let source=source(&store,"source").await;
         store.create_project("create","project","History").await.unwrap();let project=store.project("project").await.unwrap().unwrap();
-        let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false)).await.unwrap();
-        let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",0,None,None,false).await.unwrap();assert_eq!(row,replay);
+        let row=crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true,store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false)).await.unwrap();
+        let replay=store.append_project_context("a",&project,"scope",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false).await.unwrap();assert_eq!(row,replay);
         assert_eq!(store.project_context_cut("project").await.unwrap().sequence,1);
         let (b,c)=tokio::join!(
-            store.append_project_context("b",&project,"scope-b",&source.key,"hash","physical",0,None,None,false),
-            store.append_project_context("c",&project,"scope-c",&source.key,"hash","physical",0,None,None,false),
+            store.append_project_context("b",&project,"scope-b",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false),
+            store.append_project_context("c",&project,"scope-c",&source.key,"hash","physical",&source.key,"physical-source-hash",0,None,None,false),
         );
         let b=b.unwrap();let c=c.unwrap();assert_ne!(b.recorded_sequence,c.recorded_sequence);
         assert_eq!(store.project_context_cut("project").await.unwrap().sequence,3);
         assert!(bounded_query(store.db.query("UPDATE canonical_project_contexts:a SET source_identity='mutated';")).await.is_err());
-        assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",0,None,None,false).await.is_err());
+        assert!(store.append_project_context("a",&project,"scope",&source.key,"forged","physical",&source.key,"physical-source-hash",0,None,None,false).await.is_err());
         let cut=store.project_context_cut("project").await.unwrap();let frozen=store.select_project_context(&cut,"scope",0).await.unwrap().unwrap();
         // Exercise the source owner's declared unavailable-range gate, not current-value fallback.
         bounded_query(store.db.query("CREATE canonical_reclaimed_ranges:released CONTENT {key:'released',problem:$problem,from_sequence:$from,to_sequence:$to};").bind(("problem",source.problem.clone())).bind(("from",codec::encode_uint(source.sequence).unwrap())).bind(("to",codec::encode_uint(source.sequence+1).unwrap()))).await.unwrap();
