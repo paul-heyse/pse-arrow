@@ -133,8 +133,10 @@ Unavailable service/index leaves supplied-only snapshot inspection usable.
 
 ### Selected logical project exchange
 
-`Runtime.project_closure(request, physical)` explains the exact selection that
-`Runtime.project_export(destination, request, physical)` copies. The generated
+`Runtime.project_closure(request, physical=None)` explains the exact selection that
+`Runtime.project_export(destination, request, physical=None)` copies. Executable selections require
+the explicitly supplied admitted physical context; neither method selects ambient physical files.
+Only an explicitly `descriptive_only=True` request can omit `physical`. The generated
 `ProjectExportRequest` supplies the original `ProjectSelection`, explicit research selections,
 parameter publications, studies, result ranges/output predicates, artifacts and reproducers,
 intentional omissions, and finite copy/document allowances. The same original source, result and
@@ -146,7 +148,10 @@ The manifest records origin authority and scientific/physical identities, comple
 ancestry, contained member codecs/digests, provider requirements and omissions. `offline_complete`,
 `executable_complete` and `descriptive_only` have separate meanings. A descriptive pack can remain
 inspectable while executable admission refuses it. An unsupported provider is an explicit requirement;
-opening a pack does not install it or recreate a native handle.
+opening a pack does not install it or recreate a native handle. Descriptive selection reads original
+selected headers and lineage without hydrating source, result or artifact payloads. Its explicit
+payload omissions and origin metadata explain why a pack can be complete for offline description
+while `executable_complete` remains false.
 
 The native executable reads copied packs before any service selection:
 
@@ -181,6 +186,10 @@ creates fresh receiving project/branch/problem/revision identities, and admits t
 through the ordinary scientific owner. `source_admitted` is an acknowledged source checkpoint;
 `project_complete` additionally requires exact copied artifact membership to be active and owned.
 Once complete, opening uses receiving-owned bytes even after the supplied pack is moved or removed.
+The returned `ModelingPackage.physical_context` is its owned admitted physical handle. Use that
+handle for ordinary typed draft admission after reopening: create an edit with
+`project_draft_delta`, save its exact typed draft bytes, then pass `opened.physical_context` to
+`project_admit_draft`. This does not require the supplied pack or the origin's physical input files.
 Original study/run/attempt, seed, fit qualification and research receipts remain origin evidence;
 import does not mint receiving execution authority from them. A request for a new study, fit or
 reproducer is a new operation under current conditions.
@@ -198,11 +207,12 @@ before opening a connection; only offline `inspect-pack` bypasses that selection
 
 | Action kind | Selected input |
 | --- | --- |
-| `project_closure` | Generated core `request`; envelope supplies physical documents |
+| `project_closure` | Generated core `request`; envelope supplies physical documents for executable selection and may omit them for `descriptive_only` |
 | `project_export` | Same `request` plus new `destination` |
 | `project_import_issue` | Copied pack `input`, `title`, optional `branch_name` and `maximum_document_bytes` |
 | `project_import_status` | Original typed `intent` |
 | `project_import` | Same original `intent`, copied pack `input` and `maximum_document_bytes` |
+| `project_import_recover` | Original typed `intent` and unchanged original artifact creation intent in `original` |
 | `project_import_open` | Original typed `intent`; supplied pack is no longer needed |
 
 Current support is explicit local logical exchange and ordinary exact-parent comparison/merge.
@@ -746,8 +756,10 @@ just surreal inspect-backup --source /path/to/new-backup --interpretation pse.su
 
 `inspect-backup` shares restore's version-4 inventory, interpretation and required-file validation,
 and runs the explicitly selected native payload verifier without writing to the backup or source
-state. It builds nothing implicitly and does not open a live engine directory. Read the returned
-`complete` and refusal fields: command completion alone is not permission to restore. A missing,
+state. Inspection reads the immutable captured application inventory; it does not query a new
+service to reconstruct missing original rows or repair an incomplete copy. It builds nothing
+implicitly and does not open a live engine directory. Read the returned `complete`, `restorable`
+and refusal fields: command completion alone is not permission to restore. A missing,
 changed, incomplete or unsupported closure remains explicit; copied bytes and unknown physical
 reclamation remain distinct. Unsettled stages, attempts, file operations and retention effects retain
 their original state. Only the existing explicit restore/maintenance owner can settle them under its
