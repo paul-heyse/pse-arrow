@@ -262,7 +262,7 @@ async fn fixture_with_physical(
         .collect::<Vec<_>>();
     let observations = (0..4).map(|i| serde_json::json!({"value_attribute":if kind=="research-calibration"{"calibrated"}else{"value"},
         "standard_deviation_attribute":if kind=="research-calibration"{"calibrated_sigma"}else{"sigma"},"observation_id":id(40 + i as u8),"experiment_id":id(33),
-        "output_path":format!("y{}",i+1),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>();
+        "output_path":format!("y{}",i+1),"time":null,"included":true,"importance":if kind=="research-calibration"&&i==2{2.}else{1.}})).collect::<Vec<_>>();
     let declaration = serde_json::from_value(
         serde_json::json!({"fit_id":id(32),"parameters":parameters,
         "experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[
@@ -1690,15 +1690,20 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     Box::pin(runtime.research_selection_create(&selection,&cancel)).await.unwrap();
     let (selected,fit)=Box::pin(runtime.research_selection_open(&selection.key,&cancel)).await.unwrap();
     seed.source=selected;
-    let prepared=production_profile(&seed,seed.problem.profile.clone()).await.unwrap();
+    let mut profile=seed.problem.profile.clone();
+    profile.uncertainty=Some(FitUncertainty{level:Fraction::try_new(0.95).unwrap(),profile:None,predictions:false});
+    let prepared=production_profile(&seed,profile).await.unwrap();
     for (i,measurement) in prepared.problem.measurements.iter().enumerate(){
         assert_eq!(measurement.value,Some(2.*(i+1) as f64+3.));
         assert_eq!(measurement.sigma,Some(2.*regression::SIGMA[i]));
-        let (residual,_)=FitOracle::residual(measurement,measurement.value.unwrap()+1.).unwrap();
-        assert_eq!(residual,1./(2.*regression::SIGMA[i]),"actual weighted residual uses transformed standard uncertainty");
+        let (residual,weight)=FitOracle::residual(measurement,measurement.value.unwrap()+1.).unwrap();
+        let expected=if i==2{2f64.sqrt()}else{1.}/(2.*regression::SIGMA[i]);
+        assert_eq!(residual,expected,"actual weighted residual uses transformed standard uncertainty");
+        assert_eq!(weight,expected,"actual response weight retains authored importance");
     }
     let handle=prepared.start().unwrap();let result=handle.wait().await.unwrap();
     assert!(regression::report(&result).estimate_qualified());
+    assert!(matches!(regression::report(&result).covariance.as_ref().unwrap().values,Err(FitWithheld::NonunitImportance(_))),"actual covariance qualification is independent of usable finite point estimates");
     let exported=cells::Row::rows(&result.export_fit_parameters().unwrap()).unwrap();
     assert_eq!(exported.len(),2);
     for c in &exported{let expected=if c.parameter_id==id(1){3.}else{2.};assert!((c.value-expected).abs()<1e-7);}
