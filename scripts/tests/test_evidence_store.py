@@ -24,7 +24,7 @@ class EvidenceStoreTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.state = Path(temporary.name) / "service"
         self.state.mkdir(mode=0o700)
-        self.config = {
+        self.config: dict[str, object] = {
             "owner": surreal_server.OWNER,
             "profile_version": 3,
             "instance_id": str(uuid.uuid4()),
@@ -93,9 +93,11 @@ class EvidenceStoreTests(unittest.TestCase):
         self.assertFalse((self.state / ".tooling").exists())
 
     def test_active_tooling_blocks_service_drain_without_receiver(self) -> None:
-        with surreal_server.tooling_activity(self.state, deadline=self.deadline):
-            with self.assertRaisesRegex(surreal_server.SupervisorError, "live tooling"):
-                surreal_server.require_tooling_drained(self.state)
+        with (
+            surreal_server.tooling_activity(self.state, deadline=self.deadline),
+            self.assertRaisesRegex(surreal_server.SupervisorError, "live tooling"),
+        ):
+            surreal_server.require_tooling_drained(self.state)
         surreal_server.require_tooling_drained(self.state)
         self.assertEqual(list((self.state / ".tooling/.activities").iterdir()), [])
 

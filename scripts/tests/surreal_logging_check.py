@@ -5,12 +5,12 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import socket
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 from scripts import surreal_server as server
@@ -29,19 +29,26 @@ def mcp_call(state: Path) -> None:
     }
 
     def request(method: str, params: dict, identity: int) -> dict:
-        operation = urllib.request.Request(
-            f"http://127.0.0.1:{selected.port}/mcp",
-            data=json.dumps(
-                {"jsonrpc": "2.0", "id": identity, "method": method, "params": params}
-            ).encode(),
-            headers=headers,
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", selected.port, timeout=server.remaining(deadline)
         )
-        with urllib.request.urlopen(
-            operation, timeout=server.remaining(deadline)
-        ) as response:  # noqa: S310 -- exact frozen fixture-owned loopback endpoint
-            if session := response.headers.get("MCP-Session-Id"):
-                headers["MCP-Session-Id"] = session
-            raw = response.read((1 << 20) + 1).decode()
+        try:
+            connection.request(
+                "POST",
+                "/mcp",
+                body=json.dumps(
+                    {"jsonrpc": "2.0", "id": identity, "method": method, "params": params}
+                ).encode(),
+                headers=headers,
+            )
+            with connection.getresponse() as response:
+                if response.status >= 400:
+                    raise server.SupervisorError("Fixture MCP HTTP request failed")
+                if session := response.headers.get("MCP-Session-Id"):
+                    headers["MCP-Session-Id"] = session
+                raw = response.read((1 << 20) + 1).decode()
+        finally:
+            connection.close()
         if len(raw) > 1 << 20:
             raise server.SupervisorError("Fixture MCP response exceeds its bound")
         messages = [

@@ -432,6 +432,8 @@ class EvidenceSourceTests(unittest.TestCase):
         handle = test_resources.invocation("python", [{"name": "suite::missing"}])
 
         def run(tool: Path, arguments: list[str], *, deadline: float) -> int:
+            self.assertEqual(tool, evidence_store.ROOT / "target/debug/pse-evidence")
+            self.assertGreater(deadline, 0)
             source = Path(arguments[arguments.index("--input") + 1])
             self.assertEqual(
                 json.loads(source.read_text())["facts"][1]["status"], "unreported"

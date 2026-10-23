@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
-from scripts import resource_store, run_inspection
+from scripts import evidence_sources, resource_store, run_inspection
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class EvidenceFact(TypedDict):
@@ -137,10 +139,10 @@ def invocation_snapshot(
             "detail_ref": detail,
         }
     ]
-    from scripts.evidence_sources import context_fact, inventory_mapping, link_fact
-
     mapping = (
-        inventory_mapping(inventory, selected=selected) if inventory is not None else {}
+        evidence_sources.inventory_mapping(inventory, selected=selected)
+        if inventory is not None
+        else {}
     )
     for identity, selection in zip(catalog, selected, strict=True):
         raw = reported.get(identity)
@@ -148,9 +150,7 @@ def invocation_snapshot(
             raw
             if isinstance(raw, str)
             and raw in {"skipped", "reused", "transferred", "not_run", "error"}
-            else "unreported"
-            if identity not in outcomes
-            else outcomes[identity]
+            else outcomes.get(identity, "unreported")
         )
         fact: EvidenceFact = {
             "member": "subject:" + identity,
@@ -170,7 +170,7 @@ def invocation_snapshot(
         facts.append(fact)
     producer = state.get("producer")
     if isinstance(producer, dict):
-        context = context_fact(
+        context = evidence_sources.context_fact(
             {
                 "process": {key: producer.get(key) for key in ("pid", "start", "boot")},
                 "host": producer.get("scope"),
@@ -181,9 +181,9 @@ def invocation_snapshot(
         facts.append(context)
     for offset, action in enumerate(state.get("diagnostic_actions", [])):
         if not isinstance(action, dict) or not isinstance(action.get("sha256"), str):
-            raise ValueError("invalid original diagnostic action reference")
+            raise TypeError("invalid original diagnostic action reference")
         facts.append(
-            link_fact(
+            evidence_sources.link_fact(
                 "diagnostic:" + str(offset),
                 "diagnostic_action",
                 "sha256:" + action["sha256"],
