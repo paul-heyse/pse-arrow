@@ -290,7 +290,12 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     rows = pa.table(result.table("runtime.simulation_samples")).to_pylist()
     assert [row["time"] for row in rows] == times
     for row in rows:
-        assert row["value"] == pytest.approx(1.0 + row["time"] - times[0], abs=1e-10)
+        assert row["value"] == pytest.approx(
+            1.0 + row["time"] - times[0], rel=0, abs=1e-10
+        )
+    assert rows[-1]["value"] - rows[0]["value"] == pytest.approx(
+        times[-1] - times[0], rel=0, abs=1e-10
+    )
 
 
 @pytest.mark.unit
