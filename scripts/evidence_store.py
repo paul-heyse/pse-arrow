@@ -85,7 +85,7 @@ def run_native(state: Path, tool: Path, arguments: list[str], *, deadline: float
     """Run only the explicit built tool; never install, compile or invoke a shell."""
     information = tool.stat()
     if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
-        raise ValueError("Evidence tool is unavailable; explicitly build xtask first")
+        raise ValueError("Evidence tool is unavailable; run just evidence-build explicitly")
     with surreal_server.tooling_activity(state, deadline=deadline) as (service, activity):
         selected_configuration(state, service)
         if not surreal_server.owns_listener(state, service, deadline=deadline):
@@ -105,7 +105,7 @@ def run_native(state: Path, tool: Path, arguments: list[str], *, deadline: float
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--state", type=Path, default=os.environ.get("PSE_SURREAL_STATE"))
-    result.add_argument("--tool", type=Path, default=ROOT / "target/debug/xtask")
+    result.add_argument("--tool", type=Path, default=ROOT / "target/debug/pse-evidence")
     result.add_argument("--timeout", type=float, default=30)
     commands = result.add_subparsers(dest="command", required=True)
     for command in ("prepare", "init", "status", "rebuild", "drop"):
@@ -122,7 +122,7 @@ def parser() -> argparse.ArgumentParser:
     query.add_argument("--generation")
     generations = commands.add_parser("generations")
     generations.add_argument("--limit", type=int)
-    generations.add_argument("--after", default="")
+    generations.add_argument("--after")
     return result
 
 

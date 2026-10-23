@@ -5,7 +5,7 @@ use anyhow::{Context,Result};
 use clap::{Args,Subcommand};
 use pse_operations::evidence::{self,EvidenceAccess,EvidenceQuery,EvidenceSnapshot,EvidenceStore,ToolingOptions};
 use std::{path::{Path,PathBuf},time::{Duration,Instant}};
-#[derive(Args)]
+#[derive(Debug, Args)]
 pub(crate) struct EvidenceArgs {
     /// Selected service state; only its private tooling configuration is opened normally.
     #[arg(long)] state:PathBuf,
@@ -13,7 +13,7 @@ pub(crate) struct EvidenceArgs {
     #[arg(long,default_value_t=30000)] timeout_ms:u64,
     #[command(subcommand)] command:EvidenceCommand,
 }
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum EvidenceCommand {
     /// Explicit root-only initialization of the disposable tooling database.
     Init,
@@ -40,7 +40,7 @@ fn root_credentials(state:&Path)->Result<(String,String)>{
 }
 fn activity_guard(state:&Path,options:&ToolingOptions)->Result<std::fs::File>{
     use std::os::unix::fs::{FileExt,MetadataExt};
-    let fd=std::env::var("PSE_TOOLING_ACTIVITY_FD").context("run evidence through scripts/pse-evidence so its actual service activity remains owned")?.parse::<u32>()?;
+    let fd=std::env::var("PSE_TOOLING_ACTIVITY_FD").context("run through just evidence so its actual service activity remains owned")?.parse::<u32>()?;
     anyhow::ensure!(fd>=3,"invalid inherited service activity descriptor");
     let link=PathBuf::from(format!("/proc/self/fd/{fd}"));let path=std::fs::read_link(&link)?;
     let expected=state.canonicalize()?.join(".tooling/.activities");

@@ -132,6 +132,30 @@ canonical-init state:
     "{{ py }}" scripts/surreal_server.py initialize --state {{ quote(state) }} --initializer-command "{{ justfile_directory() }}/target/debug/xtask" canonical-init {{ quote(state) }}
 
 [group('local')]
+[doc('Explicitly build the dedicated tooling evidence operator; inspection never builds it implicitly')]
+evidence-build:
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-evidence --no-default-features --features evidence-tools --locked
+
+[group('local')]
+[doc('Inspect supplied evidence offline or explicitly manage its independently disposable index')]
+[script("bash", "scripts/pse-env", "--native=", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+evidence *args:
+    "{{ py }}" -m scripts.evidence_store "$@"
+
+[group('local')]
+[doc('Explicitly build the dedicated project metadata operator')]
+project-build:
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-project --no-default-features --features canonical-tools --locked
+
+[group('local')]
+[doc('Use owned project metadata commands; --state selects the existing canonical deployment')]
+[script("bash", "scripts/pse-env", "--native=", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+project *args:
+    target/debug/pse-project project "$@"
+
+[group('local')]
 [doc('Targeted canonical server supervisor mechanism controls')]
 surreal-test:
     "{{ py }}" -m unittest scripts.tests.test_surreal_server scripts.tests.test_surreal_source scripts.tests.test_surrealism_module scripts.tests.test_surreal_mcp scripts.tests.test_primary_observation -v

@@ -160,6 +160,11 @@ class EvidenceStoreTests(unittest.TestCase):
             self.assertEqual(evidence_store.main(["--state", str(self.state), "query"]), 0)
         self.assertEqual(run.call_args.args[2], ["query"])
 
+    def test_first_generation_page_has_no_continuation(self) -> None:
+        with patch.object(evidence_store, "run_native", return_value=0) as run:
+            self.assertEqual(evidence_store.main(["--state", str(self.state), "generations"]), 0)
+        self.assertEqual(run.call_args.args[2], ["generations"])
+
     def test_explicit_query_and_generation_selection_are_forwarded_as_arguments(self) -> None:
         with patch.object(evidence_store, "run_native", return_value=0) as run:
             self.assertEqual(evidence_store.main(["--state", str(self.state), "query", "--limit", "8", "--status", "failure", "--generation", "original_cut"]), 0)

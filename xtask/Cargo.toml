@@ -35,6 +35,7 @@ native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
+evidence-tools = ["dep:pse-operations"]
 canonical-tools = [
   "dep:pse-diagnostics",
   "dep:pse-model",
@@ -125,6 +126,16 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 [[bin]]
 name = "pse-canonical-recovery"
 path = "src/bin/pse-canonical-recovery.rs"
+required-features = ["canonical-tools"]
+
+[[bin]]
+name = "pse-evidence"
+path = "src/bin/pse-evidence.rs"
+required-features = ["evidence-tools"]
+
+[[bin]]
+name = "pse-project"
+path = "src/bin/pse-project.rs"
 required-features = ["canonical-tools"]
 
 [[bin]]

@@ -33,6 +33,10 @@ use serde::Deserialize;
 mod canonical_diagnostics;
 mod codegen;
 mod dependency_ceilings;
+#[cfg(feature = "evidence-tools")]
+mod evidence_tools;
+#[cfg(feature = "canonical-tools")]
+mod project_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
@@ -59,6 +63,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Inspect and mutate project metadata through canonical guarded operations.
+    #[cfg(feature = "canonical-tools")]
+    Project(project_tools::ProjectArgs),
+    /// Inspect and explicitly manage the separately attested tooling evidence database.
+    #[cfg(feature = "evidence-tools")]
+    Evidence(evidence_tools::EvidenceArgs),
     /// Initialize a clean canonical database through its generated declaration route.
     #[cfg(feature = "canonical-tools")]
     CanonicalInit {
@@ -280,6 +290,10 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
+        #[cfg(feature = "canonical-tools")]
+        Cmd::Project(args) => project_tools::run(args),
+        #[cfg(feature = "evidence-tools")]
+        Cmd::Evidence(args) => evidence_tools::run(args),
         #[cfg(feature = "canonical-tools")]
         Cmd::CanonicalInit { state } => {
             let options = pse_operations::canonical::CanonicalOptions::from_state(&state)?;
