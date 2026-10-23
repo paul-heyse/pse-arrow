@@ -817,12 +817,15 @@ impl CanonicalStore {
                 within_clock(
                     original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
                     async {
+                        let (physical_revision, physical_identity, context) =
+                            crate::canonical_study_workbench::index_metadata(metadata)?;
                         let row = Study {
                             key: key.into(),
                             run: run.key.clone(),
                             problem: run.revision.problem.clone(),
                             revision: run.revision.key.clone(),
                             metadata: metadata.to_vec().into(),
+                            physical_revision, physical_identity, context,
                             interpretation: wire::INTERPRETATION.into(),
                             point_count: points.len() as u64,
                             dependency_count: points.iter().try_fold(0_u64, |total, point| {

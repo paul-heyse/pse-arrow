@@ -44,6 +44,7 @@ pub mod s6_2_physical;
 pub mod s7_operators;
 pub mod solve_settings;
 pub mod substrate;
+pub mod study_workbench;
 
 use crate::builder::{Registry, RegistryBuilder};
 use crate::error::SchemaError;

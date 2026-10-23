@@ -374,6 +374,7 @@ refusals! {
     StaleExecutionAppendInterpretation: "stale_execution_append_interpretation" => (Invariant, "stale execution append interpretation"),
     StaleExecutionClaimInterpretation: "stale_execution_claim_interpretation" => (Invariant, "stale execution claim interpretation"),
     StaleExecutionPublicationInterpretation: "stale_execution_publication_interpretation" => (Invariant, "stale execution publication interpretation"),
+    StudyWorkbenchNarrowSelection: "study_workbench_narrow_selection" => (Admission, "study workbench selection exceeds capture bounds; narrow the request"),
     StudyArtifactOwnerRetired: "study_artifact_owner_retired" => (Fence, "study artifact owner retired"),
     StudyAuditCannotRestoreRetiredMemberHistory: "study_audit_cannot_restore_retired_member_history" => (Invariant, "study audit cannot restore retired member history"),
     StudyAuditRetainsRunHistory: "study_audit_retains_run_history" => (Invariant, "study audit retains run history"),
