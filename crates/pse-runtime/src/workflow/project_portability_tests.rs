@@ -76,3 +76,32 @@ async fn project_portability_unsupported_provider_is_inspectable_and_never_execu
     manifest.executable_complete=true;save(root.path(),&manifest);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"unsupported provider cannot be advertised as complete executable closure");
 }
+
+#[tokio::test]
+async fn project_portability_selected_reproducer_executes_only_on_explicit_owner_request() {
+    let runtime=workflow::tests::runtime();let cancel=crate::CancelSource::new();
+    // Reuse the reproducer owner's actual supported pre-handle diagnostic fixture and exact predicate.
+    let command=workflow::reproducer::tests::text_command();
+    let first=Box::pin(runtime.diagnose_documents(command.operation.clone(),&cancel)).await.unwrap();
+    let original=first.failure.unwrap();
+    let extracted=workflow::DiagnosticReproducer::extract_text(command,Some(original),None).unwrap();
+    let (root,mut manifest)=bundle().await;manifest.reproducers.push(extracted.reproducer.clone());save(root.path(),&manifest);
+    let (reader,counts)=crate::math::counted(async {ProjectBundleReader::open(root.path(),16<<20)}).await;
+    assert_eq!(counts,Default::default(),"opening the bundle cannot reconstruct or execute its selected reproducer");
+    let reader=reader.unwrap();let request=reader.reproducer(0).unwrap();
+    assert_eq!(serde_json::to_value(&request.predicate).unwrap(),serde_json::to_value(&extracted.reproducer.predicate).unwrap());
+    let reproduced=Box::pin(runtime.run_reproducer(request,&cancel)).await.unwrap();
+    assert_ne!(reproduced.operation,first.operation,"reproduction is a new explicitly requested operation");
+    assert_eq!(reproduced.status,workflow::ReproductionStatus::OriginalFailureReproduced);
+    assert!(reproduced.failure.is_some());assert!(reproduced.run_id.is_none(),"the original selected failure occurred before any scientific run handle");
+}
+
+#[test]
+fn project_portability_interrupted_final_manifest_publication_leaves_only_partial_staging() {
+    let root=tempfile::tempdir().unwrap();std::fs::create_dir(root.path().join("members")).unwrap();
+    std::fs::write(root.path().join("members/copied.bin"),b"copied bytes").unwrap();
+    let result=contained_copy::publish_document(root.path(),".project-manifest","project.json",b"complete manifest must not appear",||Err(std::io::Error::new(std::io::ErrorKind::Interrupted,"interrupted final publication")));
+    assert!(result.is_err());assert!(!root.path().join("project.json").exists());
+    assert!(root.path().join(".project-manifest").exists(),"staged bytes are honest partial output");
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
+}

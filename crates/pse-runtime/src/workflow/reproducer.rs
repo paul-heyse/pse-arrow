@@ -702,7 +702,7 @@ impl Runtime {
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate::workflow) mod tests {
     use super::*;
     fn deployment() -> super::super::DiagnosticRuntimeSettings {
         super::super::DiagnosticRuntimeSettings {
@@ -713,7 +713,7 @@ mod tests {
             batch_size: 1024,
         }
     }
-    fn text_command() -> DiagnosticCommandRequest {
+    pub(in crate::workflow) fn text_command() -> DiagnosticCommandRequest {
         DiagnosticCommandRequest {
             version: Version,
             runtime: deployment(),
