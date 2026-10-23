@@ -214,7 +214,7 @@ def test_external_covariance_singular_psd_and_indefinite_public_assessments(
     assert row["covariance_label"] == "declared singular"
     assert row["covariance_assumptions"] == ["common error"]
     # Symmetric, finite and positive on the diagonal is insufficient: JΣJᵀ=-2.
-    with pytest.raises(pse.InspectionError, match="positive semidefinite"):
+    with pytest.raises(pse.InspectionError, match="negative eigenvalue"):
         downstream(package, case, ids, msgspec.structs.replace(external, values=(1.0, 2.0, 2.0, 1.0)))
 
 
