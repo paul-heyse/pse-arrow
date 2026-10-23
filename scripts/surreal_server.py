@@ -1643,6 +1643,9 @@ def reconfigure(
         raise SupervisorError(
             "Receiver selection requires an explicit execution profile"
         )
+    # A budget can fit the process/worker envelope yet fail the selected native
+    # module pool. Refuse it before any generation publication or config write.
+    module_runtime_allocation(allocation)
     observed = systemctl(
         "show",
         "--property=ActiveState",

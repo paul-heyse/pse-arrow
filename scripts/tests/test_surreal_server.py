@@ -4173,6 +4173,34 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.reconfigure("--memory-mib", "8192")
         self.assertEqual((self.state / "config.json").read_bytes(), before)
 
+    def test_reconfigure_refuses_incomplete_module_pool_before_effects(self) -> None:
+        config = self.quiesced_fixture()
+        before = (self.state / "config.json").read_bytes()
+        credentials = (self.state / "credentials.json").read_bytes()
+        payload = (self.state / "database/fixture").read_bytes()
+        args = server.parser().parse_args(
+            ["reconfigure", "--state", str(self.state), "--server-memory-mib", "1024"]
+        )
+        # This allocation fits the ordinary process envelope, but cannot admit
+        # the actual selected four-controller module pool. Use its real owner.
+        server.resources(4 * server.GIB, server.GIB, 2, server.GIB)
+        with (
+            patch.object(server, "systemctl") as manager,
+            patch.object(server, "workers_drained") as drained,
+            patch.object(server, "publish_generation") as publish,
+            patch.object(server, "write_json") as write,
+            self.assertRaisesRegex(server.SupervisorError, "complete bounded study module pool"),
+        ):
+            server.reconfigure(self.state, config, args)
+        manager.assert_not_called()
+        drained.assert_not_called()
+        publish.assert_not_called()
+        write.assert_not_called()
+        self.assertEqual((self.state / "config.json").read_bytes(), before)
+        self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
+        self.assertEqual((self.state / "database/fixture").read_bytes(), payload)
+        self.assertEqual(server.config_for(self.state), config)
+
     def test_reconfigure_invalid_or_partial_budget_does_not_mutate(self) -> None:
         self.quiesced_fixture()
         before = (self.state / "config.json").read_bytes()
