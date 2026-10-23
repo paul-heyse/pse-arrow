@@ -122,6 +122,8 @@ fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
 /// Immutable source revision sharing one deployment-owned compiler workspace.
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
+    /// Frozen historical engineering selection, independent of scientific content identity.
+    pub(in crate::workflow) project_context: Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Escaped positional replay metadata retains its receiving allocation owner.
     pub(in crate::workflow) replay_owner: Option<Arc<pse_columnar::AllocationLease>>,
     pub(in crate::workflow) held_preparation: Option<Arc<engagement::HeldPreparationScope>>,
@@ -239,6 +241,7 @@ impl Runtime {
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            project_context: None,
             replay_owner: None,
             held_preparation: None,
             runtime: self.clone(),
@@ -679,6 +682,7 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            project_context: None,
             replay_owner: None,
             held_preparation: None,
             runtime: self.clone(),
