@@ -1739,7 +1739,7 @@ impl CanonicalStore {
                 .map_err(|_| CanonicalError::Timeout)
                 .and_then(|response| response.map_err(CanonicalError::from))
                 .and_then(complete_response);
-            #[cfg(all(test, feature="canonical-tests"))]
+            #[cfg(feature="canonical-tests")]
             let result=if project.is_some() && result.is_ok() && crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{result};
             if let Err(error) = result {
                 // A lost acknowledgment or concurrent identical activation is settled
