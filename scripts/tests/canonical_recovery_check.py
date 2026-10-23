@@ -72,9 +72,9 @@ def profile_arguments(profile_state: Path | None) -> list[str]:
     if profile_state is None:
         return [
             "--memory-mib",
-            "2560",
+            "4608",
             "--server-memory-mib",
-            "2048",
+            "4096",
             "--native-workers",
             "1",
             "--native-worker-memory-mib",
@@ -506,6 +506,18 @@ def journey(
             raise server.SupervisorError(
                 "Recovery reconfiguration requires an original server cap above 512 MiB"
             )
+        if not reference:
+            # Both positive reconfiguration targets must admit the production
+            # module pool before the fixture initializes any application state.
+            server.module_runtime_allocation(
+                server.resources(
+                    server.integer(allocation["total_memory_bytes"]),
+                    lower_server_mib * server.MIB,
+                    server.integer(allocation["native_workers"]),
+                    server.integer(allocation["native_worker_memory_bytes"]),
+                    allocation.get("execution"),
+                )
+            )
         identity = dict(config)
         credentials = (state / "credentials.json").read_bytes()
         command = [str(binary.resolve())]
@@ -624,6 +636,27 @@ def journey(
                 )
             with server.lifecycle_reservation(state):
                 server.backup(state, config, directory / "backup")
+                inspected = server.inspect_backup(directory / "backup", server.SUBSTRATE_INTERPRETATION, binary.resolve())
+                if inspected.get("complete") is not True:
+                    raise server.SupervisorError("Complete application backup did not inspect independently")
+                application = server.object_mapping(inspected["application_inventory"])
+                tables = server.object_mapping(application["tables"])
+                if not tables["canonical_projects"] or not tables["canonical_project_draft_versions"]:
+                    raise server.SupervisorError("Application project closure was not inventoried")
+                incomplete = directory / "incomplete-backup"
+                incomplete.mkdir()
+                shutil.copy2(directory / "backup" / "backup.json", incomplete / "backup.json")
+                refused = server.inspect_backup(incomplete, server.SUBSTRATE_INTERPRETATION, binary.resolve())
+                if refused.get("complete") is not False:
+                    raise server.SupervisorError("Missing backup members appeared complete")
+                refused_destination = directory / "refused-restore"
+                try:
+                    server.restore(incomplete, refused_destination, server.SUBSTRATE_INTERPRETATION)
+                except server.SupervisorError:
+                    if refused_destination.exists():
+                        raise server.SupervisorError("Incomplete restore created destination state") from None
+                else:
+                    raise server.SupervisorError("Incomplete application backup restored")
             server.restore(
                 directory / "backup", restored, server.SUBSTRATE_INTERPRETATION
             )

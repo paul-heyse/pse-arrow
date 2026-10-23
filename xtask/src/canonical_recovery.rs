@@ -380,6 +380,15 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
     ];
     if seed {
         let first = store.edit(PROBLEM, None, FIRST, &first_edits).await?;
+        // Exercise nonempty application-owned project and raw-custody closure in
+        // the real backup/restore journey, alongside original scientific owners.
+        store.create_project("recovery-project-create","recovery-project","Recovery project").await?;
+        let project=store.project("recovery-project").await?.context("project missing")?;
+        let fork=store.project_fork_intent(&project,"recovery-branch","recovery-project-source",&first,"recovery-project-fork")?;
+        let head=store.edit_project(&fork,&first_edits).await?;
+        let project=store.project("recovery-project").await?.context("project missing")?;
+        let branch=store.project_branch("recovery-branch").await?.context("branch missing")?;
+        store.save_project_draft("recovery-draft-save",&project,&branch,"recovery-draft",&head.key,None,b"retained malformed draft",None).await?;
         let mut read = SelectedRead::new(
             store
                 .protect(first.clone(), Duration::from_secs(60))
@@ -429,6 +438,11 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
             "lost-ack replay did not return the immutable receipt"
         );
     }
+    ensure!(store.project("recovery-project").await?.is_some(),"application project inventory lost");
+    let branch=store.project_branch_revision("recovery-branch").await?.context("application branch source missing")?;
+    ensure!(branch.key=="recovery-project-fork","application branch changed during recovery");
+    let draft=store.project_draft_version("recovery-draft-save").await?.context("application draft version missing")?;
+    ensure!(!draft.retired && draft.content.as_slice()==b"retained malformed draft","raw project custody changed during recovery");
     let first = store
         .revision(FIRST)
         .await?
