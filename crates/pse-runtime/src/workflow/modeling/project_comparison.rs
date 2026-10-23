@@ -281,6 +281,20 @@ impl Runtime {
         package.runtime = self.clone();
         Ok(package)
     }
+    /// Publish a previously locally admitted proposal through the original exact source owner.
+    pub(in crate::workflow) async fn project_publish_admitted(
+        &self,
+        intent: &ProjectPublication,
+        admitted: &ModelingPackage,
+        cancel: &CancelSource,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        intent.validate()?;
+        let store = self.canonical_store()?;
+        let key = intent.expected().ok_or_else(|| contract("admitted publication requires an exact parent"))?;
+        let revision = store.revision(key).await?.ok_or_else(|| contract("admitted publication parent unavailable"))?;
+        let parent = self.modeling_revision(revision,admitted.physical.clone(),admitted.providers.as_ref().clone()).await?;
+        super::canonical::publish_admitted_project(self,intent,&parent,admitted,cancel).await
+    }
     async fn project_is_ancestor(&self, ancestor: &str, descendant: &str, cancel: &CancelSource) -> Result<bool, WorkflowError> {
         let store = self.canonical_store()?;
         let mut pending = vec![descendant.to_owned()]; let mut seen = BTreeSet::new();
@@ -310,7 +324,8 @@ impl Runtime {
             let preview = self.project_merge_preview(base,target,proposal,&resolutions,cancel).await?;
             if !preview.conflicts.is_empty() { return Err(contract("merge has unresolved logical-object conflicts")); }
             let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(base_key,proposal_key)?, mode: ProjectMergeMode::Merge, base: base_key.clone(), target: target_key.clone(), proposal: proposal_key.clone(), physical: target.physical.key.to_string(), resolutions };
-            intent.publication = intent.publication.with_context_commitment(&intent.commitment()?)?;
+            let commitment = intent.commitment()?;
+            intent.publication = intent.publication.with_context_commitment(&commitment)?;
             intent.validate()?;
             Ok(intent)
         }).await
@@ -321,7 +336,8 @@ impl Runtime {
             let target_key = &target.recorded_revision()?.key; let restore_key = &restore.recorded_revision()?.key;
             if publication.expected() != Some(target_key.as_str()) || target.physical.key != restore.physical.key || !self.project_is_ancestor(restore_key,target_key,cancel).await? { return Err(contract("undo source is not a compatible exact ancestor")); }
             let mut intent = ProjectMergeIntent { version: Default::default(), publication: publication.with_merge_ancestry(restore_key,restore_key)?, mode: ProjectMergeMode::Undo, base: restore_key.clone(), target: target_key.clone(), proposal: restore_key.clone(), physical: target.physical.key.to_string(), resolutions: Vec::new() };
-            intent.publication = intent.publication.with_context_commitment(&intent.commitment()?)?;
+            let commitment = intent.commitment()?;
+            intent.publication = intent.publication.with_context_commitment(&commitment)?;
             intent.validate()?; Ok(intent)
         }).await
     }
