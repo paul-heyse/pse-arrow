@@ -2503,3 +2503,47 @@ id_pattern = '^(I[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+# Plan51 is a proposed series. Its coordinator owns all native execution/inquiry state;
+# publication and these bindings do not authorize implementation.
+
+[[scope_tables]]
+path = "docs/plans/51-engineering-workspaces-and-evidence.md"
+name = "package-state"
+heading = "Package state and execution route"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^((?:ST|PJ|SC|EV|LC|DL|Q)[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/51-engineering-workspaces-and-evidence.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required behavior or disposition",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/51-engineering-workspaces-and-evidence.md"
+name = "inquiry-outcomes"
+heading = "Inquiry outcomes and remaining questions"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
