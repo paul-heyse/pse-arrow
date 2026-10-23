@@ -275,6 +275,7 @@ fn impacts(a: Option<&ProjectSourceObject>, b: Option<&ProjectSourceObject>) -> 
         (Some(ProjectSourceObject::Document(a)), Some(ProjectSourceObject::Document(b))) => {
             if a.content_digest == b.content_digest && a.document.path == b.document.path && a.document.package_id == b.document.package_id { vec![Source] } else { vec![Source, Unknown] }
         }
+        (Some(a @ ProjectSourceObject::Package(_)),Some(b @ ProjectSourceObject::Package(_))) if same_merge_object(Some(a),Some(b)) => vec![Source],
         (Some(ProjectSourceObject::Fit(_)), Some(ProjectSourceObject::Fit(_))) => vec![Source, Structural],
         (None, Some(ProjectSourceObject::Declaration(_))) | (Some(ProjectSourceObject::Declaration(_)), None) | (None, Some(ProjectSourceObject::Fit(_))) | (Some(ProjectSourceObject::Fit(_)), None) => vec![Source, Structural],
         _ => vec![Source, Unknown],
@@ -291,6 +292,9 @@ fn same_merge_object(a: Option<&ProjectSourceObject>, b: Option<&ProjectSourceOb
     match (a,b) {
         (Some(ProjectSourceObject::Declaration(a)),Some(ProjectSourceObject::Declaration(b))) => {
             let mut a=a.clone();a.source_start=b.source_start;a.source_end=b.source_end;a==*b
+        },
+        (Some(ProjectSourceObject::Package(a)),Some(ProjectSourceObject::Package(b))) => {
+            let mut a=a.clone();a.content_hash=b.content_hash;a==*b
         },
         _ => a==b,
     }
@@ -328,6 +332,7 @@ async fn delta_to(target: &ModelingPackage, old: &Snapshot, new: &BTreeMap<Strin
         if !seen.insert(key) { continue; }
         match (old.objects.get(key), new.get(key)) {
             (a,b) if a == b => {},
+            (Some(a @ ProjectSourceObject::Package(_)),Some(b @ ProjectSourceObject::Package(_))) if same_merge_object(Some(a),Some(b)) => {},
             (None,Some(ProjectSourceObject::Declaration(row))) => delta.additions.push(row.clone()),
             (Some(_),Some(ProjectSourceObject::Declaration(row))) => delta.replacements.push(row.clone()),
             (Some(ProjectSourceObject::Declaration(row)),None) => delta.removals.push(row.declaration_id),
@@ -482,8 +487,9 @@ impl Runtime {
             if !conflicts.is_empty() { return Err(contract("retained merge has unresolved conflicts")); }
             // Package metadata changes cannot be smuggled through declaration/document merging.
             for source in [base,proposal] {
-                let metadata = |package: &ModelingPackage| package.revision.admitted.objects.values().filter(|o| o.kind == "package").map(|o| (o.logical.clone(),o.payload.clone())).collect::<BTreeMap<_,_>>();
-                if metadata(source) != metadata(target) { return Err(contract("merge package manifests differ; explicit compatible admission required")); }
+                let source_packages=source.project_snapshot(cancel).await?.objects.into_iter().filter(|(_,object)|matches!(object,ProjectSourceObject::Package(_))).collect::<BTreeMap<_,_>>();
+                let target_packages=t.objects.iter().filter(|(_,object)|matches!(object,ProjectSourceObject::Package(_))).collect::<BTreeMap<_,_>>();
+                if source_packages.len()!=target_packages.len() || source_packages.iter().any(|(key,row)|!same_merge_object(Some(row),target_packages.get(key).copied())) { return Err(contract("merge package manifests differ; explicit compatible admission required")); }
             }
             let delta = delta_to(target,&t,&merged,&p.order,&[target,proposal,base]).await?;
             let (delta,composition,_)=target.project_compose_documents(&delta,&[target,proposal,base],cancel).await?;
@@ -600,6 +606,8 @@ mod tests {
         assert!(notes.iter().all(|note|note.original_text_retained));
         let admitted=target.project_admit_composed_delta(delta,proof,&cancel).await.unwrap();
         let snapshot=admitted.project_snapshot(&cancel).await.unwrap();
+        let expected_hash=pse_admission::authoring_driver::document::package_checksum(&source_documents("package p {param a:Scalar=3;}","package q {param b:Scalar=4;}"));
+        assert!(snapshot.objects.values().any(|object|matches!(object,ProjectSourceObject::Package(package) if package.content_hash==expected_hash)),"derived bundle checksum uses the complete merged original bytes");
         for(path,text)in[("models/a.pse","package p {param a:Scalar=3;}"),("models/b.pse","package q {param b:Scalar=4;}")] {
             assert!(snapshot.objects.values().any(|object|matches!(object,ProjectSourceObject::Document(document) if document.document.path==path&&document.document.source_text.as_deref()==Some(text))));
         }

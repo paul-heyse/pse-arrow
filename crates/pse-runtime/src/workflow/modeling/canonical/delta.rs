@@ -220,6 +220,7 @@ pub(in crate::workflow::modeling) struct AdmittedDocumentComposition {
     documents: BTreeMap<SemanticId, document_wire::Row>,
     fields: BTreeMap<DeclarationId, FieldSpans>,
     origins: BTreeMap<SemanticId, Option<reload::LoaderOrigins>>,
+    packages: Vec<pse_model::generated::authored::packages::Row>,
     _owners: Vec<Parent>,
 }
 fn same_declaration_meaning(a: &Declaration, b: &Declaration) -> bool {
@@ -441,7 +442,7 @@ impl ModelingPackage {
             let rows=source.fit_declarations().await?.fits.iter().cloned().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>();
             source_fits.push(serde_json::to_vec(&rows).map_err(|error|contract(format!("admitted fit payload: {error}")))?);
         }
-        let mut proof = AdmittedDocumentComposition { documents:BTreeMap::new(),fields:BTreeMap::new(),origins:BTreeMap::new(),_owners:Vec::new() };
+        let mut proof = AdmittedDocumentComposition { documents:BTreeMap::new(),fields:BTreeMap::new(),origins:BTreeMap::new(),packages:Vec::new(),_owners:Vec::new() };
         let mut notes = Vec::new();
         let mut next = delta.clone();
         for id in affected {
@@ -473,6 +474,24 @@ impl ModelingPackage {
                 proof.origins.insert(id,None);
             }
             notes.push(super::super::project_comparison::ProjectDocumentComposition { logical:format!("document:{id}"), original_text_retained:retained });
+        }
+        // Recompute only the existing loader's derived inventory checksum. All
+        // authored package fields remain the target's admitted manifest declaration.
+        // With any absent IR text, retain the existing IR convention instead of
+        // inventing an original package byte preimage.
+        for row in next.documents.additions.iter().chain(&next.documents.replacements) { documents.insert(row.document_id,row.clone()); }
+        for object in self.revision.admitted.objects.values().filter(|object|object.kind=="package") {
+            let mut package: pse_model::generated::authored::packages::Row=decode(&object.payload)?;
+            let changed_documents=next.documents.additions.iter().chain(&next.documents.replacements).map(|document|document.document_id).collect::<BTreeSet<_>>();
+            let mut inventory=BTreeMap::<String,&[u8]>::new();let mut complete=true;
+            for document in documents.values().filter(|document|document.package_id==package.package_id) {
+                let bytes=if let Some(text)=&document.source_text {Some(text.as_bytes())}
+                else if let Some(content)=&document.content {Some(content.as_slice())}
+                else if !changed_documents.contains(&document.document_id) {self.revision.admitted.objects.get(&format!("data:{}",document.document_id)).map(|object|object.payload.as_slice())}
+                else {None};
+                match bytes {Some(bytes)=>{inventory.insert(document.path.clone(),bytes);},None=>{complete=false;break;}}
+            }
+            if complete && inventory.contains_key("package.toml") {package.content_hash=pse_admission::authoring_driver::document::package_checksum(&inventory);proof.packages.push(package);}
         }
         proof._owners=owners;
         Ok((next,proof,notes))
@@ -1117,6 +1136,10 @@ impl ModelingPackage {
             origins.invalidate_fits(&fit_intents);
         }
         if let Some(proof)=&composition {
+            let mut builder=pse_relations::generated::authored::packages::Builder::with_registry(self.runtime.registry(),proof.packages.len(),&validation).map_err(super::super::super::relation)?;
+            for package in &proof.packages {builder.push(package.clone()).map_err(super::super::super::relation)?;}
+            drop(builder.finish().map_err(super::super::super::relation)?);
+            for package in &proof.packages {let entry=typed.package(package.clone())?;edits.insert(entry.logical.clone(),entry);}
             let origins=parent.frame.origins.get_or_insert_with(reload::LoaderOrigins::empty);
             for (document,source) in &proof.origins { origins.replace_document_from(*document,source.as_ref()); }
         }
