@@ -1168,7 +1168,8 @@ mod tests {
         let exact: Vec<u64> = serde_json::from_slice(&restored.facts[0].payload).unwrap();
         assert_eq!(exact, [u64::MAX, (-0.0_f64).to_bits()]);
         let mut value = serde_json::to_value(&restored).unwrap();
-        value["version"] = 2.into();
+        let current_version = value["version"].as_u64().unwrap();
+        value["version"] = (current_version + 1).into();
         assert!(serde_json::from_value::<ReviewContextDocument>(value).is_err());
     }
     #[test]

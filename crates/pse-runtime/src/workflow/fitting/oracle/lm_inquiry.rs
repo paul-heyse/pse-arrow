@@ -1755,7 +1755,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert_eq!(reopened.selection().run().revision,context.context.revision);
     let downstream_root=rows.iter().find(|row|row.name=="Downstream").unwrap().declaration_id;
     let point=crate::workflow::StudyPoint {
-        operation:crate::workflow::OperationRequest::DeclaredCase(crate::workflow::CaseOperation{case:downstream_root,route:pse_model::generated::enums::ModelingAnalysisRoute::Steady,settings:crate::math::settings::SolveSettings{intent:native::solve::SolveIntent::FeasiblePoint,..Default::default()}}),
+        operation:crate::workflow::OperationRequest::DeclaredCase(crate::workflow::CaseOperation{case:downstream_root,route:pse_model::generated::enums::ModelingAnalysisRoute::Steady,settings:crate::math::settings::SolveSettings{intent:SolveIntent::FeasiblePoint,..Default::default()}}),
         preparation:crate::workflow::PreparationSettings{compiler:compiler_profile(),..Default::default()},
         overlay:Default::default(),
         policy:crate::workflow::StudyPointPolicy{key:pse_model::study::OccurrenceKey(0),dependencies:vec![],start:pse_model::study::StartPolicy::Fresh,attempt_limit:1},
