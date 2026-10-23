@@ -1,8 +1,8 @@
 ---
 title: "Plan 51: Engineering workspaces and evidence"
-status: draft
+status: in-progress
 date: 2026-10-22
-adrs: []
+adrs: [ADR-0216]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan
@@ -23,8 +23,9 @@ their actual relationships easier to navigate.
 This series captures the complete [functional review](../functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md):
 O01–O21, RC01–RC07, alternative realizations, investigations and delivery scenarios. The
 maintainer selected full coverage with the review's delivery/investigation/conditional distinctions
-preserved, and storage/payload choices settled during authoring. Plan creation is authorized;
-production implementation is not authorized by these documents alone.
+preserved, and storage/payload choices settled during authoring. The maintainer subsequently
+authorized 51a execution, whose foundation scope is now complete. Remaining production scope still requires maintainer
+authorization; these documents alone do not authorize it.
 
 Existing plan documents and their index are deliberately unchanged. This coordinator records
 dependencies and the post-implementation reconciliation obligation; it does not reopen Plan50
@@ -133,7 +134,9 @@ owners rather than inventing a type/service for every conceptual name.
 The review lists conditional impacts, not seven required waivers. The selected target avoids
 the backend/payload/resource-authority replacements. No unaccepted rule change is used to make
 the design work. Maintainer selections of 2026-10-22 authorize full planning coverage and authoring-
-time design selection, not implementation or a blanket waiver. A newly discovered actual change
+time design selection, not a blanket waiver. The subsequent explicit 51a implementation request
+authorizes its foundation scope, without changing the remaining packages or rule decisions.
+A newly discovered actual change
 must be presented with its consequence and confirmed before the dependent target is revised.
 
 | Review item | Plan disposition | Route / consequence |
@@ -143,7 +146,7 @@ must be presented with its consequence and confirmed before the dependent target
 | RC03 | Not activated: canonical topology retained | Preserve D10, blueprint §20.6 and ADR-0164/0214 target. ST02 integrates new consumers without changing their authority. |
 | RC04 | Not activated: invocation/resource registry retained | Preserve blueprint §24.1/ADR-0174. EV readers/imports remain independently disposable projections. |
 | RC05 | No expanded whole-workspace persistence selected | PJ06 exposes actual existing eligibility. Native handles, providers and Salsa owner state are not transferred. |
-| RC06 | Apply existing declaration/decision routes | ST01 schedules short ADRs for new relation families/public meanings where required, then registry/codegen. Host observations retain their original Python owners. No foundational identity/Python-boundary waiver is selected. |
+| RC06 | Apply existing declaration/decision routes | ST01 declares/generates the new families under proposed ADR-0216 and the maintainer-authorized 51a target. Host observations retain their original Python owners. No foundational identity/Python-boundary waiver is selected. |
 | RC07 | No new browser/security/synchronization guarantee selected | LC05/DL03–DL04 settle bounded capability decisions. Any new platform/authority guarantee must receive explicit selection and required decision work before implementation. |
 
 ## Opportunity dispositions
@@ -165,7 +168,7 @@ Resolved here can close an authoring choice without claiming product implementat
 | O10 | resolved: no additional native working store | ST02/PJ02 | Existing immutable documents/RPDS plus catalogue transactions; revisit a concrete unmet operation |
 | O11 | scheduled | PJ06 | Discover existing compatible preparation artifacts and truthful reuse explanations |
 | O12 | scheduled | ST02/SC04/EV02 | Operation-shaped native indexes and selected columnar analytics; no universal query framework |
-| O13 | scheduled | ST02–ST04 | Coherent atomic metadata operations without replacing scientific or host lifecycle owners |
+| O13 | resolved: foundation operations | ST02–ST04 | Implemented and targeted-tested project/evidence transactions, exact settlement and protected selections; [51a verification](51a-storage-foundations-and-project-ownership.md#verification-and-handoff). Future consumers retain these contracts; assembled series qualification is Q02/Q03. |
 | O14 | scheduled | LC02/LC03 | Application-closure recovery and explicit retained-resource explanations |
 | O15 | scheduled | LC04 | Useful MX/native storage health joined only to real owner evidence |
 | O16 | resolved: native payload unification not selected | 51a design decision | Preserve sealed files; logical exchange solves handoff without a second payload backend |
@@ -198,18 +201,21 @@ functional/platform/rule target, obtain that selection before adding dependent i
 
 ## Package state and execution route
 
-All rows below are proposed work; authoring and mechanical document checks establish none of them.
+ST01–ST04 are complete at their targeted foundation acceptance boundary. Initial consumers
+advance the named adjacent packages only partially; their remaining scope is unchanged.
+Whole-series assembled and static qualification remains Q01–Q04. Authoring alone establishes
+none of the remaining implementation.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| ST01 | planned | [51a](51a-storage-foundations-and-project-ownership.md#ST01) | Owned declarations and applicable short decision records |
-| ST02 | planned | [51a](51a-storage-foundations-and-project-ownership.md#ST02) | Atomic project/research repository operations and real consumers |
-| ST03 | planned | [51a](51a-storage-foundations-and-project-ownership.md#ST03) | Disposable derived evidence database and generation publication |
-| ST04 | planned | [51a](51a-storage-foundations-and-project-ownership.md#ST04) | Shared selection, error/effect and lifetime behavior |
-| PJ01 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ01) | Project and branch ownership/navigation |
-| PJ02 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ02) | Durable raw drafts and local admission |
+| ST01 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST01) | Implemented registry families, proposed ADR-0216, generated contracts; Tested independent installation/strict codecs |
+| ST02 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST02) | Implemented atomic source/project/research operations and Rust/Python/CLI consumers; Tested targeted native and Python journeys |
+| ST03 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST03) | Implemented independent evidence lifecycle, complete import generations and authentic invocation adapter; Tested native roles/lifecycle and public CLI |
+| ST04 | complete | [51a](51a-storage-foundations-and-project-ownership.md#ST04) | Implemented issuer/generation fences, exact receipts, original allowance and protected hydration; Tested adversarial/replay/selection controls |
+| PJ01 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ01) | 51a supplies project/independent branch ownership and bounded navigation; full workspace interaction remains |
+| PJ02 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ02) | 51a supplies durable raw drafts, protected bytes and explicit admission/publication; remaining workspace recovery/editing behavior stays here |
 | PJ03 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ03) | Source/value/structural comparison |
-| PJ04 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | Explicit publication, objectwise merge and undo |
+| PJ04 | in-progress | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | 51a supplies exact guarded publication; objectwise merge and undo remain |
 | PJ05 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ05) | Historical context selectors and corrections |
 | PJ06 | planned | [51b](51b-projects-revisions-and-temporal-context.md#PJ06) | Compatible preparation discovery |
 | SC01 | planned | [51c](51c-scientific-data-studies-and-results.md#SC01) | Dataset/measurement versions and admitted source bridge |
@@ -218,9 +224,9 @@ All rows below are proposed work; authoring and mechanical document checks estab
 | SC04 | planned | [51c](51c-scientific-data-studies-and-results.md#SC04) | Cohort/result query and lazy detail consumer |
 | SC05 | planned | [51c](51c-scientific-data-studies-and-results.md#SC05) | Study progress observer and reconnect |
 | SC06 | planned | [51c](51c-scientific-data-studies-and-results.md#SC06) | Explicit external-acquisition disposition |
-| EV01 | planned | [51d](51d-development-and-research-evidence.md#EV01) | Authentic typed source adapters and snapshot coverage |
+| EV01 | in-progress | [51d](51d-development-and-research-evidence.md#EV01) | 51a supplies authentic FileStore invocation snapshots and coverage; other source adapters/mappings remain |
 | EV02 | planned | [51d](51d-development-and-research-evidence.md#EV02) | Supplied-only offline columnar query |
-| EV03 | planned | [51d](51d-development-and-research-evidence.md#EV03) | Idempotent persistent index import/query |
+| EV03 | in-progress | [51d](51d-development-and-research-evidence.md#EV03) | 51a supplies isolated index and CLI import/query/history; broader evidence workbench composition remains |
 | EV04 | planned | [51d](51d-development-and-research-evidence.md#EV04) | Linked and standalone diagnostics with protected details |
 | EV05 | planned | [51d](51d-development-and-research-evidence.md#EV05) | Comparable performance populations |
 | LC01 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |

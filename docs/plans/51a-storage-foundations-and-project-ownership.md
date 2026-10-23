@@ -1,8 +1,8 @@
 ---
 title: "Plan 51a: Storage foundations and project ownership"
-status: draft
+status: complete
 date: 2026-10-22
-adrs: []
+adrs: [ADR-0216]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 scenario_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
 doc_role: plan
@@ -14,7 +14,7 @@ doc_topics: [current-work, design, storage, libraries]
 
 ## Target and boundaries
 
-**Proposed:** extend the existing canonical SurrealDB service with owned project/research
+**Implemented:** extend the existing canonical SurrealDB service with owned project/research
 metadata operations and a separately disposable tooling evidence database. Retain sealed bulk
 payload files and their protected exact-membership readers. This is the selected foundation,
 not an execution-stage backend competition. The [coordinator](51-engineering-workspaces-and-evidence.md)
@@ -178,12 +178,71 @@ This cross-cutting package participates in early consumers; it is not a late saf
 
 ## Verification and handoff
 
-**Proposed:** targeted tests accompany each implemented slice; compile the affected operation,
-runtime/tool and Python closure with explicit Arrow force-validation when applicable. Relevant
-assembled and static qualification belongs to [51g](51g-qualification-and-publication.md).
-No backend benchmark, full upstream DST or new platform claim is required for these authoring
-choices. Performance improvements remain unmeasured until a named workload establishes them.
+**Tested, 2026-10-22:** ST01–ST04 foundations and their first real consumers passed the targeted
+checks below against a zero-failure baseline on Linux, using the selected custom SurrealDB
+3.3.4/MX1.0 service. Arrow-consuming commands used the scope-verified force-validation route;
+the Python component used the linked force-validated correctness extension. The coordinator
+owns package status; these checks do not qualify the enclosing series.
 
-Current checkpoint: design and source assessment only. All package progress is at the coordinator.
-First executable work is ST01's project-head/source and evidence-generation declaration slices,
-then ST02 with PJ01/PJ02 and ST03 with EV01/EV03. No storage production code has changed.
+| Command / selected scope | Final result |
+| --- | --- |
+| `scripts/pse-env -- just codegen` | Passed all five generation targets; generated Rust/Python documents and compiled API stubs published through their owners |
+| `scripts/pse-env -- just check-package pse-operations -p pse-runtime -p pse-py -p xtask --features xtask/canonical-tools,xtask/evidence-tools` | Passed affected all-target compile, zero errors |
+| `scripts/pse-env --store -- just unit-package pse-operations 'test(canonical_projects) \| test(project_research_reference_retains_exact_closed_results)' --features pse-operations/canonical-tests` | 9 passed, zero failed; independent heads, CAS, exact replay, forged intents, source closure, authority changes and retained closed results |
+| `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation test -p pse-operations --features canonical-tests --lib evidence::tests` | 4 passed, zero failed; strict codecs/membership, scoped roles, partial source coverage, staged/history cuts, lost replies, replay, changed issuer and atomic disposal |
+| `scripts/pse-env --store -- just unit-package pse-runtime project_large_draft_ack_rejects_coherently_forged_original_artifact_header --features pse-runtime/canonical-tests` | 1 passed, zero failed; coherently forged large intent refused, selected descriptor retains original body after current draft advances |
+| `scripts/pse-env --store -- just unit-package pse-operations 'test(canonical_artifact_owner_release_fences_both_acquisition_orders) \| test(canonical_artifact_live_read_prevents_collection_after_owner_release) \| test(canonical_files_unknown_collection_and_forged_intent_leave_no_physical_residue)' --features pse-operations/canonical-tests` | 3 passed, zero failed; existing protected-owner regression controls |
+| `scripts/pse-env --store -- just unit-package pse-operations 'test(grpc_exact_cells_and_guarded_revisions) \| test(concurrent_identical_source_api_edits_return_one_exact_revision) \| test(native_kind_authenticates_every_known_refusal_and_unknowns_fail_closed)' --features pse-operations/canonical-tests` | 3 passed, zero failed; existing source/codec/refusal regression controls |
+| `scripts/pse-env -- just unit-package pse-codegen evidence_family_does_not_change_canonical_installation` | 1 passed, zero failed; a tooling-only declaration cannot change canonical installation identity |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_evidence_projection scripts.tests.test_evidence_store` | 23 passed, zero failed; authentic host adapter, no implicit scientific opening, literal argument dispatch and inherited activity/drain |
+| `scripts/pse-env -- just py-sync-correctness`, then `scripts/pse-env --store -- .venv/bin/python -m scripts.python_tests python/pse/tests/test_projects.py -m component -q --basetemp FRESH_OWNED_DIRECTORY` | Correctness build passed; 1 component passed, zero failed; raw custody, admission/publication/reopen, replay after draft edits, large sealed custody and altered-intent refusal |
+| `just evidence-build`, `just project-build`, `just project --help` through `scripts/pse-env --` | Both dedicated operators built; project command surface exercised |
+| Public `just evidence prepare/init/import/query/status/generations/snapshot` through `scripts/pse-env --` | Passed with authentic invocation sources: repeat A after importing B preserved B, actual command failure retained partial coverage, final successful project-component cut selected |
+| `scripts/pse-env -- just turn-end` and `scripts/pse-env -- just docs` | Passed ADR index/format bundle and documentation publication; these are mechanical checks, not product qualification |
+
+The initial Python attempt failed before collection because the shared `/tmp/pytest-of-paul`
+directory was root-owned. A fresh owned `--basetemp` resolved that environment issue;
+`just ready` passed. The shared directory was not changed. Earlier compiler and native control
+failures drove the corrections below; their final affected checks passed. No baseline was waived.
+
+**Not run:** full hygiene, whole-series integration/scientific journeys, performance campaigns
+and platform qualification; these remain at 51g. **Measured:** no performance benefit is claimed.
+
+## Outcome
+
+**Implemented:** registry-owned project/branch/draft/research declarations, native indexed
+operations and independent evidence installation/codecs. Branch publication extends the existing
+source activation transaction; it adds no second head. Saved raw drafts admit science only through
+the ordinary package loader and guarded source activation. Large drafts retain an original sealed
+artifact intent and hydrate selected descriptors through existing protected readers. Exact research
+references retain original source and closed-result owners.
+
+**Implemented:** explicit evidence initialization/open/import/activation/query/history/rebuild/drop
+and a first authentic FileStore invocation adapter. Reader and importer are database-scoped VIEWER
+and EDITOR; EDITOR has DDL power within the disposable database, not user management or canonical
+authority. Opening is independent of scientific schema/modules/native receivers. Host activity
+holds the actual native child's kernel lifetime through connection drain. Lifecycle errors retain
+the exact installation/disposal issuer and selected database. The ordinary source activation path
+was extended directly; no prototype store or compatibility activation path remains.
+
+**Tested:** independent review exposed stale-generation reactivation, an attestation/removal race,
+mutable intent coordinates, false large-body settlement and a second mutable draft read. Corrections
+settle immutable receipts, fence removal in one native SSI transaction, validate full retained
+intent identity and hydrate the selected descriptor. Disposal controls prove native REMOVE/CANCEL
+rollback and refusal after a concurrent replacement. The final focused checks above passed, and
+the review confirmed closure of its reported findings. This is bounded implementation review,
+not a whole-plan completion audit.
+
+Deliberate choices: dedicated `pse-project`/`pse-evidence` artifacts avoid codegen replacing an
+operator-enabled `xtask`; large custody uses retained intents rather than minting a replacement
+artifact on retry. Fork closure uses ordered exact native selections and the existing shared
+source bound. No dependency upgrade, alternate backend, new memory policy or scientific workflow
+replacement was needed. These are implementation choices within the selected target, not waivers.
+
+Enduring boundaries are at blueprint §20.5–§20.6 and §24.1 with ADR-0216; operational usage is in
+the [substrate guide](../dev/surreal-substrate.md#project-and-derived-evidence-operations) and
+[agent environment guide](../dev/agent-environment.md#project-and-evidence-commands).
+PJ01/PJ02/PJ04 and EV01/EV03 have initial foundation consumers, not full package closure.
+Research datasets/calibration, offline columnar queries, full workspace UX, lifecycle release and
+exchange remain with 51b–51f. Keep this completed foundation packet while those consumers and
+51g qualification depend on it; retire it through the coordinator's Q04 handoff.

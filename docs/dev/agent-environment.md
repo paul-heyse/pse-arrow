@@ -531,6 +531,21 @@ keep their original evidence scope; they are not live catalog lookup services.
 
 ## Explicit host controls
 
+### Project and evidence commands
+
+`just project-build` and `just evidence-build` explicitly build dedicated operator
+executables. Ordinary code generation can rebuild `xtask` without replacing these
+artifacts. `just project --help` and `just evidence --help` forward literal arguments;
+neither command installs or compiles a missing executable. The
+[substrate guide](surreal-substrate.md#project-and-derived-evidence-operations)
+describes initialization, roles, source cuts and retained draft intents.
+
+Evidence service operations hold a kernel-backed service activity descriptor through
+the native child and actual connection drain. They do not register a scientific
+Runtime or native worker. The supervisor observes those activities before stopping,
+rebuilding or disposing the service. Detached `evidence snapshot` remains available
+without a service, native extension or built operator executable.
+
 ### Selected performance tooling on this workstation
 
 The explicitly configured perf executable is `/usr/local/libexec/pse-arrow-perf/perf`:

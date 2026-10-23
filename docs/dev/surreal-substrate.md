@@ -11,6 +11,70 @@ remote deployment, returned physical disk space or physical power-loss survival.
 
 ## Setup and state ownership
 
+### Project and derived evidence operations
+
+[Plan51a](../plans/51a-storage-foundations-and-project-ownership.md) owns the current
+implementation and targeted verification of these foundations; ADR-0216 records
+their authority boundaries.
+
+```bash
+just project-build
+just project --state "$PSE_SURREAL_STATE" create --operation study-create --project study --title 'Engineering study'
+just project --state "$PSE_SURREAL_STATE" branches --project study
+just project --state "$PSE_SURREAL_STATE" settlement --operation study-create
+just evidence-build
+just evidence prepare
+just evidence init
+just evidence snapshot INVOCATION
+just evidence import INVOCATION
+just evidence generations
+just evidence query --kind rust_test --status failure --limit 16
+```
+
+Project opening requires an already initialized compatible canonical database.
+`--database` selects an explicit existing database on that deployment. Each writable
+branch owns a distinct canonical problem; its current source head remains at the
+source owner. Project membership, branch publication and draft generations have
+different purposes. Commands require the caller's original operation identity and
+expected generation; an acknowledgement observes that exact operation. Missing
+acknowledgement alone does not prove rollback.
+
+The Python `Runtime` exposes project creation, branch selection/forking, draft custody
+and source publication. `project_draft_save_intent` issues an original retained intent;
+save the same intent with `project_draft_save` when settling an uncertain response.
+Raw drafts may be empty or malformed. Larger drafts use the existing sealed opaque
+artifact owner, and `project_draft_bytes` borrows protected bytes before copying them
+to Python. To publish science, encode a generated `ProjectDraftDocuments` document,
+save it, capture `project_publication_intent`, then call `project_publish_draft` with
+the physical context. Publication admits the exact saved generation before the
+guarded source activation; malformed drafts never become admitted sources.
+
+`evidence prepare` creates private configuration and credentials under
+`STATE/.tooling/evidence/`. Explicit `init` installs the independently generated
+interpretation in `pse_tooling/evidence`. Ordinary status/query uses its database
+VIEWER; import uses its database EDITOR. EDITOR can alter schema within this
+disposable database, but has no canonical namespace or user-management privilege.
+Explicit init/rebuild/drop reads the existing private service credentials only for
+that lifecycle action. Opening the evidence index does not attest scientific schema,
+install modules or start a native receiver.
+
+`snapshot` authenticates an original FileStore invocation through its existing
+reader, preserving selected tests, unreported members, skipped/reused/transferred
+outcomes and command failures. `--registry` selects its original registry explicitly.
+It neither settles terminals nor borrows payloads. Persistent import stages exact
+compact membership, reconciles it, and publishes a complete import generation.
+Source coverage may still be partial. Query output identifies the imported source
+cut, coverage and `imported-cut-only` freshness; it does not claim current source
+state or grant any file lifetime. `--generation` selects a historical active cut;
+`--cursor FILE` continues the same issued query context. `generations --after KEY`
+continues generation discovery. Repeating an original import settles its immutable
+receipt rather than selecting that older cut again.
+
+`just evidence rebuild` and `just evidence drop` explicitly dispose only the selected
+derived index. Original test terminals, resources and scientific results remain at
+their existing owners. These operations do not refresh or repair those sources.
+Unavailable service/index leaves supplied-only snapshot inspection usable.
+
 ### Selected-service diagnostics
 
 `python -m scripts.surreal_diagnostics --help` exposes bounded selected-service observations.
