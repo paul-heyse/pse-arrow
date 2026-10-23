@@ -217,6 +217,28 @@ Detailed local outputs are `/tmp/pse51ef-composed-rust-final.log`,
 `/tmp/pse51ef-disposable-health.json` and `/tmp/pse51ef-actual-storage-health-final.json`.
 They are ignored local evidence, not a new source-controlled scenario registry.
 
+### Bounded Rust selection
+
+The exact original 100-case selection was the following. It uses the existing test owners;
+there is no additional test-name registry. The four-thread rerun narrowed this selection to
+only the original failures, retaining the same features and assertions.
+
+```bash
+scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation nextest run \
+  --locked --no-fail-fast \
+  -p pse-runtime -p pse-operations -p pse-backend-native -p xtask \
+  --features pse-runtime/canonical-tests,pse-runtime/solver-ipopt,pse-operations/evidence-query,xtask/project-tools,xtask/evidence-tools,xtask/canonical-tests \
+  -E 'test(project_portability) | test(canonical_lifecycle_tests) | test(canonical_artifact_stream) |
+      test(pending_import_is_unavailable) | test(project_comparison::) | test(project_large_draft) |
+      test(project_admitted_draft_run) | test(project_context_recorded_study) | test(research_) |
+      test(workbench_) | test(study_observer_) | test(evidence_) | test(project_cli_runtime_) |
+      test(bounded_progress_snapshot_after) | test(compact_projection) |
+      test(review_context_ingress_keeps_large_integer_payload_and_rejects_unknown_version) |
+      test(review_context_selection_refuses_unbounded_duplicate_and_oversized_facts) |
+      test(plan38b_requested_seed_survives_cancellation_before_dispatch_and_portable_reconstruction) |
+      test(fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile)'
+```
+
 ### Scope-end checks and repairs
 
 **Tested:** initial `just hygiene` failed six recipes against zero: ADR front matter, ADR index,
