@@ -92,7 +92,7 @@ for pse_operations::canonical_explanations::CanonicalGraphDocument {
     const INPUT_NAME: &'static str = "CanonicalGraphDocument";
     const OUTPUT_NAME: &'static str = "CanonicalGraphDocumentOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = None;
+    const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType
@@ -100,7 +100,7 @@ for pse_operations::canonical_explanations::CanonicalGraphRequest {
     const INPUT_NAME: &'static str = "CanonicalGraphRequest";
     const OUTPUT_NAME: &'static str = "CanonicalGraphRequestOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = None;
+    const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::tooling::capture::CaptureDocument {

@@ -42,6 +42,31 @@ def test_standalone_history_envelope_keeps_nested_domain_bodies() -> None:
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
+    "document",
+    [documents.CanonicalGraphRequest, documents.CanonicalGraphDocument],
+)
+def test_graph_documents_refuse_missing_or_future_header_before_body(
+    document: type,
+) -> None:
+    for payload in (b'{}', b'{"version":2,"anchor":null}'):
+        with pytest.raises(msgspec.ValidationError, match="version"):
+            codec.decode_json(payload, document)
+
+
+@pytest.mark.unit
+def test_graph_request_roundtrips_its_standalone_envelope() -> None:
+    value = codec.decode_json(
+        b'{"version":1,"anchor":{"kind":"artifact",'
+        b'"artifact":"artifact-a","revision":"revision-a"},'
+        b'"scope":"retained_consumers","limit":1,"continuation":null}',
+        documents.CanonicalGraphRequest,
+    )
+    assert value.version == 1
+    assert codec.decode_json(codec.encode_json(value), documents.CanonicalGraphRequest) == value
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
     ("document", "field"),
     [
         (documents.NumericalPolicy, "version"),

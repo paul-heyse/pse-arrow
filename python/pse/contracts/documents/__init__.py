@@ -5256,6 +5256,10 @@ class CacheReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class CanonicalGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded metadata response with explicit local completeness and revision-bound continuation."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required standalone graph-response interpretation.
+    version: Literal[1] = 1
     #: Frozen selected owner/revision.
     anchor: GraphAnchor
     #: Whether the requested immediate neighborhood was exhausted.
@@ -5278,12 +5282,16 @@ class CanonicalGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
     scope: GraphScope
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
 
 
 class CanonicalGraphDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded metadata response with explicit local completeness and revision-bound continuation."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required standalone graph-response interpretation.
+    version: Literal[1] = 1
     #: Frozen selected owner/revision.
     anchor: GraphAnchor
     #: Whether the requested immediate neighborhood was exhausted.
@@ -5306,12 +5314,16 @@ class CanonicalGraphDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_f
     scope: GraphScope
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.anchor), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.decision), v.sequence_key(v.record_key)(self.edges), v.scalar_key(self.evidence_scope), v.scalar_key(self.examined_rows), v.sequence_key(v.record_key)(self.nodes), v.optional_key(v.scalar_key)(self.observed_blocker), v.scalar_key(self.scope),))
 
 
 class CanonicalGraphRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One bounded semantic graph query, separate from native physical-plan observations."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required standalone graph-request interpretation.
+    version: Literal[1] = 1
     #: Exact selected owner/revision.
     anchor: GraphAnchor
     #: Optional exact-selection continuation.
@@ -5322,12 +5334,16 @@ class CanonicalGraphRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     scope: GraphScope
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
 
 
 class CanonicalGraphRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One bounded semantic graph query, separate from native physical-plan observations."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required standalone graph-request interpretation.
+    version: Literal[1] = 1
     #: Exact selected owner/revision.
     anchor: GraphAnchor
     #: Optional exact-selection continuation.
@@ -5338,7 +5354,7 @@ class CanonicalGraphRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     scope: GraphScope
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
 
 
 class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -30123,4 +30139,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:e117ca4ddabe19d23d93bff89596ff894cd87371d24909b1c2438ff55575b503"
+SCHEMA_SET_FINGERPRINT = "blake3:4c7cb912ab6cb3094f43f6281ba348b998a9344daec578e7eb51e2865335ac35"

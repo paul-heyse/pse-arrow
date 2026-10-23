@@ -189,9 +189,16 @@
     "scope": {
       "$ref": "#/$defs/GraphScope",
       "description": "Local neighborhood question."
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "description": "Required standalone graph-request interpretation.",
+      "type": "integer"
     }
   },
   "required": [
+    "version",
     "anchor",
     "scope",
     "limit"

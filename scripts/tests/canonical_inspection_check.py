@@ -60,6 +60,7 @@ def run(state: Path, database: str, kind: str, request: Path, evidence: Path) ->
     server.write_json(evidence, result)
     if kind == "graph":
         graph = result["neighborhood"]
+        assert graph["version"] == selected["version"] == 1
         assert graph["anchor"] == selected["anchor"]
         assert graph["scope"] == selected["scope"]
         assert len(graph["edges"]) == 1

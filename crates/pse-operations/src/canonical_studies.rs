@@ -2612,7 +2612,7 @@ mod canonical_studies_server_unit {
             .unwrap();
         let point = point_key("graph-blocker", OccurrenceKey(2));
         let scope = store.study_scope(&point).await.unwrap();
-        let mut request = CanonicalGraphRequest {
+        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
             anchor: GraphAnchor::StudyPoint {
                 point,
                 revision: scope.point().revision,
@@ -2655,7 +2655,7 @@ mod canonical_studies_server_unit {
         assert_eq!(isolated.nodes.len(), 1);
         assert!(isolated.observed_blocker.is_none());
         let sources = store
-            .graph_explanation(&CanonicalGraphRequest {
+            .graph_explanation(&CanonicalGraphRequest { version: pse_model::document::Version,
                 anchor: GraphAnchor::Run {
                     run: "graph-parent".into(),
                     revision: revision.key.clone(),
@@ -2686,9 +2686,9 @@ mod canonical_studies_server_unit {
                 let key=hash.finish_hash().to_hex();
                 (key.clone(),GraphEdge {identity:format!("canonical_study_dependencies:{key}"),source:format!("canonical_study_points:{dependent}"),target:format!("canonical_study_points:{predecessor}"),role,evidence:None})
             }).collect()};
-            qualify_graph_seek_pages(&store,&CanonicalGraphRequest{anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope:question,limit:1,continuation:None},expected).await;
+            qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope:question,limit:1,continuation:None},expected).await;
         }
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest{anchor:GraphAnchor::Run{run:"graph-parent".into(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},vec![("graph-parent".into(),GraphEdge{identity:"canonical_run_sources:graph-parent".into(),source:"canonical_runs:graph-parent".into(),target:format!("canonical_revisions:{}",revision.key),role:GraphEdgeRole::RecordedSource,evidence:None})]).await;
+        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Run{run:"graph-parent".into(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},vec![("graph-parent".into(),GraphEdge{identity:"canonical_run_sources:graph-parent".into(),source:"canonical_runs:graph-parent".into(),target:format!("canonical_revisions:{}",revision.key),role:GraphEdgeRole::RecordedSource,evidence:None})]).await;
         store.cancel_study("graph-blocker").await.unwrap();
         assert!(store.graph_explanation(&request).await.is_err());
         store.remove_isolated_fixture().await.unwrap();
@@ -2722,7 +2722,7 @@ mod canonical_studies_server_unit {
             let key=hash.finish_hash().to_hex();
             expected_sources.push((key.clone(),GraphEdge{identity:format!("canonical_run_sources:{key}"),source:format!("canonical_runs:{}",parent.key),target:format!("canonical_revisions:{}",source.key),role:GraphEdgeRole::RecordedSource,evidence:None}));
         }
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest{anchor:GraphAnchor::Run{run:parent.key.clone(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},expected_sources).await;
+        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Run{run:parent.key.clone(),revision:revision.key.clone()},scope:GraphScope::RecordedSources,limit:1,continuation:None},expected_sources).await;
         for (ordinal,scope) in [(131,GraphScope::ImmediateBlockers),(131,GraphScope::RecordedSources),(0,GraphScope::RetainedConsumers),(64,GraphScope::RecordedSources),(64,GraphScope::RetainedConsumers)] {
             let selected=store.study_scope(&point_key("graph-dense",OccurrenceKey(ordinal))).await.unwrap();
             let expected=authored.iter().filter(|(dependent,predecessor,_,_)| if scope==GraphScope::RetainedConsumers {*predecessor==ordinal} else {*dependent==ordinal}).map(|(dependent,predecessor,kind,role)| {
@@ -2733,7 +2733,7 @@ mod canonical_studies_server_unit {
                 let key=hash.finish_hash().to_hex();
                 (key.clone(),GraphEdge{identity:format!("canonical_study_dependencies:{key}"),source:format!("canonical_study_points:{dependent}"),target:format!("canonical_study_points:{predecessor}"),role:role.clone(),evidence:None})
             }).collect();
-            qualify_graph_seek_pages(&store,&CanonicalGraphRequest{anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope,limit:1,continuation:None},expected).await;
+            qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::StudyPoint{point:selected.point().key.clone(),revision:selected.point().revision,generation:selected.generation()},scope,limit:1,continuation:None},expected).await;
         }
         store.remove_isolated_fixture().await.unwrap();
     }

@@ -887,9 +887,16 @@
     "scope": {
       "$ref": "#/$defs/GraphScope",
       "description": "Requested local question."
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "description": "Required standalone graph-response interpretation.",
+      "type": "integer"
     }
   },
   "required": [
+    "version",
     "anchor",
     "scope",
     "nodes",

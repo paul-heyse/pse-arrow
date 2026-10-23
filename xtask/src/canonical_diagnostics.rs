@@ -75,8 +75,9 @@ pub(crate) fn graph(
         std::fs::metadata(request)?.len() <= 64 * 1024,
         "graph request exceeds its input bound"
     );
+    let bytes = std::fs::read(request)?;
     let request: pse_operations::canonical_explanations::CanonicalGraphRequest =
-        serde_json::from_slice(&std::fs::read(request)?)?;
+        pse_model::document::decode_versioned::<_, 1>(&bytes)?;
     let options = CanonicalOptions::from_state_for_database(state, database)?;
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

@@ -79,6 +79,8 @@ pub struct GraphContinuation {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CanonicalGraphRequest {
+    /// Required standalone graph-request interpretation.
+    pub version: pse_model::document::Version<1>,
     /// Exact selected owner/revision.
     pub anchor: GraphAnchor,
     /// Local neighborhood question.
@@ -151,6 +153,8 @@ pub struct GraphEdge {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CanonicalGraphDocument {
+    /// Required standalone graph-response interpretation.
+    pub version: pse_model::document::Version<1>,
     /// Frozen selected owner/revision.
     pub anchor: GraphAnchor,
     /// Requested local question.
@@ -514,7 +518,7 @@ impl CanonicalStore {
             let (again,_,_)=self.graph_anchor(&request.anchor).await?;
             if again!=anchor { return Err(invalid("graph selection changed during observation")); }
             let continuation=if more {Some(GraphContinuation{anchor:request.anchor.clone(),scope:request.scope,after:entries.last().ok_or(CanonicalError::IncompleteResponse)?.0.clone()})}else{None};
-            let document=CanonicalGraphDocument{anchor:request.anchor.clone(),scope:request.scope,nodes:nodes.into_values().collect(),edges:entries.into_iter().map(|(_,edge)|edge).collect(),decision,observed_blocker:blocker,examined_rows,complete:!more,continuation,evidence_scope:"one immediate neighborhood only; recorded connectivity is not numerical dependence or scientific usability; current metadata is rechecked per page, not an atomic graph snapshot; artifact/evidence bytes require existing protected acquisition".into()};
+            let document=CanonicalGraphDocument{version:pse_model::document::Version,anchor:request.anchor.clone(),scope:request.scope,nodes:nodes.into_values().collect(),edges:entries.into_iter().map(|(_,edge)|edge).collect(),decision,observed_blocker:blocker,examined_rows,complete:!more,continuation,evidence_scope:"one immediate neighborhood only; recorded connectivity is not numerical dependence or scientific usability; current metadata is rechecked per page, not an atomic graph snapshot; artifact/evidence bytes require existing protected acquisition".into()};
             if serde_json::to_vec(&document).map_err(|error|CanonicalError::Configuration(error.to_string()))?.len()>256*1024 { return Err(CanonicalError::PayloadLimit); }
             Ok(document)
         })).await
@@ -687,7 +691,7 @@ mod tests {
             revision: 7,
             generation: 3,
         };
-        let mut request = CanonicalGraphRequest {
+        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
             anchor: anchor.clone(),
             scope: GraphScope::RecordedSources,
             limit: 1,
@@ -759,7 +763,7 @@ mod tests {
             (GraphAnchor::AnalysisNode { analysis: "a".into(), node: "n".into(), revision: "v".into() }, GraphScope::RecordedSources, "analysis_edge_target", "target=$node"),
             (GraphAnchor::AnalysisNode { analysis: "a".into(), node: "n".into(), revision: "v".into() }, GraphScope::RetainedConsumers, "analysis_edge_source", "source=$node"),
         ] {
-            let request = CanonicalGraphRequest { anchor, scope, limit: 64, continuation: None };
+            let request = CanonicalGraphRequest { version: pse_model::document::Version, anchor, scope, limit: 64, continuation: None };
             let sql = request.sql();
             assert!(sql.contains(&format!("WITH INDEX {index} WHERE {predicate}")), "{sql}");
             assert!(sql.contains(" LIMIT $maximum"));
@@ -783,7 +787,7 @@ mod tests {
     fn graph_page_refuses_corrupt_sentinel_cross_analysis_endpoints_and_ordering() {
         for scope in [GraphScope::RecordedSources, GraphScope::RetainedConsumers] {
             let selected = if scope == GraphScope::RecordedSources { "target" } else { "source" };
-            let request = CanonicalGraphRequest {
+            let request = CanonicalGraphRequest { version: pse_model::document::Version,
                 anchor: GraphAnchor::AnalysisNode { analysis: "analysis".into(), node: selected.into(), revision: "revision".into() },
                 scope, limit: 1, continuation: None,
             };
@@ -852,7 +856,7 @@ mod tests {
                 "out",
                 codec::record_link("canonical_study_points", "source"),
             );
-            decode_edge(&CanonicalGraphRequest { anchor: anchor.clone(), scope: GraphScope::RecordedSources, limit: 1, continuation: None }, row).unwrap().1
+            decode_edge(&CanonicalGraphRequest { version: pse_model::document::Version, anchor: anchor.clone(), scope: GraphScope::RecordedSources, limit: 1, continuation: None }, row).unwrap().1
         };
         let ordering = edge("one", "ordering");
         let usable = edge("two", "usable");
@@ -877,7 +881,7 @@ mod tests {
             "out",
             codec::record_link("canonical_artifacts", "protected"),
         );
-        let (_, edge) = decode_edge(&CanonicalGraphRequest { anchor: artifact, scope: GraphScope::RetainedConsumers, limit: 1, continuation: None }, row).unwrap();
+        let (_, edge) = decode_edge(&CanonicalGraphRequest { version: pse_model::document::Version, anchor: artifact, scope: GraphScope::RetainedConsumers, limit: 1, continuation: None }, row).unwrap();
         assert_eq!(edge.source, "canonical_analyses:consumer");
         assert_eq!(edge.target, "canonical_artifacts:protected");
         assert_eq!(edge.evidence.unwrap().artifact, "protected");
@@ -1079,7 +1083,7 @@ mod server_tests {
         // Compare both directed neighborhoods against the authored edge list, never
         // against a second read of the relation being qualified.
         for (selected,scope) in [(&nodes[0],GraphScope::RetainedConsumers),(&nodes[1],GraphScope::RecordedSources),(&nodes[2],GraphScope::RetainedConsumers),(&nodes[2],GraphScope::RecordedSources)] {
-            let request=CanonicalGraphRequest { anchor: GraphAnchor::AnalysisNode { analysis: analysis.key.clone(), node: selected.key.clone(), revision: revision.key.clone() }, scope, limit: 1, continuation: None };
+            let request=CanonicalGraphRequest { version: pse_model::document::Version, anchor: GraphAnchor::AnalysisNode { analysis: analysis.key.clone(), node: selected.key.clone(), revision: revision.key.clone() }, scope, limit: 1, continuation: None };
             let expected=edges.iter().filter(|edge| if scope==GraphScope::RecordedSources {edge.target==selected.key} else {edge.source==selected.key}).map(|edge| (edge.key.clone(),GraphEdge {
                 identity: node("canonical_analysis_edges",&edge.key),source:node("canonical_analysis_nodes",&edge.source),target:node("canonical_analysis_nodes",&edge.target),role:GraphEdgeRole::AnalysisRelation{relation:edge.kind.clone()},evidence:Some(GraphEvidence{artifact:artifact.key.clone(),block:Some(0),row:Some(0),field:Some("field".into())})
             })).collect();
@@ -1098,9 +1102,9 @@ mod server_tests {
             hash.str("pse.analysis.input.v1").part(key.as_bytes()).part(artifact.key.as_bytes());
             (key.clone(),GraphEdge {identity:node("canonical_analysis_inputs",&hash.finish_hash().to_hex()),source:node("canonical_analyses",key),target:node("canonical_artifacts",&artifact.key),role:GraphEdgeRole::AnalysisInput,evidence:Some(GraphEvidence{artifact:artifact.key.clone(),block:None,row:None,field:None})})
         }).collect();
-        qualify_graph_seek_pages(&store,&CanonicalGraphRequest {anchor:GraphAnchor::Artifact{artifact:artifact.key.clone(),revision:revision.key.clone()},scope:GraphScope::RetainedConsumers,limit:1,continuation:None},expected).await;
+        qualify_graph_seek_pages(&store,&CanonicalGraphRequest { version: pse_model::document::Version,anchor:GraphAnchor::Artifact{artifact:artifact.key.clone(),revision:revision.key.clone()},scope:GraphScope::RetainedConsumers,limit:1,continuation:None},expected).await;
         read.release().await.unwrap();
-        let mut request = CanonicalGraphRequest {
+        let mut request = CanonicalGraphRequest { version: pse_model::document::Version,
             anchor: GraphAnchor::AnalysisNode {
                 analysis: analysis.key.clone(),
                 node: nodes[0].key.clone(),
