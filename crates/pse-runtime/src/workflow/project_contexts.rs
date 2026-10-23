@@ -33,7 +33,7 @@ impl Runtime {
     pub(in crate::workflow) async fn restore_project_context(&self,package:&mut ModelingPackage,selection:Option<&ContextSelection>)->Result<(),WorkflowError>{
         if let Some(selection)=selection {
             self.canonical_store()?.validate_project_context(selection).await?;
-            if package.canonical_revision().map(|r|r.key.as_str())!=Some(selection.context.revision.as_str())||package.physical.identity().to_string()!=selection.context.physical_context||package.revision.identity().to_string()!=selection.context.source_identity{return Err(contract("recorded context and actual source closure differ"));}
+            if package.physical.identity().to_string()!=selection.context.physical_context||package.revision.identity().to_string()!=selection.context.source_identity{return Err(contract("recorded context and actual source closure differ"));}
             package.project_context=Some(selection.clone());
         }
         Ok(())
