@@ -628,7 +628,11 @@ and exclusions without executing anything. See the
 
 Storage health uses the versioned `storage-health-v1` observation document. It composes the
 selected service/engine identity, bounded process/cgroup and host storage observations, exact
-capture time, unavailable fields and approximate engine statistics. Engine memory is not RSS;
+capture time, unavailable fields and approximate engine statistics. Service identity and cgroup
+observation are verified independently of metric transport. An oversized, timed-out or invalid
+metrics response retains its precise unavailable reason and the original response bound; it does
+not by itself establish that the service is down. Owner/incarnation changes are rechecked before
+combining observations. Engine memory is not RSS;
 queue depth and retained versions alone establish no cause or durability guarantee. Finite owner
 command references are inert suggestions, not repair authorization. Independent host inspection
 works without the service. Explicitly supplied or imported diagnostic evidence can retain these
@@ -959,6 +963,30 @@ Fresh/preinitialized-host controls do not authorize resizing a host's global poo
 accounting and future layout are not process RSS; no controlled speedup, universal bit equality,
 whole-model-library/parity, new-platform or distribution claim follows. Independent 49f–49h and
 broader campaigns remain open, and ADR-0215 remains formally proposed.
+
+Selected Plan51 engineering/research/evidence, lifecycle and portable-project acceptance of
+2026-10-23 belongs to the [Plan51g Outcome](../../plans/51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23).
+On Linux with explicit force-validation, the 100-case Rust selection passed 73 cases at the
+default 16 concurrent tests; 27 canonical fixture startups failed. The exact affected 27
+binary/test instances then passed at four concurrent tests with unchanged deadlines/assertions.
+The cause is unproven; this composes selected functional evidence and does not qualify startup
+at 16 concurrent tests. Fourteen installed native-Python component journeys and four affected
+frozen-context unit controls passed. The actual calibrated fit/publication/import/edit/downstream
+study retains independent original numerical assertions, not database-only qualification.
+
+The 322 selected host controls, affected final health controls and actual disposable application
+backup/recovery exercise nonempty project/draft inventory, incomplete closure refusal, crash/reopen,
+protected cells, fresh restored authority/credentials and semantic validation. Ten native metric
+families were observed on the disposable service. The primary's metric response exceeded the finite
+capture bound: service/cgroup identity remained observed and metrics unavailable with that precise
+reason. No prefix parsing, larger bound or causal memory/performance inference follows.
+
+Default, no-default, full linked-native workspace and explicit changed optional-tool Clippy graphs,
+repaired Python/ADR hygiene, generator equivalence and governance pass at the conditions in the
+Outcome. Final feature-matrix/publication state remains at that owner. This evidence does not replace
+the historical full basis, qualify a fresh whole-product/parity/scientific-recovery/distribution
+campaign, establish confidentiality or a speed/capacity benefit, or close Plan32/40/49 obligations.
+Proposed ADR-0216–0220 formal decision status is unchanged.
 
 ### 24.3 Benchmarks
 

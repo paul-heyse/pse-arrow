@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 254
+revision: 255
 date: 2026-10-23
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 255 | 2026-10-23 | ADR-0220: publish independent service/metric availability and composed Plan51 functional qualification with explicit startup/concurrency and unmeasured limits (§24.1/§24.2). | Maintainer-authorized Plan51e–51g publication; PSE_DESIGN_EDIT=1. Final static/publication state remains at the owning Outcome; proposed ADR statuses unchanged. |
 | 254 | 2026-10-23 | ADR-0220: publish implemented selected closure, fresh import/settlement, lifecycle, application recovery and storage-health support boundaries (§20.6/§24.1). | Maintainer-authorized Plan51e–51g execution; PSE_DESIGN_EDIT=1 authorizes enduring publication. Qualification remains scoped at the owning Outcome. |
 | 253 | 2026-10-23 | ADR-0220: selected protected logical closure, fresh-authority project import/origin mapping and original-owner lifecycle composition (§20.6). | Maintainer-authorized Plan51e–51g execution; PSE_DESIGN_EDIT=1 authorizes target publication. Implementation/qualification remain at Plan51. |
 | 252 | 2026-10-23 | Publish Plan51c/51d admitted research, original eligible-cell publication, frozen protected cohort/observer and authentic supplied/indexed evidence contracts and support limits (§19.4/§24.1). | Maintainer-authorized 51c/51d implementation; PSE_DESIGN_EDIT=1 authorizes enduring publication. Targeted Rust/Python/offline evidence at the companions; full hygiene and assembled qualification remain Plan51g; ADR-0218/0219 remain proposed. |

@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-06, DP-09, PS-10]
 blueprint: [§19.3, §20.6, §24.1]
 review: "not-required: New declaration families and composed workflows within existing scientific, source-publication, artifact, recovery and tooling decisions; maintainer authorized the detailed Plan51e–51g execution approach."
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A selected closure or import cannot preserve origin identity, protected membership, original scientific qualification or effect settlement through these owners.
@@ -53,7 +53,14 @@ Use exact origin namespaces, private imported publication bindings, original imm
 
 Interface-checked: current review-pack publication, original source/project CAS and acknowledgement, protected result readers, application backup/recovery and selected native metrics at 66bfbc369; implementation and qualification remain at Plan51.
 
-Targeted controls and assembled Rust/Python/CLI/offline journeys remain required by the owning plans. No test, security, speed or whole-series completion claim follows from this proposal.
+Tested: maintainer-authorized execution on 2026-10-23 composed the selected Rust project/lifecycle/
+research/evidence/CLI controls, 14 installed native-Python component journeys, affected frozen-context
+and host controls, actual offline executable consumption and nonempty disposable application
+backup/recovery. The [51g Outcome](../plans/51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23)
+owns actual commands, initial failures and affected reruns: 73/100 Rust cases passed at default
+16-test concurrency and the exact affected 27 passed at four. This is not a single clean 100-case
+run, 16-test-startup qualification, security/performance claim or formal ADR acceptance. Final
+static/publication state remains at that owner.
 
 ## Pros and cons
 
