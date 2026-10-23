@@ -661,12 +661,18 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
     let text=r#"package minimal_named {
         entity kind source provenance {} entity source acquisition {}
         enum role {measured facets(measured)}
-        entity kind reading {key number:Integer;attribute raw:Scalar storage {1};attribute sigma:Scalar storage {1};derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require sigma>0 : "positive standard uncertainty";}
+        entity kind reading {key number:Integer;attribute raw:Scalar storage {RESEARCH_SCALAR_STORAGE_UNIT};attribute sigma:Scalar storage {RESEARCH_SCALAR_STORAGE_UNIT};derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require sigma>0 : "positive standard uncertainty";}
         dataset measurements:reading provenance(acquisition,role.measured) from "data/bank.parquet";
         def FitExperiment {}
     }"#;
     let (physical_documents,mut documents)=worker_tests::sources(text);
     let physical=Box::pin(rt.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
+    // The actual primitives source declares an atomic dimensionless unit. The
+    // literal unit product `1` has a different identity and is not its storage unit.
+    let scalar=physical.quantities.neutral_dimensionless().unwrap();
+    let canonical=physical.quantities.quantity_type(scalar).unwrap().canonical_unit;
+    let storage_unit=physical.quantities.unit_product(canonical).unwrap().to_string();
+    documents.insert("models/root.pse".into(),text.replace("RESEARCH_SCALAR_STORAGE_UNIT",&storage_unit).into_bytes());
     let document=parquet(vec![("number",Arc::new(Int64Array::from(vec![1,2])),None),("raw",Arc::new(Float64Array::from(vec![1.,2.])),None),("sigma",Arc::new(Float64Array::from(vec![0.25,0.5])),None)]);
     documents.insert(DATA.into(),document);
     let package=Box::pin(rt.package_from_sources(std::slice::from_ref(&documents),physical.clone(),&cancel)).await.unwrap();

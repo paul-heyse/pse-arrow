@@ -1763,6 +1763,13 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let study_header=store.canonical_run(&study_metadata.run).await.unwrap().unwrap();
     assert_eq!(study_header.research_selection.as_deref(),Some("selection-v1"));
     assert_eq!(study_header.research_dataset.as_deref(),Some("calibrated-v1"));
+    for key in [&selection.key,&calibrated.key,&receipt.key] {
+        let page=runtime.study_workbench_page(crate::workflow::StudyWorkbenchRequest{filter:crate::workflow::StudyWorkbenchFilter{research_reference:Some(key.clone()),..Default::default()},maximum:64,cursor:None}).await.unwrap();
+        assert_eq!(page.headers.len(),1,"actual native research filter {key} retains the downstream study");
+        assert_eq!(page.headers[0].study,study.study_id().to_string());
+    }
+    let absent=runtime.study_workbench_page(crate::workflow::StudyWorkbenchRequest{filter:crate::workflow::StudyWorkbenchFilter{research_reference:Some("absent-research-reference".into()),..Default::default()},maximum:64,cursor:None}).await.unwrap();
+    assert!(absent.headers.is_empty(),"unknown research identity cannot match unrelated studies");
     for _ in 0..4 {if study.result().await.unwrap().is_some(){break;} Box::pin(runtime.work_once()).await.unwrap();}
     let results=study.result().await.unwrap().expect("one downstream occurrence completed");
     assert_eq!(results.points.len(),1);
