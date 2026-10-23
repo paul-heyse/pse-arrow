@@ -156,7 +156,7 @@ impl Runtime {
             if measured.quantity.as_id()!=member.quantity{return Err(contract("research member quantity/basis differs"));}
             if measured.value.is_some_and(|v|!v.is_finite())||measured.standard_deviation.is_some_and(|v|!v.is_finite()||v<=0.){return Err(contract("research measurement or standard uncertainty invalid"));}
         }
-        let row=ResearchDataset{key:request.key.clone(),project:request.project.key.clone(),revision:request.context.context.revision.clone(),physical_context:request.context.context.physical_context.clone(),context:request.context.context.key.clone(),parent:request.parent.clone(),role:request.role.clone(),members:encoded(&request.members)?,request:Vec::new()};
+        let row=ResearchDataset{key:request.key.clone(),project:request.project.key.clone(),revision:request.context.context.revision.clone(),physical_context:request.context.context.physical_context.clone(),context:request.context.context.key.clone(),parent:request.parent.clone(),role:request.role.clone(),members:encoded(&request.members)?.into(),request:Vec::new().into()};
         Ok(self.canonical_store()?.create_research_dataset(&request.project,row).await?)
     }
     /// Freeze every original fit observation and verify its exact selected typed attribute.
@@ -178,7 +178,7 @@ impl Runtime {
             let measured=revision.checked().measurement(member.root,member.record,&member.attribute,member.standard_deviation_attribute.as_deref()).map_err(|e|contract(e.to_string()))?;
             if observation.included&&(measured.value.is_none_or(|v|!v.is_finite())||measured.standard_deviation.is_none_or(|s|!s.is_finite()||s<=0.)||!observation.importance.is_finite()||observation.importance<=0.){return Err(contract("included research observation requires authored positive standard uncertainty and importance"));}
         }
-        let row=ResearchSelection{key:request.key.clone(),project:request.project.key.clone(),dataset:request.dataset.clone(),revision:dataset.revision,physical_context:dataset.physical_context,context:dataset.context,fit:request.fit.as_id().to_string(),selection:encoded(request)?,request:Vec::new()};
+        let row=ResearchSelection{key:request.key.clone(),project:request.project.key.clone(),dataset:request.dataset.clone(),revision:dataset.revision,physical_context:dataset.physical_context,context:dataset.context,fit:request.fit.as_id().to_string(),selection:encoded(request)?.into(),request:Vec::new().into()};
         Ok(self.canonical_store()?.create_research_selection(&request.project,row).await?)
     }
     /// Reopen a frozen fit selection through its exact original context; prepare_fit remains the mathematical owner.

@@ -89,7 +89,9 @@ impl Runtime {
         let read=reader.selection();
         if read.run().revision!=original.recorded_revision()?.key{return Err(contract("original fit source revision differs"));}
         // This is the actual original consumed-input receipt, not a generic terminal status.
-        let receipt:serde_json::Value=decoded(read.run().source_selection.as_slice())?;
+        let (envelope,original_receipt,_original_sources):(u8,Vec<u8>,Vec<pse_operations::canonical::Revision>)=decoded(read.run().source_selection.as_slice())?;
+        if envelope!=1{return Err(contract("original canonical source selection codec unavailable"));}
+        let receipt:serde_json::Value=decoded(&original_receipt)?;
         let elements=receipt.as_array().ok_or_else(||contract("original fit source receipt unavailable"))?;
         if elements.first().and_then(|v|v.as_u64())!=Some(3){return Err(contract("original qualified research fit source receipt unavailable"));}
         let sources:Vec<super::OperationSource>=serde_json::from_value(elements.get(4).cloned().ok_or_else(||contract("original fit source receipt incomplete"))?).map_err(|e|contract(e.to_string()))?;
