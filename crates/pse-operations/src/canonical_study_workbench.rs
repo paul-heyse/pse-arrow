@@ -121,9 +121,22 @@ pub(crate) fn index_metadata(
             })
             .transpose()
     };
+    // PhysicalSource transports an algorithm-qualified ContentHash. Canonical
+    // context/source records compare its digest form, not its JSON encoding.
+    let physical_identity = string(value.pointer("/physical/identity"))?
+        .map(|encoded| {
+            pse_ids::ContentHash::parse_prefixed(&encoded)
+                .map(|identity| identity.to_hex())
+                .map_err(|error| {
+                    CanonicalError::Configuration(format!(
+                        "invalid study physical source identity: {error}"
+                    ))
+                })
+        })
+        .transpose()?;
     Ok((
         string(value.pointer("/physical/revision"))?,
-        string(value.pointer("/physical/identity"))?,
+        physical_identity,
         string(value.pointer("/context/context/key"))?,
     ))
 }
@@ -357,6 +370,32 @@ mod tests {
     #[test]
     fn index_attribution_is_exact_optional_and_not_invented_for_opaque_metadata() {
         assert_eq!(index_metadata(&[9]).unwrap(), (None, None, None));
-        assert_eq!(index_metadata(br#"{"version":5,"physical":{"revision":"p","identity":"hash"},"context":{"context":{"key":"cut"}}}"#).unwrap(),(Some("p".into()),Some("hash".into()),Some("cut".into())));
+        let identity = pse_ids::ContentHash::from_bytes([7; 32]);
+        let metadata = serde_json::json!({
+            "version": 5,
+            "physical": {"revision": "p", "identity": identity},
+            "context": {"context": {"key": "cut"}},
+        });
+        assert_eq!(metadata["physical"]["identity"], identity.to_prefixed());
+        assert_eq!(
+            index_metadata(&serde_json::to_vec(&metadata).unwrap()).unwrap(),
+            (Some("p".into()), Some(identity.to_hex()), Some("cut".into()))
+        );
+        assert_eq!(index_metadata(br#"{"version":5,"physical":null,"context":null}"#).unwrap(), (None, None, None));
+        assert_eq!(index_metadata(br#"{"version":4,"physical":{"identity":"opaque historical value"}}"#).unwrap(), (None, None, None));
     }
+    #[test]
+    fn index_attribution_rejects_untyped_or_malformed_physical_checksums() {
+        let identity = pse_ids::ContentHash::from_bytes([7; 32]);
+        for invalid in [
+            serde_json::json!(identity.to_hex()),
+            serde_json::json!(format!("sha256:{}", identity.to_hex())),
+            serde_json::json!("blake3:short"),
+            serde_json::json!(17),
+        ] {
+            let metadata = serde_json::json!({"version": 5, "physical": {"revision": "p", "identity": invalid}});
+            assert!(index_metadata(&serde_json::to_vec(&metadata).unwrap()).is_err());
+        }
+    }
+
 }
