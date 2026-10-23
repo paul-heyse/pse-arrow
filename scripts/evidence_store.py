@@ -16,7 +16,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from scripts import evidence_projection, host_admission, resource_store, surreal_server
+from scripts import evidence_detail, evidence_projection, evidence_sources, host_admission, resource_store, surreal_server
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -163,6 +163,39 @@ def parser() -> argparse.ArgumentParser:
         selected = commands.add_parser(command)
         selected.add_argument("invocation")
         selected.add_argument("--registry", type=Path)
+        selected.add_argument("--source-kind", choices=("invocation", "assessment", "diagnostic", "measurement", "host"), default="invocation")
+        selected.add_argument("--inventory", type=Path)
+        selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
+    for command in ("offline", "analyze"):
+        selected = commands.add_parser(command)
+        selected.add_argument("--operation", choices=("subjects", "failures", "missing", "distribution", "diagnostics", "measurements"), default="subjects")
+        selected.add_argument("--crate-name")
+        selected.add_argument("--context-id")
+        selected.add_argument("--status")
+        selected.add_argument("--limit", type=int, default=1024)
+        selected.add_argument("--history", action="store_true")
+        selected.add_argument("--observations", type=Path)
+        if command == "offline":
+            selected.add_argument("--input", type=Path, action="append", default=[])
+            selected.add_argument("--invocation", action="append", default=[])
+            selected.add_argument("--registry", type=Path)
+            selected.add_argument("--inventory", type=Path)
+            selected.add_argument("--assessment", type=Path, action="append", default=[])
+            selected.add_argument("--diagnostic", type=Path, action="append", default=[])
+            selected.add_argument("--measurement", type=Path, action="append", default=[])
+            selected.add_argument("--host", type=Path, action="append", default=[])
+            selected.add_argument("--criterion", action="append", default=[], metavar="CASE=CSV")
+        else:
+            selected.add_argument("--generation", action="append", required=True)
+    detail = commands.add_parser("detail")
+    kind = detail.add_mutually_exclusive_group(required=True)
+    kind.add_argument("--diagnostic", type=Path)
+    kind.add_argument("--copy", type=Path)
+    kind.add_argument("--invocation")
+    detail.add_argument("--registry", type=Path)
+    detail.add_argument("--subject")
+    detail.add_argument("--member")
+    detail.add_argument("--tail", type=int, default=20)
     query = commands.add_parser("query")
     query.add_argument("--limit", type=int)
     query.add_argument("--kind")
@@ -175,6 +208,74 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
+def criterion_selection(values: list[str]) -> dict[str, Path]:
+    selected: dict[str, Path] = {}
+    for value in values:
+        case, separator, path = value.partition("=")
+        if not separator or not case or not path or case in selected:
+            raise ValueError("Criterion selection requires unique CASE=CSV inputs")
+        selected[case] = Path(path)
+    return selected
+
+
+def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceSnapshot:
+    if args.source_kind == "invocation":
+        return evidence_projection.invocation_snapshot(args.invocation, registry=args.registry, inventory=args.inventory)
+    path = Path(args.invocation)
+    if args.source_kind == "assessment":
+        return evidence_sources.assessment_snapshot(path)
+    if args.source_kind == "diagnostic":
+        return evidence_sources.diagnostic_snapshot(path)
+    if args.source_kind == "measurement":
+        return evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion))
+    return evidence_sources.host_snapshot(path)
+
+
+def run_offline(tool: Path, arguments: list[str], *, deadline: float) -> int:
+    """Dispatch an explicitly built tool without configuration, service or build effects."""
+    information = tool.stat()
+    if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
+        raise ValueError("Evidence tool unavailable; use independent snapshot/detail inspection or explicitly run just evidence-build")
+    environment = {key: value for key, value in os.environ.items() if key not in {"SURREAL_USER", "SURREAL_PASS", "PSE_TOOLING_ACTIVITY_FD", "PSE_TOOLING_SERVICE_INSTANCE_ID"}}
+    return subprocess.run([str(tool), "evidence", "offline", *arguments], check=False, timeout=surreal_server.remaining(deadline), env=environment).returncode
+
+
+def analyze(args: argparse.Namespace, *, deadline: float) -> int:
+    question = {"operation": args.operation, "crate_name": args.crate_name, "context_id": args.context_id, "status": args.status, "limit": args.limit}
+    with tempfile.TemporaryDirectory(prefix="pse-evidence-query-") as directory:
+        root = Path(directory)
+        question_path = root / "question.json"
+        resource_store.publish(question_path, question)
+        arguments = ["--question", str(question_path)]
+        if args.history:
+            arguments += ["--history"]
+        if args.observations:
+            arguments += ["--observations", str(args.observations.absolute())]
+        if args.command == "analyze":
+            for generation in args.generation:
+                arguments += ["--generation", generation]
+            return run_native(args.state.absolute(), args.tool.absolute(), ["analyze", *arguments], deadline=deadline)
+        snapshots = [evidence_projection.invocation_snapshot(handle, registry=args.registry, inventory=args.inventory) for handle in args.invocation]
+        for path in args.assessment:
+            snapshots.append(evidence_sources.assessment_snapshot(path))
+        for path in args.diagnostic:
+            snapshots.append(evidence_sources.diagnostic_snapshot(path))
+        for path in args.measurement:
+            snapshots.append(evidence_sources.measurement_snapshot(path, criterion=criterion_selection(args.criterion)))
+        for path in args.host:
+            snapshots.append(evidence_sources.host_snapshot(path, deadline=deadline))
+        inputs = list(args.input)
+        for offset, snapshot in enumerate(snapshots):
+            path = root / f"snapshot-{offset}.json"
+            resource_store.publish(path, snapshot)
+            inputs.append(path)
+        if not inputs:
+            raise ValueError("select explicit snapshots or authentic owner sources")
+        for path in inputs:
+            arguments += ["--input", str(path.absolute())]
+        return run_offline(args.tool.absolute(), arguments, deadline=deadline)
+
+
 def main(argv: list[str] | None = None) -> int:
     cli = parser()
     args = cli.parse_args(argv)
@@ -185,25 +286,38 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "snapshot":
             print(
                 json.dumps(
-                    evidence_projection.invocation_snapshot(
-                        args.invocation, registry=args.registry
-                    ),
+                    selected_snapshot(args),
                     sort_keys=True,
                     allow_nan=False,
                 )
             )
             return 0
+        if args.command == "detail":
+            if args.tail < 0:
+                raise ValueError("nonnegative detail tail required")
+            if args.invocation is not None:
+                value = evidence_detail.invocation_detail(args.invocation, registry=args.registry, subject=args.subject, tail=args.tail)
+            elif args.member is None:
+                raise ValueError("--member is required for diagnostic or copied detail")
+            elif args.diagnostic is not None:
+                value = evidence_detail.diagnostic_detail(args.diagnostic, args.member, tail=args.tail)
+            else:
+                value = evidence_detail.copied_detail(args.copy, args.member, tail=args.tail)
+            print(json.dumps(value, sort_keys=True, allow_nan=False))
+            return 0
+        if args.command == "offline":
+            return analyze(args, deadline=deadline)
         if args.state is None:
             cli.error("--state or PSE_SURREAL_STATE is required for service operations")
         state = args.state.absolute()
         if args.command == "prepare":
             print(json.dumps(prepare(state, deadline=deadline), sort_keys=True))
             return 0
+        if args.command == "analyze":
+            return analyze(args, deadline=deadline)
         arguments = [args.command]
         if args.command == "import":
-            snapshot = evidence_projection.invocation_snapshot(
-                args.invocation, registry=args.registry
-            )
+            snapshot = selected_snapshot(args)
             # Private temporary supplied input is deleted after the native process
             # exits. It carries compact metadata, never live payload credentials.
             with tempfile.TemporaryDirectory(prefix="pse-evidence-") as directory:
@@ -227,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                 if value is not None:
                     arguments += ["--" + name, str(value)]
         return run_native(state, args.tool.absolute(), arguments, deadline=deadline)
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"evidence-store: {error}", file=sys.stderr)
         return 1
 

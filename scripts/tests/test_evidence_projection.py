@@ -55,7 +55,7 @@ class EvidenceProjectionTests(unittest.TestCase):
         result = self.project()
         self.assertEqual(result["coverage"], "complete")
         self.assertEqual(
-            [row["status"] for row in result["facts"]],
+            [row["status"] for row in result["facts"] if row["kind"] != "context"],
             ["complete_failure", "failure", "pass"],
         )
         self.assertEqual(
@@ -72,7 +72,7 @@ class EvidenceProjectionTests(unittest.TestCase):
         result = self.project()
         self.assertEqual(result["coverage"], "partial")
         self.assertEqual(
-            [row["status"] for row in result["facts"]],
+            [row["status"] for row in result["facts"] if row["kind"] != "context"],
             ["command_failure", "pass", "unreported"],
         )
 
@@ -80,7 +80,7 @@ class EvidenceProjectionTests(unittest.TestCase):
         result = self.project()
         self.assertEqual(result["coverage"], "partial")
         self.assertEqual(
-            [row["status"] for row in result["facts"]],
+            [row["status"] for row in result["facts"] if row["kind"] != "context"],
             ["open", "unreported", "unreported"],
         )
 
