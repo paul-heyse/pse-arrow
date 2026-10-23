@@ -87,6 +87,25 @@ impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
             .map(|snapshot| snapshot.value.clone())
     }
 
+    /// Inspect compact metadata while the native owner is locked. Iteration does not
+    /// promote recency and the callback must not export the retained product.
+    pub(crate) fn inspect<T>(
+        &self,
+        limit: usize,
+        mut describe: impl FnMut(&K, &V, u64) -> Option<T>,
+    ) -> (Vec<T>, bool) {
+        let state = self.state();
+        let Some(entries) = state.entries.as_ref() else { return (Vec::new(), false) };
+        let mut rows = Vec::new();
+        for (key, snapshot) in entries.iter() {
+            if let Some(row) = describe(key, &snapshot.value, snapshot.weight) {
+                if rows.len() == limit { return (rows, true); }
+                rows.push(row);
+            }
+        }
+        (rows, false)
+    }
+
     /// Reject before library insertion: an overweight replacement must preserve
     /// the old entry, and even the library's transient weight sums must not overflow.
     pub(crate) fn put(&self, key: K, value: V) -> bool {
@@ -195,6 +214,27 @@ mod tests {
     }
     fn cache(limit: usize) -> WeightedCache<CapacityKey, Value> {
         WeightedCache::new(limit, "test:weighted-modeling")
+    }
+
+    #[test]
+    fn passive_metadata_inspection_is_bounded_and_does_not_clone_products() {
+        let cache = cache(4096);
+        let one = value(64);
+        let two = value(64);
+        assert!(cache.put(key(1, 8), one.clone()));
+        assert!(cache.put(key(2, 8), two.clone()));
+        let weights = cache.memory_used();
+        let owners = (Arc::strong_count(&one.owner), Arc::strong_count(&two.owner));
+        let (rows, truncated) = cache.inspect(1, |key, _value, weight| Some((key.0[0], weight)));
+        assert_eq!(rows.len(), 1);
+        assert!(truncated);
+        assert_eq!(owners, (Arc::strong_count(&one.owner), Arc::strong_count(&two.owner)));
+        assert_eq!(cache.memory_used(), weights);
+        let (rows, truncated) = cache.inspect(2, |key, _value, weight| Some((key.0[0], weight)));
+        assert_eq!(rows.len(), 2);
+        assert!(!truncated);
+        cache.clear();
+        assert!(cache.inspect(2, |_, _, _| Some(())).0.is_empty());
     }
 
     #[test]

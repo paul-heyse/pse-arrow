@@ -691,7 +691,7 @@ impl LocalSourcePremises {
         self.matches_scoped(source, &crate::CancelSource::new())
             .unwrap_or(false)
     }
-    pub(super) fn matches_scoped(
+    pub(crate) fn matches_scoped(
         &self,
         source: &AdmittedModelRevision,
         cancel: &crate::CancelSource,

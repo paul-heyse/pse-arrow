@@ -95,6 +95,21 @@ pub(crate) fn bindings_bytes(bindings: &Bindings) -> usize {
             .sum::<usize>()
 }
 impl BasisKey {
+    pub(crate) fn inspection_matches(
+        &self,
+        request: &crate::workflow::modeling::SelectedRequest,
+        selection: &crate::workflow::modeling::PreparationDiscoveryRequest,
+        source: &crate::workflow::modeling::AdmittedModelRevision,
+        cancel: &crate::CancelSource,
+    ) -> Result<Option<bool>, crate::workflow::WorkflowError> {
+        if self.root != selection.root { return Ok(None); }
+        Ok(Some(self.request.as_ref() == request
+            && self.instance == selection.instance
+            && self.bindings == selection.bindings
+            && self.limits == selection.limits
+            && self.dependencies.matches_scoped(source, cancel)?))
+    }
+
     #[cfg(test)]
     pub(crate) fn force_prehash_for_test(&mut self, prehash: u64) {
         self.prehash = prehash;
