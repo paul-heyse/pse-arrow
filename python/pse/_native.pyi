@@ -144,6 +144,20 @@ from pse.contracts.documents import (
     ReproducerExtractionRequest,
     ReproducerExtractionRequestOutput,
     ReproductionDocumentOutput,
+    ResearchDatasetOutput,
+    ResearchDatasetRequest,
+    ResearchDatasetRequestOutput,
+    ResearchPublication,
+    ResearchPublicationIntent,
+    ResearchPublicationIntentOutput,
+    ResearchPublicationPreviewOutput,
+    ResearchPublicationRequest,
+    ResearchPublicationRequestOutput,
+    ResearchReadRequest,
+    ResearchReadResultOutput,
+    ResearchSelection,
+    ResearchSelectionRequest,
+    ResearchSelectionRequestOutput,
     ResourceReportOutput,
     ResultReclamationPage,
     ReviewContextDocument,
@@ -173,12 +187,16 @@ from pse.contracts.documents import (
     SourceRecordingLaunchRequestOutput,
     SourceSettlementOutput,
     StudyCancel,
+    StudyCohortDocumentOutput,
     StudyDefinitionOutput,
+    StudyObservationCursorOutput,
+    StudyObservationPageOutput,
     StudyPointDefinition,
     StudyResults,
     StudyStatusOutput,
     StudyWaitControls,
     StudyWaitControlsOutput,
+    StudyWorkbenchPageOutput,
     SubmittedStartRecord,
     TaskDumpDocumentOutput,
     TaskDumpRequest,
@@ -496,6 +514,15 @@ class NativeDiagnostics:
     def record_from_environment(
         self, /, supported_families: Sequence[str]
     ) -> NativeDetailSession | None: ...
+
+@final
+class NativeFrozenStudyCohort:
+    def aggregate(self, /, request: bytes) -> NativeStudyKpiAnalysis: ...
+    @property
+    def document(self, /) -> StudyCohortDocumentOutput: ...
+    def result(
+        self, /, member: int, relation: str, *, start: int, end: int
+    ) -> TableStream: ...
 
 @final
 class NativeLaunchedCommand:
@@ -1063,6 +1090,7 @@ class NativeRuntime:
     ) -> ParameterCovarianceOutput: ...
     def forget_analysis_results(self, /, analysis: str) -> bool: ...
     def forget_study_results(self, /, study: str) -> None: ...
+    def freeze_study_cohort(self, /, request: bytes) -> NativeFrozenStudyCohort: ...
     @staticmethod
     def initialize_database(
         settings: EngineSettings, *, substrate: str, database: str
@@ -1087,6 +1115,9 @@ class NativeRuntime:
         self, /, revision: str, physical: NativePhysicalContext
     ) -> NativeModelingPackage: ...
     def observations(self, /) -> NativeDiagnostics: ...
+    def observe_study(
+        self, /, request: bytes, *, cursor: bytes | None = None
+    ) -> NativeStudyObserver: ...
     def output_results(
         self,
         /,
@@ -1288,6 +1319,26 @@ class NativeRuntime:
     ) -> NativeArtifactSettlement: ...
     def release_history(self, /, owner: bytes) -> None: ...
     def release_history_obligation(self, /, obligation: bytes) -> None: ...
+    def research_dataset_create(
+        self, /, request: ResearchDatasetRequest | ResearchDatasetRequestOutput
+    ) -> ResearchDatasetOutput: ...
+    def research_dataset_open(
+        self, /, key: str, context: ContextSelection | ContextSelectionOutput
+    ) -> NativeModelingPackage: ...
+    def research_publication_open(self, /, key: str) -> NativeModelingPackage: ...
+    def research_publication_preview(
+        self, /, request: ResearchPublicationRequest | ResearchPublicationRequestOutput
+    ) -> ResearchPublicationPreviewOutput: ...
+    def research_publish(
+        self, /, intent: ResearchPublicationIntent | ResearchPublicationIntentOutput
+    ) -> ResearchPublication: ...
+    def research_read(
+        self, /, request: ResearchReadRequest
+    ) -> ResearchReadResultOutput: ...
+    def research_selection_create(
+        self, /, request: ResearchSelectionRequest | ResearchSelectionRequestOutput
+    ) -> ResearchSelection: ...
+    def research_selection_open(self, /, key: str) -> NativeModelingPackage: ...
     def resource_usage(self, /) -> ResourceReportOutput: ...
     def result_analysis(
         self, /, run: str, attempt: str, controls: bytes
@@ -1321,6 +1372,7 @@ class NativeRuntime:
     ) -> NativeRunHandle: ...
     def start_study(self, /, definition: bytes) -> NativeStudyHandle: ...
     def study(self, /, study_id: StudyId) -> NativeStudyHandle: ...
+    def study_workbench_page(self, /, request: bytes) -> StudyWorkbenchPageOutput: ...
     def task_dump(self, /, request: TaskDumpRequest) -> TaskDumpDocumentOutput: ...
     def task_dump_status(self, /) -> TaskDumpDocumentOutput | None: ...
     def work(
@@ -1426,6 +1478,23 @@ class NativeStudyHandle:
     def wait(
         self, /, *, controls: StudyWaitControls | StudyWaitControlsOutput | None = None
     ) -> StudyResults: ...
+
+@final
+class NativeStudyKpiAnalysis:
+    def batches(self, /) -> list[pse._physical.ArrowArrayInput]: ...
+    @property
+    def cohort(self, /) -> StudyCohortDocumentOutput: ...
+    @property
+    def included(self, /) -> list[int]: ...
+    @property
+    def unavailable(self, /) -> list[int]: ...
+
+@final
+class NativeStudyObserver:
+    def attach_run(self, /, run: NativeRunHandle) -> None: ...
+    def close(self, /) -> None: ...
+    def cursor(self, /) -> StudyObservationCursorOutput: ...
+    def poll(self, /) -> StudyObservationPageOutput: ...
 
 @final
 class NativeStudyReport:
