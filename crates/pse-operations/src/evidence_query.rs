@@ -98,7 +98,7 @@ impl EvidenceAnalysis {
         // The common engine deliberately disables automatic namespace creation.
         // This supplied-only analysis owns exactly one empty catalog/schema.
         use datafusion::catalog::{CatalogProvider, MemoryCatalogProvider, MemorySchemaProvider};
-        let defaults = &context.state().config_options().catalog;
+        let defaults = context.state().config_options().catalog.clone();
         let catalog_name = defaults.default_catalog.clone();
         let schema_name = defaults.default_schema.clone();
         let catalog = Arc::new(MemoryCatalogProvider::new());
