@@ -14,7 +14,9 @@ use pse_runtime::{
         CanonicalDeployment, ModelingPackage, OuterAttestation, PhysicalContext,
         PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,
         ProjectMergeIntent, ProjectMergeResolution, ProjectSelectRequest, ProjectSelection,
-        Runtime,
+        Runtime, ResearchDatasetRequest, ResearchSelectionRequest, ResearchReadRequest,
+        ResearchPublicationRequest, ResearchPublicationIntent, StudyWorkbenchRequest,
+        StudyCohortRequest, StudyKpiRequest, StudyObservationRequest, StudyObservationCursor,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -48,6 +50,19 @@ struct Request {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
+    ResearchDatasetCreate { request: ResearchDatasetRequest },
+    ResearchSelectionCreate { request: ResearchSelectionRequest },
+    ResearchRead { request: ResearchReadRequest },
+    ResearchDatasetOpen { key: String, context: ContextSelection },
+    ResearchSelectionOpen { key: String },
+    ResearchPublicationPreview { request: ResearchPublicationRequest },
+    ResearchPublish { intent: ResearchPublicationIntent },
+    ResearchPublicationOpen { key: String },
+    StudyWorkbench { request: StudyWorkbenchRequest },
+    StudyCohort { request: StudyCohortRequest },
+    StudyAnalyze { request: StudyCohortRequest, kpi: StudyKpiRequest, output: PathBuf },
+    StudyResult { request: StudyCohortRequest, member: usize, relation: String, start: u64, end: u64, output: PathBuf, maximum_bytes: u64 },
+    StudyObserve { request: StudyObservationRequest, cursor: Option<StudyObservationCursor>, delay_ms: Option<u64> },
     Import {
         documents: ProjectDraftDocuments,
     },
@@ -351,6 +366,66 @@ pub(crate) async fn run(
         // A generic action must not reserve every workflow's stack frame at once.
         let operation: std::pin::Pin<Box<dyn Future<Output = Result<serde_json::Value>> + '_>> =
             match request.action {
+                Action::ResearchDatasetCreate { request } => boxed(shared, async move {
+                    value(runtime.research_dataset_create(&request, cancel).await?)
+                })?,
+                Action::ResearchSelectionCreate { request } => boxed(shared, async move {
+                    value(runtime.research_selection_create(&request, cancel).await?)
+                })?,
+                Action::ResearchRead { request } => boxed(shared, async move {
+                    value(runtime.research_read(&request).await?)
+                })?,
+                Action::ResearchDatasetOpen { key, context } => boxed(shared, async move {
+                    package(&runtime.research_dataset_open(&key, &context, cancel).await?)
+                })?,
+                Action::ResearchSelectionOpen { key } => boxed(shared, async move {
+                    let (source, fit) = runtime.research_selection_open(&key, cancel).await?;
+                    Ok(serde_json::json!({"package": package(&source)?, "fit": fit}))
+                })?,
+                Action::ResearchPublicationPreview { request } => boxed(shared, async move {
+                    value(runtime.research_publication_preview(&request, cancel).await?)
+                })?,
+                Action::ResearchPublish { intent } => boxed(shared, async move {
+                    value(runtime.research_publish(&intent, cancel).await?)
+                })?,
+                Action::ResearchPublicationOpen { key } => boxed(shared, async move {
+                    package(&runtime.research_publication_open(&key, cancel).await?)
+                })?,
+                Action::StudyWorkbench { request } => boxed(shared, async move {
+                    value(runtime.study_workbench_page(request).await?)
+                })?,
+                Action::StudyCohort { request } => boxed(shared, async move {
+                    value(runtime.freeze_study_cohort(request).await?.document())
+                })?,
+                Action::StudyAnalyze { request, kpi, output } => boxed(shared, async move {
+                    let cohort = runtime.freeze_study_cohort(request).await?;
+                    let analysis = cohort.aggregate(&kpi, cancel.token()).await?;
+                    if !analysis.batches.is_empty() {
+                        let owner = datafusion::execution::memory_pool::MemoryConsumer::new("study:cli-analysis-export").register(&shared.pool());
+                        owner.try_grow(8 * 1024 * 1024)?;
+                        let content = pse_columnar::ipc_file::encode(&analysis.batches, 4 * 1024 * 1024)?;
+                        use std::io::Write;
+                        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+                        file.write_all(&content)?;
+                        file.sync_all()?;
+                    }
+                    Ok(serde_json::json!({"cohort": analysis.cohort, "included": analysis.included, "unavailable": analysis.unavailable, "output": if analysis.batches.is_empty() { None } else { Some(output) }}))
+                })?,
+                Action::StudyResult { request, member, relation, start, end, output, maximum_bytes } => boxed(shared, async move {
+                    let cohort = runtime.freeze_study_cohort(request).await?;
+                    let mut reader = cohort.result(member, &relation, start, end, cancel.token()).await?;
+                    let bytes = reader.export_ipc_bounded(&output, maximum_bytes, &cancel.token()).await?;
+                    Ok(serde_json::json!({"cohort": cohort.document(), "member": member, "output": output, "bytes": bytes}))
+                })?,
+                Action::StudyObserve { request, cursor, delay_ms } => boxed(shared, async move {
+                    let mut observer = runtime.observe_study(request, cursor).await?;
+                    let page = if let Some(ms) = delay_ms {
+                        ensure!(ms <= 60_000, "observation delay exceeds 60 seconds");
+                        observer.follow(std::time::Duration::from_millis(ms)).await?
+                    } else { observer.poll().await? };
+                    observer.close();
+                    value(page)
+                })?,
                 Action::Import { documents: input } => boxed(shared, async move {
                     package(
                         &runtime
