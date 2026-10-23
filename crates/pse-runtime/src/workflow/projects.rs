@@ -46,6 +46,70 @@ pub struct ProjectDraftDelta {
 #[derive(serde::Deserialize)]
 #[serde(untagged)]
 enum DraftContent { Documents(ProjectDraftDocuments), Delta(ProjectDraftDelta) }
+/// One explicit navigation reference; a writable branch head and bookmark have different owners.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(tag="kind",rename_all="snake_case",deny_unknown_fields)]
+pub enum ProjectReference {
+    /// Select a branch's current exact source in a short snapshot.
+    Branch { #[doc="Stable branch identity."] key:String },
+    /// Select an immutable bookmark.
+    Bookmark { #[doc="Stable bookmark identity."] key:String },
+}
+/// Explicit navigation command transport.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectSelectRequest {
+    /// Codec version.
+    pub version:pse_model::document::Version<1>,
+    /// Exact navigation owner.
+    pub reference:ProjectReference,
+}
+/// Retain this selection to reopen the same science after a branch head or label changes.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectSelection {
+    /// Canonical installation incarnation.
+    pub issuing_store:String,
+    /// Stable project identity, independent of presentation labels.
+    pub project:String,
+    /// Original navigation owner; this does not mean its current head is still selected.
+    pub reference:ProjectReference,
+    /// Exact source problem owner.
+    pub problem:String,
+    /// Exact immutable accepted source revision.
+    pub revision:String,
+    /// Admitted scientific source identity; the exact revision additionally protects fits/provenance.
+    pub source_identity:pse_ids::roles::SourceRevisionHash,
+    /// Complete admitted physical closure identity, not a mutable package name.
+    pub physical_context:pse_ids::ContentHash,
+}
+impl Runtime {
+    /// Select one exact branch/bookmark source without preparing any mathematical products.
+    pub async fn project_select(&self,request:&ProjectSelectRequest,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ProjectSelection,WorkflowError>{
+        self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)),async{
+            draft_checkpoint(cancel)?;let store=self.canonical_store()?;
+            let (project,revision)=match &request.reference {
+                ProjectReference::Branch{key}=>{let branch=store.project_branch(key).await?.ok_or_else(||contract("project branch unavailable"))?;let revision=store.project_branch_revision(key).await?.ok_or_else(||contract("project branch source unavailable"))?;if revision.problem!=branch.problem{return Err(contract("branch source owner differs"));}(branch.project,revision)},
+                ProjectReference::Bookmark{key}=>{let bookmark=store.project_bookmark(key).await?.ok_or_else(||contract("project bookmark unavailable"))?;let revision=store.revision(&bookmark.revision).await?.ok_or_else(||contract("bookmarked source unavailable"))?;(bookmark.project,revision)},
+            };
+            let package=self.modeling_revision(revision.clone(),physical,BTreeMap::new()).await?;let source=super::OperationSource::of(&package);
+            Ok(ProjectSelection{issuing_store:store.issuing_store()?.into(),project,reference:request.reference.clone(),problem:revision.problem,revision:revision.key,source_identity:source.revision,physical_context:source.physical_context})
+        })).await
+    }
+    /// Open the retained exact source; later branch heads and presentation labels never retarget it.
+    pub async fn project_open_selection(&self,selection:&ProjectSelection,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
+        self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)),async{
+            draft_checkpoint(cancel)?;let store=self.canonical_store()?;
+            if selection.issuing_store!=store.issuing_store()? || physical.identity()!=selection.physical_context{return Err(contract("project selection authority or physical closure differs"));}
+            match &selection.reference{
+                ProjectReference::Branch{key}=>{let branch=store.project_branch(key).await?.ok_or_else(||contract("project branch unavailable"))?;if branch.project!=selection.project||branch.problem!=selection.problem{return Err(contract("project selection branch owner differs"));}},
+                ProjectReference::Bookmark{key}=>{let bookmark=store.project_bookmark(key).await?.ok_or_else(||contract("project bookmark unavailable"))?;if bookmark.project!=selection.project||bookmark.revision!=selection.revision{return Err(contract("project selection bookmark differs"));}},
+            }
+            let revision=store.revision(&selection.revision).await?.ok_or_else(||contract("selected source unavailable"))?;if revision.problem!=selection.problem{return Err(contract("selected source problem differs"));}
+            let package=self.modeling_revision(revision,physical,BTreeMap::new()).await?;if super::OperationSource::of(&package).revision!=selection.source_identity{return Err(contract("selected admitted source differs"));}Ok(package)
+        })).await
+    }
+}
 /// Original, read-only issued large-draft custody intent. Preserve this value unchanged
 /// until exact project and artifact receipts settle; it grants no scientific execution.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -311,6 +375,7 @@ impl Runtime {
         cancel:&crate::CancelSource,
     ) -> Result<pse_columnar::Leased<[u8]>, WorkflowError> {
         self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)), async {
+            draft_checkpoint(cancel)?;
             let draft = self
                 .canonical_store()?
                 .project_draft(key)
@@ -413,7 +478,7 @@ impl Runtime {
     /// Explicit local admission, retaining version-linked diagnostics even for malformed text.
     pub async fn project_admit_draft(&self,operation:&str,key:&str,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
         self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)), async{
-            let store=self.canonical_store()?;let draft=store.project_draft(key).await?.ok_or_else(||contract("draft unavailable"))?;
+            draft_checkpoint(cancel)?;let store=self.canonical_store()?;let draft=store.project_draft(key).await?.ok_or_else(||contract("draft unavailable"))?;
             if draft.deleted{return Err(contract("draft is soft deleted"));}
             let result=self.project_admit_draft_version(&draft.version,physical,cancel).await;
             let message=match &result {Ok(_)=>"admitted locally; branch is unchanged".into(),Err(error)=>error.to_string()};
@@ -503,6 +568,10 @@ mod tests {
             .unwrap();
         // Research artifact custody uses its own reference identity, not a draft field.
         store.retain_research_reference("retain-artifact",&project,"research-artifact",&revision.key,None,Some(&original.artifact.as_ref().unwrap().key)).await.unwrap();
+        let stopped=crate::CancelSource::new();stopped.cancel();
+        assert!(runtime.project_draft_bytes("draft",&stopped).await.is_err());
+        assert!(runtime.project_admit_draft_version(&store.project_draft_version("save").await.unwrap().unwrap(),crate::workflow::tests::physical(),&stopped).await.is_err());
+        assert_eq!(runtime.project_draft_bytes("draft",&crate::CancelSource::new()).await.unwrap().len(),body.len());
         let changed = vec![b'b'; 220_000];
         let mut forged = original.clone();
         forged.digest = pse_operations::canonical_execution::result_payload_digest(&changed);

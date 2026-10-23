@@ -17,18 +17,22 @@ impl Runtime {
     /// Reopen both original source closures through existing protected scientific owners.
     pub async fn project_context_reopen(&self,selection:&ContextSelection,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
         let deadline=cancel.deadline().unwrap_or_else(||std::time::Instant::now()+pse_operations::canonical::REQUEST_TIMEOUT);
+        let scoped=cancel.with_deadline(Some(deadline));
         self.scope_activity(pse_operations::canonical::operation_scope(deadline,async {
+            super::study::creation_checkpoint(&scoped)?;
             let store=self.canonical_store()?;
             store.validate_project_context(selection).await?;
             let physical_source=super::PhysicalSource {
                 revision:selection.context.physical_revision.clone(),
                 identity:pse_ids::ContentHash::parse_hex(&selection.context.physical_source_identity).map_err(|e|contract(e.to_string()))?,
             };
-            let physical=self.physical_source(&physical_source,cancel).await?;
+            let physical=self.physical_source(&physical_source,&scoped).await?;
+            super::study::creation_checkpoint(&scoped)?;
             if physical.identity().to_string()!=selection.context.physical_context{return Err(contract("historical physical closure identity differs"));}
             let revision=store.revision(&selection.context.revision).await?.ok_or_else(||contract("historical context source unavailable"))?;
             let mut package=self.modeling_revision(revision,physical,BTreeMap::new()).await?;
             if package.revision.identity().to_string()!=selection.context.source_identity{return Err(contract("historical authored source identity differs"));}
+            super::study::creation_checkpoint(&scoped)?;
             package.project_context=Some(selection.clone());
             Ok(package)
         })).await

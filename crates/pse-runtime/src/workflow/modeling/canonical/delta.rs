@@ -214,6 +214,18 @@ fn data_documents(
     Ok(consumed)
 }
 
+/// Owner-qualified source preimages. Constructed only from immutable admitted inputs;
+/// never deserialized from a public SourceDelta or a saved editing document.
+pub(in crate::workflow::modeling) struct AdmittedDocumentComposition {
+    documents: BTreeMap<SemanticId, document_wire::Row>,
+    fields: BTreeMap<DeclarationId, FieldSpans>,
+    origins: BTreeMap<SemanticId, Option<reload::LoaderOrigins>>,
+    _owners: Vec<Parent>,
+}
+fn same_declaration_meaning(a: &Declaration, b: &Declaration) -> bool {
+    let mut a = a.clone(); a.source_start = b.source_start; a.source_end = b.source_end; a == *b
+}
+
 impl ModelingPackage {
     pub(in crate::workflow::modeling) async fn delta_parent(
         &self,
@@ -393,8 +405,92 @@ impl ModelingPackage {
             .await
     }
 
+    /// Authenticate selected source text against complete admitted document ownership.
+    /// A composed IR state lacking an exact preimage uses the existing absent-text convention.
+    pub(in crate::workflow::modeling) async fn project_compose_documents(
+        &self,
+        delta: &SourceDelta,
+        sources: &[&Self],
+        cancel: &crate::CancelSource,
+    ) -> Result<(SourceDelta, AdmittedDocumentComposition, Vec<super::super::project_comparison::ProjectDocumentComposition>), WorkflowError> {
+        if delta.parent != self.revision_id() { return Err(contract("composed delta names another exact parent")); }
+        let parent = self.delta_parent(cancel).await?;
+        let mut rows = parent.rows.iter().cloned().map(|row| (row.declaration_id, row)).collect::<BTreeMap<_, _>>();
+        for id in &delta.removals { rows.remove(id); }
+        for row in delta.additions.iter().chain(&delta.replacements) { rows.insert(row.declaration_id, row.clone()); }
+        let mut documents = parent.documents.clone();
+        for id in &delta.documents.removals { documents.remove(id); }
+        for row in delta.documents.additions.iter().chain(&delta.documents.replacements) { documents.insert(row.document_id,row.clone()); }
+        let mut fits = self.fit_declarations().await?.fits.iter().cloned().map(|row| (row.fit_id,row)).collect::<BTreeMap<_,_>>();
+        for id in &delta.fits.removals { fits.remove(id); }
+        for row in delta.fits.additions.iter().chain(&delta.fits.replacements) { fits.insert(row.fit_id,row.clone()); }
+        let mut affected = delta.documents.additions.iter().chain(&delta.documents.replacements).map(|row|row.document_id).collect::<BTreeSet<_>>();
+        for row in delta.additions.iter().chain(&delta.replacements) { affected.insert(row.document_id); }
+        for id in &delta.removals { if let Some(row) = parent.rows.iter().find(|row|row.declaration_id==*id) { affected.insert(row.document_id); } }
+        // With no new fit-to-document claim, conservatively require the entire fit
+        // inventory to match a source before retaining that source's text preimage.
+        if !delta.fits.additions.is_empty() || !delta.fits.replacements.is_empty() || !delta.fits.removals.is_empty() {
+            affected.extend(documents.keys());
+        }
+        let fit_payload = serde_json::to_vec(&fits).map_err(|error|contract(format!("composed fit payload: {error}")))?;
+        let mut owners = Vec::new();
+        let mut source_fits = Vec::new();
+        for source in sources {
+            if source.physical.key != self.physical.key { return Err(contract("composed source physical context differs")); }
+            owners.push(source.delta_parent(cancel).await?);
+            let rows=source.fit_declarations().await?.fits.iter().cloned().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>();
+            source_fits.push(serde_json::to_vec(&rows).map_err(|error|contract(format!("admitted fit payload: {error}")))?);
+        }
+        let mut proof = AdmittedDocumentComposition { documents:BTreeMap::new(),fields:BTreeMap::new(),origins:BTreeMap::new(),_owners:Vec::new() };
+        let mut notes = Vec::new();
+        let mut next = delta.clone();
+        for id in affected {
+            checkpoint(cancel)?;
+            let Some(document) = documents.get(&id) else { continue; };
+            if document.source_text.is_none() { continue; }
+            let selected = owners.iter().zip(&source_fits).find(|(owner,owner_fits)| {
+                owner.documents.get(&id) == Some(document) && **owner_fits == fit_payload && {
+                    let expected = owner.rows.iter().filter(|row|row.document_id==id).map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
+                    let actual = rows.values().filter(|row|row.document_id==id).map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
+                    expected.len()==actual.len() && expected.iter().all(|(key,row)|actual.get(key).is_some_and(|actual|same_declaration_meaning(row,actual)))
+                }
+            }).map(|(owner,_)|owner);
+            let retained = selected.is_some();
+            if let Some(owner) = selected {
+                proof.documents.insert(id,document.clone());
+                proof.origins.insert(id,owner.frame.origins.clone());
+                for row in owner.rows.iter().filter(|row|row.document_id==id) {
+                    if let Some(fields) = owner.fields.get(&row.declaration_id) { proof.fields.insert(row.declaration_id,fields.clone()); }
+                    if let Some(added) = next.additions.iter_mut().find(|added|added.declaration_id==row.declaration_id) { *added=row.clone(); }
+                    else if let Some(replaced) = next.replacements.iter_mut().find(|replaced|replaced.declaration_id==row.declaration_id) { *replaced=row.clone(); }
+                    else if parent.rows.iter().find(|old|old.declaration_id==row.declaration_id).is_some_and(|old|old!=row) { next.replacements.push(row.clone()); }
+                }
+            } else {
+                let mut unavailable = document.clone(); unavailable.source_text=None;
+                if let Some(added) = next.documents.additions.iter_mut().find(|row|row.document_id==id) { *added=unavailable; }
+                else if let Some(replaced) = next.documents.replacements.iter_mut().find(|row|row.document_id==id) { *replaced=unavailable; }
+                else { next.documents.replacements.push(unavailable); }
+                proof.origins.insert(id,None);
+            }
+            notes.push(super::super::project_comparison::ProjectDocumentComposition { logical:format!("document:{id}"), original_text_retained:retained });
+        }
+        proof._owners=owners;
+        Ok((next,proof,notes))
+    }
+    pub(in crate::workflow::modeling) async fn project_admit_composed_delta(
+        &self,
+        delta: SourceDelta,
+        composition: AdmittedDocumentComposition,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self,WorkflowError> {
+        if delta.parent!=self.revision_id(){return Err(contract("composed delta names another exact parent"));}
+        let parent=self.delta_parent(cancel).await?;
+        self.apply_delta_parent_ordered_mode(delta,parent,cancel,None,None,false,Some(composition)).await
+    }
+
     /// Admit a proposal without publishing a durable source head. Project merge and undo
     /// issue their separately retained publication intent only after this succeeds.
+    #[cfg(test)]
     pub(crate) async fn project_admit_delta(
         &self,
         delta: &SourceDelta,
@@ -404,7 +500,7 @@ impl ModelingPackage {
             return Err(contract("project delta names a different exact parent"));
         }
         let parent = self.delta_parent(cancel).await?;
-        self.apply_delta_parent_ordered_mode(delta.clone(), parent, cancel, None, None, false).await
+        self.apply_delta_parent_ordered_mode(delta.clone(), parent, cancel, None, None, false, None).await
     }
 
     pub(super) async fn apply_delta_parent(
@@ -430,7 +526,7 @@ impl ModelingPackage {
         let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
         let scoped = cancel.with_deadline(Some(deadline));
         let parent = self.delta_parent(&scoped).await?;
-        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false)
+        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false, None)
             .await
     }
 
@@ -442,7 +538,7 @@ impl ModelingPackage {
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
     ) -> Result<Self, WorkflowError> {
-        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true)
+        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true, None)
             .await
     }
 
@@ -454,6 +550,7 @@ impl ModelingPackage {
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
         record: bool,
+        composition: Option<AdmittedDocumentComposition>,
     ) -> Result<Self, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
@@ -569,7 +666,7 @@ impl ModelingPackage {
             .iter()
             .chain(&delta.documents.replacements)
         {
-            if parsed.is_none() && row.source_text.is_some() {
+            if parsed.is_none() && row.source_text.is_some() && !composition.as_ref().is_some_and(|proof|proof.documents.get(&row.document_id)==Some(row)) {
                 return Err(contract(
                     "IR document changes cannot assert source text; use parent-preserving parsed reload",
                 ));
@@ -674,6 +771,7 @@ impl ModelingPackage {
         if let Some(parsed) = &parsed {
             parent.fields = parsed.fields.clone();
         }
+        if let Some(proof)=&composition { parent.fields.extend(proof.fields.clone()); }
         let mut edits = BTreeMap::<String, ObjectEdit>::new();
         let mut typed = TypedSourceInputs::default();
         for id in &delta.documents.removals {
@@ -744,6 +842,8 @@ impl ModelingPackage {
                 if let Some(exact) = parsed.documents.get(id) {
                     *row = exact.clone();
                 }
+            } else if let Some(exact)=composition.as_ref().and_then(|proof|proof.documents.get(id)) {
+                *row=exact.clone();
             } else if edited_documents.contains(id) {
                 row.source_text = None;
             }
@@ -1015,6 +1115,10 @@ impl ModelingPackage {
             parent.frame.origins = Some(parsed.origins(&parent.members, &edits)?);
         } else if let Some(origins) = &mut parent.frame.origins {
             origins.invalidate_fits(&fit_intents);
+        }
+        if let Some(proof)=&composition {
+            let origins=parent.frame.origins.get_or_insert_with(reload::LoaderOrigins::empty);
+            for (document,source) in &proof.origins { origins.replace_document_from(*document,source.as_ref()); }
         }
         let names = selected_source::physical_bindings(
             &parent.rows,

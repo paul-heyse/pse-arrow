@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive discovery through the existing retention and canonical publication owners.
 use super::*;
+#[path="project_preparation_wire.rs"]
+mod wire;
 use pse_operations::canonical_selection::{ProductHeaderCursor, ProductHeaderPage};
 
 /// Exact specialization to inspect without preparing it.
@@ -13,6 +15,8 @@ pub struct PreparationDiscoveryRequest {
     /// Selected occurrence identity.
     pub instance: InstanceId,
     /// Exact specialization premises, including demand and formulation.
+    #[serde(with="wire")]
+    #[schemars(with="wire::PreparationBindings")]
     pub bindings: Bindings,
     /// Exact specialization limits.
     #[serde(with = "crate::workflow::study_operations::LimitsWire")]
@@ -22,31 +26,9 @@ pub struct PreparationDiscoveryRequest {
     pub durable_after: Option<ProductHeaderCursor>,
 }
 /// Which existing process-local owner retains the observed immutable product.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PreparationProductKind {
-    /// Exact local selected admission and its original source dependencies.
-    SelectedAdmission,
-    /// Compiler-sealed resident mathematical body; selected-request eligibility is unchecked.
-    Body,
-    /// Resident portable encoding; receiving eligibility is unchecked.
-    EncodedBody,
-    /// Planned specialization frontier.
-    Frontier,
-    /// Completed mathematical preparation basis.
-    Basis,
-}
+pub use pse_model::generated::enums::PreparationProductKind;
 /// Receiving compatibility is independent of current availability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PreparationEligibility {
-    /// Existing owner establishes exact source/context/request equality now.
-    Compatible,
-    /// Existing owner establishes that at least one exact premise differs.
-    Incompatible,
-    /// No receiving compatibility claim is established by this observation.
-    Unchecked,
-}
+pub use pse_model::generated::enums::PreparationEligibility;
 /// Compact observational metadata; contains no live product or native handle.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -125,6 +107,7 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     fn declarations(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(source, SemanticId::from_bytes([91; 16]),

@@ -1214,11 +1214,16 @@ impl DurableAttempt {
         let inputs = request_inputs(request)?;
         let (runtime, physical) = request_context(request)?;
         let identity = identities(request)?;
+        let sources = request_source_selections(request);
+        for context in sources.iter().filter_map(|source| source.context.as_ref()) {
+            self.operations.store.validate_project_context(context).await?;
+        }
         let selected = serde_json::to_vec(&(
-            1_u8,
+            2_u8,
             identity,
             physical.identity(),
             request_provenance(request)?,
+            sources,
         ))
         .map_err(|e| contract(e.to_string()))?;
         self.register_selection(
@@ -1255,6 +1260,10 @@ impl DurableAttempt {
             .first()
             .ok_or_else(|| contract("horizon source absent"))?
             .physical;
+        let selected_sources=packages.iter().map(super::OperationSource::of).collect::<Vec<_>>();
+        for context in selected_sources.iter().filter_map(|source|source.context.as_ref()) {
+            self.operations.store.validate_project_context(context).await?;
+        }
         let mut inputs = packages
             .iter()
             .map(|p| p.recorded_revision().cloned())
@@ -1269,11 +1278,12 @@ impl DurableAttempt {
             serde_json::to_vec(&(1_u8, "horizon", run_id, identity))
                 .map_err(|e| contract(e.to_string()))?,
             serde_json::to_vec(&(
-                1_u8,
+                2_u8,
                 identity,
                 physical.identity(),
                 serde_json::from_slice::<serde_json::Value>(provenance)
                     .map_err(|error| contract(error.to_string()))?,
+                selected_sources,
             ))
             .map_err(|e| contract(e.to_string()))?,
         )
@@ -2332,6 +2342,18 @@ fn identities(
             Some(problem.request_identity(None).as_id()),
         ),
     })
+}
+/// Preserve each actual input position's exact historical attribution, including fitting.
+/// Scientific source deduplication must not discard distinct context cuts over one source.
+fn request_source_selections(request: &RunRequest<'_>) -> Vec<super::OperationSource> {
+    match request {
+        RunRequest::Horizon(horizon) => horizon.sources.iter().map(super::OperationSource::of).collect(),
+        RunRequest::Modeling(steps) => steps.iter().map(|step|super::OperationSource::of(&step.source)).collect(),
+        RunRequest::Simulation(simulation) => vec![super::OperationSource::of(&simulation.source)],
+        RunRequest::Fit(fit) => vec![super::OperationSource::of(&fit.source)],
+        #[cfg(feature = "solver-diffsol")]
+        RunRequest::Shooting {problem,..} => vec![super::OperationSource::of(&problem.simulation.source)],
+    }
 }
 fn request_inputs(request: &RunRequest<'_>) -> Result<Vec<Revision>, WorkflowError> {
     let mut revisions = match request {
