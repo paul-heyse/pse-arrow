@@ -6,6 +6,7 @@ mod modeling;
 mod physical_input;
 use documents::DocumentContent;
 mod routes;
+mod research;
 mod settings;
 mod source_settlement;
 pub(crate) use modeling::{
@@ -906,6 +907,14 @@ impl NativeRuntime {
             value,
         ))
     }
+    fn research_dataset_create(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchDatasetRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchDataset>>{self.research_dataset_create_native(py,request)}
+    fn research_selection_create(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchSelectionRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchSelection>>{self.research_selection_create_native(py,request)}
+    fn research_read(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchReadRequest>)->PyResult<documents::DocumentValue<native::ResearchReadResult>>{self.research_read_native(py,request)}
+    fn research_dataset_open(&self,py:Python<'_>,key:&str,context:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>)->PyResult<NativeModelingPackage>{self.research_dataset_open_native(py,key,context)}
+    fn research_selection_open(&self,py:Python<'_>,key:&str)->PyResult<NativeModelingPackage>{self.research_selection_open_native(py,key)}
+    fn research_publication_preview(&self,py:Python<'_>,request:documents::DocumentInput<native::ResearchPublicationRequest>)->PyResult<documents::DocumentValue<native::ResearchPublicationPreview>>{self.research_publication_preview_native(py,request)}
+    fn research_publish(&self,py:Python<'_>,intent:documents::DocumentInput<native::ResearchPublicationIntent>)->PyResult<documents::DocumentValue<pse_operations::canonical_research::ResearchPublication>>{self.research_publish_native(py,intent)}
+    fn research_publication_open(&self,py:Python<'_>,key:&str)->PyResult<NativeModelingPackage>{self.research_publication_open_native(py,key)}
     /// Load the selected exact source through the normal source owner; no latest lookup.
     fn project_context_package(
         &self,
