@@ -3,9 +3,9 @@
 use super::*;
 fn snapshot() -> EvidenceSnapshot {
     EvidenceSnapshot {
-        version: 1,
+        version: 2,
         authority: "original-host-owner".into(),
-        codec: "owner-v1".into(),
+        codec: "exact-resource-files-invocation-v2".into(),
         source_id: "invocation-1".into(),
         snapshot_digest: "a".repeat(64),
         coverage: "partial".into(),
@@ -18,6 +18,7 @@ fn snapshot() -> EvidenceSnapshot {
                 crate_name: None,
                 test_id: None,
                 detail_ref: Some("owner:invocation-1".into()),
+                ..EvidenceFact::default()
             },
             EvidenceFact {
                 member: "binary::unreported".into(),
@@ -26,6 +27,7 @@ fn snapshot() -> EvidenceSnapshot {
                 crate_name: Some("pse-example".into()),
                 test_id: Some("binary::unreported".into()),
                 detail_ref: None,
+                ..EvidenceFact::default()
             },
         ],
     }

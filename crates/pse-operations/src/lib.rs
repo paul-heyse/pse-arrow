@@ -23,6 +23,9 @@ pub mod canonical_selection;
 pub mod canonical_staging;
 pub mod canonical_studies;
 pub mod evidence;
+/// Supplied-only selected evidence questions using the native columnar engine.
+#[cfg(feature = "evidence-query")]
+pub mod evidence_query;
 mod ids;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]

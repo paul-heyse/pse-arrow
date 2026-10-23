@@ -258,7 +258,7 @@ impl ToolingOptions {
     }
 }
 /// One compact authentic owner fact, without raw bytes or a lifetime grant.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceFact {
     /// Original stable member identity.
@@ -276,6 +276,52 @@ pub struct EvidenceFact {
     /// Descriptive owner reference, never an automatic path or grant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail_ref: Option<String>,
+    /// Compact owner-declared binary id; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_id: Option<String>,
+    /// Compact owner-declared context id; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_id: Option<String>,
+    /// Compact owner-declared context json; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_json: Option<String>,
+    /// Compact owner-declared link relation; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_relation: Option<String>,
+    /// Compact owner-declared link target; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_target: Option<String>,
+    /// Compact owner-declared population id; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub population_id: Option<String>,
+    /// Compact owner-declared sample id; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample_id: Option<String>,
+    /// Compact owner-declared value ns; absent means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_ns: Option<f64>,
+}
+impl EvidenceFact {
+    pub(crate) fn to_row(&self, generation: &str) -> Result<pse_model::generated::runtime::evidence_facts::Row, EvidenceError> {
+        Ok(pse_model::generated::runtime::evidence_facts::Row {
+            key: hex(serde_json::to_vec(&(generation, &self.member)).map_err(|e| config(e.to_string()))?),
+            generation: generation.to_owned(),
+            member: self.member.clone(),
+            kind: self.kind.clone(),
+            status: self.status.clone(),
+            crate_name: self.crate_name.clone(),
+            test_id: self.test_id.clone(),
+            detail_ref: self.detail_ref.clone(),
+            binary_id: self.binary_id.clone(),
+            context_id: self.context_id.clone(),
+            context_json: self.context_json.clone(),
+            link_relation: self.link_relation.clone(),
+            link_target: self.link_target.clone(),
+            population_id: self.population_id.clone(),
+            sample_id: self.sample_id.clone(),
+            value_ns: self.value_ns.clone(),
+        })
+    }
 }
 /// Frozen owner adapter output. Partial source coverage is not a complete test population.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -307,7 +353,7 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
 impl EvidenceSnapshot {
     /// Validate exact declared membership, preserving UInt64 and original outcomes.
     pub fn validate(&self) -> Result<(), EvidenceError> {
-        if self.version != 1
+        if self.version != 2
             || !matches!(self.coverage.as_str(), "complete" | "partial")
             || self.authority.is_empty()
             || self.codec.is_empty()
@@ -325,6 +371,9 @@ impl EvidenceSnapshot {
                 "invalid evidence identity, version, digest or coverage",
             ));
         }
+        if !matches!(self.codec.as_str(), "exact-resource-files-invocation-v2" | "assessment-v5" | "active-diagnostic-action-v1" | "process-cost-v5" | "host-admission-ledger-v1") {
+            return Err(config("unsupported original evidence source codec"));
+        }
         let expected = self.expected_members.iter().collect::<BTreeSet<_>>();
         let actual = self
             .facts
@@ -339,10 +388,25 @@ impl EvidenceSnapshot {
                 "duplicate or incomplete selected snapshot membership",
             ));
         }
+        let mut contexts = std::collections::BTreeMap::new();
         for f in &self.facts {
+            if let Some(value) = &f.context_json {
+                if f.kind != "context" { return Err(config("context declaration has wrong category")); }
+                let value: std::collections::BTreeMap<String, serde_json::Value> = serde_json::from_str(value).map_err(|e| config(e.to_string()))?;
+                let fields = ["workload", "input", "revision", "build", "profile", "features", "provider", "isa", "capture", "host", "environment", "source", "mode", "process"];
+                if value.keys().any(|key| !fields.contains(&key.as_str())) || value.len() != fields.len() {
+                    return Err(config("undeclared or missing compact context field"));
+                }
+                let id = f.context_id.as_ref().ok_or_else(|| config("context identity required"))?;
+                if contexts.insert(id.clone(), value).is_some() { return Err(config("duplicate context declaration")); }
+            }
+            if f.kind == "declared_link" && (f.link_relation.is_none() || f.link_target.is_none()) { return Err(config("declared link lacks exact relation or target")); }
+            if f.kind == "criterion_sample" && (f.sample_id.is_none() || f.population_id.is_none() || f.value_ns.is_none()) { return Err(config("sample lacks actual population, membership or value")); }
+
             if f.member.is_empty() || f.kind.is_empty() || f.status.is_empty() {
                 return Err(config("fact identity/kind/status required"));
             }
+            if f.value_ns.is_some_and(|v| !v.is_finite() || v < 0.0) { return Err(config("measurement must be finite nonnegative nanoseconds")); }
             for value in [
                 Some(&f.member),
                 Some(&f.kind),
@@ -350,6 +414,14 @@ impl EvidenceSnapshot {
                 f.crate_name.as_ref(),
                 f.test_id.as_ref(),
                 f.detail_ref.as_ref(),
+                f.binary_id.as_ref(),
+                f.context_id.as_ref(),
+                f.context_json.as_ref(),
+                f.link_relation.as_ref(),
+                f.link_target.as_ref(),
+                f.population_id.as_ref(),
+                f.sample_id.as_ref(),
+
             ]
             .into_iter()
             .flatten()
@@ -359,6 +431,9 @@ impl EvidenceSnapshot {
                 }
             }
         }
+        for fact in &self.facts {
+            if fact.context_id.as_ref().is_some_and(|id| !contexts.contains_key(id)) { return Err(config("fact refers to undeclared context")); }
+        }
         let bytes = serde_json::to_vec(self).map_err(|e| config(e.to_string()))?;
         if bytes.len() > canonical::PAYLOAD_BYTES {
             return Err(config(
@@ -367,7 +442,7 @@ impl EvidenceSnapshot {
         }
         Ok(())
     }
-    fn identity(&self) -> Result<(String, String), EvidenceError> {
+    pub(crate) fn identity(&self) -> Result<(String, String), EvidenceError> {
         self.validate()?;
         let mut canonical = self.clone();
         canonical.expected_members.sort();
@@ -675,7 +750,9 @@ impl EvidenceStore {
             let input=pse_model::generated::runtime::evidence_generations::Row{key:generation.clone(),authority:snapshot.authority.clone(),codec:snapshot.codec.clone(),source_id:snapshot.source_id.clone(),snapshot_digest:snapshot.snapshot_digest.clone(),content_digest:content_digest.clone(),coverage:snapshot.coverage.parse().map_err(|_|config("invalid coverage vocabulary"))?,expected_members:snapshot.facts.len().try_into().map_err(|_|config("membership count overflow"))?,state:pse_model::generated::enums::EvidenceGenerationState::Staged};
             let input=wire::encode_evidence_generations(&input)?;
             let mut facts=Vec::with_capacity(snapshot.facts.len());
-            for fact in &snapshot.facts {let row=pse_model::generated::runtime::evidence_facts::Row{key:hex(serde_json::to_vec(&(&generation,&fact.member)).map_err(|e|config(e.to_string()))?),generation:generation.clone(),member:fact.member.clone(),kind:fact.kind.clone(),status:fact.status.clone(),crate_name:fact.crate_name.clone(),test_id:fact.test_id.clone(),detail_ref:fact.detail_ref.clone()};facts.push(Value::Object(wire::encode_evidence_facts(&row)?));}
+            for fact in &snapshot.facts {
+                facts.push(Value::Object(wire::encode_evidence_facts(&fact.to_row(&generation)?)?));
+            }
             let stage=r#"BEGIN;
 IF time::micros()>=$expiry { THROW 'evidence original deadline expired'; };
 LET $marker=SELECT * FROM ONLY evidence_interpretations:current;
@@ -835,6 +912,15 @@ COMMIT;"#;
                 crate_name: row.crate_name,
                 test_id: row.test_id,
                 detail_ref: row.detail_ref,
+                binary_id: row.binary_id,
+                context_id: row.context_id,
+                context_json: row.context_json,
+                link_relation: row.link_relation,
+                link_target: row.link_target,
+                population_id: row.population_id,
+                sample_id: row.sample_id,
+                value_ns: row.value_ns,
+
             });
         }
         let more = facts.len() > limit;
@@ -860,6 +946,37 @@ COMMIT;"#;
             facts,
             next,
         })
+    }
+    /// Materialize only caller-selected immutable activated generations. No latest-pointer
+    /// inference can turn one imported invocation into a cross-run population.
+    pub async fn source_cut(&self, generations: &[String], history: bool) -> Result<Vec<EvidenceSnapshot>, EvidenceError> {
+        if generations.is_empty() || generations.len() > 64 { return Err(config("select 1..=64 explicit activated generation IDs")); }
+        let mut unique = BTreeSet::new();
+        let mut sources = BTreeSet::new();
+        let mut snapshots = Vec::new();
+        for id in generations {
+            if !unique.insert(id) { continue; }
+            let row = self.generation(id).await?;
+            if row.state != pse_model::generated::enums::EvidenceGenerationState::Active {
+                return Err(EvidenceError::Unavailable(format!("generation {id} is staged, not activated")));
+            }
+            let identity = (row.authority.clone(), row.codec.clone(), row.source_id.clone());
+            if !history && !sources.insert(identity) { return Err(config("ambiguous source versions; select one or explicitly request history")); }
+            let mut facts = Vec::new();
+            let mut cursor = None;
+            loop {
+                let page = self.select(&EvidenceQuery { generation: Some(id.clone()), cursor, ..EvidenceQuery::default() }).await?;
+                facts.extend(page.facts);
+                cursor = page.next;
+                if cursor.is_none() { break; }
+            }
+            if u64::try_from(facts.len()).ok() != Some(row.expected_members) { return Err(EvidenceError::Unavailable("activated membership differs".into())); }
+            let snapshot = EvidenceSnapshot { version: 2, authority: row.authority, codec: row.codec, source_id: row.source_id, snapshot_digest: row.snapshot_digest,
+                coverage: row.coverage.as_str().to_owned(), expected_members: facts.iter().map(|f| f.member.clone()).collect(), facts };
+            if snapshot.identity()?.1 != row.content_digest { return Err(EvidenceError::Reused); }
+            snapshots.push(snapshot);
+        }
+        Ok(snapshots)
     }
     /// Discover bounded prior source cuts, including interrupted staged imports.
     pub async fn generations(
