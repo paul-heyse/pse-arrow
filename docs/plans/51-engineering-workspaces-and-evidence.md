@@ -227,19 +227,19 @@ remaining scope. Completed companions stay retained dependencies until the aggre
 | EV03 | complete | [51d](51d-development-and-research-evidence.md#EV03) | Implemented explicit activated cuts/history, deduplicated source versions and supplied freshness; Tested native generation visibility, offline/index parity, duplicates and source preservation |
 | EV04 | complete | [51d](51d-development-and-research-evidence.md#EV04) | Implemented exact linked/standalone diagnostic contexts and protected/copied selected detail; Tested independent outcomes, unrelated link refusal and released detail; LC04 remains separate |
 | EV05 | complete | [51d](51d-development-and-research-evidence.md#EV05) | Implemented actual context/sample/censored populations and reported statistics; Tested varied context, true sample membership, unmeasured smoke and unsupported associations; no speed claim |
-| LC01 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
-| LC02 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
-| LC03 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
-| LC04 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC04) | Storage-health observations and admitted actions |
-| LC05 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC05) | Complete-artifact confidentiality decision |
-| DL01 | planned | [51f](51f-portable-projects-and-delivery-modes.md#DL01) | Versioned logical export with explicit selected closure |
-| DL02 | planned | [51f](51f-portable-projects-and-delivery-modes.md#DL02) | Fresh-authority import and independent local/project use |
-| DL03 | planned | [51f](51f-portable-projects-and-delivery-modes.md#DL03) | Browser/offline capability decision |
-| DL04 | planned | [51f](51f-portable-projects-and-delivery-modes.md#DL04) | Collaboration/synchronization decision |
-| Q01 | planned | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
-| Q02 | planned | [51g](51g-qualification-and-publication.md#Q02) | Composed representative journeys |
-| Q03 | planned | [51g](51g-qualification-and-publication.md#Q03) | Zero-target scope-end checks |
-| Q04 | planned | [51g](51g-qualification-and-publication.md#Q04) | Enduring publication and post-implementation existing-plan reconciliation |
+| LC01 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
+| LC02 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
+| LC03 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
+| LC04 | in progress | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC04) | Storage-health observations and admitted actions |
+| LC05 | complete: no-adopt decision | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC05) | Complete-artifact confidentiality decision |
+| DL01 | in progress | [51f](51f-portable-projects-and-delivery-modes.md#DL01) | Versioned logical export with explicit selected closure |
+| DL02 | in progress | [51f](51f-portable-projects-and-delivery-modes.md#DL02) | Fresh-authority import and independent local/project use |
+| DL03 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL03) | Browser/offline capability decision |
+| DL04 | complete: no-adopt decision | [51f](51f-portable-projects-and-delivery-modes.md#DL04) | Collaboration/synchronization decision |
+| Q01 | in progress | [51g](51g-qualification-and-publication.md#Q01) | Final actual-consumer/inquiry reconciliation |
+| Q02 | in progress | [51g](51g-qualification-and-publication.md#Q02) | Composed representative journeys |
+| Q03 | in progress | [51g](51g-qualification-and-publication.md#Q03) | Zero-target scope-end checks |
+| Q04 | in progress | [51g](51g-qualification-and-publication.md#Q04) | Enduring publication and post-implementation existing-plan reconciliation |
 
 1. ST01 fixes declaration ownership and short ADR work; ST02's project-head and selected-source
    contracts unblock PJ01/PJ02. ST03's imported-generation contract is independent of project UX.
@@ -326,3 +326,36 @@ work rather than a clean quality claim. **Measured:** no speed/capacity improvem
 DL01–DL04 and Q01–Q04 remain at their existing owners; EV04 does not complete LC04's future
 storage-health collector. Keep completed 51a–51d dependencies until aggregate Q04 retirement.
 Older plan scope and formal ADR acceptance are unchanged.
+
+
+## 51e–51g authorized execution checkpoint
+
+The maintainer authorized the complete remaining series on 2026-10-23. LC01–LC04 and
+DL01–DL02 are being integrated through original source, artifact, project, recovery and
+evidence owners under proposed ADR-0220. Q01–Q04 remain in progress; targeted controls
+are not assembled qualification. No generated-data migration or historical preservation
+campaign is required.
+
+The maintainer selected these bounded inquiry outcomes during execution preparation:
+
+- **I07 / LC05:** no application encryption capability. Current local filesystem observation
+  is an ext4 mount on `/dev/nvme0n1p2`; that observation does not establish whether underlying
+  volume encryption is configured. Inventory covers catalogue/credentials, sealed and staged
+  payloads, authored source and measurements, logical packs, diagnostics/traces/crash dumps,
+  temporary files, key material and application backups. Current support is local filesystem
+  access control and explicit operator custody; complete-artifact confidentiality and encrypted
+  exchange are not claimed. Revisit when a concrete confidential external exchange or at-rest
+  protection requirement is selected. Any positive selection must cover the entire inventory,
+  key custody and recovery, rather than KV-only TDE.
+- **I06 / DL03:** native tools and independent offline logical-pack inspection are selected;
+  no browser UI, browser persistence or browser numerical execution is adopted. Revisit when
+  a named user operation needs browser participation, then assess a logical viewer/editor
+  before any new browser storage topology.
+- **I08 / DL04:** explicit logical export/import and ordinary exact-parent project merge are
+  selected for the sole operator; no live synchronization or multiwriter service is adopted.
+  Revisit when a concrete concurrent-writer or automatic-exchange workflow is required,
+  including its identity, conflict, divergence, deletion and provenance semantics.
+
+These decisions close their bounded questions; delivery and qualification of the selected
+native/offline alternative remain with LC01/DL01/DL02/Q02. They do not establish host
+confidentiality, distributed isolation or supported browser persistence.

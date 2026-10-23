@@ -138,8 +138,7 @@ history is the archive. Do not fabricate an implementation Outcome during docume
 
 ## Current checkpoint
 
-All execution scope is proposed and unimplemented by this authoring engagement. Static design
-choices I01–I05/I10/I11 are settled at the coordinator; I06–I09 have bounded owners. Existing
-plans/index remain unchanged. First execution work follows ST01's declaration slices and their
-real early consumers, with later qualification deliberately owned here rather than repeated at
-every document boundary.
+The maintainer authorized complete remaining execution on 2026-10-23. Functional integration
+and targeted verification are underway; assembled qualification, zero-target checks and final
+publication remain open at 51g. The coordinator owns the selected no-adopt inquiry outcomes and
+their observable revisit triggers. This is an execution checkpoint, not completion evidence.
