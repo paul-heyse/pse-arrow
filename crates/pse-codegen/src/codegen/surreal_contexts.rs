@@ -23,8 +23,8 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
         IF $parent=NONE OR $parent.project!=$row.project OR $parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
         LET $ancestors=SELECT * FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant=$row.corrects LIMIT 257;
         IF array::len($ancestors)>=256 {THROW 'PSE_REFUSAL:project_context_bound';};
-        FOR $a IN $ancestors {CREATE ONLY type::record('canonical_context_ancestry',[$row.key,$a.ancestor]) CONTENT {key:$row.key+':'+$a.ancestor,descendant:$row.key,ancestor:$a.ancestor};};
-        CREATE ONLY type::record('canonical_context_ancestry',[$row.key,$row.corrects]) CONTENT {key:$row.key+':'+$row.corrects,descendant:$row.key,ancestor:$row.corrects};
+        FOR $a IN $ancestors { LET $edge=<string>string::len($row.key)+':'+$row.key+$a.ancestor; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$a.ancestor};};
+        LET $edge=<string>string::len($row.key)+':'+$row.key+$row.corrects; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$row.corrects};
     } ELSE {IF $row.deleted {THROW 'PSE_REFUSAL:project_context_invalid';};};
     fn::pse_project_v1::root($expiry,$row.revision,'project-context:'+$row.key);
     LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$row.project) FOR UPDATE;
