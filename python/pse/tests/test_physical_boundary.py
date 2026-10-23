@@ -13,8 +13,10 @@ import pytest
 
 import pse
 from pse import codec
+from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
     DynamicsMethod,
+    ModelingDeclarationKind,
     NativeBackend,
     NativeSolveIntent,
     PhysicalInputKind,
@@ -260,7 +262,19 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     }"""
     package = runtime.modeling_from_documents([package_documents(source)], physical_context(runtime))
     case = next(row.declaration_id for row in package.declarations() if row.name == "run")
-    x, p, area = (member(package, case, name) for name in ("x", "p", "area"))
+    x, p = (member(package, case, name) for name in ("x", "p"))
+    inspection = package.inspect(case, pse.SolveSettings())
+    area_members = tuple(
+        value for value in inspection.members
+        if value.lineage.path.rsplit(".", 1)[-1] == "area"
+    )
+    # An integral has an authored let, a flux let and a generated parameter result.
+    # Physical output tolerances address that result, which owns the quadrature.
+    (area_coordinate,) = (
+        value for value in area_members
+        if value.role is ModelingDeclarationKind.PARAMETER
+    )
+    area = area_coordinate.id
     state = coordinate_batch(runtime, [(x, 1e-10, "Time")])
     parameters = coordinate_batch(runtime, [(p, 2.0, "Scalar")])
     outputs = coordinate_batch(runtime, [(area, 1e-12, "Time")])
@@ -294,15 +308,29 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     gc.collect()
     result = prepared.start().wait()
     assert result.usable
-    rows = pa.table(result.table("runtime.simulation_samples")).to_pylist()
-    assert [row["time"] for row in rows] == times
+    rows = codec.structure_rows(
+        pa.table(result.table("runtime.simulation_samples")).to_pylist(),
+        result_contracts.RuntimeSimulationSamplesRow,
+    )
+    assert {row.symbol_id for row in rows} == {x}
+    assert [row.time for row in rows] == times
     for row in rows:
-        assert row["value"] == pytest.approx(
-            1.0 + row["time"] - times[0], rel=0, abs=1e-10
+        assert row.value == pytest.approx(
+            1.0 + row.time - times[0], rel=0, abs=1e-10
         )
-    assert rows[-1]["value"] - rows[0]["value"] == pytest.approx(
+    assert rows[-1].value - rows[0].value == pytest.approx(
         times[-1] - times[0], rel=0, abs=1e-10
     )
+    # Whole-domain integrals are terminal products, excluded from sample series.
+    (integral,) = codec.structure_rows(
+        pa.table(result.table("runtime.modeling_reports")).to_pylist(),
+        result_contracts.RuntimeModelingReportsRow,
+    )
+    assert integral.label == "integral"
+    (reported_area,) = (value for value in area_members if value.id == integral.target_id)
+    assert reported_area.role is ModelingDeclarationKind.LET
+    assert reported_area.lineage.declaration == area_coordinate.lineage.declaration
+    assert integral.value == pytest.approx(times[-1] - times[0], rel=0, abs=1e-12)
 
 
 @pytest.mark.unit

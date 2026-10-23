@@ -238,8 +238,8 @@ def test_external_covariance_singular_psd_and_indefinite_public_assessments(
     ).start().wait()
     # Propagation is an explicitly requested lazy projection of the joined solve.
     # Its mathematical refusal must be observed at the actual product boundary.
-    with pytest.raises(pse.InspectionError, match="negative eigenvalue"):
-        indefinite.table("runtime.propagated_covariances")
+    with pytest.raises(pa.ArrowInvalid, match="negative eigenvalue"):
+        pa.table(indefinite.table("runtime.propagated_covariances"))
 
 
 @pytest.mark.integration
