@@ -275,6 +275,13 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     assert controls.atol[0].value.value == 1e-10
     assert controls.parameter_scales[0].value.value == 2.0
     assert controls.out_atol[0].value.value == 1e-12
+    for field in ("atol", "parameter_scales", "out_atol"):
+        incomplete = msgspec.structs.replace(
+            settings.document,
+            controls=msgspec.structs.replace(controls, **{field: ()}),
+        )
+        with pytest.raises(pse.InspectionError, match="every prepared coordinate"):
+            package.prepare_simulation(case, pse.SimulationSettings.from_document(runtime, incomplete))
     prepared = package.prepare_simulation(case, settings)
     del settings
     gc.collect()
@@ -284,3 +291,24 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     assert [row["time"] for row in rows] == times
     for row in rows:
         assert row["value"] == pytest.approx(1.0 + row["time"] - times[0], abs=1e-10)
+
+
+@pytest.mark.unit
+def test_wall_budget_rounds_to_nanoseconds_and_refuses_invalid_extent(
+    local_runtime: pse.Runtime,
+) -> None:
+    runtime = local_runtime
+
+    def settings(budget: float) -> pse.SimulationSettings:
+        return pse.SimulationSettings(
+            runtime=runtime, start=-1e-9, end=1e-9, samples=[-1e-9, 1e-9],
+            atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime),
+            time_limit=budget,
+        )
+
+    admitted = settings(1.25e-9)
+    assert admitted.document.controls.time_limit.secs == 0
+    assert admitted.document.controls.time_limit.nanos == 1
+    for budget in (-1.0, float("nan"), float("inf"), 1e100):
+        with pytest.raises(pse.InspectionError):
+            settings(budget)
