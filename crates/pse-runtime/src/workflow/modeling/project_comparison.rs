@@ -139,10 +139,21 @@ pub enum ProjectMergeConflictKind {
     /// Both sides changed an existing logical object differently.
     DifferentEdits,
 }
+/// Whether an affected document keeps an authenticated exact source-text preimage.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectDocumentComposition {
+    /// Affected original document identity.
+    pub logical: String,
+    /// False means composed IR has no exact original text; retained ancestors still own originals.
+    pub original_text_retained: bool,
+}
 /// Prospective target changes and conflicts without any publication effect.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectMergePreview {
+    /// Authenticated text-preimage availability after composition, before intent issuance.
+    pub documents: Vec<ProjectDocumentComposition>,
     /// Unresolved objects; these prevent issuing a publication intent.
     pub conflicts: Vec<ProjectMergeConflict>,
     /// Changes against the target after applying explicit resolutions.
@@ -256,7 +267,7 @@ impl ModelingPackage {
     }
     /// Explicit source-only view across contexts, never a scientific compatibility claim.
     pub async fn project_compare_source(&self, other: &Self, cancel: &CancelSource) -> Result<ProjectComparison, WorkflowError> {
-        self.runtime.scope_activity(self.project_compare_mode(other, false, cancel)).await
+        self.runtime.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), self.project_compare_mode(other, false, cancel))).await
     }
     async fn project_compare_mode(&self, other: &Self, semantic: bool, cancel: &CancelSource) -> Result<ProjectComparison, WorkflowError> {
         let from = self.project_snapshot(cancel).await?;
@@ -314,6 +325,14 @@ fn compare(a: &BTreeMap<String, ProjectSourceObject>, b: &BTreeMap<String, Proje
         Some(Ok(ProjectObjectChange { logical: key.clone(), added: old.is_none(), removed: new.is_none(), impacts: impacts(old,new), fields: match (old,new) { (Some(a),Some(b)) => match fields(a,b) { Ok(fields) => fields, Err(e) => return Some(Err(e)) }, _ => Vec::new() } }))
     }).collect()
 }
+fn same_merge_object(a: Option<&ProjectSourceObject>, b: Option<&ProjectSourceObject>) -> bool {
+    match (a,b) {
+        (Some(ProjectSourceObject::Declaration(a)),Some(ProjectSourceObject::Declaration(b))) => {
+            let mut a=a.clone();a.source_start=b.source_start;a.source_end=b.source_end;a==*b
+        },
+        _ => a==b,
+    }
+}
 fn merge_objects(base: &Snapshot, target: &Snapshot, proposal: &Snapshot, resolutions: &[ProjectMergeResolution]) -> Result<(BTreeMap<String, ProjectSourceObject>, Vec<ProjectMergeConflict>), WorkflowError> {
     let mut decisions = BTreeMap::new();
     for resolution in resolutions {
@@ -324,7 +343,7 @@ fn merge_objects(base: &Snapshot, target: &Snapshot, proposal: &Snapshot, resolu
     let mut conflicts = Vec::new();
     for key in keys {
         let (b,t,p) = (base.objects.get(key), target.objects.get(key), proposal.objects.get(key));
-        let conflict = t != b && p != b && t != p;
+        let conflict = !same_merge_object(t,b) && !same_merge_object(p,b) && !same_merge_object(t,p);
         let selected = if conflict {
             match decisions.remove(key) {
                 Some(ProjectMergeChoice::Target) => t,
@@ -333,7 +352,7 @@ fn merge_objects(base: &Snapshot, target: &Snapshot, proposal: &Snapshot, resolu
                 Some(ProjectMergeChoice::Delete) => None,
                 None => { conflicts.push(ProjectMergeConflict { logical: key.clone(), kind: if t.is_none() || p.is_none() { ProjectMergeConflictKind::DeleteEdit } else if b.is_none() { ProjectMergeConflictKind::ConflictingAddition } else { ProjectMergeConflictKind::DifferentEdits } }); t }
             }
-        } else { if t == b { p } else { t } };
+        } else { if same_merge_object(t,b) && !same_merge_object(p,b) { p } else { t } };
         if let Some(value) = selected { merged.insert(key.clone(), value.clone()); }
     }
     if !decisions.is_empty() { return Err(contract("resolution does not name an actual merge conflict")); }
@@ -431,7 +450,9 @@ impl Runtime {
             if base.physical.key != target.physical.key || proposal.physical.key != target.physical.key { return Err(contract("merge physical contexts differ")); }
             let (b,t,p) = (base.project_snapshot(cancel).await?, target.project_snapshot(cancel).await?, proposal.project_snapshot(cancel).await?);
             let (merged,conflicts) = merge_objects(&b,&t,&p,resolutions)?;
-            Ok(ProjectMergePreview { conflicts, changes: compare(&t.objects,&merged)? })
+            let delta=delta_to(target,&t,&merged,&p.order,&[target,proposal,base]).await?;
+            let (_,_,documents)=target.project_compose_documents(&delta,&[target,proposal,base],cancel).await?;
+            Ok(ProjectMergePreview { conflicts, changes: compare(&t.objects,&merged)?, documents })
         })).await
     }
     /// Retain an exact admitted revision decision before publication.
@@ -502,7 +523,8 @@ impl Runtime {
                 if metadata(source) != metadata(target) { return Err(contract("merge package manifests differ; explicit compatible admission required")); }
             }
             let delta = delta_to(target,&t,&merged,&p.order,&[target,proposal,base]).await?;
-            let admitted = target.project_admit_delta(&delta,cancel).await?;
+            let (delta,composition,_)=target.project_compose_documents(&delta,&[target,proposal,base],cancel).await?;
+            let admitted = target.project_admit_composed_delta(delta,composition,cancel).await?;
             super::canonical::publish_admitted_project(self,&intent.publication,target,&admitted,cancel).await
         })).await
     }
@@ -566,6 +588,64 @@ mod tests {
         let empty = snapshot(&runtime,vec![]); let added = snapshot(&runtime,vec![row]);
         let (_,conflicts) = merge_objects(&empty,&added,&edited,&[]).unwrap(); assert_eq!(conflicts[0].kind,ProjectMergeConflictKind::ConflictingAddition);
     }
+    pub(super) fn source_documents(a: &str, b: &str) -> BTreeMap<String, Vec<u8>> {
+        BTreeMap::from([
+            ("package.toml".into(),include_bytes!("../../../../../tests/fixtures/packages/minimal_named/package.toml").to_vec()),
+            ("models/a.pse".into(),a.as_bytes().to_vec()),
+            ("models/b.pse".into(),b.as_bytes().to_vec()),
+        ])
+    }
+    async fn document_package(runtime: &Runtime, a: &str, b: &str) -> ModelingPackage {
+        runtime.package_from_sources(&[source_documents(a,b)],crate::workflow::tests::physical(),&CancelSource::new()).await.unwrap()
+    }
+    #[tokio::test]
+    async fn unequal_length_parsed_edits_do_not_create_declaration_offset_conflicts() {
+        let runtime=crate::workflow::tests::runtime();
+        let base=document_package(&runtime,"package p {param a:Scalar=1;param b:Scalar=2;}","package q {param untouched:Scalar=0;}").await;
+        let target=document_package(&runtime,"package p {param a:Scalar=100000;param b:Scalar=2;}","package q {param untouched:Scalar=0;}").await;
+        let proposal=document_package(&runtime,"package p {param a:Scalar=1;param b:Scalar=200000;}","package q {param untouched:Scalar=0;}").await;
+        let preview=runtime.project_merge_preview(&base,&target,&proposal,&[],&CancelSource::new()).await.unwrap();
+        // The single original text document changed on both sides, but its distinct
+        // parameter declarations are nonoverlapping despite shifted byte positions.
+        assert_eq!(preview.conflicts.len(),1);
+        assert!(preview.conflicts[0].logical.starts_with("document:"));
+        let resolution=ProjectMergeResolution{logical:preview.conflicts[0].logical.clone(),choice:ProjectMergeChoice::Target};
+        let preview=runtime.project_merge_preview(&base,&target,&proposal,&[resolution.clone()],&CancelSource::new()).await.unwrap();
+        assert!(preview.conflicts.is_empty());
+        assert!(preview.documents.iter().any(|document|document.logical==resolution.logical&&!document.original_text_retained));
+        let (b,t,p)=(base.project_snapshot(&CancelSource::new()).await.unwrap(),target.project_snapshot(&CancelSource::new()).await.unwrap(),proposal.project_snapshot(&CancelSource::new()).await.unwrap());
+        let (merged,conflicts)=merge_objects(&b,&t,&p,&[resolution]).unwrap();assert!(conflicts.is_empty());
+        let delta=delta_to(&target,&t,&merged,&p.order,&[&target,&proposal,&base]).await.unwrap();
+        let (delta,proof,_)=target.project_compose_documents(&delta,&[&target,&proposal,&base],&CancelSource::new()).await.unwrap();
+        let admitted=target.project_admit_composed_delta(delta,proof,&CancelSource::new()).await.unwrap();
+        let rows=admitted.declarations().await.unwrap();
+        for(name,value)in[("a","100000"),("b","200000")] {assert_eq!(rows.iter().find(|row|row.name==name).unwrap().value.binding.as_ref().unwrap().expression.as_deref(),Some(value));}
+        let snapshot=admitted.project_snapshot(&CancelSource::new()).await.unwrap();
+        assert!(snapshot.objects.values().any(|object|matches!(object,ProjectSourceObject::Document(document) if document.document.path=="models/a.pse"&&document.document.source_text.is_none())));
+    }
+    #[tokio::test]
+    async fn admitted_document_composition_preserves_exact_preimages_and_public_ir_guard() {
+        let runtime=crate::workflow::tests::runtime();let cancel=CancelSource::new();
+        let base=document_package(&runtime,"package p {param a:Scalar=1;}","package q {param b:Scalar=2;}").await;
+        let target=document_package(&runtime,"package p {param a:Scalar=3;}","package q {param b:Scalar=2;}").await;
+        let proposal=document_package(&runtime,"package p {param a:Scalar=1;}","package q {param b:Scalar=4;}").await;
+        let (b,t,p)=(base.project_snapshot(&cancel).await.unwrap(),target.project_snapshot(&cancel).await.unwrap(),proposal.project_snapshot(&cancel).await.unwrap());
+        let(merged,conflicts)=merge_objects(&b,&t,&p,&[]).unwrap();assert!(conflicts.is_empty());
+        let delta=delta_to(&target,&t,&merged,&p.order,&[&target,&proposal,&base]).await.unwrap();
+        assert!(target.project_admit_delta(&delta,&cancel).await.is_err(),"public IR cannot assert an unparsed source preimage");
+        let(delta,proof,notes)=target.project_compose_documents(&delta,&[&target,&proposal,&base],&cancel).await.unwrap();
+        assert!(notes.iter().all(|note|note.original_text_retained));
+        let admitted=target.project_admit_composed_delta(delta,proof,&cancel).await.unwrap();
+        let snapshot=admitted.project_snapshot(&cancel).await.unwrap();
+        for(path,text)in[("models/a.pse","package p {param a:Scalar=3;}"),("models/b.pse","package q {param b:Scalar=4;}")] {
+            assert!(snapshot.objects.values().any(|object|matches!(object,ProjectSourceObject::Document(document) if document.document.path==path&&document.document.source_text.as_deref()==Some(text))));
+        }
+        // The original text remains loader-owned: a subsequent ordinary parsed reload
+        // can reconstruct it using the transferred admitted provenance.
+        let reloaded=admitted.reload_from_parent(&[source_documents("package p {param a:Scalar=3;}","package q {param b:Scalar=5;}")],&cancel).await.unwrap();
+        assert_eq!(reloaded.declarations().await.unwrap().iter().find(|row|row.name=="b").unwrap().value.binding.as_ref().unwrap().expression.as_deref(),Some("5"));
+    }
+
     #[tokio::test]
     async fn local_merge_admission_preserves_target_order_and_refuses_wrong_parent() {
         let runtime = crate::workflow::tests::runtime();
@@ -593,6 +673,39 @@ mod native_tests {
         let project = store.project("project").await.unwrap().unwrap(); let branch=store.project_branch(branch_key).await.unwrap().unwrap();
         let intent = store.project_publication_intent(&project,&branch,&package.recorded_revision().unwrap().key,None,operation).unwrap();
         runtime.project_publish_admitted(&intent,&local,&CancelSource::new()).await.unwrap()
+    }
+    #[tokio::test]
+    async fn native_document_saved_proposal_merge_and_exact_text_undo() {
+        let runtime=crate::workflow::tests::durable_runtime();let store=runtime.canonical_store().unwrap();let physical=crate::workflow::tests::physical();let cancel=CancelSource::new();
+        let originals=super::tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=2;}");
+        let origin=runtime.package_from_sources(&[originals],physical.clone(),&cancel).await.unwrap();
+        store.create_project("create-doc","project-doc","Document composition").await.unwrap();let project=store.project("project-doc").await.unwrap().unwrap();
+        let base=runtime.project_fork(&project,"main-doc","doc-problem","fork-doc",&origin).await.unwrap();
+        let base=runtime.modeling_revision(base,physical.clone(),BTreeMap::new()).await.unwrap();
+        let project=store.project("project-doc").await.unwrap().unwrap();let branch=store.project_branch("main-doc").await.unwrap().unwrap();
+        let target_body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![super::tests::source_documents("package p {param a:Scalar=3;}","package q {param b:Scalar=2;}")]}).unwrap();
+        runtime.project_save_draft("save-target-doc",&project,&branch,"target-doc",&base.recorded_revision().unwrap().key,None,&target_body).await.unwrap();
+        let draft=store.project_draft("target-doc").await.unwrap().unwrap();
+        let publication=store.project_publication_intent(&project,&branch,&base.recorded_revision().unwrap().key,Some(&draft),"publish-target-doc").unwrap();
+        let target=runtime.project_publish_draft(&publication,physical.clone(),&cancel).await.unwrap();
+        let body=serde_json::to_vec(&crate::workflow::ProjectDraftDocuments {version:Default::default(),packages:vec![super::tests::source_documents("package p {param a:Scalar=1;}","package q {param b:Scalar=4;}")]}).unwrap();
+        runtime.project_save_draft("save-proposal-doc",&project,&branch,"proposal-doc",&base.recorded_revision().unwrap().key,None,&body).await.unwrap();
+        let version=store.project_draft("proposal-doc").await.unwrap().unwrap().version;
+        let branch=store.project_branch("main-doc").await.unwrap().unwrap();
+        let publication=store.project_publication_intent(&project,&branch,&target.recorded_revision().unwrap().key,None,"merge-doc").unwrap();
+        let intent=runtime.project_merge_draft_intent(publication,&base,&target,&version,vec![],&cancel).await.unwrap();
+        let merged=runtime.project_publish_merge(&intent,physical.clone(),&cancel).await.unwrap();
+        let objects=merged.project_snapshot(&cancel).await.unwrap();
+        for(path,text)in[("models/a.pse","package p {param a:Scalar=3;}"),("models/b.pse","package q {param b:Scalar=4;}")] {
+            assert!(objects.objects.values().any(|object|matches!(object,ProjectSourceObject::Document(document) if document.document.path==path&&document.document.source_text.as_deref()==Some(text))));
+        }
+        let branch=store.project_branch("main-doc").await.unwrap().unwrap();
+        let publication=store.project_publication_intent(&project,&branch,&merged.recorded_revision().unwrap().key,None,"undo-doc").unwrap();
+        let undo=runtime.project_undo_intent(publication,&merged,&base,&cancel).await.unwrap();
+        let restored=runtime.project_publish_merge(&undo,physical,&cancel).await.unwrap();
+        assert!(restored.project_compare(&base,&cancel).await.unwrap().changes.is_empty(),"compensating undo restores exact authored text and declarations");
+        assert_eq!(restored.recorded_revision().unwrap().parent.as_deref(),Some("merge-doc"));
+        store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn native_merge_undo_exact_replay_and_head_conflict() {
