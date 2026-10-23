@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Engineering history selects ordinary admitted sources and freezes original provenance.
 use super::{ModelingPackage,PhysicalContext,Runtime,WorkflowError,contract};
-pub use pse_operations::canonical_contexts::{ContextCut,ContextSelection,ProjectContext};
+use pse_operations::canonical_contexts::{ContextSelection,ProjectContext};
 use std::collections::BTreeMap;
 impl Runtime {
     /// Load the exact original source through the existing source owner. This never selects latest.
