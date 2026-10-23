@@ -9,6 +9,7 @@ import json
 import math
 import os
 import socket
+import subprocess
 import time
 from pathlib import Path
 from typing import Literal
@@ -27,7 +28,7 @@ LIMITS = (
     "Shared service observations establish no operation attribution or causality.",
     "Approximate engine data bytes are not RSS, disk allocation or reclaimed bytes.",
     "Zero async queue depth does not establish synchronous durability or snapshot completion.",
-    "Reader counts and pinned versions do not identify a stale transaction or its owner.",
+    "Reader counts and pinned versions do not identify a stale transaction or its owner; absent oldest pin does not establish reader state.",
     "Configured persistence is not evidence of a successful flush, fsync or recovery.",
     "Filesystem availability is not application allocation or reclaimable space.",
     "An inspection or copied snapshot grants no protection, disposal or recovery authority.",
@@ -300,7 +301,7 @@ def selected_cgroup(state: Path, identity: ServiceIdentity, deadline: float) -> 
         if after != before or host_admission.group_identity(group) != inode or host_admission.boot() != boot:
             raise ValueError("cgroup lifetime changed")
         return CgroupObservation("partial" if partial else "observed", selected, fields, processes, "some kernel fields or process members unavailable or bounded" if partial else None)
-    except (OSError, ValueError, server.SupervisorError, host_admission.AdmissionError):
+    except (OSError, ValueError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         return CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service/kernel correspondence unavailable")
 
 
@@ -349,7 +350,7 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         pending = config.get("derived_rebuild_pending")
         configuration["pending_maintenance"] = Observation("available", f"{pending.get('kind')}:{pending.get('phase')}") if isinstance(pending, dict) else Observation("available", "none")
         configuration["accepting_writes"] = Observation("available", config["accepting_writes"])
-    except (OSError, ValueError, KeyError, server.SupervisorError):
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         configuration = {name: unavailable("selected owner configuration unavailable") for name in CONFIGURATION_FIELDS}
     metrics = {name: Metric("unavailable", [], "selected service unavailable") for name in server.MX_METRIC_FIELDS}
     service = Service("unavailable", reason="selected service or metric observation unavailable")
@@ -371,7 +372,7 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         service = Service("available", identity)
         metrics, metric_started, metric_finished = decoded, first, last
         group = selected_cgroup(state, identity, deadline)
-    except (OSError, ValueError, KeyError, server.SupervisorError, host_admission.AdmissionError):
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
         pass
     partial = service.status == "unavailable" or observer is None or group.status != "observed" or any(f.status == "unavailable" for f in (*host.values(), *configuration.values()))
     return HealthSnapshot(
