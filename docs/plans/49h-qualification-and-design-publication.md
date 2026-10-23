@@ -1,6 +1,6 @@
 ---
 title: "Plan 49h: Qualification and design publication"
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md]

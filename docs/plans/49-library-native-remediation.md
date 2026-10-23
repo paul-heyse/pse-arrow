@@ -1,6 +1,6 @@
 ---
 title: "Plan 49: Library-native remediation and SurrealMX integration"
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: [ADR-0214, ADR-0215]
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md, docs/functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md]
@@ -12,7 +12,7 @@ doc_topics: [current-work, design, libraries, storage, preparation, numerical-ex
 
 # Plan 49: Library-native remediation and SurrealMX integration
 
-Current 49f–49h execution: [authorized resumption](#execution-resumption--remaining-49f49h-2026-10-23).
+Completed selected Plan49 scope: [final Outcome](#outcome--remaining-49f49h-2026-10-23).
 Earlier Outcomes retain their own implementation and qualification conditions.
 
 ## Purpose and authoring basis
@@ -632,7 +632,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | Package | Status | Owner | Required capability / completion |
 | --- | --- | --- | --- |
 | GOV01 | done | coordinator | Operator explicitly accepted RC01–RC21, 2026-10-21; no product implementation claimed |
-| GOV02 | in-progress | coordinator | Proposed ADR-0214/0215 and blueprint239–246 publish selected targets and completed 49a–49e acceptance. Remaining 49f–49h publication stays open; formal ADR acceptance is separate. |
+| GOV02 | done | coordinator | Proposed ADR-0214/0215, blueprint239–246 and blueprint256 publish selected contracts and composed acceptance. Formal ADR acceptance remains separate from implemented/qualified scope. |
 | STO01 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: pinned source-built3.3.4/MX1.0, owned adapter conversions and actual source units; store Outcome. |
 | STO02 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: SSI, synchronous persistence/finite controls, authenticated native statistics, reader/fault controls; store Outcome. |
 | STO03 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: generated v7 phases/constraints/refusals, migrated consumers, terminal manifest event and exact witnesses; store Outcome. |
@@ -691,7 +691,8 @@ GOV02 is the remaining coordinator decision/publication route.
 | QUAL02 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
 | QUAL03 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
 | QUAL04 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
-| QUAL05 | proposed | [49h](49h-qualification-and-design-publication.md) | Scope-end checks after remaining functional changes, measurements only for retained claims, residual publication and owner-based closeout. |
+| QUAL05 | done | [49h](49h-qualification-and-design-publication.md) | Scope-end checks, corrected zero-target findings, 99 affected feature combinations and enduring publication pass; final Outcome records exact composed evidence and limits. |
+
 
 
 ## Finding dispositions
@@ -724,7 +725,7 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 | DA-020 | S10 | resolved — Implemented and Tested | TOOL05 / I21 | Actual source ACK/drain/cancel/timeout, capture/query/detail, protected selection and relocated offline CLI review consumers pass. Internal module/hub retained. Final Outcome. |
 | DA-021 | S10 | resolved — Implemented and Tested | RUN03 | Complete LM eligibility and staged covariance withholding consume explicit actual inputs; six Runtime-free tables plus thirteen retained adapter/scientific controls pass. 49d–49e Outcome. |
 | DA-022 | S01 | resolved — Implemented and Tested | PRE01 / RUN08 / I06 / I16 | Exclusive owned Salsa accounting/shared census and native FERAL pre/post enforcement exercised; complete opaque envelopes retained. Known allocation accounting is not RSS or complete allocator-hook coverage. Outcome. |
-| DA-023 | S04 | open — residual publication | TOOL07 / QUAL05 | Prior Plan49 publication and Plan51 revision255 retain their scope; reconcile only remaining implemented contracts/support limits through the decision route. |
+| DA-023 | S04 | resolved — Implemented and Tested | TOOL07 / QUAL05 | Blueprint256 and current operator/qualification owners publish delivered scientific boundary, bounded graph and maintenance contracts; book, governance and final zero-target scope-end checks pass. Final Outcome. |
 | DA-024 | S10 | resolved — Implemented/source-inspected | TOOL07 / I24 | Native-child has the selected bounded provider-free exploration purpose; unused pse.canon.v2 engine/API/tests are removed, shared identity/allocation helpers retained. Blueprint §20 and current source; post-Plan51 reconciliation below. |
 | DA-025 | S05 / S06 | resolved — Implemented and Tested | STO / RES / TOOL04 | Prior store/result corrections plus live generated maintenance protection, paged replay and exact completion pass; necessary guards retained. Final Outcome. |
 | DA-026 | S06 | resolved — Implemented and Tested | RES01–RES06 | Exact batch summaries and conservative native pruning/residual replace scalar locator writes; selected assembled acceptance and current complete-operation measurement at remaining-scope Outcome, without comparative speed claim. |
@@ -1838,7 +1839,7 @@ passed with zero warnings.
 | Final command/mode | Result against zero target |
 | --- | --- |
 | `scripts/pse-env --resource-class build --native -- .venv/bin/python -m scripts.arrow_validation clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process,pse-operations/canonical-tests,pse-operations/canonical-maintenance -- -D warnings` | **Tested: passed**, zero warnings, 1m28s; `/tmp/pse49fgh-clippy-native.log`. This includes live canonical test code omitted by the ordinary default feature set. |
-| `scripts/pse-env --resource-class build --native -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py" cargo hack --keep-going check -p pse-operations -p xtask --feature-powerset --depth 2 --locked` | In progress: the two changed roots' 99 combinations, including no-default; explicit Arrow validation remains enforced by the existing feature-check owner. This is not the complete workspace powerset. |
+| `scripts/pse-env --resource-class build --native -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py" cargo hack --keep-going check -p pse-operations -p xtask --feature-powerset --depth 2 --locked` | **Tested: passed**, all 99 combinations of the two changed roots, including no-default, zero errors/warnings; `/tmp/pse49fgh-feature-combinations.log`. Explicit Arrow validation remains enforced by the existing feature-check owner. This is not the complete workspace powerset. |
 | `just governance`, through light `scripts/pse-env` | **Tested: passed**, including 26 governance tests, generated equivalence and family checks; assessment `20261023T202923.514922Z-governance-761088-ff2288`. |
 | `just docs`, through light `scripts/pse-env` | **Tested: passed**, 617 chapters and scoped search; `/tmp/pse49fgh-docs-publication.log`. Final retirement changes receive their own publication check. |
 | `just ready`, through build `scripts/pse-env`, after supported service-generation recovery | **Tested: passed**, skills wiring, pinned tools/extension and open SurrealDB3.3.4/MX1.0 deployment; assessment `20261023T203625.787822Z-ready-1059480-8dc022`. |
@@ -1848,3 +1849,14 @@ logical effects. They do not convert an incomplete fixture to a success or inval
 named completed current-service journeys. All three worker worktrees were cleanly removed
 after their already-cherry-picked histories were merged with the root integration tree
 unchanged. The unrelated maintainer edit remains excluded.
+
+
+**Completion and owner release:** all selected Plan49 packages and adopted findings are now
+resolved at their stated evidence boundaries; no remaining Plan49 implementation or acceptance
+is carried into another ledger. Blueprint256 and the architecture/operator owners retain the
+enduring contracts. This coordinator, its completed companions/source-routing appendix, the
+resolved source reviews and their consumed review evidence may retire after this final Outcome
+is committed and surviving references are relocated. Git preserves original failed runs,
+decisions, designs, mistakes and the final composed result. Document retirement releases no
+producer artifact, historical pin or unknown logical effect. Plans28/32/40 and formal proposed
+ADR acceptance retain their independent owners. The canceled native sweep remains closed.

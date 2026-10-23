@@ -1014,7 +1014,11 @@ is separately bounded. No MVCC-version, disk-I/O or latency bound follows. Origi
 SSI, transport, sixteen-owner and Plan51 evidence retain their original conditions. No canceled
 sweep, fresh whole-product/parity, exhaustive feature-matrix, release-wheel, new-platform,
 throughput or RSS claim follows. Other plans' campaigns and formally proposed ADRs remain
-independent. Scope-end check results and historical failures remain at the final Outcome.
+independent. Default/no-default/full-linked-native Clippy, Pyrefly, repaired Ruff/license
+checks, generated equivalence, governance, environment and book publication pass. All 99
+depth-two feature combinations of the changed operations/tooling roots pass with explicit
+validation; this is a scoped matrix, not the entire workspace powerset. Exact commands and
+historical failures remain at the final Outcome.
 
 ### 24.3 Benchmarks
 
