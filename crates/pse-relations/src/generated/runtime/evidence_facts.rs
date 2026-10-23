@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    154u8, 132u8, 226u8, 117u8, 113u8, 178u8, 239u8, 122u8, 154u8, 201u8, 176u8, 254u8,
-    35u8, 154u8, 145u8, 176u8, 104u8, 122u8, 99u8, 49u8, 34u8, 12u8, 119u8, 237u8, 11u8,
-    184u8, 245u8, 140u8, 52u8, 68u8, 36u8, 157u8,
+    8u8, 105u8, 175u8, 253u8, 60u8, 70u8, 120u8, 115u8, 225u8, 18u8, 16u8, 121u8, 104u8,
+    242u8, 135u8, 203u8, 36u8, 58u8, 197u8, 142u8, 42u8, 47u8, 197u8, 166u8, 175u8, 21u8,
+    220u8, 75u8, 219u8, 14u8, 58u8, 105u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeEvidenceFactsRow {
     fn append(
@@ -51,6 +51,38 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceFactsRow {
             &self.r#detail_ref,
             children[7usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#binary_id,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#context_id,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#context_json,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#link_relation,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#link_target,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#population_id,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#sample_id,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#value_ns,
+            children[15usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -75,6 +107,30 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceFactsRow {
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -121,6 +177,54 @@ impl crate::columnar::ArrowValue for RuntimeEvidenceFactsRow {
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#binary_id: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#context_id: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#context_json: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#link_relation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#link_target: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#population_id: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#sample_id: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#value_ns: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })
@@ -196,6 +300,38 @@ impl crate::columnar::RelationRow for RuntimeEvidenceFactsRow {
             &self.r#detail_ref,
             columns[7usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#binary_id,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#context_id,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#context_json,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#link_relation,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#link_target,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#population_id,
+            columns[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#sample_id,
+            columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#value_ns,
+            columns[15usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -231,10 +367,10 @@ impl crate::columnar::RelationRow for RuntimeEvidenceFactsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        16_384_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -291,6 +427,94 @@ impl crate::columnar::RelationRow for RuntimeEvidenceFactsRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#binary_id).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#context_id).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#context_json).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#link_relation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#link_target).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#population_id).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#sample_id).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#value_ns).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -301,7 +525,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -342,6 +566,46 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
         name: "detail_ref",
         position: 7usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "binary_id",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "context_id",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "context_json",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "link_relation",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "link_target",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "population_id",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "sample_id",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "value_ns",
+        position: 15usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -361,6 +625,22 @@ pub mod columns {
     pub const TEST_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///detail_ref
     pub const DETAIL_REF: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///binary_id
+    pub const BINARY_ID: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///context_id
+    pub const CONTEXT_ID: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///context_json
+    pub const CONTEXT_JSON: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///link_relation
+    pub const LINK_RELATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///link_target
+    pub const LINK_TARGET: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///population_id
+    pub const POPULATION_ID: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///sample_id
+    pub const SAMPLE_ID: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    ///value_ns
+    pub const VALUE_NS: crate::columnar::ColumnReference = super::COLUMNS[15usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -376,6 +656,14 @@ pub struct RuntimeEvidenceFactsView<'a> {
     crate_name_column: &'a arrow_array::StringArray,
     test_id_column: &'a arrow_array::StringArray,
     detail_ref_column: &'a arrow_array::StringArray,
+    binary_id_column: &'a arrow_array::StringArray,
+    context_id_column: &'a arrow_array::StringArray,
+    context_json_column: &'a arrow_array::StringArray,
+    link_relation_column: &'a arrow_array::StringArray,
+    link_target_column: &'a arrow_array::StringArray,
+    population_id_column: &'a arrow_array::StringArray,
+    sample_id_column: &'a arrow_array::StringArray,
+    value_ns_column: &'a arrow_array::Float64Array,
 }
 impl<'a> RuntimeEvidenceFactsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -444,6 +732,30 @@ impl<'a> RuntimeEvidenceFactsView<'a> {
             detail_ref_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(7usize).as_ref())?,
+            binary_id_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            context_id_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(9usize).as_ref())?,
+            context_json_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(10usize).as_ref())?,
+            link_relation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(11usize).as_ref())?,
+            link_target_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
+            population_id_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(13usize).as_ref())?,
+            sample_id_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(14usize).as_ref())?,
+            value_ns_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(15usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -554,6 +866,102 @@ impl<'a> RuntimeEvidenceFactsView<'a> {
     pub fn detail_ref_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[7usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "binary_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn binary_id_column(&self) -> &'a arrow_array::StringArray {
+        self.binary_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "binary_id", "`.")]
+    pub fn binary_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "context_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn context_id_column(&self) -> &'a arrow_array::StringArray {
+        self.context_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "context_id", "`.")]
+    pub fn context_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "context_json",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn context_json_column(&self) -> &'a arrow_array::StringArray {
+        self.context_json_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "context_json", "`.")]
+    pub fn context_json_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "link_relation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn link_relation_column(&self) -> &'a arrow_array::StringArray {
+        self.link_relation_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "link_relation", "`.")]
+    pub fn link_relation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "link_target",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn link_target_column(&self) -> &'a arrow_array::StringArray {
+        self.link_target_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "link_target", "`.")]
+    pub fn link_target_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "population_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn population_id_column(&self) -> &'a arrow_array::StringArray {
+        self.population_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "population_id", "`.")]
+    pub fn population_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "sample_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn sample_id_column(&self) -> &'a arrow_array::StringArray {
+        self.sample_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "sample_id", "`.")]
+    pub fn sample_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "value_ns",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn value_ns_column(&self) -> &'a arrow_array::Float64Array {
+        self.value_ns_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "value_ns", "`.")]
+    pub fn value_ns_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -583,6 +991,35 @@ impl<'a> RuntimeEvidenceFactsView<'a> {
                 self.detail_ref_column,
                 index,
             )?,
+            r#binary_id: crate::columnar::ArrowValue::read(
+                self.binary_id_column,
+                index,
+            )?,
+            r#context_id: crate::columnar::ArrowValue::read(
+                self.context_id_column,
+                index,
+            )?,
+            r#context_json: crate::columnar::ArrowValue::read(
+                self.context_json_column,
+                index,
+            )?,
+            r#link_relation: crate::columnar::ArrowValue::read(
+                self.link_relation_column,
+                index,
+            )?,
+            r#link_target: crate::columnar::ArrowValue::read(
+                self.link_target_column,
+                index,
+            )?,
+            r#population_id: crate::columnar::ArrowValue::read(
+                self.population_id_column,
+                index,
+            )?,
+            r#sample_id: crate::columnar::ArrowValue::read(
+                self.sample_id_column,
+                index,
+            )?,
+            r#value_ns: crate::columnar::ArrowValue::read(self.value_ns_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

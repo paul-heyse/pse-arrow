@@ -109,7 +109,13 @@ pub mod r#canonical_protections;
 ///Generated relation contract.
 pub mod r#canonical_reclaimed_ranges;
 ///Generated relation contract.
+pub mod r#canonical_research_datasets;
+///Generated relation contract.
+pub mod r#canonical_research_publications;
+///Generated relation contract.
 pub mod r#canonical_research_references;
+///Generated relation contract.
+pub mod r#canonical_research_selections;
 ///Generated relation contract.
 pub mod r#canonical_result_batches;
 ///Generated relation contract.

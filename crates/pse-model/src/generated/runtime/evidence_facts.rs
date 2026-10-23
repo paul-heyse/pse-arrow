@@ -25,6 +25,22 @@ pub struct RuntimeEvidenceFactsRow {
     pub r#test_id: Option<String>,
     ///detail_ref
     pub r#detail_ref: Option<String>,
+    ///binary_id
+    pub r#binary_id: Option<String>,
+    ///context_id
+    pub r#context_id: Option<String>,
+    ///context_json
+    pub r#context_json: Option<String>,
+    ///link_relation
+    pub r#link_relation: Option<String>,
+    ///link_target
+    pub r#link_target: Option<String>,
+    ///population_id
+    pub r#population_id: Option<String>,
+    ///sample_id
+    pub r#sample_id: Option<String>,
+    ///value_ns
+    pub r#value_ns: Option<f64>,
 }
 impl crate::SemanticEq for RuntimeEvidenceFactsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -36,6 +52,22 @@ impl crate::SemanticEq for RuntimeEvidenceFactsRow {
             && crate::SemanticEq::semantic_eq(&self.r#crate_name, &other.r#crate_name)
             && crate::SemanticEq::semantic_eq(&self.r#test_id, &other.r#test_id)
             && crate::SemanticEq::semantic_eq(&self.r#detail_ref, &other.r#detail_ref)
+            && crate::SemanticEq::semantic_eq(&self.r#binary_id, &other.r#binary_id)
+            && crate::SemanticEq::semantic_eq(&self.r#context_id, &other.r#context_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#context_json,
+                &other.r#context_json,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#link_relation,
+                &other.r#link_relation,
+            )
+            && crate::SemanticEq::semantic_eq(&self.r#link_target, &other.r#link_target)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#population_id,
+                &other.r#population_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#sample_id, &other.r#sample_id)
+            && crate::SemanticEq::semantic_eq(&self.r#value_ns, &other.r#value_ns)
     }
 }
 impl PartialEq for RuntimeEvidenceFactsRow {
@@ -63,6 +95,22 @@ impl crate::SemanticFrame for RuntimeEvidenceFactsRow {
         crate::SemanticFrame::frame(&self.r#test_id, hash);
         hash.str(stringify!(r#detail_ref));
         crate::SemanticFrame::frame(&self.r#detail_ref, hash);
+        hash.str(stringify!(r#binary_id));
+        crate::SemanticFrame::frame(&self.r#binary_id, hash);
+        hash.str(stringify!(r#context_id));
+        crate::SemanticFrame::frame(&self.r#context_id, hash);
+        hash.str(stringify!(r#context_json));
+        crate::SemanticFrame::frame(&self.r#context_json, hash);
+        hash.str(stringify!(r#link_relation));
+        crate::SemanticFrame::frame(&self.r#link_relation, hash);
+        hash.str(stringify!(r#link_target));
+        crate::SemanticFrame::frame(&self.r#link_target, hash);
+        hash.str(stringify!(r#population_id));
+        crate::SemanticFrame::frame(&self.r#population_id, hash);
+        hash.str(stringify!(r#sample_id));
+        crate::SemanticFrame::frame(&self.r#sample_id, hash);
+        hash.str(stringify!(r#value_ns));
+        crate::SemanticFrame::frame(&self.r#value_ns, hash);
     }
 }
 impl crate::HeapUsage for RuntimeEvidenceFactsRow {
@@ -76,5 +124,13 @@ impl crate::HeapUsage for RuntimeEvidenceFactsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#crate_name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#test_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#detail_ref))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#binary_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context_json))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#link_relation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#link_target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#population_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sample_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value_ns))
     }
 }

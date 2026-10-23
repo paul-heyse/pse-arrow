@@ -1165,6 +1165,30 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            180u8, 161u8, 196u8, 53u8, 169u8, 107u8, 207u8, 194u8, 197u8, 140u8, 129u8,
+            46u8, 190u8, 44u8, 84u8, 150u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchDatasets(
+                super::r#runtime::r#canonical_research_datasets::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            200u8, 85u8, 162u8, 170u8, 154u8, 235u8, 188u8, 145u8, 7u8, 30u8, 39u8, 67u8,
+            174u8, 239u8, 244u8, 85u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchPublications(
+                super::r#runtime::r#canonical_research_publications::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             172u8, 12u8, 154u8, 52u8, 114u8, 120u8, 221u8, 128u8, 115u8, 72u8, 19u8,
             21u8, 50u8, 127u8, 82u8, 45u8,
         ])
@@ -1172,6 +1196,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchReferences(
                 super::r#runtime::r#canonical_research_references::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            216u8, 60u8, 38u8, 16u8, 142u8, 25u8, 113u8, 243u8, 20u8, 64u8, 12u8, 156u8,
+            202u8, 93u8, 27u8, 142u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchSelections(
+                super::r#runtime::r#canonical_research_selections::Row::rows(batch)?,
             ),
         );
     }
@@ -2570,7 +2606,16 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalReclaimedRanges(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchDatasets(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchPublications(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchReferences(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResearchSelections(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultBatches(rows) => {

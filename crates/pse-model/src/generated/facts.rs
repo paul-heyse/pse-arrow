@@ -285,9 +285,21 @@ pub enum FactBatch {
     r#RuntimeCanonicalReclaimedRanges(
         Vec<super::r#runtime::r#canonical_reclaimed_ranges::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalResearchDatasets)]
+    r#RuntimeCanonicalResearchDatasets(
+        Vec<super::r#runtime::r#canonical_research_datasets::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalResearchPublications)]
+    r#RuntimeCanonicalResearchPublications(
+        Vec<super::r#runtime::r#canonical_research_publications::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalResearchReferences)]
     r#RuntimeCanonicalResearchReferences(
         Vec<super::r#runtime::r#canonical_research_references::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalResearchSelections)]
+    r#RuntimeCanonicalResearchSelections(
+        Vec<super::r#runtime::r#canonical_research_selections::Row>,
     ),
     #[doc = stringify!(r#RuntimeCanonicalResultBatches)]
     r#RuntimeCanonicalResultBatches(
@@ -1110,10 +1122,28 @@ impl FactBatch {
                     131u8, 215u8, 157u8, 88u8, 161u8,
                 ])
             }
+            Self::r#RuntimeCanonicalResearchDatasets(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    180u8, 161u8, 196u8, 53u8, 169u8, 107u8, 207u8, 194u8, 197u8, 140u8,
+                    129u8, 46u8, 190u8, 44u8, 84u8, 150u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalResearchPublications(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    200u8, 85u8, 162u8, 170u8, 154u8, 235u8, 188u8, 145u8, 7u8, 30u8,
+                    39u8, 67u8, 174u8, 239u8, 244u8, 85u8,
+                ])
+            }
             Self::r#RuntimeCanonicalResearchReferences(_) => {
                 pse_ids::SemanticId::from_bytes([
                     172u8, 12u8, 154u8, 52u8, 114u8, 120u8, 221u8, 128u8, 115u8, 72u8,
                     19u8, 21u8, 50u8, 127u8, 82u8, 45u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalResearchSelections(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    216u8, 60u8, 38u8, 16u8, 142u8, 25u8, 113u8, 243u8, 20u8, 64u8, 12u8,
+                    156u8, 202u8, 93u8, 27u8, 142u8,
                 ])
             }
             Self::r#RuntimeCanonicalResultBatches(_) => {
@@ -1763,7 +1793,10 @@ impl FactBatch {
             Self::r#RuntimeCanonicalProjects(rows) => rows.len(),
             Self::r#RuntimeCanonicalProtections(rows) => rows.len(),
             Self::r#RuntimeCanonicalReclaimedRanges(rows) => rows.len(),
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => rows.len(),
+            Self::r#RuntimeCanonicalResearchPublications(rows) => rows.len(),
             Self::r#RuntimeCanonicalResearchReferences(rows) => rows.len(),
+            Self::r#RuntimeCanonicalResearchSelections(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultBatches(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultBlockOutputs(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultBlocks(rows) => rows.len(),
@@ -2347,7 +2380,22 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalResearchPublications(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeCanonicalResearchReferences(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalResearchSelections(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3245,9 +3293,27 @@ impl FactBatch {
                         vec![row.clone()],
                     ))
             }
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalResearchDatasets(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalResearchPublications(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalResearchPublications(
+                        vec![row.clone()],
+                    ))
+            }
             Self::r#RuntimeCanonicalResearchReferences(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalResearchReferences(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalResearchSelections(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalResearchSelections(
                         vec![row.clone()],
                     ))
             }
@@ -4665,8 +4731,41 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalResearchDatasets(left),
+                Self::r#RuntimeCanonicalResearchDatasets(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalResearchPublications(left),
+                Self::r#RuntimeCanonicalResearchPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalResearchReferences(left),
                 Self::r#RuntimeCanonicalResearchReferences(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalResearchSelections(left),
+                Self::r#RuntimeCanonicalResearchSelections(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6315,7 +6414,28 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalResearchPublications(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalResearchReferences(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalResearchSelections(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -8114,8 +8234,41 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalResearchDatasets(left),
+                Self::r#RuntimeCanonicalResearchDatasets(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalResearchPublications(left),
+                Self::r#RuntimeCanonicalResearchPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalResearchReferences(left),
                 Self::r#RuntimeCanonicalResearchReferences(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalResearchSelections(left),
+                Self::r#RuntimeCanonicalResearchSelections(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -9879,7 +10032,19 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalResearchPublications(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalResearchReferences(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalResearchSelections(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
@@ -10997,8 +11162,29 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalResearchDatasets(left),
+                Self::r#RuntimeCanonicalResearchDatasets(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalResearchPublications(left),
+                Self::r#RuntimeCanonicalResearchPublications(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalResearchReferences(left),
                 Self::r#RuntimeCanonicalResearchReferences(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalResearchSelections(left),
+                Self::r#RuntimeCanonicalResearchSelections(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -11842,7 +12028,16 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeCanonicalResearchDatasets(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalResearchPublications(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeCanonicalResearchReferences(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalResearchSelections(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalResultBatches(rows) => {

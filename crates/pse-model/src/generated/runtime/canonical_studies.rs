@@ -19,6 +19,12 @@ pub struct RuntimeCanonicalStudiesRow {
     pub r#revision: String,
     ///metadata
     pub r#metadata: crate::Bytes,
+    ///physical_revision
+    pub r#physical_revision: Option<String>,
+    ///physical_identity
+    pub r#physical_identity: Option<String>,
+    ///context
+    pub r#context: Option<String>,
     ///interpretation
     pub r#interpretation: String,
     ///point_count
@@ -45,6 +51,14 @@ impl crate::SemanticEq for RuntimeCanonicalStudiesRow {
             && crate::SemanticEq::semantic_eq(&self.r#problem, &other.r#problem)
             && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
             && crate::SemanticEq::semantic_eq(&self.r#metadata, &other.r#metadata)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#physical_revision,
+                &other.r#physical_revision,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#physical_identity,
+                &other.r#physical_identity,
+            ) && crate::SemanticEq::semantic_eq(&self.r#context, &other.r#context)
             && crate::SemanticEq::semantic_eq(
                 &self.r#interpretation,
                 &other.r#interpretation,
@@ -86,6 +100,12 @@ impl crate::SemanticFrame for RuntimeCanonicalStudiesRow {
         crate::SemanticFrame::frame(&self.r#revision, hash);
         hash.str(stringify!(r#metadata));
         crate::SemanticFrame::frame(&self.r#metadata, hash);
+        hash.str(stringify!(r#physical_revision));
+        crate::SemanticFrame::frame(&self.r#physical_revision, hash);
+        hash.str(stringify!(r#physical_identity));
+        crate::SemanticFrame::frame(&self.r#physical_identity, hash);
+        hash.str(stringify!(r#context));
+        crate::SemanticFrame::frame(&self.r#context, hash);
         hash.str(stringify!(r#interpretation));
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
         hash.str(stringify!(r#point_count));
@@ -114,6 +134,9 @@ impl crate::HeapUsage for RuntimeCanonicalStudiesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#problem))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#metadata))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#physical_revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#physical_identity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point_count))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#next_ordinal))

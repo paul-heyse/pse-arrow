@@ -398,6 +398,26 @@ DEFINE FIELD key ON canonical_reclaimed_ranges TYPE string READONLY ASSERT $valu
 DEFINE FIELD problem ON canonical_reclaimed_ranges TYPE string;
 DEFINE FIELD from_sequence ON canonical_reclaimed_ranges TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD to_sequence ON canonical_reclaimed_ranges TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_research_datasets SCHEMAFULL;
+DEFINE FIELD key ON canonical_research_datasets TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_research_datasets TYPE string;
+DEFINE FIELD revision ON canonical_research_datasets TYPE string;
+DEFINE FIELD physical_context ON canonical_research_datasets TYPE string;
+DEFINE FIELD context ON canonical_research_datasets TYPE string;
+DEFINE FIELD parent ON canonical_research_datasets TYPE option<string>;
+DEFINE FIELD role ON canonical_research_datasets TYPE string;
+DEFINE FIELD members ON canonical_research_datasets TYPE bytes;
+DEFINE FIELD request ON canonical_research_datasets TYPE bytes;
+DEFINE TABLE canonical_research_publications SCHEMAFULL;
+DEFINE FIELD key ON canonical_research_publications TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_research_publications TYPE string;
+DEFINE FIELD selection ON canonical_research_publications TYPE string;
+DEFINE FIELD run ON canonical_research_publications TYPE string;
+DEFINE FIELD attempt ON canonical_research_publications TYPE string;
+DEFINE FIELD revision ON canonical_research_publications TYPE string;
+DEFINE FIELD parent ON canonical_research_publications TYPE string;
+DEFINE FIELD mapping ON canonical_research_publications TYPE bytes;
+DEFINE FIELD request ON canonical_research_publications TYPE bytes;
 DEFINE TABLE canonical_research_references SCHEMAFULL;
 DEFINE FIELD key ON canonical_research_references TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD project ON canonical_research_references TYPE string READONLY;
@@ -406,6 +426,16 @@ DEFINE FIELD artifact ON canonical_research_references TYPE option<string> READO
 DEFINE FIELD run ON canonical_research_references TYPE option<string> READONLY;
 DEFINE FIELD attempt ON canonical_research_references TYPE option<string> READONLY;
 DEFINE FIELD request ON canonical_research_references TYPE bytes READONLY;
+DEFINE TABLE canonical_research_selections SCHEMAFULL;
+DEFINE FIELD key ON canonical_research_selections TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD project ON canonical_research_selections TYPE string;
+DEFINE FIELD dataset ON canonical_research_selections TYPE string;
+DEFINE FIELD revision ON canonical_research_selections TYPE string;
+DEFINE FIELD physical_context ON canonical_research_selections TYPE string;
+DEFINE FIELD context ON canonical_research_selections TYPE string;
+DEFINE FIELD fit ON canonical_research_selections TYPE string;
+DEFINE FIELD selection ON canonical_research_selections TYPE bytes;
+DEFINE FIELD request ON canonical_research_selections TYPE bytes;
 DEFINE TABLE canonical_result_batches SCHEMAFULL;
 DEFINE FIELD key ON canonical_result_batches TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD attempt ON canonical_result_batches TYPE string;
@@ -566,6 +596,9 @@ DEFINE FIELD run ON canonical_studies TYPE string READONLY;
 DEFINE FIELD problem ON canonical_studies TYPE string READONLY;
 DEFINE FIELD revision ON canonical_studies TYPE string READONLY;
 DEFINE FIELD metadata ON canonical_studies TYPE bytes READONLY;
+DEFINE FIELD physical_revision ON canonical_studies TYPE option<string> READONLY;
+DEFINE FIELD physical_identity ON canonical_studies TYPE option<string> READONLY;
+DEFINE FIELD context ON canonical_studies TYPE option<string> READONLY;
 DEFINE FIELD interpretation ON canonical_studies TYPE string READONLY;
 DEFINE FIELD point_count ON canonical_studies TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD next_ordinal ON canonical_studies TYPE decimal ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count);
@@ -753,6 +786,14 @@ DEFINE INDEX project_draft_order ON canonical_project_drafts FIELDS branch, key;
 DEFINE INDEX project_research_order ON canonical_research_references FIELDS project, key;
 DEFINE INDEX project_context_scope ON canonical_project_contexts FIELDS project, scope, recorded_sequence;
 DEFINE INDEX project_context_ancestor ON canonical_context_ancestry FIELDS descendant, ancestor UNIQUE;
+DEFINE INDEX research_dataset_project ON canonical_research_datasets FIELDS project, key;
+DEFINE INDEX research_selection_dataset ON canonical_research_selections FIELDS dataset, key;
+DEFINE INDEX study_source_order ON canonical_studies FIELDS revision, key;
+DEFINE INDEX study_problem_order ON canonical_studies FIELDS problem, key;
+DEFINE INDEX study_physical_order ON canonical_studies FIELDS physical_revision, key;
+DEFINE INDEX study_context_order ON canonical_studies FIELDS context, key;
+DEFINE INDEX study_outcome_runs ON canonical_runs FIELDS terminal_class, key;
+DEFINE INDEX study_research_revision ON canonical_research_references FIELDS revision, key;
 DEFINE EVENT pse_attempt_terminal_publication_immutable ON canonical_attempts WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND ($before.seed_manifest!=$after.seed_manifest) THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; };
 
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
@@ -1630,6 +1671,36 @@ DEFINE FUNCTION fn::pse_context_v1::select($expiry:int,$project:string,$scope:st
     RETURN $selected[0];
 };
 
+DEFINE FUNCTION fn::pse_research_v1::context($expiry:int,$row:object) -> bool {
+    LET $context=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.context);
+    IF $context=NONE OR $context.deleted OR $context.project!=$row.project OR $context.revision!=$row.revision OR $context.physical_context!=$row.physical_context { THROW 'PSE_REFUSAL:research_context_differs'; };
+    fn::pse_project_v1::root($expiry,$row.revision,'research:'+$row.key);
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation:decimal) -> object {
+    LET $old=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.key);
+    IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
+    fn::pse_project_v1::project($expiry,$row.project,$generation);
+    fn::pse_research_v1::context($expiry,$row);
+    IF bytes::len($row.members)>131072 OR bytes::len($row.request)>262144 {THROW 'PSE_REFUSAL:research_bound';};
+    IF $row.role NOT IN ['raw','curated','derived'] {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF $row.parent!=NONE {
+        LET $parent=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.parent);
+        IF $parent=NONE OR $parent.project!=$row.project OR $parent.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
+    } ELSE { IF $row.role!='raw' {THROW 'PSE_REFUSAL:research_context_differs';}; };
+    RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
+};
+DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generation:decimal) -> object {
+    LET $old=SELECT * FROM ONLY type::record('canonical_research_selections',$row.key);
+    IF $old!=NONE {IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old;};
+    fn::pse_project_v1::project($expiry,$row.project,$generation);
+    fn::pse_research_v1::context($expiry,$row);
+    LET $dataset=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.dataset);
+    IF $dataset=NONE OR $dataset.project!=$row.project OR $dataset.revision!=$row.revision OR $dataset.context!=$row.context OR $dataset.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF bytes::len($row.selection)>131072 OR bytes::len($row.request)>262144 {THROW 'PSE_REFUSAL:research_bound';};
+    RETURN CREATE ONLY type::record('canonical_research_selections',$row.key) CONTENT $row;
+};
+
 DEFINE FUNCTION fn::pse_files_v1::admission($expiry:int,$incarnation:string,$collecting:bool) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
@@ -2214,7 +2285,7 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> obje
     fn::pse_execution_v1::touch($rpc_expiry, 'study:' + $row.key);
     LET $old = SELECT * FROM ONLY type::record('canonical_studies', $row.key);
     IF $old != NONE {
-        IF $old.run != $row.run OR $old.revision != $row.revision OR $old.problem != $row.problem OR $old.metadata != $row.metadata OR $old.point_count != $row.point_count OR $old.dependency_count != $row.dependency_count OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:study_identity_reused'; };
+        IF $old.run != $row.run OR $old.revision != $row.revision OR $old.problem != $row.problem OR $old.metadata != $row.metadata OR $old.physical_revision != $row.physical_revision OR $old.physical_identity != $row.physical_identity OR $old.context != $row.context OR $old.point_count != $row.point_count OR $old.dependency_count != $row.dependency_count OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:study_identity_reused'; };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
@@ -2592,6 +2663,28 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET terminal = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
+};
+
+DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object>,$maximum:int,$frozen:bool,$members:int) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $more=array::len($rows)>$maximum;
+    IF $frozen AND $more { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $selected=array::slice($rows,0,$maximum);
+    FOR $s IN $selected { fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key); };
+    LET $headers=$selected.map(|$s| {
+        LET $run=SELECT terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
+        RETURN object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
+    });
+    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR math::sum($selected.point_count)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $points=IF $frozen {
+        LET $selected_keys=$selected.key;
+        SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected_keys ORDER BY study,ordinal LIMIT 129
+    } ELSE {[]};
+    IF $frozen AND (array::len($points)!=(math::sum($selected.point_count) ?? 0) OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $result={headers:$headers,members:$points,has_more:$more};
+    IF bytes::len(encoding::cbor::encode($result))>1048576 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN $result;
 };
 
 
