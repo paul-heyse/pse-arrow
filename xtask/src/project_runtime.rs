@@ -40,7 +40,7 @@ enum Action {
     DraftAdmitVersion { version:DraftVersion },
     PublicationIssue { project:Project,branch:Branch,expected:String,draft:Option<Draft>,operation:String },
     DraftPublish { intent:ProjectPublication },
-    Compare { left:String,right:String,#[serde(default)] source_only:bool },
+    Compare { left:String,right:String,#[serde(default)] source_only:bool,#[serde(default)] right_physical:Option<ProjectDraftDocuments> },
     SourceDetail { revision:String,logical:Vec<String> },
     MergePreview { base:String,target:String,proposal:String,resolutions:Vec<ProjectMergeResolution> },
     MergeIssue { publication:ProjectPublication,base:String,target:String,proposal:String,resolutions:Vec<ProjectMergeResolution> },
@@ -111,7 +111,7 @@ pub(crate) async fn run(store:&CanonicalStore,args:RuntimeArgs,deadline:Instant)
             Action::DraftAdmitVersion{version}=>package(&runtime.project_admit_draft_version(&version,require_physical(&physical)?,&cancel).await?),
             Action::PublicationIssue{project,branch,expected,draft,operation}=>value(store.project_publication_intent(&project,&branch,&expected,draft.as_ref(),&operation)?),
             Action::DraftPublish{intent}=>package(&runtime.project_publish_draft(&intent,require_physical(&physical)?,&cancel).await?),
-            Action::Compare{left,right,source_only}=>{let left=selected(&runtime,store,&left,&physical).await?;let right=selected(&runtime,store,&right,&physical).await?;if source_only{value(left.project_compare_source(&right,&cancel).await?)}else{value(left.project_compare(&right,&cancel).await?)}},
+            Action::Compare{left,right,source_only,right_physical}=>{let left=selected(&runtime,store,&left,&physical).await?;let right_physical=if let Some(input)=right_physical {Some(runtime.physical_from_documents(&documents(&runtime,&shared,&input,&cancel)?,&cancel.token()).await?)}else{physical.clone()};let right=selected(&runtime,store,&right,&right_physical).await?;if source_only{value(left.project_compare_source(&right,&cancel).await?)}else{value(left.project_compare(&right,&cancel).await?)}},
             Action::SourceDetail{revision,logical}=>{let source=selected(&runtime,store,&revision,&physical).await?;value(source.project_source_detail(&logical,&cancel).await?)},
             Action::MergePreview{base,target,proposal,resolutions}=>{let base=selected(&runtime,store,&base,&physical).await?;let target=selected(&runtime,store,&target,&physical).await?;let proposal=selected(&runtime,store,&proposal,&physical).await?;value(runtime.project_merge_preview(&base,&target,&proposal,&resolutions,&cancel).await?)},
             Action::MergeIssue{publication,base,target,proposal,resolutions}=>{let base=selected(&runtime,store,&base,&physical).await?;let target=selected(&runtime,store,&target,&physical).await?;let proposal=selected(&runtime,store,&proposal,&physical).await?;value(runtime.project_merge_intent(publication,&base,&target,&proposal,resolutions,&cancel).await?)},
@@ -154,7 +154,7 @@ mod tests {
         let project=store.project("cli-project").await.unwrap().unwrap();
         let fork=execute(Action::Fork{project,branch:"cli-main".into(),problem:"cli-problem".into(),operation:"cli-fork".into(),source:original.clone()}).await;
         let fork=fork.as_str().unwrap().to_owned();
-        let compared=execute(Action::Compare{left:original,right:fork.clone(),source_only:false}).await;
+        let compared=execute(Action::Compare{left:original,right:fork.clone(),source_only:false,right_physical:None}).await;
         assert!(compared["semantic_context_matches"].as_bool().unwrap());
         assert!(compared["changes"].as_array().unwrap().is_empty());
         let revision=store.revision(&fork).await.unwrap().unwrap();
