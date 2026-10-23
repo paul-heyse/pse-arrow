@@ -11,7 +11,8 @@ use pse_operations::{
 use pse_runtime::{
     CancelSource, SharedRuntime,
     workflow::{
-        CanonicalDeployment, ModelingPackage, OuterAttestation, PhysicalContext,
+        CanonicalDeployment, LifecycleSelection, LifecycleTarget, ModelingPackage, OuterAttestation, PhysicalContext,
+        ProjectBundleReader, ProjectExportRequest, ProjectImportIntent,
         PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,
         ProjectMergeIntent, ProjectMergeResolution, ProjectSelectRequest, ProjectSelection,
         ResearchDatasetRequest, ResearchPublicationIntent, ResearchPublicationRequest,
@@ -21,6 +22,10 @@ use pse_runtime::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, io::Read, path::PathBuf, sync::Arc, time::Instant};
+
+pub(super) const PROJECT_DOCUMENT_BYTES: usize = 16 << 20;
+fn project_document_bytes() -> usize { PROJECT_DOCUMENT_BYTES }
+fn project_branch_name() -> String { "main".into() }
 
 #[derive(Debug, Args)]
 pub(crate) struct RuntimeArgs {
@@ -50,6 +55,42 @@ struct Request {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
+    ProjectClosure {
+        request: ProjectExportRequest,
+    },
+    ProjectExport {
+        destination: PathBuf,
+        request: ProjectExportRequest,
+    },
+    ProjectImportIssue {
+        input: PathBuf,
+        title: String,
+        #[serde(default = "project_branch_name")]
+        branch_name: String,
+        #[serde(default = "project_document_bytes")]
+        maximum_document_bytes: usize,
+    },
+    ProjectImportStatus {
+        intent: ProjectImportIntent,
+    },
+    ProjectImport {
+        input: PathBuf,
+        intent: ProjectImportIntent,
+        #[serde(default = "project_document_bytes")]
+        maximum_document_bytes: usize,
+    },
+    ProjectImportOpen {
+        intent: ProjectImportIntent,
+    },
+    LifecycleSelect {
+        target: LifecycleTarget,
+    },
+    LifecycleExplain {
+        selection: LifecycleSelection,
+    },
+    LifecycleRelease {
+        selection: LifecycleSelection,
+    },
     ResearchDatasetCreate {
         request: ResearchDatasetRequest,
     },
@@ -442,6 +483,39 @@ pub(crate) async fn run(
         // A generic action must not reserve every workflow's stack frame at once.
         let operation: std::pin::Pin<Box<dyn Future<Output = Result<serde_json::Value>> + '_>> =
             match request.action {
+                Action::ProjectClosure { request } => boxed(shared, async move {
+                    value(runtime.project_closure(&request, require_physical(&physical)?, cancel).await?)
+                })?,
+                Action::ProjectExport { destination, request } => boxed(shared, async move {
+                    value(runtime.project_export(&destination, &request, require_physical(&physical)?, cancel).await?)
+                })?,
+                Action::ProjectImportIssue { input, title, branch_name, maximum_document_bytes } => boxed(shared, async move {
+                    cancel.token().checkpoint()?;
+                    let bundle = ProjectBundleReader::open(&input, maximum_document_bytes)?;
+                    cancel.token().checkpoint()?;
+                    value(runtime.project_import_issue(&bundle, &title, &branch_name).await?)
+                })?,
+                Action::ProjectImportStatus { intent } => boxed(shared, async move {
+                    value(runtime.project_import_status(&intent).await?)
+                })?,
+                Action::ProjectImport { input, intent, maximum_document_bytes } => boxed(shared, async move {
+                    cancel.token().checkpoint()?;
+                    let bundle = ProjectBundleReader::open(&input, maximum_document_bytes)?;
+                    cancel.token().checkpoint()?;
+                    value(runtime.project_import(&bundle, &intent, cancel).await?)
+                })?,
+                Action::ProjectImportOpen { intent } => boxed(shared, async move {
+                    package(&runtime.project_import_open(&intent, cancel).await?)
+                })?,
+                Action::LifecycleSelect { target } => boxed(shared, async move {
+                    value(runtime.lifecycle_select(&target).await?)
+                })?,
+                Action::LifecycleExplain { selection } => boxed(shared, async move {
+                    value(runtime.lifecycle_explain(&selection).await?)
+                })?,
+                Action::LifecycleRelease { selection } => boxed(shared, async move {
+                    value(runtime.lifecycle_release(&selection).await?)
+                })?,
                 Action::ResearchDatasetCreate { request } => boxed(shared, async move {
                     value(runtime.research_dataset_create(&request, cancel).await?)
                 })?,
@@ -832,6 +906,36 @@ pub(crate) async fn run(
     drop(runtime);
     drop(shared);
     result
+}
+
+#[cfg(test)]
+mod transport_tests {
+    #![allow(clippy::unwrap_used, reason = "typed CLI request controls require exact successful decoding")]
+    use super::*;
+
+    #[test]
+    fn project_bundle_issue_defaults_remain_typed_and_finite() {
+        let request: Request = serde_json::from_value(serde_json::json!({
+            "version": 1,
+            "action": {"kind": "project_import_issue", "input": "selected-pack", "title": "Imported"}
+        })).unwrap();
+        assert!(matches!(request.action,
+            Action::ProjectImportIssue { input, branch_name, maximum_document_bytes, .. }
+                if input == PathBuf::from("selected-pack") && branch_name == "main" && maximum_document_bytes == PROJECT_DOCUMENT_BYTES
+        ));
+    }
+
+    #[test]
+    fn lifecycle_selection_uses_the_exact_typed_owner_target() {
+        let action: Action = serde_json::from_value(serde_json::json!({
+            "kind": "lifecycle_select", "target": {"kind": "source_history", "key": "original-revision"}
+        })).unwrap();
+        assert!(matches!(action, Action::LifecycleSelect { target } if target.key == "original-revision"));
+        assert!(serde_json::from_value::<Action>(serde_json::json!({
+            "kind": "lifecycle_select", "target": {"kind": "source_history", "key": "original-revision"}, "query": "arbitrary"
+        })).is_err());
+        assert!(serde_json::from_value::<Action>(serde_json::json!({"kind": "shell", "command": ["arbitrary"]})).is_err());
+    }
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
