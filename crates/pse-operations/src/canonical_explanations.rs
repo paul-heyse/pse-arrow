@@ -972,7 +972,7 @@ mod server_tests {
             db.use_ns(options.namespace.clone()).use_db(options.database.clone()).await.unwrap();
             let mut info=db.query(format!("INFO FOR USER `{}` ON ROOT;",username.replace('`', "\\`"))).await.unwrap().check().unwrap();
             let info=info.take::<Value>(0).unwrap().to_string();
-            assert!(info.to_uppercase().contains(role),"{info}");
+            assert!(info.to_uppercase().contains(&format!("ROLES {role}")),"{info}");
             let mut rows=db.query("SELECT key FROM graph_auth_probe WITH INDEX graph_auth_seek WHERE owner='owner' AND key>'' ORDER BY key LIMIT 2;").await.unwrap().check().unwrap();
             assert_eq!(rows.take::<Vec<Object>>(0).unwrap().len(),2);
         }
