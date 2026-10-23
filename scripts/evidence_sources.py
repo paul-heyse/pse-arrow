@@ -86,6 +86,9 @@ def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
         facts.append({"member": "gate:" + name, "kind": "assessment_gate", "status": check["status"] if check else "unreported", "context_id": ctx["context_id"]})
         if check is None:
             continue
+        code = check.get("exit_code")
+        if type(code) is int and code not in {0, 1, 100}:
+            facts.append({"member": "command:" + name, "kind": "assessment_command", "status": "command_failure", "context_id": ctx["context_id"]})
         selected = check.get("selected", [])
         if not isinstance(selected, list):
             raise ValueError("invalid assessment selection")
@@ -160,8 +163,19 @@ def host_snapshot(directory: Path, *, deadline: float | None = None) -> Evidence
     return source_snapshot("host-admission:" + str(directory.absolute()), "host-admission-ledger-v1", str(directory.absolute()), value, facts, complete=True)
 
 
-def measurement_snapshot(path: Path, *, criterion: dict[str, Path] | None = None) -> EvidenceSnapshot:
+def measurement_snapshot(path: Path, *, criterion: dict[str, Path] | None = None, invocations: dict[str, Path] | None = None) -> EvidenceSnapshot:
     report = json.loads(path.read_text())
+    if isinstance(report, dict) and report.get("schema") == "case-smoke-v1":
+        selected = report.get("selected_cases")
+        if report.get("measured") is not False or not isinstance(selected, list) or any(not isinstance(value, str) for value in selected) or len(set(selected)) != len(selected):
+            raise ValueError("invalid original unmeasured case-smoke population")
+        if criterion or invocations:
+            raise ValueError("smoke report declares no Criterion or per-invocation measurement membership")
+        ctx = context_fact({"profile": report.get("profile"), "capture": {key: report.get(key) for key in ("recording_mode", "review_artifacts", "capture_from_start", "compiled_evaluator")}})
+        facts: list[EvidenceFact] = [ctx]
+        for identity in selected:
+            facts.append({"member": "case:" + identity, "kind": "measurement_population", "status": "not_measured", "population_id": "case:" + identity, "context_id": ctx["context_id"]})
+        return source_snapshot("case-measure:" + str(path.absolute()), "case-smoke-v1", str(path.absolute()), report, facts, complete=True)
     if not isinstance(report, dict) or report.get("schema") != "process-cost-v5" or not isinstance(report.get("cases"), list) or not isinstance(report.get("selected_cases"), list):
         raise ValueError("unsupported case_measure report codec")
     cases = {}
@@ -174,6 +188,9 @@ def measurement_snapshot(path: Path, *, criterion: dict[str, Path] | None = None
     if len(set(selected)) != len(selected) or set(cases) - set(selected):
         raise ValueError("case report differs from selected population")
     criterion = criterion or {}
+    invocations = invocations or {}
+    if set(invocations) - set(selected):
+        raise ValueError("invocation source outside selected cases")
     if set(criterion) - set(selected):
         raise ValueError("Criterion source outside selected cases")
     facts: list[EvidenceFact] = []
@@ -182,15 +199,55 @@ def measurement_snapshot(path: Path, *, criterion: dict[str, Path] | None = None
         case = cases.get(identity)
         status = "unreported" if case is None else str(case.get("status", "measured" if report.get("measured") is True else "unknown"))
         case = case or {}
-        ctx = context_fact({"workload": {"id": identity, "declaration": compact(case.get("workload"))}, "input": compact(case.get("input", case.get("spec", case.get("workload")))), "revision": report.get("revision"), "source": compact(report.get("source_observations_start")), "build": compact(report.get("binary_path")), "profile": report.get("profile", {}).get("cargo_profile"), "features": report.get("profile", {}).get("features"), "provider": case.get("provider", compact(report.get("managed_receiver"))), "isa": case.get("isa"), "capture": case.get("capture"), "host": compact(report.get("host_conditions_start")), "environment": compact(report.get("environment_start"))})
+        ctx = context_fact({"workload": {"id": identity, "declaration": compact(case.get("workload"))}, "input": compact(case.get("input", case.get("spec", case.get("workload")))), "revision": report.get("revision"), "source": compact(report.get("source_observations_start")), "build": report.get("binary_sha256"), "profile": report.get("profile", {}).get("cargo_profile"), "features": report.get("profile", {}).get("features"), "provider": case.get("provider", report.get("provider")), "isa": case.get("isa"), "capture": case.get("capture"), "host": compact(report.get("host_conditions_start")), "environment": compact(report.get("environment_start"))})
         facts.append(ctx)
         population = "case:" + identity
         facts.append({"member": population, "kind": "measurement_population", "status": status, "population_id": population, "context_id": ctx["context_id"]})
+        statistics = case.get("criterion_statistics", {})
+        if not isinstance(statistics, dict):
+            raise ValueError("invalid original Criterion statistics")
+        for name in ("mean_nanoseconds", "sample_mean_nanoseconds", "sample_standard_error_nanoseconds", "sample_min_nanoseconds", "sample_max_nanoseconds"):
+            value = statistics.get(name)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                raise ValueError("invalid original reported measurement statistic")
+            facts.append({"member": population + ":summary:" + name, "kind": "measurement_summary", "status": "reported", "population_id": population, "context_id": ctx["context_id"], "value_ns": float(value)})
         association = case.get("invocation_observations", {}).get("criterion_membership", {}).get("status", "unavailable")
         facts.append({"member": population + ":association", "kind": "measurement_association", "status": association, "population_id": population, "context_id": ctx["context_id"]})
         overhead = case.get("capture_overhead_nanoseconds")
         if isinstance(overhead, (int, float)) and not isinstance(overhead, bool) and math.isfinite(overhead) and overhead >= 0:
             facts.append({"member": population + ":capture", "kind": "capture_cost", "status": "measured", "population_id": population, "context_id": ctx["context_id"], "value_ns": float(overhead)})
+        if identity in invocations:
+            supplied = invocations[identity]
+            digest = hashlib.sha256(supplied.read_bytes()).hexdigest()
+            if digest not in case.get("artifacts", {}).values():
+                raise ValueError("invocation records lack an authentic report artifact digest")
+            with supplied.open() as stream:
+                records = [json.loads(line) for line in stream if line.strip()]
+            # Validate population through its owner without following old recorded paths.
+            memory = {"records": records}
+            if "iterations" in case:
+                memory["iterations"] = case["iterations"]
+            case_measure.invocation_population(supplied.parent, memory)
+            originals[identity + ":invocations"] = records
+            seen = set()
+            for offset, record in enumerate(records):
+                sequence = record.get("invocation_sequence")
+                if sequence is not None and (type(sequence) is not int or sequence < 0 or sequence in seen):
+                    raise ValueError("invalid or duplicate actual invocation sequence")
+                seen.add(sequence)
+                member = "sequence:" + str(sequence) if sequence is not None else "jsonl-row:" + str(offset)
+                status = record.get("outcome", "unknown")
+                if not isinstance(status, str):
+                    raise ValueError("invalid invocation outcome")
+                fact: EvidenceFact = {"member": population + ":invocation:" + member, "kind": "harness_invocation", "status": status, "population_id": population, "sample_id": member, "context_id": ctx["context_id"]}
+                seconds = record.get("seconds")
+                if seconds is not None:
+                    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds < 0:
+                        raise ValueError("invalid invocation duration")
+                    fact["value_ns"] = seconds * 1e9
+                facts.append(fact)
         if identity in criterion:
             supplied = criterion[identity]
             # Reuse owner validation; keep actual CSV row membership, never invocation IDs.

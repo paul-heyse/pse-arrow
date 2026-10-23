@@ -123,6 +123,50 @@ class EvidenceSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "authentic"):
             evidence_sources.measurement_snapshot(path, criterion={"success": csv})
 
+    def test_explicit_invocation_population_and_original_reported_statistics(self) -> None:
+        path, _csv = self.measurement()
+        report = json.loads(path.read_text())
+        records = self.root / "observations.jsonl"
+        records.write_text("\n".join(json.dumps(row) for row in [{"invocation_sequence": 0, "outcome": "panicked_incomplete", "seconds": 2}, {"invocation_sequence": 1, "outcome": "censored"}]))
+        report["cases"][0].update(iterations=2, criterion_statistics={"mean_nanoseconds": 42.0}, artifacts={"observations.jsonl": hashlib.sha256(records.read_bytes()).hexdigest()})
+        path.write_text(json.dumps(report))
+        snapshot = evidence_sources.measurement_snapshot(path, invocations={"success": records})
+        rows = [fact for fact in snapshot["facts"] if fact["kind"] == "harness_invocation"]
+        self.assertEqual([fact["status"] for fact in rows], ["panicked_incomplete", "censored"])
+        self.assertEqual(rows[0]["value_ns"], 2e9)
+        self.assertNotIn("value_ns", rows[1])
+        self.assertEqual(next(fact for fact in snapshot["facts"] if fact["kind"] == "measurement_summary")["value_ns"], 42.0)
+        self.assertFalse(any(fact["kind"] == "criterion_sample" for fact in snapshot["facts"]))
+        context = json.loads(next(fact["context_json"] for fact in snapshot["facts"] if fact["kind"] == "context"))
+        self.assertIsNone(context["build"])
+        self.assertIsNone(context["provider"])
+        report["cases"][0]["iterations"] = 3
+        path.write_text(json.dumps(report))
+        with self.assertRaisesRegex(ValueError, "count"):
+            evidence_sources.measurement_snapshot(path, invocations={"success": records})
+
+    def test_actual_unmeasured_smoke_codec_cannot_become_performance_samples(self) -> None:
+        path = self.root / "case-smoke.json"
+        path.write_text(json.dumps({"schema": "case-smoke-v1", "measured": False, "selected_cases": ["one", "two"], "profile": "release", "recording_mode": "selected", "review_artifacts": False, "capture_from_start": False, "compiled_evaluator": False, "binaries": {"native_process": "/declared/binary"}}))
+        snapshot = evidence_sources.measurement_snapshot(path)
+        self.assertEqual([fact["status"] for fact in snapshot["facts"] if fact["kind"] == "measurement_population"], ["not_measured", "not_measured"])
+        with self.assertRaisesRegex(ValueError, "no Criterion"):
+            evidence_sources.measurement_snapshot(path, criterion={"one": self.root / "absent"})
+
+    def test_host_owner_readonly_snapshot_and_foreign_version(self) -> None:
+        directory = self.root / "host"
+        resource_store.protected(directory)
+        lock = directory / ".lock"
+        lock.touch(mode=0o600)
+        resource_store.publish(directory / "allocations.json", {"version": 1, "owners": {"a" * 32: {"boot": "00000000-0000-0000-0000-000000000000", "pid": 123, "start": "77", "class": "build", "lane": "build", "memory": 0, "slots": 1, "cores": [0], "exclusive": False, "deadline": 99999999999, "units": {}}}})
+        before = (directory / "allocations.json").read_bytes()
+        snapshot = evidence_sources.host_snapshot(directory)
+        self.assertEqual(next(fact for fact in snapshot["facts"] if fact["kind"] == "host_allocation")["status"], "observed")
+        self.assertEqual((directory / "allocations.json").read_bytes(), before)
+        resource_store.publish(directory / "allocations.json", {"version": 2, "owners": {}})
+        with self.assertRaises(ValueError):
+            evidence_sources.host_snapshot(directory)
+
     def test_wrapper_offline_before_state_service_and_no_implicit_build(self) -> None:
         handle = test_resources.invocation("python", [{"name": "suite::missing"}])
         def run(tool: Path, arguments: list[str], *, deadline: float) -> int:
