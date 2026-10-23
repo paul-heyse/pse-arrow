@@ -2400,59 +2400,6 @@ id_pattern = '^(H[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
 
-
-[[scope_tables]]
-path = "docs/plans/49-library-native-remediation.md"
-name = "package-state"
-heading = "Package state"
-headers = [
-  "Package",
-  "Status",
-  "Owner",
-  "Required capability / completion",
-]
-kind = "packet"
-id_column = 0
-status_profile = "packet"
-status_column = 1
-owner_column = 2
-
-
-[[scope_tables]]
-path = "docs/plans/49-library-native-remediation.md"
-name = "finding-dispositions"
-heading = "Finding dispositions"
-headers = [
-  "Finding",
-  "Review scenarios",
-  "Disposition",
-  "Work owner",
-  "Required evidence or question",
-]
-kind = "finding"
-id_column = 0
-status_profile = "finding"
-status_column = 2
-owner_column = 3
-
-
-[[scope_tables]]
-path = "docs/plans/49-library-native-remediation.md"
-name = "inquiry-outcomes"
-heading = "Inquiry outcomes"
-headers = [
-  "Inquiry",
-  "State",
-  "Owner",
-  "Question and evidence",
-  "Adoption / no-adoption consequence",
-]
-kind = "finding"
-id_column = 0
-status_profile = "finding"
-status_column = 1
-owner_column = 2
-
 # Plan50 keeps package, opportunity and inquiry state at its coordinator.
 # Companions own design/acceptance text and link these native rows.
 

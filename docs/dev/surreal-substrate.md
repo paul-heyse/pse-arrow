@@ -2,9 +2,10 @@
 
 The [current-work index](../plans/README.md) routes to active owners. Blueprint §20.5–§20.6,
 ADR-0214 and the maintainer-selected ADR-0187 target describe the substrate and sealed-payload
-contracts. [Plan49a](../plans/49a-surrealmx-canonical-store.md) owns the persistent MX1.0/gRPC
-implementation and acceptance. Earlier deployment results retain their original engine and
-transport conditions; they do not qualify this replacement.
+contracts. The persistent MX1.0/gRPC implementation and selected acceptance are described by
+[§20.6](../authoritative_design/sections/identity-and-publication.md#section-20-6) and
+[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
+Earlier deployment results retain their original engine and transport conditions.
 This page describes the local server operator surface implemented by
 `scripts/surreal_server.py`; its bounded controls do not qualify all scientific operations,
 remote deployment, returned physical disk space or physical power-loss survival.

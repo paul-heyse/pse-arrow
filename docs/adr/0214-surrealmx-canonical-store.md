@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-09]
 blueprint: [§3.3, §19.3, §20, §20.5, §20.6, §23.2]
-review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
+review: git:197616768b1b7abcbe67af2b5b8d42ab445b291b:docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -111,7 +111,7 @@ retained in Plan49a. **Tested, selected local Linux scope, 2026-10-21:** native 
 durability/fault controls, bounded gRPC peer/reconnect controls, lifecycle/guard controls,
 sixteen actual native owners, independent caller/worker continuation, new-data restore and
 Python result/study/interruption consumers. Exact commands, initial failures and affected
-reruns, static results and limits belong to the [Plan49 Outcome](../plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
+reruns, static results and limits belong to the [Plan49 Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
 No performance, hardware power-loss or whole-product qualification is inferred.
 **Interface-checked, RC22, 2026-10-22:** the tagged 3.3.4 module executor composes a read-only
 export with the current transaction and query timeout; SDK 0.6.4 supports the selected WASI
@@ -128,9 +128,9 @@ maintained narrow upstream patch and explicit resident/RPC capacity obligations.
 
 ## More information
 
-- [Plan49 decisions and status](../plans/49-library-native-remediation.md)
-- [Plan49a and tagged sources](../plans/49a-surrealmx-canonical-store.md)
-- [Recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md)
+- [Plan49 decisions and status](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md)
+- [Plan49a and tagged sources](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49a-surrealmx-canonical-store.md)
+- [Recommendation audit](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md)
 
 ## Status history
 

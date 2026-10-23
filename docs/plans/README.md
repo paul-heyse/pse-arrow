@@ -6,7 +6,7 @@ boundaries. Its [assembled Outcome](51g-qualification-and-publication.md#verific
 owns actual qualification, repaired failures and limits, including the mixed-concurrency Rust
 result and composed feature-check evidence. Enduring meaning lives in the architecture and
 operator guides. The highest-numbered coordinator and consumed companions/source review remain
-retained for qualification and proposed ADR readers; they authorize no new work. Plans32/40/49
+retained for qualification and proposed ADR readers; they authorize no new work. Plans32/40
 keep their independent remaining scope.
 
 [Plan50: Codex effectiveness and diagnostic tooling](50-codex-effectiveness-and-diagnostics.md)
@@ -15,39 +15,17 @@ is complete for all 32 packages and O01–O20 selected routes. Its
 composed acceptance, corrected zero-target checks and coverage limits. Enduring workflows live
 in the environment, substrate, diagnostic and qualification guides. Its
 coordinator and consumed companions/source review remain retained for qualification and proposed
-ADR readers; they authorize no new work. The native graph-work cap remains with Plan49g TOOL08;
-Plans32, 40 and 49 keep their independent scope and status.
+ADR readers; they authorize no new work. The delivered native graph-work contract lives in
+[§19.2](../authoritative_design/sections/workflows-and-results.md#section-19-2).
+Plans32 and 40 keep their independent scope and status.
 
-[Plan49: Library-native remediation and SurrealMX integration](49-library-native-remediation.md)
-is the series consuming the revised in-use-library review, recommendation audit
-and new SurrealDB/Symbolica capability assessment. Its coordinator owns DA-001–DA-032,
-F01–F10, R1–R22 routes, bounded inquiries and rule decisions; companions develop the
-selected target and implementation packages. SurrealMX 1.0 integration is explicitly
-selected; all rule decisions are recorded at the coordinator. The maintainer authorized full Plan49a execution with fresh generated data on 2026-10-21;
-STO01–STO08 are complete with a fresh active MX1.0/gRPC store and selected assembled
-qualification. The [store Outcome](49-library-native-remediation.md#outcome--plan49a-canonical-store)
-owns exact results and limits. The maintainer also authorized full 49b–49h execution;
-the coordinator owns remaining package progress and acceptance. The earlier [pause handoff](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21)
-owns the integrated checkpoint, completed checks, canceled native sweep, representative
-functional assessment and remaining obligations.
-The authorized [2026-10-22 remaining-scope review](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md)
-adds coordinated proposed operation/preparation/explanation changes. The coordinator's
-[current reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22)
-owns their routing, conditional rule decisions and dependency-ordered next work. This
-review/documentation engagement did not resume production execution or the canceled campaign.
-The maintainer subsequently authorized all remaining 49a–49c scope. Its
-[execution Outcome](49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22)
-owns completed Surrealism readiness, protected result selection and incremental resolved
-preparation acceptance, corrected failures and limits. PRE09 recommends no new configuration
-feature/Z3 binding; RC23 remains unselected. The completed [49d–49e Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22)
-owns constructor/projection, explicit fitting policies, runtime/native and selected assembled
-acceptance, including final sixteen-owner lifecycle/publication controls and qualification limits.
-The coordinator retains independent 49f–49h scope. The
-[post-Plan51 reconciliation](49-library-native-remediation.md#plan51-overlap-reconciliation--2026-10-23)
-routes 49g's remaining behavioral acceptance/native graph-work bound and 49h's evidence reuse,
-affected new consumers and residual qualification. The plan revision does not resume production
-execution or repeat completed foundation work.
-Completed companions stay retained for active readers. The canceled native sweep remains closed.
+Plan49's selected library-native remediation scope is complete. Its
+[final Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23)
+records composed acceptance, original failures, corrected controls and exclusions. Enduring
+contracts and qualification live in the [architecture](../authoritative_design/README.md),
+including [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
+Completed plans and resolved reviews retired to Git history; they authorize no new work.
+The canceled native sweep remains closed. Plans28/32/40 keep their independent scope.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the

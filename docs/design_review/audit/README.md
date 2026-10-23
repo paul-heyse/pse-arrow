@@ -204,7 +204,7 @@ without reproducing its progress. Existing source-review finding IDs and evidenc
 their original meanings and dates.
 
 Consuming reviews:
-- [In-use-library remediation review](../reviews/design_review_in-use-library-remediation_2026-10-21.md),
+- [In-use-library remediation review](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md),
   2026-10-21. It consumed this account at publication `0530dcaa1` and owns the proposed
   corrections and each finding's review disposition.
 

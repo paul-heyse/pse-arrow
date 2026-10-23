@@ -301,8 +301,8 @@ Pure controls, native-local solver/ownership checks and selected live-store tran
 should be qualified at representative scale. Page-boundary and race controls retain their
 actual boundary and relevant orderings; full deployment/capacity journeys remain explicitly
 selected scope. Report exclusions and interrupted cases rather than treating a smaller
-selection as full qualification. Plan49's current [qualification approach](../plans/49h-qualification-and-design-publication.md#representative-functional-checks)
-records the selected fixture corrections and evidence limits.
+selection as full qualification. Plan49's historical [qualification Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23)
+records its selected fixture corrections and evidence limits.
 
 ## Individual commands
 

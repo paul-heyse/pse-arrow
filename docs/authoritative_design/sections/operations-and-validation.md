@@ -863,7 +863,7 @@ claimed. Environment/provenance proof remains permanently eliminated. Other plan
 their independent scope and status.
 
 Selected Plan49a canonical-store acceptance of 2026-10-21 belongs to the
-[Plan49 store Outcome](../../plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
+[Plan49 store Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
 **Implemented and Tested, selected scope:** source-built SurrealDB 3.3.4 with exact
 SurrealMX 1.0.0, explicit SSI and synchronous persistent AOL, the single bounded gRPC path,
 registry-generated physical lifecycle/refusals and native record/graph access operate through
@@ -892,7 +892,7 @@ release/distribution qualification is established. The historical full basis and
 Plan28/32/40 campaigns, other Plan49 packages and their proposed decisions retain their scope.
 
 Selected remaining Plan49a–49c acceptance of 2026-10-22 belongs to the
-[remaining-scope Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22).
+[remaining-scope Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--remaining-49a49c-2026-10-22).
 **Implemented and Tested, selected scope:** the same Rust study policy runs read-only through
 Surrealism inside bounded native readiness transactions, with complete output admission before
 writes and immutable original intent settlement. External scope/apply is retired. Actual-server
@@ -932,7 +932,7 @@ canceled native sweep, broader model-library/parity campaigns or independent pla
 ADR-0214/0215 remain formally proposed; older unknown creation effects remain unresolved.
 
 Selected remaining Plan49d–49e acceptance of 2026-10-22 belongs to the
-[math/runtime Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22).
+[math/runtime Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22).
 **Implemented and Tested, selected scope:** demanded library regions compose all five local
 derivative products across provider, branch and intermediate boundaries. Interpreted/C++ controls
 retain guards, canonical inputs and independent analytical/action checks. Actual library AST,
@@ -989,7 +989,7 @@ campaign, establish confidentiality or a speed/capacity benefit, or close Plan32
 Proposed ADR-0216–0220 formal decision status is unchanged.
 
 Selected remaining Plan49 scientific-boundary, tooling and qualification acceptance of
-2026-10-23 belongs to the [final Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+2026-10-23 belongs to the [final Outcome](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
 The linked force-validated Rust selection initially passed 70 of 73 controls; two numeric
 EXPLAIN-limit assertions and a dense-fixture operation identity failed. After the literal-cap
 and fixture repairs, all three affected live controls plus six pure graph controls passed.

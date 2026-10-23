@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-07, DP-09, PS-01, PS-07, PS-09, PS-10]
 blueprint: [§5.3, §7.1, §14.3, §14.3.2, §14.4, §16.2, §18.1, §18.8, §19.2, §19.3, §19.4, §19.8, §20.6, §21.1, §23.1]
-review: docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
+review: git:197616768b1b7abcbe67af2b5b8d42ab445b291b:docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -124,9 +124,9 @@ coordinated representation/boundary migration and explicit native lifetime accou
 
 ## More information
 
-- [Plan49 target, decisions and status](../plans/49-library-native-remediation.md)
-- [Integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
-- [Recommendation audit](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md)
+- [Plan49 target, decisions and status](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md)
+- [Integrated review](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
+- [Recommendation audit](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md)
 
 ## Status history
 

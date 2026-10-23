@@ -11,15 +11,11 @@ current_work = [
   "plans/28*.md",
   "plans/32-workspace-content-lifecycle.md",
   "plans/40*.md",
-  "plans/49-*.md",
-  "plans/49[b-h]-*.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",
   "design_review/design_principles/standard.toml",
   "design_review/evidence/execution-performance-recommendations-audit-2026-10-20/retained-observations.json",
-  "design_review/evidence/in-use-library-remediation-2026-10-21/recommendation-audit/identity-hook-probe.py",
-  "design_review/evidence/in-use-library-remediation-2026-10-21/recommendation-audit/identity-hook-probe.txt",
 ]
 asset_bundles = [
   "agent-effectiveness-enhancements-2026-10-09",
