@@ -432,12 +432,14 @@ impl ModelingPackage {
         if !delta.fits.additions.is_empty() || !delta.fits.replacements.is_empty() || !delta.fits.removals.is_empty() {
             affected.extend(documents.keys());
         }
+        let fit_payload = serde_json::to_vec(&fits).map_err(|error|contract(format!("composed fit payload: {error}")))?;
         let mut owners = Vec::new();
         let mut source_fits = Vec::new();
         for source in sources {
             if source.physical.key != self.physical.key { return Err(contract("composed source physical context differs")); }
             owners.push(source.delta_parent(cancel).await?);
-            source_fits.push(source.fit_declarations().await?.fits.iter().cloned().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>());
+            let rows=source.fit_declarations().await?.fits.iter().cloned().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>();
+            source_fits.push(serde_json::to_vec(&rows).map_err(|error|contract(format!("admitted fit payload: {error}")))?);
         }
         let mut proof = AdmittedDocumentComposition { documents:BTreeMap::new(),fields:BTreeMap::new(),origins:BTreeMap::new(),_owners:Vec::new() };
         let mut notes = Vec::new();
@@ -447,7 +449,7 @@ impl ModelingPackage {
             let Some(document) = documents.get(&id) else { continue; };
             if document.source_text.is_none() { continue; }
             let selected = owners.iter().zip(&source_fits).find(|(owner,owner_fits)| {
-                owner.documents.get(&id) == Some(document) && **owner_fits == fits && {
+                owner.documents.get(&id) == Some(document) && **owner_fits == fit_payload && {
                     let expected = owner.rows.iter().filter(|row|row.document_id==id).map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
                     let actual = rows.values().filter(|row|row.document_id==id).map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
                     expected.len()==actual.len() && expected.iter().all(|(key,row)|actual.get(key).is_some_and(|actual|same_declaration_meaning(row,actual)))
