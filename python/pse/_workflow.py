@@ -481,6 +481,10 @@ class Runtime:
         """Read original immutable metadata, including tombstones and hidden projects."""
         return self._handle.project_context_record(key)
 
+    def project_context_reopen(self, selection: ContextSelection) -> ModelingPackage:
+        """Reopen original persisted source and physical closures without supplied documents."""
+        return ModelingPackage(self._handle.project_context_reopen(selection))
+
     def project_context_package(
         self, selection: ContextSelection, physical: PhysicalContext
     ) -> ModelingPackage:

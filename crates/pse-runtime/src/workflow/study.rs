@@ -437,48 +437,19 @@ impl Runtime {
         local: &LocalStudy,
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
-        let documents = local.package.physical.documents.as_ref().ok_or_else(|| {
-            contract("study recording requires exact admitted physical document bytes")
-        })?;
+        let sources = self.physical_source_documents(&local.package.physical)?;
         let operations = self.operations()?;
         self.canonical_store()?;
         creation_checkpoint(cancel)?;
         local.science.validate_roles()?;
-        let extent = documents
-            .bundles()
-            .iter()
-            .flat_map(|bundle| &bundle.documents)
-            .try_fold(0usize, |total, document| {
-                total
-                    .checked_add(document.bytes().len())
-                    .and_then(|n| n.checked_add(document.path.len() + 256))
-            })
-            .ok_or_else(|| contract("study physical document extent"))?;
-        let _owner = self
-            .shared
-            .math()
-            .reserve("study:physical-recording", extent)?;
-        let mut sources = BTreeMap::new();
-        for document in documents
-            .bundles()
-            .iter()
-            .flat_map(|bundle| &bundle.documents)
-        {
-            if sources
-                .insert(document.path.clone(), document.bytes().to_vec())
-                .is_some()
-            {
-                return Err(contract("study physical document path is ambiguous"));
-            }
-        }
-        if sources.is_empty() {
-            return Err(contract("study recording requires physical document bytes"));
-        }
         let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let revision = local.package.record_study_source(self, cancel).await?;
                 let physical = creation_effect(cancel, operations.put_sources(&sources)).await?;
+                if local.package.project_context.as_ref().is_some_and(|selected| selected.context.physical_revision != physical.revision || selected.context.physical_source_identity != physical.identity.to_string()) {
+                    return Err(contract("historical study physical source differs from frozen original closure"));
+                }
                 let mut science = local.science.clone();
                 science.modeling_revision = revision;
                 if let Some(lazy) = &mut science.variants {
@@ -547,6 +518,9 @@ impl Runtime {
                 creation_checkpoint(cancel)?;
                 let operations = self.study_creation_operations()?;
                 definition.validate_roles()?;
+                if definition.context.as_ref().is_some_and(|selected| selected.context.physical_revision != definition.physical.revision || selected.context.physical_source_identity != definition.physical.identity.to_string()) {
+                    return Err(contract("recorded study physical source differs from frozen context"));
+                }
                 if definition.point_count() == 0 || definition.point_count() > MAXIMUM_STUDY_POINTS
                 {
                     return Err(contract("bounded admitted study extent"));
