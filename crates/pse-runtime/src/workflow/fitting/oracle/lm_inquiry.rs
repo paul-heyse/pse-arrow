@@ -1699,6 +1699,9 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert_eq!(exported.len(),2);
     for c in &exported{let expected=if c.parameter_id==id(1){3.}else{2.};assert!((c.value-expected).abs()<1e-7);}
     let run=handle.canonical_run_key().unwrap().to_owned();let attempt=handle.canonical_attempt_key().unwrap().to_owned();
+    let header=store.canonical_run(&run).await.unwrap().unwrap();
+    assert_eq!(header.research_selection.as_deref(),Some("selection-v1"));
+    assert_eq!(header.research_dataset.as_deref(),Some("calibrated-v1"));
     drop(result);drop(handle);drop(prepared);
     let mut reopened=runtime.results(&run,&attempt,"runtime.fitted_parameter_cells",0,u64::MAX,cancel.token()).await.unwrap();
     let mut actual=vec![];while let Some(batch)=reopened.next_relation_batch().await.unwrap(){actual.extend(cells::Row::rows(&batch).unwrap());}
