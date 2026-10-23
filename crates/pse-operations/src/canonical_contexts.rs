@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Immutable project engineering contexts and exact, authority-bound recorded cuts.
 use crate::{canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query, REQUEST_TIMEOUT}, canonical::transport::{original_deadline,within_clock}, canonical_codec as codec, generated::surreal as wire};
-use surrealdb::types::{Object, Value};
+use surrealdb::types::Object;
 pub use pse_model::generated::runtime::canonical_project_contexts::Row as ProjectContext;
 /// Exact project journal position; never a source revision sequence or wall clock.
 #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
