@@ -3680,7 +3680,7 @@ fn decode_run_summary(mut row: Object) -> Result<RunSummary, CanonicalError> {
 
 // Compact discoverability is projected only from the current exact original source
 // receipt. It never grants payload lifetime or infers scientific qualification.
-#[derive(Deserialize)]
+#[derive(Deserialize,PartialEq,Eq)]
 #[serde(deny_unknown_fields)]
 struct ResearchInputSource {
     issuing_store:String,
@@ -3690,7 +3690,7 @@ struct ResearchInputSource {
     physical_context:String,
     publication:Option<String>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize,PartialEq,Eq)]
 #[serde(deny_unknown_fields)]
 struct ResearchOperationSource {
     research:Option<ResearchInputSource>,
@@ -3717,10 +3717,12 @@ fn projected_research_input(request:&RunRequest)->Result<(Option<String>,Option<
     }
     if !array.get(2).is_some_and(serde_json::Value::is_string){return Ok((None,None));}
     let (_version,_identity,physical,_provenance,sources):(u8,serde_json::Value,pse_ids::ContentHash,serde_json::Value,Vec<ResearchOperationSource>)=serde_json::from_value(value).map_err(|e|CanonicalError::Configuration(format!("original scientific source selection: {e}")))?;
-    let selected=sources.iter().filter(|s|s.research.is_some()).collect::<Vec<_>>();
-    if selected.is_empty(){return Ok((None,None));}
-    if sources.len()!=1||selected.len()!=1{return Err(CanonicalError::Configuration("research run projection requires one exact original source".into()));}
-    let source=selected[0];let research=source.research.as_ref().ok_or(CanonicalError::IncompleteResponse)?;
+    let mut unique=Vec::new();
+    for source in &sources {if !unique.contains(&source){unique.push(source);}}
+    // One compact column cannot represent a mixed input population. Preserve the
+    // actual execution and complete original receipt with explicit absent metadata.
+    if unique.len()!=1{return Ok((None,None));}
+    let source=unique[0];let Some(research)=source.research.as_ref() else{return Ok((None,None));};
     for key in [&research.issuing_store,&research.selection,&research.dataset,&research.revision,&research.physical_context]{identity(key)?;}
     if research.revision!=request.revision.key||source.physical_context!=physical||research.physical_context!=physical.to_string(){return Err(CanonicalError::Configuration("research source receipt revision or physical meaning differs".into()));}
     if let Some(publication)=&research.publication {if publication!=&research.revision{return Err(CanonicalError::Configuration("research publication source differs".into()));}}
@@ -5776,6 +5778,21 @@ mod research_projection_tests {
         request.source_selection=serde_json::to_vec(&(3u8,"published",serde_json::json!({"revision":"physical","identity":physical}),serde_json::Value::Null,serde_json::json!({"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}))).unwrap();
         assert_eq!(projected_research_input(&request).unwrap(),(Some("selected".into()),Some("data-v1".into())));
         request.sources.clear();assert!(projected_research_input(&request).is_err());
+    }
+
+    #[test]
+    fn research_projection_deduplicates_repeated_inputs_and_preserves_mixed_executions(){
+        let mut request=request();
+        let mut value:serde_json::Value=serde_json::from_slice(&request.source_selection).unwrap();
+        let repeated=value[4][0].clone();value[4].as_array_mut().unwrap().push(repeated);
+        request.source_selection=serde_json::to_vec(&value).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(),(Some("selected".into()),Some("data-v1".into())));
+        value[4][1]["research"]=serde_json::Value::Null;
+        request.source_selection=serde_json::to_vec(&value).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(),(None,None));
+        value[4][1]=value[4][0].clone();value[4][1]["research"]["selection"]=serde_json::json!("different-selection");
+        request.source_selection=serde_json::to_vec(&value).unwrap();
+        assert_eq!(projected_research_input(&request).unwrap(),(None,None));
     }
 
 }
