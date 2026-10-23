@@ -39,6 +39,9 @@ from pse.contracts.documents import (
     ArtifactIntent,
     BackendSettings,
     ConicRequest,
+    ContextCut,
+    ContextSelection,
+    ProjectContext,
     DiagnosticExecutionDocumentOutput,
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
@@ -462,6 +465,54 @@ class Runtime:
                 [dict(bundle) for bundle in documents],
                 physical._handle,  # noqa: SLF001 - same native boundary
             )
+        )
+
+    def project_context_cut(self, project: str) -> ContextCut:
+        """Capture the project's recorded context position, independent of source sequence."""
+        return self._handle.project_context_cut(project)
+
+    def project_context_select(
+        self, cut: ContextCut, scope: str, effective_at_us: int
+    ) -> ContextSelection | None:
+        """Select at an explicit UTC microsecond instant and original recorded cut."""
+        return self._handle.project_context_select(cut, scope, effective_at_us)
+
+    def project_context_record(self, key: str) -> ProjectContext | None:
+        """Read original immutable metadata, including tombstones and hidden projects."""
+        return self._handle.project_context_record(key)
+
+    def project_context_package(
+        self, selection: ContextSelection, physical: PhysicalContext
+    ) -> ModelingPackage:
+        """Load this exact selection through ordinary source admission; never select latest."""
+        return ModelingPackage(
+            self._handle.project_context_package(
+                selection, physical._handle  # noqa: SLF001 - same native boundary
+            )
+        )
+
+    def project_context_append(
+        self,
+        operation: str,
+        project: ProjectRecord,
+        scope: str,
+        source: ModelingPackage,
+        effective_from_us: int,
+        *,
+        effective_to_us: int | None = None,
+        corrects: str | None = None,
+        deleted: bool = False,
+    ) -> ProjectContext:
+        """Append an exact source reference with UTC half-open interval and correction ancestry.
+
+        Retain the original project descriptor and operation through uncertain completion.
+        Scientific values remain in the admitted source, not this context record.
+        """
+        return self._handle.project_context_append(
+            operation, project, scope,
+            source._handle,  # noqa: SLF001 - same native boundary
+            effective_from_us, effective_to_us=effective_to_us,
+            corrects=corrects, deleted=deleted,
         )
 
     def project_create(
