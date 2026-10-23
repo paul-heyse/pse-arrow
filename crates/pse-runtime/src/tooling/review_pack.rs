@@ -1626,42 +1626,7 @@ fn validate_encoding(
         }
     }
     if member.selection.format == PackFormat::ArrowIpcStream {
-        if member.readable_bytes < 8 {
-            return Err(invalid("short IPC stream"));
-        }
-        file.seek(SeekFrom::Start(member.readable_bytes - 8))?;
-        let mut end = [0_u8; 8];
-        file.read_exact(&mut end)?;
-        if end != [255, 255, 255, 255, 0, 0, 0, 0] {
-            return Err(invalid("IPC stream lacks finalized end marker"));
-        }
-        file.seek(SeekFrom::Start(0))?;
-        let mut start = [0_u8; 6];
-        file.read_exact(&mut start)?;
-        if &start == b"ARROW1" {
-            return Err(invalid("IPC file supplied as IPC stream"));
-        }
-        file.seek(SeekFrom::Start(0))?;
-        let mut header = [0_u8; 8];
-        file.read_exact(&mut header)?;
-        if header[..4] != [255, 255, 255, 255] {
-            return Err(invalid("IPC stream lacks the selected continuation format"));
-        }
-        let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
-        if length == 0
-            || length > maximum_document_bytes
-            || length as u64 > member.readable_bytes.saturating_sub(8)
-        {
-            return Err(invalid("IPC schema metadata exceeds finite read allowance"));
-        }
-        file.seek(SeekFrom::Start(0))?;
-        let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-            file.take(length as u64 + 8),
-            None,
-        )
-        .map_err(|e| invalid(e.to_string()))?;
-        let schema = stream.schema();
-        let metadata = schema.metadata();
+        let schema = finalized_ipc_schema(file,member.readable_bytes,maximum_document_bytes)?;
         if let Some(table) = &member.selection.diagnostic_table {
             let registry = pse_schema::registry().map_err(|e| invalid(e.to_string()))?;
             let relation = registry
@@ -1687,54 +1652,104 @@ fn validate_encoding(
             .result
             .as_ref()
             .ok_or_else(|| invalid("IPC stream lacks declared scientific lineage"))?;
+        validate_scientific_lineage(schema.as_ref(),result)?;
+    }
+    Ok(())
+}
+
+/// Validate only the bounded IPC schema header, terminal marker and exact original scientific lineage.
+/// Record batches remain streamed by their consumer; this never materializes their arrays.
+pub(crate) fn validate_scientific_ipc(file:File,readable_bytes:u64,maximum_document_bytes:usize,result:&PackResultSelection)->Result<(),PackError> {
+    let schema=finalized_ipc_schema(file,readable_bytes,maximum_document_bytes)?;
+    validate_scientific_lineage(schema.as_ref(),result)
+}
+fn finalized_ipc_schema(mut file:File,readable_bytes:u64,maximum_document_bytes:usize)->Result<datafusion::arrow::datatypes::SchemaRef,PackError> {
+    if readable_bytes < 8 {
+        return Err(invalid("short IPC stream"));
+    }
+    file.seek(SeekFrom::Start(readable_bytes - 8))?;
+    let mut end = [0_u8; 8];
+    file.read_exact(&mut end)?;
+    if end != [255, 255, 255, 255, 0, 0, 0, 0] {
+        return Err(invalid("IPC stream lacks finalized end marker"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let mut start = [0_u8; 6];
+    file.read_exact(&mut start)?;
+    if &start == b"ARROW1" {
+        return Err(invalid("IPC file supplied as IPC stream"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let mut header = [0_u8; 8];
+    file.read_exact(&mut header)?;
+    if header[..4] != [255, 255, 255, 255] {
+        return Err(invalid("IPC stream lacks the selected continuation format"));
+    }
+    let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+    if length == 0
+        || length > maximum_document_bytes
+        || length as u64 > readable_bytes.saturating_sub(8)
+    {
+        return Err(invalid("IPC schema metadata exceeds finite read allowance"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+        file.take(length as u64 + 8),
+        None,
+    )
+    .map_err(|e| invalid(e.to_string()))?;
+    Ok(stream.schema())
+}
+fn validate_scientific_lineage(schema:&datafusion::arrow::datatypes::Schema,result:&PackResultSelection)->Result<(),PackError> {
+    if result.schema_version==0 || result.row_start>result.row_end || result.run.is_empty() || result.attempt.is_empty() || result.relation.is_empty() {return Err(invalid("invalid selected scientific coordinates"));}
+    let metadata=schema.metadata();
+    for (key, expected) in [
+        ("pse.canonical.run", result.run.clone()),
+        ("pse.canonical.attempt", result.attempt.clone()),
+        ("pse.canonical.relation", result.relation.clone()),
+        (
+            "pse.canonical.relation-version",
+            result.schema_version.to_string(),
+        ),
+        ("pse.canonical.row-start", result.row_start.to_string()),
+        ("pse.canonical.row-end", result.row_end.to_string()),
+        (
+            "pse.canonical.terminal-class",
+            result.terminal_class.clone(),
+        ),
+    ] {
+        if metadata.get(key) != Some(&expected) {
+            return Err(invalid(format!("IPC lineage differs from selected {key}")));
+        }
+    }
+    if metadata.get("pse.canonical.field") != result.field.as_ref() {
+        return Err(invalid("IPC field differs from selected field"));
+    }
+    if let Some(predicate) = &result.predicate {
         for (key, expected) in [
-            ("pse.canonical.run", result.run.clone()),
-            ("pse.canonical.attempt", result.attempt.clone()),
-            ("pse.canonical.relation", result.relation.clone()),
+            ("pse.canonical.output", Some(predicate.output.clone())),
+            ("pse.canonical.partition", Some(predicate.partition.clone())),
             (
-                "pse.canonical.relation-version",
-                result.schema_version.to_string(),
+                "pse.canonical.minimum-bits",
+                predicate.minimum_bits.map(|v| v.to_string()),
             ),
-            ("pse.canonical.row-start", result.row_start.to_string()),
-            ("pse.canonical.row-end", result.row_end.to_string()),
             (
-                "pse.canonical.terminal-class",
-                result.terminal_class.clone(),
+                "pse.canonical.maximum-bits",
+                predicate.maximum_bits.map(|v| v.to_string()),
+            ),
+            (
+                "pse.canonical.missing",
+                predicate.missing.map(|v| v.to_string()),
             ),
         ] {
-            if metadata.get(key) != Some(&expected) {
-                return Err(invalid(format!("IPC lineage differs from selected {key}")));
+            if metadata.get(key) != expected.as_ref() {
+                return Err(invalid(
+                    "IPC selected predicate differs from declared predicate",
+                ));
             }
         }
-        if metadata.get("pse.canonical.field") != result.field.as_ref() {
-            return Err(invalid("IPC field differs from selected field"));
-        }
-        if let Some(predicate) = &result.predicate {
-            for (key, expected) in [
-                ("pse.canonical.output", Some(predicate.output.clone())),
-                ("pse.canonical.partition", Some(predicate.partition.clone())),
-                (
-                    "pse.canonical.minimum-bits",
-                    predicate.minimum_bits.map(|v| v.to_string()),
-                ),
-                (
-                    "pse.canonical.maximum-bits",
-                    predicate.maximum_bits.map(|v| v.to_string()),
-                ),
-                (
-                    "pse.canonical.missing",
-                    predicate.missing.map(|v| v.to_string()),
-                ),
-            ] {
-                if metadata.get(key) != expected.as_ref() {
-                    return Err(invalid(
-                        "IPC selected predicate differs from declared predicate",
-                    ));
-                }
-            }
-        } else if metadata.contains_key("pse.canonical.output") {
-            return Err(invalid("undeclared IPC output predicate"));
-        }
+    } else if metadata.contains_key("pse.canonical.output") {
+        return Err(invalid("undeclared IPC output predicate"));
     }
     Ok(())
 }
