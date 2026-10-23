@@ -1174,3 +1174,9 @@ pub use result_selection::{PackResultPredicate, PackResultSelection, PackScienti
 
 #[cfg(test)]
 mod observation_inquiry_tests;
+
+mod study_workbench;
+pub use study_workbench::{StudyWorkbenchFilter,StudyWorkbenchHeader,StudyCohortMember,StudyWorkbenchCursor,StudyWorkbenchRequest,StudyWorkbenchPage,StudyCohortRequest,StudyCohortDocument,FrozenStudyCohort,StudyKpiRequest,StudyKpiAnalysis};
+
+mod study_observation;
+pub use study_observation::{StudyObservationRequest,StudyObservationContext,StudyObservationPosition,StudyObservationCursor,StudyObservationContinuity,StudyObservedSource,StudyObservationPage,StudyObserver};
