@@ -82,7 +82,7 @@ pub enum StudyInputs {
     /// Explicit operation points admitted at the input boundary.
     Explicit(Vec<StudyPoint>),
     /// Structural variants admitted only when their selected occurrence becomes ready.
-    Lazy(StudyVariants),
+    Lazy(Box<StudyVariants>),
 }
 /// Frozen lazy input and its common output demand, retained once per study.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

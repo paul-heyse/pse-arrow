@@ -1688,14 +1688,14 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         };
         definition = package
             .admit_study(
-                &StudyInputs::Lazy(StudyVariants {
+                &StudyInputs::Lazy(Box::new(StudyVariants {
                     version: pse_model::document::Version,
                     source: OperationSource::of(&package),
                     choices: vec![SourceChoice {
                         alternatives: vec![alternative.clone(), alternative],
                     }],
                     selected,
-                }),
+                })),
                 &StudyOutputDemand::Full {},
                 &cancel,
             )
@@ -2346,7 +2346,7 @@ async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_
     };
     let local = package
         .admit_study(
-            &StudyInputs::Lazy(StudyVariants {
+            &StudyInputs::Lazy(Box::new(StudyVariants {
                 version: pse_model::document::Version,
                 source: OperationSource::of(&package),
                 choices: vec![SourceChoice {
@@ -2362,7 +2362,7 @@ async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_
                     ordinal: 0,
                     point: requested,
                 }],
-            }),
+            })),
             &StudyOutputDemand::Full {},
             &crate::CancelSource::new(),
         )
@@ -5398,7 +5398,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let before = runtime.shared.math().preparations().views;
     let definition = package
         .admit_study(
-            &StudyInputs::Lazy(variants),
+            &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
         )
@@ -5571,7 +5571,7 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
     let cancel = crate::CancelSource::new();
     let definition = package
         .admit_study(
-            &StudyInputs::Lazy(variants),
+            &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
         )

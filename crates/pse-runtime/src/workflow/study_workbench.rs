@@ -330,18 +330,17 @@ impl FrozenStudyCohort {
     }
 }
 fn compatible(headers: &[StudyWorkbenchHeader]) -> Result<(), WorkflowError> {
-    if let Some(first) = headers.first() {
-        if first.physical_revision.is_none()
+    if let Some(first) = headers.first()
+        && (first.physical_revision.is_none()
             || first.physical_identity.is_none()
             || headers.iter().any(|h| {
                 h.physical_revision != first.physical_revision
                     || h.physical_identity != first.physical_identity
-            })
-        {
-            return Err(contract(
-                "KPI source or physical meaning differs or is unavailable; select compatible exact sources or an admitted transform",
-            ));
-        }
+            }))
+    {
+        return Err(contract(
+            "KPI source or physical meaning differs or is unavailable; select compatible exact sources or an admitted transform",
+        ));
     }
     Ok(())
 }

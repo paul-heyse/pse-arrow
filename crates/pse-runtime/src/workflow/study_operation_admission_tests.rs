@@ -1181,7 +1181,7 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
     let before = package.runtime.shared.math().preparations().views;
     let local = package
         .admit_study(
-            &StudyInputs::Lazy(variants),
+            &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
         )

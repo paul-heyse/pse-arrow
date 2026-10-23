@@ -2678,7 +2678,7 @@ impl super::ModelingPackage {
                         creation_checkpoint(cancel)?;
                         output.validate(&package.runtime)?;
                         variants.check_parent(&package)?;
-                        let mut retained = variants.clone();
+                        let mut retained = variants.as_ref().clone();
                         retained.retain_parent(package.source_attribution());
                         AdmittedStudy {
                             modeling_revision: package.source_attribution().into(),
