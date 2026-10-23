@@ -16,6 +16,8 @@ pub struct RuntimeCanonicalProjectBranchesRow {
     pub r#project: String,
     ///problem
     pub r#problem: String,
+    ///name
+    pub r#name: String,
     ///origin_revision
     pub r#origin_revision: Option<String>,
     ///generation
@@ -26,6 +28,7 @@ impl crate::SemanticEq for RuntimeCanonicalProjectBranchesRow {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#project, &other.r#project)
             && crate::SemanticEq::semantic_eq(&self.r#problem, &other.r#problem)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(
                 &self.r#origin_revision,
                 &other.r#origin_revision,
@@ -47,6 +50,8 @@ impl crate::SemanticFrame for RuntimeCanonicalProjectBranchesRow {
         crate::SemanticFrame::frame(&self.r#project, hash);
         hash.str(stringify!(r#problem));
         crate::SemanticFrame::frame(&self.r#problem, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#origin_revision));
         crate::SemanticFrame::frame(&self.r#origin_revision, hash);
         hash.str(stringify!(r#generation));
@@ -59,6 +64,7 @@ impl crate::HeapUsage for RuntimeCanonicalProjectBranchesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#project))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#problem))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#origin_revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
     }

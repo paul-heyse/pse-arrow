@@ -31,6 +31,7 @@ mod normalization;
 mod operations;
 mod products;
 pub mod projects;
+pub mod project_contexts;
 mod row_checks;
 pub mod s14_passes;
 pub mod s4_schema;
@@ -100,6 +101,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     operations::declare(builder);
     substrate::declare(builder);
     projects::declare(builder);
+    project_contexts::declare(builder);
     evidence::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);

@@ -719,6 +719,42 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            143u8, 219u8, 52u8, 187u8, 111u8, 193u8, 226u8, 104u8, 61u8, 217u8, 2u8,
+            70u8, 224u8, 123u8, 74u8, 143u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalContextAncestry(
+                super::r#runtime::r#canonical_context_ancestry::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            232u8, 109u8, 92u8, 230u8, 234u8, 92u8, 22u8, 44u8, 214u8, 71u8, 31u8, 151u8,
+            51u8, 71u8, 47u8, 48u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalContextJournals(
+                super::r#runtime::r#canonical_context_journals::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            223u8, 68u8, 156u8, 244u8, 55u8, 18u8, 195u8, 194u8, 125u8, 91u8, 168u8,
+            55u8, 218u8, 212u8, 251u8, 236u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalDraftDiagnostics(
+                super::r#runtime::r#canonical_draft_diagnostics::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             196u8, 137u8, 125u8, 168u8, 96u8, 235u8, 48u8, 16u8, 241u8, 229u8, 144u8,
             15u8, 183u8, 204u8, 207u8, 41u8,
         ])
@@ -997,6 +1033,30 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            125u8, 145u8, 6u8, 231u8, 214u8, 131u8, 218u8, 56u8, 153u8, 134u8, 98u8,
+            39u8, 208u8, 143u8, 219u8, 211u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectAncestry(
+                super::r#runtime::r#canonical_project_ancestry::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            155u8, 216u8, 189u8, 245u8, 60u8, 237u8, 164u8, 102u8, 52u8, 189u8, 227u8,
+            246u8, 83u8, 169u8, 137u8, 132u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectBookmarks(
+                super::r#runtime::r#canonical_project_bookmarks::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             70u8, 233u8, 189u8, 170u8, 218u8, 202u8, 150u8, 13u8, 145u8, 162u8, 135u8,
             46u8, 247u8, 253u8, 197u8, 40u8,
         ])
@@ -1004,6 +1064,30 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectBranches(
                 super::r#runtime::r#canonical_project_branches::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            65u8, 30u8, 54u8, 229u8, 198u8, 73u8, 39u8, 249u8, 220u8, 142u8, 94u8, 224u8,
+            95u8, 56u8, 63u8, 126u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectContexts(
+                super::r#runtime::r#canonical_project_contexts::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            102u8, 155u8, 63u8, 10u8, 141u8, 149u8, 0u8, 30u8, 247u8, 185u8, 183u8,
+            162u8, 61u8, 149u8, 229u8, 231u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectDraftVersions(
+                super::r#runtime::r#canonical_project_draft_versions::Row::rows(batch)?,
             ),
         );
     }
@@ -1028,6 +1112,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectOperations(
                 super::r#runtime::r#canonical_project_operations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            138u8, 132u8, 154u8, 140u8, 42u8, 60u8, 203u8, 84u8, 228u8, 166u8, 235u8,
+            20u8, 190u8, 252u8, 12u8, 107u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectSavepoints(
+                super::r#runtime::r#canonical_project_savepoints::Row::rows(batch)?,
             ),
         );
     }
@@ -2363,6 +2459,15 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalBodyContents(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalContextAncestry(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalContextJournals(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalDraftDiagnostics(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalEdges(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -2432,13 +2537,28 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProducts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectAncestry(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectBookmarks(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectBranches(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectContexts(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectDraftVersions(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectDrafts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectOperations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjectSavepoints(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProjects(rows) => {

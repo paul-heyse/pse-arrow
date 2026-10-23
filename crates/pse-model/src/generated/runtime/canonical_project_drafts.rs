@@ -16,26 +16,21 @@ pub struct RuntimeCanonicalProjectDraftsRow {
     pub r#project: String,
     ///branch
     pub r#branch: String,
-    ///base_revision
-    pub r#base_revision: String,
     ///generation
     pub r#generation: u64,
-    ///content
-    pub r#content: crate::Bytes,
-    ///artifact
-    pub r#artifact: Option<String>,
+    ///version
+    pub r#version: String,
+    ///deleted
+    pub r#deleted: bool,
 }
 impl crate::SemanticEq for RuntimeCanonicalProjectDraftsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#project, &other.r#project)
             && crate::SemanticEq::semantic_eq(&self.r#branch, &other.r#branch)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#base_revision,
-                &other.r#base_revision,
-            ) && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
-            && crate::SemanticEq::semantic_eq(&self.r#content, &other.r#content)
-            && crate::SemanticEq::semantic_eq(&self.r#artifact, &other.r#artifact)
+            && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
+            && crate::SemanticEq::semantic_eq(&self.r#version, &other.r#version)
+            && crate::SemanticEq::semantic_eq(&self.r#deleted, &other.r#deleted)
     }
 }
 impl PartialEq for RuntimeCanonicalProjectDraftsRow {
@@ -53,14 +48,12 @@ impl crate::SemanticFrame for RuntimeCanonicalProjectDraftsRow {
         crate::SemanticFrame::frame(&self.r#project, hash);
         hash.str(stringify!(r#branch));
         crate::SemanticFrame::frame(&self.r#branch, hash);
-        hash.str(stringify!(r#base_revision));
-        crate::SemanticFrame::frame(&self.r#base_revision, hash);
         hash.str(stringify!(r#generation));
         crate::SemanticFrame::frame(&self.r#generation, hash);
-        hash.str(stringify!(r#content));
-        crate::SemanticFrame::frame(&self.r#content, hash);
-        hash.str(stringify!(r#artifact));
-        crate::SemanticFrame::frame(&self.r#artifact, hash);
+        hash.str(stringify!(r#version));
+        crate::SemanticFrame::frame(&self.r#version, hash);
+        hash.str(stringify!(r#deleted));
+        crate::SemanticFrame::frame(&self.r#deleted, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalProjectDraftsRow {
@@ -69,9 +62,8 @@ impl crate::HeapUsage for RuntimeCanonicalProjectDraftsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#project))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#branch))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#base_revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#content))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifact))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#version))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#deleted))
     }
 }

@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    72u8, 91u8, 120u8, 98u8, 31u8, 45u8, 26u8, 189u8, 191u8, 167u8, 94u8, 125u8, 4u8,
-    74u8, 162u8, 40u8, 105u8, 166u8, 103u8, 10u8, 167u8, 159u8, 169u8, 190u8, 55u8, 80u8,
-    87u8, 254u8, 108u8, 39u8, 206u8, 78u8,
+    211u8, 100u8, 135u8, 47u8, 128u8, 63u8, 195u8, 61u8, 79u8, 198u8, 113u8, 28u8, 135u8,
+    134u8, 50u8, 48u8, 31u8, 60u8, 165u8, 102u8, 40u8, 154u8, 109u8, 109u8, 8u8, 90u8,
+    20u8, 223u8, 41u8, 48u8, 68u8, 203u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProjectBranchesRow {
     fn append(
@@ -37,13 +37,14 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectBranchesRow {
         crate::columnar::ArrowValue::append(&self.r#key, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#project, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#problem, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#origin_revision,
-            children[3usize].as_mut(),
+            children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#generation,
-            children[4usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -58,10 +59,11 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectBranchesRow {
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -84,14 +86,18 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectBranchesRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#origin_revision: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
+            r#name: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#generation: <u64 as crate::columnar::ArrowValue>::read(
+            r#origin_revision: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#generation: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -153,13 +159,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectBranchesRow {
         crate::columnar::ArrowValue::append(&self.r#key, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#project, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#problem, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#origin_revision,
-            columns[3usize].as_mut(),
+            columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#generation,
-            columns[4usize].as_mut(),
+            columns[5usize].as_mut(),
         )?;
         Ok(())
     }
@@ -200,10 +207,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectBranchesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        10_240_usize + size_of::<Self::Builder>()
+        12_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        80usize
+        96usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -218,6 +225,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectBranchesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#problem).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#name).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -244,7 +255,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -262,13 +273,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "origin_revision",
+        name: "name",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "generation",
+        name: "origin_revision",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "generation",
+        position: 5usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -279,10 +295,12 @@ pub mod columns {
     pub const PROJECT: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///problem
     pub const PROBLEM: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///name
+    pub const NAME: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///origin_revision
-    pub const ORIGIN_REVISION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const ORIGIN_REVISION: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///generation
-    pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[5usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -293,6 +311,7 @@ pub struct RuntimeCanonicalProjectBranchesView<'a> {
     key_column: &'a arrow_array::StringArray,
     project_column: &'a arrow_array::StringArray,
     problem_column: &'a arrow_array::StringArray,
+    name_column: &'a arrow_array::StringArray,
     origin_revision_column: &'a arrow_array::StringArray,
     generation_column: &'a arrow_array::UInt64Array,
 }
@@ -348,12 +367,15 @@ impl<'a> RuntimeCanonicalProjectBranchesView<'a> {
             problem_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            origin_revision_column: crate::columnar::array::<
+            name_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
+            origin_revision_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
             generation_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -406,6 +428,18 @@ impl<'a> RuntimeCanonicalProjectBranchesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn name_column(&self) -> &'a arrow_array::StringArray {
+        self.name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "name", "`.")]
+    pub fn name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "origin_revision",
         "`, including its offsets and validity bitmap.",
     )]
@@ -414,7 +448,7 @@ impl<'a> RuntimeCanonicalProjectBranchesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "origin_revision", "`.")]
     pub fn origin_revision_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -426,7 +460,7 @@ impl<'a> RuntimeCanonicalProjectBranchesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "generation", "`.")]
     pub fn generation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -443,6 +477,7 @@ impl<'a> RuntimeCanonicalProjectBranchesView<'a> {
             r#key: crate::columnar::ArrowValue::read(self.key_column, index)?,
             r#project: crate::columnar::ArrowValue::read(self.project_column, index)?,
             r#problem: crate::columnar::ArrowValue::read(self.problem_column, index)?,
+            r#name: crate::columnar::ArrowValue::read(self.name_column, index)?,
             r#origin_revision: crate::columnar::ArrowValue::read(
                 self.origin_revision_column,
                 index,

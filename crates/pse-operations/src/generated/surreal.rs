@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "7def57d1b265cc468da2acbd7bbedfa0536a65e279eaa83b133959fc1358b4f3";
+pub const SCHEMA_DIGEST: &str = "e2d945b39fb8e2f504e88009c2598324635cd980e4608d7d33594341fac51bfa";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -1035,6 +1035,145 @@ pub fn decode_canonical_body_contents(
         crate::canonical_codec::check_record_identity(
             native_id,
             "canonical_body_contents",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_context_ancestry(
+    row: &pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "descendant",
+            crate::canonical_codec::encode_string(row.r#descendant.clone())?,
+        );
+    object
+        .insert(
+            "ancestor",
+            crate::canonical_codec::encode_string(row.r#ancestor.clone())?,
+        );
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_context_ancestry(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#descendant: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "descendant")?,
+        )?,
+        r#ancestor: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "ancestor")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_context_ancestry",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_context_journals(
+    row: &pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object.insert("sequence", crate::canonical_codec::encode_uint(row.r#sequence)?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_context_journals(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#sequence: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "sequence")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_context_journals",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_draft_diagnostics(
+    row: &pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "version",
+            crate::canonical_codec::encode_string(row.r#version.clone())?,
+        );
+    object
+        .insert(
+            "message",
+            crate::canonical_codec::encode_string(row.r#message.clone())?,
+        );
+    object.insert("admitted", crate::canonical_codec::encode_boolean(row.r#admitted)?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_draft_diagnostics(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#version: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "version")?,
+        )?,
+        r#message: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "message")?,
+        )?,
+        r#admitted: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "admitted")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_draft_diagnostics",
             &row.r#key,
         )?;
     }
@@ -2823,6 +2962,105 @@ pub fn decode_canonical_products(
     Ok(row)
 }
 ///Encode the registry row using native exact values.
+pub fn encode_canonical_project_ancestry(
+    row: &pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "revision",
+            crate::canonical_codec::encode_string(row.r#revision.clone())?,
+        );
+    object
+        .insert("parent", crate::canonical_codec::encode_string(row.r#parent.clone())?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_project_ancestry(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#revision: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "revision")?,
+        )?,
+        r#parent: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "parent")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_project_ancestry",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_project_bookmarks(
+    row: &pse_model::generated::runtime::canonical_project_bookmarks::RuntimeCanonicalProjectBookmarksRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "project",
+            crate::canonical_codec::encode_string(row.r#project.clone())?,
+        );
+    object
+        .insert(
+            "revision",
+            crate::canonical_codec::encode_string(row.r#revision.clone())?,
+        );
+    object.insert("name", crate::canonical_codec::encode_string(row.r#name.clone())?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_project_bookmarks(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_project_bookmarks::RuntimeCanonicalProjectBookmarksRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_project_bookmarks::RuntimeCanonicalProjectBookmarksRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#project: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "project")?,
+        )?,
+        r#revision: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "revision")?,
+        )?,
+        r#name: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "name")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_project_bookmarks",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
 pub fn encode_canonical_project_branches(
     row: &pse_model::generated::runtime::canonical_project_branches::RuntimeCanonicalProjectBranchesRow,
 ) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
@@ -2838,6 +3076,7 @@ pub fn encode_canonical_project_branches(
             "problem",
             crate::canonical_codec::encode_string(row.r#problem.clone())?,
         );
+    object.insert("name", crate::canonical_codec::encode_string(row.r#name.clone())?);
     if let Some(value) = &row.r#origin_revision {
         object
             .insert(
@@ -2866,6 +3105,9 @@ pub fn decode_canonical_project_branches(
         r#problem: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "problem")?,
         )?,
+        r#name: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "name")?,
+        )?,
         r#origin_revision: match object.remove("origin_revision") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_string(value)?),
@@ -2887,11 +3129,120 @@ pub fn decode_canonical_project_branches(
     Ok(row)
 }
 ///Encode the registry row using native exact values.
-pub fn encode_canonical_project_drafts(
-    row: &pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+pub fn encode_canonical_project_contexts(
+    row: &pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow,
 ) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
     let mut object = surrealdb::types::Object::new();
     object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "project",
+            crate::canonical_codec::encode_string(row.r#project.clone())?,
+        );
+    object.insert("scope", crate::canonical_codec::encode_string(row.r#scope.clone())?);
+    object
+        .insert(
+            "revision",
+            crate::canonical_codec::encode_string(row.r#revision.clone())?,
+        );
+    object
+        .insert(
+            "source_identity",
+            crate::canonical_codec::encode_string(row.r#source_identity.clone())?,
+        );
+    object
+        .insert(
+            "physical_context",
+            crate::canonical_codec::encode_string(row.r#physical_context.clone())?,
+        );
+    object
+        .insert(
+            "effective_from_us",
+            crate::canonical_codec::encode_int(row.r#effective_from_us)?,
+        );
+    if let Some(value) = &row.r#effective_to_us {
+        object.insert("effective_to_us", crate::canonical_codec::encode_int(*value)?);
+    }
+    object
+        .insert(
+            "recorded_sequence",
+            crate::canonical_codec::encode_uint(row.r#recorded_sequence)?,
+        );
+    if let Some(value) = &row.r#corrects {
+        object.insert("corrects", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    object.insert("deleted", crate::canonical_codec::encode_boolean(row.r#deleted)?);
+    object
+        .insert("request", crate::canonical_codec::encode_bytes(row.r#request.clone())?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_project_contexts(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#project: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "project")?,
+        )?,
+        r#scope: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "scope")?,
+        )?,
+        r#revision: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "revision")?,
+        )?,
+        r#source_identity: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "source_identity")?,
+        )?,
+        r#physical_context: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "physical_context")?,
+        )?,
+        r#effective_from_us: crate::canonical_codec::decode_int(
+            crate::canonical_codec::required(&mut object, "effective_from_us")?,
+        )?,
+        r#effective_to_us: match object.remove("effective_to_us") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_int(value)?),
+        },
+        r#recorded_sequence: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "recorded_sequence")?,
+        )?,
+        r#corrects: match object.remove("corrects") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#deleted: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "deleted")?,
+        )?,
+        r#request: crate::canonical_codec::decode_bytes(
+            crate::canonical_codec::required(&mut object, "request")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_project_contexts",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_project_draft_versions(
+    row: &pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object.insert("draft", crate::canonical_codec::encode_string(row.r#draft.clone())?);
     object
         .insert(
             "project",
@@ -2913,16 +3264,19 @@ pub fn encode_canonical_project_drafts(
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
-pub fn decode_canonical_project_drafts(
+pub fn decode_canonical_project_draft_versions(
     mut object: surrealdb::types::Object,
 ) -> Result<
-    pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+    pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow,
     crate::canonical_codec::CodecError,
 > {
     let native_id = object.remove("id");
-    let row = pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow {
+    let row = pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow {
         r#key: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#draft: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "draft")?,
         )?,
         r#project: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "project")?,
@@ -2943,6 +3297,68 @@ pub fn decode_canonical_project_drafts(
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_string(value)?),
         },
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_project_draft_versions",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_project_drafts(
+    row: &pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "project",
+            crate::canonical_codec::encode_string(row.r#project.clone())?,
+        );
+    object
+        .insert("branch", crate::canonical_codec::encode_string(row.r#branch.clone())?);
+    object.insert("generation", crate::canonical_codec::encode_uint(row.r#generation)?);
+    object
+        .insert(
+            "version",
+            crate::canonical_codec::encode_string(row.r#version.clone())?,
+        );
+    object.insert("deleted", crate::canonical_codec::encode_boolean(row.r#deleted)?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_project_drafts(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#project: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "project")?,
+        )?,
+        r#branch: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "branch")?,
+        )?,
+        r#generation: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "generation")?,
+        )?,
+        r#version: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "version")?,
+        )?,
+        r#deleted: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "deleted")?,
+        )?,
     };
     if let Some(native_id) = native_id {
         crate::canonical_codec::check_record_identity(
@@ -3025,12 +3441,74 @@ pub fn decode_canonical_project_operations(
     Ok(row)
 }
 ///Encode the registry row using native exact values.
+pub fn encode_canonical_project_savepoints(
+    row: &pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "project",
+            crate::canonical_codec::encode_string(row.r#project.clone())?,
+        );
+    object.insert("draft", crate::canonical_codec::encode_string(row.r#draft.clone())?);
+    object
+        .insert(
+            "version",
+            crate::canonical_codec::encode_string(row.r#version.clone())?,
+        );
+    object.insert("name", crate::canonical_codec::encode_string(row.r#name.clone())?);
+    object.insert("deleted", crate::canonical_codec::encode_boolean(row.r#deleted)?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_project_savepoints(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#project: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "project")?,
+        )?,
+        r#draft: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "draft")?,
+        )?,
+        r#version: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "version")?,
+        )?,
+        r#name: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "name")?,
+        )?,
+        r#deleted: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "deleted")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_project_savepoints",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
 pub fn encode_canonical_projects(
     row: &pse_model::generated::runtime::canonical_projects::RuntimeCanonicalProjectsRow,
 ) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
     let mut object = surrealdb::types::Object::new();
     object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
     object.insert("title", crate::canonical_codec::encode_string(row.r#title.clone())?);
+    object.insert("deleted", crate::canonical_codec::encode_boolean(row.r#deleted)?);
     object.insert("generation", crate::canonical_codec::encode_uint(row.r#generation)?);
     Ok(object)
 }
@@ -3048,6 +3526,9 @@ pub fn decode_canonical_projects(
         )?,
         r#title: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "title")?,
+        )?,
+        r#deleted: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "deleted")?,
         )?,
         r#generation: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "generation")?,

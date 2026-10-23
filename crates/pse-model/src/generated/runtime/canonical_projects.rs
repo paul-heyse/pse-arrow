@@ -14,6 +14,8 @@ pub struct RuntimeCanonicalProjectsRow {
     pub r#key: String,
     ///title
     pub r#title: String,
+    ///deleted
+    pub r#deleted: bool,
     ///generation
     pub r#generation: u64,
 }
@@ -21,6 +23,7 @@ impl crate::SemanticEq for RuntimeCanonicalProjectsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#title, &other.r#title)
+            && crate::SemanticEq::semantic_eq(&self.r#deleted, &other.r#deleted)
             && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
     }
 }
@@ -37,6 +40,8 @@ impl crate::SemanticFrame for RuntimeCanonicalProjectsRow {
         crate::SemanticFrame::frame(&self.r#key, hash);
         hash.str(stringify!(r#title));
         crate::SemanticFrame::frame(&self.r#title, hash);
+        hash.str(stringify!(r#deleted));
+        crate::SemanticFrame::frame(&self.r#deleted, hash);
         hash.str(stringify!(r#generation));
         crate::SemanticFrame::frame(&self.r#generation, hash);
     }
@@ -46,6 +51,7 @@ impl crate::HeapUsage for RuntimeCanonicalProjectsRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#title))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#deleted))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
     }
 }

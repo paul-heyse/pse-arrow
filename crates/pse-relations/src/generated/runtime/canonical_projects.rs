@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    26u8, 106u8, 219u8, 254u8, 82u8, 112u8, 185u8, 183u8, 132u8, 4u8, 173u8, 89u8, 106u8,
-    117u8, 211u8, 234u8, 151u8, 73u8, 40u8, 155u8, 230u8, 224u8, 35u8, 152u8, 239u8, 3u8,
-    39u8, 200u8, 252u8, 43u8, 54u8, 53u8,
+    168u8, 12u8, 140u8, 15u8, 7u8, 160u8, 252u8, 196u8, 240u8, 255u8, 163u8, 146u8,
+    139u8, 243u8, 168u8, 24u8, 230u8, 1u8, 191u8, 44u8, 160u8, 244u8, 187u8, 110u8,
+    156u8, 87u8, 84u8, 168u8, 50u8, 215u8, 114u8, 132u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProjectsRow {
     fn append(
@@ -36,9 +36,10 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectsRow {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#key, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#title, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#deleted, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#generation,
-            children[2usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -52,7 +53,8 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectsRow {
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -71,8 +73,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#generation: <u64 as crate::columnar::ArrowValue>::read(
+            r#deleted: <bool as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#generation: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -133,9 +139,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectsRow {
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#key, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#title, columns[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#deleted, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#generation,
-            columns[2usize].as_mut(),
+            columns[3usize].as_mut(),
         )?;
         Ok(())
     }
@@ -172,10 +179,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        6_144_usize + size_of::<Self::Builder>()
+        8_192_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        48usize
+        64usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -191,6 +198,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectsRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
         Ok(bytes)
     }
 }
@@ -201,7 +212,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -214,8 +225,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "generation",
+        name: "deleted",
         position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "generation",
+        position: 3usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -224,8 +240,10 @@ pub mod columns {
     pub const KEY: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///title
     pub const TITLE: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///deleted
+    pub const DELETED: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///generation
-    pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -235,6 +253,7 @@ pub struct RuntimeCanonicalProjectsView<'a> {
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     title_column: &'a arrow_array::StringArray,
+    deleted_column: &'a arrow_array::BooleanArray,
     generation_column: &'a arrow_array::UInt64Array,
 }
 impl<'a> RuntimeCanonicalProjectsView<'a> {
@@ -286,9 +305,12 @@ impl<'a> RuntimeCanonicalProjectsView<'a> {
             title_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
+            deleted_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(2usize).as_ref())?,
             generation_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -329,6 +351,18 @@ impl<'a> RuntimeCanonicalProjectsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "deleted",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn deleted_column(&self) -> &'a arrow_array::BooleanArray {
+        self.deleted_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "deleted", "`.")]
+    pub fn deleted_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "generation",
         "`, including its offsets and validity bitmap.",
     )]
@@ -337,7 +371,7 @@ impl<'a> RuntimeCanonicalProjectsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "generation", "`.")]
     pub fn generation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -353,6 +387,7 @@ impl<'a> RuntimeCanonicalProjectsView<'a> {
         Ok(RuntimeCanonicalProjectsRow {
             r#key: crate::columnar::ArrowValue::read(self.key_column, index)?,
             r#title: crate::columnar::ArrowValue::read(self.title_column, index)?,
+            r#deleted: crate::columnar::ArrowValue::read(self.deleted_column, index)?,
             r#generation: crate::columnar::ArrowValue::read(
                 self.generation_column,
                 index,
