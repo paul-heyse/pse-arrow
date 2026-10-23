@@ -4848,9 +4848,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 if body == "LET $value=SELECT * FROM " + table + ";":  # noqa: S608
                     # Fixture-owned table names match the validated transport query.
                     return {"value": [dict(row) for row in selected_science[table]]}
-            if body.startswith("LET $value={ RETURN (SELECT * FROM ONLY canonical_interpretations:current).issuing_store;"):
+            if body == "LET $value=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;":
                 return {"value": self.application_inventory_fixture()["issuing_store"]}
-            if body.startswith("LET $value={ LET $rows=SELECT * FROM "):
+            if body.startswith("LET $rows=SELECT * FROM "):
                 return {"value": []}
             prefix = "LET $domain=fn::pse_maintenance_v1::"
             if body.startswith(prefix):
@@ -6500,6 +6500,39 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertNotIn("object::pick", body)
         with self.assertRaisesRegex(server.SupervisorError, "Unknown application"):
             server.application_inventory_query("unowned_table", "")
+
+    def test_application_inventory_maintenance_preserves_transaction_acknowledgement(self) -> None:
+        config = self.initialized()
+        credentials = server.read_json(self.state / "credentials.json")
+        authority = self.application_inventory_fixture()["issuing_store"]
+        row = {"key": "original-stage", "sha256": "a" * 64, "references": "{closed:false}"}
+        queries: list[str] = []
+
+        def acknowledged(arguments: list[str], **options: object) -> subprocess.CompletedProcess[str]:
+            query = options["input"]
+            assert isinstance(query, str)
+            queries.append(query)
+            nonce = query.split("maintenance: '")[1].split("'")[0]
+            # RETURN inside an assigned block exits before the owner nonce. Only the
+            # maintenance transport's final acknowledgement may return a result.
+            self.assertEqual(query.count("RETURN "), 1)
+            self.assertIn("LET $value=", query)
+            value = authority if "canonical_interpretations:current" in query else (
+                [row] if "FROM canonical_stages " in query and 'key>""' in query else []
+            )
+            return subprocess.CompletedProcess(arguments, 0, json.dumps([
+                None, {"maintenance": nonce, "value": value}, None,
+            ]), "")
+
+        with (
+            patch.object(server, "maintenance_endpoint", return_value="http://127.0.0.1:18080"),
+            patch.object(server.subprocess, "run", side_effect=acknowledged),
+        ):
+            inventory = server.capture_application_inventory(self.state, config, credentials)
+        self.assertEqual(inventory["issuing_store"], authority)
+        self.assertEqual(server.object_mapping(inventory["tables"])["canonical_stages"], [row])
+        self.assertEqual(len(queries), len(server.APPLICATION_BACKUP_TABLES) + 2)
+        self.assertFalse((self.state / "maintenance-cli-failure.json").exists())
 
     def test_application_inventory_pages_preserve_unsettled_original_references(self) -> None:
         config = self.initialized()
