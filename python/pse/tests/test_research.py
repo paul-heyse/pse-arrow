@@ -93,7 +93,9 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
         b'{"document_version":1,"kind":"selection","key":"observations-v1"}',
         d.ResearchReadRequest,
     ))
-    assert exact.row == frozen
+    assert {key: bytes(value) for key, value in _body(exact.row).items()} == {
+        key: bytes(value) for key, value in _body(frozen).items()
+    }
     assert exact.selection is not None
     assert exact.selection.observations[0].reason == "included known length and authored standard uncertainty"
     detail = runtime.research_read(codec.decode_json(
