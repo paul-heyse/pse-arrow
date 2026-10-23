@@ -6426,9 +6426,13 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
     def test_application_restore_mismatch_keeps_admission_closed(self) -> None:
         backup = self.backup_fixture()
         manifest = server.read_json(backup / "backup.json")
-        manifest["application_inventory"]["tables"]["canonical_project_imports"] = [
+        application_inventory = server.object_mapping(manifest["application_inventory"])
+        tables = server.object_mapping(application_inventory["tables"])
+        tables["canonical_project_imports"] = [
             {"key": "pending-import", "sha256": "a" * 64, "references": "{complete:false,project:original}"}
         ]
+        application_inventory["tables"] = tables
+        manifest["application_inventory"] = application_inventory
         server.write_json(backup / "backup.json", manifest)
         restored = self.root / "catalogue-mismatch"
         with self.native_maintenance(), self.assertRaisesRegex(server.SupervisorError, "catalogue differs"):
@@ -6487,6 +6491,16 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             server.backup(self.state, config, destination)
         self.assertFalse((destination / "backup.json").exists())
 
+    def test_application_inventory_query_projects_declared_original_references(self) -> None:
+        body = server.application_inventory_query("canonical_projects", 'original"cursor')
+        self.assertIn('WHERE key>"original\\\"cursor" ORDER BY key LIMIT 64', body)
+        self.assertIn("references:<string>{project:$row.project,draft:$row.draft,", body)
+        self.assertIn("retiring:$row.retiring}", body)
+        self.assertIn("sha256:crypto::sha256(<string>object::remove($row,['id']))", body)
+        self.assertNotIn("object::pick", body)
+        with self.assertRaisesRegex(server.SupervisorError, "Unknown application"):
+            server.application_inventory_query("unowned_table", "")
+
     def test_application_inventory_pages_preserve_unsettled_original_references(self) -> None:
         config = self.initialized()
         key = "original-unsettled-stage"
@@ -6501,7 +6515,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             return []
         with patch.object(server, "payload_query", side_effect=query):
             inventory = server.capture_application_inventory(self.state, config)
-        self.assertEqual(inventory["tables"]["canonical_stages"], [row])
+        self.assertEqual(server.object_mapping(inventory["tables"])["canonical_stages"], [row])
         self.assertTrue(any('key>"original-unsettled-stage"' in body for body in calls))
         self.assertFalse(any("UPDATE" in body or "DELETE" in body for body in calls))
 
