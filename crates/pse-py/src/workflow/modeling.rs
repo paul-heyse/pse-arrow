@@ -886,6 +886,32 @@ impl NativeModelingPackage {
             _owner: pse_columnar::AllocationLease::new(scratch),
         }))
     }
+    /// Compact logical-object source comparison, with explicit source-only context handling.
+    #[pyo3(signature=(other,*,source_only=false))]
+    fn project_compare(
+        &self,
+        py: Python<'_>,
+        other: &NativeModelingPackage,
+        source_only: bool,
+    ) -> PyResult<documents::DocumentValue<native::ProjectComparison>> {
+        let cancel = CancelSource::new();
+        let result = if source_only {
+            blocking(py, &self.owner, self.inner.project_compare_source(&other.inner, &cancel), || cancel.cancel())?
+        } else {
+            blocking(py, &self.owner, self.inner.project_compare(&other.inner, &cancel), || cancel.cancel())?
+        };
+        Ok(documents::DocumentValue(result))
+    }
+    /// Selected source metadata and typed values; large data remains an exact identity.
+    fn project_source_detail(
+        &self,
+        py: Python<'_>,
+        logical: Vec<String>,
+    ) -> PyResult<Vec<documents::DocumentValue<native::ProjectSourceDetail>>> {
+        let cancel = CancelSource::new();
+        let result = blocking(py, &self.owner, self.inner.project_source_detail(&logical, &cancel), || cancel.cancel())?;
+        Ok(result.into_iter().map(documents::DocumentValue).collect())
+    }
     /// Explicit complete source Arrow export, independent of routine preparation.
     fn source_tables(
         &self,
