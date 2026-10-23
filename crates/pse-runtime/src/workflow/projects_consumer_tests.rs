@@ -20,6 +20,7 @@ async fn recorded(runtime:&Runtime,package:&ModelingPackage)->StudyHandle {
     };
     let local=package.admit_study(&StudyInputs::Explicit(vec![point]),&StudyOutputDemand::Full {},&cancel).await.unwrap();
     let definition=runtime.record_study(&local,&cancel).await.unwrap();
+    assert_eq!(definition.points[0].operation.source,OperationSource::of(package));
     runtime.start_recorded_study(definition,&cancel).await.unwrap()
 }
 async fn cancel_and_settle(runtime:&Runtime,handle:&StudyHandle) {
@@ -78,6 +79,10 @@ async fn project_admitted_draft_run_cancellation_and_undo_preserve_original_reco
     assert_eq!(old_run_after.revision,old_run.revision);
     assert_eq!(old_run_after.source_selection,old_run.source_selection);
     assert_ne!(new.revision,old.revision,"new work has a new exact recorded source");
+    let new_point=pse_operations::canonical_studies::point_key(&new_handle.study_id().to_string(),OccurrenceKey(0));
+    let new_point=store.canonical_study_point(&new_point).await.unwrap().unwrap();
+    let (stored_operation,_,_):(StudyOperation,pse_ids::roles::BindingHash,AdmittedBinding)=serde_json::from_slice(new_point.descriptor.as_slice()).unwrap();
+    assert_eq!(stored_operation.source,OperationSource::of(&compensated),"the actual recorded point consumes precisely the selected compensating head");
     let original_hash=OperationSource::of(&original).revision;
     let compensated_hash=OperationSource::of(&compensated).revision;
     assert_eq!(compensated_hash,original_hash,"compensating publication restores original authored meaning");
