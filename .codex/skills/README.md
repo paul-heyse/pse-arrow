@@ -15,7 +15,8 @@ It never generates or overwrites native agent adapters.
 
 | Process skill | Use |
 |---|---|
-| [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a new diagnostic design-review engagement |
+| [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a diagnostic review of production or broad system scope |
+| [design-principle-audit-tests](design-principle-audit-tests/SKILL.md) | Audit test code and evidence in its separate living account; prerequisite for a test-focused diagnostic review |
 | [design-review-audit](design-review-audit/SKILL.md) | Reassess recommendations and omissions; publish a companion and integrated review |
 | [plan-completion-audit](plan-completion-audit/SKILL.md) | Assess claimed completion and correct the same owning plan |
 | [adr](adr/SKILL.md) | Record or supersede a decision and amend its architectural owner |
@@ -85,7 +86,11 @@ rewrite those plans merely for this transition.
 | salsa | Central library-skill source, inactive here |
 | rust-graphs | Central library-skill source, inactive here |
 
-The [living diagnostic audit](../../docs/design_review/audit/README.md) precedes diagnostic solution review.
+The [living diagnostic audit](../../docs/design_review/audit/README.md) precedes broad diagnostic solution review;
+test-only engagements use the [separate test account](../../docs/design_review/test-audit/README.md).
+The [test-assessment companion](../../docs/design_review/design_principles/core/test-assessment.md)
+interprets the same principles for test code, reuse and independent evidence. Installing these
+routes performs no test audit or product qualification.
 The operator chooses holistic, library-targeted, principle-focused or combined focus. Requested
 design-review recommendation audits write [net changes](../../docs/design_review/reviews/audits/README.md) and
 revise the principal review in place; completion audits correct the same owning plan. These are

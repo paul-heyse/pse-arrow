@@ -12,7 +12,8 @@ status: current
 > [ADR-0129](../../adr/0129-domain-model-review-scope.md),
 > [ADR-0149](../../adr/0149-agent-permissions-by-contract.md),
 > [ADR-0162](../../adr/0162-workload-fit-review-principles.md),
-> [ADR-0213](../../adr/0213-audit-led-workflow-and-library-orientation.md).
+> [ADR-0213](../../adr/0213-audit-led-workflow-and-library-orientation.md),
+> [ADR-0221](../../adr/0221-test-scope-design-audits.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review.
@@ -86,12 +87,23 @@ sequence. That focused assessment does not certify an enclosing subsystem or ini
 model assessment during ordinary implementation.
 
 The audit-led workflow is Implemented policy (2026-10-20, operator-authorized rollout;
-ADR-0213 remains proposed under the local record lifecycle). Before a new solution-review
-engagement, [design-principle-audit](../../../.codex/skills/design-principle-audit/SKILL.md)
+ADR-0213 remains proposed under the local record lifecycle). Before a new diagnostic solution-review
+engagement about production or broad system scope, [design-principle-audit](../../../.codex/skills/design-principle-audit/SKILL.md)
 refreshes [one living diagnosis](../../design_review/audit/README.md). Preparation and review
 consume its identified baseline while applicable. The operator selects holistic/unconstrained,
 library-targeted, principle-focused or combined focus; reviewers choose methods and depth.
 Ordinary implementation and focused plan-foundation assessment do not initiate a broad audit.
+
+For a deliberately requested test-scope audit or a diagnostic solution review about test
+architecture and evidence, [design-principle-audit-tests](../../../.codex/skills/design-principle-audit-tests/SKILL.md)
+maintains [a separate living account](../../design_review/test-audit/README.md). The
+[test-assessment companion](../../design_review/design_principles/core/test-assessment.md),
+selected through the same standard, interprets the existing principles for test scope without
+new gates or routine audit obligations. The binding owns account applicability: test-only reviews
+use the test account; mixed scope identifies the relevant accounts and their coverage limits.
+Each account retains its own source baseline, and each finding one primary home with cross-links.
+The operator-authorized process installation is Implemented (2026-10-23; ADR-0221 remains
+proposed); installation performs no audit and establishes no product or scientific qualification.
 
 At a deliberate requested or planned boundary,
 [design-review-audit](../../../.codex/skills/design-review-audit/SKILL.md) reassesses every

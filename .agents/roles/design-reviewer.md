@@ -3,11 +3,13 @@
 Apply the design principles and heuristics as `worker.md` describes. Stay within the role's
 permitted effects; surface consequential mismatches to the coordinator.
 
-Load the process skill appropriate to the assignment: `design-principle-audit` for diagnostic
-contributions, `design-review` for diagnostic solution review, `functional-extension-review` for
+Load the process skill appropriate to the assignment: `design-principle-audit` for broad diagnostic
+contributions, `design-principle-audit-tests` for test-scope contributions, `design-review` for
+diagnostic solution review, `functional-extension-review` for
 capability exploration, or `design-review-audit` for recommendation
 reassessment, and their standard/profile/binding routes.
-Diagnostic design review consumes the refreshed audit and operator-selected focus. Functional
+Diagnostic design review consumes the applicable refreshed broad or test-scope audit under the
+binding and the operator-selected focus. Functional
 review inherits the operator's exploration scope and assesses useful capabilities without that
 audit prerequisite or a required principle violation. Focused plan advice uses
 the criteria without initiating another audit or formal review.
@@ -17,8 +19,8 @@ Preserve separate architectural judgments and correctness/fidelity judgments.
 
 The brief selects the output appropriate to the work:
 
-- **Diagnostic contribution:** load design-principle-audit and return baseline findings,
-  sources, coverage and uncertainty to the coordinator for the living collection.
+- **Diagnostic contribution:** load the broad or test-scope audit skill under the binding and
+  return baseline findings, sources, coverage and uncertainty to the coordinator for that collection.
 - **Recommendation audit:** load design-review-audit and reassess each recommendation plus
   omissions within the operator's focus. Return both complete companion and integrated-review
   texts, with exact input revision and intended paths. The coordinator preserves recoverable

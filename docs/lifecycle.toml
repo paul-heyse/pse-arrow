@@ -95,6 +95,14 @@ doc_role = "evidence"
 doc_provenance = "observed"
 doc_retention = "protected-unknown"
 
+[[bundles]]
+root = "docs/design_review/test-audit"
+[bundles.defaults]
+doc_role = "review"
+doc_owner = "docs/design_review/test-audit/README.md"
+doc_topics = ["design", "validation"]
+doc_retention = "while-current"
+
 # Ordered classifications apply only where a native binding selects this profile.
 # Implementation/test labels alone do not establish qualification or closure.
 [status_profiles.packet]

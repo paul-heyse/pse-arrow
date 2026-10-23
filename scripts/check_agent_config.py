@@ -108,6 +108,7 @@ PROCESS_SKILLS = (
     "adr",
     "design-review",
     "design-principle-audit",
+    "design-principle-audit-tests",
     "design-review-audit",
     "plan-completion-audit",
     "design-review-process-simulator",

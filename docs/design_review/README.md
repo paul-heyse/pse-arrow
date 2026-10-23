@@ -15,13 +15,21 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
-The new [living diagnostic account](audit/README.md) is an unperformed-audit scaffold.
-Use design-principle-audit to refresh it before a new solution-review engagement, then preserve
+The [living diagnostic account](audit/README.md) owns broad diagnosis at its stated baseline.
+The [separate test account](test-audit/README.md) owns test-scope diagnosis and begins as an
+unperformed-audit scaffold. Use design-principle-audit or design-principle-audit-tests for the
+applicable engagement under the binding, then preserve
 the operator's holistic, library-targeted, principle-focused or combined focus. Requested
 recommendation audits use [net-change companions](reviews/audits/README.md) and an attributed
 principal revision; completion audits update the same owning plan. Installing these routes does
 not reinterpret historical reviews or initiate audits. See the [local skills](../../.codex/skills/README.md)
 and [library research orientation](../libraries/README.md).
+
+For test code and its evidence, load the [test-assessment companion](design_principles/core/test-assessment.md)
+selected by `[core].test_assessment`. It interprets the existing principles for production reuse,
+independent oracles, shared helpers, assertions, boundary fidelity, isolation and execution cost.
+It introduces no new principles, gates or required test mix. The two audit accounts retain
+independent baselines and one primary home per finding; plans remain the progress owners.
 
 The [execution-performance recommendations audit](reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md)
 independently reconciles both external performance reviews against current source and the

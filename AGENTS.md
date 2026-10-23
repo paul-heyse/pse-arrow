@@ -334,12 +334,21 @@ for the baseline and handoff. Existing plans own status and findings.
 
 ### Design audits and solution focus
 
-Use design-principle-audit before a new diagnostic design-review engagement. The
-[living diagnostic account](docs/design_review/audit/README.md) records the source baseline,
+Use design-principle-audit before a new diagnostic design-review engagement about production
+or broad system scope. The [living diagnostic account](docs/design_review/audit/README.md) records the source baseline,
 standard and coverage; it is not default context for ordinary production edits. The operator
 selects holistic/unconstrained, library-targeted, principle-focused or combined solution review;
 clarify an unspecified choice. Agents choose investigation and depth inside that focus.
 Preparation and review can share the applicable refreshed audit.
+
+For an explicitly requested test-scope audit or a diagnostic review focused on test architecture
+and evidence, use design-principle-audit-tests and the
+[separate test account](docs/design_review/test-audit/README.md). Load the
+[test-assessment companion](docs/design_review/design_principles/core/test-assessment.md)
+through `[core].test_assessment` alongside the existing standard and applicable profiles.
+Test-only engagements do not initiate a broad production audit; mixed scope identifies the
+applicable accounts under the binding. Each account retains its baseline and each finding one
+primary home. Ordinary test maintenance does not trigger an audit or a full test campaign.
 
 Use design-review-audit at requested or explicitly planned boundaries. Publish the
 [net-change companion](docs/design_review/reviews/audits/README.md) and revise the principal

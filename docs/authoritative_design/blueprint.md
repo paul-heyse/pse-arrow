@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 256
+revision: 257
 date: 2026-10-23
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 257 | 2026-10-23 | ADR-0221: add a test-scope diagnostic audit, test-assessment companion and separate living collection (§24.4), preserving existing principles, gates and finding ownership. | Maintainer-authorized process installation; PSE_DESIGN_EDIT=1. Record remains proposed; no test audit or product qualification performed. |
 | 256 | 2026-10-23 | ADR-0214/0215: publish versioned bounded canonical graph explanations, generated maintenance replay/protection and scientific-boundary acceptance (§19.2/§19.8/§20.6/§24.2). | Maintainer-authorized remaining Plan49f–49h implementation and publication; PSE_DESIGN_EDIT=1. Formal ADR statuses remain proposed; selected qualification is not a whole-product campaign. |
 | 255 | 2026-10-23 | ADR-0220: publish independent service/metric availability and composed Plan51 functional qualification with explicit startup/concurrency and unmeasured limits (§24.1/§24.2). | Maintainer-authorized Plan51e–51g publication; PSE_DESIGN_EDIT=1. Final static/publication state remains at the owning Outcome; proposed ADR statuses unchanged. |
 | 254 | 2026-10-23 | ADR-0220: publish implemented selected closure, fresh import/settlement, lifecycle, application recovery and storage-health support boundaries (§20.6/§24.1). | Maintainer-authorized Plan51e–51g execution; PSE_DESIGN_EDIT=1 authorizes enduring publication. Qualification remains scoped at the owning Outcome. |

@@ -18,8 +18,11 @@ cadence. Ordinary implementation work does not itself initiate a domain-model re
 
 ## Start from the refreshed audit and operator focus
 
-Before a new engagement, refresh the broad diagnostic account through
-[design-principle-audit](../design-principle-audit/SKILL.md), including direct invocation.
+Before a new engagement, refresh the diagnostic account applicable to its subject, including
+direct invocation. Use [design-principle-audit](../design-principle-audit/SKILL.md) for broad
+production scope and [design-principle-audit-tests](../design-principle-audit-tests/SKILL.md)
+for a test-only engagement. Mixed engagements identify the relevant accounts under the binding;
+a test-only review does not initiate a broad production audit.
 Preparation and review share that baseline while it remains applicable; reconcile intervening
 source/standard changes and cite the audit publication revision and finding anchors. The audit
 supplies a challengeable diagnosis, not the selected correction. Concentrate review effort on
@@ -41,6 +44,8 @@ Locate the repository's `standard.toml` through its agent instructions. Read the
 core principles, the `[core].heuristics` companion and template, the binding, and each applicable
 profile and companion skill. Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
 together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md).
+When test code or test evidence is in scope, also load `[core].test_assessment`; that companion
+owns the test-specific interpretation without relaxing the core or domain profiles.
 If no declaration exists, apply the available core and say so. If the core is missing, report
 that limitation. Profiles refine or tighten the core; they never waive a MUST. Follow the
 binding's conflict route and state any effect on the verdict.

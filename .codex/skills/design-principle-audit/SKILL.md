@@ -16,6 +16,11 @@ owns the audit location, review prerequisite and disposition routes. Use the sam
 claim vocabulary as design review, without imposing its solution comparison or acceptance report
 on the audit. Loading criteria does not initiate another review.
 
+When test code or its support infrastructure is part of this broad inspection, load the
+test-assessment companion selected by `[core].test_assessment`. For a separately scoped test
+audit, use [design-principle-audit-tests](../design-principle-audit-tests/SKILL.md) and its
+own collection instead. Related findings retain one primary home across the two accounts.
+
 ## Output in this repository
 
 Write and refresh the living audit under `docs/design_review/audit/`. Start at the

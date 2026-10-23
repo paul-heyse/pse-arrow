@@ -97,7 +97,8 @@ can resolve the uncertainty directly. A configuration edit does not change an al
 
 The [process skills](../../.codex/skills/README.md) own each workflow. Planning companions produce
 an adaptable conversational approach and can use the available planning interface. Skills do not
-switch the runtime into Plan mode. A broad audit precedes a new diagnostic design-review engagement;
+switch the runtime into Plan mode. The applicable broad or test-scope audit precedes a new
+diagnostic design-review engagement under the binding;
 functional-extension review, ordinary implementation and focused plan advice do not initiate it.
 No extra planning artifact or hook is required.
 

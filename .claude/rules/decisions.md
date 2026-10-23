@@ -105,8 +105,10 @@ maintaining a second status value.
 
 ### Deliberate audit boundaries
 
-Before a new solution-review engagement, refresh the living design-principle audit through the
-local audit skill. It is not default context for production edits or the plan's focused foundation
+Before a new solution-review engagement, refresh the applicable living design-principle audit
+through the local audit skill. Test-only scope uses design-principle-audit-tests and its separate
+account under the binding; it does not initiate a broad production audit. Neither account is
+default context for production edits or the plan's focused foundation
 assessment. The operator selects holistic, library-targeted, principle-focused or combined review.
 
 Requested design-review recommendation audits produce a net-change companion and an attributed

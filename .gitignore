@@ -44,6 +44,7 @@ lcov.info
 !/.codex/skills/adr/
 !/.codex/skills/design-review/
 !/.codex/skills/design-principle-audit/
+!/.codex/skills/design-principle-audit-tests/
 !/.codex/skills/design-review-audit/
 !/.codex/skills/plan-completion-audit/
 !/.codex/skills/design-review-process-simulator/
@@ -59,6 +60,7 @@ lcov.info
 !/.claude/skills/adr/
 !/.claude/skills/design-review/
 !/.claude/skills/design-principle-audit/
+!/.claude/skills/design-principle-audit-tests/
 !/.claude/skills/design-review-audit/
 !/.claude/skills/plan-completion-audit/
 !/.claude/skills/design-review-process-simulator/
@@ -74,6 +76,7 @@ lcov.info
 !/.agents/skills/adr/
 !/.agents/skills/design-review/
 !/.agents/skills/design-principle-audit/
+!/.agents/skills/design-principle-audit-tests/
 !/.agents/skills/design-review-audit/
 !/.agents/skills/plan-completion-audit/
 !/.agents/skills/design-review-process-simulator/

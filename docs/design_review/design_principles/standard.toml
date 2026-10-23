@@ -5,6 +5,7 @@
 version = "3.4"
 principles = "core/design-principles.md"
 heuristics = "core/efficient-architecture-heuristics.md"
+test_assessment = "core/test-assessment.md"
 template = "core/design-review-template.md"
 
 [[profiles]]

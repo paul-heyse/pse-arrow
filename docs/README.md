@@ -11,6 +11,7 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Find active work | [Current work](plans/README.md) |
 | Review or change a design | [Design-change workflow](authoritative_design/sections/design-change-workflow.md) |
 | Audit broad design-principle alignment | [Living diagnostic account](design_review/audit/README.md) and design-principle-audit |
+| Audit test design and evidence | [Separate test audit account](design_review/test-audit/README.md) and design-principle-audit-tests |
 | Audit review recommendations | `design-review-audit` (source: `.codex/skills/design-review-audit/SKILL.md`) → design or functional review's companion and integrated review at its original path |
 | Explore functional enhancements | `plan-functional-extension-review` (source: `.codex/skills/plan-functional-extension-review/SKILL.md`) → `functional-extension-review` (source: `.codex/skills/functional-extension-review/SKILL.md`) → [opportunity reviews](functional_reviews/README.md), with no diagnostic audit prerequisite |
 | Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
@@ -51,6 +52,7 @@ their original conditions; only named tests and measurements support Tested and 
 | `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |
 | docs/libraries/ | Optional repository-agnostic capability overviews and authoring guide | Orientation before current documentation; native solver skill stays active |
 | docs/design_review/audit/ | One living diagnostic account | Explicit audit/new-review context, not routine implementation |
+| docs/design_review/test-audit/ | Separate living account of test architecture and evidence | Test-scope audit/review context; its own baseline and linked finding ownership |
 | docs/design_review/reviews/audits/ | Recommendation net-change companions | Revised principal review remains planning input; plans own scheduled progress |
 
 | `docs/functional_reviews/` | Functional opportunity reviews and recommendation-audit companions; selected opportunities feed existing plans | Evidence, never scope approval |

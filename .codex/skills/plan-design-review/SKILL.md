@@ -12,9 +12,11 @@ concentrates on questions that could change the preferred solution.
 
 Load [design-review](../design-review/SKILL.md) for the assessment contract and its routes to the
 standard, profiles and binding. Before a new engagement, use
-[design-principle-audit](../design-principle-audit/SKILL.md) to refresh the broad account. An audit
-already refreshed for this engagement can be consumed through preparation and review while its
-baseline remains applicable; reconcile intervening source or standard changes before relying on
+[design-principle-audit](../design-principle-audit/SKILL.md) for broad scope or
+[design-principle-audit-tests](../design-principle-audit-tests/SKILL.md) for test-only scope,
+following the binding's applicability route. A test-only engagement does not initiate a broad
+production audit. An audit already refreshed for this engagement can be consumed through
+preparation and review while its baseline remains applicable; reconcile intervening source or standard changes before relying on
 it. Record which audit revision informs the review. Loading these criteria for plan authoring or
 discussing this process does not itself start a review or audit.
 

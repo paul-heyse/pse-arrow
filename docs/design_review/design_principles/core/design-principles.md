@@ -19,6 +19,12 @@ when making consequential architectural and implementation choices. The companio
 conditional execution patterns; existing principles, overlapping guidance and assessment lenses
 remain in place.
 
+For test code and the evidence it provides, use the
+[test-assessment companion](test-assessment.md), selected by `[core].test_assessment`.
+It interprets these foundations for oracle independence, reuse, shared support, assertions and
+test lifecycles without adding principles, gates or a routine audit obligation. Applicable domain
+profiles retain their correctness requirements.
+
 **Levels.** MUST is an obligation for the supported scope. An unmet MUST narrows that
 scope or leaves the design unresolved; it cannot be excused by a SHOULD exception.
 SHOULD is a strong default with a reasoned, proportionate exception (§H) when material.

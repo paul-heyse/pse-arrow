@@ -50,7 +50,10 @@ It diagnoses current code broadly against the functional target and the same cor
 profile principles, without an incoming library preference or principle subset. It need not choose
 remedies or render an overall acceptance verdict.
 
-Refresh the account before a new diagnostic design-review engagement, including direct design-review invocation.
+Refresh the account before a new diagnostic design-review engagement about production or broad
+system scope, including direct design-review invocation. Test-only engagements use the separate
+test account below; mixed engagements identify which accounts cover the consequential questions
+and refresh the applicable scope without claiming that one baseline refreshes the other.
 Use the preceding audited source state and intervening changes to focus current inspection;
 reconsider unchanged dependencies and earlier findings when their premises change. Record source
 commit, included dirty changes, date, standard versions and meaningful coverage limits honestly.
@@ -72,6 +75,36 @@ Ordinary implementation, focused plan-foundation assessment and loading review c
 initiate a broad principle audit or formal review. Principle audits do not automatically start solution reviews or authorize
 remediation. Process discussion and edits to this workflow do not require an audit/review artifact.
 The initial audit and detailed library overviews remain separately scoped work.
+
+## Test code design principle audit
+
+The [test audit skill](../../../../.codex/skills/design-principle-audit-tests/SKILL.md) maintains
+[a separate living collection](../../test-audit/README.md) at docs/design_review/test-audit/.
+Use it for an explicitly requested test-scope audit and before a new diagnostic solution review
+whose subject is test architecture or test evidence. This is a sibling diagnostic route, not a
+whole-production audit prerequisite. Ordinary test edits, implementation reviews, qualification
+runs and installation of this process do not initiate it.
+
+Load the [test-assessment companion](../core/test-assessment.md) through `[core].test_assessment`
+alongside the selected core, heuristics and applicable domain profiles. It supplies test-specific
+judgment, not new principles, gates or a mandatory test campaign. Tests include relevant inline
+code, fixtures, helpers, generators, doubles, oracles, reference data and execution configuration;
+production paths are inspected as needed to understand contracts and assurance dependencies.
+
+The test account records its own audited source state, included dirty changes, date, standard
+and companion versions, inspected scope and limits. Its publishing revision is distinct. Use
+intervening production-contract and support changes as well as test edits when refreshing it;
+an unchanged test can have changed evidential meaning. Neither an empty scaffold nor another
+account's source baseline establishes test-audit coverage. Reviews cite the applicable publication
+revisions and finding anchors and reconcile intervening changes before relying on them.
+
+New test findings have stable DTA-nnn identities, beginning with DTA-001. Each structural cause
+has one primary finding home across both audit collections. Existing DA-nnn findings retain
+their identity and home and are linked rather than copied; reexamination here states its scope
+without silently refreshing that other account. Preserve lineage on moves, splits and merges,
+never reuse retired IDs, and remove resolved material only on evidence with recoverable history.
+Reviews own alternatives and judgments; plans own scheduled disposition and closure evidence.
+This collection diagnoses and does not select remedies, authorize repairs or certify suite quality.
 
 ## Functional capability exploration
 
