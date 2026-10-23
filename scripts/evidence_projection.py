@@ -23,6 +23,14 @@ class EvidenceFact(TypedDict):
     crate_name: NotRequired[str]
     test_id: NotRequired[str]
     detail_ref: NotRequired[str]
+    binary_id: NotRequired[str]
+    context_id: NotRequired[str]
+    context_json: NotRequired[str]
+    link_relation: NotRequired[str]
+    link_target: NotRequired[str]
+    population_id: NotRequired[str]
+    sample_id: NotRequired[str]
+    value_ns: NotRequired[float]
 
 
 class EvidenceSnapshot(TypedDict):
@@ -45,7 +53,7 @@ def snapshot_digest(value: object) -> str:
 
 
 def invocation_snapshot(
-    handle: str, *, registry: Path | None = None
+    handle: str, *, registry: Path | None = None, inventory: Path | None = None
 ) -> EvidenceSnapshot:
     """Export exactly one authenticated invocation, including explicit missing reports."""
     root, declaration, state = run_inspection.resolve(handle, registry)
@@ -128,6 +136,8 @@ def invocation_snapshot(
             "detail_ref": detail,
         }
     ]
+    from scripts.evidence_sources import context_fact, inventory_mapping, link_fact
+    mapping = inventory_mapping(inventory, selected=selected) if inventory is not None else {}
     for identity, selection in zip(catalog, selected, strict=True):
         raw = reported.get(identity)
         status = (
@@ -149,15 +159,39 @@ def invocation_snapshot(
         # Only project a crate mapping when the owner explicitly declares one.
         if isinstance(selection.get("crate_name"), str):
             fact["crate_name"] = selection["crate_name"]
+        if isinstance(selection.get("binary_id"), str):
+            fact["binary_id"] = selection["binary_id"]
+            if selection["binary_id"] in mapping:
+                fact["crate_name"] = mapping[selection["binary_id"]]
         facts.append(fact)
+    producer = state.get("producer")
+    if isinstance(producer, dict):
+        context = context_fact({"process": {key: producer.get(key) for key in ("pid", "start", "boot")}, "host": producer.get("scope")})
+        for fact in facts:
+            fact["context_id"] = context["context_id"]
+        facts.append(context)
+    for offset, action in enumerate(state.get("diagnostic_actions", [])):
+        if not isinstance(action, dict) or not isinstance(action.get("sha256"), str):
+            raise ValueError("invalid original diagnostic action reference")
+        facts.append(link_fact("diagnostic:" + str(offset), "diagnostic_action", "sha256:" + action["sha256"]))
+    store = resource_store.FileStore(root)
+    resource_observations = {}
+    for identity in state.get("members", {}):
+        try:
+            entry, record = run_inspection.invocation_resource(store, identity, declaration["nonce"])
+            resource_observations[identity] = {"phase": entry.phase, "record": record}
+            facts.append({"member": "resource:" + identity, "kind": "resource", "status": entry.phase})
+        except (OSError, ValueError, TypeError):
+            resource_observations[identity] = {"status": "unavailable"}
+            facts.append({"member": "resource:" + identity, "kind": "resource", "status": "unavailable"})
     return {
-        "version": 1,
+        "version": 2,
         "authority": "filestore:"
         + snapshot_digest({"registry": str(root), "activation": activation}),
         "codec": "exact-resource-files-invocation-v2",
         "source_id": declaration["nonce"],
         "snapshot_digest": snapshot_digest(
-            {"declaration": declaration, "state": state}
+            {"declaration": declaration, "state": state, "resources": resource_observations, "inventory": inventory.read_text() if inventory is not None else None}
         ),
         "coverage": "complete" if complete else "partial",
         "expected_members": [fact["member"] for fact in facts],

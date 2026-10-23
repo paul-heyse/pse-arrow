@@ -370,7 +370,7 @@ def collect(
     }
 
 
-def read_action(directory: Path, *, tail: int = 0) -> dict:
+def read_action(directory: Path, *, tail: int = 0, summary_only: bool = False) -> dict:
     if (
         tail < 0
         or ".." in directory.parts
@@ -380,6 +380,12 @@ def read_action(directory: Path, *, tail: int = 0) -> dict:
     record = resource_store.read(directory / "action.json")
     if record.get("schema") != SCHEMA or not isinstance(record.get("artifacts"), list):
         raise ValueError("not an active diagnostic action document")
+    if summary_only:
+        for artifact in record["artifacts"]:
+            name = artifact.get("member")
+            if not isinstance(name, str) or Path(name).name != name:
+                raise ValueError("invalid owned action artifact reference")
+        return record
     result = {**record, "artifact_observations": []}
     for artifact in record["artifacts"][:100]:
         name = artifact.get("member")
