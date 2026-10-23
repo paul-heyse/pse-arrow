@@ -168,6 +168,8 @@ indexes! {
     stage_cleanup: canonical_stages [problem, cleanup_complete, expires_at, key] false,
     run_order: canonical_runs [problem, sequence] true,
     run_revision: canonical_runs [problem, revision, sequence] false,
+    run_research_selection: canonical_runs [research_selection, sequence, key] false,
+    run_research_dataset: canonical_runs [research_dataset, sequence, key] false,
     run_terminal_selection: canonical_runs [problem, terminal_class, sequence] false,
     attempt_run: canonical_attempts [run, generation] true,
     attempt_live: canonical_attempts [run, phase, generation] false,
@@ -594,6 +596,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "canonical_runs",
             vec![
                 column("key", text()),
+                column("research_selection",text()).optional(),
+                column("research_dataset",text()).optional(),
                 column("problem", text()),
                 column("revision", text()),
                 column("source_sequence", uint()),

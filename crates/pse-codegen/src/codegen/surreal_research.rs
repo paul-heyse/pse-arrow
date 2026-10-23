@@ -59,4 +59,15 @@ DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:stri
     CREATE ONLY type::record('canonical_research_references',$reference) CONTENT {key:$reference,project:$intent.project,revision:$selection.revision,run:$e.run,attempt:$e.attempt,request:$intent.request};
     RETURN true;
 };
+
+DEFINE FUNCTION fn::pse_research_v1::run_input($expiry:int,$row:object) -> bool {
+    IF $row.research_selection=NONE {IF $row.research_dataset!=NONE {THROW 'PSE_REFUSAL:research_context_differs';}; RETURN true;};
+    LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$row.research_selection);
+    IF $selection=NONE OR $selection.dataset!=$row.research_dataset {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF $selection.revision!=$row.revision {
+        LET $publication=SELECT * FROM ONLY type::record('canonical_research_publications',$row.revision);
+        IF $publication=NONE OR $publication.selection!=$row.research_selection OR $publication.revision!=$row.revision {THROW 'PSE_REFUSAL:research_context_differs';};
+    };
+    fn::pse_execution_v1::deadline($expiry);RETURN true;
+};
 "#;

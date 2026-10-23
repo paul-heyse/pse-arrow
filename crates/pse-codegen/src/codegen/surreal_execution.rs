@@ -225,6 +225,7 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     IF $row.interpretation!=__INTERPRETATION__ OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!=__INTERPRETATION__ { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
+    fn::pse_research_v1::run_input($rpc_expiry,$row);
     LET $old = SELECT * FROM ONLY type::record('canonical_runs', $row.key);
     IF $old != NONE {
         IF $old.request != $row.request OR $old.problem != $row.problem OR $old.revision != $row.revision OR $old.source_sequence != $row.source_sequence OR $old.source_selection != $row.source_selection OR $old.attestation != $row.attestation OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
