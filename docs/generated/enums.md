@@ -2405,6 +2405,24 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `jacobi` | `` | false |
 | `block_factor` | `` | false |
 
+## `PreparationEligibility`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `compatible` | `` | false |
+| `incompatible` | `` | false |
+| `unchecked` | `` | false |
+
+## `PreparationProductKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `selected_admission` | `` | false |
+| `body` | `` | false |
+| `encoded_body` | `` | false |
+| `frontier` | `` | false |
+| `basis` | `` | false |
+
 ## `PresolvePass`
 
 | Member | IDAES name | Deprecated |
@@ -2423,6 +2441,49 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `off` | `` | false |
 | `auto` | `` | false |
 | `explicit` | `` | false |
+
+## `ProjectChangeImpact`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `source` | `` | false |
+| `value` | `` | false |
+| `structural` | `` | false |
+| `unknown` | `` | false |
+
+## `ProjectMergeChoice`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `target` | `` | false |
+| `proposal` | `` | false |
+| `base` | `` | false |
+| `delete` | `` | false |
+
+## `ProjectMergeConflictKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `delete_edit` | `` | false |
+| `conflicting_addition` | `` | false |
+| `different_edits` | `` | false |
+
+## `ProjectMergeMode`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `merge` | `` | false |
+| `undo` | `` | false |
+
+## `ProjectMetadataKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `projects` | `` | false |
+| `drafts` | `` | false |
+| `bookmarks` | `` | false |
+| `savepoints` | `` | false |
+| `diagnostics` | `` | false |
 
 ## `QuantityAdditionKind`
 

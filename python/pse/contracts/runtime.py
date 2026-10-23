@@ -328,6 +328,42 @@ class RuntimeCanonicalBodyContentsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalContextAncestryRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    descendant: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    ancestor: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.descendant), v.scalar_key(self.ancestor),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalContextJournalsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    sequence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.sequence),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalDraftDiagnosticsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.version), v.scalar_key(self.message), v.scalar_key(self.admitted),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalEdgesRow:
     """Declared relation row or nested value."""
 
@@ -703,17 +739,83 @@ class RuntimeCanonicalProductsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectAncestryRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    parent: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.revision), v.scalar_key(self.parent),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectBookmarksRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.revision), v.scalar_key(self.name),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalProjectBranchesRow:
     """Declared relation row or nested value."""
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     problem: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     origin_revision: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.problem), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.generation),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.problem), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.generation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectContextsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_identity: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    physical_context: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    physical_revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    physical_source_identity: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    effective_from_us: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    effective_to_us: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    recorded_sequence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    corrects: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    deleted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    request: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.scope), v.scalar_key(self.revision), v.scalar_key(self.source_identity), v.scalar_key(self.physical_context), v.scalar_key(self.physical_revision), v.scalar_key(self.physical_source_identity), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.recorded_sequence), v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.request),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectDraftVersionsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    draft: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    branch: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    base_revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    content: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    artifact: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.draft), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.base_revision), v.scalar_key(self.generation), v.scalar_key(self.content), v.optional_key(v.scalar_key)(self.artifact),))
 
 
 @attrs.frozen(kw_only=True)
@@ -723,13 +825,12 @@ class RuntimeCanonicalProjectDraftsRow:
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     branch: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    base_revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    content: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
-    artifact: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    deleted: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.base_revision), v.scalar_key(self.generation), v.scalar_key(self.content), v.optional_key(v.scalar_key)(self.artifact),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.branch), v.scalar_key(self.generation), v.scalar_key(self.version), v.scalar_key(self.deleted),))
 
 
 @attrs.frozen(kw_only=True)
@@ -749,15 +850,31 @@ class RuntimeCanonicalProjectOperationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalProjectSavepointsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    project: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    draft: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    deleted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.project), v.scalar_key(self.draft), v.scalar_key(self.version), v.scalar_key(self.name), v.scalar_key(self.deleted),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalProjectsRow:
     """Declared relation row or nested value."""
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     title: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    deleted: b.bool = attrs.field(validator=v.exact_type(b.bool))
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.title), v.scalar_key(self.generation),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.title), v.scalar_key(self.deleted), v.scalar_key(self.generation),))
 
 
 @attrs.frozen(kw_only=True)

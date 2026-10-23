@@ -10,58 +10,123 @@
         "type": "integer"
       },
       "type": "array"
+    },
+    "ProjectDraftVersionBody": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "artifact": {
+          "description": "artifact",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_revision": {
+          "description": "base_revision",
+          "type": "string"
+        },
+        "branch": {
+          "description": "branch",
+          "type": "string"
+        },
+        "content": {
+          "$ref": "#/$defs/Bytes",
+          "description": "content"
+        },
+        "draft": {
+          "description": "draft",
+          "type": "string"
+        },
+        "generation": {
+          "description": "generation",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "key": {
+          "description": "key",
+          "type": "string"
+        },
+        "project": {
+          "description": "project",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "draft",
+        "project",
+        "branch",
+        "base_revision",
+        "generation",
+        "content"
+      ],
+      "type": "object"
+    },
+    "RuntimeCanonicalProjectDraftsRow": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "branch": {
+          "description": "branch",
+          "type": "string"
+        },
+        "deleted": {
+          "description": "deleted",
+          "type": "boolean"
+        },
+        "generation": {
+          "description": "generation",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "key": {
+          "description": "key",
+          "type": "string"
+        },
+        "project": {
+          "description": "project",
+          "type": "string"
+        },
+        "version": {
+          "description": "version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "project",
+        "branch",
+        "generation",
+        "version",
+        "deleted"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "A row or nested value projected from the registry declaration.",
+  "description": "One atomic draft-head and immutable-version selection.",
   "properties": {
-    "artifact": {
-      "description": "artifact",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "base_revision": {
-      "description": "base_revision",
-      "type": "string"
-    },
-    "branch": {
-      "description": "branch",
-      "type": "string"
-    },
-    "content": {
-      "$ref": "#/$defs/Bytes",
-      "description": "content"
-    },
     "document_version": {
       "const": 1,
       "default": 1,
       "type": "integer"
     },
-    "generation": {
-      "description": "generation",
-      "format": "uint64",
-      "minimum": 0,
-      "type": "integer"
+    "head": {
+      "$ref": "#/$defs/RuntimeCanonicalProjectDraftsRow",
+      "description": "Selected mutable editing head."
     },
-    "key": {
-      "description": "key",
-      "type": "string"
-    },
-    "project": {
-      "description": "project",
-      "type": "string"
+    "version": {
+      "$ref": "#/$defs/ProjectDraftVersionBody",
+      "description": "Original immutable raw version."
     }
   },
   "required": [
-    "key",
-    "project",
-    "branch",
-    "base_revision",
-    "generation",
-    "content",
+    "head",
+    "version",
     "document_version"
   ],
   "title": "ProjectDraftRecord",

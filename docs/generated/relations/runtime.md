@@ -318,6 +318,42 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `format` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_context_ancestry`
+
+Immutable transitive correction ancestry. A correction dominates ancestors only inside its own effective interval.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `descendant` | `Utf8` | false | `payload` | — | — |
+| `ancestor` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_context_journals`
+
+Project-scoped recorded cut; independent of source and membership generations.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_draft_diagnostics`
+
+Version-linked local admission diagnostics; no executable authority is granted by this record.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `message` | `Utf8` | false | `payload` | — | — |
+| `admitted` | `Boolean` | false | `payload` | — | — |
+
 ## `canonical_edges`
 
 Authored structural reference resolved at a selected immutable revision.
@@ -693,6 +729,31 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `producer` | `Utf8` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_project_ancestry`
+
+Immutable additional accepted source ancestry, independent of scientific object identity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `parent` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_project_bookmarks`
+
+Presentation-only exact source bookmark, retained through the canonical source owner.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+
 ## `canonical_project_branches`
 
 One independent canonical source problem per writable project branch. Origin is ancestry, never a second head.
@@ -704,12 +765,53 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `project` | `Utf8` | false | `payload` | — | — |
 | `problem` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
 | `origin_revision` | `Utf8` | true | `payload` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_project_contexts`
+
+Immutable engineering context with UTC half-open effective interval and exact admitted source reference; no copied scientific values.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `scope` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `source_identity` | `Utf8` | false | `payload` | — | — |
+| `physical_context` | `Utf8` | false | `payload` | — | — |
+| `physical_revision` | `Utf8` | false | `payload` | — | — |
+| `physical_source_identity` | `Utf8` | false | `payload` | — | — |
+| `effective_from_us` | `Int64` | false | `payload` | — | — |
+| `effective_to_us` | `Int64` | true | `payload` | — | — |
+| `recorded_sequence` | `UInt64` | false | `payload` | — | — |
+| `corrects` | `Utf8` | true | `payload` | — | — |
+| `deleted` | `Boolean` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+
+## `canonical_project_draft_versions`
+
+Immutable original raw draft version. Opaque artifacts retain larger malformed bodies; saving grants no scientific admission.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `draft` | `Utf8` | false | `payload` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `branch` | `Utf8` | false | `payload` | — | — |
+| `base_revision` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `content` | `Binary` | false | `payload` | — | — |
+| `artifact` | `Utf8` | true | `payload` | — | — |
+
 ## `canonical_project_drafts`
 
-Original raw draft bytes, possibly malformed or empty. Larger bodies have an owned opaque artifact; content then contains no body. Saving grants no scientific admission.
+Generation-fenced draft head selecting one immutable original raw version; deletion changes visibility only.
 
 Version: 1. Snapshot class: `derived`. Primary key: `key`.
 
@@ -718,10 +820,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `project` | `Utf8` | false | `payload` | — | — |
 | `branch` | `Utf8` | false | `payload` | — | — |
-| `base_revision` | `Utf8` | false | `payload` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |
-| `content` | `Binary` | false | `payload` | — | — |
-| `artifact` | `Utf8` | true | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `deleted` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_project_operations`
 
@@ -739,6 +840,21 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `revision` | `Utf8` | true | `payload` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_project_savepoints`
+
+Named exact draft version; soft deletion does not release scientific closure.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `project` | `Utf8` | false | `payload` | — | — |
+| `draft` | `Utf8` | false | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `deleted` | `Boolean` | false | `payload` | — | — |
+
 ## `canonical_projects`
 
 Project organization only; source heads remain in canonical_problems.
@@ -749,6 +865,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `title` | `Utf8` | false | `payload` | — | — |
+| `deleted` | `Boolean` | false | `payload` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |
 
 ## `canonical_protections`

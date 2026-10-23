@@ -188,6 +188,21 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ConicRequest {
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType for pse_operations::canonical_contexts::ContextCut {
+    const INPUT_NAME: &'static str = "ContextCut";
+    const OUTPUT_NAME: &'static str = "ContextCut";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_contexts::ContextSelection {
+    const INPUT_NAME: &'static str = "ContextSelection";
+    const OUTPUT_NAME: &'static str = "ContextSelectionOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::DeclarationEdit {
     const INPUT_NAME: &'static str = "DeclarationEdit";
     const OUTPUT_NAME: &'static str = "DeclarationEditOutput";
@@ -625,8 +640,8 @@ impl crate::documents::DocumentType for pse_diagnostics::observation::OperationS
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::OperationSource {
     const INPUT_NAME: &'static str = "OperationSource";
-    const OUTPUT_NAME: &'static str = "OperationSource";
-    const DISTINCT_DIRECTIONS: bool = false;
+    const OUTPUT_NAME: &'static str = "OperationSourceOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
@@ -687,6 +702,22 @@ impl crate::documents::DocumentType for pse_runtime::math::PreparationCounts {
     const INPUT_NAME: &'static str = "PreparationCounts";
     const OUTPUT_NAME: &'static str = "PreparationCounts";
     const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::PreparationDiscoveryReport {
+    const INPUT_NAME: &'static str = "PreparationDiscoveryReport";
+    const OUTPUT_NAME: &'static str = "PreparationDiscoveryReportOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::PreparationDiscoveryRequest {
+    const INPUT_NAME: &'static str = "PreparationDiscoveryRequest";
+    const OUTPUT_NAME: &'static str = "PreparationDiscoveryRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
@@ -755,6 +786,21 @@ impl crate::documents::DocumentType for pse_operations::canonical_projects::Bran
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectComparison {
+    const INPUT_NAME: &'static str = "ProjectComparison";
+    const OUTPUT_NAME: &'static str = "ProjectComparisonOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_contexts::ProjectContext {
+    const INPUT_NAME: &'static str = "ProjectContext";
+    const OUTPUT_NAME: &'static str = "ProjectContextOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType
 for pse_operations::canonical_projects::ProjectCursor {
     const INPUT_NAME: &'static str = "ProjectCursor";
@@ -762,6 +808,13 @@ for pse_operations::canonical_projects::ProjectCursor {
     const DISTINCT_DIRECTIONS: bool = false;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectDraftDelta {
+    const INPUT_NAME: &'static str = "ProjectDraftDelta";
+    const OUTPUT_NAME: &'static str = "ProjectDraftDeltaOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::ProjectDraftDocuments {
     const INPUT_NAME: &'static str = "ProjectDraftDocuments";
@@ -785,6 +838,67 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ProjectDraftSaveI
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
 impl crate::documents::DocumentType
+for pse_operations::canonical_projects::DraftVersion {
+    const INPUT_NAME: &'static str = "ProjectDraftVersion";
+    const OUTPUT_NAME: &'static str = "ProjectDraftVersionOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectMergeIntent {
+    const INPUT_NAME: &'static str = "ProjectMergeIntent";
+    const OUTPUT_NAME: &'static str = "ProjectMergeIntentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectMergePreview {
+    const INPUT_NAME: &'static str = "ProjectMergePreview";
+    const OUTPUT_NAME: &'static str = "ProjectMergePreview";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectMergeResolution {
+    const INPUT_NAME: &'static str = "ProjectMergeResolution";
+    const OUTPUT_NAME: &'static str = "ProjectMergeResolution";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectMetadataCursor {
+    const INPUT_NAME: &'static str = "ProjectMetadataCursor";
+    const OUTPUT_NAME: &'static str = "ProjectMetadataCursor";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectMetadataPage {
+    const INPUT_NAME: &'static str = "ProjectMetadataPage";
+    const OUTPUT_NAME: &'static str = "ProjectMetadataPageOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectMetadataRequest {
+    const INPUT_NAME: &'static str = "ProjectMetadataRequest";
+    const OUTPUT_NAME: &'static str = "ProjectMetadataRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_projects::ProjectNavigationRequest {
+    const INPUT_NAME: &'static str = "ProjectNavigationRequest";
+    const OUTPUT_NAME: &'static str = "ProjectNavigationRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
 for pse_operations::canonical_projects::ProjectPublication {
     const INPUT_NAME: &'static str = "ProjectPublication";
     const OUTPUT_NAME: &'static str = "ProjectPublicationOutput";
@@ -796,6 +910,27 @@ impl crate::documents::DocumentType for pse_operations::canonical_projects::Proj
     const INPUT_NAME: &'static str = "ProjectRecord";
     const OUTPUT_NAME: &'static str = "ProjectRecord";
     const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectSelectRequest {
+    const INPUT_NAME: &'static str = "ProjectSelectRequest";
+    const OUTPUT_NAME: &'static str = "ProjectSelectRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectSelection {
+    const INPUT_NAME: &'static str = "ProjectSelection";
+    const OUTPUT_NAME: &'static str = "ProjectSelection";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ProjectSourceDetail {
+    const INPUT_NAME: &'static str = "ProjectSourceDetail";
+    const OUTPUT_NAME: &'static str = "ProjectSourceDetailOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
@@ -1121,7 +1256,7 @@ impl crate::documents::DocumentType for pse_runtime::workflow::StudyDefinition {
     const INPUT_NAME: &'static str = "StudyDefinition";
     const OUTPUT_NAME: &'static str = "StudyDefinitionOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(12);
+    const VERSION: Option<u32> = Some(13);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::StudyPointDefinition {

@@ -2405,6 +2405,24 @@ class Preconditioner(StrEnum):
     BLOCK_FACTOR = "block_factor"
 
 
+class PreparationEligibility(StrEnum):
+    """The declared PreparationEligibility enumeration."""
+
+    COMPATIBLE = "compatible"
+    INCOMPATIBLE = "incompatible"
+    UNCHECKED = "unchecked"
+
+
+class PreparationProductKind(StrEnum):
+    """The declared PreparationProductKind enumeration."""
+
+    SELECTED_ADMISSION = "selected_admission"
+    BODY = "body"
+    ENCODED_BODY = "encoded_body"
+    FRONTIER = "frontier"
+    BASIS = "basis"
+
+
 class PresolvePass(StrEnum):
     """The declared PresolvePass enumeration."""
 
@@ -2422,6 +2440,49 @@ class PresolvePolicyKind(StrEnum):
     OFF = "off"
     AUTO = "auto"
     EXPLICIT = "explicit"
+
+
+class ProjectChangeImpact(StrEnum):
+    """The declared ProjectChangeImpact enumeration."""
+
+    SOURCE = "source"
+    VALUE = "value"
+    STRUCTURAL = "structural"
+    UNKNOWN = "unknown"
+
+
+class ProjectMergeChoice(StrEnum):
+    """The declared ProjectMergeChoice enumeration."""
+
+    TARGET = "target"
+    PROPOSAL = "proposal"
+    BASE = "base"
+    DELETE = "delete"
+
+
+class ProjectMergeConflictKind(StrEnum):
+    """The declared ProjectMergeConflictKind enumeration."""
+
+    DELETE_EDIT = "delete_edit"
+    CONFLICTING_ADDITION = "conflicting_addition"
+    DIFFERENT_EDITS = "different_edits"
+
+
+class ProjectMergeMode(StrEnum):
+    """The declared ProjectMergeMode enumeration."""
+
+    MERGE = "merge"
+    UNDO = "undo"
+
+
+class ProjectMetadataKind(StrEnum):
+    """The declared ProjectMetadataKind enumeration."""
+
+    PROJECTS = "projects"
+    DRAFTS = "drafts"
+    BOOKMARKS = "bookmarks"
+    SAVEPOINTS = "savepoints"
+    DIAGNOSTICS = "diagnostics"
 
 
 class QuantityAdditionKind(StrEnum):

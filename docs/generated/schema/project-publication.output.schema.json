@@ -12,6 +12,15 @@
       "minimum": 0,
       "type": "integer"
     },
+    "branch_name": {
+      "type": "string"
+    },
+    "context_commitment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "document_version": {
       "const": 1,
       "default": 1,
@@ -36,6 +45,12 @@
         "string",
         "null"
       ]
+    },
+    "extra_parents": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "issuing_store": {
       "type": "string"
@@ -87,6 +102,9 @@
     "operation",
     "kind",
     "request",
+    "branch_name",
+    "extra_parents",
+    "context_commitment",
     "document_version"
   ],
   "title": "ProjectPublicationOutput",

@@ -114,6 +114,9 @@
 | `runtime.canonical_artifacts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifacts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_attempts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_attempts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_body_contents` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_body_contents" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_context_ancestry` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_context_ancestry" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_context_journals` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_context_journals" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_draft_diagnostics` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_draft_diagnostics" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_file_admission` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_admission" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -141,9 +144,14 @@
 | `runtime.canonical_product_associations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_product_associations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_product_descriptors` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_product_descriptors" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_products` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_products" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_ancestry` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_ancestry" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_bookmarks` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_bookmarks" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_branches` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_branches" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_contexts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_contexts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_draft_versions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_draft_versions" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_drafts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_drafts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_project_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_project_savepoints` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_project_savepoints" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_projects` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_projects" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_reclaimed_ranges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_reclaimed_ranges" s GROUP BY s."key" HAVING COUNT(*) > 1` |

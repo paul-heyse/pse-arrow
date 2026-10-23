@@ -4737,6 +4737,42 @@ class AuthoredNumericalRequirementsRowOutput(msgspec.Struct, frozen=True, forbid
         return (type(self), (v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.coordinates), v.optional_key(v.scalar_key)(self.engineering_rule_id), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.nominal), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.required), v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.scaling_factor), v.optional_key(v.scalar_key)(self.shared_engineering_allowance), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.unit_id),))
 
 
+class AuthoredPackagesFieldDependenciesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: package_id
+    package_id: identities.PackageId
+    #: version_req
+    version_req: VersionRequirement
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.record_key(self.version_req),))
+
+
+class AuthoredPackagesRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: The package version (semver).
+    version: str
+    #: The digest of the package's documents.
+    content_hash: v.ContentHash
+    #: The declared dependencies, each a package identity and a typed version requirement (ADR-0123 Outcome 7). Phase 0 admits exact version requirements only. Version two types the requirement.
+    dependencies: tuple[AuthoredPackagesFieldDependenciesItem, ...]
+    #: What the package is for.
+    doc: str
+    #: `explicit` or `named` (blueprint §5.1). Recorded on the package, never in the ID.
+    id_policy: enums.IdPolicy
+    #: What kind of package it is.
+    kind: enums.PackageKind
+    #: The package name.
+    name: str
+    #: The package identity.
+    package_id: identities.PackageId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.content_hash), v.sequence_key(v.record_key)(self.dependencies), v.scalar_key(self.doc), v.scalar_key(self.id_policy), v.scalar_key(self.kind), v.scalar_key(self.name), v.scalar_key(self.package_id),))
+
+
 class Basis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native basis values retain their original integer codes."""
 
@@ -6636,6 +6672,102 @@ class ConnectedPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.orientation), v.scalar_key(self.path), v.scalar_key(self.sheet), v.scalar_key(self.transport),))
+
+
+class ContextCut(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact project journal position; never a source revision sequence or wall clock."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Issuing canonical database identity.
+    issuing_store: str
+    #: Stable project identity.
+    project: str
+    #: Last included journal position.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.issuing_store), v.scalar_key(self.project), v.scalar_key(self.sequence),))
+
+
+class ContextCutBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact project journal position; never a source revision sequence or wall clock."""
+
+    #: Issuing canonical database identity.
+    issuing_store: str
+    #: Stable project identity.
+    project: str
+    #: Last included journal position.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.issuing_store), v.scalar_key(self.project), v.scalar_key(self.sequence),))
+
+
+class ContextSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete frozen selection. Deserializing this document grants no source authority."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original immutable selected source descriptor.
+    context: ProjectContextBody
+    #: Original recorded cut.
+    cut: ContextCutBody
+    #: UTC instant in signed microseconds since the Unix epoch.
+    effective_at_us: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.record_key(self.cut), v.scalar_key(self.effective_at_us),))
+
+
+class ContextSelectionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete frozen selection. Deserializing this document grants no source authority."""
+
+    #: Original immutable selected source descriptor.
+    context: ProjectContextBody
+    #: Original recorded cut.
+    cut: ContextCutBody
+    #: UTC instant in signed microseconds since the Unix epoch.
+    effective_at_us: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.record_key(self.cut), v.scalar_key(self.effective_at_us),))
+
+
+class ContextSelectionBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete frozen selection. Deserializing this document grants no source authority."""
+
+    #: Original immutable selected source descriptor.
+    context: ProjectContextBodyOutput
+    #: Original recorded cut.
+    cut: ContextCutBody
+    #: UTC instant in signed microseconds since the Unix epoch.
+    effective_at_us: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.record_key(self.cut), v.scalar_key(self.effective_at_us),))
+
+
+class ContextSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete frozen selection. Deserializing this document grants no source authority."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original immutable selected source descriptor.
+    context: ProjectContextBodyOutput
+    #: Original recorded cut.
+    cut: ContextCutBody
+    #: UTC instant in signed microseconds since the Unix epoch.
+    effective_at_us: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.record_key(self.cut), v.scalar_key(self.effective_at_us),))
 
 
 class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13947,25 +14079,61 @@ class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
+    #: Original effective-time and recorded-cut selection, if explicitly selected.
+    context: ContextSelectionBody | None = None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
 
 
 class OperationSourceBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact source/context required when reconstructing an operation from stored bundles."""
 
+    #: Original effective-time and recorded-cut selection, if explicitly selected.
+    context: ContextSelectionBody | None = None
     #: Complete admitted physical context identity.
     physical_context: v.ContentHash
     #: Immutable modeling revision, including included scientific data.
     revision: v.ContentHash
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+
+
+class OperationSourceBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source/context required when reconstructing an operation from stored bundles."""
+
+    #: Original effective-time and recorded-cut selection, if explicitly selected.
+    context: ContextSelectionBodyOutput | None
+    #: Complete admitted physical context identity.
+    physical_context: v.ContentHash
+    #: Immutable modeling revision, including included scientific data.
+    revision: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+
+
+class OperationSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source/context required when reconstructing an operation from stored bundles."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original effective-time and recorded-cut selection, if explicitly selected.
+    context: ContextSelectionBodyOutput | None
+    #: Complete admitted physical context identity.
+    physical_context: v.ContentHash
+    #: Immutable modeling revision, including included scientific data.
+    revision: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
 
 
 class OperationSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15182,6 +15350,19 @@ class PounceSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.record_key(self.finite_difference), v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.partitioned), v.record_key(self.restart),))
 
 
+class PreparationBindings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `PreparationBindings` document type."""
+
+    arguments: dict[str, PreparationStructuralValue]
+    demand: tuple[str, ...]
+    facts: tuple[tuple[PreparationFact, PreparationStructuralValue], ...]
+    formulation: PreparationFormulation
+    scope: dict[str, PreparationStructuralValue]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.record_key)(self.arguments), v.sequence_key(v.scalar_key)(self.demand), v.sequence_key(v.tuple_key((v.record_key, v.record_key,)))(self.facts), v.record_key(self.formulation), v.mapping_key(v.scalar_key, v.record_key)(self.scope),))
+
+
 class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Structural preparations and value rebinds: of a math service, or of one operation such
     as a study (A6).
@@ -15222,6 +15403,145 @@ class PreparationCountsBody(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.observations), v.scalar_key(self.rebuilt), v.scalar_key(self.shared), v.scalar_key(self.views),))
+
+
+class PreparationDiscoveryReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded observation, not a cache census or a reusable preparation receipt."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original rooted publication headers, when this package has canonical origin.
+    durable: ProductHeaderPage | None = None
+    #: Passive durable presence never establishes receiving qualification.
+    durable_eligibility: enums.PreparationEligibility
+    #: Selected deployment physical identity.
+    physical: str
+    #: At most 32 resident metadata rows. Body entries are service-wide and unchecked;
+    #: selected admissions/frontiers/bases are scoped to the requested root.
+    #: Absence has no inferred cause.
+    resident: tuple[ResidentPreparation, ...]
+    #: More matching process-local entries existed during this observation.
+    residents_truncated: bool
+    #: Exact local source parent identity inspected.
+    revision_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.durable), v.scalar_key(self.durable_eligibility), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.resident), v.scalar_key(self.residents_truncated), v.scalar_key(self.revision_id),))
+
+
+class PreparationDiscoveryReportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded observation, not a cache census or a reusable preparation receipt."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original rooted publication headers, when this package has canonical origin.
+    durable: ProductHeaderPageOutput | None
+    #: Passive durable presence never establishes receiving qualification.
+    durable_eligibility: enums.PreparationEligibility
+    #: Selected deployment physical identity.
+    physical: str
+    #: At most 32 resident metadata rows. Body entries are service-wide and unchecked;
+    #: selected admissions/frontiers/bases are scoped to the requested root.
+    #: Absence has no inferred cause.
+    resident: tuple[ResidentPreparationOutput, ...]
+    #: More matching process-local entries existed during this observation.
+    residents_truncated: bool
+    #: Exact local source parent identity inspected.
+    revision_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.durable), v.scalar_key(self.durable_eligibility), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.resident), v.scalar_key(self.residents_truncated), v.scalar_key(self.revision_id),))
+
+
+class PreparationDiscoveryRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact specialization to inspect without preparing it."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact specialization premises, including demand and formulation.
+    bindings: PreparationBindings
+    #: Continue durable publication headers under the same immutable source.
+    durable_after: ProductHeaderCursor | None = None
+    #: Selected occurrence identity.
+    instance: identities.InstanceId
+    #: Exact specialization limits.
+    limits: Limits
+    #: Selected authored root.
+    root: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.bindings), v.optional_key(v.record_key)(self.durable_after), v.scalar_key(self.instance), v.record_key(self.limits), v.scalar_key(self.root),))
+
+
+class PreparationDiscoveryRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact specialization to inspect without preparing it."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact specialization premises, including demand and formulation.
+    bindings: PreparationBindings
+    #: Continue durable publication headers under the same immutable source.
+    durable_after: ProductHeaderCursor | None
+    #: Selected occurrence identity.
+    instance: identities.InstanceId
+    #: Exact specialization limits.
+    limits: LimitsOutput
+    #: Selected authored root.
+    root: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.bindings), v.optional_key(v.record_key)(self.durable_after), v.scalar_key(self.instance), v.record_key(self.limits), v.scalar_key(self.root),))
+
+
+class PreparationFactDynamic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dynamic"):
+    """The `PreparationFactDynamic` document type."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PreparationFactObjectiveLevel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="objective_level"):
+    """The `PreparationFactObjectiveLevel` document type."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PreparationFactRoute(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="route"):
+    """The `PreparationFactRoute` document type."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PreparationFactStage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="stage"):
+    """The `PreparationFactStage` document type."""
+
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class PreparationFormulation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `PreparationFormulation` document type."""
+
+    elastic: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], PreparationStructuralValue]
+    omitted: tuple[v.SemanticId, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.record_key)(self.elastic), v.sequence_key(v.scalar_key)(self.omitted),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.omitted)
 
 
 class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15278,6 +15598,157 @@ class PreparationSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.compiler), v.record_key(self.limits),))
+
+
+class PreparationStructuralValueBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="boolean"):
+    """The `PreparationStructuralValueBoolean` document type."""
+
+    value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class PreparationStructuralValueCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="coordinate"):
+    """The `PreparationStructuralValueCoordinate` document type."""
+
+    bits: Annotated[int, msgspec.Meta(ge=0)]
+    id: v.SemanticId
+    quantity: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.id), v.scalar_key(self.quantity),))
+
+
+class PreparationStructuralValueDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="definition"):
+    """The `PreparationStructuralValueDefinition` document type."""
+
+    bindings: dict[str, PreparationStructuralValue]
+    id: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.record_key)(self.bindings), v.scalar_key(self.id),))
+
+
+class PreparationStructuralValueEntity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="entity"):
+    """The `PreparationStructuralValueEntity` document type."""
+
+    id: identities.DeclarationId
+    kind: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.kind),))
+
+
+class PreparationStructuralValueEnumeration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="enumeration"):
+    """The `PreparationStructuralValueEnumeration` document type."""
+
+    enumeration: identities.DeclarationId
+    member: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.enumeration), v.scalar_key(self.member),))
+
+
+class PreparationStructuralValueFunction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="function"):
+    """The `PreparationStructuralValueFunction` document type."""
+
+    id: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id),))
+
+
+class PreparationStructuralValueIdentifier(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="identifier"):
+    """The `PreparationStructuralValueIdentifier` document type."""
+
+    scheme: identities.DeclarationId
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.scheme), v.scalar_key(self.value),))
+
+
+class PreparationStructuralValueInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="integer"):
+    """The `PreparationStructuralValueInteger` document type."""
+
+    value: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class PreparationStructuralValueMissing(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="missing"):
+    """The `PreparationStructuralValueMissing` document type."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PreparationStructuralValueNumber(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="number"):
+    """The `PreparationStructuralValueNumber` document type."""
+
+    bits: Annotated[int, msgspec.Meta(ge=0)]
+    quantity: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.quantity),))
+
+
+class PreparationStructuralValueQuantityType(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="quantity_type"):
+    """The `PreparationStructuralValueQuantityType` document type."""
+
+    id: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id),))
+
+
+class PreparationStructuralValueReferenceState(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="reference_state"):
+    """The `PreparationStructuralValueReferenceState` document type."""
+
+    id: v.SemanticId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id),))
+
+
+class PreparationStructuralValueRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="row"):
+    """The `PreparationStructuralValueRow` document type."""
+
+    fields: tuple[PreparationStructuralValue, ...]
+    names: tuple[str, ...]
+    table: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.fields), v.sequence_key(v.scalar_key)(self.names), v.scalar_key(self.table),))
+
+
+class PreparationStructuralValueSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="set"):
+    """The `PreparationStructuralValueSet` document type."""
+
+    items: tuple[PreparationStructuralValue, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.items),))
+
+
+class PreparationStructuralValueText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="text"):
+    """The `PreparationStructuralValueText` document type."""
+
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class PreparationStructuralValueTuple(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="tuple"):
+    """The `PreparationStructuralValueTuple` document type."""
+
+    items: tuple[PreparationStructuralValue, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.items),))
 
 
 class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15552,6 +16023,66 @@ class ProductDemandOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.accuracy), v.record_key(self.branch), v.scalar_key(self.derivative_order), v.record_key(self.source),))
+
+
+class ProductHeader(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact original publication provenance. Scientific payloads are never read."""
+
+    #: Original sealed payload identity; no bytes are hydrated.
+    content: str
+    #: Original content and dependency descriptor reference.
+    descriptor: str
+    #: Native scientific interpretation recorded at publication.
+    interpretation: str
+    #: Original association and request lookup identity.
+    key: str
+    #: Original producer namespace; no runtime qualification is implied.
+    producer: str
+    #: Original sealed receipt identity; no bytes are hydrated.
+    receipt: str
+    #: Exact original canonical source, not receiving compatibility.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.content), v.scalar_key(self.descriptor), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.producer), v.scalar_key(self.receipt), v.scalar_key(self.revision),))
+
+
+class ProductHeaderCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Continuation bound to the original issuing authority and immutable source.
+    It conveys no payload access or receiving compatibility.
+    """
+
+    after: str
+    issuing_store: str
+    problem: str
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.issuing_store), v.scalar_key(self.problem), v.scalar_key(self.revision),))
+
+
+class ProductHeaderPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded observational page of currently rooted original publications."""
+
+    #: Continue under this same exact authority/source selection.
+    next: ProductHeaderCursor | None = None
+    #: Present original publications. Presence never establishes receiving eligibility.
+    rows: tuple[ProductHeader, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.rows),))
+
+
+class ProductHeaderPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded observational page of currently rooted original publications."""
+
+    #: Continue under this same exact authority/source selection.
+    next: ProductHeaderCursor | None
+    #: Present original publications. Presence never establishes receiving eligibility.
+    rows: tuple[ProductHeader, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.rows),))
 
 
 class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16111,6 +16642,8 @@ class ProjectBranchRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
     key: str
+    #: name
+    name: str
     #: origin_revision
     origin_revision: str | None = None
     #: problem
@@ -16119,7 +16652,7 @@ class ProjectBranchRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     project: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
 
 
 class ProjectBranchRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16129,6 +16662,8 @@ class ProjectBranchRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
     key: str
+    #: name
+    name: str
     #: origin_revision
     origin_revision: str | None = None
     #: problem
@@ -16137,7 +16672,7 @@ class ProjectBranchRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields
     project: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
 
 
 class ProjectBranchRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16147,6 +16682,8 @@ class ProjectBranchRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
     key: str
+    #: name
+    name: str
     #: origin_revision
     origin_revision: str | None
     #: problem
@@ -16155,7 +16692,7 @@ class ProjectBranchRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_
     project: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
 
 
 class ProjectBranchRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16169,6 +16706,8 @@ class ProjectBranchRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
     key: str
+    #: name
+    name: str
     #: origin_revision
     origin_revision: str | None
     #: problem
@@ -16177,7 +16716,239 @@ class ProjectBranchRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     project: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project),))
+
+
+class ProjectComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact exact-source authored change summary; no numerical equivalence is asserted."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Only changed logical objects, ordered by stable logical identity.
+    changes: tuple[ProjectObjectChange, ...]
+    #: Original exact admitted source selection.
+    from_: ProjectComparisonSelection = msgspec.field(name="from")
+    #: Whether this operation requested and established matching physical context.
+    semantic_context_matches: bool
+    #: Compared exact admitted source selection.
+    to: ProjectComparisonSelection
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.changes), v.record_key(self.from_), v.scalar_key(self.semantic_context_matches), v.record_key(self.to),))
+
+
+class ProjectComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact exact-source authored change summary; no numerical equivalence is asserted."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Only changed logical objects, ordered by stable logical identity.
+    changes: tuple[ProjectObjectChange, ...]
+    #: Original exact admitted source selection.
+    from_: ProjectComparisonSelectionOutput = msgspec.field(name="from")
+    #: Whether this operation requested and established matching physical context.
+    semantic_context_matches: bool
+    #: Compared exact admitted source selection.
+    to: ProjectComparisonSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.changes), v.record_key(self.from_), v.scalar_key(self.semantic_context_matches), v.record_key(self.to),))
+
+
+class ProjectComparisonSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source identity used by a comparison; local tokens never stand in for durable keys.
+    Compact changes between exact admitted authored inventories.
+    """
+
+    #: Original canonical issuing authority, absent for a local source.
+    issuing_store: str | None = None
+    #: Exact process-local parent token of the admitted package.
+    local_revision: str
+    #: Exact physical closure identity used for semantic interpretation.
+    physical: str
+    #: Exact durable source revision, when recorded.
+    revision: str | None = None
+    #: Scientific source identity carried by the admitted package.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.issuing_store), v.scalar_key(self.local_revision), v.scalar_key(self.physical), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source),))
+
+
+class ProjectComparisonSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source identity used by a comparison; local tokens never stand in for durable keys.
+    Compact changes between exact admitted authored inventories.
+    """
+
+    #: Original canonical issuing authority, absent for a local source.
+    issuing_store: str | None
+    #: Exact process-local parent token of the admitted package.
+    local_revision: str
+    #: Exact physical closure identity used for semantic interpretation.
+    physical: str
+    #: Exact durable source revision, when recorded.
+    revision: str | None
+    #: Scientific source identity carried by the admitted package.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.issuing_store), v.scalar_key(self.local_revision), v.scalar_key(self.physical), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source),))
+
+
+class ProjectContext(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: corrects
+    corrects: str | None = None
+    #: deleted
+    deleted: bool
+    #: effective_from_us
+    effective_from_us: int
+    #: effective_to_us
+    effective_to_us: int | None = None
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: physical_revision
+    physical_revision: str
+    #: physical_source_identity
+    physical_source_identity: str
+    #: project
+    project: str
+    #: recorded_sequence
+    recorded_sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: scope
+    scope: str
+    #: source_identity
+    source_identity: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.physical_revision), v.scalar_key(self.physical_source_identity), v.scalar_key(self.project), v.scalar_key(self.recorded_sequence), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.scope), v.scalar_key(self.source_identity),))
+
+
+class ProjectContextBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: corrects
+    corrects: str | None = None
+    #: deleted
+    deleted: bool
+    #: effective_from_us
+    effective_from_us: int
+    #: effective_to_us
+    effective_to_us: int | None = None
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: physical_revision
+    physical_revision: str
+    #: physical_source_identity
+    physical_source_identity: str
+    #: project
+    project: str
+    #: recorded_sequence
+    recorded_sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: scope
+    scope: str
+    #: source_identity
+    source_identity: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.physical_revision), v.scalar_key(self.physical_source_identity), v.scalar_key(self.project), v.scalar_key(self.recorded_sequence), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.scope), v.scalar_key(self.source_identity),))
+
+
+class ProjectContextBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: corrects
+    corrects: str | None
+    #: deleted
+    deleted: bool
+    #: effective_from_us
+    effective_from_us: int
+    #: effective_to_us
+    effective_to_us: int | None
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: physical_revision
+    physical_revision: str
+    #: physical_source_identity
+    physical_source_identity: str
+    #: project
+    project: str
+    #: recorded_sequence
+    recorded_sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: scope
+    scope: str
+    #: source_identity
+    source_identity: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.physical_revision), v.scalar_key(self.physical_source_identity), v.scalar_key(self.project), v.scalar_key(self.recorded_sequence), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.scope), v.scalar_key(self.source_identity),))
+
+
+class ProjectContextOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: corrects
+    corrects: str | None
+    #: deleted
+    deleted: bool
+    #: effective_from_us
+    effective_from_us: int
+    #: effective_to_us
+    effective_to_us: int | None
+    #: key
+    key: str
+    #: physical_context
+    physical_context: str
+    #: physical_revision
+    physical_revision: str
+    #: physical_source_identity
+    physical_source_identity: str
+    #: project
+    project: str
+    #: recorded_sequence
+    recorded_sequence: Annotated[int, msgspec.Meta(ge=0)]
+    #: request
+    request: Bytes
+    #: revision
+    revision: str
+    #: scope
+    scope: str
+    #: source_identity
+    source_identity: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.key), v.scalar_key(self.physical_context), v.scalar_key(self.physical_revision), v.scalar_key(self.physical_source_identity), v.scalar_key(self.project), v.scalar_key(self.recorded_sequence), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.scalar_key(self.scope), v.scalar_key(self.source_identity),))
 
 
 class ProjectCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16208,6 +16979,90 @@ class ProjectCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.after), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.project),))
 
 
+class ProjectDocumentComposition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Whether an affected document keeps an authenticated exact source-text preimage."""
+
+    #: Affected original document identity.
+    logical: str
+    #: False means composed IR has no exact original text; retained ancestors still own originals.
+    original_text_retained: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.logical), v.scalar_key(self.original_text_retained),))
+
+
+class ProjectDocumentSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source metadata plus exact data identity. Passive comparison does not copy binary payloads."""
+
+    #: Exact admitted data object version, absent for a text-only document.
+    content_digest: str | None = None
+    #: Original document metadata and optional text, without binary content.
+    document: AuthoredDocumentsRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.content_digest), v.record_key(self.document),))
+
+
+class ProjectDocumentSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source metadata plus exact data identity. Passive comparison does not copy binary payloads."""
+
+    #: Exact admitted data object version, absent for a text-only document.
+    content_digest: str | None
+    #: Original document metadata and optional text, without binary content.
+    document: AuthoredDocumentsRowOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.content_digest), v.record_key(self.document),))
+
+
+class ProjectDraftDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact-source typed draft edits. Reconstruction checks scientific and physical identity
+    before rebinding the original process-local parent token.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Draft codec version.
+    version: Literal[1] = 1
+    #: Exact durable parent; content equality cannot substitute another revision.
+    base_revision: str
+    #: Existing typed source edits; omissions inherit.
+    delta: SourceDeltaBody
+    #: Canonical authority that issued the exact original base.
+    issuing_store: str
+    #: Original local parent token captured with the edits.
+    parent_local: str
+    #: Exact immutable source and physical premises.
+    source: OperationSourceBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.base_revision), v.record_key(self.delta), v.scalar_key(self.issuing_store), v.scalar_key(self.parent_local), v.record_key(self.source),))
+
+
+class ProjectDraftDeltaOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact-source typed draft edits. Reconstruction checks scientific and physical identity
+    before rebinding the original process-local parent token.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Draft codec version.
+    version: Literal[1] = 1
+    #: Exact durable parent; content equality cannot substitute another revision.
+    base_revision: str
+    #: Existing typed source edits; omissions inherit.
+    delta: SourceDeltaBodyOutput
+    #: Canonical authority that issued the exact original base.
+    issuing_store: str
+    #: Original local parent token captured with the edits.
+    parent_local: str
+    #: Exact immutable source and physical premises.
+    source: OperationSourceBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.base_revision), v.record_key(self.delta), v.scalar_key(self.issuing_store), v.scalar_key(self.parent_local), v.record_key(self.source),))
+
+
 class ProjectDraftDocuments(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;
     only scientific publication decodes it and invokes the ordinary package loader.
@@ -16225,55 +17080,35 @@ class ProjectDraftDocuments(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
 
 class ProjectDraftRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A row or nested value projected from the registry declaration."""
+    """One atomic draft-head and immutable-version selection."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    #: artifact
-    artifact: str | None = None
-    #: base_revision
-    base_revision: str
-    #: branch
-    branch: str
-    #: content
-    content: Bytes
-    #: generation
-    generation: Annotated[int, msgspec.Meta(ge=0)]
-    #: key
-    key: str
-    #: project
-    project: str
+    #: Original immutable raw version.
+    version: ProjectDraftVersionBody
+    #: Selected mutable editing head.
+    head: RuntimeCanonicalProjectDraftsRow
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.version), v.record_key(self.head),))
 
 
 class ProjectDraftRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A row or nested value projected from the registry declaration."""
+    """One atomic draft-head and immutable-version selection."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    #: artifact
-    artifact: str | None
-    #: base_revision
-    base_revision: str
-    #: branch
-    branch: str
-    #: content
-    content: Bytes
-    #: generation
-    generation: Annotated[int, msgspec.Meta(ge=0)]
-    #: key
-    key: str
-    #: project
-    project: str
+    #: Original immutable raw version.
+    version: ProjectDraftVersionBodyOutput
+    #: Selected mutable editing head.
+    head: RuntimeCanonicalProjectDraftsRow
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.version), v.record_key(self.head),))
 
 
 class ProjectDraftSaveIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16324,6 +17159,512 @@ class ProjectDraftSaveIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
 
 
+class ProjectDraftVersion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None = None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: draft
+    draft: str
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectDraftVersionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: artifact
+    artifact: str | None = None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: draft
+    draft: str
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectDraftVersionBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: artifact
+    artifact: str | None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: draft
+    draft: str
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectDraftVersionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: artifact
+    artifact: str | None
+    #: base_revision
+    base_revision: str
+    #: branch
+    branch: str
+    #: content
+    content: Bytes
+    #: draft
+    draft: str
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.scalar_key(self.base_revision), v.scalar_key(self.branch), v.sequence_key(v.scalar_key)(self.content), v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class ProjectMergeConflict(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A typed conflict between two changes of one logical object."""
+
+    #: Conflict evidence requiring an explicit resolution.
+    kind: enums.ProjectMergeConflictKind
+    #: Conflicting stable authored logical identity.
+    logical: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.logical),))
+
+
+class ProjectMergeIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete immutable decision retained before issuing a source effect.
+    The canonical request binds its commitment and additional ancestry in the source transaction.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Closed original decision document version.
+    version: Literal[1] = 1
+    #: Exact admitted common ancestor revision.
+    base: str
+    #: Three-way composition or compensating undo.
+    mode: enums.ProjectMergeMode
+    #: Exact physical closure required for admission and publication.
+    physical: str
+    #: Original admitted source or immutable saved draft version.
+    proposal: ProjectMergeProposal
+    #: Original canonical source CAS and immutable decision commitment.
+    publication: ProjectPublicationBody
+    #: Complete explicit original conflict choices.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Exact original source head receiving the result.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.base), v.scalar_key(self.mode), v.scalar_key(self.physical), v.record_key(self.proposal), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectMergeIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete immutable decision retained before issuing a source effect.
+    The canonical request binds its commitment and additional ancestry in the source transaction.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Closed original decision document version.
+    version: Literal[1] = 1
+    #: Exact admitted common ancestor revision.
+    base: str
+    #: Three-way composition or compensating undo.
+    mode: enums.ProjectMergeMode
+    #: Exact physical closure required for admission and publication.
+    physical: str
+    #: Original admitted source or immutable saved draft version.
+    proposal: ProjectMergeProposalOutput
+    #: Original canonical source CAS and immutable decision commitment.
+    publication: ProjectPublicationBodyOutput
+    #: Complete explicit original conflict choices.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Exact original source head receiving the result.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.base), v.scalar_key(self.mode), v.scalar_key(self.physical), v.record_key(self.proposal), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectMergePreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Prospective target changes and conflicts without any publication effect."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Changes against the target after applying explicit resolutions.
+    changes: tuple[ProjectObjectChange, ...]
+    #: Unresolved objects; these prevent issuing a publication intent.
+    conflicts: tuple[ProjectMergeConflict, ...]
+    #: Authenticated text-preimage availability after composition, before intent issuance.
+    documents: tuple[ProjectDocumentComposition, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.changes), v.sequence_key(v.record_key)(self.conflicts), v.sequence_key(v.record_key)(self.documents),))
+
+
+class ProjectMergeProposalDraft(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft"):
+    """An exact immutable saved raw version, admitted before publication."""
+
+    #: Full original version descriptor authenticated by its storage owner.
+    version: ProjectDraftVersionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version),))
+
+
+class ProjectMergeProposalOutputDraft(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft"):
+    """An exact immutable saved raw version, admitted before publication."""
+
+    #: Full original version descriptor authenticated by its storage owner.
+    version: ProjectDraftVersionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version),))
+
+
+class ProjectMergeProposalOutputRevision(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="revision"):
+    """An exact recorded admitted source revision."""
+
+    #: Original immutable canonical revision identity.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.revision),))
+
+
+class ProjectMergeProposalRevision(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="revision"):
+    """An exact recorded admitted source revision."""
+
+    #: Original immutable canonical revision identity.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.revision),))
+
+
+class ProjectMergeResolution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit conflict decision for one stable logical object."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Explicit selected original side or deletion.
+    choice: enums.ProjectMergeChoice
+    #: The actual conflicting logical identity.
+    logical: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.choice), v.scalar_key(self.logical),))
+
+
+class ProjectMergeResolutionBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit conflict decision for one stable logical object."""
+
+    #: Explicit selected original side or deletion.
+    choice: enums.ProjectMergeChoice
+    #: The actual conflicting logical identity.
+    logical: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.choice), v.scalar_key(self.logical),))
+
+
+class ProjectMetadataCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Continuation of a live metadata listing, not a historical snapshot."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    after: str
+    issuing_store: str
+    kind: enums.ProjectMetadataKind
+    owner: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.owner),))
+
+
+class ProjectMetadataCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Continuation of a live metadata listing, not a historical snapshot."""
+
+    after: str
+    issuing_store: str
+    kind: enums.ProjectMetadataKind
+    owner: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.owner),))
+
+
+class ProjectMetadataPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded metadata only; selected raw bodies are fetched separately."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact source bookmark metadata.
+    bookmarks: tuple[RuntimeCanonicalProjectBookmarksRow, ...]
+    #: Version-linked admission outcomes.
+    diagnostics: tuple[RuntimeCanonicalDraftDiagnosticsRow, ...]
+    #: Draft head metadata without raw bodies.
+    drafts: tuple[RuntimeCanonicalProjectDraftsRow, ...]
+    #: Continuation of this live metadata listing.
+    next: ProjectMetadataCursorBody | None = None
+    #: Project metadata.
+    projects: tuple[ProjectRecordBody, ...]
+    #: Exact saved draft-version references.
+    savepoints: tuple[RuntimeCanonicalProjectSavepointsRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.bookmarks), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.drafts), v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.projects), v.sequence_key(v.record_key)(self.savepoints),))
+
+
+class ProjectMetadataPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded metadata only; selected raw bodies are fetched separately."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact source bookmark metadata.
+    bookmarks: tuple[RuntimeCanonicalProjectBookmarksRow, ...]
+    #: Version-linked admission outcomes.
+    diagnostics: tuple[RuntimeCanonicalDraftDiagnosticsRow, ...]
+    #: Draft head metadata without raw bodies.
+    drafts: tuple[RuntimeCanonicalProjectDraftsRow, ...]
+    #: Continuation of this live metadata listing.
+    next: ProjectMetadataCursorBody | None
+    #: Project metadata.
+    projects: tuple[ProjectRecordBody, ...]
+    #: Exact saved draft-version references.
+    savepoints: tuple[RuntimeCanonicalProjectSavepointsRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.bookmarks), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.drafts), v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.projects), v.sequence_key(v.record_key)(self.savepoints),))
+
+
+class ProjectMetadataRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact owner and optional continuation for a bounded live metadata listing."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original continuation from the same store and collection.
+    cursor: ProjectMetadataCursorBody | None = None
+    #: Header collection to inspect.
+    kind: enums.ProjectMetadataKind
+    #: Project, branch, draft or version according to kind; empty for all projects.
+    owner: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.kind), v.scalar_key(self.owner),))
+
+
+class ProjectMetadataRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact owner and optional continuation for a bounded live metadata listing."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original continuation from the same store and collection.
+    cursor: ProjectMetadataCursorBody | None
+    #: Header collection to inspect.
+    kind: enums.ProjectMetadataKind
+    #: Project, branch, draft or version according to kind; empty for all projects.
+    owner: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.kind), v.scalar_key(self.owner),))
+
+
+class ProjectNavigationBookmark(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="bookmark"):
+    """Retain an exact admitted revision under a name."""
+
+    #: Stable record identity.
+    key: str
+    #: Presentation name within its owner namespace.
+    name: str
+    #: Exact admitted source revision.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.name), v.scalar_key(self.revision),))
+
+
+class ProjectNavigationBranchName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="branch_name"):
+    """Rename a branch within its project namespace."""
+
+    #: Stable record identity.
+    key: str
+    #: Presentation name within its owner namespace.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.name),))
+
+
+class ProjectNavigationDraftVisibility(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_visibility"):
+    """Change draft visibility under its expected head generation."""
+
+    #: Visibility flag; closure custody is unchanged.
+    deleted: bool
+    #: Expected mutable head generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Stable record identity.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.deleted), v.scalar_key(self.generation), v.scalar_key(self.key),))
+
+
+class ProjectNavigationProjectTitle(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_title"):
+    """Rename a project label."""
+
+    #: Presentation name within its owner namespace.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class ProjectNavigationProjectVisibility(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_visibility"):
+    """Soft deletion never releases scientific closure."""
+
+    #: Visibility flag; closure custody is unchanged.
+    deleted: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.deleted),))
+
+
+class ProjectNavigationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Versioned public command transport; the action carries no scientific authority."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Command codec version.
+    version: Literal[1] = 1
+    #: Explicit presentation or visibility change.
+    action: ProjectNavigation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.action),))
+
+
+class ProjectNavigationRestore(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="restore"):
+    """Restore an exact savepoint as a new head generation."""
+
+    #: Stable draft identity.
+    draft: str
+    #: Expected mutable head generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Stable record identity.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key),))
+
+
+class ProjectNavigationSavepoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="savepoint"):
+    """Pin the selected immutable raw version."""
+
+    #: Exact immutable raw version.
+    version: str
+    #: Stable draft identity.
+    draft: str
+    #: Expected mutable head generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Stable record identity.
+    key: str
+    #: Presentation name within its owner namespace.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.draft), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.name),))
+
+
+class ProjectNavigationSavepointVisibility(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="savepoint_visibility"):
+    """Change savepoint visibility."""
+
+    #: Visibility flag; closure custody is unchanged.
+    deleted: bool
+    #: Stable record identity.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.deleted), v.scalar_key(self.key),))
+
+
+class ProjectObjectChange(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One changed logical object. Values are available only by selected detail request."""
+
+    #: The object is absent from the original selection.
+    added: bool
+    #: Changed top-level typed fields; detailed values require explicit selection.
+    fields: tuple[str, ...]
+    #: Conservative source and scientific impacts supported by authored evidence.
+    impacts: tuple[enums.ProjectChangeImpact, ...]
+    #: Stable authored logical identity.
+    logical: str
+    #: The object is absent from the proposed selection.
+    removed: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.added), v.sequence_key(v.scalar_key)(self.fields), v.sequence_key(v.scalar_key)(self.impacts), v.scalar_key(self.logical), v.scalar_key(self.removed),))
+
+
 class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original source-publication intent. Retain it unchanged through uncertain completion."""
 
@@ -16333,9 +17674,12 @@ class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     document_version: Literal[1] = 1
     branch: str
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    branch_name: str
+    context_commitment: str | None = None
     draft: str | None = None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
     expected: str | None = None
+    extra_parents: tuple[str, ...]
     issuing_store: str
     kind: str
     operation: str
@@ -16346,7 +17690,55 @@ class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+
+
+class ProjectPublicationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source-publication intent. Retain it unchanged through uncertain completion."""
+
+    branch: str
+    branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    branch_name: str
+    context_commitment: str | None = None
+    draft: str | None = None
+    draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    expected: str | None = None
+    extra_parents: tuple[str, ...]
+    issuing_store: str
+    kind: str
+    operation: str
+    origin_revision: str | None = None
+    problem: str
+    project: str
+    project_generation: Annotated[int, msgspec.Meta(ge=0)]
+    request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+
+
+class ProjectPublicationBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source-publication intent. Retain it unchanged through uncertain completion."""
+
+    branch: str
+    branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    branch_name: str
+    context_commitment: str | None
+    draft: str | None
+    draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None
+    expected: str | None
+    extra_parents: tuple[str, ...]
+    issuing_store: str
+    kind: str
+    operation: str
+    origin_revision: str | None
+    problem: str
+    project: str
+    project_generation: Annotated[int, msgspec.Meta(ge=0)]
+    request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
 
 
 class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16358,9 +17750,12 @@ class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     document_version: Literal[1] = 1
     branch: str
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
+    branch_name: str
+    context_commitment: str | None
     draft: str | None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None
     expected: str | None
+    extra_parents: tuple[str, ...]
     issuing_store: str
     kind: str
     operation: str
@@ -16371,7 +17766,7 @@ class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.branch), v.scalar_key(self.branch_generation), v.scalar_key(self.branch_name), v.optional_key(v.scalar_key)(self.context_commitment), v.optional_key(v.scalar_key)(self.draft), v.optional_key(v.scalar_key)(self.draft_generation), v.optional_key(v.scalar_key)(self.expected), v.sequence_key(v.scalar_key)(self.extra_parents), v.scalar_key(self.issuing_store), v.scalar_key(self.kind), v.scalar_key(self.operation), v.optional_key(v.scalar_key)(self.origin_revision), v.scalar_key(self.problem), v.scalar_key(self.project), v.scalar_key(self.project_generation), v.sequence_key(v.scalar_key)(self.request),))
 
 
 class ProjectRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16381,6 +17776,8 @@ class ProjectRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
+    #: deleted
+    deleted: bool
     #: generation
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
@@ -16389,12 +17786,14 @@ class ProjectRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     title: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.deleted), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
 
 
 class ProjectRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
+    #: deleted
+    deleted: bool
     #: generation
     generation: Annotated[int, msgspec.Meta(ge=0)]
     #: key
@@ -16403,7 +17802,171 @@ class ProjectRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     title: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
+        return (type(self), (v.scalar_key(self.deleted), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.title),))
+
+
+class ProjectReferenceBookmark(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="bookmark"):
+    """Select an immutable bookmark."""
+
+    #: Stable bookmark identity.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectReferenceBranch(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="branch"):
+    """Select a branch's current exact source in a short snapshot."""
+
+    #: Stable branch identity.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectSelectRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit navigation command transport."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec version.
+    version: Literal[1] = 1
+    #: Exact navigation owner.
+    reference: ProjectReference
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.reference),))
+
+
+class ProjectSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retain this selection to reopen the same science after a branch head or label changes."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Canonical installation incarnation.
+    issuing_store: str
+    #: Complete admitted physical closure identity, not a mutable package name.
+    physical_context: v.ContentHash
+    #: Exact source problem owner.
+    problem: str
+    #: Stable project identity, independent of presentation labels.
+    project: str
+    #: Original navigation owner; this does not mean its current head is still selected.
+    reference: ProjectReference
+    #: Exact immutable accepted source revision.
+    revision: str
+    #: Admitted scientific source identity; the exact revision additionally protects fits/provenance.
+    source_identity: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.issuing_store), v.scalar_key(self.physical_context), v.scalar_key(self.problem), v.scalar_key(self.project), v.record_key(self.reference), v.scalar_key(self.revision), v.scalar_key(self.source_identity),))
+
+
+class ProjectSourceDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected authored object without implicit full source export."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Requested stable logical identity.
+    logical: str
+    #: Selected admitted object, or explicit absence at this revision.
+    object: ProjectSourceObject | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.logical), v.optional_key(v.record_key)(self.object),))
+
+
+class ProjectSourceDetailOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected authored object without implicit full source export."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Requested stable logical identity.
+    logical: str
+    #: Selected admitted object, or explicit absence at this revision.
+    object: ProjectSourceObjectOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.logical), v.optional_key(v.record_key)(self.object),))
+
+
+class ProjectSourceObjectDeclaration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declaration"):
+    """Admitted modeling declaration with its stable identity."""
+
+    value: AuthoredModelingDeclarationsRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="document"):
+    """Admitted document metadata and exact data identity."""
+
+    value: ProjectDocumentSource
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectFit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit"):
+    """Admitted fitting declaration."""
+
+    value: AuthoredFitCasesRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectOutputDeclaration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declaration"):
+    """Admitted modeling declaration with its stable identity."""
+
+    value: AuthoredModelingDeclarationsRowOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectOutputDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="document"):
+    """Admitted document metadata and exact data identity."""
+
+    value: ProjectDocumentSourceOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectOutputFit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit"):
+    """Admitted fitting declaration."""
+
+    value: AuthoredFitCasesRowOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectOutputPackage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="package"):
+    """Package ownership metadata; automatic package-manifest merging is unsupported."""
+
+    value: AuthoredPackagesRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProjectSourceObjectPackage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="package"):
+    """Package ownership metadata; automatic package-manifest merging is unsupported."""
+
+    value: AuthoredPackagesRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
 
 
 class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17311,7 +18874,7 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Historical source execution; a numerical rerun always gets another identity.
     source_run: identities.RunId
     #: Full immutable authored/provider/physical source closures.
-    sources: tuple[ReplaySourceDocument, ...]
+    sources: tuple[ReplaySourceDocumentOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.sequence_key(v.record_key)(self.case_constructors), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.record_key)(self.fit_constructor), v.optional_key(v.sequence_key(v.scalar_key))(self.horizon), v.optional_key(v.record_key)(self.horizon_constructor), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.optional_key(v.record_key)(self.shooting_constructor), v.sequence_key(v.record_key)(self.simulation_constructors), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
@@ -17883,6 +19446,8 @@ class ReplaySourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Required linked native build.
     build: v.ContentHash
+    #: Frozen original historical attribution, independently checked against actual source/physical content.
+    context: ContextSelectionBody | None = None
     #: Source identity, checked against the complete context object.
     identity: v.ContentHash
     #: Exact generated registry interpretation.
@@ -17897,7 +19462,31 @@ class ReplaySourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     providers: tuple[ReplayProvider, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+
+
+class ReplaySourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exportable source closure. Reconstruction requires matching actual admitted physical/provider premises."""
+
+    #: Required linked native build.
+    build: v.ContentHash
+    #: Frozen original historical attribution, independently checked against actual source/physical content.
+    context: ContextSelectionBodyOutput | None
+    #: Source identity, checked against the complete context object.
+    identity: v.ContentHash
+    #: Exact generated registry interpretation.
+    interpretation: str
+    #: Complete authored/data/reference object inventory.
+    objects: tuple[ReplaySourceObject, ...]
+    #: Required admitted physical interpretation.
+    physical_identity: v.ContentHash
+    #: Complete original physical source streams.
+    physical_sources: tuple[ReplayPhysicalSource, ...]
+    #: Full required callable descriptor bodies; actual executable factories are supplied separately.
+    providers: tuple[ReplayProvider, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
 
 
 class ReplaySourceObject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18166,7 +19755,7 @@ class ReproducerInputBodyOutputFrozenAlgebraic(msgspec.Struct, frozen=True, forb
     #: Exact original requested constructor.
     constructor: ReplayCaseConstructorOutput
     #: Complete original source codec.
-    source: ReplaySourceDocument
+    source: ReplaySourceDocumentOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.constructor), v.record_key(self.source),))
@@ -18222,7 +19811,7 @@ class ReproducerInputOutputFrozenAlgebraic(msgspec.Struct, frozen=True, forbid_u
     #: Exact original requested constructor.
     constructor: ReplayCaseConstructorOutput
     #: Complete original source codec.
-    source: ReplaySourceDocument
+    source: ReplaySourceDocumentOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.constructor), v.record_key(self.source),))
@@ -18436,6 +20025,38 @@ class ResearchReferenceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.artifact), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.key), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.run),))
+
+
+class ResidentPreparation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact observational metadata; contains no live product or native handle."""
+
+    #: Existing exact-key and source-premise assessment.
+    eligibility: enums.PreparationEligibility
+    #: Original retention product class.
+    kind: enums.PreparationProductKind
+    #: Immutable insertion weight, including retained key and owner metadata.
+    retained_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original compiler-sealed body identity for body/encoding entries only.
+    semantic_identity: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.eligibility), v.scalar_key(self.kind), v.scalar_key(self.retained_bytes), v.optional_key(v.scalar_key)(self.semantic_identity),))
+
+
+class ResidentPreparationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact observational metadata; contains no live product or native handle."""
+
+    #: Existing exact-key and source-premise assessment.
+    eligibility: enums.PreparationEligibility
+    #: Original retention product class.
+    kind: enums.PreparationProductKind
+    #: Immutable insertion weight, including retained key and owner metadata.
+    retained_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original compiler-sealed body identity for body/encoding entries only.
+    semantic_identity: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.eligibility), v.scalar_key(self.kind), v.scalar_key(self.retained_bytes), v.optional_key(v.scalar_key)(self.semantic_identity),))
 
 
 class ResidualLmCriteria(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19535,6 +21156,8 @@ class ReviewSourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Source image build premise; does not prove an executed native version.
     build: v.ContentHash
+    #: Exact historical engineering attribution, when selected before execution.
+    context: ContextSelectionBody | None = None
     #: Exact original source identity.
     identity: v.ContentHash
     #: Registry interpretation of these source facts.
@@ -19549,7 +21172,7 @@ class ReviewSourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     providers: tuple[ReviewProviderDescriptor, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
 
 
 class ReviewSourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19557,6 +21180,8 @@ class ReviewSourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     #: Source image build premise; does not prove an executed native version.
     build: v.ContentHash
+    #: Exact historical engineering attribution, when selected before execution.
+    context: ContextSelectionBodyOutput | None
     #: Exact original source identity.
     identity: v.ContentHash
     #: Registry interpretation of these source facts.
@@ -19571,7 +21196,7 @@ class ReviewSourceDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     providers: tuple[ReviewProviderDescriptorOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.build), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+        return (type(self), (v.scalar_key(self.build), v.optional_key(v.record_key)(self.context), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
 
 
 class ReviewTableDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -20067,6 +21692,78 @@ class RuntimeCandidateAssessmentsRowOutput(msgspec.Struct, frozen=True, forbid_u
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.absolute_gap), v.optional_key(v.scalar_key)(self.bound), v.optional_key(v.scalar_key)(self.bound_origin), v.optional_key(v.scalar_key)(self.candidate_kind), v.scalar_key(self.closure), v.scalar_key(self.incumbent_policy), v.optional_key(v.scalar_key)(self.native_termination), v.optional_key(v.scalar_key)(self.numerically_feasible), v.scalar_key(self.permits_result), v.scalar_key(self.permits_seed), v.scalar_key(self.policy), v.optional_key(v.scalar_key)(self.qualification), v.sequence_key(v.scalar_key)(self.qualifiers), v.scalar_key(self.reason), v.sequence_key(v.scalar_key)(self.refusals), v.optional_key(v.scalar_key)(self.relative_gap), v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.usability), v.optional_key(v.scalar_key)(self.validated),))
+
+
+class RuntimeCanonicalDraftDiagnosticsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: version
+    version: str
+    #: admitted
+    admitted: bool
+    #: key
+    key: str
+    #: message
+    message: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.admitted), v.scalar_key(self.key), v.scalar_key(self.message),))
+
+
+class RuntimeCanonicalProjectBookmarksRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: key
+    key: str
+    #: name
+    name: str
+    #: project
+    project: str
+    #: revision
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.name), v.scalar_key(self.project), v.scalar_key(self.revision),))
+
+
+class RuntimeCanonicalProjectDraftsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: version
+    version: str
+    #: branch
+    branch: str
+    #: deleted
+    deleted: bool
+    #: generation
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: key
+    key: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.branch), v.scalar_key(self.deleted), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.project),))
+
+
+class RuntimeCanonicalProjectSavepointsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: version
+    version: str
+    #: deleted
+    deleted: bool
+    #: draft
+    draft: str
+    #: key
+    key: str
+    #: name
+    name: str
+    #: project
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.deleted), v.scalar_key(self.draft), v.scalar_key(self.key), v.scalar_key(self.name), v.scalar_key(self.project),))
 
 
 class RuntimeComputationRunsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -22218,14 +23915,16 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 11 of a study's definition: the store's `definition` document and the content of
+    """Version 13 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 12
+    _pse_required_version: ClassVar[int] = 13
 
     #: Document version.
-    version: Literal[12] = 12
+    version: Literal[13] = 13
+    #: Exact historical source context selected before admission, never a latest query.
+    context: ContextSelectionBody | None = None
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
@@ -22236,18 +23935,20 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     variants: LazyStudyDefinitionBody | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
 
 
 class StudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 11 of a study's definition: the store's `definition` document and the content of
+    """Version 13 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 12
+    _pse_required_version: ClassVar[int] = 13
 
     #: Document version.
-    version: Literal[12] = 12
+    version: Literal[13] = 13
+    #: Exact historical source context selected before admission, never a latest query.
+    context: ContextSelectionBodyOutput | None
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
@@ -22258,7 +23959,7 @@ class StudyDefinitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     variants: LazyStudyDefinitionBodyOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.context), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
 
 
 class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -22409,7 +24110,7 @@ class StudyOperationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Complete preparation controls using existing owners' remote projections.
     preparation: PreparationSettingsBodyOutput
     #: Exact source/context reconstruction precondition.
-    source: OperationSourceBody
+    source: OperationSourceBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.output), v.record_key(self.preparation), v.record_key(self.source),))
@@ -22706,7 +24407,7 @@ class StudyVariantsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Explicit selected ordinals in original visible occurrence order.
     selected: tuple[SelectedStudyVariantOutput, ...]
     #: Complete admitted base source and physical identity.
-    source: OperationSourceBody
+    source: OperationSourceBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.choices), v.sequence_key(v.record_key)(self.selected), v.record_key(self.source),))
@@ -23965,6 +25666,10 @@ OperationRequestOutput = OperationRequestOutputDeclaredCase | OperationRequestOu
 
 PackAvailability = PackAvailabilityPending | PackAvailabilityAvailable | PackAvailabilityUnavailable | PackAvailabilityFailed
 
+PreparationFact = PreparationFactRoute | PreparationFactDynamic | PreparationFactObjectiveLevel | PreparationFactStage
+
+PreparationStructuralValue = PreparationStructuralValueBoolean | PreparationStructuralValueInteger | PreparationStructuralValueNumber | PreparationStructuralValueCoordinate | PreparationStructuralValueText | PreparationStructuralValueEntity | PreparationStructuralValueEnumeration | PreparationStructuralValueIdentifier | PreparationStructuralValueDefinition | PreparationStructuralValueFunction | PreparationStructuralValueRow | PreparationStructuralValueSet | PreparationStructuralValueTuple | PreparationStructuralValueQuantityType | PreparationStructuralValueReferenceState | PreparationStructuralValueMissing
+
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
 ProgressCoverage = ProgressCoverageUnknown | ProgressCoverageSampled
@@ -23974,6 +25679,18 @@ ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentR
 ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | ProgressWriteStageEncoding | ProgressWriteStageCanonicalAppend | ProgressWriteStageAcknowledgment | ProgressWriteStagePublication
 
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
+
+ProjectMergeProposal = ProjectMergeProposalRevision | ProjectMergeProposalDraft
+
+ProjectMergeProposalOutput = ProjectMergeProposalOutputRevision | ProjectMergeProposalOutputDraft
+
+ProjectNavigation = ProjectNavigationProjectTitle | ProjectNavigationProjectVisibility | ProjectNavigationBranchName | ProjectNavigationBookmark | ProjectNavigationSavepoint | ProjectNavigationDraftVisibility | ProjectNavigationSavepointVisibility | ProjectNavigationRestore
+
+ProjectReference = ProjectReferenceBranch | ProjectReferenceBookmark
+
+ProjectSourceObject = ProjectSourceObjectDeclaration | ProjectSourceObjectDocument | ProjectSourceObjectFit | ProjectSourceObjectPackage
+
+ProjectSourceObjectOutput = ProjectSourceObjectOutputDeclaration | ProjectSourceObjectOutputDocument | ProjectSourceObjectOutputFit | ProjectSourceObjectOutputPackage
 
 RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
 
@@ -24302,6 +26019,8 @@ __all__ = [
     "AuthoredModelingDeclarationsRowOutput",
     "AuthoredNumericalRequirementsRow",
     "AuthoredNumericalRequirementsRowOutput",
+    "AuthoredPackagesFieldDependenciesItem",
+    "AuthoredPackagesRow",
     "BackendSettings",
     "BackendSettingsBody",
     "BackendSettingsBodyOutput",
@@ -24396,6 +26115,12 @@ __all__ = [
     "ConformanceRunOutput",
     "ConicRequest",
     "ConnectedPath",
+    "ContextCut",
+    "ContextCutBody",
+    "ContextSelection",
+    "ContextSelectionBody",
+    "ContextSelectionBodyOutput",
+    "ContextSelectionOutput",
     "ControllerOperation",
     "ControllerOperationOutput",
     "CopiedExecutionObservations",
@@ -24838,6 +26563,8 @@ __all__ = [
     "OperationSnapshotOutput",
     "OperationSource",
     "OperationSourceBody",
+    "OperationSourceBodyOutput",
+    "OperationSourceOutput",
     "OperationSummary",
     "OperationSummaryOutput",
     "Optimization",
@@ -24910,12 +26637,40 @@ __all__ = [
     "PounceSettingsDocument",
     "PounceSettingsDocumentOutput",
     "PounceSettingsOutput",
+    "PreparationBindings",
     "PreparationCounts",
     "PreparationCountsBody",
+    "PreparationDiscoveryReport",
+    "PreparationDiscoveryReportOutput",
+    "PreparationDiscoveryRequest",
+    "PreparationDiscoveryRequestOutput",
+    "PreparationFact",
+    "PreparationFactDynamic",
+    "PreparationFactObjectiveLevel",
+    "PreparationFactRoute",
+    "PreparationFactStage",
+    "PreparationFormulation",
     "PreparationSettings",
     "PreparationSettingsBody",
     "PreparationSettingsBodyOutput",
     "PreparationSettingsOutput",
+    "PreparationStructuralValue",
+    "PreparationStructuralValueBoolean",
+    "PreparationStructuralValueCoordinate",
+    "PreparationStructuralValueDefinition",
+    "PreparationStructuralValueEntity",
+    "PreparationStructuralValueEnumeration",
+    "PreparationStructuralValueFunction",
+    "PreparationStructuralValueIdentifier",
+    "PreparationStructuralValueInteger",
+    "PreparationStructuralValueMissing",
+    "PreparationStructuralValueNumber",
+    "PreparationStructuralValueQuantityType",
+    "PreparationStructuralValueReferenceState",
+    "PreparationStructuralValueRow",
+    "PreparationStructuralValueSet",
+    "PreparationStructuralValueText",
+    "PreparationStructuralValueTuple",
     "PresolveSeedTransformation",
     "ProcessCheckpoint",
     "ProcessCheckpointOutput",
@@ -24933,6 +26688,10 @@ __all__ = [
     "ProductAvailability",
     "ProductDemand",
     "ProductDemandOutput",
+    "ProductHeader",
+    "ProductHeaderCursor",
+    "ProductHeaderPage",
+    "ProductHeaderPageOutput",
     "ProductKind",
     "ProductionDemand",
     "ProductionDemandOutput",
@@ -24980,17 +26739,82 @@ __all__ = [
     "ProjectBranchRecordBody",
     "ProjectBranchRecordBodyOutput",
     "ProjectBranchRecordOutput",
+    "ProjectComparison",
+    "ProjectComparisonOutput",
+    "ProjectComparisonSelection",
+    "ProjectComparisonSelectionOutput",
+    "ProjectContext",
+    "ProjectContextBody",
+    "ProjectContextBodyOutput",
+    "ProjectContextOutput",
     "ProjectCursor",
     "ProjectCursorBody",
+    "ProjectDocumentComposition",
+    "ProjectDocumentSource",
+    "ProjectDocumentSourceOutput",
+    "ProjectDraftDelta",
+    "ProjectDraftDeltaOutput",
     "ProjectDraftDocuments",
     "ProjectDraftRecord",
     "ProjectDraftRecordOutput",
     "ProjectDraftSaveIntent",
     "ProjectDraftSaveIntentOutput",
+    "ProjectDraftVersion",
+    "ProjectDraftVersionBody",
+    "ProjectDraftVersionBodyOutput",
+    "ProjectDraftVersionOutput",
+    "ProjectMergeConflict",
+    "ProjectMergeIntent",
+    "ProjectMergeIntentOutput",
+    "ProjectMergePreview",
+    "ProjectMergeProposal",
+    "ProjectMergeProposalDraft",
+    "ProjectMergeProposalOutput",
+    "ProjectMergeProposalOutputDraft",
+    "ProjectMergeProposalOutputRevision",
+    "ProjectMergeProposalRevision",
+    "ProjectMergeResolution",
+    "ProjectMergeResolutionBody",
+    "ProjectMetadataCursor",
+    "ProjectMetadataCursorBody",
+    "ProjectMetadataPage",
+    "ProjectMetadataPageOutput",
+    "ProjectMetadataRequest",
+    "ProjectMetadataRequestOutput",
+    "ProjectNavigation",
+    "ProjectNavigationBookmark",
+    "ProjectNavigationBranchName",
+    "ProjectNavigationDraftVisibility",
+    "ProjectNavigationProjectTitle",
+    "ProjectNavigationProjectVisibility",
+    "ProjectNavigationRequest",
+    "ProjectNavigationRestore",
+    "ProjectNavigationSavepoint",
+    "ProjectNavigationSavepointVisibility",
+    "ProjectObjectChange",
     "ProjectPublication",
+    "ProjectPublicationBody",
+    "ProjectPublicationBodyOutput",
     "ProjectPublicationOutput",
     "ProjectRecord",
     "ProjectRecordBody",
+    "ProjectReference",
+    "ProjectReferenceBookmark",
+    "ProjectReferenceBranch",
+    "ProjectSelectRequest",
+    "ProjectSelection",
+    "ProjectSourceDetail",
+    "ProjectSourceDetailOutput",
+    "ProjectSourceObject",
+    "ProjectSourceObjectDeclaration",
+    "ProjectSourceObjectDocument",
+    "ProjectSourceObjectFit",
+    "ProjectSourceObjectOutput",
+    "ProjectSourceObjectOutputDeclaration",
+    "ProjectSourceObjectOutputDocument",
+    "ProjectSourceObjectOutputFit",
+    "ProjectSourceObjectOutputPackage",
+    "ProjectSourceObjectPackage",
     "Propagation",
     "PropagationOutput",
     "PseudoTime",
@@ -25084,6 +26908,7 @@ __all__ = [
     "ReplaySolverSettings",
     "ReplaySolverSettingsOutput",
     "ReplaySourceDocument",
+    "ReplaySourceDocumentOutput",
     "ReplaySourceObject",
     "ReplayVariableState",
     "ReplayVariableStateOutput",
@@ -25127,6 +26952,8 @@ __all__ = [
     "RequirementStatus",
     "ResearchReference",
     "ResearchReferenceOutput",
+    "ResidentPreparation",
+    "ResidentPreparationOutput",
     "ResidualLmCriteria",
     "ResidualLmStopping",
     "ResourceConsumer",
@@ -25197,6 +27024,10 @@ __all__ = [
     "RuntimeAccuracyGoalAssessmentsRowOutput",
     "RuntimeCandidateAssessmentsRow",
     "RuntimeCandidateAssessmentsRowOutput",
+    "RuntimeCanonicalDraftDiagnosticsRow",
+    "RuntimeCanonicalProjectBookmarksRow",
+    "RuntimeCanonicalProjectDraftsRow",
+    "RuntimeCanonicalProjectSavepointsRow",
     "RuntimeComputationRunsRow",
     "RuntimeComputationRunsRowOutput",
     "RuntimeRunLineageRow",
@@ -25430,4 +27261,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:e74aa8844c4d9e2b19f8f3fa0a2403a4184bd1f4fee99cef86dbabb4bc42a62f"
+SCHEMA_SET_FINGERPRINT = "blake3:1d467188ab6f2677aa4e8895d9fd6f3319adc04a7ac0c95342fff5b2a83b959b"

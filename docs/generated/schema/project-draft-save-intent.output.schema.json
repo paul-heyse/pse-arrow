@@ -110,6 +110,10 @@
           "description": "key",
           "type": "string"
         },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
         "origin_revision": {
           "description": "origin_revision",
           "type": [
@@ -130,6 +134,7 @@
         "key",
         "project",
         "problem",
+        "name",
         "origin_revision",
         "generation"
       ],
@@ -139,6 +144,10 @@
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
+        "deleted": {
+          "description": "deleted",
+          "type": "boolean"
+        },
         "generation": {
           "description": "generation",
           "format": "uint64",
@@ -157,6 +166,7 @@
       "required": [
         "key",
         "title",
+        "deleted",
         "generation"
       ],
       "type": "object"

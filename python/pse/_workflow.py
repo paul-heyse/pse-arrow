@@ -41,7 +41,8 @@ from pse.contracts.documents import (
     ConicRequest,
     ContextCut,
     ContextSelection,
-    ProjectContext,
+    ContextSelectionOutput,
+    ProjectContextOutput,
     DiagnosticExecutionDocumentOutput,
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
@@ -61,8 +62,7 @@ from pse.contracts.documents import (
     ProjectCursorBody,
     ProjectSelectRequest,
     ProjectSelection,
-    ProjectSelectionOutput,
-    ProjectDraftDelta,
+    ProjectDraftDeltaOutput,
     ProjectDraftVersion,
     ProjectDraftVersionOutput,
     ProjectMetadataRequest,
@@ -76,15 +76,11 @@ from pse.contracts.documents import (
     ProjectDraftSaveIntentOutput,
     ProjectPublication,
     ProjectPublicationOutput,
-    ProjectDraftVersion,
-    ProjectDraftVersionOutput,
     ProjectMergeIntent,
     ProjectMergeIntentOutput,
-    ProjectMergePreviewOutput,
+    ProjectMergePreview,
     ProjectMergeResolution,
-    ProjectMergeResolutionOutput,
     ProjectRecord,
-    ProjectRecordOutput,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
@@ -493,20 +489,20 @@ class Runtime:
 
     def project_context_select(
         self, cut: ContextCut, scope: str, effective_at_us: int
-    ) -> ContextSelection | None:
+    ) -> ContextSelectionOutput | None:
         """Select at an explicit UTC microsecond instant and original recorded cut."""
         return self._handle.project_context_select(cut, scope, effective_at_us)
 
-    def project_context_record(self, key: str) -> ProjectContext | None:
+    def project_context_record(self, key: str) -> ProjectContextOutput | None:
         """Read original immutable metadata, including tombstones and hidden projects."""
         return self._handle.project_context_record(key)
 
-    def project_context_reopen(self, selection: ContextSelection) -> ModelingPackage:
+    def project_context_reopen(self, selection: ContextSelection | ContextSelectionOutput) -> ModelingPackage:
         """Reopen original persisted source and physical closures without supplied documents."""
         return ModelingPackage(self._handle.project_context_reopen(selection))
 
     def project_context_package(
-        self, selection: ContextSelection, physical: PhysicalContext
+        self, selection: ContextSelection | ContextSelectionOutput, physical: PhysicalContext
     ) -> ModelingPackage:
         """Load this exact selection through ordinary source admission; never select latest."""
         return ModelingPackage(
@@ -518,7 +514,7 @@ class Runtime:
     def project_context_append(
         self,
         operation: str,
-        project: ProjectRecord,
+        project: ProjectRecord | ProjectRecord,
         scope: str,
         source: ModelingPackage,
         effective_from_us: int,
@@ -526,7 +522,7 @@ class Runtime:
         effective_to_us: int | None = None,
         corrects: str | None = None,
         deleted: bool = False,
-    ) -> ProjectContext:
+    ) -> ProjectContextOutput:
         """Append an exact source reference with UTC half-open interval and correction ancestry.
 
         Retain the original project descriptor and operation through uncertain completion.
@@ -635,12 +631,12 @@ class Runtime:
 
     def project_select(
         self, request: ProjectSelectRequest, physical: "PhysicalContext"
-    ) -> ProjectSelectionOutput:
+    ) -> ProjectSelection:
         """Freeze an exact branch or bookmark source with its physical closure identity."""
         return self._handle.project_select(request, physical._handle)  # noqa: SLF001
 
     def project_open_selection(
-        self, selection: ProjectSelection | ProjectSelectionOutput, physical: "PhysicalContext"
+        self, selection: ProjectSelection | ProjectSelection, physical: "PhysicalContext"
     ) -> ModelingPackage:
         """Reopen retained science after labels or the branch head have changed."""
         return ModelingPackage(
@@ -650,7 +646,7 @@ class Runtime:
     def project_navigate(
         self,
         operation: str,
-        project: ProjectRecord | ProjectRecordOutput,
+        project: ProjectRecord | ProjectRecord,
         request: ProjectNavigationRequest,
     ) -> ProjectAcknowledgementOutput:
         """Apply an explicit name, bookmark, savepoint or visibility operation.
@@ -669,9 +665,13 @@ class Runtime:
         """Select an exact immutable raw version after later head changes."""
         return self._handle.project_draft_version(key)
 
+    def project_draft_version_bytes(self, key: str) -> bytes:
+        """Read original raw custody without moving a current draft head."""
+        return bytes(self._handle.project_draft_version_bytes(key))
+
     def project_draft_delta(
         self, source: ModelingPackage, delta: SourceDelta | SourceDeltaOutput
-    ) -> ProjectDraftDelta:
+    ) -> ProjectDraftDeltaOutput:
         """Capture typed edits against their original exact source and physical context."""
         return self._handle.project_draft_delta(source._handle, delta)  # noqa: SLF001
 
@@ -691,8 +691,8 @@ class Runtime:
 
     def project_merge_preview(
         self, base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
-    ) -> ProjectMergePreviewOutput:
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
+    ) -> ProjectMergePreview:
         """Inspect three-way logical conflicts before issuing a publication decision."""
         return self._handle.project_merge_preview(
             base._handle, target._handle, proposal._handle, list(resolutions)
@@ -701,7 +701,7 @@ class Runtime:
     def project_merge_intent(
         self, publication: ProjectPublication | ProjectPublicationOutput,
         base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
     ) -> ProjectMergeIntentOutput:
         """Retain exact admitted revision selections and explicit conflict choices."""
         return self._handle.project_merge_intent(
@@ -712,7 +712,7 @@ class Runtime:
         self, publication: ProjectPublication | ProjectPublicationOutput,
         base: ModelingPackage, target: ModelingPackage,
         version: ProjectDraftVersion | ProjectDraftVersionOutput,
-        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolution] = (),
     ) -> ProjectMergeIntentOutput:
         """Merge an exact saved version without publishing a temporary source revision."""
         return self._handle.project_merge_draft_intent(

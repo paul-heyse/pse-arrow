@@ -35,6 +35,9 @@ from pse.contracts.documents import (
     Conclusion,
     ConformanceManifest,
     ConformanceManifestOutput,
+    ContextCut,
+    ContextSelection,
+    ContextSelectionOutput,
     DeclarationInventoryOutput,
     DetailDocumentOutput,
     DetailRecordPageOutput,
@@ -88,7 +91,7 @@ from pse.contracts.documents import (
     OperationId,
     OperationPageOutput,
     OperationSnapshotOutput,
-    OperationSource,
+    OperationSourceOutput,
     PackExportRequest,
     PackExportRequestOutput,
     PackIndexOutput,
@@ -99,6 +102,9 @@ from pse.contracts.documents import (
     PhysicalSimulationRequestOutput,
     PointOutcomeOutput,
     PreparationCounts,
+    PreparationDiscoveryReportOutput,
+    PreparationDiscoveryRequest,
+    PreparationDiscoveryRequestOutput,
     PreparationSettings,
     PreparationSettingsOutput,
     ProcessCheckpoint,
@@ -110,13 +116,29 @@ from pse.contracts.documents import (
     ProjectAcknowledgementOutput,
     ProjectBranchPageOutput,
     ProjectBranchRecordOutput,
+    ProjectComparisonOutput,
+    ProjectContextOutput,
     ProjectCursor,
+    ProjectDraftDeltaOutput,
     ProjectDraftRecordOutput,
     ProjectDraftSaveIntent,
     ProjectDraftSaveIntentOutput,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
+    ProjectMergeIntent,
+    ProjectMergeIntentOutput,
+    ProjectMergePreview,
+    ProjectMergeResolution,
+    ProjectMetadataPageOutput,
+    ProjectMetadataRequest,
+    ProjectMetadataRequestOutput,
+    ProjectNavigationRequest,
     ProjectPublication,
     ProjectPublicationOutput,
     ProjectRecord,
+    ProjectSelection,
+    ProjectSelectRequest,
+    ProjectSourceDetailOutput,
     ReplayDocument,
     ReproducerCommandRequestOutput,
     ReproducerExtractionRequest,
@@ -141,6 +163,8 @@ from pse.contracts.documents import (
     SolverCapability,
     SolveSettings,
     SolveSettingsOutput,
+    SourceDelta,
+    SourceDeltaOutput,
     SourceLocationOutput,
     SourceReclamationPage,
     SourceRecordingAcknowledgementOutput,
@@ -741,7 +765,12 @@ class NativeModelingPackage:
         self, /, owner_id: DeclarationId | None = None, *, controls: bytes | None = None
     ) -> NativeModelingKnowledge: ...
     @property
-    def operation_source(self, /) -> OperationSource: ...
+    def operation_source(self, /) -> OperationSourceOutput: ...
+    def preparation_discovery(
+        self,
+        /,
+        request: PreparationDiscoveryRequest | PreparationDiscoveryRequestOutput,
+    ) -> PreparationDiscoveryReportOutput: ...
     def prepare_block_initialization(
         self,
         /,
@@ -779,6 +808,12 @@ class NativeModelingPackage:
         preparation: PreparationSettings | PreparationSettingsOutput | None = None,
         covariance_source: NativeRunResult | None = None,
     ) -> NativePreparedOperation: ...
+    def project_compare(
+        self, /, other: NativeModelingPackage, *, source_only: bool = False
+    ) -> ProjectComparisonOutput: ...
+    def project_source_detail(
+        self, /, logical: Sequence[str]
+    ) -> list[ProjectSourceDetailOutput]: ...
     def reload_from_parent(
         self, /, documents: Sequence[dict[str, str | bytes]]
     ) -> NativeModelingPackage: ...
@@ -1083,16 +1118,49 @@ class NativeRuntime:
     def project_acknowledgement(
         self, /, operation: str
     ) -> ProjectAcknowledgementOutput | None: ...
+    def project_admit_draft(
+        self, /, operation: str, key: str, physical: NativePhysicalContext
+    ) -> NativeModelingPackage: ...
     def project_branch_record(
         self, /, branch: str
     ) -> ProjectBranchRecordOutput | None: ...
     def project_branches(
         self, /, project: str, *, cursor: ProjectCursor | None = None
     ) -> ProjectBranchPageOutput: ...
+    def project_context_append(
+        self,
+        /,
+        operation: str,
+        project: ProjectRecord,
+        scope: str,
+        source: NativeModelingPackage,
+        effective_from_us: int,
+        *,
+        effective_to_us: int | None = None,
+        corrects: str | None = None,
+        deleted: bool = False,
+    ) -> ProjectContextOutput: ...
+    def project_context_cut(self, /, project: str) -> ContextCut: ...
+    def project_context_package(
+        self,
+        /,
+        selection: ContextSelection | ContextSelectionOutput,
+        physical: NativePhysicalContext,
+    ) -> NativeModelingPackage: ...
+    def project_context_record(self, /, key: str) -> ProjectContextOutput | None: ...
+    def project_context_reopen(
+        self, /, selection: ContextSelection | ContextSelectionOutput
+    ) -> NativeModelingPackage: ...
+    def project_context_select(
+        self, /, cut: ContextCut, scope: str, effective_at_us: int
+    ) -> ContextSelectionOutput | None: ...
     def project_create(
         self, /, operation: str, project: str, title: str
     ) -> ProjectAcknowledgementOutput: ...
     def project_draft_bytes(self, /, key: str) -> bytes: ...
+    def project_draft_delta(
+        self, /, source: NativeModelingPackage, delta: SourceDelta | SourceDeltaOutput
+    ) -> ProjectDraftDeltaOutput: ...
     def project_draft_record(self, /, key: str) -> ProjectDraftRecordOutput | None: ...
     def project_draft_save(
         self,
@@ -1112,6 +1180,10 @@ class NativeRuntime:
         *,
         expected: int | None = None,
     ) -> ProjectDraftSaveIntentOutput: ...
+    def project_draft_version(
+        self, /, key: str
+    ) -> ProjectDraftVersionOutput | None: ...
+    def project_draft_version_bytes(self, /, key: str) -> bytes: ...
     def project_fork(
         self,
         /,
@@ -1121,6 +1193,45 @@ class NativeRuntime:
         operation: str,
         source: NativeModelingPackage,
     ) -> str: ...
+    def project_merge_draft_intent(
+        self,
+        /,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        base: NativeModelingPackage,
+        target: NativeModelingPackage,
+        version: ProjectDraftVersion | ProjectDraftVersionOutput,
+        resolutions: Sequence[ProjectMergeResolution],
+    ) -> ProjectMergeIntentOutput: ...
+    def project_merge_intent(
+        self,
+        /,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        base: NativeModelingPackage,
+        target: NativeModelingPackage,
+        proposal: NativeModelingPackage,
+        resolutions: Sequence[ProjectMergeResolution],
+    ) -> ProjectMergeIntentOutput: ...
+    def project_merge_preview(
+        self,
+        /,
+        base: NativeModelingPackage,
+        target: NativeModelingPackage,
+        proposal: NativeModelingPackage,
+        resolutions: Sequence[ProjectMergeResolution],
+    ) -> ProjectMergePreview: ...
+    def project_metadata(
+        self, /, request: ProjectMetadataRequest | ProjectMetadataRequestOutput
+    ) -> ProjectMetadataPageOutput: ...
+    def project_navigate(
+        self,
+        /,
+        operation: str,
+        project: ProjectRecord,
+        request: ProjectNavigationRequest,
+    ) -> ProjectAcknowledgementOutput: ...
+    def project_open_selection(
+        self, /, selection: ProjectSelection, physical: NativePhysicalContext
+    ) -> NativeModelingPackage: ...
     def project_publication_intent(
         self,
         /,
@@ -1137,7 +1248,23 @@ class NativeRuntime:
         intent: ProjectPublication | ProjectPublicationOutput,
         physical: NativePhysicalContext,
     ) -> NativeModelingPackage: ...
+    def project_publish_merge(
+        self,
+        /,
+        intent: ProjectMergeIntent | ProjectMergeIntentOutput,
+        physical: NativePhysicalContext,
+    ) -> NativeModelingPackage: ...
     def project_record(self, /, project: str) -> ProjectRecord | None: ...
+    def project_select(
+        self, /, request: ProjectSelectRequest, physical: NativePhysicalContext
+    ) -> ProjectSelection: ...
+    def project_undo_intent(
+        self,
+        /,
+        publication: ProjectPublication | ProjectPublicationOutput,
+        target: NativeModelingPackage,
+        restore: NativeModelingPackage,
+    ) -> ProjectMergeIntentOutput: ...
     def promote_scientific_artifact(
         self,
         /,

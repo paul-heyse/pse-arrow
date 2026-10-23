@@ -114,7 +114,7 @@ def test_project_saved_draft_admission_publish_and_reopen(
     assert first.key == second.key
     large_record = runtime.project_draft_record("large-draft")
     assert large_record is not None
-    assert large_record.artifact is not None
+    assert large_record.version.artifact is not None
     assert runtime.project_draft_bytes("large-draft") == large
 
     changed = b"different malformed body" * 10_000
@@ -201,6 +201,7 @@ def test_project_versions_local_admission_and_retained_selection(
     assert restored.version.key == "raw-one"
     assert runtime.project_draft_bytes("raw") == b"bad [["
     assert runtime.project_draft_version("raw-two") is not None
+    assert runtime.project_draft_version_bytes("raw-two") == body
     navigate("rename", {"kind": "branch_name", "key": "branch-stable", "name": "renamed"})
     navigate("bookmark", {"kind": "bookmark", "key": "baseline-bookmark", "name": "baseline", "revision": base})
     bookmark = runtime.project_select(codec.decode_json('{"version":1,"reference":{"kind":"bookmark","key":"baseline-bookmark"}}', ProjectSelectRequest), context)

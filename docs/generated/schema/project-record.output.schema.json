@@ -4,6 +4,10 @@
   "additionalProperties": false,
   "description": "A row or nested value projected from the registry declaration.",
   "properties": {
+    "deleted": {
+      "description": "deleted",
+      "type": "boolean"
+    },
     "document_version": {
       "const": 1,
       "default": 1,
@@ -27,6 +31,7 @@
   "required": [
     "key",
     "title",
+    "deleted",
     "generation",
     "document_version"
   ],
