@@ -8,6 +8,7 @@ from pathlib import Path
 import attrs
 
 from pse import codec
+from pse._study_workbench import StudyWorkbenchMixin
 from pse._analyses import Analysis
 from pse._research import ResearchRuntime
 from pse._artifacts import (
@@ -110,7 +111,7 @@ from pse.diagnostics import Diagnostics
 
 
 @attrs.frozen(init=False)
-class Runtime(ResearchRuntime):
+class Runtime(ResearchRuntime, StudyWorkbenchMixin):
     """One native deployment budget with explicit local or durable composition."""
 
     _handle: _NativeRuntime

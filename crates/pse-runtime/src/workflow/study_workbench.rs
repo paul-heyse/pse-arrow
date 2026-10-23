@@ -184,3 +184,7 @@ mod tests {
         assert!(compatible(&[original,h]).is_err());
     }
 }
+
+#[cfg(all(test,feature="canonical-tests"))]
+#[path="study_workbench_tests.rs"]
+mod canonical_tests;

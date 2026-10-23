@@ -140,7 +140,7 @@ impl CanonicalStore {
     /// Frozen requests refuse header or point overflow; pages cannot certify completeness.
     pub async fn select_study_workbench(&self,filter:&StudyWorkbenchFilter,after:Option<&str>,maximum:usize,maximum_members:Option<usize>)->Result<NativeStudySelection,CanonicalError> {
         if !(1..=64).contains(&maximum) || maximum_members.is_some_and(|n|n==0||n>128) {return Err(CanonicalError::PayloadLimit);}
-        for value in [&filter.study,&filter.project,&filter.branch,&filter.source,&filter.physical_revision,&filter.context,&filter.research_reference].into_iter().flatten().chain(after) {
+        for value in [&filter.study,&filter.project,&filter.branch,&filter.source,&filter.physical_revision,&filter.context,&filter.research_reference].into_iter().flatten().map(String::as_str).chain(after) {
             if value.is_empty() || value.len()>4096 {return Err(CanonicalError::PayloadLimit);}
         }
         let sql=workbench_sql(filter,maximum_members.is_some());
@@ -152,7 +152,7 @@ impl CanonicalStore {
                 .bind(("outcome",filter.outcome.map(|v|serde_json::to_value(v)).transpose().map_err(|e|CanonicalError::Configuration(e.to_string()))?.and_then(|v|v.as_str().map(str::to_owned))))
                 .bind(("after",after.unwrap_or("").to_owned())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",maximum_members.unwrap_or(0))))).await?;
             let index=response.num_statements().checked_sub(2).ok_or(CanonicalError::IncompleteResponse)?;
-            let mut row=response.take::<Object>(index)?;
+            let mut row=match response.take::<Value>(index)? {Value::Object(row)=>row,_=>return Err(CanonicalError::IncompleteResponse)};
             let has_more=codec::decode_boolean(codec::required(&mut row,"has_more")?)?;
             let rows=match codec::required(&mut row,"headers")? {Value::Array(rows)=>rows,_=>return Err(CanonicalError::IncompleteResponse)};
             let headers=rows.into_iter().map(|v|match v {Value::Object(v)=>header(v),_=>Err(CanonicalError::IncompleteResponse)}).collect::<Result<_,_>>()?;

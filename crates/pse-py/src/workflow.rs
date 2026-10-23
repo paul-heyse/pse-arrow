@@ -9,6 +9,8 @@ mod routes;
 mod research;
 mod settings;
 mod source_settlement;
+mod study_workbench;
+pub(crate) use study_workbench::{NativeFrozenStudyCohort,NativeStudyKpiAnalysis,NativeStudyObserver};
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
@@ -764,6 +766,13 @@ impl NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
+    /// Browse bounded compact metadata, including terminal studies.
+    fn study_workbench_page(&self,py:Python<'_>,request:&[u8])->PyResult<documents::DocumentValue<native::StudyWorkbenchPage>>{self.study_workbench_page_native(py,request)}
+    /// Freeze a complete bounded cohort before protected analytical reads.
+    fn freeze_study_cohort(&self,py:Python<'_>,request:&[u8])->PyResult<NativeFrozenStudyCohort>{self.freeze_study_cohort_native(py,request)}
+    /// Open or reconnect passive observation of one exact selected study.
+    #[pyo3(signature=(request,*,cursor=None))]
+    fn observe_study(&self,py:Python<'_>,request:&[u8],cursor:Option<&[u8]>)->PyResult<NativeStudyObserver>{self.observe_study_native(py,request,cursor)}
     /// Release this caller and its aliases while admitted work drains independently.
     fn close(&self) {
         self.inner.close();

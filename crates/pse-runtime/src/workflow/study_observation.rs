@@ -142,6 +142,8 @@ impl Runtime {
     }
 }
 impl StudyObserver {
+    /// Cancellation scope belongs only to observation, never to scientific execution.
+    pub fn observation_token(&self)->CancellationToken{self.cancel.clone()}
     /// Capture portable coordinates without affecting execution or observation resources.
     pub fn cursor(&self)->StudyObservationCursor {self.cursor.clone()}
     /// Attach the original local telemetry owner without retaining its cancellation lease.
@@ -226,4 +228,42 @@ fn consume(position:&mut StudyObservationPosition,event:&ProgressEventDocument)-
     if position.source_generation==Some(source.generation)&&source.sequence<=position.source_sequence {return None;}
     let gap=if position.source_generation==Some(source.generation){source.sequence!=position.source_sequence+1}else{position.source_generation.is_some()||source.sequence!=1};
     position.source_generation=Some(source.generation);position.source_sequence=source.sequence;Some(gap)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_backend_native::solve::{Progress,Event,EventSource};
+    fn position()->StudyObservationPosition {StudyObservationPosition{run:"run".into(),attempt:"attempt".into(),attempt_generation:1,metadata_revision:Some(9),source_generation:None,source_sequence:0,batch:0,offset:0,durable_sequence:None,history_complete:false}}
+    fn event(progress:&Progress)->ProgressEventDocument {
+        let mut e=Event{source:Some(EventSource::new("test",None,None)),phase:"step".into(),elapsed:Duration::ZERO,values:Default::default(),incumbent:None};
+        progress.push(e.clone());
+        e=progress.current().unwrap();
+        ProgressEventDocument::from(e)
+    }
+    #[test]
+    fn study_observer_reconnect_uses_exact_source_sequences_and_reports_missing_prefix() {
+        let progress=Progress::new(8);
+        let first=event(&progress);let second=event(&progress);let third=event(&progress);
+        let mut original=position();assert_eq!(consume(&mut original,&first),Some(false));
+        let mut reconnected=original.clone();
+        assert_eq!(consume(&mut reconnected,&first),None);
+        assert_eq!(consume(&mut reconnected,&second),Some(false));
+        assert_eq!(consume(&mut reconnected,&third),Some(false));
+        let mut gap=original;
+        assert_eq!(consume(&mut gap,&third),Some(true));
+        assert_eq!(gap.source_sequence,3);
+        let mut absent_prefix=position();assert_eq!(consume(&mut absent_prefix,&second),Some(true));
+        // Equal wall times cannot turn a different generation into continuity.
+        let other=Progress::new(2);let replacement=event(&other);
+        assert_eq!(consume(&mut gap,&replacement),Some(true));
+    }
+    #[test]
+    fn study_observer_retains_telemetry_without_acquiring_scientific_cancellation() {
+        let progress=Arc::new(Progress::new(1));
+        let mut live=BTreeMap::new();live.insert(("run".into(),"attempt".into()),progress.clone());
+        drop(live);
+        assert_eq!(event(&progress).source.unwrap().sequence,1);
+        assert_eq!(event(&progress).source.unwrap().sequence,2);
+        let (retained,dropped)=progress.snapshot();assert_eq!(retained.len(),1);assert_eq!(dropped,1);
+    }
 }
