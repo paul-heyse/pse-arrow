@@ -9,6 +9,7 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
+from pse._research import ResearchRuntime
 from pse._artifacts import (
     ArtifactOwnerKind,
     ArtifactSettlement,
@@ -109,7 +110,7 @@ from pse.diagnostics import Diagnostics
 
 
 @attrs.frozen(init=False)
-class Runtime:
+class Runtime(ResearchRuntime):
     """One native deployment budget with explicit local or durable composition."""
 
     _handle: _NativeRuntime
