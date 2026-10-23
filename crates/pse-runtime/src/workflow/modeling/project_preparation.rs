@@ -130,6 +130,80 @@ mod tests {
             pse_authoring::ParseBudget::default()).unwrap()
     }
 
+    #[derive(Debug)]
+    struct DescriptorOnlyProvider {
+        spec: pse_kernels::ProviderSpec,
+        configuration: pse_ids::ContentHash,
+    }
+    impl pse_kernels::ProviderFactory for DescriptorOnlyProvider {
+        fn spec(&self) -> &pse_kernels::ProviderSpec { &self.spec }
+        fn configuration_key(&self) -> pse_ids::ContentHash { self.configuration }
+        fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+            Err(pse_kernels::ProviderError::Contract("passive discovery must not instantiate providers".into()))
+        }
+    }
+
+    #[tokio::test]
+    async fn passive_preparation_discovery_rejects_changed_provider_configuration() {
+        use pse_kernels::{AdmittedProvider, DerivativeOrder, DerivativeSource, Port, ProviderShapes, ProviderSpec, Registration};
+        let runtime = crate::workflow::tests::runtime();
+        let physical = crate::workflow::tests::physical();
+        let quantity = physical.quantities.neutral_dimensionless().unwrap();
+        let unit = physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
+        let port = |n| Port { id: SemanticId::from_bytes([n; 16]), quantity, unit };
+        let spec = ProviderSpec {
+            shapes: ProviderShapes::default(), derivative_source: DerivativeSource::Analytic,
+            id: SemanticId::from_bytes([92; 16]), revision: pse_ids::ContentHash::from_bytes([93; 32]),
+            data: pse_ids::ContentHash::from_bytes([94; 32]), inputs: vec![port(95)], outputs: vec![port(96)],
+            derivatives: DerivativeOrder::First, smoothness: DerivativeOrder::First,
+        };
+        let registration = |n| Registration::bind(
+            AdmittedProvider::new(spec.clone(), &physical.quantities).unwrap(),
+            Arc::new(DescriptorOnlyProvider { spec: spec.clone(), configuration: pse_ids::ContentHash::from_bytes([n; 32]) }),
+        ).unwrap();
+        let rows = declarations(&format!("package p {{fn law(x:Scalar)->Scalar external \"law\" revision \"{}\" data \"{}\" output 0 derivatives 1 source analytic smoothness 1; def Root {{var x:Scalar; eq e:law(x)==2;}}}}", spec.revision, spec.data));
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let first = runtime.modeling_package_registered(rows, physical.clone(), BTreeMap::from([("law".into(), registration(97))])).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        let _selected = first.checked_selection(&[root], &cancel).await.unwrap();
+        let request = PreparationDiscoveryRequest { root, instance: pse_modeling::specialize::root_instance(root), bindings: Bindings::default(), limits: Limits::default(), durable_after: None };
+        let effects = runtime.shared.math().preparation_effects();
+        assert!(first.preparation_discovery(&request, &cancel).await.unwrap().resident.iter().any(|row| row.eligibility == PreparationEligibility::Compatible));
+        let mut changed = first.clone();
+        changed.providers = Arc::new(BTreeMap::from([("law".into(), registration(98))]));
+        let report = changed.preparation_discovery(&request, &cancel).await.unwrap();
+        assert!(report.resident.iter().any(|row| row.kind == PreparationProductKind::SelectedAdmission && row.eligibility == PreparationEligibility::Incompatible));
+        assert_eq!(effects, runtime.shared.math().preparation_effects());
+    }
+
+    #[tokio::test]
+    async fn passive_preparation_discovery_preserves_observed_value_and_structural_body_identities() {
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime.modeling_package(declarations("package p { def Root { param p:Scalar=1; var x:Scalar; eq a:x*x==p; } }"), crate::workflow::tests::physical()).await.unwrap();
+        let root = package.declarations().await.unwrap().iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let request = PreparationDiscoveryRequest { root, instance: pse_modeling::specialize::root_instance(root), bindings: Bindings::default(), limits: Limits::default(), durable_after: None };
+        let cancel = crate::CancelSource::new();
+        let first = package.prepare(root, request.instance, request.bindings.clone(), request.limits, &cancel).await.unwrap();
+        let identities = |value: &ModelingPreparation| value.compiled().admitted.bodies.values().filter_map(|body| body.semantic_identity()).collect::<std::collections::BTreeSet<_>>();
+        let original = identities(&first);
+        assert!(!original.is_empty());
+        let changed_value = package.with_declarations(declarations("package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x==p; } }")).await.unwrap();
+        let value = changed_value.prepare(root, request.instance, request.bindings.clone(), request.limits, &cancel).await.unwrap();
+        assert_eq!(original, identities(&value), "actual admitted parameter slots retain semantic bodies after a value edit");
+        let changed_structure = changed_value.with_declarations(declarations("package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x*x==p; } }")).await.unwrap();
+        let structure = changed_structure.prepare(root, request.instance, request.bindings.clone(), request.limits, &cancel).await.unwrap();
+        let structural = identities(&structure);
+        assert_ne!(original, structural, "the actual compiler establishes different mathematics");
+        let effects = runtime.shared.math().preparation_effects();
+        let report = changed_structure.preparation_discovery(&request, &cancel).await.unwrap();
+        let observed = report.resident.iter().filter(|row| row.kind == PreparationProductKind::Body).filter_map(|row| row.semantic_identity.clone()).collect::<std::collections::BTreeSet<_>>();
+        for identity in original.iter().chain(&structural) {
+            assert!(observed.contains(&identity.as_id().to_hex()));
+        }
+        assert!(report.resident.iter().filter(|row| row.kind == PreparationProductKind::Body).all(|row| row.eligibility == PreparationEligibility::Unchecked));
+        assert_eq!(effects, runtime.shared.math().preparation_effects());
+    }
+
     #[tokio::test]
     async fn passive_preparation_discovery_observes_eligibility_without_preparing_or_promoting() {
         let runtime = crate::workflow::tests::runtime();
