@@ -309,7 +309,7 @@ fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
                                 "predicate_scope",
                             ]
                             .into_iter()
-                            .filter_map(|key| attrs.get(key).map(|value| (key, value)))
+                            .filter_map(|key| attrs.get(key).map(|value| (key, value.clone().into_json_value())))
                             .collect::<BTreeMap<_, _>>()
                         })
                         .unwrap_or_default();
@@ -330,7 +330,7 @@ fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
                                 "props_fallbacks",
                             ]
                             .into_iter()
-                            .filter_map(|key| metrics.get(key).map(|value| (key, value)))
+                            .filter_map(|key| metrics.get(key).map(|value| (key, value.clone().into_json_value())))
                             .collect::<BTreeMap<_, _>>()
                         })
                         .unwrap_or_default();
