@@ -59,12 +59,29 @@ from pse.contracts.documents import (
     ProjectBranchRecordOutput,
     ProjectCursor,
     ProjectCursorBody,
+    ProjectDraftDelta,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
+    ProjectMetadataRequest,
+    ProjectMetadataRequestOutput,
+    ProjectMetadataPageOutput,
+    ProjectNavigationRequest,
+    SourceDelta,
+    SourceDeltaOutput,
     ProjectDraftRecordOutput,
     ProjectDraftSaveIntent,
     ProjectDraftSaveIntentOutput,
     ProjectPublication,
     ProjectPublicationOutput,
+    ProjectDraftVersion,
+    ProjectDraftVersionOutput,
+    ProjectMergeIntent,
+    ProjectMergeIntentOutput,
+    ProjectMergePreviewOutput,
+    ProjectMergeResolution,
+    ProjectMergeResolutionOutput,
     ProjectRecord,
+    ProjectRecordOutput,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
@@ -609,11 +626,93 @@ class Runtime:
         """Read this exact raw body through its current protection owner."""
         return bytes(self._handle.project_draft_bytes(key))
 
+    def project_navigate(
+        self,
+        operation: str,
+        project: ProjectRecord | ProjectRecordOutput,
+        request: ProjectNavigationRequest,
+    ) -> ProjectAcknowledgementOutput:
+        """Apply an explicit name, bookmark, savepoint or visibility operation.
+
+        Keep the original project generation and request when settling a retry.
+        """
+        return self._handle.project_navigate(operation, project, request)
+
+    def project_metadata(
+        self, request: ProjectMetadataRequest | ProjectMetadataRequestOutput
+    ) -> ProjectMetadataPageOutput:
+        """Read bounded live headers; raw bodies and scientific payloads stay separate."""
+        return self._handle.project_metadata(request)
+
+    def project_draft_version(self, key: str) -> ProjectDraftVersionOutput | None:
+        """Select an exact immutable raw version after later head changes."""
+        return self._handle.project_draft_version(key)
+
+    def project_draft_delta(
+        self, source: ModelingPackage, delta: SourceDelta | SourceDeltaOutput
+    ) -> ProjectDraftDelta:
+        """Capture typed edits against their original exact source and physical context."""
+        return self._handle.project_draft_delta(source._handle, delta)  # noqa: SLF001
+
+    def project_admit_draft(
+        self, operation: str, key: str, physical: "PhysicalContext"
+    ) -> ModelingPackage:
+        """Admit locally and retain diagnostics; the branch head stays unchanged."""
+        return ModelingPackage(
+            self._handle.project_admit_draft(operation, key, physical._handle)  # noqa: SLF001
+        )
+
     def project_acknowledgement(
         self, operation: str
     ) -> ProjectAcknowledgementOutput | None:
         """Observe the original immutable receipt; absence does not prove rollback."""
         return self._handle.project_acknowledgement(operation)
+
+    def project_merge_preview(
+        self, base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergePreviewOutput:
+        """Inspect three-way logical conflicts before issuing a publication decision."""
+        return self._handle.project_merge_preview(
+            base._handle, target._handle, proposal._handle, list(resolutions)
+        )
+
+    def project_merge_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage, target: ModelingPackage, proposal: ModelingPackage,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergeIntentOutput:
+        """Retain exact admitted revision selections and explicit conflict choices."""
+        return self._handle.project_merge_intent(
+            publication, base._handle, target._handle, proposal._handle, list(resolutions)
+        )
+
+    def project_merge_draft_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        base: ModelingPackage, target: ModelingPackage,
+        version: ProjectDraftVersion | ProjectDraftVersionOutput,
+        *, resolutions: Sequence[ProjectMergeResolution | ProjectMergeResolutionOutput] = (),
+    ) -> ProjectMergeIntentOutput:
+        """Merge an exact saved version without publishing a temporary source revision."""
+        return self._handle.project_merge_draft_intent(
+            publication, base._handle, target._handle, version, list(resolutions)
+        )
+
+    def project_undo_intent(
+        self, publication: ProjectPublication | ProjectPublicationOutput,
+        target: ModelingPackage, restore: ModelingPackage,
+    ) -> ProjectMergeIntentOutput:
+        """Retain an ordinary compensating source publication, never a head rewind."""
+        return self._handle.project_undo_intent(
+            publication, target._handle, restore._handle
+        )
+
+    def project_publish_merge(
+        self, intent: ProjectMergeIntent | ProjectMergeIntentOutput,
+        physical: "PhysicalContext",
+    ) -> ModelingPackage:
+        """Publish or settle the original immutable merge/undo decision."""
+        return ModelingPackage(self._handle.project_publish_merge(intent, physical._handle))
 
     def project_publish_draft(
         self,

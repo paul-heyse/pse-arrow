@@ -818,7 +818,7 @@ impl NativeRuntime {
         ))
     }
     /// Capture the project-scoped recorded context cut, independent of source sequence.
-    fn project_context_cut(&self, py: Python<'_>, project: &str) -> PyResult<documents::DocumentValue<native::ContextCut>> {
+    fn project_context_cut(&self, py: Python<'_>, project: &str) -> PyResult<documents::DocumentValue<pse_operations::canonical_contexts::ContextCut>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.project_context_cut(project).await?)
@@ -826,7 +826,7 @@ impl NativeRuntime {
         Ok(documents::DocumentValue(value))
     }
     /// Query original immutable context at an explicit UTC microsecond instant and cut.
-    fn project_context_select(&self,py:Python<'_>,cut:documents::DocumentInput<native::ContextCut>,scope:&str,effective_at_us:i64)->PyResult<Option<documents::DocumentValue<native::ContextSelection>>> {
+    fn project_context_select(&self,py:Python<'_>,cut:documents::DocumentInput<pse_operations::canonical_contexts::ContextCut>,scope:&str,effective_at_us:i64)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_contexts::ContextSelection>>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.select_project_context(&cut.0,scope,effective_at_us).await?)
@@ -834,7 +834,7 @@ impl NativeRuntime {
         Ok(value.map(documents::DocumentValue))
     }
     /// Exact immutable metadata remains available for tombstones and hidden projects.
-    fn project_context_record(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<native::ProjectContext>>> {
+    fn project_context_record(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_contexts::ProjectContext>>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.project_context_record(key).await?)
@@ -842,7 +842,7 @@ impl NativeRuntime {
         Ok(value.map(documents::DocumentValue))
     }
     /// Load the selected exact source through the normal source owner; no latest lookup.
-    fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<native::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
+    fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async {
             runtime.project_context_package(&selection.0,physical.inner.clone(),&stop).await
@@ -850,7 +850,7 @@ impl NativeRuntime {
         Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
     #[pyo3(signature=(operation,project,scope,source,effective_from_us,*,effective_to_us=None,corrects=None,deleted=false))]
-    fn project_context_append(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,scope:&str,source:&NativeModelingPackage,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->PyResult<documents::DocumentValue<native::ProjectContext>> {
+    fn project_context_append(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,scope:&str,source:&NativeModelingPackage,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->PyResult<documents::DocumentValue<pse_operations::canonical_contexts::ProjectContext>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             runtime.project_record_context(operation,&project.0,scope,&source.inner,effective_from_us,effective_to_us,corrects,deleted).await
@@ -1154,6 +1154,60 @@ impl NativeRuntime {
             self.owner.clone(),
             value,
         ))
+    }
+    fn project_merge_preview(
+        &self, py: Python<'_>, base: &NativeModelingPackage, target: &NativeModelingPackage,
+        proposal: &NativeModelingPackage,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergePreview>> {
+        let stop = CancelSource::new();
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.inner.project_merge_preview(&base.inner,&target.inner,&proposal.inner,&resolutions,&stop),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_merge_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        base: &NativeModelingPackage, target: &NativeModelingPackage, proposal: &NativeModelingPackage,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_merge_intent(publication.0,&base.inner,&target.inner,&proposal.inner,resolutions,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_merge_draft_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        base: &NativeModelingPackage, target: &NativeModelingPackage,
+        version: documents::DocumentInput<pse_operations::canonical_projects::DraftVersion>,
+        resolutions: Vec<documents::DocumentInput<native::ProjectMergeResolution>>,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let resolutions = resolutions.into_iter().map(|r|r.0).collect::<Vec<_>>();
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_merge_draft_intent(publication.0,&base.inner,&target.inner,&version.0,resolutions,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_undo_intent(
+        &self, py: Python<'_>, publication: documents::DocumentInput<pse_operations::canonical_projects::ProjectPublication>,
+        target: &NativeModelingPackage, restore: &NativeModelingPackage,
+    ) -> PyResult<documents::DocumentValue<native::ProjectMergeIntent>> {
+        let stop = CancelSource::new(); let decision_stop=&stop;
+        let value = blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_undo_intent(publication.0,&target.inner,&restore.inner,decision_stop).await
+        }),||stop.cancel())?;
+        Ok(documents::DocumentValue(value))
+    }
+    fn project_publish_merge(
+        &self, py: Python<'_>, intent: documents::DocumentInput<native::ProjectMergeIntent>, physical: &NativePhysicalContext,
+    ) -> PyResult<NativeModelingPackage> {
+        let stop = CancelSource::new(); let publication_stop=&stop;
+        let value = source_settlement::blocking_source(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_publish_merge(&intent.0,physical.inner.clone(),publication_stop).await
+        }),||stop.cancel())?;
+        Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
     fn modeling_from_documents(
         &self,

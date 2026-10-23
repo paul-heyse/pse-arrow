@@ -27,6 +27,7 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
         LET $edge=<string>string::len($row.key)+':'+$row.key+$row.corrects; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$row.corrects};
     } ELSE {IF $row.deleted {THROW 'PSE_REFUSAL:project_context_invalid';};};
     fn::pse_project_v1::root($expiry,$row.revision,'project-context:'+$row.key);
+    fn::pse_project_v1::root($expiry,$row.physical_revision,'project-context-physical:'+$row.key);
     LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$row.project) FOR UPDATE;
     LET $sequence=($journal.sequence ?? 0dec)+1dec;
     UPSERT ONLY type::record('canonical_context_journals',$row.project) CONTENT {key:$row.project,sequence:$sequence};
