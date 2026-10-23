@@ -80,7 +80,7 @@ impl ResearchPublicationIntent {
     }
 }
 impl Runtime {
-    async fn research_publication_source(&self,request:&ResearchPublicationRequest,cancel:&crate::CancelSource)->Result<(ModelingPackage,SourceDelta,ResearchPublicationBinding),WorkflowError>{
+    async fn research_publication_source(&self,request:&ResearchPublicationRequest,cancel:&crate::CancelSource)->Result<(ModelingPackage,SourceDelta,ResearchPublicationBinding,super::CanonicalResultReader),WorkflowError>{
         if request.targets.is_empty()||request.targets.len()>512||request.project.key!=request.branch.project||request.project.key!=request.target.context.project{return Err(contract("research target project or population differs"));}
         let (original,fit)=self.research_selection_open(&request.selection,cancel).await?;
         let target=self.project_context_reopen(&request.target,cancel).await?;
@@ -129,11 +129,11 @@ impl Runtime {
         }
         // Ordinary admission resolves quantities, parameter domains and retained source constraints.
         let admitted=target.with_delta(delta.clone(),cancel).await?;
-        Ok((admitted,delta,binding))
+        Ok((admitted,delta,binding,reader))
     }
     /// Preview the actual authored delta after reading original protected qualified cells.
     pub async fn research_publication_preview(&self,request:&ResearchPublicationRequest,cancel:&crate::CancelSource)->Result<ResearchPublicationPreview,WorkflowError>{
-        let (_,delta,binding)=self.research_publication_source(request,cancel).await?;
+        let (_,delta,binding,_reader)=self.research_publication_source(request,cancel).await?;
         let commitment=pse_operations::canonical_execution::result_payload_digest(&encoded(request)?);
         let publication=self.canonical_store()?.project_publication_intent(&request.project,&request.branch,&request.target.context.revision,None,&request.operation)?.with_context_commitment(&commitment)?.with_research_publication(binding)?;
         Ok(ResearchPublicationPreview{intent:ResearchPublicationIntent{request:request.clone(),publication},delta})
@@ -145,11 +145,15 @@ impl Runtime {
         if store.settled_project_publication(&intent.publication).await?.is_some(){
             return store.research_publication(&intent.request.operation).await?.ok_or_else(||contract("accepted research publication receipt unavailable"));
         }
-        let (admitted,_,binding)=self.research_publication_source(&intent.request,cancel).await?;
+        let (admitted,_,binding,reader)=self.research_publication_source(&intent.request,cancel).await?;
         let actual=encoded(&binding)?;let original=encoded(intent.publication.research().ok_or_else(||contract("research publication binding absent"))?)?;
         if actual!=original{return Err(contract("research original protected evidence changed"));}
+        // Keep the original result read protection alive until activation installs
+        // the permanent research reference in the same source-owner transaction.
         self.project_publish_admitted(&intent.publication,&admitted,cancel).await?;
-        store.research_publication(&intent.request.operation).await?.ok_or_else(||contract("research publication receipt unavailable"))
+        let receipt=store.research_publication(&intent.request.operation).await?.ok_or_else(||contract("research publication receipt unavailable"))?;
+        drop(reader);
+        Ok(receipt)
     }
     /// Reopen the resulting admitted parameter source with original research ancestry for downstream studies.
     pub async fn research_publication_open(&self,key:&str,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
