@@ -31,34 +31,62 @@ fn member(id:String,codec:&str)->ProjectBundleMember {
     ProjectBundleMember{id,relative_path:String::new(),codec:codec.into(),copied_bytes:0,digest:String::new(),result:None,artifact:None,artifact_metadata:None}
 }
 impl Runtime {
+    async fn project_selection_metadata(&self,selection:&super::ProjectSelection)->Result<(),WorkflowError> {
+        let store=self.canonical_store()?;
+        if selection.issuing_store!=store.issuing_store()? || store.project(&selection.project).await?.is_none() {return Err(contract("selected project metadata authority unavailable"));}
+        let revision=store.revision(&selection.revision).await?.ok_or_else(||contract("selected source revision metadata unavailable"))?;
+        if revision.problem!=selection.problem {return Err(contract("selected original source problem differs"));}
+        match &selection.reference {
+            super::ProjectReference::Branch{key}=>{
+                let branch=store.project_branch(key).await?.ok_or_else(||contract("selected original branch unavailable"))?;
+                if branch.project!=selection.project || branch.problem!=selection.problem {return Err(contract("selected branch owner differs"));}
+            },
+            super::ProjectReference::Bookmark{key}=>{
+                let bookmark=store.project_bookmark(key).await?.ok_or_else(||contract("selected original bookmark unavailable"))?;
+                if bookmark.project!=selection.project || bookmark.revision!=selection.revision {return Err(contract("selected bookmark owner differs"));}
+            },
+        }
+        Ok(())
+    }
     /// Explain selected exact closure through the same traversal used by logical export.
     pub async fn project_closure(&self,request:&ProjectExportRequest,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ProjectClosureExplanation,WorkflowError> {
-        let closure=self.project_boxed(self.resolve_project_closure(request,physical,cancel))?.await?;
+        let closure=self.project_boxed(self.resolve_project_closure(request,Some(physical),cancel))?.await?;
         let known_source_bytes=closure.documents.iter().map(|(_,b)|b.len() as u64).sum();
         Ok(ProjectClosureExplanation{manifest:closure.manifest.clone(),known_source_bytes,result_bytes_known:false})
     }
-    pub(super) async fn resolve_project_closure(&self,request:&ProjectExportRequest,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ResolvedClosure,WorkflowError> {
+    /// Explain authenticated descriptive metadata without constructing or admitting a physical context.
+    pub async fn project_closure_metadata(&self,request:&ProjectExportRequest,cancel:&crate::CancelSource)->Result<ProjectClosureExplanation,WorkflowError> {
+        if !request.descriptive_only {return Err(contract("metadata closure requires explicit descriptive-only selection"));}
+        let closure=self.project_boxed(self.resolve_project_closure(request,None,cancel))?.await?;
+        Ok(ProjectClosureExplanation{manifest:closure.manifest.clone(),known_source_bytes:0,result_bytes_known:false})
+    }
+    pub(super) async fn resolve_project_closure(&self,request:&ProjectExportRequest,physical:Option<PhysicalContext>,cancel:&crate::CancelSource)->Result<ResolvedClosure,WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
-        if request.maximum_document_bytes==0 || request.maximum_document_bytes>64<<20 || request.maximum_output_bytes==0
+        if request.maximum_document_bytes==0 || request.maximum_document_bytes>64<<20 || (request.maximum_output_bytes==0 && !request.descriptive_only)
             || request.results.len()>1024 || request.artifacts.len()>1024 || request.studies.len()>1024 || request.research_selections.len()>1024 || request.publications.len()>1024 { return Err(contract("project selection exceeds finite allowance")); }
         let store=self.canonical_store()?;
-        if request.selection.issuing_store!=store.issuing_store()? || request.selection.physical_context!=physical.identity() {return Err(contract("project closure authority or physical identity differs"));}
-        let selected=self.project_boxed(self.project_open_selection(&request.selection,physical.clone(),cancel))?.await?;
+        if request.selection.issuing_store!=store.issuing_store()? || (!request.descriptive_only && physical.as_ref().is_none_or(|p|request.selection.physical_context!=p.identity())) {return Err(contract("project closure authority or physical identity differs"));}
+        // Metadata authentication is shared; descriptive inspection never opens source/result payload owners.
+        self.project_selection_metadata(&request.selection).await?;
+        let selected=if request.descriptive_only {None} else {Some(self.project_boxed(self.project_open_selection(&request.selection,physical.as_ref().ok_or_else(||contract("executable closure requires admitted physical context"))?.clone(),cancel))?.await?)};
         let mut closure=ResolvedClosure{
-            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),artifact_origins:Vec::new(),members:Vec::new(),maximum_copy_bytes:request.maximum_output_bytes,omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
+            manifest:ProjectManifest{version:pse_model::document::Version,origin:request.selection.clone(),sources:Vec::new(),source_revisions:Vec::new(),result_metadata:Vec::new(),datasets:Vec::new(),research_selections:Vec::new(),publications:Vec::new(),contexts:Vec::new(),studies:Vec::new(),reproducers:request.reproducers.clone(),providers:Vec::new(),artifact_origins:Vec::new(),members:Vec::new(),maximum_copy_bytes:request.maximum_output_bytes,omissions:request.omissions.clone(),offline_complete:false,executable_complete:false,descriptive_only:request.descriptive_only},
             documents:Vec::new(),results:Vec::new(),artifacts:Vec::new(),protections:Vec::new(),_owners:Vec::new(),
         };
-        let mut packages=BTreeMap::new(); packages.insert(request.selection.revision.clone(),selected);
-        let mut selections=request.research_selections.clone(); let mut revisions=BTreeSet::new(); let mut datasets=Vec::new(); let mut contexts=BTreeSet::new();
+        let mut packages=BTreeMap::new(); if let Some(selected)=selected {packages.insert(request.selection.revision.clone(),selected);}
+        let mut selections=request.research_selections.clone(); let mut revisions=BTreeSet::from([request.selection.revision.clone()]); let mut datasets=Vec::new(); let mut contexts=BTreeSet::new();
         if let Some(research)=packages.values().next().and_then(|p|p.research_source.as_ref()) {selections.push(research.selection.clone());}
 
         for key in &request.studies {
             let definition=self.project_boxed(self.portable_study_definition(key,cancel))?.await?;
+            revisions.insert(definition.modeling_revision.clone());
+            if !request.descriptive_only {
             let physical=self.project_boxed(self.physical_source(&definition.physical,cancel))?.await?;
             if !packages.contains_key(&definition.modeling_revision) {
                 let revision=store.revision(&definition.modeling_revision).await?.ok_or_else(||contract("study source unavailable"))?;
                 let package=self.project_boxed(self.modeling_revision(revision,physical,BTreeMap::new()))?.await?;
                 packages.insert(definition.modeling_revision.clone(),package);
+            }
             }
             closure.manifest.studies.push(ProjectStudyClosure{key:key.clone(),definition});
         }
@@ -97,9 +125,31 @@ impl Runtime {
         for key in contexts {
             let row=store.project_context_record(&key).await?.ok_or_else(||contract("selected research context unavailable"))?;
             let selection=pse_operations::canonical_contexts::ContextSelection{cut:pse_operations::canonical_contexts::ContextCut{issuing_store:store.issuing_store()?.into(),project:row.project.clone(),sequence:row.recorded_sequence},effective_at_us:row.effective_from_us,context:row.clone()};
-            let package=self.project_boxed(self.project_context_reopen(&selection,cancel))?.await?;
-            packages.insert(row.revision.clone(),package);closure.manifest.contexts.push(row);
+            revisions.insert(row.revision.clone());
+            if !request.descriptive_only {
+                let package=self.project_boxed(self.project_context_reopen(&selection,cancel))?.await?;
+                packages.insert(row.revision.clone(),package);
+            }
+            closure.manifest.contexts.push(row);
         }
+        if request.descriptive_only {
+            for selected in &request.results {
+                super::study::creation_checkpoint(cancel)?;
+                if selected.row_start>selected.row_end || self.registry().relation(&selected.relation).is_none() {return Err(contract("invalid descriptive result relation or range"));}
+                if let Some(output)=&selected.output {output.bounds()?;}
+                let run=store.canonical_run(&selected.run).await?.ok_or_else(||contract("selected original result run metadata unavailable"))?;
+                let attempt=store.canonical_attempt(&selected.attempt).await?.ok_or_else(||contract("selected original result attempt metadata unavailable"))?;
+                if attempt.run!=run.key {return Err(contract("selected result attempt belongs to another run"));}
+                revisions.insert(run.revision.clone());
+                closure.manifest.result_metadata.push(ProjectResultMetadata{selection:selected.clone(),source_revision:run.revision,generation:attempt.generation,phase:attempt.phase.as_str().into(),terminal_class:attempt.outcome.map(|o|o.as_str().into()),closed_manifest:attempt.closed_manifest});
+                closure.manifest.omissions.push(ProjectOmission{selection:format!("result:{}",selected.member),reason:"descriptive-only selection copies original run/attempt metadata; result rows, manifests and execution seed authority were not requested".into(),required_for_execution:true});
+            }
+            for key in &request.artifacts {
+                let header=store.artifact(key).await?;revisions.insert(header.revision.clone());
+                closure.manifest.artifact_origins.push(header);
+                closure.manifest.omissions.push(ProjectOmission{selection:format!("artifact:{key}"),reason:"descriptive-only selection copies the original artifact header; protected block payloads were not requested".into(),required_for_execution:true});
+            }
+        } else {
         let (result_descriptors,result_owner)=self.review_result_selections(&request.results,&cancel.token()).await?;
         for (request,descriptor) in request.results.iter().zip(result_descriptors) {
             let reader=if let Some(output)=&request.output {
@@ -118,10 +168,16 @@ impl Runtime {
             closure.manifest.artifact_origins.push(read.header().clone());
             closure.artifacts.push(read);
         }
+        }
         for revision in revisions {
-            if !packages.contains_key(&revision) {
-                let row=store.revision(&revision).await?.ok_or_else(||contract("required ancestral source unavailable"))?;
-                let package=self.project_boxed(self.modeling_revision(row,physical.clone(),BTreeMap::new()))?.await?;
+            let row=store.revision(&revision).await?.ok_or_else(||contract("required original source revision metadata unavailable"))?;
+            closure.manifest.source_revisions.push(ProjectSourceRevisionMetadata{key:row.key.clone(),problem:row.problem.clone(),sequence:row.sequence,parent:row.parent.clone(),operation:row.operation.clone(),interpretation:row.interpretation.clone()});
+            if request.descriptive_only {
+                let context=closure.manifest.contexts.iter().find(|c|c.revision==revision);
+                closure.manifest.sources.push(ProjectSourceClosure{revision:revision.clone(),source_identity:context.map(|c|c.source_identity.clone()),physical_context:context.map(|c|c.physical_context.clone()),documents:Vec::new(),replay_source:None,physical_documents:Vec::new()});
+                closure.manifest.omissions.push(ProjectOmission{selection:format!("source:{revision}"),reason:"descriptive-only selection retains authenticated revision metadata; authored source objects, raw/curated data, physical documents and provider premises were not opened or copied".into(),required_for_execution:true});
+            } else if !packages.contains_key(&revision) {
+                let package=self.project_boxed(self.modeling_revision(row,physical.as_ref().ok_or_else(||contract("executable closure requires admitted physical context"))?.clone(),BTreeMap::new()))?.await?;
                 packages.insert(revision,package);
             }
         }
@@ -157,7 +213,7 @@ impl Runtime {
                     closure.documents.push((id.clone(),bytes.clone()));closure.manifest.members.push(member(id,"authored-document.v1"));
                 }}
             }
-            closure.manifest.sources.push(ProjectSourceClosure{revision,source_identity:package.revision.identity().to_string(),physical_context:package.physical.identity().to_string(),documents,replay_source:replay_id,physical_documents:physical_members});
+            closure.manifest.sources.push(ProjectSourceClosure{revision,source_identity:Some(package.revision.identity().to_string()),physical_context:Some(package.physical.identity().to_string()),documents,replay_source:Some(replay_id),physical_documents:physical_members});
             closure._owners.push(owner);
         }
         // Artifacts use original protected reads and preserve their original encoding digests and ordinal extent.

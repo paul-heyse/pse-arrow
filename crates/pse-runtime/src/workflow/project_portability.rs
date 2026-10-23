@@ -67,16 +67,50 @@ pub struct ProjectDocumentMember {
 pub struct ProjectSourceClosure {
     /// Original canonical source revision, meaningful only under manifest origin authority.
     pub revision: String,
-    /// Original admitted scientific identity.
-    pub source_identity: String,
-    /// Complete physical meaning used for admission.
-    pub physical_context: String,
+    /// Original scientific identity when actually retained by its source/context owner; absence is unknown.
+    pub source_identity: Option<String>,
+    /// Physical identity from actual source/context metadata; absent when not authenticated independently.
+    pub physical_context: Option<String>,
     /// Original source packages in loader order.
     pub documents: Vec<ProjectDocumentMember>,
-    /// Existing complete authored/data source codec, also supports typed source edits without invented text.
-    pub replay_source: String,
+    /// Complete authored/data source codec. None is permitted only for an explicitly omitted descriptive source.
+    pub replay_source: Option<String>,
     /// Exact physical package document bytes.
     pub physical_documents: Vec<ProjectDocumentMember>,
+}
+/// Compact factual metadata from the original immutable revision owner; it grants no source access.
+#[derive(Clone,Debug,Serialize,Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectSourceRevisionMetadata {
+    /// Actual original immutable revision.
+    pub key:String,
+    /// Actual original problem owner.
+    pub problem:String,
+    /// Original immutable source sequence.
+    pub sequence:u64,
+    /// Original parent, if present; never a floating head.
+    pub parent:Option<String>,
+    /// Original operation acknowledgement identity.
+    pub operation:String,
+    /// Original source interpretation; no receiving compatibility is asserted.
+    pub interpretation:String,
+}
+/// Original run/attempt facts for a deliberately omitted result payload.
+#[derive(Clone,Debug,Serialize,Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectResultMetadata {
+    /// Original requested coordinates; no selected row bytes are claimed copied.
+    pub selection:super::ReviewScientificSelection,
+    /// Actual original run's source revision.
+    pub source_revision:String,
+    /// Actual original attempt generation.
+    pub generation:u64,
+    /// Actual original lifecycle phase.
+    pub phase:String,
+    /// Actual original outcome, if the attempt has one.
+    pub terminal_class:Option<String>,
+    /// Original closed-manifest locator, if present; the manifest payload is not read.
+    pub closed_manifest:Option<String>,
 }
 /// Preserved original study definition. It is not a receiving durable study receipt.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -143,9 +177,14 @@ pub struct ProjectManifest {
     /// Logical exchange codec.
     pub version: Version<1>,
     /// Exact original owner selection; original service addresses/grants are excluded.
+    /// Descriptive identities are retained selector facts, not independent scientific re-admission.
     pub origin: ProjectSelection,
     /// Selected source closure plus required historical source ancestry.
     pub sources: Vec<ProjectSourceClosure>,
+    /// Authenticated original source owner metadata, including descriptive-only source selection.
+    pub source_revisions: Vec<ProjectSourceRevisionMetadata>,
+    /// Authenticated original result metadata when payload copying was explicitly omitted.
+    pub result_metadata: Vec<ProjectResultMetadata>,
     /// Origin metadata; never receiving dataset rows or execution grants.
     pub datasets: Vec<pse_operations::canonical_research::ResearchDataset>,
     /// Origin frozen calibration/fit observation selections.
@@ -245,9 +284,10 @@ impl ProjectBundleReader {
     }
     fn validate_sources(&self)->Result<(),WorkflowError> {
         for source in &self.manifest.sources {
-            let document:super::ReplaySourceDocument=decode(self.member_bytes(&source.replay_source,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)?;
-            if document.identity.to_string()!=source.source_identity || document.physical_identity.to_string()!=source.physical_context {return Err(contract("source codec identity differs from selected manifest"));}
-            if self.manifest.members.iter().find(|m|m.id==source.replay_source).is_none_or(|m|m.codec!="replay-source.v1") {return Err(contract("source codec differs from selected manifest"));}
+            let Some(replay_source)=source.replay_source.as_deref() else {continue;};
+            let document:super::ReplaySourceDocument=decode(self.member_bytes(replay_source,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)?;
+            if Some(document.identity.to_string())!=source.source_identity || Some(document.physical_identity.to_string())!=source.physical_context {return Err(contract("source codec identity differs from selected manifest"));}
+            if self.manifest.members.iter().find(|m|Some(m.id.as_str())==source.replay_source.as_deref()).is_none_or(|m|m.codec!="replay-source.v1") {return Err(contract("source codec differs from selected manifest"));}
             let names=document.objects.iter().map(|o|(&o.scope,&o.name)).collect::<BTreeSet<_>>();
             let logicals=document.objects.iter().map(|o|&o.logical).collect::<BTreeSet<_>>();
             if names.len()!=document.objects.len() || logicals.len()!=document.objects.len() || !logicals.iter().any(|s|s.as_str()=="modeling:context") || !logicals.iter().any(|s|s.as_str()=="modeling:physical-scope") || !logicals.iter().any(|s|s.as_str()=="source:ingress-frame:v1")
@@ -336,7 +376,13 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
     }
     let mut revisions=BTreeSet::new();
     for source in &manifest.sources {
-        if !revisions.insert(&source.revision) || !ids.contains(source.replay_source.as_str()) || source.physical_documents.is_empty() { return Err(contract("incomplete or duplicate source closure")); }
+        if !revisions.insert(&source.revision) {return Err(contract("duplicate source closure"));}
+        match source.replay_source.as_deref() {
+            Some(replay) if ids.contains(replay) && !source.physical_documents.is_empty() && source.source_identity.is_some() && source.physical_context.is_some()=>{},
+            None if manifest.descriptive_only && source.documents.is_empty() && source.physical_documents.is_empty()
+                && manifest.omissions.iter().any(|o|o.selection==format!("source:{}",source.revision) && o.required_for_execution)=>{},
+            _=>return Err(contract("incomplete source closure lacks required replay/physical members or explicit descriptive omission")),
+        }
         for documents in [&source.documents,&source.physical_documents] {
             let mut names=BTreeSet::new();
             for document in documents {
@@ -347,7 +393,30 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
         }
     }
     if !revisions.contains(&manifest.origin.revision) { return Err(contract("selected source closure absent")); }
-    if manifest.sources.iter().find(|s|s.revision==manifest.origin.revision).is_none_or(|s|s.source_identity!=manifest.origin.source_identity.to_string() || s.physical_context!=manifest.origin.physical_context.to_string()) {return Err(contract("selected source identity differs from origin"));}
+    if manifest.sources.iter().find(|s|s.revision==manifest.origin.revision).is_none_or(|s|s.source_identity.as_ref().is_some_and(|id|id!=&manifest.origin.source_identity.to_string()) || s.physical_context.as_ref().is_some_and(|id|id!=&manifest.origin.physical_context.to_string())) {return Err(contract("selected source identity differs from origin"));}
+    let mut metadata_revisions=BTreeSet::new();
+    for revision in &manifest.source_revisions {
+        if !metadata_revisions.insert(revision.key.as_str()) || !revisions.contains(&revision.key) || revision.key.is_empty() || revision.problem.is_empty() || revision.operation.is_empty() || revision.interpretation.is_empty() {return Err(contract("source revision metadata differs from selected closure"));}
+    }
+    if manifest.sources.iter().any(|s|!metadata_revisions.contains(s.revision.as_str())) {return Err(contract("source closure lacks original revision metadata"));}
+    if manifest.source_revisions.iter().find(|r|r.key==manifest.origin.revision).is_some_and(|r|r.problem!=manifest.origin.problem) {return Err(contract("selected revision metadata belongs to another source problem"));}
+    for result in &manifest.result_metadata {
+        if !manifest.descriptive_only || !revisions.contains(&result.source_revision) || !manifest.omissions.iter().any(|o|o.selection==format!("result:{}",result.selection.member) && o.required_for_execution) {return Err(contract("descriptive result metadata lacks explicit omitted payload"));}
+    }
+    let mut artifact_headers=BTreeSet::new();
+    for header in &manifest.artifact_origins {
+        if !artifact_headers.insert(header.key.as_str()) || !revisions.contains(&header.revision) || header.block_count==0 {return Err(contract("duplicate artifact header or missing original source closure"));}
+        if manifest.source_revisions.iter().find(|r|r.key==header.revision).is_none_or(|r|r.problem!=header.primary_problem) {return Err(contract("original artifact source ownership differs"));}
+        let selected=manifest.members.iter().filter(|m|m.artifact.as_ref().is_some_and(|(key,_)|key==&header.key)).collect::<Vec<_>>();
+        if manifest.descriptive_only && selected.is_empty() && manifest.omissions.iter().any(|o|o.selection==format!("artifact:{}",header.key) && o.required_for_execution) {continue;}
+        let mut ordinals=BTreeSet::new();let mut bytes=0u64;
+        for member in selected {
+            let ordinal=member.artifact.as_ref().ok_or_else(||contract("artifact coordinate absent"))?.1;
+            if !ordinals.insert(ordinal) {return Err(contract("duplicate original artifact block ordinal"));}
+            bytes=bytes.checked_add(member.copied_bytes).ok_or_else(||contract("artifact copied extent"))?;
+        }
+        if ordinals.len() as u64!=header.block_count || bytes!=header.payload_bytes || ordinals.into_iter().enumerate().any(|(i,ordinal)|i as u64!=ordinal) {return Err(contract("original artifact block coverage or byte extent is incomplete"));}
+    }
     let executable=!manifest.descriptive_only && !manifest.omissions.iter().any(|o|o.required_for_execution) && manifest.providers.iter().all(|p|p.supported);
     if manifest.executable_complete!=executable { return Err(contract("project execution completeness contradicts selected closure")); }
     for dataset in &manifest.datasets {
@@ -366,6 +435,14 @@ pub(super) fn validate_manifest(manifest:&ProjectManifest)->Result<(),WorkflowEr
 impl Runtime {
     /// Copy the selected original closure, verify destination bytes, and publish its sole manifest last.
     pub async fn project_export(&self,destination:&Path,request:&ProjectExportRequest,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ProjectManifest,WorkflowError> {
+        self.project_boxed(self.project_export_resolved(destination,request,Some(physical),cancel))?.await
+    }
+    /// Export only authenticated descriptive metadata without admitting unavailable physical/source bytes.
+    pub async fn project_export_metadata(&self,destination:&Path,request:&ProjectExportRequest,cancel:&crate::CancelSource)->Result<ProjectManifest,WorkflowError> {
+        if !request.descriptive_only {return Err(contract("metadata export requires explicit descriptive-only selection"));}
+        self.project_boxed(self.project_export_resolved(destination,request,None,cancel))?.await
+    }
+    async fn project_export_resolved(&self,destination:&Path,request:&ProjectExportRequest,physical:Option<PhysicalContext>,cancel:&crate::CancelSource)->Result<ProjectManifest,WorkflowError> {
         let mut closure=self.project_boxed(self.resolve_project_closure(request,physical,cancel))?.await?;
         std::fs::create_dir(destination).map_err(io)?;
         let root=destination.canonicalize().map_err(io)?;
@@ -506,7 +583,7 @@ impl ProjectBundleReader {
     }
     fn replay_source(&self)->Result<super::ReplaySourceDocument,WorkflowError> {
         let selected=self.manifest.sources.iter().find(|s|s.revision==self.manifest.origin.revision).ok_or_else(||contract("selected source absent"))?;
-        decode(self.member_bytes(&selected.replay_source,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)
+        decode(self.member_bytes(selected.replay_source.as_deref().ok_or_else(||contract("descriptive source has no executable replay member"))?,self.maximum_document_bytes)?.as_slice(),self.maximum_document_bytes)
     }
     fn physical_documents(&self)->Result<BTreeMap<String,Vec<u8>>,WorkflowError> {
         let selected=self.manifest.sources.iter().find(|s|s.revision==self.manifest.origin.revision).ok_or_else(||contract("selected source absent"))?;
@@ -561,7 +638,7 @@ impl Runtime {
         } else {
             if !bundle.inspect().executable_complete {return Err(contract("unsupported or incomplete executable project closure"));}
             let selected_source=bundle.inspect().sources.iter().find(|s|s.revision==bundle.inspect().origin.revision).ok_or_else(||contract("selected import source absent"))?;
-            let source_extent=bundle.inspect().members.iter().filter(|m|m.id==selected_source.replay_source || selected_source.physical_documents.iter().any(|d|d.member==m.id)).try_fold(0usize,|total,m|total.checked_add(usize::try_from(m.copied_bytes).map_err(|_|contract("import source extent"))?).ok_or_else(||contract("import source extent")))?;
+            let source_extent=bundle.inspect().members.iter().filter(|m|Some(m.id.as_str())==selected_source.replay_source.as_deref() || selected_source.physical_documents.iter().any(|d|d.member==m.id)).try_fold(0usize,|total,m|total.checked_add(usize::try_from(m.copied_bytes).map_err(|_|contract("import source extent"))?).ok_or_else(||contract("import source extent")))?;
             let _source_owner=self.shared.math().reserve("project:import-source-admission",source_extent.checked_mul(4).ok_or_else(||contract("import source extent"))?)?;
             let local=self.clone().with_durability(super::DurabilitySelection::Ephemeral)?;
             let physical=self.project_boxed(local.physical_from_sources(&bundle.physical_documents()?,cancel))?.await?;

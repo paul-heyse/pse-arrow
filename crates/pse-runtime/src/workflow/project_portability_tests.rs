@@ -13,8 +13,8 @@ async fn bundle()->(tempfile::TempDir,ProjectManifest) {
     let root=tempfile::tempdir().unwrap();std::fs::create_dir(root.path().join("members")).unwrap();
     let mut manifest=ProjectManifest{
         version:Version,origin:ProjectSelection{issuing_store:"unavailable-origin".into(),project:"original-project".into(),reference:workflow::ProjectReference::Branch{key:"main".into()},problem:"original-problem".into(),revision:"original-revision".into(),source_identity:package.revision.identity(),physical_context:physical.identity()},
-        sources:vec![ProjectSourceClosure{revision:"original-revision".into(),source_identity:package.revision.identity().to_string(),physical_context:physical.identity().to_string(),documents:vec![],replay_source:"source".into(),physical_documents:vec![]}],
-        datasets:vec![],research_selections:vec![],publications:vec![],contexts:vec![],studies:vec![],reproducers:vec![],providers:vec![],artifact_origins:vec![],members:vec![],maximum_copy_bytes:64<<20,omissions:vec![],offline_complete:true,executable_complete:true,descriptive_only:false,
+        sources:vec![ProjectSourceClosure{revision:"original-revision".into(),source_identity:Some(package.revision.identity().to_string()),physical_context:Some(physical.identity().to_string()),documents:vec![],replay_source:Some("source".into()),physical_documents:vec![]}],
+        source_revisions:vec![ProjectSourceRevisionMetadata{key:"original-revision".into(),problem:"original-problem".into(),sequence:1,parent:None,operation:"original-revision".into(),interpretation:pse_operations::generated::surreal::INTERPRETATION.into()}],result_metadata:vec![],datasets:vec![],research_selections:vec![],publications:vec![],contexts:vec![],studies:vec![],reproducers:vec![],providers:vec![],artifact_origins:vec![],members:vec![],maximum_copy_bytes:64<<20,omissions:vec![],offline_complete:true,executable_complete:true,descriptive_only:false,
     };
     fn add(root:&Path,manifest:&mut ProjectManifest,id:String,codec:&str,bytes:&[u8]) {
         let relative_path=format!("members/{}.bin",manifest.members.len());std::fs::write(root.join(&relative_path),bytes).unwrap();
@@ -47,6 +47,10 @@ async fn project_portability_missing_required_closure_unknown_codec_and_escaped_
     let (root,manifest)=bundle().await;
     let mut missing=manifest.clone();missing.members.remove(0);save(root.path(),&missing);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
+    let mut no_replay=manifest.clone();no_replay.sources[0].replay_source=None;save(root.path(),&no_replay);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"required executable source cannot omit its replay member");
+    no_replay.descriptive_only=true;no_replay.executable_complete=false;no_replay.sources[0].physical_documents.clear();save(root.path(),&no_replay);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"descriptive source omission must be explicit and execution-required");
     let mut unknown=manifest.clone();unknown.members[0].codec="guessed-codec.v99".into();save(root.path(),&unknown);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
     let mut escape=manifest;escape.members[0].relative_path="members/../../outside".into();save(root.path(),&escape);
@@ -190,7 +194,7 @@ async fn project_portability_active_original_settles_after_expiry_without_copy_o
 async fn project_portability_artifact_original_codec_digest_and_scientific_extent_survive_copy() {
     let (root,mut manifest)=bundle().await;
     let block=pse_operations::canonical_artifacts::artifact_block("origin-artifact",0,"origin-fitted-cells",b"{\"estimate\":11}".to_vec(),"original-encoding-provenance",1);
-    let original=pse_operations::canonical_artifacts::Artifact{key:block.artifact.clone(),kind:"original-copied-evidence".into(),revision:manifest.origin.revision.clone(),primary_problem:manifest.origin.problem.clone(),primary_authority:"descriptive-origin-authority".into(),creation_nonce:"original-nonce".into(),creation_expires_at:1,creation_request_digest:"original-request".into(),interpretation:"original-registry".into(),provenance:vec![1].into(),block_count:1,payload_bytes:block.payload.len() as u64,active:true,retiring:false};
+    let original=pse_operations::canonical_artifacts::Artifact{key:block.artifact.clone(),kind:"original-copied-evidence".into(),revision:manifest.origin.revision.clone(),primary_problem:manifest.origin.problem.clone(),primary_authority:"descriptive-origin-authority".into(),creation_nonce:"original-nonce".into(),creation_expires_at:1,creation_request_digest:"original-request".into(),interpretation:pse_operations::generated::surreal::INTERPRETATION.into(),provenance:vec![1].into(),block_count:1,payload_bytes:block.payload.len() as u64,active:true,retiring:false};
     manifest.artifact_origins.push(original);
     let relative_path="members/evidence.bin".to_owned();std::fs::write(root.path().join(&relative_path),block.payload.as_slice()).unwrap();
     manifest.members.push(ProjectBundleMember{id:"original-evidence".into(),relative_path,codec:"artifact-block.v1".into(),copied_bytes:block.payload.len() as u64,digest:pse_ids::encoding_checksum(block.payload.as_slice()).content_hash().to_hex(),result:None,artifact:Some((block.artifact.clone(),0)),artifact_metadata:Some(ProjectArtifactBlockMetadata{relation:block.relation.clone(),payload_digest:block.digest.clone(),original_digest:block.original_digest.clone(),rows:block.rows,encoding:block.encoding().into(),schema:block.schema().into()})});
@@ -199,8 +203,52 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
     let metadata=reader.inspect().members.last().unwrap().artifact_metadata.as_ref().unwrap();
     assert_eq!(metadata.rows,1);assert_eq!(metadata.relation,"origin-fitted-cells");assert_eq!(metadata.original_digest,"original-encoding-provenance");assert_eq!(metadata.payload_digest,block.digest);
     assert_eq!(reader.member_bytes("original-evidence",1024).unwrap(),block.payload.as_slice());
+    let full=manifest.clone();
+    let mut missing=full.clone();missing.members.pop();save(root.path(),&missing);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"complete artifact cannot lose its required ordinal");
+    let mut duplicate=full.clone();let mut extra=duplicate.members.last().unwrap().clone();extra.id="duplicate-original-coordinate".into();extra.relative_path="members/duplicate-evidence.bin".into();std::fs::write(root.path().join(&extra.relative_path),block.payload.as_slice()).unwrap();duplicate.members.push(extra);save(root.path(),&duplicate);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"distinct member IDs cannot duplicate an original artifact ordinal");
+    let mut extent=full.clone();extent.artifact_origins[0].payload_bytes+=1;save(root.path(),&extent);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"copied bytes must cover the exact original artifact extent");
+    let mut headers=full.clone();headers.artifact_origins.push(headers.artifact_origins[0].clone());save(root.path(),&headers);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).is_err(),"an artifact header has one authoritative selection");
+    let mut descriptive=missing;descriptive.descriptive_only=true;descriptive.executable_complete=false;descriptive.omissions.push(ProjectOmission{selection:"artifact:origin-artifact".into(),reason:"explicit metadata-only evidence selection".into(),required_for_execution:true});save(root.path(),&descriptive);
+    assert!(ProjectBundleReader::open(root.path(),16<<20).unwrap().inspect().descriptive_only,"only explicit descriptive omission permits a header without copied artifact blocks");
     let metadata=manifest.members.last_mut().unwrap().artifact_metadata.as_mut().unwrap();metadata.payload_digest="00".repeat(32);save(root.path(),&manifest);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
     let metadata=manifest.members.last_mut().unwrap().artifact_metadata.as_mut().unwrap();metadata.payload_digest=block.digest;metadata.encoding="unknown-evidence.v99".into();save(root.path(),&manifest);
     assert!(ProjectBundleReader::open(root.path(),16<<20).is_err());
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn project_portability_descriptive_export_never_hydrates_missing_source_payloads() {
+    let runtime=workflow::durable_tests::durable_runtime();let cancel=crate::CancelSource::new();
+    let (physical_documents,documents)=workflow::worker_tests::sources("package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}");
+    let physical=Box::pin(runtime.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
+    let source=Box::pin(runtime.package_from_sources(&[documents],physical.clone(),&cancel)).await.unwrap();
+    let store=runtime.canonical_store().unwrap();
+    store.create_project("create-descriptive","descriptive-project","Metadata survives unavailable bytes").await.unwrap();
+    let project=store.project("descriptive-project").await.unwrap().unwrap();
+    Box::pin(runtime.project_fork(&project,"descriptive-main","descriptive-source","descriptive-fork",&source)).await.unwrap();
+    let selection=Box::pin(runtime.project_select(&workflow::ProjectSelectRequest{version:Version,reference:workflow::ProjectReference::Branch{key:"descriptive-main".into()}},physical.clone(),&cancel)).await.unwrap();
+    let mut request=ProjectExportRequest{version:Version,selection:selection.clone(),research_selections:vec![],publications:vec![],studies:vec![],results:vec![],artifacts:vec![],reproducers:vec![],descriptive_only:false,omissions:vec![],maximum_output_bytes:16<<20,maximum_document_bytes:16<<20};
+    let output=tempfile::tempdir().unwrap();let complete_path=output.path().join("must-refuse");let metadata_path=output.path().join("metadata");
+    let manifest=store.with_unavailable_fixture_payloads(async {
+        assert!(Box::pin(runtime.project_export(&complete_path,&request,physical.clone(),&cancel)).await.is_err(),"executable export cannot silently reinterpret missing source files as metadata");
+        assert!(!complete_path.join("project.json").exists());
+        assert!(Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.is_err(),"metadata path requires explicit descriptive selection");
+        request.descriptive_only=true;
+        let explanation=Box::pin(runtime.project_closure_metadata(&request,&cancel)).await.unwrap();assert!(explanation.manifest.members.is_empty());
+        Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()
+    }).await.unwrap();
+    assert!(manifest.offline_complete);assert!(!manifest.executable_complete);assert!(manifest.members.is_empty());
+    assert_eq!(manifest.origin.revision,selection.revision);assert!(manifest.sources[0].replay_source.is_none());
+    assert!(manifest.sources[0].source_identity.is_none(),"a selector alone cannot authenticate a scientific source hash without readmission");
+    assert_eq!(manifest.source_revisions[0].problem,selection.problem);
+    assert!(manifest.omissions.iter().any(|o|o.selection==format!("source:{}",selection.revision)&&o.required_for_execution));
+    store.close();assert!(store.project("descriptive-project").await.is_err(),"original source caller is unavailable during independent inspection");
+    let reader=ProjectBundleReader::open(&metadata_path,16<<20).unwrap();assert!(reader.inspect().descriptive_only);
+    assert!(Box::pin(runtime.project_import_issue(&reader,"must-refuse","main")).await.is_err(),"descriptive closure is never editable source admission");
+    drop(reader);drop(source);drop(runtime);
 }
