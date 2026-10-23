@@ -284,7 +284,8 @@ def test_diagnostic_samples_keep_sparse_converted_points_after_producer_mutation
     assert result.ids() == (identity(241), identity(242))
     for ordinal, expected in enumerate(({x: 3.0, y: -3.0}, {x: 1.0, y: -1.0})):
         report = result.result(ordinal)
-        assert report is not None and report.complete
+        assert report is not None
+        assert report.complete
         (row,) = pa.table(report.table()).to_pylist()
         point = {
             SemanticId(value["source_id"]): value["value"] for value in row["point"]
@@ -358,7 +359,8 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     gc.collect()
     assert codec.encode_json(settings.document) == before
     controls = settings.document.controls
-    assert controls.start == -2e-7 and controls.initial_step == 1e-9
+    assert controls.start == -2e-7
+    assert controls.initial_step == 1e-9
     assert controls.samples == tuple(times)
     assert controls.atol[0].value.value == 1e-10
     assert controls.parameter_scales[0].value.value == 2.0

@@ -47,9 +47,11 @@ class ScanProbePreparationTests(unittest.TestCase):
             btree = copied / "surrealdb/core/src/exec/index/iterator/btree.rs"
             btree.parent.mkdir(parents=True)
             btree.write_text("no probe here")
-            with patch.object(probe.subprocess, "run") as compiler:
-                with self.assertRaisesRegex(ValueError, "lacks the exact test-only"):
-                    probe.run(Path(temporary), {})
+            with (
+                patch.object(probe.subprocess, "run") as compiler,
+                self.assertRaisesRegex(ValueError, "lacks the exact test-only"),
+            ):
+                probe.run(Path(temporary), {})
             compiler.assert_not_called()
 
     def test_source_and_scratch_must_be_disjoint(self) -> None:

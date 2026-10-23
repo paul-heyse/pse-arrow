@@ -169,7 +169,7 @@ def test_native_compatibility_refuses_version_or_fingerprint_mismatch(
             )
     # Keep the package and relation identities valid so this reaches the real
     # extension's independent document-catalogue comparison.
-    with pytest.raises(ImportError, match="document catalogue.*differ"):
+    with pytest.raises(ImportError, match=r"document catalogue.*differ"):
         _check_native_compatibility(pse.__version__, "incompatible")
 
 

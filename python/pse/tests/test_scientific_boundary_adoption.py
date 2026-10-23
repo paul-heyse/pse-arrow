@@ -62,7 +62,8 @@ def regression_documents(*, objective: bool = False) -> dict[str, str]:
     if objective:
         source = source.replace(
             "annotation start z(0);",
-            "annotation start z(0); let cost:Scalar=0.5*z*z; annotation objective cost(minimize);",
+            "annotation start z(0); let cost:Scalar=0.5*z*z; "
+            "annotation objective cost(minimize);",
         )
     return package_documents(source)
 
@@ -320,7 +321,8 @@ def test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_ref
     covariance = fitted.parameter_covariance
     assert covariance is not None
     run, attempt = fitted.canonical_run_key, fitted.canonical_attempt_key
-    assert run is not None and attempt is not None
+    assert run is not None
+    assert attempt is not None
     del fitted, package
     runtime.clear_program_cache()
     runtime.close()
