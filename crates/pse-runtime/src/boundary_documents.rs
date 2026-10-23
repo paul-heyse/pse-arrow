@@ -11,6 +11,12 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 #[macro_export]
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
+            (ResearchDatasetRequest, pse_runtime::workflow::ResearchDatasetRequest, "research-dataset-request", Both, FlatV1),
+            (ResearchSelectionRequest, pse_runtime::workflow::ResearchSelectionRequest, "research-selection-request", Both, FlatV1),
+            (ResearchReadRequest, pse_runtime::workflow::ResearchReadRequest, "research-read-request", Both, FlatV1),
+            (ResearchReadResult, pse_runtime::workflow::ResearchReadResult, "research-read-result", Both, FlatV1),
+            (ResearchDataset, pse_operations::canonical_research::ResearchDataset, "research-dataset", Both, FlatV1),
+            (ResearchSelection, pse_operations::canonical_research::ResearchSelection, "research-selection", Both, FlatV1),
             (InitializationOverrides, pse_runtime::workflow::InitializationOverrides, "initialization-overrides", Both, FlatV1),
             (ModelingNonlinearPolicy, pse_runtime::workflow::ModelingNonlinearPolicy, "nonlinear-explanation-policy", Both, FlatV1),
             (ModelingDiagnosticPolicy, pse_runtime::workflow::ModelingDiagnosticPolicy, "modeling-diagnostic-policy", Both, FlatV1),
