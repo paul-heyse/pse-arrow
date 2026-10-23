@@ -155,7 +155,7 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
     } ELSE IF $action.kind='savepoint' {
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
         LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$action.version);
-        IF $head=NONE OR $version=NONE OR $head.project!=$project OR $version.draft!=$head.key OR $head.generation!=$action.generation OR $head.version!=$version.key {THROW 'PSE_REFUSAL:project_draft_changed';};
+        IF $head=NONE OR $version=NONE OR $version.retired OR $head.project!=$project OR $version.draft!=$head.key OR $head.generation!=$action.generation OR $head.version!=$version.key {THROW 'PSE_REFUSAL:project_draft_changed';};
         CREATE ONLY type::record('canonical_project_savepoints',$action.key) CONTENT {key:$action.key,project:$project,draft:$head.key,version:$version.key,name:$action.name,deleted:false};
     } ELSE IF $action.kind='draft_visibility' {
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.key) FOR UPDATE;
@@ -168,7 +168,7 @@ DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$requ
     } ELSE IF $action.kind='restore' {
         LET $point=SELECT * FROM ONLY type::record('canonical_project_savepoints',$action.key);
         LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$action.draft) FOR UPDATE;
-        IF $point=NONE OR $head=NONE OR $point.deleted OR $point.project!=$project OR $point.draft!=$head.key OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
+        IF $point=NONE OR $head=NONE OR (SELECT retired FROM ONLY type::record('canonical_project_draft_versions',$point.version)).retired OR $point.deleted OR $point.project!=$project OR $point.draft!=$head.key OR $head.project!=$project OR $head.generation!=$action.generation {THROW 'PSE_REFUSAL:project_draft_changed';};
         UPDATE ONLY type::record('canonical_project_drafts',$head.key) SET version=$point.version,deleted=false,generation+=1dec;
     } ELSE {THROW 'PSE_REFUSAL:project_metadata_bound';};
     LET $new=UPDATE ONLY type::record('canonical_projects',$project) SET generation+=1dec;

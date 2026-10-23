@@ -303,29 +303,7 @@ fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
-const DROP_ROOT: &str = r#"BEGIN;
-IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'PSE_REFUSAL:lifecycle_roots_are_released_only_by_their_owning_retirement'; };
-LET $guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
-IF $old != NONE {
-    IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'PSE_REFUSAL:retained_owner_selection_changed'; };
-    DELETE ONLY type::record('canonical_roots', $root);
-    IF $owner_kind = 'product' {
-        LET $association = SELECT * FROM ONLY type::record('canonical_product_associations',$root);
-        IF $association != NONE {
-            LET $descriptor = SELECT * FROM ONLY type::record('canonical_product_descriptors',$association.descriptor) FOR UPDATE;
-            IF $descriptor != NONE {
-                IF $descriptor.issuing_store != $association.issuing_store OR $descriptor.problem != $association.problem OR $descriptor.request != $association.request OR $descriptor.payload != $association.payload OR $descriptor.dependencies != $association.dependencies OR $descriptor.content != $association.content OR $descriptor.receipt != $association.receipt OR $descriptor.producer != $association.producer OR $descriptor.interpretation != $association.interpretation { THROW 'PSE_REFUSAL:released_association_descriptor_equality_differs'; };
-                LET $remaining = SELECT key FROM canonical_product_associations WHERE descriptor = $association.descriptor AND issuing_store = $association.issuing_store AND problem = $association.problem AND request = $association.request AND payload = $association.payload AND dependencies = $association.dependencies AND content = $association.content AND receipt = $association.receipt AND producer = $association.producer AND interpretation = $association.interpretation AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key ORDER BY key LIMIT 1;
-                UPDATE type::record('canonical_product_descriptors',$association.descriptor) SET association = IF array::len($remaining) = 0 { NONE } ELSE { $remaining[0].key };
-            };
-        };
-    };
-};
-fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
-fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-COMMIT;"#;
+const DROP_ROOT: &str = "BEGIN; RETURN fn::pse_retention_v1::drop_source_root($pse_rpc_expires_at,$problem,$revision,$root,$owner_kind,$owner); COMMIT;";
 
 #[cfg(test)]
 mod postcommit_clock_tests {

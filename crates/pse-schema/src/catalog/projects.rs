@@ -183,6 +183,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 column("generation", uint()),
                 column("content", bytes()),
                 column("artifact", text()).optional(),
+                column("retired", T::native(D::Boolean)),
             ],
             "Immutable original raw draft version. Opaque artifacts retain larger malformed bodies; saving grants no scientific admission.",
         ),

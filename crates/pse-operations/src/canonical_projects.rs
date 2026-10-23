@@ -727,6 +727,7 @@ impl CanonicalStore {
             return Err(CanonicalError::PayloadLimit);
         }
         let row = DraftVersion {
+            retired: false,
             key: operation.into(),
             draft: key.into(),
             project: project.key.clone(),
