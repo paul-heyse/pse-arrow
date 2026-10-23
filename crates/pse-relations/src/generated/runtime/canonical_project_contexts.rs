@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    32u8, 213u8, 148u8, 154u8, 29u8, 101u8, 170u8, 198u8, 6u8, 47u8, 154u8, 250u8, 223u8,
-    55u8, 35u8, 95u8, 17u8, 231u8, 181u8, 221u8, 89u8, 91u8, 230u8, 231u8, 235u8, 12u8,
-    224u8, 152u8, 17u8, 3u8, 106u8, 12u8,
+    82u8, 135u8, 51u8, 119u8, 79u8, 210u8, 255u8, 36u8, 109u8, 99u8, 51u8, 235u8, 104u8,
+    188u8, 106u8, 173u8, 240u8, 237u8, 151u8, 22u8, 225u8, 21u8, 0u8, 14u8, 96u8, 251u8,
+    202u8, 145u8, 129u8, 226u8, 3u8, 45u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProjectContextsRow {
     fn append(
@@ -50,28 +50,36 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectContextsRow {
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#effective_from_us,
+            &self.r#physical_revision,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#effective_to_us,
+            &self.r#physical_source_identity,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#recorded_sequence,
+            &self.r#effective_from_us,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#corrects,
+            &self.r#effective_to_us,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#deleted,
+            &self.r#recorded_sequence,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#request,
+            &self.r#corrects,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#deleted,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#request,
+            children[13usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -89,17 +97,19 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectContextsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Option<
             i64,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -135,32 +145,40 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProjectContextsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#effective_from_us: <i64 as crate::columnar::ArrowValue>::read(
+            r#physical_revision: <String as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#physical_source_identity: <String as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#effective_from_us: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#effective_to_us: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#recorded_sequence: <u64 as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#corrects: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#deleted: <bool as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#request: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
         })
@@ -232,20 +250,31 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectContextsRow {
             columns[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#effective_from_us,
+            &self.r#physical_revision,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#effective_to_us,
+            &self.r#physical_source_identity,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#recorded_sequence,
+            &self.r#effective_from_us,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#corrects, columns[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#deleted, columns[10usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#request, columns[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#effective_to_us,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#recorded_sequence,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#corrects,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#deleted, columns[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#request, columns[13usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -285,10 +314,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectContextsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        24_576_usize + size_of::<Self::Builder>()
+        28_672_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        192usize
+        224usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -315,6 +344,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProjectContextsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#physical_context).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#physical_revision).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#physical_source_identity).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -364,7 +401,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -397,33 +434,43 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "effective_from_us",
+        name: "physical_revision",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "effective_to_us",
+        name: "physical_source_identity",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "recorded_sequence",
+        name: "effective_from_us",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "corrects",
+        name: "effective_to_us",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "deleted",
+        name: "recorded_sequence",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "request",
+        name: "corrects",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "deleted",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "request",
+        position: 13usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -440,18 +487,22 @@ pub mod columns {
     pub const SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///physical_context
     pub const PHYSICAL_CONTEXT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///physical_revision
+    pub const PHYSICAL_REVISION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///physical_source_identity
+    pub const PHYSICAL_SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///effective_from_us
-    pub const EFFECTIVE_FROM_US: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const EFFECTIVE_FROM_US: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///effective_to_us
-    pub const EFFECTIVE_TO_US: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const EFFECTIVE_TO_US: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///recorded_sequence
-    pub const RECORDED_SEQUENCE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const RECORDED_SEQUENCE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///corrects
-    pub const CORRECTS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const CORRECTS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///deleted
-    pub const DELETED: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const DELETED: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///request
-    pub const REQUEST: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const REQUEST: crate::columnar::ColumnReference = super::COLUMNS[13usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -465,6 +516,8 @@ pub struct RuntimeCanonicalProjectContextsView<'a> {
     revision_column: &'a arrow_array::StringArray,
     source_identity_column: &'a arrow_array::StringArray,
     physical_context_column: &'a arrow_array::StringArray,
+    physical_revision_column: &'a arrow_array::StringArray,
+    physical_source_identity_column: &'a arrow_array::StringArray,
     effective_from_us_column: &'a arrow_array::Int64Array,
     effective_to_us_column: &'a arrow_array::Int64Array,
     recorded_sequence_column: &'a arrow_array::UInt64Array,
@@ -533,24 +586,30 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
             physical_context_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(5usize).as_ref())?,
+            physical_revision_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            physical_source_identity_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
             effective_from_us_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             effective_to_us_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             recorded_sequence_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             corrects_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             deleted_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             request_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -639,6 +698,34 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "physical_revision",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn physical_revision_column(&self) -> &'a arrow_array::StringArray {
+        self.physical_revision_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "physical_revision", "`.")]
+    pub fn physical_revision_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "physical_source_identity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn physical_source_identity_column(&self) -> &'a arrow_array::StringArray {
+        self.physical_source_identity_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "physical_source_identity",
+        "`.",
+    )]
+    pub fn physical_source_identity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "effective_from_us",
         "`, including its offsets and validity bitmap.",
     )]
@@ -647,7 +734,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "effective_from_us", "`.")]
     pub fn effective_from_us_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -659,7 +746,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "effective_to_us", "`.")]
     pub fn effective_to_us_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -671,7 +758,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "recorded_sequence", "`.")]
     pub fn recorded_sequence_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -683,7 +770,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "corrects", "`.")]
     pub fn corrects_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -695,7 +782,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "deleted", "`.")]
     pub fn deleted_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -707,7 +794,7 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "request", "`.")]
     pub fn request_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -731,6 +818,14 @@ impl<'a> RuntimeCanonicalProjectContextsView<'a> {
             )?,
             r#physical_context: crate::columnar::ArrowValue::read(
                 self.physical_context_column,
+                index,
+            )?,
+            r#physical_revision: crate::columnar::ArrowValue::read(
+                self.physical_revision_column,
+                index,
+            )?,
+            r#physical_source_identity: crate::columnar::ArrowValue::read(
+                self.physical_source_identity_column,
                 index,
             )?,
             r#effective_from_us: crate::columnar::ArrowValue::read(

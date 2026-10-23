@@ -339,6 +339,8 @@ DEFINE FIELD scope ON canonical_project_contexts TYPE string READONLY;
 DEFINE FIELD revision ON canonical_project_contexts TYPE string READONLY;
 DEFINE FIELD source_identity ON canonical_project_contexts TYPE string READONLY;
 DEFINE FIELD physical_context ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD physical_revision ON canonical_project_contexts TYPE string READONLY;
+DEFINE FIELD physical_source_identity ON canonical_project_contexts TYPE string READONLY;
 DEFINE FIELD effective_from_us ON canonical_project_contexts TYPE int READONLY;
 DEFINE FIELD effective_to_us ON canonical_project_contexts TYPE option<int> READONLY;
 DEFINE FIELD recorded_sequence ON canonical_project_contexts TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
@@ -1529,7 +1531,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);
         IF $artifact=NONE OR $artifact.revision!=$row.revision { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
-        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.draft { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
+        IF $obligation=NONE OR $obligation.artifact!=$row.artifact OR $obligation.owner_kind!='project' OR $obligation.owner!=$row.key { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
         fn::pse_artifact_v1::attach($expiry,$row.artifact,$obligation,true);
     };
     CREATE ONLY type::record('canonical_research_references',$row.key) CONTENT $row;
@@ -1607,6 +1609,7 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
         LET $edge=<string>string::len($row.key)+':'+$row.key+$row.corrects; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$row.corrects};
     } ELSE {IF $row.deleted {THROW 'PSE_REFUSAL:project_context_invalid';};};
     fn::pse_project_v1::root($expiry,$row.revision,'project-context:'+$row.key);
+    fn::pse_project_v1::root($expiry,$row.physical_revision,'project-context-physical:'+$row.key);
     LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$row.project) FOR UPDATE;
     LET $sequence=($journal.sequence ?? 0dec)+1dec;
     UPSERT ONLY type::record('canonical_context_journals',$row.project) CONTENT {key:$row.project,sequence:$sequence};
