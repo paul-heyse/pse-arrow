@@ -1730,6 +1730,8 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let mut wrong=request.clone();wrong.targets[0].upper_bits=Some(0f64.to_bits());assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
     let preview=Box::pin(runtime.research_publication_preview(&request,&cancel)).await.unwrap();
     assert_eq!(preview.delta.replacements.len(),2);
+    assert_eq!(store.project_branch_revision("main").await.unwrap().unwrap().key,context.context.revision,"preview admits locally without activating a source head");
+    assert!(store.project_acknowledgement("publish-fit").await.unwrap().is_none(),"preview cannot claim a source publication receipt");
     let intent:crate::workflow::ResearchPublicationIntent=serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
     let receipt=pse_operations::testing::lose_project_source_reply(Box::pin(runtime.research_publish(&intent,&cancel))).await.unwrap();
     assert_eq!(receipt.run,run);assert_eq!(receipt.attempt,attempt);assert_eq!(receipt.revision,"publish-fit");
