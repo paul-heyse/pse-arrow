@@ -252,7 +252,12 @@ service state. An initial invocation omitted `--native` and failed before collec
 because the installed linked extension could not load `libcoinmumps`; rerunning through the
 existing native environment corrected the command, with no extension or loader-path change.
 
-The keep-going feature matrix exposed taskdump combinations run without required Tokio cfg.
+The keep-going feature matrix initially failed 25 combinations: ten taskdump combinations ran
+without required Tokio cfg, and fifteen encountered transient source conflict markers during
+the lifecycle merge. The exact ten taskdump and fifteen merge-interrupted combinations now
+all pass in separate affected reruns; their local outputs are
+`/tmp/pse51ef-taskdump-combinations-final.log` and
+`/tmp/pse51ef-matrix-merge-repaired.log`. These do not convert the original matrix to a clean run.
 The original cargo-hack adapter now selects the existing isolated diagnostic profile and
 `build_environment.configure(..., taskdump=True)`, including the same flags for force-validation
 graph probes. Ordinary combinations retain ordinary flags. **42** adapter/validation/environment
