@@ -22,6 +22,10 @@ pub struct RuntimeCanonicalProjectContextsRow {
     pub r#source_identity: String,
     ///physical_context
     pub r#physical_context: String,
+    ///physical_revision
+    pub r#physical_revision: String,
+    ///physical_source_identity
+    pub r#physical_source_identity: String,
     ///effective_from_us
     pub r#effective_from_us: i64,
     ///effective_to_us
@@ -48,6 +52,14 @@ impl crate::SemanticEq for RuntimeCanonicalProjectContextsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#physical_context,
                 &other.r#physical_context,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#physical_revision,
+                &other.r#physical_revision,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#physical_source_identity,
+                &other.r#physical_source_identity,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#effective_from_us,
@@ -86,6 +98,10 @@ impl crate::SemanticFrame for RuntimeCanonicalProjectContextsRow {
         crate::SemanticFrame::frame(&self.r#source_identity, hash);
         hash.str(stringify!(r#physical_context));
         crate::SemanticFrame::frame(&self.r#physical_context, hash);
+        hash.str(stringify!(r#physical_revision));
+        crate::SemanticFrame::frame(&self.r#physical_revision, hash);
+        hash.str(stringify!(r#physical_source_identity));
+        crate::SemanticFrame::frame(&self.r#physical_source_identity, hash);
         hash.str(stringify!(r#effective_from_us));
         crate::SemanticFrame::frame(&self.r#effective_from_us, hash);
         hash.str(stringify!(r#effective_to_us));
@@ -109,6 +125,10 @@ impl crate::HeapUsage for RuntimeCanonicalProjectContextsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#physical_context))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#physical_revision))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#physical_source_identity),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#effective_from_us))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#effective_to_us))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#recorded_sequence))

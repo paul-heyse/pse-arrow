@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "4979d0eb278b3820ab3d91e9a8dc5ef10008e01f1ed90bb88765654a6c26f598";
+pub const SCHEMA_DIGEST: &str = "6631d413402881d2052ae0c2fe60528a1050bbd7e143ef54bbe35b69d9da9757";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -3157,6 +3157,18 @@ pub fn encode_canonical_project_contexts(
         );
     object
         .insert(
+            "physical_revision",
+            crate::canonical_codec::encode_string(row.r#physical_revision.clone())?,
+        );
+    object
+        .insert(
+            "physical_source_identity",
+            crate::canonical_codec::encode_string(
+                row.r#physical_source_identity.clone(),
+            )?,
+        );
+    object
+        .insert(
             "effective_from_us",
             crate::canonical_codec::encode_int(row.r#effective_from_us)?,
         );
@@ -3202,6 +3214,12 @@ pub fn decode_canonical_project_contexts(
         )?,
         r#physical_context: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "physical_context")?,
+        )?,
+        r#physical_revision: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "physical_revision")?,
+        )?,
+        r#physical_source_identity: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "physical_source_identity")?,
         )?,
         r#effective_from_us: crate::canonical_codec::decode_int(
             crate::canonical_codec::required(&mut object, "effective_from_us")?,
