@@ -42,7 +42,11 @@ preparation acceptance, corrected failures and limits. PRE09 recommends no new c
 feature/Z3 binding; RC23 remains unselected. The completed [49d–49e Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22)
 owns constructor/projection, explicit fitting policies, runtime/native and selected assembled
 acceptance, including final sixteen-owner lifecycle/publication controls and qualification limits.
-The coordinator retains independent 49f–49h scope.
+The coordinator retains independent 49f–49h scope. The
+[post-Plan51 reconciliation](49-library-native-remediation.md#plan51-overlap-reconciliation--2026-10-23)
+routes 49g's remaining behavioral acceptance/native graph-work bound and 49h's evidence reuse,
+affected new consumers and residual qualification. The plan revision does not resume production
+execution or repeat completed foundation work.
 Completed companions stay retained for active readers. The canceled native sweep remains closed.
 
 Plans own the execution status of work that is actually active; packets may own their own

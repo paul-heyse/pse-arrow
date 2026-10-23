@@ -13,9 +13,10 @@ doc_topics: [design, documentation, libraries, storage, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
-Current proposed revisions: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Production execution remains paused apart from the explicitly authorized minimal TOOL08 dependency
-for Plan 50 D01 below; original authoring baselines and receipts retain their dates.
+Current remaining scope: [post-Plan51 reconciliation](#remaining-scope-after-plan51--2026-10-23).
+The maintainer authorized these plan revisions on 2026-10-23; this documentation engagement
+does not resume production execution. The earlier reassessment, pause handoff and minimal
+TOOL08 delivery retain their original dates and evidence boundaries.
 
 ## Purpose, basis and responsibility
 
@@ -27,9 +28,11 @@ R22 and the relevant DA-011/019/020/023/024/025 portions of the
 The [coordinator](49-library-native-remediation.md) owns package state, source dispositions,
 rule decisions and shared completion. This document owns the following local design.
 
-**Interface-checked:** authoring source at `e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05`
-plus the explicitly retained dirty review/audit inputs. **Proposed:** target and packages.
-No product implementation or qualification is established by this document.
+**Interface-checked, original authoring baseline:** source at
+`e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05` plus the explicitly retained dirty review/audit
+inputs. The original target was **Proposed**; the current foundation and remaining scope below
+distinguish subsequent implementation and recorded acceptance from work still required.
+Authoring or revising this document establishes no new product qualification.
 Current contracts remain at blueprint §§4–6, §20, §21 and §23; proposed changes follow
 the coordinator's decision route before dependent implementation.
 
@@ -54,6 +57,9 @@ acceptance examines actual indexes/expansion, not LIMIT alone. `EXPLAIN ANALYZE 
 is a version-scoped diagnostic, not a mandatory stable parser or a new monitoring system.
 
 ## Foundation assessment and selected target
+
+This section preserves the original target rationale. Implemented foundations and resolved
+inquiries are reconciled in the current package scope below; they are not reopened here.
 
 At the original authoring baseline, `xtask/src/codegen/schemas.rs` listed document roots; the Python boundary
 separately implements `DocumentType` in `crates/pse-py/src/documents.rs`. The pure renderer
@@ -150,39 +156,82 @@ permits it; do not retain two competing current-state authorities.
 ## Packages and implementation visions
 
 Package progress is recorded only in the [coordinator's package table](49-library-native-remediation.md#package-state).
+The following table and package descriptions specify the current residual work. Earlier
+foundation discussion preserves the original design rationale, not instructions to recreate it.
 
 | Package | Prerequisite capability | Delivered behavior and acceptance |
 | --- | --- | --- |
-| TOOL01 | Existing document owners and generated document renderer | One direction-aware catalogue, actual compiled fingerprint, strict import comparison; catalogue drift and serialize/deserialize defaults tested independently |
-| TOOL02 | TOOL01 catalogue registration and generated vocabulary inputs | Rust-owned versioned conformance manifest and defaults; both loaders agree on explicit/omitted controls, unknown fields, relative paths and selected coverage |
-| TOOL03 | Existing Rust launch owner; TOOL01 for typed projection | Python diagnostics invokes the Rust owner; ACK failure, cancellation, timeout and bounded log drain have the same result meanings |
-| TOOL04 | STO lifecycle/refusal contracts, schema installation/freeze and maintenance pages | Supervisor mutations use generated functions; bootstrap/restore/activation remain privileged phases; interrupted rehoming/reclamation resumes without losing protection |
-| TOOL05 | RES result-selection contract and existing diagnostics/detail contracts | Product contracts separated before capture/review tooling modules move; no runtime-to-tooling dependency; existing product and command consumers migrated |
-| TOOL06 | TOOL05 semantic boundaries and comparable steady/fit paths | Bounded tracing-Layer and optional crate inquiry, with adopt/no-adopt outcomes; no unqualified substrate replacement |
-| TOOL07 | Selected package outcomes and coordinator rule decisions | Correct stale text/pin explanations, purpose decisions for unused machinery and enduring documentation handoff without importing unrelated plans |
-| TOOL08 | Existing canonical graph/protection operations and product explanation contract; TOOL01 for public projection | Immediate blocker and bounded source/consumer explanations with typed edge roles, evidence and continuation; one operator consumer, no all-path service |
+| TOOL01 | Implemented catalogue, generated registrations and standalone envelopes | Complete focused direction/version/import acceptance, including the boundary-schema mismatch branch; retain the single declaration and actual-build identity |
+| TOOL02 | Implemented Rust conformance documents and generated Python loader | Exercise existing Rust/Python defaults, strict decoding, paths and selected-versus-package coverage controls; no new owner migration |
+| TOOL03 | Implemented Rust launch owner and thin Python adapter | Exercise actual command/ACK, cancellation, timeout and bounded-prefix log-drain outcomes; no second protocol or adapter rewrite |
+| TOOL04 | Implemented generated maintenance, supervisor adapters and selected recovery evidence | Complete remaining live generation/replay/refusal/protection controls against the current catalogue and payload owners |
+| TOOL05 | Implemented product contracts and internal tooling split | Reconcile capture/detail/review/CLI consumer behavior not covered by selected Plan51 journeys; no repeated module move |
+| TOOL06 | Completed I21 no-adoption outcome | Retain current observation hub and internal module; no additional Layer/crate inquiry |
+| TOOL07 | Implemented pin explanation and I24 purpose/retirement decisions | Reconcile current documentation and finding/package dispositions; remaining cross-area publication stays with QUAL05 |
+| TOOL08 | Implemented typed graph API/catalogue and operator command | Establish a native examined-edge/work bound with an actual seek/range/cursor path; preserve current semantics, continuation and protection |
+
+## Remaining scope after Plan51 — 2026-10-23
+
+**Interface-checked:** source `d16a253ac` and the recorded Plan49/50/51 Outcomes. The
+maintainer selected the recommended scope reconciliation on 2026-10-23. No new rule change,
+library selection or production repair is authorized by this document revision.
+
+**Implemented:** TOOL01–TOOL05 foundations already exist. The sole exported catalogue is
+`for_each_boundary_document!` in `pse-runtime::boundary_documents`; schema publication and
+native/Python registration consume it. Standalone envelopes have explicit version headers.
+Conformance meaning lives in `workflow::conformance_documents`; Python source recording calls
+the Rust `tooling::review_launch` owner. Product selection lives in `workflow::result_selection`,
+detail contracts in `observation_detail`, and export/review composition in `tooling`.
+Generated maintenance and its supervisor callers are present. These are not new implementation
+tasks merely because an older checkpoint said publication or compilation was pending.
+
+**Tested, reused at original conditions:** [Plan51g's Outcome](51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23)
+records generator equivalence/governance, default/no-default/native all-target Clippy, actual
+installed Python consumers, selected project/research/evidence/protected-copy journeys, host
+supervisor controls and nonempty disposable recovery. Those establish their named compilation,
+generation and behavioral scope. They do not run every existing conformance, launch, live
+maintenance or review-tool consumer test. The original mixed-concurrency functional failures
+and repaired feature checks retain their recorded conditions; do not recast them as a clean
+whole-product run.
+
+The residual packages below are behavioral acceptance and any concrete repair it exposes,
+plus TOOL08's native work bound. QUAL01 first matches existing assertions and prior Outcomes
+to these obligations, then selects uncovered or invalidated controls. Reuse actual evidence;
+do not create another test catalogue or infer a current code gap from historical pending prose.
+
+Plan51 broadens the affected consumers to project/research/lifecycle/import documents, copied
+protected results and current backup-v4 application inventories. TOOL01/04/05 must include those
+consumers where their changes reach them. Reuse original source/project/artifact activation,
+pending-import visibility fences and exact generation/receipt settlement. Descriptive/offline
+availability must not become executable availability or deletion authority. Existing lifecycle
+and project-closure explainers remain their owners: TOOL08 need not replace them or grow into
+a universal project graph. [49h](49h-qualification-and-design-publication.md#post-plan51-acceptance-reconciliation--2026-10-23)
+owns the cross-area acceptance selection. Completed Plan51 packages remain complete at their
+published boundaries.
 
 ### TOOL01: Catalogue, identity and generated registration
 
-Inspect all current schema roots, `DocumentType` implementations, bytes-returning boundary
-methods and generated Python decode registrations. One declaration supplies membership,
-name, direction and version; it does not duplicate a struct's fields. Add `Version<N>` to
-an exported unversioned root such as `Completion` through the appropriate boundary change.
-Generate the catalogue's Rust/Python bindings and schema products together; edit declarations
-and renderer, then `just codegen`, never hand-edit generated paths.
+The catalogue, Completion Version1, standalone wrappers and generated native/Python registrations
+are implemented. Preserve one declaration for membership, name, direction, version and wire
+projection. Change declarations/renderer and regenerate only when a concrete missing or incorrect
+contract is found; do not recreate wrappers or a registration inventory.
 
 Cover input-only defaults, output-only fields, a type exported both ways, a changed version,
 unknown fields and a genuine mismatched extension/Python pair. Compare generated schemas
 with independently specified direction expectations, not only generator round trips.
-Inspect all supported export feature configurations before recording invariance or variation.
-Delete the old xtask/boundary membership lists once every consumer uses the catalogue.
-This package consumes BND vocabulary/identity contracts; it need not wait for every Arrow
-side-route migration to begin catalogue design.
+The existing `test_native_compatibility_refuses_version_or_fingerprint_mismatch` covers package
+version and registry identity, but not the boundary-schema fingerprint refusal in
+`pse._build._check_native_compatibility`; add that negative control with the other identities
+valid. Existing `boundary_documents` direction/header and `test_standalone_document_wire.py`
+controls supply independent expectations. I19 already records equal actual default/native
+catalogues; broad feature compilation does not itself compare every exported schema identity.
+Reopen identity variation only for an actual changed exported shape. BND side-route adoption
+retains its own owner and is not a prerequisite to reauthor catalogue foundations.
 
 ### TOOL02–TOOL03: Commands become consumers
 
-Preserve the command's argument parsing and formatting while removing interpretation from
-the command adapter. For conformance, retain the distinction between package coverage and
+The Rust owners and thin command adapters are implemented. Preserve argument parsing and
+formatting. For conformance, retain the distinction between package coverage and
 selected fixture coverage; an unknown fixture fails before any fixture runs. The runtime
 continues to apply fixture-authored execution policy. A manifest with omitted settings uses
 the Rust owner's documented defaults, rather than Python restating them.
@@ -190,21 +239,29 @@ the Rust owner's documented defaults, rather than Python restating them.
 For source recording, call the Rust launch operation with immutable owned request data
 before scientific construction. Report command completion, selection ACK and drain separately.
 Exercise a command producing logs beyond the retained prefix: pipes must continue draining.
-Delete the Python protocol/state machine after the owner route passes, keeping CLI behavior
-tests that specify user outcomes rather than tests of the deleted mechanism.
+The Python protocol/state machine has already been removed. Exercise the existing
+`workflow::conformance_documents` and Python modeling/conformance controls, Rust
+`tooling::review_launch` execution controls and public review command journeys. Plan51's
+project/evidence commands and frozen-review readback cover adjacent consumers, not this complete
+ACK/timeout/drain acceptance. Keep outcome tests without restoring a deleted mechanism.
 
 ### TOOL04: Operator mutation and reclaim cutover
 
-Inventory the supervisor's direct canonical writes and assign each to a current-writer,
-maintenance or installation phase. Extend the existing schema registry/generator rather
-than publish another handwritten function schema. Migrate runtime and script callers in
-the same package; no script path may silently bypass the typed refusal decoder.
+Generated functions and supervisor adapters are implemented. Reconcile remaining direct canonical
+writes to their current-writer, maintenance or privileged installation phase; repair only concrete
+unmigrated domain effects. Reuse the existing registry/generator and typed refusal decoder. Plan51's
+host controls cover supervisor routing, much of it mocked; its actual recovery covers selected
+restore/activation. Neither alone substitutes for live function behavior.
 
-Use a restore fixture from the supported historical schema, a resumed half-complete page,
-an obsolete generation and a protected payload. Assert that freezing/rehoming cannot make
+Use the current supported schema and backup-v4 closure, a resumed half-complete page,
+an obsolete generation and a protected payload. Start with the existing live
+`generated_maintenance_pages_fence_generations_and_replay_exact_effects` control and reconcile
+its assertions against remaining protection/refusal obligations. Assert that freezing/rehoming cannot make
 a successful acknowledgement refer to unprotected bytes. Retain necessary paged readers
 until STO record-id access has replaced their key-index assumptions. Delete direct domain
-mutation SQL from the script after equivalent generated functions are exercised.
+mutation SQL if any remains after equivalent generated functions are exercised. Include new
+project/research/draft/pending-import records in current inventory and activation coverage where
+those owners participate; no historical-schema conversion is required.
 
 The storage engine migration is a coordinated maintenance operation. Never infer that
 SurrealKit definition rollback restores changed data or that a logical export contains
@@ -213,33 +270,35 @@ independent migration ledgers.
 
 ### TOOL05–TOOL06: Dependency split and bounded observation inquiry
 
-Migrate product consumers first, including durable workers, study diagnostics, connected
-result selection/restore and PyO3 detail sessions. Then move export packing and comparison
-implementation behind the internal tooling module. Public document meaning is preserved
-by explicit projections where a product contract differs from an export envelope.
+Product consumers and export/comparison implementations have moved to the selected owners.
+Plan51 exercises selected project, research, evidence, protected pack and frozen-review consumers;
+full Clippy compiles the broader target graph. Reconcile remaining capture/detail, review-pack,
+review-analysis and public review-workflow behavior against actual selected tests. Compile success
+does not execute those consumers. Preserve explicit projections where a product contract differs
+from an export envelope; no repeated module move or new crate is selected.
 
-For tracing, compare no layer, current hub and candidate Layer on the same steady solve
-and fit. Success requires the same admitted current phases, native/DataFusion context
-propagation, final closure and bounded retained state; cancellation/panic cannot strand a
-phase. Record CPU/allocation impact if cost is the selection reason. Reject the candidate
-if those semantics or burden worsen. A missing benefit is a valid no-adoption outcome.
+TOOL06/I21 is complete: actual no-layer/current-hub/candidate-Layer steady/fit and bounded-lifetime
+controls support retaining the current hub. The candidate lacked corresponding native-worker
+phase coverage, and no independent crate benefit was established. Preserve that no-adoption
+decision, cancellation/final closure and bounded retained state. No fresh tracing comparison is
+required by Plan51's additional consumers.
 
 The optional crate outcome additionally needs a dependency graph with no runtime→tooling
 edge and an ADR before crate addition. It does not block the module correction.
 
 ### TOOL07: Purpose decisions and publication
 
-Correct the statrs hold explanation to match actual feature unification through egobox-moe;
-the two nalgebra versions alone are not a crossing-type defect. Do not upgrade a family
-merely to make a note true. Trace the native child lane and `pse.canon.v2` consumers and
-present a concrete retain-for-named-exploration or remove decision. Without an explicit
-purpose decision they remain unscheduled for deletion; they are not a reason to broaden
-this series into process isolation or a second canonical protocol.
+The statrs manifest explanation already names feature unification through egobox-moe and
+explicitly rejects a crossing-type defect. I24's selected purpose is implemented: retain the
+native-child lane for bounded provider-free process-isolation experiments; the unused
+`pse.canon.v2` relation engine/API/tests are removed. Shared identity/allocation contracts remain.
+Do not schedule another pin-note fix, purpose inquiry, canonicalizer removal or family upgrade.
+Reconcile finding/inquiry/package text with these facts and current enduring owners.
 
-After implementing selected work, reconcile blueprint §§0.5, 7, 13–14, 18–21 and 23 with
-the actual owners. Do so through confirmed rule changes and revision rows, leaving accepted
-ADRs immutable. Current Plan 28/32/40 statuses remain at their existing owners. The final
-qualification companion owns cross-area completion and publication checks.
+Plan49's published outcomes and Plan51's blueprint revision255 already document their delivered
+scope. Only remaining contract changes need the decision/revision route; QUAL05 owns final
+cross-area publication and completion. Leave accepted ADRs immutable and current Plan28/32/40
+statuses at their existing owners. No new code change is established by this reconciliation.
 
 ### TOOL08 — bounded graph explanations
 
@@ -297,27 +356,41 @@ mechanism when completing this remaining Plan 49g obligation. This checkpoint ac
 minimal semantic/API/decoded-output dependency for Plan 50; it neither closes TOOL08 nor resumes
 other Plan 49 packages.
 
+The remaining implementation must distinguish edges examined from returned rows and retained
+bytes. Exercise a selective neighborhood with unrelated edges and later continuation pages;
+inspect the actual access path and use an independent expected edge set. A downstream filter,
+page-plus-one decode, cached adjacency or elapsed-time cutoff alone cannot establish the native
+work bound. Preserve exact cursor/revision refusal, parallel roles and the existing operator
+consumer while replacing any unbounded query shape. No all-path closure, new graph service or
+new lifecycle-release authority is selected.
+
 PRE09's optional configuration documents use the same catalogue only after explicit selection.
 No new Python policy engine, raw SMT endpoint or hidden default becomes a tooling convenience.
 
 ## Verification and limits
 
-**Proposed:** targeted catalogue/generator tests; command policy tests; interrupted
-maintenance/reclamation controls; product/tooling dependency assertions; source-recording
-drain controls. Compile affected packages with explicit correctness validation where required.
-Generation is part of the functional package, not later polish.
+**Tested, existing evidence:** the coordinator's Outcomes, TOOL08 dependency checkpoint and
+linked Plan51g Outcome own the original commands, conditions and exclusions. Source inspection
+for this revision is **Interface-checked**, not a new behavioral pass.
+
+**Proposed remaining acceptance:** targeted catalogue/import refusal, conformance/launch,
+live interrupted maintenance/protection, uncovered review-consumer behavior and TOOL08 native
+work-bound controls. Compile affected code with explicit correctness validation where required;
+regenerate any changed declaration as part of that change. Do not repeat satisfied generation
+or compile obligations solely because older notes called them pending.
 
 **Proposed assembled acceptance:** QUAL packages exercise schema install/rollout parity,
-actual managed server migration, Rust/Python command journeys and selected observation
-substitution. No test, benchmark, source regeneration or command journey has run as a
-result of authoring this plan. Documentation validation of the series cannot qualify them.
+current managed server/restore activation and affected Rust/Python command journeys. No new
+observation substitution or historical data migration is selected. QUAL01 reconciles existing
+evidence before further execution. This revision runs no product test, benchmark or generation;
+documentation validation cannot qualify those behaviors.
 
 ## Source routes
 
 - [Integrated review §4.7–§4.8](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md#47-c7-boundary-vocabularies-identities-and-documents-are-hand-paired) and [audit companion](../design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md).
 - [SurrealDB overview](../libraries/surrealdb.md), especially SurrealKit and operational boundaries; tagged [beta.6 migration notes](https://raw.githubusercontent.com/surrealdb/surrealkit/v1.0.0-beta.6/MIGRATING.md).
 - [Schemars contract documentation](https://github.com/GREsau/schemars/blob/master/docs/3-generating.md), reconciled with installed 1.2.2 `SchemaSettings` in the audit evidence.
-- Source entry points: `xtask/src/codegen/schemas.rs`, `pse-codegen::codegen::documents`, `pse-py::documents`, `python/pse/conformance.py`, `pse-runtime::capture::launch`, `scripts/surreal_server.py`, `pse-operations::canonical_maintenance` and product consumers named above.
+- Source entry points: `pse-runtime::boundary_documents`, `xtask/src/codegen/schemas.rs`, `pse-codegen::codegen::documents`, `pse-py::documents`, `python/pse/conformance.py`, `pse-runtime::tooling::review_launch`, `scripts/surreal_server.py`, `pse-operations::canonical_maintenance` and product consumers named above.
 
 ## Fresh-store integration boundary
 
