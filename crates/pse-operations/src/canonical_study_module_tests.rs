@@ -115,7 +115,9 @@ mod surrealism_qualification {
                         );
                         interval = Some(Self { start, end });
                     }
-                    other => panic!("unexpected hold result carrier {other:?}"),
+                    other => {
+                        assert!(matches!(other, Value::Array(_)), "unexpected hold result carrier {other:?}");
+                    }
                 }
             }
             interval.expect("the successful native hold must return its actual guest interval")

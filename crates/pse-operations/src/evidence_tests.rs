@@ -157,7 +157,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
             let probe=EvidenceStore::client(&options).await?;
             probe.signin(surrealdb::opt::auth::Database{namespace:options.namespace.clone(),database:options.database.clone(),username:user.clone(),password:pass.clone()}).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await?;
             let selected=probe.use_ns(service_ns).use_db(service_db).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await;
-            if selected.is_ok(){if let Ok(mut response)=canonical::bounded_query(probe.query("SELECT * FROM canonical_interpretations:current;").request_context(RequestContext::new(original_deadline(canonical::REQUEST_TIMEOUT).into_std()))).await{assert!(response.take::<Vec<Object>>(0)?.is_empty(),"database scoped account must not read canonical authority");}}
+            if selected.is_ok() && let Ok(mut response)=canonical::bounded_query(probe.query("SELECT * FROM canonical_interpretations:current;").request_context(RequestContext::new(original_deadline(canonical::REQUEST_TIMEOUT).into_std()))).await{assert!(response.take::<Vec<Object>>(0)?.is_empty(),"database scoped account must not read canonical authority");}
             probe.disconnect().await?;
         }
         let source=snapshot();importer.ack_fault.store(1,std::sync::atomic::Ordering::SeqCst);let first=importer.import(&source).await?;let repeated=importer.import(&source).await?;assert_eq!(first.generation,repeated.generation);

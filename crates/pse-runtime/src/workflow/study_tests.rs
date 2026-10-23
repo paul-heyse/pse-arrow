@@ -4159,7 +4159,7 @@ async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel
     // cloning a deployment would keep the same driver's transport-close authority.
     let store = runtime.canonical_store().unwrap();
     let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
-        &store.deployment_state(),
+        store.deployment_state(),
         Some(store.database()),
     )
     .unwrap();

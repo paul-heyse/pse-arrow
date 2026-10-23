@@ -2,6 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Dedicated typed project operator artifact, using existing runtime and storage owners.
 #![recursion_limit = "512"]
+#![allow(
+    clippy::disallowed_types,
+    clippy::print_stdout,
+    reason = "xtask operator binaries publish structured command output and use the existing host-driver anyhow boundary (blueprint §23.2)"
+)]
 use clap::{Parser, Subcommand};
 #[path = "../project_runtime.rs"]
 mod project_runtime;

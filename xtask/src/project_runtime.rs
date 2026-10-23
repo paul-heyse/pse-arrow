@@ -115,7 +115,7 @@ enum Action {
         request: ResearchPublicationRequest,
     },
     ResearchPublish {
-        intent: ResearchPublicationIntent,
+        intent: Box<ResearchPublicationIntent>,
     },
     ResearchPublicationOpen {
         key: String,
@@ -929,7 +929,7 @@ mod transport_tests {
         })).unwrap();
         assert!(matches!(request.action,
             Action::ProjectImportIssue { input, branch_name, maximum_document_bytes, .. }
-                if input == PathBuf::from("selected-pack") && branch_name == "main" && maximum_document_bytes == PROJECT_DOCUMENT_BYTES
+                if input == std::path::Path::new("selected-pack") && branch_name == "main" && maximum_document_bytes == PROJECT_DOCUMENT_BYTES
         ));
     }
 

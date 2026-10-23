@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One real occurrence proves editing cancellation and compensating publication custody.
 //! Public operation futures are boxed so this compound consumer does not sum large polling frames.
+#![allow(clippy::unwrap_used, reason = "Consumer fixture setup and cancellation settlement require every exact original acknowledgement")]
 use super::*;
 use pse_model::study::{OccurrenceKey, StartPolicy};
 use std::collections::BTreeMap;

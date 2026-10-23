@@ -1462,6 +1462,7 @@ mod tests {
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
+#[allow(clippy::unwrap_used, reason = "Exact native fixtures fail at setup when their declared source or original publication is absent")]
 mod native_tests {
     use super::*;
     fn rows() -> Vec<Declaration> {

@@ -3,7 +3,8 @@
 //! Public workbench/observer controls over small original sealed storage fixtures.
 #![allow(
     unsafe_code,
-    reason = "isolated typed result fixtures explicitly own their scientific observation assertions"
+    clippy::unwrap_used,
+    reason = "isolated typed result fixtures require exact setup and explicitly own their scientific observation assertions"
 )]
 use super::*;
 use crate::workflow::{self as flow, StudyObservationContinuity, StudyObservationRequest};

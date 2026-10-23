@@ -673,13 +673,14 @@ def journey(
                 restored, server.read_json(state / "credentials.json")
             )
             try:
-                server.validate(
-                    restored,
-                    restored_config,
-                    server.SUBSTRATE_INTERPRETATION,
-                    [*command, str(restored)],
-                )
-                server.start(restored, restored_config)
+                with server.lifecycle_reservation(restored):
+                    server.validate(
+                        restored,
+                        restored_config,
+                        server.SUBSTRATE_INTERPRETATION,
+                        [*command, str(restored)],
+                    )
+                    server.start(restored, restored_config)
                 if reference:
                     group = server.systemctl(
                         "show",
