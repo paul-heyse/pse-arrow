@@ -195,6 +195,8 @@ pub use physical_values::{
 mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
+mod projects;
+pub use projects::{ProjectDraftDocuments,ProjectDraftSaveIntent};
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,

@@ -144,7 +144,7 @@ pub(super) fn from_documents(
 #[derive(Clone, Debug)]
 pub(crate) struct NativeModelingPackage {
     owner: Arc<runtime::Runtime>,
-    inner: native::ModelingPackage,
+    pub(super) inner: native::ModelingPackage,
     limits: pse_modeling::Limits,
 }
 impl NativeModelingPackage {

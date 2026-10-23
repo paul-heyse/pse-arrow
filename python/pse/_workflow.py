@@ -33,6 +33,17 @@ from pse._strategies import (
     PreparedStrategy,
 )
 from pse.contracts.documents import (
+    ProjectRecord,
+    ProjectBranchRecordOutput,
+    ProjectDraftRecordOutput,
+    ProjectAcknowledgementOutput,
+    ProjectBranchPageOutput,
+    ProjectCursor,
+    ProjectCursorBody,
+    ProjectPublication,
+    ProjectPublicationOutput,
+    ProjectDraftSaveIntent,
+    ProjectDraftSaveIntentOutput,
     AnalysisControls,
     AnalysisDocument,
     AnalysisDocumentOutput,
@@ -452,6 +463,113 @@ class Runtime:
                 physical._handle,  # noqa: SLF001 - same native boundary
             )
         )
+
+    def project_create(
+        self, operation: str, project: str, title: str
+    ) -> ProjectAcknowledgementOutput:
+        """Create project organization using an original caller-issued operation."""
+        return self._handle.project_create(operation, project, title)
+
+    def project_record(self, project: str) -> ProjectRecord | None:
+        """Read project metadata without hydrating scientific payloads."""
+        return self._handle.project_record(project)
+
+    def project_branch_record(self, branch: str) -> ProjectBranchRecordOutput | None:
+        """Read branch ownership; its source problem owns the single head."""
+        return self._handle.project_branch_record(branch)
+
+    def project_branches(
+        self, project: str, *, cursor: ProjectCursor | ProjectCursorBody | None = None
+    ) -> ProjectBranchPageOutput:
+        """Read one ordered page with an authority/generation-fenced continuation."""
+        if isinstance(cursor, ProjectCursorBody):
+            cursor = ProjectCursor(
+                issuing_store=cursor.issuing_store,
+                project=cursor.project,
+                generation=cursor.generation,
+                after=cursor.after,
+            )
+        return self._handle.project_branches(project, cursor=cursor)
+
+    def project_fork(
+        self,
+        project: str,
+        branch: str,
+        problem: str,
+        operation: str,
+        source: ModelingPackage,
+    ) -> str:
+        """Fork an exact admitted source closure into an independent writable branch."""
+        return self._handle.project_fork(
+            project, branch, problem, operation,
+            source._handle,  # noqa: SLF001 - same native boundary
+        )
+
+    def project_publication_intent(
+        self,
+        project: str,
+        branch: str,
+        expected: str,
+        operation: str,
+        *,
+        draft: str | None = None,
+    ) -> ProjectPublicationOutput:
+        """Issue the original exact source/draft CAS; retain it through uncertainty."""
+        return self._handle.project_publication_intent(
+            project, branch, expected, operation, draft=draft
+        )
+
+    def project_draft_save_intent(
+        self,
+        operation: str,
+        project: str,
+        branch: str,
+        key: str,
+        base: str,
+        content: bytes,
+        *,
+        expected: int | None = None,
+    ) -> ProjectDraftSaveIntentOutput:
+        """Read-only issue of raw custody; content may be malformed or empty.
+
+        Keep this original intent until its artifact and project acknowledgements settle.
+        Scientific publication separately requires the ProjectDraftDocuments codec.
+        """
+        return self._handle.project_draft_save_intent(
+            operation, project, branch, key, base, content, expected=expected
+        )
+
+    def project_draft_save(
+        self,
+        intent: ProjectDraftSaveIntent | ProjectDraftSaveIntentOutput,
+        content: bytes,
+    ) -> ProjectAcknowledgementOutput:
+        """Save only original issued bytes; retries preserve artifact/operation identity."""
+        return self._handle.project_draft_save(intent, content)
+
+    def project_draft_record(self, key: str) -> ProjectDraftRecordOutput | None:
+        """Read raw custody metadata without granting a live file read."""
+        return self._handle.project_draft_record(key)
+
+    def project_draft_bytes(self, key: str) -> bytes:
+        """Read this exact raw body through its current protection owner."""
+        return bytes(self._handle.project_draft_bytes(key))
+
+    def project_acknowledgement(
+        self, operation: str
+    ) -> ProjectAcknowledgementOutput | None:
+        """Observe the original immutable receipt; absence does not prove rollback."""
+        return self._handle.project_acknowledgement(operation)
+
+    def project_publish_draft(
+        self,
+        intent: ProjectPublication | ProjectPublicationOutput,
+        physical: "PhysicalContext",
+    ) -> ModelingPackage:
+        """Admit the saved document container, then atomically publish its exact generation."""
+        return ModelingPackage(self._handle.project_publish_draft(
+            intent, physical._handle,  # noqa: SLF001 - same native boundary
+        ))
 
     def physical_input_schema(self, kind: PhysicalInputKind) -> ArrowSchema:
         """Return the registered Arrow schema for a physical input role.

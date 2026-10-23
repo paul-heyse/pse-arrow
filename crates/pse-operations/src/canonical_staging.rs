@@ -25,7 +25,7 @@ pub const SOURCE_BLOCK_BYTES: usize = 512 * 1024;
 // Source payloads are separately blocked; edit count is not the wire byte limit.
 // The closed manifest is an internal authoring inventory, never one wire payload.
 // Its digest travels alone; per-object metadata, edges and blocks remain separate.
-pub(crate) const MAX_EDITS: usize = 8_192;
+pub(crate) const MAX_EDITS: usize = pse_schema::catalog::substrate::SOURCE_PACKAGE_EDITS;
 /// Maximum members of one coherently activated source package effect.
 pub const SOURCE_PACKAGE_EDITS: usize = MAX_EDITS;
 const MANIFEST_BYTES: usize = 32 * 1024 * 1024;

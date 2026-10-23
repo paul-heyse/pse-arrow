@@ -325,6 +325,18 @@ mod canonical_result_retention_server_unit {
         panic!("bounded fixture cleanup did not finish")
     }
     #[tokio::test]
+    async fn project_research_reference_retains_exact_closed_results() {
+        let (store,_database)=fixture().await;
+        let request=request(&store,"project-reference").await;
+        let attempt=finish(&store,&request).await;
+        store.create_project("create-project","project","Research").await.unwrap();
+        let project=store.project("project").await.unwrap().unwrap();
+        store.retain_research_reference("reference",&project,"research",&request.revision.key,Some((&request.key,&attempt)),None).await.unwrap();
+        assert!(matches!(store.forget_run_results(&request.key).await,Err(CanonicalError::Refused{code:crate::canonical::RefusalCode::ProjectResearchRetainsResults,..})));
+        assert!(store.canonical_result_manifest(&attempt).await.unwrap().is_some());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn retired_results_respect_readers_resume_cleanup_and_preserve_receipts() {
         let (store, database) = fixture().await;
         let mut request = request(&store, "retained").await;

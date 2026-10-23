@@ -7,6 +7,7 @@ use arrow_schema::DataType as D;
 use super::substrate::NativeIndex;
 /// Access paths for actual bounded project operations.
 pub const NATIVE_INDEXES: &[NativeIndex] = &[
+    NativeIndex { name: "project_research_run", table: "canonical_research_references", fields: &["run", "key"], unique: false },
     NativeIndex { name: "project_branch_order", table: "canonical_project_branches", fields: &["project", "key"], unique: false },
     NativeIndex { name: "project_branch_problem", table: "canonical_project_branches", fields: &["problem"], unique: true },
     NativeIndex { name: "project_draft_order", table: "canonical_project_drafts", fields: &["branch", "key"], unique: false },

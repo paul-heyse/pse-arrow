@@ -268,7 +268,6 @@ impl LocalSourceObject {
             typed,
         })))
     }
-    #[cfg(test)]
     pub(crate) fn edit(&self) -> ObjectEdit {
         ObjectEdit {
             logical: self.logical.clone(),

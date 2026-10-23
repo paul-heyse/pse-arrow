@@ -223,6 +223,15 @@ pub enum CanonicalError {
         #[source]
         source: Box<CanonicalError>,
     },
+    /// The original project operation may have committed; settle only this identity.
+    #[error("project operation {operation} did not settle: {source}")]
+    ProjectUnsettled {
+        /// Caller-issued original immutable operation.
+        operation: String,
+        /// Original failure, never proof of absence.
+        #[source]
+        source: Box<CanonicalError>,
+    },
     #[error("canonical write payload exceeds the bounded protocol batch")]
     /// A bounded payload or selector limit was exceeded.
     PayloadLimit,
@@ -319,7 +328,7 @@ impl CanonicalError {
             Self::Timeout | Self::IncompleteResponse | Self::WorkerLost { .. } => true,
             Self::AnalysisUnsettled { .. }
             | Self::ArtifactUnsettled { .. }
-            | Self::SourceEditUnsettled { .. } => true,
+            | Self::SourceEditUnsettled { .. } | Self::ProjectUnsettled { .. } => true,
             Self::PhysicalClose { source } | Self::ProtectionRelease { source } => {
                 source.effect_is_unknown()
             }
@@ -1570,7 +1579,7 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
-        self.edit_authorized(problem, expected, operation, edits, None)
+        self.edit_authorized(problem, expected, operation, edits, None, None)
             .await
     }
     /// Publish a selected variant under its original source-admission capability.
@@ -1591,8 +1600,13 @@ impl CanonicalStore {
                     .into(),
             ));
         }
-        self.edit_authorized(problem, expected, operation, edits, Some(authority))
+        self.edit_authorized(problem, expected, operation, edits, Some(authority), None)
             .await
+    }
+    pub(crate) async fn edit_project_authorized(
+        &self, intent: &crate::canonical_projects::ProjectPublication, edits: &[ObjectEdit],
+    ) -> Result<Revision, CanonicalError> {
+        self.edit_authorized(intent.problem(), intent.expected(), intent.operation(), edits, None, Some(intent)).await
     }
     async fn edit_authorized(
         &self,
@@ -1601,6 +1615,7 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+        project: Option<&crate::canonical_projects::ProjectPublication>,
     ) -> Result<Revision, CanonicalError> {
         let activity = self.admit_activity()?;
         activity
@@ -1613,12 +1628,16 @@ impl CanonicalStore {
                         .await?
                     {
                         crate::canonical_staging::StageOutcome::Acknowledged(revision) => {
+                            if let Some(intent)=project {
+                                let ack=self.project_acknowledgement(operation).await?.ok_or(CanonicalError::OperationReused)?;
+                                if ack.request.as_slice()!=intent.request() {return Err(CanonicalError::OperationReused);}
+                            }
                             return Ok(revision);
                         }
                         crate::canonical_staging::StageOutcome::Closed(stage) => stage,
                     };
                     let result = self
-                        .activate_source_stage_mutation(&stage, authority, deadline)
+                        .activate_source_stage_mutation(&stage, authority, project, deadline)
                         .await;
                     if authority.is_some()
                         && result
@@ -1655,7 +1674,7 @@ impl CanonicalStore {
             .scope(async {
                 let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
                 let revision = self
-                    .activate_source_stage_mutation(stage, authority, deadline)
+                    .activate_source_stage_mutation(stage, authority, None, deadline)
                     .await?;
                 self.reclaim_source_after_commit(&revision.problem, deadline)
                     .await;
@@ -1668,6 +1687,7 @@ impl CanonicalStore {
         &self,
         stage: &crate::canonical_staging::ClosedStage,
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+        project: Option<&crate::canonical_projects::ProjectPublication>,
         deadline: tokio::time::Instant,
     ) -> Result<Revision, CanonicalError> {
         let admission = authority
@@ -1684,6 +1704,7 @@ impl CanonicalStore {
                 .activation_db
                 .query(crate::canonical_staging::bounded_edit_sql(EDIT))
                 .bind(("admission", admission.clone()))
+                .bind(("project_intent", project.map(|intent| intent.encode()).transpose()?.unwrap_or(Value::None)))
                 .bind(("problem", stage.problem.clone()))
                 .bind(("expected", stage.expected.clone()))
                 .bind(("operation", stage.operation.clone()))
@@ -1702,11 +1723,14 @@ impl CanonicalStore {
                 .map_err(|_| CanonicalError::Timeout)
                 .and_then(|response| response.map_err(CanonicalError::from))
                 .and_then(complete_response);
+            #[cfg(all(test, feature="canonical-tests"))]
+            let result=if project.is_some() && result.is_ok() && crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{result};
             if let Err(error) = result {
                 // A lost acknowledgment or concurrent identical activation is settled
                 // exclusively by the immutable operation receipt, never by the head.
                 let acknowledgement=self.revision(&stage.operation).await;
                 if let Ok(Some(revision))=&acknowledgement {
+                    if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
                     return if revision.request.as_slice()==stage.request.as_slice() {
                         Ok(revision.clone())
                     }else{Err(CanonicalError::OperationReused)};
@@ -1726,6 +1750,7 @@ impl CanonicalStore {
             }
             let revision = self.revision(&stage.operation).await?;
             let revision = revision.ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()))?;
+            if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
             return Ok(revision);
         }
         }).await
@@ -2644,6 +2669,7 @@ IF $ack != NONE { THROW 'PSE_REFUSAL:operation_identity_already_committed_settle
 LET $admission_owner=IF $admission=NONE {NONE} ELSE {fn::pse_study_v1::admission_authority($pse_rpc_expires_at,$admission)};
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
 IF $stage = NONE OR $stage.problem != $problem OR ($stage.expected_head ?? NONE) != $expected OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.abandoned OR $stage.activated OR $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:closed_staging_manifest_fenced_or_unavailable'; };
+fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$project_intent);
 LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
 IF ($head.head ?? NONE) != $expected { THROW 'PSE_REFUSAL:head_compare_and_set_conflict'; };
 LET $changes = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
@@ -2729,6 +2755,7 @@ FOR $batch IN array::clump($changes, 64) {
 CREATE type::record('canonical_revisions', $operation) SET key = $operation, problem = $problem, sequence = $sequence, parent = $expected, operation = $operation, request = $request, interpretation = $interpretation;
 fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,'history:'+$operation);
 CREATE type::record('canonical_roots', 'history:' + $operation) SET key = 'history:' + $operation, problem = $problem, revision = $operation, sequence = $sequence, owner_kind = 'history', owner = $operation;
+fn::pse_project_v1::source_ack($pse_rpc_expires_at,$problem,$operation,$project_intent);
 UPDATE type::record('canonical_stages', $operation) SET activated = true;
 UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;

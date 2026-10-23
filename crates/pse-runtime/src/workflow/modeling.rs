@@ -466,6 +466,63 @@ impl Runtime {
             })
             .await
     }
+    /// Admit raw project documents locally, then publish under the original project/source CAS.
+    /// Malformed input fails before any source publication; saved draft custody is separate.
+    pub(crate) async fn project_publish_documents(
+        &self,
+        intent: &pse_operations::canonical_projects::ProjectPublication,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        physical: PhysicalContext,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            let store=self.canonical_store()?;
+            let previous=match intent.expected() {
+                Some(key)=>Some(canonical::SourceRevision::open(self,store.revision(key).await?.ok_or_else(||contract("project source base unavailable"))?).await?),
+                None=>None,
+            };
+            let token=cancel.token();let validation=self.admission_context();
+            documents.validate_context(self.registry(),&validation,&self.shared.pool(),&token)?;
+            let (rows,scope,fits,sources,inventory,_input_lease)=document_inputs(documents,self.registry(),&physical,self.shared.budget().math.workspace_bytes,&self.shared.pool(),&token)?;
+            let revision=canonical::persist_with_project(self,canonical::CanonicalIngress{rows,physical:&physical,physical_scope:scope,documents:&inventory,sources:&sources,fits:&fits,loader:Some(documents)},previous.as_ref(),cancel,Some(intent)).await?;
+            let package=self.package_from_revision(revision,physical,BTreeMap::new())?;
+            let _=canonical::reload::retain_initial(&package,documents);
+            Ok(package)
+        }).await
+    }
+    /// Fork one already admitted exact source closure into its own writable source problem.
+    pub async fn project_fork(
+        &self,
+        project:&pse_operations::canonical_projects::Project,
+        branch:&str,
+        problem:&str,
+        operation:&str,
+        source:&ModelingPackage,
+    )->Result<pse_operations::canonical::Revision,WorkflowError>{
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            let store=self.canonical_store()?;let origin=source.recorded_revision()?;
+            // Authenticate this runtime's exact source before trusting local payload/edge copies.
+            let actual=store.revision(&origin.key).await?.ok_or_else(||contract("project fork source unavailable"))?;
+            if actual!=*origin {return Err(contract("project fork source authority differs"));}
+            let protection=store.protect(actual.clone(),std::time::Duration::from_secs(3600)).await?;
+            // Recover the original membership generation from this immutable fork receipt,
+            // rather than substitute a later project observation on replay.
+            let mut original_project=project.clone();
+            if let Some(ack)=store.project_acknowledgement(operation).await? {
+                if ack.kind!="fork" || ack.project!=project.key || ack.branch.as_deref()!=Some(branch){return Err(pse_operations::canonical::CanonicalError::OperationReused.into());}
+                original_project.generation=ack.generation.checked_sub(1).ok_or_else(||contract("fork receipt generation invalid"))?;
+            }
+            let intent=store.project_fork_intent(&original_project,branch,problem,&actual,operation)?;
+            let edits=source.revision.admitted.objects.values().map(|object|object.edit()).collect::<Vec<_>>();
+            let result=store.edit_project(&intent,&edits).await;
+            let release=protection.finish().await;
+            let revision=result?;
+            release?;
+            Ok(revision)
+        }).await
+    }
     /// Persist registry-generated rows without serializing through a text document.
     pub async fn modeling_package(
         &self,

@@ -10,6 +10,9 @@ use crate::{
 };
 use arrow_schema::DataType;
 
+/// Maximum logical edits in one closed canonical source publication.
+pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
+
 /// Exact schema/codec/structural-operation interpretation.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 

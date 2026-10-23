@@ -45,6 +45,18 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    ProjectIssuingAuthorityChanged: "project_issuing_authority_changed" => (Identity, "project metadata issuing authority changed"),
+    ProjectOperationIdentityChanged: "project_operation_identity_changed" => (Identity, "project operation identity was reused for different inputs"),
+    ProjectGenerationChanged: "project_generation_changed" => (Fence, "selected project generation changed"),
+    ProjectMetadataBound: "project_metadata_bound" => (Admission, "project metadata admission bound"),
+    ProjectSourceUnavailable: "project_source_unavailable" => (Fence, "exact project source is unavailable"),
+    ProjectPublicationGuardRequired: "project_publication_guard_required" => (Fence, "branch publication requires its project guard"),
+    ProjectOperationAlreadyCommitted: "project_operation_already_committed" => (Identity, "settle the original committed project operation"),
+    ProjectBranchChanged: "project_branch_changed" => (Fence, "branch ownership or generation changed"),
+    ProjectDraftChanged: "project_draft_changed" => (Fence, "exact draft generation or base changed"),
+    ProjectForkClosureDiffers: "project_fork_closure_differs" => (Invariant, "fork source closure differs"),
+    ProjectResearchReferenceDiffers: "project_research_reference_differs" => (Invariant, "research reference source or result differs"),
+    ProjectResearchRetainsResults: "project_research_retains_results" => (Fence, "an explicit project reference retains original results"),
     MaintenanceGenerationChanged: "maintenance_generation_changed" => (Fence, "maintenance generation or exact operation changed"),
     MaintenanceFrozenPlacementRequired: "maintenance_frozen_placement_required" => (Fence, "maintenance requires the exact jointly frozen placement"),
     MaintenanceOriginalInputsDiffer: "maintenance_original_inputs_differ" => (Identity, "maintenance operation or page inputs differ"),
