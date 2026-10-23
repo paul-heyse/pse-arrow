@@ -237,6 +237,10 @@ async fn fixture_with_physical(
         .find(|row| row.name == "Root")
         .ok_or_else(|| WorkflowError::Input("fixture Root declaration missing".into()))?
         .declaration_id;
+    if kind=="research-calibration" {
+        let readings=(0..4).map(|i|format!("@id(\"{}\") entity reading observation{i} provenance(experiment,role.measured) {{raw={},sigma={}}}",id(40+i as u8),i+1,regression::SIGMA[i])).collect::<String>();
+        rows.extend(pse_authoring::language::parse(&format!("package measurements {{entity kind origin provenance {{attribute title:Text;}} entity origin experiment {{title=\"independent affine calibration\"}} enum role {{measured facets(measured)}} entity kind reading {{attribute raw:Scalar;attribute sigma:Scalar;derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require raw>0 : \"positive calibration domain\";}} {readings}}}"),id(222),pse_authoring::language::IdentityPolicy::Named,Default::default())?);
+    }else{
     rows.extend(measured_rows(
         &(0..4)
             .map(|i| {
@@ -249,14 +253,15 @@ async fn fixture_with_physical(
             })
             .collect::<Vec<_>>(),
     ));
+    }
     let parameters = (0..2)
         .map(|i| {
             serde_json::json!({"symbol_id":id(i as u8 + 1),"fixed":false,
         "value":1.,"lower":null,"upper":null,"scale":scales[i]})
         })
         .collect::<Vec<_>>();
-    let observations = (0..4).map(|i| serde_json::json!({"value_attribute":"value",
-        "standard_deviation_attribute":"sigma","observation_id":id(40 + i as u8),"experiment_id":id(33),
+    let observations = (0..4).map(|i| serde_json::json!({"value_attribute":if kind=="research-calibration"{"calibrated"}else{"value"},
+        "standard_deviation_attribute":if kind=="research-calibration"{"calibrated_sigma"}else{"sigma"},"observation_id":id(40 + i as u8),"experiment_id":id(33),
         "output_path":format!("y{}",i+1),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>();
     let declaration = serde_json::from_value(
         serde_json::json!({"fit_id":id(32),"parameters":parameters,
@@ -1637,4 +1642,107 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
         panic!("actual residual method");
     };
     assert_eq!(execution.stopping, Some(estimate));
+}
+
+/// SC01-SC03: authored affine calibration, immutable research selection, actual LM,
+/// reopened qualified export and ordinary source publication are one composed journey.
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
+    use crate::workflow::{ResearchDataObject,ResearchDatasetRequest,ResearchSelectionRequest,ResearchObservation,ResearchPublicationRequest,ResearchParameterTarget};
+    use crate::workflow::tests::{id,compiler_profile};
+    use pse_relations::{columnar::RelationRow,generated::runtime::fitted_parameter_cells as cells};
+    let runtime=crate::workflow::tests::durable_runtime();let cancel=crate::CancelSource::new();
+    let (documents,_)=crate::workflow::worker_tests::sources("package p {}");
+    let physical=Box::pin(runtime.physical_from_sources(&documents,&cancel)).await.unwrap();
+    let mut seed=fixture_with_physical("research-calibration",[1.,2.],runtime.clone(),physical).await.unwrap();
+    let store=runtime.canonical_store().unwrap();
+    store.create_project("create","research","Calibration publication").await.unwrap();
+    let project=store.project("research").await.unwrap().unwrap();
+    let revision=Box::pin(runtime.project_fork(&project,"main","research-source","fork",&seed.source)).await.unwrap();
+    let source=Box::pin(runtime.modeling_revision(revision,seed.source.physical.clone(),Default::default())).await.unwrap();
+    let project=store.project("research").await.unwrap().unwrap();
+    Box::pin(runtime.project_record_context("original-context",&project,"calibration",&source,0,None,None,false)).await.unwrap();
+    let cut=store.project_context_cut("research").await.unwrap();
+    let context=store.select_project_context(&cut,"calibration",10).await.unwrap().unwrap();
+    let root=seed.declaration().experiments[0].case_id;
+    let quantity=source.physical.quantities.neutral_dimensionless().unwrap();
+    let unit=source.physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
+    let rows=source.declarations().await.unwrap();
+    let derived=rows.iter().find(|r|r.name=="calibrated").unwrap().declaration_id;
+    let sigma=rows.iter().find(|r|r.name=="calibrated_sigma").unwrap().declaration_id;
+    let members=(0..4).map(|i|ResearchDataObject{root,record:id(40+i).into(),attribute:"raw".into(),standard_deviation_attribute:Some("sigma".into()),quantity:quantity.as_id(),acquisition_clock:"synthetic acquisition sequence, no wall-clock accuracy claim".into(),parent_member:None,calibration:vec![]}).collect::<Vec<_>>();
+    let raw=ResearchDatasetRequest{key:"raw-v1".into(),project:project.clone(),context:context.clone(),parent:None,role:"raw".into(),members};
+    let raw_row=Box::pin(runtime.research_dataset_create(&raw,&cancel)).await.unwrap();
+    assert_eq!(Box::pin(runtime.research_dataset_create(&raw,&cancel)).await.unwrap(),raw_row);
+    let mut wrong=raw.clone();wrong.key="wrong-physical".into();wrong.members[0].quantity=id(99);
+    assert!(Box::pin(runtime.research_dataset_create(&wrong,&cancel)).await.is_err());
+    let mut calibrated=raw.clone();calibrated.key="calibrated-v1".into();calibrated.role="derived".into();calibrated.parent=Some(raw.key.clone());
+    for (i,m) in calibrated.members.iter_mut().enumerate(){m.parent_member=Some(i as u64);m.attribute="calibrated".into();m.standard_deviation_attribute=Some("calibrated_sigma".into());m.calibration=vec![derived,sigma];}
+    Box::pin(runtime.research_dataset_create(&calibrated,&cancel)).await.unwrap();
+    let selection=ResearchSelectionRequest{key:"selection-v1".into(),project:project.clone(),context:context.clone(),dataset:calibrated.key.clone(),fit:seed.declaration().fit_id,observations:(0..4).map(|i|ResearchObservation{observation:id(40+i).into(),member:i as u64,reason:"included: y=2x+3; explicitly authored sigma'=2sigma".into()}).collect()};
+    let mut partial=selection.clone();partial.key="partial".into();partial.observations.pop();
+    assert!(Box::pin(runtime.research_selection_create(&partial,&cancel)).await.is_err());
+    Box::pin(runtime.research_selection_create(&selection,&cancel)).await.unwrap();
+    let (selected,fit)=Box::pin(runtime.research_selection_open(&selection.key,&cancel)).await.unwrap();
+    seed.source=selected;
+    let prepared=production_profile(&seed,seed.problem.profile.clone()).await.unwrap();
+    for (i,measurement) in prepared.problem.measurements.iter().enumerate(){
+        assert_eq!(measurement.value,Some(2.*(i+1) as f64+3.));
+        assert_eq!(measurement.sigma,Some(2.*regression::SIGMA[i]));
+        let (residual,_)=FitOracle::residual(measurement,measurement.value.unwrap()+1.).unwrap();
+        assert_eq!(residual,1./(2.*regression::SIGMA[i]),"actual weighted residual uses transformed standard uncertainty");
+    }
+    let handle=prepared.start().unwrap();let result=handle.wait().await.unwrap();
+    assert!(regression::report(&result).estimate_qualified());
+    let exported=cells::Row::rows(&result.export_fit_parameters().unwrap()).unwrap();
+    assert_eq!(exported.len(),2);
+    for c in &exported{let expected=if c.parameter_id==id(1){3.}else{2.};assert!((c.value-expected).abs()<1e-7);}
+    let run=handle.canonical_run_key().unwrap().to_owned();let attempt=handle.canonical_attempt_key().unwrap().to_owned();
+    drop(result);drop(handle);drop(prepared);
+    let mut reopened=runtime.results(&run,&attempt,"runtime.fitted_parameter_cells",0,u64::MAX,cancel.token()).await.unwrap();
+    let mut actual=vec![];while let Some(batch)=reopened.next_relation_batch().await.unwrap(){actual.extend(cells::Row::rows(&batch).unwrap());}
+    assert_eq!(actual,exported,"original producer-qualified cells survive dropping the live result");
+    let branch=store.project_branch("main").await.unwrap().unwrap();
+    let targets=[("a",id(1)),("b",id(2))].into_iter().map(|(name,parameter)|ResearchParameterTarget{parameter,declaration:rows.iter().find(|r|r.name==name).unwrap().declaration_id,root,instance:id(33).into(),path:name.into(),quantity:quantity.as_id(),unit:unit.as_id(),lower_bits:Some((-100f64).to_bits()),upper_bits:Some(100f64.to_bits())}).collect();
+    let request=ResearchPublicationRequest{operation:"publish-fit".into(),selection:selection.key.clone(),run:run.clone(),attempt:attempt.clone(),project:project.clone(),branch,target:context.clone(),targets};
+    let mut wrong=request.clone();wrong.attempt="absent-attempt".into();assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
+    let mut wrong=request.clone();wrong.targets[0].unit=id(99);assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
+    let mut wrong=request.clone();wrong.targets[0].upper_bits=Some(0f64.to_bits());assert!(Box::pin(runtime.research_publication_preview(&wrong,&cancel)).await.is_err());
+    let preview=Box::pin(runtime.research_publication_preview(&request,&cancel)).await.unwrap();
+    assert_eq!(preview.delta.replacements.len(),2);
+    let intent:crate::workflow::ResearchPublicationIntent=serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
+    let receipt=Box::pin(runtime.research_publish(&intent,&cancel)).await.unwrap();
+    assert_eq!(receipt.run,run);assert_eq!(receipt.attempt,attempt);assert_eq!(receipt.revision,"publish-fit");
+    assert_eq!(Box::pin(runtime.research_publish(&intent,&cancel)).await.unwrap(),receipt,"replay settles original receipt after head changed");
+    let mut stale=request.clone();stale.operation="stale-new-operation".into();
+    let stale=Box::pin(runtime.research_publication_preview(&stale,&cancel)).await.unwrap();
+    assert!(Box::pin(runtime.research_publish(&stale.intent,&cancel)).await.is_err());
+    let downstream=Box::pin(runtime.research_publication_open("publish-fit",&cancel)).await.unwrap();
+    assert_eq!(crate::workflow::OperationSource::of(&downstream).research.unwrap().publication.as_deref(),Some("publish-fit"));
+    let downstream_model=downstream.prepare(root,id(33).into(),Default::default(),Default::default(),&cancel).await.unwrap();
+    let target=downstream_model.compiled().model.paths["a"];
+    assert_eq!(downstream_model.compiled().admitted.case().parameters().iter().find(|p|p.id==target).unwrap().quantity,quantity);
+    // A backdated correction changes new discovery, never this old fit's source receipt.
+    Box::pin(runtime.project_record_context("corrected-context",&project,"calibration",&source,0,None,Some("original-context"),false)).await.unwrap();
+    let latest=store.project_context_cut("research").await.unwrap();
+    assert_eq!(store.select_project_context(&latest,"calibration",10).await.unwrap().unwrap().context.key,"corrected-context");
+    assert_eq!(store.research_dataset("raw-v1").await.unwrap().unwrap(),raw_row);
+    let reopened=runtime.results(&run,&attempt,"runtime.fitted_parameter_cells",0,u64::MAX,cancel.token()).await.unwrap();
+    assert_eq!(reopened.selection().run().revision,context.context.revision);
+    let point=crate::workflow::StudyPoint {
+        operation:crate::workflow::OperationRequest::DeclaredCase(crate::workflow::CaseOperation{case:root,route:pse_model::generated::enums::ModelingAnalysisRoute::Steady,settings:Default::default()}),
+        preparation:crate::workflow::PreparationSettings{compiler:compiler_profile(),..Default::default()},
+        overlay:Default::default(),
+        policy:crate::workflow::StudyPointPolicy{key:pse_model::study::OccurrenceKey(0),dependencies:vec![],start:pse_model::study::StartPolicy::Fresh,attempt_limit:1},
+    };
+    let local=Box::pin(downstream.admit_study(&crate::workflow::StudyInputs::Explicit(vec![point]),&crate::workflow::StudyOutputDemand::Full{},&cancel)).await.unwrap();
+    let definition=Box::pin(runtime.record_study(&local,&cancel)).await.unwrap();
+    assert_eq!(definition.modeling_revision,"publish-fit");
+    assert_eq!(definition.points[0].operation.source.research.as_ref().unwrap().selection,selection.key);
+    let study=Box::pin(runtime.start_recorded_study(definition,&cancel)).await.unwrap();
+    for _ in 0..4 {if study.result().await.unwrap().is_some(){break;} Box::pin(runtime.work_once()).await.unwrap();}
+    let results=study.result().await.unwrap().expect("one downstream occurrence completed");
+    assert_eq!(results.points.len(),1);
+    let _=fit;
 }

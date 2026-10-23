@@ -89,7 +89,7 @@ impl Runtime {
         let read=reader.selection();
         if read.run().revision!=original.recorded_revision()?.key{return Err(contract("original fit source revision differs"));}
         // This is the actual original consumed-input receipt, not a generic terminal status.
-        let (envelope,original_receipt,_original_sources):(u8,Vec<u8>,Vec<pse_operations::canonical::Revision>)=decoded(read.run().source_selection.as_slice())?;
+        let (envelope,original_receipt,_original_sources):(u8,Vec<u8>,Vec<(String,String,u64,String)>)=decoded(read.run().source_selection.as_slice())?;
         if envelope!=1{return Err(contract("original canonical source selection codec unavailable"));}
         let receipt:serde_json::Value=decoded(&original_receipt)?;
         let elements=receipt.as_array().ok_or_else(||contract("original fit source receipt unavailable"))?;
