@@ -1088,7 +1088,7 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.recording_operation(&stop, |runtime| async move {
-                runtime.project_draft_bytes(key).await
+                runtime.project_draft_bytes(key,&stop).await
             }),
             || stop.cancel(),
         )?;

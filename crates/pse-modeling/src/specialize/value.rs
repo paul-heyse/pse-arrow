@@ -27,6 +27,7 @@ mod structure;
     schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
+#[schemars(rename="ModelingStructuralValue")]
 pub enum Value {
     /// Predicate.
     Boolean(bool),
