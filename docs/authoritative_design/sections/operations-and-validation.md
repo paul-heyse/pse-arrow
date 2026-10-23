@@ -503,6 +503,15 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
+> Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a evidence catalogue).
+
+Imported evidence is a derived projection with original authority/codec/identity, snapshot and
+coverage. Only complete reconciled import generations activate; incomplete source populations
+remain explicitly incomplete. The index cannot compose terminals, release resources, grant raw
+artifact lifetime or infer missing tests passed. Explicit rebuild/drop affects only the selected
+tooling database. Original owner inspection remains independent of compiler/product/database
+availability; metadata references are not current protection grants.
+
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md); [ADR-0170](../../adr/0170-scoped-arrow-validation.md)
 
 | Layer | Location | What it establishes |

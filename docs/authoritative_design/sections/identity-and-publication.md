@@ -776,6 +776,15 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; maintainer-authorized Plan51a target).
+
+Project/research relations extend the canonical installation. A separately disposable tooling
+catalogue has its own generated schema, codecs, interpretation and issuing identity on the same
+selected service. Explicit privileged initialization is separate from validation-only opening;
+database-scoped reader/importer credentials cannot mutate the canonical database. Tooling opening
+requires no scientific module, native receiver or payload-placement attestation. Evidence-only
+schema changes do not alter canonical installation compatibility.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). Creation and validation-only opening are separate operations; unsupported stores refuse rather than silently migrating or resetting.
 
 The registry generates canonical tables, indexes, row codecs, interpretation and schema
@@ -875,6 +884,16 @@ must receive explicit current readmission or a typed refusal without invented fi
 qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).
+
+A project organizes exact admitted source and research references. Each writable branch names its
+own canonical source problem; the existing problem head remains the sole mutable source head.
+Project publication checks branch/draft generations and source head and publishes its exact
+operation acknowledgement in the same source-activation transaction. Raw draft custody can retain
+malformed or empty text but grants no scientific admission. Research references retain their
+actual source/result closure through its current owner; no fitted value or result authority is
+minted by a catalogue link. Bulk staging stays outside short metadata transactions.
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
