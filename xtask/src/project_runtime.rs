@@ -160,7 +160,7 @@ mod tests {
         let revision=store.revision(&fork).await.unwrap().unwrap();
         let pin=store.protect(revision,std::time::Duration::from_secs(60)).await.unwrap();
         let members=store.membership_page(&pin,None,"").await.unwrap();
-        let root=pse_ids::SemanticId::from_hex(members.iter().find(|row|row.name=="Root").unwrap().logical.strip_prefix("modeling:").unwrap()).unwrap();
+        let root=pse_ids::SemanticId::parse_hex(members.iter().find(|row|row.name=="Root").unwrap().logical.strip_prefix("modeling:").unwrap()).unwrap();
         store.release(&pin).await.unwrap();
         let discovery=execute(Action::PreparationDiscovery{revision:fork.clone(),request:PreparationDiscoveryRequest{
             root:pse_model::generated::identities::DeclarationId::from_id(root),instance:pse_model::generated::identities::InstanceId::from_id(root),bindings:Default::default(),limits:Default::default(),durable_after:None,
