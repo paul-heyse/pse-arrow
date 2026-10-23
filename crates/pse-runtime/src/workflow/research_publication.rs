@@ -113,7 +113,10 @@ impl Runtime {
             if !targets.insert(mapping.declaration)||!parameters.insert(mapping.parameter)||cell.quantity_type_id!=mapping.quantity||cell.unit_id!=mapping.unit{return Err(contract("research mapping duplicate or physical meaning differs"));}
             let lower=mapping.lower_bits.map(f64::from_bits);let upper=mapping.upper_bits.map(f64::from_bits);
             if lower.is_some_and(|v|!v.is_finite()||cell.value<v)||upper.is_some_and(|v|!v.is_finite()||cell.value>v)||lower.zip(upper).is_some_and(|(l,u)|l>u){return Err(contract("fitted cell outside explicit target bounds"));}
-            let model=target.prepare(mapping.root,mapping.instance,Default::default(),Default::default(),cancel).await?;
+            // Select the authored member before specialization prunes unrequested
+            // mathematics. A parameter need not already support a case equation.
+            let bindings=pse_modeling::Bindings{demand:vec![mapping.path.clone()],..Default::default()};
+            let model=target.prepare(mapping.root,mapping.instance,bindings,Default::default(),cancel).await?;
             let compiled=model.compiled();
             let id=compiled.model.paths.get(&mapping.path).ok_or_else(||contract("research target parameter path absent"))?;
             let symbol=compiled.model.symbols.get(id).ok_or_else(||contract("research target parameter symbol absent"))?;

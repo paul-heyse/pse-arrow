@@ -1716,7 +1716,8 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let mut actual=vec![];while let Some(batch)=reopened.next_relation_batch().await.unwrap(){actual.extend(cells::Row::rows(&batch).unwrap());}
     assert_eq!(actual,exported,"original producer-qualified cells survive dropping the live result");
     let branch=store.project_branch("main").await.unwrap().unwrap();
-    let original_target=source.prepare(root,id(33).into(),Default::default(),Default::default(),&cancel).await.unwrap();
+    let original_bindings=pse_modeling::Bindings{demand:seed.declaration().experiments[0].bindings.iter().map(|binding|binding.path.clone()).collect(),..Default::default()};
+    let original_target=source.prepare(root,id(33).into(),original_bindings,Default::default(),&cancel).await.unwrap();
     let targets=[("a",id(1)),("b",id(2))].into_iter().map(|(name,parameter)|{
         let declaration=rows.iter().find(|r|r.name==name).unwrap().declaration_id;
         let symbol=original_target.compiled().model.symbols.values().find(|symbol|symbol.lineage.declaration==declaration).unwrap();
@@ -1738,7 +1739,8 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     assert!(Box::pin(runtime.research_publish(&stale.intent,&cancel)).await.is_err());
     let downstream=Box::pin(runtime.research_publication_open("publish-fit",&cancel)).await.unwrap();
     assert_eq!(crate::workflow::OperationSource::of(&downstream).research.unwrap().publication.as_deref(),Some("publish-fit"));
-    let downstream_model=downstream.prepare(root,id(33).into(),Default::default(),Default::default(),&cancel).await.unwrap();
+    let downstream_bindings=pse_modeling::Bindings{demand:request.targets.iter().map(|target|target.path.clone()).collect(),..Default::default()};
+    let downstream_model=downstream.prepare(root,id(33).into(),downstream_bindings,Default::default(),&cancel).await.unwrap();
     let target=downstream_model.compiled().model.paths[&request.targets[0].path];
     assert_eq!(downstream_model.compiled().admitted.case().parameters().iter().find(|p|p.id==target).unwrap().quantity,quantity);
     // A backdated correction changes new discovery, never this old fit's source receipt.
