@@ -218,7 +218,7 @@ impl StudyObserver {
                 }
             } else if !attempt.terminal {
                 if let Some(progress)=self.live.get(&(position.run.clone(),position.attempt.clone())) {
-                    let (page,dropped)=progress.snapshot();
+                    let (page,dropped)=progress.snapshot_after(position.source_generation,position.source_sequence,remaining);
                     let current=progress.current().map(ProgressEventDocument::from);
                     let (generation,head)=progress.source_identity();
                     let latest=current.as_ref().and_then(|e|e.source.as_ref()).is_some_and(|s|s.generation==generation&&s.sequence==head);

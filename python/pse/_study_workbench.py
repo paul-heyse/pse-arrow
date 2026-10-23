@@ -19,13 +19,14 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse.contracts.documents import (
-    StudyCohortDocument,
+    StudyCohortDocumentOutput,
     StudyCohortRequest,
     StudyKpiRequest,
     StudyObservationCursor,
-    StudyObservationPage,
+    StudyObservationCursorOutput,
+    StudyObservationPageOutput,
     StudyObservationRequest,
-    StudyWorkbenchPage,
+    StudyWorkbenchPageOutput,
     StudyWorkbenchRequest,
 )
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class StudyKpiAnalysis:
     _handle: _NativeStudyKpiAnalysis
 
     @property
-    def cohort(self) -> StudyCohortDocument:
+    def cohort(self) -> StudyCohortDocumentOutput:
         return self._handle.cohort
 
     @property
@@ -60,7 +61,7 @@ class FrozenStudyCohort:
     _handle: _NativeFrozenStudyCohort
 
     @property
-    def document(self) -> StudyCohortDocument:
+    def document(self) -> StudyCohortDocumentOutput:
         return self._handle.document
 
     def result(self, member: int, relation: str, *, start: int, end: int) -> TableStream:
@@ -75,18 +76,18 @@ class StudyObserver:
     """Observation owns no scientific cancellation authority."""
     _handle: _NativeStudyObserver
 
-    def poll(self) -> StudyObservationPage:
+    def poll(self) -> StudyObservationPageOutput:
         return self._handle.poll()
 
     @property
-    def cursor(self) -> StudyObservationCursor:
+    def cursor(self) -> StudyObservationCursorOutput:
         return self._handle.cursor()
 
     def attach_run(self, run: RunHandle) -> None:
         """Attach original local telemetry after a poll discovers its exact attempt."""
         self._handle.attach_run(run._handle)
 
-    def follow(self, *, interval: float = 0.1) -> Iterator[StudyObservationPage]:
+    def follow(self, *, interval: float = 0.1) -> Iterator[StudyObservationPageOutput]:
         """Poll selected owners; stopping iteration never cancels the study."""
         if not 0 <= interval <= 60:
             raise ValueError("observer interval must be between zero and 60 seconds")
@@ -116,14 +117,14 @@ class StudyWorkbenchMixin:
     """Public runtime composition; the native owner performs selection and admission."""
     _handle: _NativeRuntime
 
-    def study_workbench_page(self, request: StudyWorkbenchRequest) -> StudyWorkbenchPage:
+    def study_workbench_page(self, request: StudyWorkbenchRequest) -> StudyWorkbenchPageOutput:
         return self._handle.study_workbench_page(codec.encode_json(request))
 
     def freeze_study_cohort(self, request: StudyCohortRequest) -> FrozenStudyCohort:
         return FrozenStudyCohort(self._handle.freeze_study_cohort(codec.encode_json(request)))
 
     def observe_study(self, request: StudyObservationRequest, *,
-                      cursor: StudyObservationCursor | None = None) -> StudyObserver:
+                      cursor: StudyObservationCursor | StudyObservationCursorOutput | None = None) -> StudyObserver:
         return StudyObserver(self._handle.observe_study(
             codec.encode_json(request), cursor=None if cursor is None else codec.encode_json(cursor)
         ))
