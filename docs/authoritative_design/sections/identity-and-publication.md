@@ -887,13 +887,60 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 > Decision: [ADR-0220](../../adr/0220-selected-closure-and-fresh-authority-exchange.md) (proposed; maintainer-authorized Plan51e–51g target).
 
-Selected logical project closure composes original protected source/result/artifact owners and
-publishes a versioned manifest after verified copying. Fresh-authority import uses ordinary
-admission and the existing source/project guarded activation with exact original-intent
-settlement. Imported historical executions/publications remain origin-qualified evidence;
-they never mint receiving producer receipts, terminal authority or seed eligibility. Retention
-explanation is observational and explicit release rechecks current owner guards. Application
-backup/recovery keeps its original service/file authority and full required external closure.
+Selected logical project closure has one resolver over original source, research, study,
+result and artifact owners. Manifest v1 records source revisions, physical/provider premises,
+selected dataset/calibration/publication ancestry, study definitions, selected result ranges,
+artifact block coordinates, codecs, checksums, copied extents and explicit omissions. Original
+protection spans copying and verification; the manifest publishes last. Shared contained-copy
+primitives also serve diagnostic packs, while each format keeps its own interpretation.
+
+Independent readers validate contained paths, actual member bytes, exact artifact coverage and
+original scientific IPC lineage/finalization. They do not follow ambient paths, connect to the
+origin, install providers or execute science. Array/registry admission remains at the selected
+scientific consumer. Explicit descriptive export uses narrow metadata projections without
+hydrating completion, point outcomes or payloads; it requires no physical admission. Its missing
+source/provider/data premises remain execution-required omissions. Offline completeness and
+executable completeness are separate facts; descriptive packs cannot be imported as executable.
+
+Fresh-authority import binds the original operation, receiving issuer, exact bundle digest and
+fresh destination coordinates before effects. Ordinary source/physical admission and streamed
+artifact staging precede original source/project guarded activation. A source checkpoint can
+exist while project availability remains false: project/research/context reads and fresh mutation
+guards stay fenced until copied evidence is active and the original import finishes. Original
+source, artifact and acknowledgement primitives remain available for settlement. Completed
+imports reopen from receiving artifact custody after the supplied pack is removed, carrying
+owned physical context for ordinary typed draft admission and supported new studies.
+
+Exact artifact retries finish an already active original even after its creation allowance has
+expired. Inactive expired originals must settle and be collected by their original owner before
+a deliberate later copy occurrence; bounded retired-original receipts prevent an old recovery
+request from aborting a newer occurrence. No retry renews the original clock. Imported historical
+executions, results, studies and publications remain origin-qualified evidence; they never mint
+receiving producer receipts, terminal authority, live protection grants or seed eligibility.
+
+Lifecycle selection/explanation observes actual owners and bounded blockers; it grants no release
+right and does not infer physical reclaimed bytes. Explicit release rechecks the issuing store,
+exact revision/generations, current roots, borrowers and in-flight effects. Noncurrent raw-draft
+detail can retire while retaining immutable provenance and a discoverable incomplete summary.
+Original history-retirement receipts retain exact revision/generation for lost-reply settlement
+after collection. Evidence-index deletion does not release original artifacts; evidence keys
+alone are observational and cannot substitute original artifact intents.
+
+Application backup manifest v4 extends the existing quiesce/drain/stop and selected external-file
+closure with bounded frozen application catalogue/reference inventories. Read-only inspection
+and restore share completeness verification. Restore compares the original application inventory
+before fresh authority/credentials and original semantic validation; an engine snapshot alone is
+not application recovery. An incomplete pack refuses before a destination is created. No live
+engine-directory reader or automatic repair from newer source/results is supported.
+
+Native/offline logical tools and explicit export/import with exact-parent merge are selected for
+the sole operator. Browser UI/persistence, live synchronization and application encryption are not
+adopted. Local filesystem access control and explicit custody are the supported protection
+boundary; host volume encryption is not established. Revisit a named browser operation, concrete
+multiwriter/automatic-exchange workflow or confidential exchange/at-rest requirement respectively.
+A confidentiality selection must cover catalogue/credentials, payloads, sources, measurements,
+packs, diagnostics/traces/crash dumps, temporary files, keys and backups, including key recovery.
+Operator commands and recovery limits live in the [substrate guide](../../dev/surreal-substrate.md).
 
 
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).

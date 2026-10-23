@@ -626,6 +626,15 @@ and exclusions without executing anything. See the
 [development guides](../../dev/README.md), including [manual CI](../../dev/ci.md) and
 [build reuse](../../dev/build-performance.md).
 
+Storage health uses the versioned `storage-health-v1` observation document. It composes the
+selected service/engine identity, bounded process/cgroup and host storage observations, exact
+capture time, unavailable fields and approximate engine statistics. Engine memory is not RSS;
+queue depth and retained versions alone establish no cause or durability guarantee. Finite owner
+command references are inert suggestions, not repair authorization. Independent host inspection
+works without the service. Explicitly supplied or imported diagnostic evidence can retain these
+observations without fabricating invocation, process or scientific associations. The
+[diagnostic guide](../../dev/simulation-diagnostics.md) owns operational usage.
+
 ### 24.2 Current qualification basis
 
 The historical full qualification basis is Plan 22's Q1 of 2026-09-29, on the final state of
