@@ -304,6 +304,8 @@ impl ArtifactRead {
     pub fn header(&self) -> &Artifact {
         &self.header
     }
+    /// Recheck and renew the original owner protection before copied publication.
+    pub async fn renew(&self, lifetime: std::time::Duration) -> Result<(), CanonicalError> { self.selection.renew(lifetime).await }
     /// Explicit release is idempotent; the original grant remains fenced through its issue window.
     pub async fn release(self) -> Result<(), CanonicalError> {
         self.selection.finish().await

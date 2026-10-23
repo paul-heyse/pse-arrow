@@ -84,8 +84,25 @@ pub struct ProjectPublication {
     extra_parents: Vec<String>,
     context_commitment: Option<String>,
     research: Option<ResearchPublicationBinding>,
+    import: Option<crate::canonical_project_imports::ImportBinding>,
 }
 impl ProjectPublication {
+    pub(crate) fn import_intent(
+        issuing_store: &str, operation: &str, project: &str, branch: &str, problem: &str,
+        binding: crate::canonical_project_imports::ImportBinding,
+    ) -> Result<Self, CanonicalError> {
+        let mut intent=Self {
+            issuing_store:issuing_store.into(),operation:operation.into(),project:project.into(),
+            branch:branch.into(),problem:problem.into(),project_generation:0,branch_generation:0,
+            expected:None,origin_revision:None,draft:None,draft_generation:None,
+            kind:"import".into(),request:Vec::new(),branch_name:binding.branch_name.clone(),
+            extra_parents:Vec::new(),context_commitment:Some(binding.bundle_digest.clone()),research:None,
+            import:Some(binding),
+        };
+        intent.refresh_request()?; intent.validate()?; Ok(intent)
+    }
+    pub(crate) fn import_binding(&self)->Option<&crate::canonical_project_imports::ImportBinding> { self.import.as_ref() }
+    pub(crate) fn import_coordinates(&self)->(&str,&str,&str) { (&self.project,&self.branch,&self.problem) }
     /// Bind exact original scientific evidence into the ordinary source activation intent.
     pub fn with_research_publication(
         mut self,
@@ -151,7 +168,7 @@ impl ProjectPublication {
     }
     fn canonical_request(&self) -> Result<Vec<u8>, CanonicalError> {
         request(&(
-            3u8,
+            4u8,
             &self.issuing_store,
             &self.project,
             self.project_generation,
@@ -166,7 +183,7 @@ impl ProjectPublication {
             &self.kind,
             &self.branch_name,
             &self.extra_parents,
-            (&self.context_commitment, &self.research),
+            (&self.context_commitment, &self.research, &self.import),
         ))
     }
 
@@ -208,7 +225,15 @@ impl ProjectPublication {
         if let Some(commitment) = &self.context_commitment {
             identity(commitment)?;
         }
+        if let Some(binding)=&self.import {
+            binding.validate()?;
+            if self.kind!="import" || self.context_commitment.as_deref()!=Some(binding.bundle_digest.as_str())
+                || self.branch_name!=binding.branch_name || self.research.is_some() { return Err(CanonicalError::OperationReused); }
+        } else if self.kind=="import" { return Err(CanonicalError::OperationReused); }
         match self.kind.as_str() {
+            "import" if self.expected.is_none() && self.origin_revision.is_none() && self.draft.is_none()
+                && self.draft_generation.is_none() && self.project_generation==0 && self.branch_generation==0
+                && self.extra_parents.is_empty() => {},
             "fork"
                 if self.expected.is_none()
                     && self.origin_revision.is_some()
@@ -269,6 +294,7 @@ impl ProjectPublication {
             Value::None
         };
         row.insert("research", research);
+        row.insert("import", self.import.as_ref().map(crate::canonical_project_imports::ImportBinding::encode).transpose()?.map(Value::Object).unwrap_or(Value::None));
         row.insert("kind", self.kind.clone());
         row.insert("branch_name", self.branch_name.clone());
         row.insert(
@@ -360,7 +386,7 @@ fn obligation(artifact: Option<&str>, owner: &str) -> Result<Value, CanonicalErr
         .map_err(Into::into)
 }
 impl CanonicalStore {
-    fn project_query(
+    pub(crate) fn project_query(
         &self,
         sql: &str,
     ) -> Result<surrealdb::method::Query<'_, surrealdb::engine::remote::grpc::Client>, CanonicalError>
@@ -557,6 +583,7 @@ impl CanonicalStore {
             extra_parents: Vec::new(),
             context_commitment: None,
             research: None,
+            import: None,
         };
         intent.refresh_request()?;
         Ok(intent)
@@ -609,6 +636,7 @@ impl CanonicalStore {
             extra_parents: Vec::new(),
             context_commitment: None,
             research: None,
+            import: None,
         };
         intent.refresh_request()?;
         Ok(intent)

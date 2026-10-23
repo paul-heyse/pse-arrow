@@ -10,7 +10,7 @@ use std::{
     collections::BTreeSet,
     fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
 };
 
 mod presentation;
@@ -1542,44 +1542,18 @@ fn validate_analysis_sources(
     }
     Ok(())
 }
-fn safe_relative(path: &str) -> Result<(), PackError> {
-    if path.is_empty()
-        || path.contains('\\')
-        || path
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == "..")
-        || Path::new(path)
-            .components()
-            .any(|c| !matches!(c, Component::Normal(_)))
-    {
-        return Err(invalid("unsafe indexed relative path"));
+fn contained_error(error: std::io::Error) -> PackError {
+    if error.kind() == std::io::ErrorKind::InvalidInput {
+        invalid(error.to_string())
+    } else {
+        PackError::Io(error)
     }
-    Ok(())
+}
+fn safe_relative(path: &str) -> Result<(), PackError> {
+    super::contained_copy::safe_relative(path).map_err(contained_error)
 }
 fn open_contained(directory: &File, relative: &str) -> Result<File, PackError> {
-    use rustix::fs::{Mode, OFlags};
-    safe_relative(relative)?;
-    let mut directory = directory.try_clone()?;
-    let mut components = Path::new(relative).components().peekable();
-    while let Some(component) = components.next() {
-        let flags = OFlags::RDONLY
-            | OFlags::NOFOLLOW
-            | OFlags::CLOEXEC
-            | OFlags::NONBLOCK
-            | if components.peek().is_some() {
-                OFlags::DIRECTORY
-            } else {
-                OFlags::empty()
-            };
-        let descriptor =
-            rustix::fs::openat(&directory, component.as_os_str(), flags, Mode::empty())
-                .map_err(std::io::Error::from)?;
-        directory = File::from(descriptor);
-    }
-    if !directory.metadata()?.is_file() {
-        return Err(invalid("indexed member is not an ordinary local file"));
-    }
-    Ok(directory)
+    super::contained_copy::open_contained(directory, relative).map_err(contained_error)
 }
 fn decode<T: serde::de::DeserializeOwned>(
     input: impl Read,

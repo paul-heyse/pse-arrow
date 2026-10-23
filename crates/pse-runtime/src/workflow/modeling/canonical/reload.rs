@@ -295,22 +295,11 @@ fn source_rows(
         &cancel.token(),
     )
 }
-async fn cold_owner(
+fn exact_document_sources(
     package: &ModelingPackage,
     parent: &delta::Parent,
     cancel: &crate::CancelSource,
-) -> Result<Arc<ParsedReload>, WorkflowError> {
-    let extent = parent
-        .documents
-        .values()
-        .try_fold(0usize, |n, row| n.checked_add(row.owned_bytes()))
-        .and_then(|n| n.checked_mul(4))
-        .ok_or_else(|| contract("cold parser source extent"))?;
-    let _scratch = package
-        .runtime
-        .shared
-        .math()
-        .reserve("modeling:cold-parser-source", extent)?;
+) -> Result<Vec<BTreeMap<String, Vec<u8>>>, WorkflowError> {
     let mut grouped = BTreeMap::<SemanticId, BTreeMap<String, Vec<u8>>>::new();
     let mut data_leases = Vec::new();
     for document in parent.documents.values() {
@@ -370,6 +359,47 @@ async fn cold_owner(
         }
     }
     sources.extend(grouped.into_values());
+    Ok(sources)
+}
+
+impl ModelingPackage {
+    /// Exact loader-owned source/data closure. The caller retains canonical protection through publication.
+    pub(in crate::workflow) async fn portability_documents(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<pse_columnar::Leased<Vec<BTreeMap<String, Vec<u8>>>>, WorkflowError> {
+        let parent = self.delta_parent(cancel).await?;
+        let extent = parent.documents.values().try_fold(0usize, |total, document| {
+            let bytes = document.source_text.as_ref().map_or_else(
+                || self.local_object(&format!("data:{}", document.document_id)).map(|v| v.payload.len()),
+                |text| Ok(text.len()),
+            )?;
+            total.checked_add(bytes.saturating_mul(3)).and_then(|n| n.checked_add(document.path.len() + 1024))
+                .ok_or_else(|| contract("portable source extent"))
+        })?;
+        let owner = self.runtime.shared.math().reserve("project:portable-documents", extent)?;
+        let sources = exact_document_sources(self, &parent, cancel)?;
+        Ok(pse_columnar::Leased::new(Arc::new(sources), owner))
+    }
+}
+
+async fn cold_owner(
+    package: &ModelingPackage,
+    parent: &delta::Parent,
+    cancel: &crate::CancelSource,
+) -> Result<Arc<ParsedReload>, WorkflowError> {
+    let extent = parent
+        .documents
+        .values()
+        .try_fold(0usize, |n, row| n.checked_add(row.owned_bytes()))
+        .and_then(|n| n.checked_mul(4))
+        .ok_or_else(|| contract("cold parser source extent"))?;
+    let _scratch = package
+        .runtime
+        .shared
+        .math()
+        .reserve("modeling:cold-parser-source", extent)?;
+    let sources = exact_document_sources(package, parent, cancel)?;
     let parsed = Arc::new(ParsedReload::load(
         &sources,
         &[],
