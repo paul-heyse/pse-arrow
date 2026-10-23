@@ -954,7 +954,7 @@ impl Runtime {
                         pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
                             .map_err(|e| contract(e.to_string()))?,
                     ))?,
-                    source_selection: document(&(2_u8, &admitted.revision, &input.physical))?,
+                    source_selection: document(&(3_u8, &admitted.revision, &input.physical, &definition.operation.source))?,
                     attestation: input_run.attestation.as_slice().to_vec(),
                 };
                 creation_effect(
