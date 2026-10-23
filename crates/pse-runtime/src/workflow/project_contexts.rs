@@ -10,12 +10,25 @@ impl Runtime {
         let deadline = cancel.deadline().unwrap_or_else(|| std::time::Instant::now()+pse_operations::canonical::REQUEST_TIMEOUT);
         self.scope_activity(pse_operations::canonical::operation_scope(deadline, async {
             cancel.token().checkpoint().map_err(pse_relations::RelationError::from).map_err(super::relation)?;
+            if physical.identity().to_string()!=selection.context.physical_context{return Err(contract("historical context physical closure differs"));}
+            self.project_context_reopen(selection,cancel).await
+        })).await
+    }
+    /// Reopen both original source closures through existing protected scientific owners.
+    pub async fn project_context_reopen(&self,selection:&ContextSelection,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
+        let deadline=cancel.deadline().unwrap_or_else(||std::time::Instant::now()+pse_operations::canonical::REQUEST_TIMEOUT);
+        self.scope_activity(pse_operations::canonical::operation_scope(deadline,async {
             let store=self.canonical_store()?;
             store.validate_project_context(selection).await?;
-            if physical.identity().to_string()!=selection.context.physical_context{return Err(contract("historical context physical closure differs"));}
+            let physical_source=super::PhysicalSource {
+                revision:selection.context.physical_revision.clone(),
+                identity:pse_ids::ContentHash::parse_hex(&selection.context.physical_source_identity).map_err(|e|contract(e.to_string()))?,
+            };
+            let physical=self.physical_source(&physical_source,cancel).await?;
+            if physical.identity().to_string()!=selection.context.physical_context{return Err(contract("historical physical closure identity differs"));}
             let revision=store.revision(&selection.context.revision).await?.ok_or_else(||contract("historical context source unavailable"))?;
             let mut package=self.modeling_revision(revision,physical,BTreeMap::new()).await?;
-            if package.revision.identity().to_string()!=selection.context.source_identity{return Err(contract("historical context authored source identity differs"));}
+            if package.revision.identity().to_string()!=selection.context.source_identity{return Err(contract("historical authored source identity differs"));}
             package.project_context=Some(selection.clone());
             Ok(package)
         })).await
@@ -27,7 +40,8 @@ impl Runtime {
         self.scope_activity(pse_operations::canonical::operation_scope(deadline, async {
             if package.runtime.canonical_store()?.issuing_store()? != self.canonical_store()?.issuing_store()? {return Err(contract("context source issuing authority differs"));}
             let revision=package.canonical_revision().ok_or_else(||contract("context requires a durable admitted source revision"))?;
-            self.canonical_store()?.append_project_context(operation,project,scope,&revision.key,&package.revision.identity().to_string(),&package.physical.identity().to_string(),effective_from_us,effective_to_us,corrects,deleted).await.map_err(Into::into)
+            let physical=self.record_physical_source(&package.physical,&crate::CancelSource::new()).await?;
+            self.canonical_store()?.append_project_context(operation,project,scope,&revision.key,&package.revision.identity().to_string(),&package.physical.identity().to_string(),&physical.revision,&physical.identity.to_string(),effective_from_us,effective_to_us,corrects,deleted).await.map_err(Into::into)
         })).await
     }
     pub(in crate::workflow) async fn restore_project_context(&self,package:&mut ModelingPackage,selection:Option<&ContextSelection>)->Result<(),WorkflowError>{

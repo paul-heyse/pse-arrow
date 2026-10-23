@@ -201,3 +201,34 @@ impl PhysicalContext {
         Ok(context)
     }
 }
+
+impl Runtime {
+    /// Preflight and retain exact original physical document bytes for ordinary source publication.
+    /// This is shared by studies and project context; no second physical codec is introduced.
+    pub(in crate::workflow) fn physical_source_documents(
+        &self,
+        physical: &PhysicalContext,
+    ) -> Result<pse_columnar::Leased<BTreeMap<String, Vec<u8>>>, WorkflowError> {
+        let documents = physical.documents.as_ref().ok_or_else(|| super::contract("recording requires exact admitted physical document bytes"))?;
+        let extent = documents.bundles().iter().flat_map(|bundle| &bundle.documents)
+            .try_fold(0usize, |total, document| total.checked_add(document.bytes().len()).and_then(|n| n.checked_add(document.path.len()+256)))
+            .ok_or_else(|| super::contract("physical document extent"))?;
+        let owner = self.shared.math().reserve("physical:document-recording", extent)?;
+        let mut sources = BTreeMap::new();
+        for document in documents.bundles().iter().flat_map(|bundle| &bundle.documents) {
+            if sources.insert(document.path.clone(), document.bytes().to_vec()).is_some() {
+                return Err(super::contract("physical document path is ambiguous"));
+            }
+        }
+        if sources.is_empty() { return Err(super::contract("recording requires physical document bytes")); }
+        Ok(pse_columnar::Leased::new(Arc::new(sources), owner))
+    }
+    pub(in crate::workflow) async fn record_physical_source(
+        &self,
+        physical: &PhysicalContext,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::PhysicalSource, WorkflowError> {
+        let documents = self.physical_source_documents(physical)?;
+        super::study::creation_effect(cancel, self.operations()?.put_sources(&documents)).await
+    }
+}

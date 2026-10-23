@@ -5630,7 +5630,7 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
     runtime.project_record_context("engineering-original", &project, "calibration", &package, 0, None, None, false).await.unwrap();
     let original_cut = store.project_context_cut(&project.key).await.unwrap();
     let original = store.select_project_context(&original_cut, "calibration", 20).await.unwrap().unwrap();
-    let selected = runtime.project_context_package(&original, physical.clone(), &cancel).await.unwrap();
+    let selected = runtime.project_context_reopen(&original, &cancel).await.unwrap();
     let fixed = selected.declarations().await.unwrap().iter().find(|row|row.name=="Fixed").unwrap().declaration_id;
     let mut requested = point(fixed, 0, vec![], StartPolicy::Fresh);
     if let OperationRequest::DeclaredCase(case) = &mut requested.operation {case.settings.backend=None;}

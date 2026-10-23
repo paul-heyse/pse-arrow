@@ -38,8 +38,10 @@ def test_project_context_cut_correction_tombstone_and_exact_source_reopen(
     selected = runtime.project_context_select(cut, "calibration", 25)
     assert selected is not None
     assert selected.context.key == first.key
-    reopened = runtime.project_context_package(selected, context)
+    reopened = runtime.project_context_reopen(selected)
     assert reopened.canonical_revision == revision
+    assert selected.context.physical_revision
+    assert selected.context.physical_source_identity
 
     corrected = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/value.pse": "package p {param value:Scalar=2;}"}],
