@@ -8,7 +8,7 @@ use crate::{
 };
 use arrow_schema::DataType as D;
 /// Tooling interpretation, independent from scientific interpretation.
-pub const INTERPRETATION: &str = "pse-tooling-evidence-v1";
+pub const INTERPRETATION: &str = "pse-tooling-evidence-v2";
 /// Native indexes installed only in the tooling database.
 pub const INDEXES: &[super::substrate::NativeIndex] = &[
     super::substrate::NativeIndex {
@@ -21,6 +21,12 @@ pub const INDEXES: &[super::substrate::NativeIndex] = &[
         name: "evidence_fact_selection",
         table: "evidence_facts",
         fields: &["generation", "kind", "status", "member"],
+        unique: false,
+    },
+    super::substrate::NativeIndex {
+        name: "evidence_fact_context",
+        table: "evidence_facts",
+        fields: &["generation", "kind", "context_id", "population_id", "member"],
         unique: false,
     },
     super::substrate::NativeIndex {
@@ -85,6 +91,14 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("crate_name", text()).optional(),
             column("test_id", text()).optional(),
             column("detail_ref", text()).optional(),
+            column("binary_id", text()).optional(),
+            column("context_id", text()).optional(),
+            column("context_json", text()).optional(),
+            column("link_relation", text()).optional(),
+            column("link_target", text()).optional(),
+            column("population_id", text()).optional(),
+            column("sample_id", text()).optional(),
+            column("value_ns", T::native(D::Float64)).optional(),
         ],
         "Compact owner-adapted fact. Original status and membership remain explicit; detail references are descriptive and grant neither file custody nor protection.",
     );
