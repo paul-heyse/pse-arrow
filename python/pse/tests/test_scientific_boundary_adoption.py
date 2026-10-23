@@ -46,6 +46,7 @@ def regression(
  def Root {
   param a:Scalar=1; param b:Scalar=1;
   var z:Scalar; eq contrast:z==a-b; annotation start z(0);
+  let cost:Scalar=0.5*z*z; annotation objective cost(minimize);
   let y1:Scalar=a+b; let y2:Scalar=a+2*b;
   let y3:Scalar=a+3*b; let y4:Scalar=a+4*b;
  }
@@ -120,7 +121,7 @@ def downstream(
     return package.prepare_solve(
         case,
         pse.SolveSettings(
-            intent=NativeSolveIntent.ROOT, backend=NativeBackend.KINSOL,
+            intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT,
             presolve=PresolvePolicyKind.OFF,
             sensitivity=d.SensitivityRequest(
                 parameters=ids[:2],
