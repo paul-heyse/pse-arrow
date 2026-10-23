@@ -1137,14 +1137,16 @@ def tooling_activity(
             # Remove normally finished activities promptly. If an inherited
             # child is still running or the original clock expired, preserve
             # the marker for the existing lifecycle drain to inspect.
-            with contextlib.suppress(OSError, DeadlineExpiredError):
-                with state_lock(state, deadline=deadline):
-                    finished = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
-                    try:
-                        fcntl.flock(finished, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        path.unlink()
-                    finally:
-                        os.close(finished)
+            with (
+                contextlib.suppress(OSError, DeadlineExpiredError),
+                state_lock(state, deadline=deadline),
+            ):
+                finished = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+                try:
+                    fcntl.flock(finished, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    path.unlink()
+                finally:
+                    os.close(finished)
 
 
 def require_tooling_drained(state: Path) -> None:

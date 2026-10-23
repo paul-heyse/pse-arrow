@@ -16,7 +16,8 @@ from pathlib import Path
 
 import msgspec
 
-from scripts import storage_health, surreal_server as server
+from scripts import storage_health
+from scripts import surreal_server as server
 from scripts.surreal_telemetry import capture_operation
 
 

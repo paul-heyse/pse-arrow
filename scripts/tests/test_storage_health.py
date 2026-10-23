@@ -17,7 +17,8 @@ from unittest.mock import patch
 
 import msgspec
 
-from scripts import evidence_sources, storage_health as health
+from scripts import evidence_sources
+from scripts import storage_health as health
 from scripts import surreal_diagnostics as diagnostics
 from scripts import surreal_server as server
 
@@ -97,7 +98,9 @@ class StorageHealthTests(unittest.TestCase):
         self.assertEqual(record.scientific_outcome, "unknown")
         self.assertIsNotNone(record.observer)
         self.assertEqual(record.host["MemTotal_bytes"].status, "available")
-        self.assertGreater(record.host["MemTotal_bytes"].value, 0)
+        total = record.host["MemTotal_bytes"].value
+        assert type(total) is int
+        self.assertGreater(total, 0)
         self.assertEqual(record.host["filesystem_available_bytes"].status, "available")
         self.assertEqual(record.correspondence, "unknown")
         self.assertFalse(self.state.exists())
@@ -126,7 +129,7 @@ class StorageHealthTests(unittest.TestCase):
     def test_capture_checks_actual_service_identity_and_nonfinite_observations(self) -> None:
         for variation in ("foreign_state", "foreign_instance", "nonfinite", "missing_time"):
             with self.subTest(variation=variation):
-                def metrics(*_args: object) -> dict:
+                def metrics(*_args: object, variation: str = variation) -> dict:
                     original = self.original_metrics()
                     if variation == "foreign_state":
                         original["identity"]["state"] = str(self.root / "other")
@@ -165,6 +168,7 @@ class StorageHealthTests(unittest.TestCase):
 
     def test_changed_cgroup_incarnation_retains_unknown_correspondence(self) -> None:
         identity = fixture(self.state).service.identity
+        assert identity is not None
         with (
             patch.object(server, "storage_unit_observation", return_value={"InvocationID": "c" * 32, "ControlGroup": "/foreign"}),
             patch.object(health.host_admission, "group_identity", side_effect=AssertionError("foreign cgroup read")),
@@ -176,6 +180,7 @@ class StorageHealthTests(unittest.TestCase):
 
     def test_service_process_membership_rss_and_lifetime_are_original_kernel_observations(self) -> None:
         identity = fixture(self.state).service.identity
+        assert identity is not None
         group = "/owned/service"
         files = {
             "/sys/fs/cgroup/owned/service/memory.current": "4096",
