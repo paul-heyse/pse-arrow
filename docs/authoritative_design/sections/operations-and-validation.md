@@ -988,6 +988,34 @@ the historical full basis, qualify a fresh whole-product/parity/scientific-recov
 campaign, establish confidentiality or a speed/capacity benefit, or close Plan32/40/49 obligations.
 Proposed ADR-0216–0220 formal decision status is unchanged.
 
+Selected remaining Plan49 scientific-boundary, tooling and qualification acceptance of
+2026-10-23 belongs to the [final Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+The linked force-validated Rust selection initially passed 70 of 73 controls; two numeric
+EXPLAIN-limit assertions and a dense-fixture operation identity failed. After the literal-cap
+and fixture repairs, all three affected live controls plus six pure graph controls passed.
+This composes the selected 73-case scope; it is not a clean rerun of the original command.
+Actual generated maintenance covers protected retirement, 65-guard pagination, exact replay
+across generation handoff and empty terminal completion. Graph acceptance covers all seven
+neighborhood scopes, version-first operator transport and actual OWNER/VIEWER execution.
+
+Thirty-two installed native-local Python controls pass keyed Arrow custody, generated
+vocabulary/identity/version transport, conformance and independent covariance propagation.
+The three affected scientific integration tests pass after a single-target revision fixture
+repair. Three canonical component journeys pass by composition: actual source-command and
+protected-selection journeys first, then the corrected reopen/fit-covariance journey. Twelve
+public review workflow units and 43 host maintenance/probe-runner controls pass. These scopes
+remain distinct; ephemeral tests do not establish canonical-store behavior.
+
+An exact pinned-source test-only scanner observer passes under both root roles: numeric
+budgets 65 and 1,001 return exactly 65 and 1,000+1 neighborhood index entries, while the
+uncapped control scans 2,400. Native planner/index/scanner source equivalence is retained with
+the probe; this does not establish whole deployed-binary equivalence. Study-anchor validation
+is separately bounded. No MVCC-version, disk-I/O or latency bound follows. Original engine,
+SSI, transport, sixteen-owner and Plan51 evidence retain their original conditions. No canceled
+sweep, fresh whole-product/parity, exhaustive feature-matrix, release-wheel, new-platform,
+throughput or RSS claim follows. Other plans' campaigns and formally proposed ADRs remain
+independent. Scope-end check results and historical failures remain at the final Outcome.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

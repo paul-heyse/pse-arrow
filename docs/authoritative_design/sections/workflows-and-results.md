@@ -770,6 +770,23 @@ state after immutable creation authority is fenced and bounded cleanup completes
 obligations does not release another owner's content or require producer payload retention
 ([§20.4](identity-and-publication.md#section-20-4)).
 
+Canonical graph explanations expose existing study prerequisites, blockers and consumers,
+run sources, artifact consumers and analysis source/consumer edges. The request and response
+each require their native version-1 document header. Pages preserve original directed edge
+identities, isolates, parallel edges, endpoint roles and selected revision/generation; missing
+or stale cursor premises refuse. They create neither model facts nor scientific certification.
+The standalone operator command uses the same version-first product decoder and query owner.
+
+Each neighborhood query seeks an equality prefix and exclusive continuation through its named
+compound index, orders by the indexed key and supplies a literal numeric page-plus-one limit
+(at most 65). It has no downstream filter or sort that would invalidate that scan budget.
+Decoded edges, including the continuation sentinel, must match their complete endpoint and
+ordering contract. Study pages separately validate their fixed study anchor twice, each with
+at most 193 dependencies and 64 predecessor headers; that work is not part of the neighborhood
+index-entry bound. Actual OWNER/VIEWER execution and an exact-source test-only scanner probe
+establish the stated index-entry budget. This is not a bound on MVCC versions, disk reads,
+latency or general graph algorithms; §24.2 records the selected evidence.
+
 ### 19.3 Studies and reuse
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
@@ -1297,6 +1314,14 @@ commitment (M2c), both in [§6.8](schema-and-relations.md#section-6-8).
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Qualified fit covariance requires complete authoritative content/validity hydration or reconciliation; external origin stays explicit. Dimensionless scale-aware faer PSD admission accepts singular inputs, refuses indefinite inputs and withholds negative propagated variance without clamping.
+
+Public preparation reconciles the ordered matrix, parameter identities, quantities, units and
+scales against the genuine retained fit. An in-process decoded fit reference needs its actual
+result handle; a canonical reference can recover the exact evidence after reopen. Preparation
+then owns the admitted evidence independently of the Python producer. Statistical withholding
+does not fabricate an available covariance. External origin and its assumptions remain explicit.
+Propagation is lazy: a mathematical refusal may surface when consuming the Arrow stream,
+and obtaining a table provider alone does not establish a successful scientific product.
 
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — uncertainty propagation
 > Σ_y = J·Σ_θ·Jᵀ and covariance with PS-12 validity, valid only where every upstream

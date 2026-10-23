@@ -1,6 +1,6 @@
 ---
 title: "Plan 49: Source coverage and capability routing"
-status: proposed
+status: done
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -210,3 +210,19 @@ map/fresh-session, native-error-handler and per-type-cell corrections all have e
 above. Rejected override/Function-indeterminate objections remain historical; they do not
 create new fixes. Claiming an unavailable API from an empty lookup, treating solver hooks
 as a forbidden fork, or deleting a method to remove its patch is not an accepted remedy.
+
+
+## Outcome — 2026-10-23
+
+**Implemented:** this appendix routed the revised review, audit corrections, library capability
+choices and bounded investigations to one coordinator. All selected work and findings now have
+their final disposition there; unselected alternatives remain decisions with explicit revisit
+conditions, rather than unfinished implementation. **Tested:** the coordinator's composed
+acceptance and documentation publication establish their stated boundaries, not new library
+capability or scientific claims from this navigation appendix.
+
+**Mistake corrected:** the original proposed metadata outlived completed authoring and could
+suggest a separate open backlog; this appendix is now marked done with the series.
+**Deliberate deviation:** no duplicate status table is maintained here. Enduring mechanisms
+and support limits move to the architecture and operator guides; eligible records retire to
+Git history once the final Outcome is committed and inbound readers are reconciled.

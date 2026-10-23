@@ -1135,6 +1135,13 @@ record keys, full-u64 generations and completion shape. A synchronous row event 
 the terminal seed pointer without deciding scientific eligibility; guarded functions
 retain cross-record authority and synchronous readiness.
 
+Generated retention maintenance checks frozen terminal evidence, exact input membership and
+current generation before rotation. Active result protection refuses retirement until its
+explicit release. Ordered 64-item pages retain immutable acknowledgments across generation
+handoff, including a lost reply to a completed page and an empty terminal page. Replay returns
+the recorded result without rotating the same guard twice. The operator/supervisor route uses
+these generated domain functions; host tooling does not substitute direct domain writes.
+
 Record identities serve exact lookup and bounded whole-table cursor ranges. Compound
 selection indexes remain. Attributed, receipt-owned edges retain classic identity and
 endpoint enforcement, with finite inline caches and high-degree fallback. Study ingestion

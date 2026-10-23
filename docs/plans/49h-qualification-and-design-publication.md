@@ -392,3 +392,29 @@ scope, command/mode/baseline and remaining limits. Reconcile finding and package
 the coordinator, then apply lifecycle retirement only after inbound consumers have current
 owners. This document schedules no automatic completion audit; an explicitly requested audit
 updates the same owning plan.
+
+
+## Outcome — selected assembled acceptance, 2026-10-23
+
+**Implemented:** QUAL01's post-Plan51 evidence reconciliation selected the uncovered boundary,
+maintenance, graph and command joins rather than repeating completed engine/runtime campaigns.
+QUAL02–QUAL04 consume the integrated BND/TOOL tests and native scanner evidence. The
+[coordinator Outcome](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23)
+records exact commands/modes, failed and repaired selections, receipts and scope boundaries;
+it remains the sole owner of package/finding/inquiry state.
+
+**Tested:** selected Linux force-validated Rust/native/Python/CLI and host acceptance establishes
+physical custody, content-sensitive covariance plus independent PSD admission, current catalogue
+identity, conformance/launch/review consumers, generated maintenance replay/protection and all
+seven bounded native graph scopes. Earlier Plan49/50/51 evidence retains its original conditions.
+This is composed acceptance: original failures remain visible alongside successful affected
+reruns. QUAL05's final checks and enduring architecture publication are recorded at the same
+coordinator Outcome; no whole-product/parity, exhaustive feature, release-wheel or new-platform
+qualification is implied.
+
+**Mistake corrected:** ordinary table-provider construction did not consume a lazy propagated
+covariance, and a canonical negative fixture republished a stale parent. Tests now consume the
+actual Arrow stream and reuse one exact target revision, preserving PSD refusal and CAS.
+**Deliberate deviations:** no canceled sweep, new benchmark or complete engine fault campaign
+was resumed; original qualified premises were reused. Native index-entry budgets exclude disk,
+MVCC-version and latency work. Proposed ADR status and other plans' campaigns remain distinct.

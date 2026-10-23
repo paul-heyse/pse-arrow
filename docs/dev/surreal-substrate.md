@@ -388,10 +388,15 @@ Graph inspection returns bounded original directed edges, source/consumer roles,
 selected revision/generation and explicit continuation/truncation. Returned nodes are not a
 new canonical model. Native plan interpretation retains raw operator attributes, distinguishes
 downstream Filter from pushed predicates and reports absent observations as absent. A small
-ANALYZE control observed cached adjacency with two scanned edges; it did not establish folded
-block use or a strict native edge-scan cap. Decoded-row, output-byte and original-clock bounds
-do not imply a physical KV-work bound. Remaining physical scan qualification belongs to
-[Plan49g TOOL08](../plans/49g-contracts-maintenance-and-tooling.md#TOOL08).
+ANALYZE control originally observed cached adjacency without establishing a native scan cap.
+The current seven neighborhood scopes use named compound-index equality/seek ranges with
+exclusive continuation and literal numeric page-plus-one limits (at most 65). Actual root
+OWNER/VIEWER plans and an exact-source test-only scanner probe establish that neighborhood
+index-entry budget. Study anchor validation is separately bounded; MVCC-version work, disk
+I/O and latency are not covered. Requests and responses require their native version-1 header;
+malformed endpoints or continuation sentinels refuse. The current contract and selected
+qualification live in [§19.2](../authoritative_design/sections/workflows-and-results.md#section-19-2)
+and [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
 `log-config --state STATE` reads logging configuration. Explicit `--restart mcp-audit` or
 `--restart baseline` uses admitted quiesce/drain/start and refuses incompatible live ownership.

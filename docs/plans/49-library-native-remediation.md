@@ -674,24 +674,25 @@ GOV02 is the remaining coordinator decision/publication route.
 | RUN08 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: FERAL pre-factor estimate plus post-factor retained enforcement; complete opaque foreign envelopes remain. Partial hooks and redundant pool/sizing adapters are not adopted (I15/I16). |
 | RUN09 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: independent LM criteria/profile identity and effective work caps retain original stationarity/covariance gates; native policy/scientific and current installed Python acceptance. I18 and Outcome. |
 | RUN10 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: actual retained worker handles join through stop and partial construction; fresh/preinitialized-host POUNCE/Symbolica controls preserve scoped ownership without resizing host global pools. Outcome. |
-| BND01 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND02 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND03 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND04 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND05 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| TOOL01 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Catalogue/standalone envelopes implemented; Plan51 generation/build/matching-import evidence credited. Residual direction/version and boundary-schema mismatch acceptance at the owner. |
-| TOOL02 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Rust conformance owner/generated Python loader implemented; remaining selected defaults/path/strictness/coverage journeys, not owner migration. |
-| TOOL03 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Rust launch owner/thin Python adapter implemented; remaining actual ACK/timeout/cancel/log-drain command acceptance. |
-| TOOL04 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Generated maintenance/supervisor route implemented; credit Plan51 host and selected recovery evidence, complete uncovered live generation/replay/refusal/protection controls. |
-| TOOL05 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Product contracts/internal tooling split implemented; credit Plan51 consumers/builds, reconcile uncovered capture/detail/review/CLI behavior. |
+| BND01 | done | [49f](49f-python-and-scientific-boundaries.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| BND02 | done | [49f](49f-python-and-scientific-boundaries.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| BND03 | done | [49f](49f-python-and-scientific-boundaries.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| BND04 | done | [49f](49f-python-and-scientific-boundaries.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| BND05 | done | [49f](49f-python-and-scientific-boundaries.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL01 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL02 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL03 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL04 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL05 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
 | TOOL06 | done — retain hub and internal tooling module | [49g](49g-contracts-maintenance-and-tooling.md) | Two actual steady/fit and bounded-lifetime inquiry controls passed; no replacement substrate or separate crate selected. |
-| TOOL07 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Statrs rationale and I24 purpose/retirement implemented; remaining documentation/disposition reconciliation joins QUAL05 publication, with no new code change established. |
-| TOOL08 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md#tool08--bounded-graph-explanations) | Typed API/catalogue/operator consumer implemented and selected controls passed. Strict native examined-edge/work bound remains; output/deadline bounds do not close it. |
-| QUAL01 | in-progress | [49h](49h-qualification-and-design-publication.md) | Reconcile actual Plan49/50/51 evidence and current consumers before selecting uncovered or invalidated conditions; no blanket package closure. |
-| QUAL02 | proposed | [49h](49h-qualification-and-design-publication.md) | Remaining short public Rust/Python/CLI connections after crediting existing assembled journeys, including affected Plan51 consumers. |
-| QUAL03 | proposed | [49h](49h-qualification-and-design-publication.md) | Remaining live maintenance/durability/fault/native-query conditions; reuse sixteen-owner/current recovery evidence, investigate startup/metric limits only where acceptance requires. |
-| QUAL04 | proposed | [49h](49h-qualification-and-design-publication.md) | Uncovered or changed scientific/BND/TOOL/conformance connections; independent provenance/PSD/physical/numerical qualification remains. |
+| TOOL07 | done | [49g](49g-contracts-maintenance-and-tooling.md) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| TOOL08 | done | [49g](49g-contracts-maintenance-and-tooling.md#tool08--bounded-graph-explanations) | Implemented and Tested at the [final Outcome](#outcome--remaining-49f49h-2026-10-23), including changed public consumers; original evidence boundaries retained. |
+| QUAL01 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
+| QUAL02 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
+| QUAL03 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
+| QUAL04 | done | [49h](49h-qualification-and-design-publication.md) | Selected evidence reconciliation and composed acceptance at the [final Outcome](#outcome--remaining-49f49h-2026-10-23); no canceled campaign or whole-product claim. |
 | QUAL05 | proposed | [49h](49h-qualification-and-design-publication.md) | Scope-end checks after remaining functional changes, measurements only for retained claims, residual publication and owner-based closeout. |
+
 
 ## Finding dispositions
 
@@ -704,28 +705,28 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 | DA-001 | S11 | resolved — Implemented and Tested | PRE04 | Direct resolved physical identity before algebra; 738 pure and 51 selected scientific/native controls at remaining-scope Outcome. |
 | DA-002 | S11 | resolved — Implemented and Tested | PRE04 | Versioned derivation frames, declared relationships and old-frame refusal; remaining-scope Outcome. |
 | DA-003 | S11 | resolved — Implemented and Tested | PRE02 / PRE04 | Generated grammar/role handles and direct typed producer; rendered/text reconstruction retired. Remaining-scope Outcome. |
-| DA-004 | S04 | open — store portion implemented/tested | STO / BND01 | Store native phases/projections pass; complete shared boundary vocabulary remains BND01. See store Outcome. |
-| DA-005 | S08 | open — proposed route | BND02 / I20 | Physical keyed side inputs; unit resolver is a separate project decision |
+| DA-004 | S04 | resolved — Implemented and Tested | STO / BND01 | Generated vocabulary/identity and native store phase projections exercised through actual Python/Rust consumers, catalogue and version-first controls; final Outcome. |
+| DA-005 | S08 | resolved — Implemented and Tested | BND02 / I20 | Keyed physical side inputs preserve metadata, point/delta conversions, sparse/empty coverage, signed precise time and producer-independent custody; final Outcome. |
 | DA-006 | S07 | resolved — Implemented and Tested | PRE05 / RUN05 | Compiler-owned annotation/view products and deliberate mode distinctions consumed by runtime; compiler/runtime and selected assembled acceptance at 49d–49e Outcome. |
-| DA-007 | S04 | open — store and maintenance implementation present | STO lifecycle / TOOL04 | Native lifecycle and selected Plan51 recovery/host controls credited; uncovered live maintenance replay/refusal/protection acceptance remains TOOL04. |
+| DA-007 | S04 | resolved — Implemented and Tested | STO lifecycle / TOOL04 | Live generated maintenance verifies frozen/exact-input/generation refusals, active protection and 65-guard paged replay through completion; final Outcome. |
 | DA-008 | S05 | resolved — Implemented and Tested | STO typed refusals | Registry-native codes, typed exhaustion and distinct dispatch/cancel/replay/effect controls; unknown/forged errors fail closed. See store Outcome. |
 | DA-009 | S10 | resolved — Implemented and Tested | RUN02 / RUN03 | Discriminant-paired requests/outcomes and typed host/study projection; request/refusal and actual consumer controls at 49d–49e Outcome. |
-| DA-010 | S08 | open — proposed route | BND03 / BND04 | Hydrate/reconcile complete covariance; independent PSD admission |
-| DA-011 | S04 | open — catalogue implemented, residual acceptance | TOOL01 | Direction-aware catalogue/standalone roots and actual matching import exist; generation/build evidence credited, boundary-schema mismatch and remaining direction/version controls stay at TOOL01. |
+| DA-010 | S08 | resolved — Implemented and Tested | BND03 / BND04 | Actual weighted fit covariance content reconciliation, canonical reopen and independent singular/indefinite PSD/propagation controls; final Outcome. |
+| DA-011 | S04 | resolved — Implemented and Tested | TOOL01 | Actual compiled catalogue matching and wrong schema-fingerprint refusal, standalone duplicate/future/missing versions and generated roundtrips; final Outcome. |
 | DA-012 | S03 | resolved — Implemented and Tested | RUN01 / RUN02 / RUN03 | Shared supervisor preserves actual run lifecycle and native drain; strategies remain explicitly nondurable. Final reference and runtime controls at 49d–49e Outcome. |
 | DA-013 | S09 | resolved — Implemented and Tested | PRE05 / RUN05 | Pure predicted-start/fallback owner and complete runtime adoption; explicit-fact policy and actual consumer controls at 49d–49e Outcome. |
 | DA-014 | S09 | resolved — Implemented and Tested | RUN04 / I22 | Selected parameter-valued Fit/Simulation points preserve conversions, starts and fresh ICs; other overlay/session-history additions remain unselected per I22. Outcome. |
 | DA-015 | S10 | resolved — Implemented and Tested | RUN03 | Runtime-owned semantic admission, typed host projection and shared deployment sequence; ingress revalidation and per-host assertions remain. Outcome. |
 | DA-016 | S07 | resolved — Implemented and Tested | RUN06 | Settings-dependent map/recovery seam with authorized starts, scaling and original residual; linked/unlinked actual routing controls. Outcome. |
-| DA-017 | S07 | open — runtime portion Implemented and Tested | RUN06 / TOOL07 | Settings-dependent advertised capability equals actual admitted execution under linked/unlinked controls; broader documentation/tooling reconciliation remains TOOL07. 49d–49e Outcome. |
+| DA-017 | S07 | resolved — Implemented and Tested | RUN06 / TOOL07 | Prior linked/unlinked runtime capability controls retain their scope; selected conformance/command/native support documentation and tooling reconciliation completed at final Outcome. |
 | DA-018 | S07 | resolved — Implemented and Tested | RUN07 / I23 | Declare and retain legitimate Uno integration plus four numerical hunks; named outcomes, SQP-LBFGS and actual FFI/refusal controls pass. I23 and Outcome; no forced method loss. |
-| DA-019 | S04 | open — generated maintenance implemented, residual acceptance | STO lifecycle / TOOL04 | Fresh installation and selected current recovery/activation pass; uncovered live generation/replay/refusal controls remain TOOL04. Historical conversion is superseded. |
-| DA-020 | S10 | open — split implemented, residual consumer acceptance | TOOL05 / I21 | Product selection/detail contracts and internal tooling split exist; Plan51 covers selected consumers. Uncovered review/capture/CLI behavior remains; I21 retains hub/no new crate. |
+| DA-019 | S04 | resolved — Implemented and Tested | STO lifecycle / TOOL04 | Live generated page/generation/replay/protection/refusal controls pass; historical conversion remains superseded by fresh regeneration. Final Outcome. |
+| DA-020 | S10 | resolved — Implemented and Tested | TOOL05 / I21 | Actual source ACK/drain/cancel/timeout, capture/query/detail, protected selection and relocated offline CLI review consumers pass. Internal module/hub retained. Final Outcome. |
 | DA-021 | S10 | resolved — Implemented and Tested | RUN03 | Complete LM eligibility and staged covariance withholding consume explicit actual inputs; six Runtime-free tables plus thirteen retained adapter/scientific controls pass. 49d–49e Outcome. |
 | DA-022 | S01 | resolved — Implemented and Tested | PRE01 / RUN08 / I06 / I16 | Exclusive owned Salsa accounting/shared census and native FERAL pre/post enforcement exercised; complete opaque envelopes retained. Known allocation accounting is not RSS or complete allocator-hook coverage. Outcome. |
 | DA-023 | S04 | open — residual publication | TOOL07 / QUAL05 | Prior Plan49 publication and Plan51 revision255 retain their scope; reconcile only remaining implemented contracts/support limits through the decision route. |
 | DA-024 | S10 | resolved — Implemented/source-inspected | TOOL07 / I24 | Native-child has the selected bounded provider-free exploration purpose; unused pse.canon.v2 engine/API/tests are removed, shared identity/allocation helpers retained. Blueprint §20 and current source; post-Plan51 reconciliation below. |
-| DA-025 | S05 / S06 | open — store/result portions Implemented and Tested | STO / RES / TOOL04 | Necessary participants retained; locator writes/collection removed and protected retirement exercised. Generated operator route exists; uncovered live maintenance/protection acceptance remains TOOL04. |
+| DA-025 | S05 / S06 | resolved — Implemented and Tested | STO / RES / TOOL04 | Prior store/result corrections plus live generated maintenance protection, paged replay and exact completion pass; necessary guards retained. Final Outcome. |
 | DA-026 | S06 | resolved — Implemented and Tested | RES01–RES06 | Exact batch summaries and conservative native pruning/residual replace scalar locator writes; selected assembled acceptance and current complete-operation measurement at remaining-scope Outcome, without comparative speed claim. |
 | DA-027 | S11 | resolved — Implemented and Tested | PRE04 / MAT01–MAT05 | Direct resolved bodies and demanded library regions remove text re-expansion; five derivative products, interpreted/C++ and selected physical/public consumers pass. Outcome. |
 | DA-028 | S11 | resolved — Implemented and Tested | MAT01–MAT05 / I11 | Guarded joint regional/alias realization and independent product/action checks pass; no universal expansion magnitude, speed or RSS claim. MAT Outcome and I11–I13/I25. |
@@ -742,7 +743,8 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 | F07 | S04 | resolved — Implemented and Tested | STO graph/access | Consumers use native records/ranges/graphs; direct CRUD key/id/u64 and access-plan controls precede redundant key-index removal. Engine scans remain distinct from page bounds. |
 | F08 | S04 | resolved — Implemented/source-inspected | TOOL07 | Cargo.toml already explains egobox-moe feature unification and absence of crossing nalgebra types; no family upgrade or further note correction required. |
 | F09 | S01 / S02 | resolved — Implemented and Tested | PRE01 | Finite production-default live-set/backdating retention, churn/oversize and complete reference body coverage; remaining-scope Outcome. |
-| F10 | S08 | open — proposed route | BND03 / BND04 | Content-sensitive fit provenance; indefinite refused and singular PSD admitted |
+| F10 | S08 | resolved — Implemented and Tested | BND03 / BND04 | Genuine retained/canonical fit contents cannot be altered under their run identity; external singular PSD accepted, indefinite matrix refused on actual Arrow consumption. Final Outcome. |
+
 
 ## Inquiry outcomes
 
@@ -772,7 +774,7 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I17 | resolved — fresh sessions | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
 | I18 | resolved — fixed independent criteria | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon, independently of physical stationarity and covariance qualification. Five actual LM controls passed, including the original-policy comparison and cosine/stationarity disagreement; retained public result reopening also passed. | Keep exact profile/replay identity and effective work caps. Selected native/scientific and public Python acceptance passes at the 49d–49e Outcome; broader QUAL scope remains separate. No public tuning knobs or speed claim. |
 | I19 | resolved — identical selected catalogues | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Actual default and linked-native force-validated extensions share the generated catalogue identity; future exported-shape variation must generate its actual identity. No all-feature-powerset claim. |
-| I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
+| I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 public integration and selected qualification pass at the final Outcome. |
 | I21 | resolved — retain hub and internal module | TOOL06 | Actual no-layer/current-hub/candidate-layer steady and fit results/covariance agree bitwise. Attributed spans reach the candidate, but the actual native.worker phase has no corresponding candidate span; bounded state drains on completion, future drop and panic. A separate tooling crate would currently require a runtime/catalogue dependency seam; no independent build benefit is established. | No Layer substrate or new crate adoption. Keep the current hub and corrected internal dependency boundary; no speed or overhead improvement is claimed. |
 | I22 | resolved — no additional adoption | RUN04 / MAT06 | Reached Simulation/Fit overlays are parameter-valued; typed point replacement does not define IC constraints, schedule topology or observation provenance. Existing IDAReInit/IDASensReInit and bounded neutral storage reuse are already consumed. Current structural scopes already serve their reached consumers. | Retain those paths. Revisit a named new input meaning or measured compatible setup burden, with separate identity/history decisions and fresh-contract reset controls. No universal bit equivalence or performance benefit is established. |
 | I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
@@ -1742,7 +1744,7 @@ graph queries and a test-only exact-source scanner probe. The root owns catalogu
 conformance/launch/maintenance/review acceptance, shared declarations/generation, integration,
 qualification and publication. Separate worktrees isolate concurrent writers; targets remain
 checkout-local. Sixteen compiler jobs and existing production resource/admission contracts
-remain unchanged. Root-owned unrelated `history.txt` edits are excluded from this work.
+remain unchanged. Maintainer-owned unrelated `history.txt` edits are excluded from this work.
 
 Functional changes receive targeted checks and discrete commits. Existing typed envelopes,
 covariance policy, graph identities/cursors and canonical owners are preserved. No production
@@ -1750,3 +1752,86 @@ engine instrumentation, new schema, configuration/Z3 feature, historical convers
 native sweep is selected. 49h owns final scientific/operator joins and scope-end checks after
 all functional scope is integrated. Implementation and acceptance results will be recorded in
 the existing package/Outcome owners rather than inferred from assignment completion.
+
+
+## Outcome — remaining 49f–49h, 2026-10-23
+
+**Implemented:** all selected BND01–BND05 and TOOL01–TOOL08 contracts, with QUAL01's
+post-Plan51 evidence reconciliation applied before additional execution. Existing enum,
+identity, physical conversion/custody, covariance/PSD, catalogue, conformance, launch and
+maintenance owners were retained. New acceptance exercises their actual public consumers.
+The graph query now uses a named compound-index equality/seek range with an exclusive
+continuation and a literal page-plus-one cap, and strictly decodes every returned edge,
+including its sentinel. Native version-1 request/response fields keep product transport
+independent of runtime/tooling envelopes. There is no second query or production engine patch.
+
+**Tested, selected assembled acceptance:** Linux, pinned nightly, 16 compiler jobs, explicit
+Arrow force-validation and the actual linked native Python extension. Every executed check
+has a zero-failure target. Earlier failed commands retain their original results; the
+following repaired selections compose the final evidence rather than rewriting those runs.
+The canonical deployment is SurrealDB 3.3.4/MX1.0, with the production Surrealism module's
+1s/64MiB/pool-4 profile. Correctness selection widths below are distinct from compiler jobs.
+
+| Command/mode and selected scope | Actual result and evidence boundary |
+| --- | --- |
+| `scripts/pse-env --resource-class build --native -- .venv/bin/python scripts/select.py --features pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-operations/canonical-tests,pse-operations/canonical-maintenance unit pse-runtime` with `-p pse-operations`, the boundary/conformance/launch/PSD/covariance/physical/review/capture/graph/maintenance filter and `--test-threads 4` | Original 73-case selection: **70 passed, 3 failed**, 1,828 skipped. The failures were two graph numeric-limit plan assertions and a repeated dense-fixture source operation ID. Receipt `0aacb7791611466087bdb977a7cdc3e2`; exact emitted nextest selection and failures remain in `/tmp/pse49fgh-rust-acceptance-open-service.log`. |
+| `scripts/select.py --features pse-operations/canonical-tests,pse-operations/canonical-maintenance unit pse-operations` selecting `canonical_explanations::tests` plus the exact three failed `canonical_graph_explanation_*` tests, `--test-threads 3`, under the same build/native environment | **9 passed, 0 failed**, 352 skipped: all three corrected live controls and six pure graph controls. Receipt `ad7c252823764b5282ceda2afd35e00f`, `/tmp/pse49fgh-graph-acceptance-rerun.log`. This closes the selected 73-case scope by composition, not by claiming a fresh all-green 73-case command. |
+| Actual frozen `canonical-tools` operator graph command during its live fixture, emitted with `reference_run.freeze_initializer` | Required version-first request accepted; versioned retained-consumer response, exact original edges and native plan observations retained in `build/plan49fgh-operator-qualified/`. Final standalone build passed with zero warnings. |
+| `native_tests.python_command` composed with `test_run.run_python`, selecting scientific/physical boundary, standalone documents, value hooks, native-boundary and modeling-kernel conformance controls in native-local mode | **32 passed, 0 failed**, 4.54s, receipt `d2205e99ec254c4a9607c08deab011e0`. Exact selected node inventory remains in that product receipt; log `/tmp/pse49fgh-python-boundary-acceptance.log`. No canonical-store assertion is inferred from these ephemeral controls. |
+| Same native-local composition, `test_scientific_boundary_adoption.py -m integration -n0 -q` after the single-target revision fixture repair | **3 passed, 0 failed**, 1 deselected, 1.08s, receipt `c5de63e4c85047069f0e2107d3d915e5`; `/tmp/pse49fgh-python-covariance-ephemeral-final.log`. Real weighted fit, independent inverse normal matrix and downstream JΣJᵀ, edited genuine-fit contents, retained custody, external singular PSD, consumed indefinite refusal and withheld covariance all pass. |
+| `scripts/pse-env --resource-class build --native=solver,klu --store -- env PYTEST_DEBUG_TEMPROOT="$PWD/build/plan49fgh-pytest-temp" .venv/bin/python -m scripts.native_tests python --junitxml=build/plan49fgh-python-covariance-final/report.xml python/pse/tests/test_scientific_boundary_adoption.py -m component -n0 -q` | **1 passed, 0 failed**, 3 deselected, 41.80s: actual canonical fit, runtime reopen, exact covariance content, downstream propagation, wrong attempt and tampered matrix/order/units/scales refusal. Receipt `cb78e1c03cba4d53a64259a864e2056f`. Earlier canonical selection passed the other two public CLI/protected-selection journeys and failed this fixture on stale-head CAS; receipt `10e88554ec28433981e72b1d6a874ff3`. |
+| `python -m scripts.python_tests python/pse/tests/test_review_workflows.py --unit-only -n4 -q`, through `scripts/pse-env`, pinned Python | **12 passed, 0 failed**, 5.92s, receipt `d5716de7776c41cf9dda444705210163`: actual source ACK/noncooperation, timeout/cancel, bounded logs/output, relocated offline review and live source handoff. |
+| `.venv/bin/python -m unittest scripts.tests.test_surrealkit_maintenance scripts.tests.test_surreal_scan_budget_probe`, through light `scripts/pse-env` | **43 passed, 0 failed**, 5.007s, `/tmp/pse49fgh-maintenance-host-final.log`; supervisor/maintenance orchestration and exact-source probe-runner safety. This host result is distinct from the live generated maintenance control above. |
+| Exact copied pinned native source, `cargo test --locked --no-default-features --features kv-mem --package surrealdb-core --lib --jobs 16` and exact `exec::index::iterator::btree::tool08_probe::tool08_compound_range_scan_stops_at_entry_budget -- --exact --nocapture` | **1 passed, 0 failed**, 3,325 filtered, 1.15s test time. OWNER and VIEWER each return exact index-entry budgets: 65→65; 1,001→1,000+1; uncapped→2,400 with an empty final batch. Source snapshot, test-only patch, native-file equivalence, full command and independent expected identities remain in `/home/paul/.cache/pse-arrow/tool08-scan-probe-20261023-b/probe.json` and `probe.log`. Not a whole deployed-binary equivalence or disk/MVCC/latency measurement. |
+
+The physical public selection admits sparse/reordered/empty streams with full C metadata,
+converts noncanonical units, snapshots producer-mutated buffers and exercises primal starts,
+initialization stages, diagnostics and all three simulation controls. Signed −2e−7..2e−7 time,
+a 1ns initial step and independent strict state/terminal integral checks pass. Catalogue tests
+independently reject a wrong document-schema fingerprint with valid version/relation identity.
+Canonical graph tests exercise all seven scopes, first/later/empty pages, 1/64 limits,
+isolates/parallel edges, protected sources, corrupt sentinels and stale continuations under
+actual root roles. Maintenance crosses 65 guards, generation handoff, lost acknowledgments,
+exact replay and terminal completion while preserving active payload protection.
+
+### Mistakes corrected and deliberate deviations
+
+The first graph roots lacked their own native version field despite catalogue registration;
+actual boundary tests caught this. Direct `Version<1>` fields and product-owned decoding
+preserve the small standalone tooling build. The parameterized graph cap produced `$maximum`
+in EXPLAIN; a bounded literal integer aligns production planning with the exact-source probe.
+Dense source edits now use unique immutable operation IDs. No endpoint or cursor check was
+weakened. Python fixtures initially confused lazy Arrow-provider construction with stream
+consumption, selected an integral control by ambiguous authored-name lineage and republished
+an objective-free parent after canonical head advancement. They now consume the actual
+projection, select the declared parameter role and create one target revision per journey;
+CAS and scientific reconciliation remain unchanged. Scope-end Ruff/license findings were
+repaired at their source rather than ignored.
+
+The current source-generation hash required rebuilding the supported server after a
+comment-only Cargo-config change. The verified retained supervisor stopped the old process;
+21 authenticated abandoned fixture lifetimes were drained using the supported owner route.
+Original failed/incomplete SQL dispositions and pins remain unchanged. Authorized fresh
+regeneration replaced generated service data, then the production module and current schema
+were readmitted. No historical logical effect was labeled successful by cleanup.
+
+QUAL01 deliberately credits original 49a–49e and Plan50/51 evidence at its actual conditions:
+SSI/persistence/transport faults and sixteen-owner physical drain were not repeated, and the
+canceled native sweep remains canceled. New scientific and operator joins cover changed
+connections. No quantitative benefit claim requires a fresh benchmark. No configuration/Z3
+feature, new tracing substrate/crate, projected receiving decoder or second canonical protocol
+was added. Necessary native guards, original clocks, full protected admission and legitimate
+solver integration remain. This closes the selected Plan49 scope without claiming fresh
+whole-product/parity, release-wheel, new-platform, exhaustive feature-matrix, disk-I/O,
+latency, RSS, throughput or broad scientific certification. Plans28/32/40 keep independent work;
+RC23 remains unselected and ADR-0214/0215 remain formally proposed.
+
+### Scope-end checks and publication
+
+**Tested:** `just hygiene` completed every stage. Default/no-default Clippy, Pyrefly, generator
+equivalence and Rust docs passed. Its original failure was `lint-license` and six Ruff
+findings; `just lint-license lint-py typecheck` then passed with zero diagnostics from the
+changed sources (the type checker reports three existing configured suppressions, not errors).
+The native workspace Clippy command additionally selected canonical tests/maintenance and
+passed with zero warnings. Final affected feature, governance and book results follow here
+before release of this owner.
