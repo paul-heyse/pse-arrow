@@ -423,6 +423,24 @@ fn text(row: &mut Object, name: &'static str) -> Result<String, CanonicalError> 
 }
 
 impl CanonicalStore {
+    /// Temporarily withhold only a registered disposable database's sealed payload instances.
+    /// Tests exercise genuine missing-file reads; the original directory is restored on return or drop.
+    #[cfg(any(test,feature="test-support"))]
+    pub async fn with_unavailable_fixture_payloads<F:std::future::Future>(&self,future:F)->Result<F::Output,CanonicalError> {
+        if !self.database().starts_with("canonical_test_") || self.fixture_lifetime.is_none() {return Err(configuration("payload withholding requires a registered isolated fixture"));}
+        struct Restore {original:PathBuf,withheld:PathBuf,restored:bool}
+        impl Restore {
+            fn restore(&mut self)->Result<(),CanonicalError> {std::fs::rename(&self.withheld,&self.original).map_err(configuration)?;self.restored=true;Ok(())}
+        }
+        impl Drop for Restore {fn drop(&mut self){if !self.restored {let _=std::fs::rename(&self.withheld,&self.original);}}}
+        let original=self.files.root.join("instances");
+        if !std::fs::symlink_metadata(&original).map_err(configuration)?.file_type().is_dir() {return Err(configuration("fixture sealed-instance path is not an ordinary directory"));}
+        let withheld=self.files.root.join(format!(".withheld-{}",uuid::Uuid::new_v4()));
+        std::fs::rename(&original,&withheld).map_err(configuration)?;
+        let mut restore=Restore{original,withheld,restored:false};
+        let outcome=future.await;restore.restore()?;Ok(outcome)
+    }
+
     pub(crate) async fn registered_file_owner(&self) -> Result<String, CanonicalError> {
         self.files.require_current()?;
         let mut owner = self.files.owner.lock().await;
