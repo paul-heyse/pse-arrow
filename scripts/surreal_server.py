@@ -6744,18 +6744,19 @@ def application_inventory_query(table: str, after: str) -> str:
         raise SupervisorError("Unknown application backup inventory owner")
     # Key and digest bind every original row, including opaque authored bytes. The
     # reference projection is explanatory only and never a new owner of those bytes.
-    fields = json.dumps([
+    fields = (
         "project", "draft", "branch", "version", "base_revision", "problem",
         "revision", "run", "attempt", "artifact", "dataset", "selection",
         "owner", "owner_kind", "generation", "state", "phase", "activated",
         "closed", "abandoned", "cleanup_complete", "terminal", "active",
         "complete", "retired", "retiring",
-    ])
+    )
+    projection = "{" + ",".join(f"{field}:$row.{field}" for field in fields) + "}"
     return (
         f"LET $rows=SELECT * FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "  # noqa: S608 -- fixed owner allowlist, JSON cursor
         "RETURN $rows.map(|$row| { {key:$row.key,"
         "sha256:crypto::sha256(<string>object::remove($row,['id'])),"
-        f"references:<string>object::pick($row,{fields})" + "} });"
+        f"references:<string>{projection}" + "} });"
     )
 
 
@@ -6798,7 +6799,7 @@ def capture_application_inventory(
                 rows.append(row)
                 after = key
         tables[table] = rows
-    result = {"version": 1, "issuing_store": marker, "tables": tables}
+    result: dict[str, object] = {"version": 1, "issuing_store": marker, "tables": tables}
     validate_application_inventory(result)
     return result
 
@@ -6821,11 +6822,12 @@ def validate_application_inventory(value: object) -> dict[str, object]:
         for raw in value:
             row = object_mapping(raw)
             key = row.get("key")
+            digest = row.get("sha256")
             if (
                 set(row) != {"key", "sha256", "references"}
                 or not isinstance(key, str) or not key or key <= after
-                or not isinstance(row.get("sha256"), str)
-                or re.fullmatch(r"[a-f0-9]{64}", str(row["sha256"])) is None
+                or not isinstance(digest, str)
+                or re.fullmatch(r"[a-f0-9]{64}", digest) is None
                 or not isinstance(row.get("references"), str)
             ):
                 raise SupervisorError("Backup application row commitment is invalid")
