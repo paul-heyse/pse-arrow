@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [agent-effectiveness review](agent-effectiveness-opportunities-2026-10-23.md) explores
+reasoning and source context, semantic editing, behavioral/scientific verification, execution,
+local research and operator interfaces on the completed Plans50–51 foundation. Its recommendations
+and rule questions are proposals, with free-to-run local tooling as the selected constraint;
+they authorize no installation or implementation.
+
 The [SurrealKV and SurrealMX review](surrealkv-surrealmx-functional-extensions-2026-10-22.md)
 explores project, scientific-data, evidence-analysis, storage-topology and delivery capabilities.
 Its opportunities are proposals; the [Plan51 coordinator](../plans/51-engineering-workspaces-and-evidence.md)
