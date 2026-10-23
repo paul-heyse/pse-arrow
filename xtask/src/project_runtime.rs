@@ -4,7 +4,7 @@
 use anyhow::{Context, Result, ensure};
 use clap::Args;
 use pse_operations::{canonical::CanonicalStore, canonical_projects::{Project,Branch,Draft,ProjectPublication,DraftVersion}, canonical_contexts::{ContextCut,ContextSelection}};
-use pse_runtime::{SharedRuntime,CancelSource,workflow::{Runtime,CanonicalDeployment,OuterAttestation,ModelingPackage,PhysicalContext,ProjectDraftDocuments,ProjectDraftSaveIntent,ProjectMergeIntent,ProjectMergeResolution,PreparationDiscoveryRequest}};
+use pse_runtime::{SharedRuntime,CancelSource,workflow::{Runtime,CanonicalDeployment,OuterAttestation,ModelingPackage,PhysicalContext,ProjectDraftDocuments,ProjectSelectRequest,ProjectSelection,ProjectDraftSaveIntent,ProjectMergeIntent,ProjectMergeResolution,PreparationDiscoveryRequest}};
 use serde::{Deserialize,Serialize};
 use std::{collections::BTreeMap,path::PathBuf,sync::Arc,time::Instant,io::Read};
 
@@ -32,6 +32,8 @@ struct Request {
 enum Action {
     Import { documents:ProjectDraftDocuments },
     Load { revision:String },
+    Select { request:ProjectSelectRequest },
+    OpenSelection { selection:ProjectSelection },
     Fork { project:Project,branch:String,problem:String,operation:String,source:String },
     DraftRead { key:String },
     DraftIssue { operation:String,project:Project,branch:Branch,key:String,base:String,expected:Option<u64>,input:PathBuf },
@@ -51,6 +53,7 @@ enum Action {
     ContextCut { project:String },
     ContextSelect { cut:ContextCut,scope:String,effective_at_us:i64 },
     ContextLoad { selection:ContextSelection },
+    ContextReopen { selection:ContextSelection },
     PreparationDiscovery { revision:String,request:PreparationDiscoveryRequest },
 }
 macro_rules! field {
@@ -106,32 +109,35 @@ pub(crate) async fn run(store:&CanonicalStore,args:RuntimeArgs,deadline:Instant)
     let signal_cancel=cancel.clone();let signal=tokio::spawn(async move{if tokio::signal::ctrl_c().await.is_ok(){signal_cancel.cancel();}});
     let result:Result<serde_json::Value>=async {
         let runtime=&runtime;let shared=&shared;let cancel=&cancel;
-        let physical=if let Some(input)=request.physical {Some(runtime.physical_from_documents(&documents(&runtime,&shared,&input,&cancel)?,&cancel.token()).await?)}else{None};
+        let physical=if let Some(input)=request.physical {Some(runtime.physical_from_documents(&documents(runtime,shared,&input,cancel)?,&cancel.token()).await?)}else{None};
         // Erase each operation's deeply nested source/preparation future separately.
         // A generic action must not reserve every workflow's stack frame at once.
         let operation:std::pin::Pin<Box<dyn Future<Output=Result<serde_json::Value>>+'_>>=match request.action {
-            Action::Import{documents:input}=>boxed(shared,async move { package(&runtime.modeling_from_documents(&documents(&runtime,&shared,&input,&cancel)?,require_physical(&physical)?,&cancel).await?) })?,
-            Action::Load{revision}=>boxed(shared,async move { package(&selected(&runtime,store,&revision,&physical).await?) })?,
-            Action::Fork{project,branch,problem,operation,source}=>boxed(shared,async move { {let source=selected(&runtime,store,&source,&physical).await?;value(runtime.project_fork(&project,&branch,&problem,&operation,&source).await?.key)} })?,
-            Action::DraftRead{key}=>boxed(shared,async move { value(runtime.project_draft_bytes(&key,&cancel).await?.to_vec()) })?,
+            Action::Import{documents:input}=>boxed(shared,async move { package(&runtime.modeling_from_documents(&documents(runtime,shared,&input,cancel)?,require_physical(&physical)?,cancel).await?) })?,
+            Action::Load{revision}=>boxed(shared,async move { package(&selected(runtime,store,&revision,&physical).await?) })?,
+            Action::Select{request}=>boxed(shared,async move { value(runtime.project_select(&request,require_physical(&physical)?,cancel).await?) })?,
+            Action::OpenSelection{selection}=>boxed(shared,async move { package(&runtime.project_open_selection(&selection,require_physical(&physical)?,cancel).await?) })?,
+            Action::Fork{project,branch,problem,operation,source}=>boxed(shared,async move { {let source=selected(runtime,store,&source,&physical).await?;value(runtime.project_fork(&project,&branch,&problem,&operation,&source).await?.key)} })?,
+            Action::DraftRead{key}=>boxed(shared,async move { value(runtime.project_draft_bytes(&key,cancel).await?.to_vec()) })?,
             Action::DraftIssue{operation,project,branch,key,base,expected,input}=>boxed(shared,async move { {let content=bytes(&input,args.memory_limit_bytes/4)?;value(runtime.project_draft_save_intent(&operation,&project,&branch,&key,&base,expected,&content).await?)} })?,
             Action::DraftSave{intent,input}=>boxed(shared,async move { {let content=bytes(&input,args.memory_limit_bytes/4)?;value(runtime.project_save_draft_intent(&intent,&content).await?)} })?,
-            Action::DraftAdmit{operation,key}=>boxed(shared,async move { package(&runtime.project_admit_draft(&operation,&key,require_physical(&physical)?,&cancel).await?) })?,
-            Action::DraftAdmitVersion{version}=>boxed(shared,async move { package(&runtime.project_admit_draft_version(&version,require_physical(&physical)?,&cancel).await?) })?,
+            Action::DraftAdmit{operation,key}=>boxed(shared,async move { package(&runtime.project_admit_draft(&operation,&key,require_physical(&physical)?,cancel).await?) })?,
+            Action::DraftAdmitVersion{version}=>boxed(shared,async move { package(&runtime.project_admit_draft_version(&version,require_physical(&physical)?,cancel).await?) })?,
             Action::PublicationIssue{project,branch,expected,draft,operation}=>boxed(shared,async move { value(store.project_publication_intent(&project,&branch,&expected,draft.as_ref(),&operation)?) })?,
-            Action::DraftPublish{intent}=>boxed(shared,async move { package(&runtime.project_publish_draft(&intent,require_physical(&physical)?,&cancel).await?) })?,
-            Action::Compare{left,right,source_only,right_physical}=>boxed(shared,async move { {let left=selected(&runtime,store,&left,&physical).await?;let right_physical=if let Some(input)=right_physical {Some(runtime.physical_from_documents(&documents(&runtime,&shared,&input,&cancel)?,&cancel.token()).await?)}else{physical.clone()};let right=selected(&runtime,store,&right,&right_physical).await?;if source_only{value(left.project_compare_source(&right,&cancel).await?)}else{value(left.project_compare(&right,&cancel).await?)}} })?,
-            Action::SourceDetail{revision,logical}=>boxed(shared,async move { {let source=selected(&runtime,store,&revision,&physical).await?;value(source.project_source_detail(&logical,&cancel).await?)} })?,
-            Action::MergePreview{base,target,proposal,resolutions}=>boxed(shared,async move { {let base=selected(&runtime,store,&base,&physical).await?;let target=selected(&runtime,store,&target,&physical).await?;let proposal=selected(&runtime,store,&proposal,&physical).await?;value(runtime.project_merge_preview(&base,&target,&proposal,&resolutions,&cancel).await?)} })?,
-            Action::MergeIssue{publication,base,target,proposal,resolutions}=>boxed(shared,async move { {let base=selected(&runtime,store,&base,&physical).await?;let target=selected(&runtime,store,&target,&physical).await?;let proposal=selected(&runtime,store,&proposal,&physical).await?;value(runtime.project_merge_intent(publication,&base,&target,&proposal,resolutions,&cancel).await?)} })?,
-            Action::MergeDraftIssue{publication,base,target,version,resolutions}=>boxed(shared,async move { {let base=selected(&runtime,store,&base,&physical).await?;let target=selected(&runtime,store,&target,&physical).await?;value(runtime.project_merge_draft_intent(publication,&base,&target,&version,resolutions,&cancel).await?)} })?,
-            Action::MergePublish{intent}=>boxed(shared,async move { package(&runtime.project_publish_merge(&intent,require_physical(&physical)?,&cancel).await?) })?,
-            Action::UndoIssue{publication,target,restore}=>boxed(shared,async move { {let target=selected(&runtime,store,&target,&physical).await?;let restore=selected(&runtime,store,&restore,&physical).await?;value(runtime.project_undo_intent(publication,&target,&restore,&cancel).await?)} })?,
-            Action::ContextRecord{operation,project,scope,revision,effective_from_us,effective_to_us,corrects,deleted}=>boxed(shared,async move { {let source=selected(&runtime,store,&revision,&physical).await?;value(runtime.project_record_context(&operation,&project,&scope,&source,effective_from_us,effective_to_us,corrects.as_deref(),deleted).await?)} })?,
+            Action::DraftPublish{intent}=>boxed(shared,async move { package(&runtime.project_publish_draft(&intent,require_physical(&physical)?,cancel).await?) })?,
+            Action::Compare{left,right,source_only,right_physical}=>boxed(shared,async move { {let left=selected(runtime,store,&left,&physical).await?;let right_physical=if let Some(input)=right_physical {Some(runtime.physical_from_documents(&documents(runtime,shared,&input,cancel)?,&cancel.token()).await?)}else{physical.clone()};let right=selected(runtime,store,&right,&right_physical).await?;if source_only{value(left.project_compare_source(&right,cancel).await?)}else{value(left.project_compare(&right,cancel).await?)}} })?,
+            Action::SourceDetail{revision,logical}=>boxed(shared,async move { {let source=selected(runtime,store,&revision,&physical).await?;value(source.project_source_detail(&logical,cancel).await?)} })?,
+            Action::MergePreview{base,target,proposal,resolutions}=>boxed(shared,async move { {let base=selected(runtime,store,&base,&physical).await?;let target=selected(runtime,store,&target,&physical).await?;let proposal=selected(runtime,store,&proposal,&physical).await?;value(runtime.project_merge_preview(&base,&target,&proposal,&resolutions,cancel).await?)} })?,
+            Action::MergeIssue{publication,base,target,proposal,resolutions}=>boxed(shared,async move { {let base=selected(runtime,store,&base,&physical).await?;let target=selected(runtime,store,&target,&physical).await?;let proposal=selected(runtime,store,&proposal,&physical).await?;value(runtime.project_merge_intent(publication,&base,&target,&proposal,resolutions,cancel).await?)} })?,
+            Action::MergeDraftIssue{publication,base,target,version,resolutions}=>boxed(shared,async move { {let base=selected(runtime,store,&base,&physical).await?;let target=selected(runtime,store,&target,&physical).await?;value(runtime.project_merge_draft_intent(publication,&base,&target,&version,resolutions,cancel).await?)} })?,
+            Action::MergePublish{intent}=>boxed(shared,async move { package(&runtime.project_publish_merge(&intent,require_physical(&physical)?,cancel).await?) })?,
+            Action::UndoIssue{publication,target,restore}=>boxed(shared,async move { {let target=selected(runtime,store,&target,&physical).await?;let restore=selected(runtime,store,&restore,&physical).await?;value(runtime.project_undo_intent(publication,&target,&restore,cancel).await?)} })?,
+            Action::ContextRecord{operation,project,scope,revision,effective_from_us,effective_to_us,corrects,deleted}=>boxed(shared,async move { {let source=selected(runtime,store,&revision,&physical).await?;value(runtime.project_record_context(&operation,&project,&scope,&source,effective_from_us,effective_to_us,corrects.as_deref(),deleted).await?)} })?,
             Action::ContextCut{project}=>boxed(shared,async move { value(store.project_context_cut(&project).await?) })?,
             Action::ContextSelect{cut,scope,effective_at_us}=>boxed(shared,async move { value(store.select_project_context(&cut,&scope,effective_at_us).await?) })?,
-            Action::ContextLoad{selection}=>boxed(shared,async move { package(&runtime.project_context_package(&selection,require_physical(&physical)?,&cancel).await?) })?,
-            Action::PreparationDiscovery{revision,request}=>boxed(shared,async move { {let source=selected(&runtime,store,&revision,&physical).await?;value(source.preparation_discovery(&request,&cancel).await?)} })?,
+            Action::ContextLoad{selection}=>boxed(shared,async move { package(&runtime.project_context_package(&selection,require_physical(&physical)?,cancel).await?) })?,
+            Action::ContextReopen{selection}=>boxed(shared,async move { package(&runtime.project_context_reopen(&selection,cancel).await?) })?,
+            Action::PreparationDiscovery{revision,request}=>boxed(shared,async move { {let source=selected(runtime,store,&revision,&physical).await?;value(source.preparation_discovery(&request,cancel).await?)} })?,
         };
         operation.await
     }.await;
