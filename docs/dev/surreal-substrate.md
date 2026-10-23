@@ -131,6 +131,82 @@ derived index. Original test terminals, resources and scientific results remain 
 their existing owners. These operations do not refresh or repair those sources.
 Unavailable service/index leaves supplied-only snapshot inspection usable.
 
+### Research versions, study workbench and selected evidence
+
+The ordinary Rust/Python `Runtime` supplies `research_dataset_create`,
+`research_selection_create`, `research_read`, and explicit protected dataset/selection opening.
+A dataset contains references to admitted typed objects, not another measurement payload copy.
+Raw, curated and derived versions keep their parents. Calibration selects actual authored
+value and standard-uncertainty derivations; a missing sigma stays unknown and cannot enter an
+included weighted fit. Python `modeling_from_documents` accepts original package-data Parquet
+bytes alongside authored text. The CLI `import_files` action names explicit `packages` and
+`physical_packages` directories and uses the same declared-path package loader and admission;
+it does not guess CSV columns or scan other directories.
+
+Open the frozen research selection before preparing its fit. `research_publication_preview`
+selects an exact sealed run/attempt and explicit scalar-parameter mappings, reads the original
+qualified fitted cells, and returns an admitted source delta plus an immutable publication
+intent. Retain that intent for `research_publish`, including through uncertain responses.
+Publication preserves authored declarations and checks full quantity/unit meaning, explicit
+bounds, original fit ancestry and source-head CAS. It retains result protection through source
+activation. Withheld covariance remains withheld; it does not erase an independently eligible
+point estimate. `research_publication_open` returns the new parameter source with ancestry for
+an ordinary downstream study.
+
+`study_workbench_page` browses compact indexed headers. `freeze_study_cohort` captures complete
+bounded membership in one native snapshot (at most64 studies and128 occurrences), refusing
+excess rather than truncating analysis. Project filtering currently admits at most64 branch
+owners; select a branch/source to narrow a larger project. A frozen document does not grant
+payload lifetime: `FrozenStudyCohort.result` reopens its exact original protected selection.
+`aggregate` selects registered physically typed outputs, currently including simulation samples,
+and compares actual quantity/unit meaning across compatible physical closures. Missing, failed
+and unattempted occurrences remain in the denominator and unavailable inventory. Relations
+without complete physical output meaning refuse aggregation.
+
+Research dataset/selection filters select consumed ancestry. A publication operation key selects
+the exact published parameter revision. Existing `ResearchReference` keys select their explicit
+source/run neighborhood; that broader neighborhood does not prove consumption of a fit or
+publication. `observe_study` opens read-only bounded polling with an issuing-authority/context
+cursor and separate positions per actual attempt. Reconnect returns available catch-up or an
+explicit gap/current resynchronization; absent remote live numerics and unavailable retired
+history are explicit. Closing the observer neither cancels nor advances science. The CLI runtime
+adapter exposes the corresponding `research_*`, `study_workbench`, `study_cohort`, `study_analyze`,
+`study_result` and `study_observe` actions; selected result/aggregate exports are Arrow IPC files.
+
+Build the optional evidence operator explicitly once, then inspect supplied sources:
+
+```bash
+just evidence-build
+just evidence offline --invocation INVOCATION --operation failures --crate-name pse-runtime
+just evidence offline --diagnostic ACTION_DIRECTORY --operation diagnostics
+just evidence offline --measurement REPORT_JSON --criterion CASE=RAW_CSV --operation measurements
+just evidence snapshot REPORT_JSON --source-kind measurement
+just evidence import ACTION_DIRECTORY --source-kind diagnostic
+just evidence analyze --generation FIRST --generation SECOND --operation distribution
+just evidence detail --diagnostic ACTION_DIRECTORY --member capture.txt --expected-digest SHA256
+```
+
+Offline dispatch precedes service configuration and activity initialization; it opens only the
+supplied owner records and selected copied artifacts. No product extension, service start or
+implicit build is required. If the optional executable is absent, independent `snapshot` and
+`detail` inspection remain usable. Authentic assessment, diagnostic, measurement and host
+adapters supplement the original FileStore invocation adapter. Test inventory mapping is
+owner-declared; command failure, failed tests, skipped/reused and unreported subjects remain
+distinct. Query responses include selected denominators and original compact context declarations.
+
+Persistent `analyze` selects explicit activated generation IDs, not one ambiguous cross-source
+latest pointer. Repeat imports deduplicate; two versions of the same original source require
+`--history`. Explicit freshness observations can report a matching, stale or missing source;
+without them the result describes only its imported cut. Diagnostic contexts preserve separate
+tool, target and scientific outcomes, and links follow only declared exact associations. Raw
+detail is a separate original-owner or explicitly supplied-copy operation; an imported path is
+never authority to reopen a released artifact. `--expected-digest` can bind detail to the frozen
+reference. Measurement summaries retain actual contexts, sample membership, failed/censored
+populations and known capture cost. Criterion-to-invocation association stays unavailable when
+not recorded. Unknown build/provider/input facts cannot justify a comparable population or a
+speed claim. Storage-health collection, release/exchange workflows and assembled qualification
+remain with their owning later Plan51 packages.
+
 ### Selected-service diagnostics
 
 `python -m scripts.surreal_diagnostics --help` exposes bounded selected-service observations.
