@@ -1,6 +1,6 @@
 ---
 title: Python and scientific boundary remediation
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: []
 doc_role: plan
@@ -12,7 +12,8 @@ doc_topics: [design, libraries, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
-Current execution: [remaining 49f–49h](49-library-native-remediation.md#execution-resumption--remaining-49f49h-2026-10-23).
+Delivered scope and evidence: [the Outcome](#outcome--2026-10-23). Combined qualification and
+publication remain with [the coordinator's final Outcome](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
 The maintainer authorized the complete remaining scope on 2026-10-23, including reconciliation
 against current code. Original authoring baselines and receipts retain their dates and limits.
 
@@ -56,6 +57,9 @@ owners. Never expose Z3 AST/context objects or treat a logical candidate as a qu
 This new feature cannot be smuggled into BND05 as an already accepted boundary correction.
 
 ### Current execution remainder — 2026-10-23
+
+This checkpoint records the selected pre-execution remainder. The [Outcome](#outcome--2026-10-23)
+dispositions that work; the future-tense clauses below preserve its acceptance specification.
 
 **Interface-checked:** source `f29333aaa` and current callers. Strict enum extraction with
 separate vocabulary caches, standalone/versioned documents, semantic identity hooks and
@@ -319,9 +323,10 @@ inputs whose physical context and conversions are already owned.
 The following checks specify acceptance distinctions, with zero failures as the baseline.
 Credit applicable existing evidence and run uncovered or changed behavior rather than treating
 the historical baseline as a fresh implementation list. The
-historical msgspec hook probe is **Tested** only on its recorded pinned selective conditions;
-the faer method is **Interface-checked**, and the PSD tolerance/integration remains **Proposed**.
-No runtime or scientific qualification is claimed by writing these documents.
+historical msgspec hook probe is **Tested** only on its recorded pinned selective conditions.
+The PSD integration and current public consumers have the focused **Tested** evidence in the
+Outcome; the numerical tolerance is a declared policy, not a universal error bound. Writing
+this document adds no runtime or scientific qualification.
 
 | Scope | Targeted independent controls |
 |---|---|
@@ -341,3 +346,84 @@ static/manual checks and any required measurements after all functional scope is
 The assembled controls must exercise a real fit-to-solve covariance journey and a Python keyed
 input through asynchronous/native ownership, not only codec or matrix helpers. Latency, copying
 and capacity benefits remain unmeasured until a named representative workload is compared.
+
+## Outcome — 2026-10-23
+
+### Delivered contracts
+
+**Implemented:** BND01–BND05 are complete at the selected implementation and consumer-acceptance
+boundary. Reconciliation used integrated source through `285b7a8b1` and the final target-revision
+fixture repair `42db023d7`. The already implemented enum, identity, immutable physical snapshot,
+fit-content and faer PSD owners were retained. New public acceptance exercises their composition;
+it does not introduce a second decoder, scientific policy or covariance API.
+
+The inspected side routes were `with_primal_start` and stored starts, populated block-initialization
+stages, diagnostic samples, state tolerances, parameter scales, output tolerances and native attempt
+primals. Runtime `physical_values`, PyO3 workflow/modeling/strategy bindings and their Python
+facades already use the keyed owned contracts. No remaining legacy scientific ingress was found
+within those owners; no speculative compatibility deletion or replacement was made. The added
+controls demonstrate reordered keys, sparse/empty stage and sample semantics, centimetre-to-metre
+conversion, membership/coverage/quantity refusal and retained primal field metadata through Arrow
+C transport. Producer buffers are mutated and released after admission, including while the
+stream is being drained, before the admitted consumer completes native execution.
+
+Physical time remains signed binary64 seconds. The public trajectory control retains a negative
+origin, a one-nanosecond initial step and sub-microsecond samples, with strict independent state
+and terminal-integral oracles. Output tolerances address the generated quadrature parameter by
+its typed role. Whole-domain integral reports remain terminal products rather than prefix samples.
+Wall budgets retain their distinct duration rounding and invalid-extent refusal.
+
+The actual weighted regression covariance crosses `parameter_covariance`, retained-result
+binding, canonical `Runtime.fit_covariance` reopening and downstream `covariance_source` admission.
+The downstream optimization preserves the actual parameter identities; the independent
+`J=[1,-1]` oracle checks propagation. Altered values, parameter order, quantities, units and scales
+cannot inherit fit authority. Missing/withheld inputs remain unavailable, singular external PSD
+input remains external and indefinite input refuses when its lazy Arrow product is consumed.
+TOOL01/TOOL08 supply the shared versioned catalogue and graph consumer without another boundary
+membership list.
+
+### Verification and limits
+
+**Tested, 2026-10-23; zero-failure target:** the installed linked Python extension with explicit
+`force-validate` passed 32 selected native-local physical/scientific, standalone-document,
+identity/vocabulary and conformance controls in 4.54 seconds (invocation
+`d2205e99ec254c4a9607c08deab011e0`; `/tmp/pse49fgh-python-boundary-acceptance.log`). This run
+used ephemeral runtimes and establishes no canonical-store journey by itself.
+
+**Tested:** after the final target-revision fixture repair, the three scientific integration
+tests in `test_scientific_boundary_adoption.py` passed in 1.08 seconds (invocation
+`c5de63e4c85047069f0e2107d3d915e5`). The exact canonical
+`test_canonical_fit_covariance_reopens_actual_content_and_refuses_missing_reference` then passed
+in 41.80 seconds against the supervised current service (invocation
+`cb78e1c03cba4d53a64259a864e2056f`; `/tmp/pse49fgh-python-covariance-final.log`). It exercises
+actual fit publication, close/reopen, hydration, downstream propagation and content refusals.
+
+**Tested, mixed aggregate with failures retained:** the explicitly validated selected Rust
+`pse-runtime`/`pse-operations` nextest run executed 73 tests: 70 passed and three graph controls
+failed (invocation `0aacb7791611466087bdb977a7cdc3e2`). Its boundary/PSD/custody/propagation
+controls passed; this is not a 73-test clean pass. The repaired graph selection belongs to
+[49g's Outcome](49g-contracts-maintenance-and-tooling.md#outcome--2026-10-23). Exact commands,
+composed acceptance, static results and reused Plan51 evidence are owned by
+[the coordinator](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+No latency, copy-count, general capacity or whole-platform qualification is claimed here.
+
+### Mistakes corrected and deliberate deviations
+
+Initial public fixtures incorrectly requested covariance propagation from a Root solve, then
+added an objective to the fit experiment, which correctly refused it. The final fixture leaves
+the fit objective-free and publishes one downstream optimization revision with unchanged
+parameter identities. Reusing the original parent for every negative case also correctly
+triggered canonical head CAS refusal; all preparations now reuse that one edited target, so
+content refusals reach their intended owner. CAS and provenance assertions were not weakened.
+
+Nested Arrow extensions could not be rebuilt from Python dictionaries; the fixture now uses
+the actual typed buffers. Integral inspection exposed authored/flux lets and the generated
+parameter with shared lineage; role-based selection replaces ambiguous name-only selection.
+Lazy PSD refusal is asserted by consuming the stream, and strict relative-zero assertions
+prevent ordinary approximate-equality defaults from hiding sub-microsecond errors.
+
+Deliberately, this increment completed revealing consumer acceptance rather than rewriting
+working foundations. It uses fresh-process vocabulary controls within the supported PyO3
+lifecycle, keeps PSD admission at the requested product boundary, and reuses original Plan51
+evidence at its original conditions. Final architecture publication and retirement remain with
+49h and the coordinator.

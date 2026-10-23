@@ -1,6 +1,6 @@
 ---
 title: "Plan 49g: Shared contracts, maintenance and tooling"
-status: in-progress
+status: done
 date: 2026-10-21
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md]
@@ -13,7 +13,10 @@ doc_topics: [design, documentation, libraries, storage, validation]
 
 Execution state and pause handoff: [the coordinator](49-library-native-remediation.md#pause-handoff--requested-closeout-2026-10-21).
 
-Current remaining scope: [post-Plan51 reconciliation](#remaining-scope-after-plan51--2026-10-23).
+Delivered scope and evidence: [the Outcome](#outcome--2026-10-23). The
+[post-Plan51 reconciliation](#remaining-scope-after-plan51--2026-10-23) retains the selected
+pre-execution specification; combined acceptance and publication remain with
+[the coordinator](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
 The maintainer subsequently authorized [remaining 49f–49h execution](49-library-native-remediation.md#execution-resumption--remaining-49f49h-2026-10-23)
 on 2026-10-23. The earlier reassessment, documentation-only reconciliation, pause handoff and minimal
 TOOL08 delivery retain their original dates and evidence boundaries.
@@ -156,8 +159,9 @@ permits it; do not retain two competing current-state authorities.
 ## Packages and implementation visions
 
 Package progress is recorded only in the [coordinator's package table](49-library-native-remediation.md#package-state).
-The following table and package descriptions specify the current residual work. Earlier
-foundation discussion preserves the original design rationale, not instructions to recreate it.
+The following table and package descriptions preserve the selected pre-execution residual
+obligations, dispositioned in the Outcome. Earlier foundation discussion preserves the original
+design rationale, not instructions to recreate it.
 
 | Package | Prerequisite capability | Delivered behavior and acceptance |
 | --- | --- | --- |
@@ -171,6 +175,9 @@ foundation discussion preserves the original design rationale, not instructions 
 | TOOL08 | Implemented typed graph API/catalogue and operator command | Establish a native examined-edge/work bound with an actual seek/range/cursor path; preserve current semantics, continuation and protection |
 
 ## Remaining scope after Plan51 — 2026-10-23
+
+This reconciliation preceded resumed execution. The [Outcome](#outcome--2026-10-23) records
+implementation and actual acceptance; the clauses below retain their original evidence limits.
 
 **Interface-checked:** source `d16a253ac` and the recorded Plan49/50/51 Outcomes. The
 maintainer selected the recommended scope reconciliation on 2026-10-23. No new rule change,
@@ -343,7 +350,8 @@ changed selection refusal and an 80-point readiness fixture. The reference owner
 quiesced and stopped; broader Plan 49 qualification was not run. Plan 50 D01 owns the adjacent
 query-inspection acceptance and native physical-plan evidence.
 
-**Still unresolved in TOOL08:** the selected response bounds decoded rows to the requested
+**Unresolved at the 2026-10-22 checkpoint, since resolved below:** the selected response
+bounds decoded rows to the requested
 page plus one, retained output to 256 KiB and the request to its original clock. It does not
 establish a strict bound on native edges examined. Actual native plans retained a downstream
 Filter and limit; positive cache observations do not establish folded-block use. The exact
@@ -373,17 +381,17 @@ No new Python policy engine, raw SMT endpoint or hidden default becomes a toolin
 linked Plan51g Outcome own the original commands, conditions and exclusions. Source inspection
 for this revision is **Interface-checked**, not a new behavioral pass.
 
-**Proposed remaining acceptance:** targeted catalogue/import refusal, conformance/launch,
+**Original remaining acceptance, now dispositioned in the Outcome:** targeted catalogue/import refusal, conformance/launch,
 live interrupted maintenance/protection, uncovered review-consumer behavior and TOOL08 native
 work-bound controls. Compile affected code with explicit correctness validation where required;
 regenerate any changed declaration as part of that change. Do not repeat satisfied generation
 or compile obligations solely because older notes called them pending.
 
-**Proposed assembled acceptance:** QUAL packages exercise schema install/rollout parity,
+**Assembled acceptance, owned by the coordinator:** QUAL packages exercise schema install/rollout parity,
 current managed server/restore activation and affected Rust/Python command journeys. No new
 observation substitution or historical data migration is selected. QUAL01 reconciles existing
-evidence before further execution. This revision runs no product test, benchmark or generation;
-documentation validation cannot qualify those behaviors.
+evidence before further execution. Documentation validation cannot qualify those behaviors;
+the Outcome distinguishes actual subsequent checks from this earlier specification.
 
 ## Source routes
 
@@ -399,3 +407,103 @@ retained-data cutover. STO07 consumes the actual privileged installation/activat
 interface and affected existing callers; full TOOL04 is not a prerequisite by label.
 Broader generated domain maintenance remains owned here and consumes STO lifecycle/schema
 interfaces. Existing-data conversion is not required.
+
+## Outcome — 2026-10-23
+
+### Delivered contracts
+
+**Implemented:** TOOL01–TOOL08 are complete at their selected implementation and acceptance
+boundary, reconciled against integrated `285b7a8b1` and the adjoining boundary consumers through
+`42db023d7`. TOOL01 adds the boundary-schema fingerprint mismatch refusal with otherwise valid
+identities. Graph request/response documents now own their required version at the operations
+product owner; the existing catalogue generates native registrations, schemas and Python
+documents from those actual types. No parallel document inventory was introduced.
+
+TOOL02–TOOL05 retain the implemented Rust conformance/launch owners, generated maintenance and
+product/detail/tooling split. Focused acceptance exercises actual defaults, selected coverage,
+ACK/timeout/cancellation/log drain, capture/review consumers and live paged maintenance. The live
+maintenance control includes exact interrupted-page replay, generation refusal and protected
+payload behavior. No second launch protocol, diagnostics substrate or maintenance SQL path was
+added. TOOL06's current-hub/no-new-crate decision and TOOL07's existing purpose/pin dispositions
+remain complete; their previously satisfied inquiries were not reopened.
+
+TOOL08 replaces projection-filter pagination with existing named scalar compound-index seeks
+for study predecessors/consumers, run sources, artifact consumers and analysis-node neighborhoods.
+Requests bind identities and the exclusive continuation cursor, force the relevant existing index,
+order by its matching suffix and render only the validated numeric page-plus-one limit as a
+literal. Every returned edge, including the sentinel, is checked against the selected owner,
+revision, role, endpoints and ordering before a continuation is published. The typed local
+explanation, isolates, parallel roles, protected evidence and `canonical-graph-inspect` consumer
+retain their meanings. Connectivity grants neither scientific usability nor payload acquisition.
+
+Native plan observations expose actual JSON scalar access/limit/predicate/counter facts and keep
+missing counters distinct from zero. Real plans use the named `IndexScan` range without a
+downstream Filter/Sort/TopK for these requests. The separate exact-source scanner probe checks
+raw pair consumption rather than inferring it from returned rows or elapsed time. No production
+engine instrumentation, new index/schema, graph service or all-path closure was introduced.
+
+### Verification and limits
+
+**Tested, 2026-10-23; zero-failure target:** the combined explicitly validated Rust selection
+(`pse-runtime` and `pse-operations`, nextest, four test threads, current supervised native service)
+ran 73 tests: 70 passed and three graph controls failed. Invocation
+`0aacb7791611466087bdb977a7cdc3e2` and `/tmp/pse49fgh-rust-acceptance-open-service.log`
+retain that result. The passed scope includes catalogue/wire/conformance, launch/capture/review,
+live maintenance and root-role refusal controls; the aggregate was not a clean pass.
+
+**Tested:** after correcting native plan scalar observations and the literal scan cap, the exact
+three failed graph controls plus six pure graph controls passed together (nine tests, three
+threads, 51.724 seconds; invocation `ad7c252823764b5282ceda2afd35e00f`,
+`/tmp/pse49fgh-graph-acceptance-rerun.log`). Known blocker, isolates, distinct/parallel roles,
+protected inputs, dense seek continuation, changed selection and corrupt sentinel refusals are
+covered. An exact rerun of repaired tests does not turn the earlier failed run into a clean one.
+
+**Tested:** the installed force-validated native Python boundary/conformance selection passed
+32 tests in 4.54 seconds (invocation `d2205e99ec254c4a9607c08deab011e0`). The focused review
+unit command `scripts/pse-env --resource-class build -- .venv/bin/python -m scripts.python_tests
+python/pse/tests/test_review_workflows.py --unit-only -n4 -q` passed 12 tests (invocation
+`d5716de7776c41cf9dda444705210163`). The host command
+`scripts/pse-env --resource-class light -- .venv/bin/python -m unittest
+scripts.tests.test_surrealkit_maintenance scripts.tests.test_surreal_scan_budget_probe` passed
+43 tests. Host protocol/probe tests do not replace the separate live maintenance control.
+
+**Tested, exact-source probe only:**
+`exec::index::iterator::btree::tool08_probe::tool08_compound_range_scan_stops_at_entry_budget`
+passed once in the isolated `kv-mem` scanner build, covering root OWNER and VIEWER, 2,400 eligible
+post-cursor entries, 300 unrelated-prefix entries and caps of 65 and 1,001, including the native
+batch boundary. The receipt is
+`/home/paul/.cache/pse-arrow/tool08-scan-probe-20261023-b/probe.json`. It records pinned revision
+`1ac2b1dba7cd177621a4cf5d507caebeb2414395`, the exact copied source/patch/lock hashes and
+native-path equality. The bound is on raw KV pairs consumed for the scalar compound-index,
+exclusive-cursor, literal-limit path under the tested root roles without conditional row
+permissions. This is not whole deployed-binary equivalence, an I/O bound or a latency measurement.
+
+Exact command selections, the two separately passed canonical review components, final covariance
+reopening, generated-output and static results, and the final composed qualification account
+belong to [the coordinator's final Outcome](49-library-native-remediation.md#outcome--remaining-49f49h-2026-10-23).
+Existing Plan51 evidence retains its original conditions. No whole-product, every-library or
+performance qualification is inferred from these selected checks.
+
+### Mistakes corrected and deliberate deviations
+
+The first graph implementation improved semantic pagination but still left filtering above the
+native scan. Existing compound indexes now provide owner-prefix/exclusive-cursor seeks. Plan
+inspection initially serialized Surreal values as tagged objects and used a bound limit that
+hid the concrete cap from the independently specified assertion. Observations now expose JSON
+scalars and the validated numeric cap is literal; user identities/cursors remain bound values.
+An initial root-role assertion checked the wrong diagnostic meaning; the repaired test checks
+the actual root OWNER/VIEWER contract without admitting conditional record permissions.
+
+The graph documents initially lacked their standalone version at their product owner. The
+version moved to the actual request/response types and all derived schemas/registrations/codecs
+were regenerated; a catalogue-only wrapper was not treated as an equivalent wire owner. Runtime
+acceptance also required consuming lazy Arrow products and using one actual downstream parent
+revision, as recorded in [49f](49f-python-and-scientific-boundaries.md#outcome--2026-10-23).
+
+Deliberately, the scan inquiry instruments an isolated exact-source copy rather than the
+production engine. It combines native scanner evidence with actual receiving-service access
+plans and semantic controls, retaining the narrower entry-consumption claim. Existing indexes,
+TOOL06's observation owner and completed Plan51 qualification were reused. Historical-schema
+conversion, a new crate/layer, optional configuration exploration and unrequested benchmark
+campaigns were not selected. Cross-area architecture publication and retirement remain with 49h
+and the coordinator.
