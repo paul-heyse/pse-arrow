@@ -42,12 +42,12 @@ impl CanonicalStore {
     }
     /// Append one immutable record. Retry the original operation and all original coordinates.
     #[allow(clippy::too_many_arguments,reason="immutable context append binds complete original source, effective interval and ancestry")]
-    pub async fn append_project_context(&self,operation:&str,project:&crate::canonical_projects::Project,scope:&str,revision:&str,physical_context:&str,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->Result<ProjectContext,CanonicalError>{
-        for value in [operation,&project.key,scope,revision,physical_context]{identity(value)?;}
+    pub async fn append_project_context(&self,operation:&str,project:&crate::canonical_projects::Project,scope:&str,revision:&str,source_identity:&str,physical_context:&str,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->Result<ProjectContext,CanonicalError>{
+        for value in [operation,&project.key,scope,revision,source_identity,physical_context]{identity(value)?;}
         if let Some(parent)=corrects{identity(parent)?;}
         if effective_to_us.is_some_and(|to|to<=effective_from_us)||deleted&&corrects.is_none(){return Err(CanonicalError::Configuration("invalid context interval or tombstone ancestry".into()));}
-        let request=encoded(&("context-v1",self.issuing_store()?,operation,&project.key,project.generation,scope,revision,physical_context,effective_from_us,effective_to_us,corrects,deleted))?;
-        let row=ProjectContext{key:operation.into(),project:project.key.clone(),scope:scope.into(),revision:revision.into(),physical_context:physical_context.into(),effective_from_us,effective_to_us,recorded_sequence:0,corrects:corrects.map(str::to_owned),deleted,request:request.clone().into()};
+        let request=encoded(&("context-v1",self.issuing_store()?,operation,&project.key,project.generation,scope,revision,source_identity,physical_context,effective_from_us,effective_to_us,corrects,deleted))?;
+        let row=ProjectContext{key:operation.into(),project:project.key.clone(),scope:scope.into(),revision:revision.into(),source_identity:source_identity.into(),physical_context:physical_context.into(),effective_from_us,effective_to_us,recorded_sequence:0,corrects:corrects.map(str::to_owned),deleted,request:request.clone().into()};
         let activity=self.admit_activity()?;activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             self.ensure_writes()?;
             let response=protected_query("canonical_contexts::append",||Ok(self.context_query("RETURN fn::pse_context_v1::append($pse_rpc_expires_at,$row,$generation);")?.bind(("row",wire::encode_canonical_project_contexts(&row)?)).bind(("generation",codec::encode_uint(project.generation)?)))).await;
