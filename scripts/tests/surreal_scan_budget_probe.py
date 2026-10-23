@@ -35,8 +35,15 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def git_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"):
+        environment.pop(name, None)
+    return environment
+
+
 def git(source: Path, *arguments: str) -> bytes:
-    return subprocess.check_output(["git", "-C", str(source), *arguments])
+    return subprocess.check_output(["git", "-C", str(source), *arguments], env=git_environment())
 
 
 def source_files(source: Path) -> list[Path]:
@@ -82,12 +89,14 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
         raise ValueError("source changed while copying; refuse mixed snapshot")
     (scratch / "selected-source.patch").write_bytes(git(source, "diff", "--binary", "HEAD"))
     (scratch / "source-files.json").write_text(json.dumps(hashes, sort_keys=True, indent=2) + "\n")
-    # git apply works outside a Git repository; the copy has no .git, links or
-    # installed artifacts. Only this disposable copy receives instrumentation.
+    # Private empty metadata prevents Git from discovering an ancestor checkout
+    # when scratch is below its build/. Never copy the installed Git metadata.
+    subprocess.run(["git", "init", "--quiet", "--template=", str(copied)],
+                   env=git_environment(), check=True)
     fixture_patch = scratch / "test-fixture.patch"
     shutil.copy2(PATCH, fixture_patch)
-    subprocess.run(["git", "apply", "--check", str(fixture_patch)], cwd=copied, check=True)
-    subprocess.run(["git", "apply", str(fixture_patch)], cwd=copied, check=True)
+    subprocess.run(["git", "apply", "--check", str(fixture_patch)], cwd=copied, env=git_environment(), check=True)
+    subprocess.run(["git", "apply", str(fixture_patch)], cwd=copied, env=git_environment(), check=True)
     receipt: dict[str, object] = {
         "source": str(source),
         "copy": str(copied),
@@ -114,6 +123,25 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
     return receipt
 
 
+def verify_instrumentation(copied: Path) -> None:
+    text = (copied / "surrealdb/core/src/exec/index/iterator/btree.rs").read_text()
+    required = (
+        "#[cfg(test)]\nmod tool08_probe",
+        "#[cfg(test)]\n\ttool08_observe: bool",
+        "tool08_observe: ix.name.as_str() == tool08_probe::INDEX",
+        "async fn tool08_compound_range_scan_stops_at_entry_budget()",
+    )
+    if any(fragment not in text for fragment in required):
+        raise ValueError("disposable source lacks the exact test-only TOOL08 instrumentation")
+    iterator = text.split("impl CompoundRangeForwardIterator {", 1)[1].split(
+        "/// Direction-dispatching wrapper", 1
+    )[0]
+    if not (iterator.index("let res = scan(")
+            < iterator.index("tool08_probe::SCANS.lock()")
+            < iterator.index("decode_record_ids(res)")):
+        raise ValueError("TOOL08 observer is not at the raw KV boundary before decode")
+
+
 def selected_test_passed(output: str) -> bool:
     return ("running 1 test\n" in output
             and f"test {TEST} ..." in output
@@ -121,6 +149,7 @@ def selected_test_passed(output: str) -> bool:
 
 
 def run(scratch: Path, receipt: dict[str, object]) -> int:
+    verify_instrumentation(scratch / "source")
     command = [
         "cargo", "test", "--manifest-path", str(scratch / "source/Cargo.toml"),
         "--locked", "--no-default-features", "--features", "kv-mem",
