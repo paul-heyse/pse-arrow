@@ -84,15 +84,17 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
     (scratch / "source-files.json").write_text(json.dumps(hashes, sort_keys=True, indent=2) + "\n")
     # git apply works outside a Git repository; the copy has no .git, links or
     # installed artifacts. Only this disposable copy receives instrumentation.
-    subprocess.run(["git", "apply", "--check", str(PATCH)], cwd=copied, check=True)
-    subprocess.run(["git", "apply", str(PATCH)], cwd=copied, check=True)
+    fixture_patch = scratch / "test-fixture.patch"
+    shutil.copy2(PATCH, fixture_patch)
+    subprocess.run(["git", "apply", "--check", str(fixture_patch)], cwd=copied, check=True)
+    subprocess.run(["git", "apply", str(fixture_patch)], cwd=copied, check=True)
     receipt: dict[str, object] = {
         "source": str(source),
         "copy": str(copied),
         "revision": REVISION,
         "source_files_sha256": digest(scratch / "source-files.json"),
         "selected_source_patch_sha256": digest(scratch / "selected-source.patch"),
-        "fixture_patch_sha256": digest(PATCH),
+        "fixture_patch_sha256": digest(fixture_patch),
         "lockfile_sha256": digest(copied / "Cargo.lock"),
         "native_paths_equal_pinned_upstream": list(NATIVE_PATHS),
         "native_file_sha256": {name: value for name, value in hashes.items()
@@ -105,7 +107,7 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
             "named WITH INDEX; equality prefix, exclusive cursor, ORDER BY k, literal LIMIT",
             "2400 eligible entries after cursor and 300 unrelated-prefix entries",
             "observer records requested raw KV cap and returned pairs before decode/fetch/filter",
-            "65 entries and 1001 entries cross native batch boundary; no timing claim",
+            "65-entry cap and 1001-entry cap; only 1001 crosses native batch boundary; no timing claim",
         ],
     }
     (scratch / "probe.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")

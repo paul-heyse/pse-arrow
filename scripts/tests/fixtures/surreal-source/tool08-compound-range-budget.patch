@@ -66,10 +66,10 @@
 +						let Some(Value::Object(attrs)) = object.get("attributes") else {
 +							panic!("IndexScan must expose attributes: {value:?}");
 +						};
-+						assert_eq!(attrs.get("index"), Some(&Value::from(INDEX)));
-+						assert_eq!(attrs.get("access"), Some(&Value::from("['eligible'] MoreThan 100")));
-+						assert_eq!(attrs.get("direction"), Some(&Value::from("Forward")));
-+						assert_eq!(attrs.get("limit"), Some(&Value::from(budget.to_string())));
++						assert_eq!(attrs.get("index"), Some(&Value::String(INDEX.to_owned())));
++						assert_eq!(attrs.get("access"), Some(&Value::String("['eligible'] MoreThan 100".to_owned())));
++						assert_eq!(attrs.get("direction"), Some(&Value::String("Forward".to_owned())));
++						assert_eq!(attrs.get("limit"), Some(&Value::String(budget.to_string())));
 +						scans += 1;
 +					}
 +				}
