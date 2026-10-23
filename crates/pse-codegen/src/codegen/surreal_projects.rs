@@ -24,7 +24,7 @@ DEFINE FUNCTION fn::pse_project_v1::ack($expiry:int,$operation:string,$request:b
 DEFINE FUNCTION fn::pse_project_v1::project($expiry:int,$key:string,$generation:decimal) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$key);
-    IF $p=NONE OR $p.deleted OR $p.generation!=$generation { THROW 'PSE_REFUSAL:project_generation_changed'; };
+    IF $p=NONE OR $p.deleted OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($key) { THROW 'PSE_REFUSAL:project_generation_changed'; };
     RETURN $p;
 };
 DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:string) -> bool {
@@ -49,12 +49,17 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
     IF $intent!=NONE {fn::pse_project_v1::authority($expiry,$intent.issuing_store);};
     LET $owners=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2;
     IF $intent=NONE { IF array::len($owners)!=0 { THROW 'PSE_REFUSAL:project_publication_guard_required'; }; RETURN true; };
-    IF $intent.kind NOT IN ['fork','publish'] { THROW 'PSE_REFUSAL:project_branch_changed'; };
+    IF $intent.kind NOT IN ['fork','publish','import'] { THROW 'PSE_REFUSAL:project_branch_changed'; };
     LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation);
     IF $stage=NONE OR ($stage.expected_head ?? NONE)!=($intent.expected ?? NONE) { THROW 'PSE_REFUSAL:project_branch_changed'; };
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$intent.request);
     IF $ack!=NONE { THROW 'PSE_REFUSAL:project_operation_already_committed'; };
-    fn::pse_project_v1::project($expiry,$intent.project,$intent.project_generation);
+    IF $intent.kind='import' {
+        IF $intent.import=NONE OR $intent.expected!=NONE OR $intent.origin_revision!=NONE OR array::len($owners)!=0 OR (SELECT * FROM ONLY type::record('canonical_projects',$intent.project))!=NONE OR (SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch))!=NONE OR (SELECT * FROM ONLY type::record('canonical_project_imports',$operation))!=NONE {THROW 'PSE_REFUSAL:project_import_destination_exists';};
+        CREATE ONLY type::record('canonical_projects',$intent.project) CONTENT {key:$intent.project,title:$intent.import.title,deleted:false,generation:0dec};
+        CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,name:$intent.branch_name,generation:0dec};
+        CREATE ONLY type::record('canonical_project_imports',$operation) CONTENT {key:$operation,issuing_store:$intent.issuing_store,bundle_digest:$intent.import.bundle_digest,project:$intent.project,branch:$intent.branch,problem:$problem,revision:$operation,origin:$intent.import.origin,request:$intent.request,complete:false};
+    } ELSE {fn::pse_project_v1::project($expiry,$intent.project,$intent.project_generation);};
     IF $intent.kind='fork' {
         IF array::len($owners)!=0 OR (SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch))!=NONE { THROW 'PSE_REFUSAL:project_branch_changed'; };
         IF $intent.origin_revision=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
@@ -65,13 +70,13 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
         IF array::len($source)!=array::len($changes) OR array::len($source)>/* SOURCE_EDIT_LIMIT */ { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
         IF $source!=$changes { THROW 'PSE_REFUSAL:project_fork_closure_differs'; };
         CREATE ONLY type::record('canonical_project_branches',$intent.branch) CONTENT {key:$intent.branch,project:$intent.project,problem:$problem,name:$intent.branch_name,origin_revision:$intent.origin_revision,generation:0dec};
-    } ELSE {
+    } ELSE IF $intent.kind='publish' {
         LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$intent.branch) FOR UPDATE;
         IF array::len($owners)!=1 OR $branch=NONE OR $branch.problem!=$problem OR $branch.project!=$intent.project OR $branch.generation!=$intent.branch_generation { THROW 'PSE_REFUSAL:project_branch_changed'; };
         IF $intent.draft!=NONE {
             LET $draft=SELECT * FROM ONLY type::record('canonical_project_drafts',$intent.draft) FOR UPDATE;
             LET $version=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$draft.version);
-            IF $draft=NONE OR $draft.deleted OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
+            IF $draft=NONE OR $draft.deleted OR $version.retired OR $draft.branch!=$intent.branch OR $draft.generation!=$intent.draft_generation OR $version.base_revision!=$intent.expected { THROW 'PSE_REFUSAL:project_draft_changed'; };
         };
     };
     fn::pse_research_v1::publication_guard($expiry,$operation,$intent);
