@@ -875,6 +875,19 @@ mod tests {
         assert!(discovery["resident"].as_array().unwrap().is_empty());
         let loaded = execute(Action::Load { revision: fork }).await;
         assert_eq!(loaded["canonical_problem"], "cli-problem");
+        let page = execute(Action::StudyWorkbench { request: StudyWorkbenchRequest {
+            filter: Default::default(), maximum: 4, cursor: None,
+        }}).await;
+        assert!(page["headers"].as_array().unwrap().is_empty());
+        let cohort = execute(Action::StudyCohort { request: StudyCohortRequest {
+            filter: Default::default(), maximum_studies: 4, maximum_members: 4,
+        }}).await;
+        assert_eq!(cohort["complete"], true);
+        assert!(cohort["members"].as_array().unwrap().is_empty());
+        let research = execute(Action::ResearchRead { request: ResearchReadRequest::Datasets {
+            project: "cli-project".into(), after: String::new(), limit: 4,
+        }}).await;
+        assert!(research["rows"].as_array().unwrap().is_empty());
         let meta = store
             .project_metadata(
                 pse_operations::canonical_projects::ProjectMetadataKind::Projects,
