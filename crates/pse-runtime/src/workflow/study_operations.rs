@@ -119,7 +119,7 @@ struct EvaluationWire {
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(remote = "Limits", deny_unknown_fields)]
-struct LimitsWire {
+pub(in crate::workflow) struct LimitsWire {
     depth: usize,
     items: usize,
     members: usize,
