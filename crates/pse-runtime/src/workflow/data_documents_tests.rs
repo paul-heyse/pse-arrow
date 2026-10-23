@@ -650,3 +650,47 @@ async fn worker_source_loader_observes_precancelled_admission_on_cache_hits_and_
         );
     }
 }
+
+/// SC01 selected metadata references actual Parquet-backed typed records; reopening
+/// uses the admitted data document owner and preserves original raw values.
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial_input(){
+    use super::{ResearchDataObject,ResearchDatasetRequest};
+    let rt=tests::durable_runtime();let cancel=crate::CancelSource::new();
+    let text=r#"package minimal_named {
+        entity kind source provenance {} entity source acquisition {}
+        enum role {measured facets(measured)}
+        entity kind reading {key number:Integer;attribute raw:Scalar;attribute sigma:Scalar;derived calibrated:Scalar=2*raw+3;derived calibrated_sigma:Scalar=2*sigma;require sigma>0 : "positive standard uncertainty";}
+        dataset measurements:reading provenance(acquisition,role.measured) from "data/bank.parquet";
+        def FitExperiment {}
+    }"#;
+    let (physical_documents,mut documents)=super::worker_tests::sources(text);
+    let physical=Box::pin(rt.physical_from_sources(&physical_documents,&cancel)).await.unwrap();
+    let document=parquet(vec![("number",Arc::new(Int64Array::from(vec![1,2])),None),("raw",Arc::new(Float64Array::from(vec![1.,2.])),None),("sigma",Arc::new(Float64Array::from(vec![0.25,0.5])),None)]);
+    documents.insert(DATA.into(),document);
+    let package=Box::pin(rt.package_from_sources(std::slice::from_ref(&documents),physical.clone(),&cancel)).await.unwrap();
+    let store=rt.canonical_store().unwrap();store.create_project("create","parquet-research","Parquet measured data").await.unwrap();
+    let project=store.project("parquet-research").await.unwrap().unwrap();
+    let revision=Box::pin(rt.project_fork(&project,"data-main","data-source","fork",&package)).await.unwrap();
+    let source=Box::pin(rt.modeling_revision(revision,physical.clone(),BTreeMap::new())).await.unwrap();
+    let project=store.project("parquet-research").await.unwrap().unwrap();
+    Box::pin(rt.project_record_context("context",&project,"data",&source,0,None,None,false)).await.unwrap();
+    let cut=store.project_context_cut(&project.key).await.unwrap();let context=store.select_project_context(&cut,"data",1).await.unwrap().unwrap();
+    let admitted=source.all_revision().await.unwrap();let checked=admitted.checked();
+    let root=checked.entry("minimal_named.FitExperiment").unwrap();let kind=checked.entry("minimal_named.reading").unwrap();
+    let record=|number|pse_modeling::entity::keyed_identity(kind,&[Value::Integer(number)]);
+    let quantity=physical.quantities.neutral_dimensionless().unwrap().as_id();
+    let raw=ResearchDatasetRequest{key:"raw-parquet-v1".into(),project:project.clone(),context:context.clone(),parent:None,role:"raw".into(),members:(1..=2).map(|number|ResearchDataObject{root,record:record(number),attribute:"raw".into(),standard_deviation_attribute:Some("sigma".into()),quantity,acquisition_clock:"batch acquisition number, explicitly not UTC".into(),parent_member:None,calibration:vec![]}).collect()};
+    let original=Box::pin(rt.research_dataset_create(&raw,&cancel)).await.unwrap();
+    let declarations=source.declarations().await.unwrap();let calibration=declarations.iter().filter(|r|["calibrated","calibrated_sigma"].contains(&r.name.as_str())).map(|r|r.declaration_id).collect::<Vec<_>>();
+    let mut derived=raw.clone();derived.key="derived-parquet-v1".into();derived.parent=Some(raw.key.clone());derived.role="derived".into();
+    for (i,m) in derived.members.iter_mut().enumerate(){m.attribute="calibrated".into();m.standard_deviation_attribute=Some("calibrated_sigma".into());m.parent_member=Some(i as u64);m.calibration=calibration.clone();}
+    Box::pin(rt.research_dataset_create(&derived,&cancel)).await.unwrap();
+    let reopened=Box::pin(rt.research_dataset_open(&raw.key,&context,&cancel)).await.unwrap();let selected=reopened.all_revision().await.unwrap();
+    let measured=selected.checked().measurement(root,record(1),"raw",Some("sigma")).unwrap();assert_eq!(measured.value,Some(1.));assert_eq!(measured.standard_deviation,Some(0.25));
+    let calibrated=selected.checked().measurement(root,record(1),"calibrated",Some("calibrated_sigma")).unwrap();assert_eq!(calibrated.value,Some(5.));assert_eq!(calibrated.standard_deviation,Some(0.5));
+    assert_eq!(store.research_dataset(&raw.key).await.unwrap().unwrap(),original);
+    documents.insert(DATA.into(),parquet(vec![("number",Arc::new(Int64Array::from(vec![1,2])),None),("raw",Arc::new(Float64Array::from(vec![1.,2.])),None)]));
+    assert!(Box::pin(rt.package_from_sources(std::slice::from_ref(&documents),physical,&cancel)).await.is_err(),"partial input cannot manufacture missing measured uncertainty");
+}
