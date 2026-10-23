@@ -36,9 +36,9 @@ impl std::ops::Deref for Draft {
         &self.head
     }
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(feature = "canonical-tests")]
 tokio::task_local! { pub(crate) static PROJECT_REPLY_LOSS: bool; }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(feature = "canonical-tests")]
 pub(crate) fn simulate_reply_loss() -> bool {
     PROJECT_REPLY_LOSS.try_with(|value| *value).unwrap_or(false)
 }

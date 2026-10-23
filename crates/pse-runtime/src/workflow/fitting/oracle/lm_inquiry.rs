@@ -1724,7 +1724,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     let preview=Box::pin(runtime.research_publication_preview(&request,&cancel)).await.unwrap();
     assert_eq!(preview.delta.replacements.len(),2);
     let intent:crate::workflow::ResearchPublicationIntent=serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
-    let receipt=Box::pin(runtime.research_publish(&intent,&cancel)).await.unwrap();
+    let receipt=pse_operations::testing::lose_project_source_reply(Box::pin(runtime.research_publish(&intent,&cancel))).await.unwrap();
     assert_eq!(receipt.run,run);assert_eq!(receipt.attempt,attempt);assert_eq!(receipt.revision,"publish-fit");
     assert_eq!(Box::pin(runtime.research_publish(&intent,&cancel)).await.unwrap(),receipt,"replay settles original receipt after head changed");
     let mut stale=request.clone();stale.operation="stale-new-operation".into();
