@@ -107,9 +107,9 @@ pub enum ResearchReadResult {
     /// Bounded dataset headers.
     Datasets { #[doc="Original immutable versions."] rows:Vec<ResearchDataset> },
     /// Original version, if available.
-    Dataset { #[doc="Exact original metadata."] row:Option<ResearchDataset> },
+    Dataset { #[doc="Exact original metadata."] row:Option<ResearchDataset>, #[doc="Decoded original typed object selections, without measurement payloads."] members:Option<Vec<ResearchDataObject>> },
     /// Original selection, if available.
-    Selection { #[doc="Exact original metadata."] row:Option<ResearchSelection> },
+    Selection { #[doc="Exact original metadata."] row:Option<ResearchSelection>, #[doc="Original complete typed selection, including exclusions and reasons."] selection:Option<ResearchSelectionRequest> },
 }
 pub(super) fn encoded<T:serde::Serialize>(v:&T)->Result<Vec<u8>,WorkflowError>{serde_json::to_vec(v).map_err(|e|contract(e.to_string()))}
 pub(super) fn decoded<T:serde::de::DeserializeOwned>(v:&[u8])->Result<T,WorkflowError>{serde_json::from_slice(v).map_err(|e|contract(e.to_string()))}
@@ -120,8 +120,8 @@ impl Runtime {
         let store=self.canonical_store()?;
         Ok(match request {
             ResearchReadRequest::Datasets{project,after,limit}=>ResearchReadResult::Datasets{rows:store.research_datasets(project,after,*limit).await?},
-            ResearchReadRequest::Dataset{key}=>ResearchReadResult::Dataset{row:store.research_dataset(key).await?},
-            ResearchReadRequest::Selection{key}=>ResearchReadResult::Selection{row:store.research_selection(key).await?},
+            ResearchReadRequest::Dataset{key}=>{let row=store.research_dataset(key).await?;let members=row.as_ref().map(|r|decoded(&r.members)).transpose()?;ResearchReadResult::Dataset{row,members}},
+            ResearchReadRequest::Selection{key}=>{let row=store.research_selection(key).await?;let selection=row.as_ref().map(|r|decoded(&r.selection)).transpose()?;ResearchReadResult::Selection{row,selection}},
         })
     }
     /// Explicitly reopen selected data through its original protected source/physical owners.

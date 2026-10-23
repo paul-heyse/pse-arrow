@@ -94,6 +94,14 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
         d.ResearchReadRequest,
     ))
     assert exact.row == frozen
+    assert exact.selection is not None
+    assert exact.selection.observations[0].reason == "included known length and authored standard uncertainty"
+    detail = runtime.research_read(codec.decode_json(
+        b'{"document_version":1,"kind":"dataset","key":"measurements-v1"}',
+        d.ResearchReadRequest,
+    ))
+    assert detail.members is not None
+    assert detail.members[0].attribute == "value"
     # A later context correction does not retarget the old selection.
     runtime.project_context_append("later-context", project, "measurements", source, 0, corrects="research-context")
     assert runtime.research_selection_open(frozen.key).canonical_revision == revision
