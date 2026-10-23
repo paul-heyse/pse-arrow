@@ -264,6 +264,16 @@ the qualified tree without exposing another in-progress source merge to the runn
 The bounded independent source review of the taskdump routing found no material defect; it
 performed no builds/tests and is not runtime evidence.
 
+The cold-build/feature matrix grew dev incremental state until only about 8.4 GiB remained.
+The three authenticated check controllers were briefly paused while their current compiler
+children finished. Cargo's dry run identified only `pse-runtime` dev artifacts; the explicit
+`cargo clean -p pse-runtime --profile dev` removed 11,526 files (Cargo's 85.4 GiB accounting),
+after which the same controllers resumed without changing enumeration or test conditions.
+Observed free space rose to about 90.5 GiB; concurrent host writes mean that delta is not an
+exact cache-reclamation measurement. Dependency/native/download caches, diagnostic profile,
+installed extension, dedicated executables, reports and project data were preserved. No automatic
+prune policy, target-directory sharing, changed global flags or lower compiler-job count was added.
+
 ### Mistakes corrected
 
 The first disposable recovery fixture omitted a real project/fork/raw draft; it now proves the
