@@ -338,7 +338,7 @@ impl Runtime {
             *total=total.checked_add(bytes).ok_or_else(||contract("project copied extent"))?;
             if *total>maximum {return Err(contract("project output allowance exhausted"));}
             let m=manifest.members.iter_mut().find(|m|m.id==id).ok_or_else(||contract("unselected project member"))?;
-            let staged=root.join(".staging").join(id.as_str());
+            let staged=root.join(".staging").join(id);
             let (actual,digest)=checksum(File::open(&staged).map_err(io)?,bytes)?;
             if actual!=bytes {return Err(contract("short copied project member"));}
             File::open(&staged).map_err(io)?.sync_all().map_err(io)?;
