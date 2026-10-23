@@ -6206,7 +6206,8 @@ def unsealed_payload_descriptor(instance: dict[str, object]) -> bool:
 
 
 def verify_payload_inventory(
-    state: Path, config: dict[str, object], inventory: list[dict[str, object]]
+    state: Path, config: dict[str, object], inventory: list[dict[str, object]],
+    *, read_only_source: bool = False,
 ) -> None:
     """Delegate canonical content hashing to the existing native identity owner."""
     selected = []
@@ -6234,7 +6235,9 @@ def verify_payload_inventory(
         raise SupervisorError(
             "Sealed backup/restore requires --payload-verifier for the exact native verifier artifact"
         )
-    descriptor, raw = tempfile.mkstemp(prefix=".payload-verification-", dir=state)
+    descriptor, raw = tempfile.mkstemp(
+        prefix=".payload-verification-", dir=None if read_only_source else state,
+    )
     path = Path(raw)
     try:
         with os.fdopen(descriptor, "w") as stream:
@@ -6715,6 +6718,148 @@ def validate_payload_inventory(
     return inventory
 
 
+# These are original catalogue owners, not a traversal of the selected-export index.
+# Every table is required even when empty; format 3 did not record this closure.
+APPLICATION_BACKUP_TABLES = (
+    "canonical_projects", "canonical_project_branches", "canonical_project_drafts",
+    "canonical_project_draft_versions", "canonical_project_savepoints",
+    "canonical_project_bookmarks", "canonical_project_ancestry",
+    "canonical_project_operations", "canonical_project_contexts",
+    "canonical_research_references", "canonical_research_datasets",
+    "canonical_research_selections", "canonical_research_publications",
+    "canonical_project_imports", "canonical_revisions", "canonical_roots",
+    "canonical_studies", "canonical_runs", "canonical_attempts",
+    "canonical_artifacts", "canonical_artifact_obligations",
+    "canonical_history_obligations", "canonical_stages",
+    "canonical_memberships", "canonical_versions", "canonical_version_manifests",
+    "canonical_payload_blocks", "canonical_edges", "canonical_artifact_blocks",
+    "canonical_artifact_reads", "canonical_result_batches", "canonical_result_sets",
+    "canonical_result_manifests", "canonical_result_protections",
+    "canonical_file_instances", "canonical_file_borrowers",
+)
+
+
+def application_inventory_query(table: str, after: str) -> str:
+    if table not in APPLICATION_BACKUP_TABLES:
+        raise SupervisorError("Unknown application backup inventory owner")
+    # Key and digest bind every original row, including opaque authored bytes. The
+    # reference projection is explanatory only and never a new owner of those bytes.
+    fields = json.dumps([
+        "project", "draft", "branch", "version", "base_revision", "problem",
+        "revision", "run", "attempt", "artifact", "dataset", "selection",
+        "owner", "owner_kind", "generation", "state", "phase", "activated",
+        "closed", "abandoned", "cleanup_complete", "terminal", "active",
+        "complete", "retired", "retiring",
+    ])
+    return (
+        f"LET $rows=SELECT * FROM {table} WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "  # noqa: S608 -- fixed owner allowlist, JSON cursor
+        "RETURN $rows.map(|$row| { {key:$row.key,"
+        "sha256:crypto::sha256(<string>object::remove($row,['id'])),"
+        f"references:<string>object::pick($row,{fields})" + "} });"
+    )
+
+
+def capture_application_inventory(
+    state: Path, config: dict[str, object],
+    credentials: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Capture frozen original metadata with bounded pages, without acquiring bytes."""
+    def query(body: str) -> object:
+        if credentials is None:
+            return payload_query(state, config, body)
+        # Existing authenticated native maintenance transport; never opens an engine.
+        return maintenance_query(
+            state, config, credentials,
+            "LET $value={ " + body + " };",
+        ).get("value")
+
+    marker = query("RETURN (SELECT * FROM ONLY canonical_interpretations:current).issuing_store;")
+    if not isinstance(marker, str):
+        raise SupervisorError("Application backup authority is unavailable")
+    try:
+        uuid.UUID(marker)
+    except ValueError as error:
+        raise SupervisorError("Application backup authority is invalid") from error
+    tables: dict[str, object] = {}
+    for table in APPLICATION_BACKUP_TABLES:
+        rows: list[dict[str, object]] = []
+        after = ""
+        while True:
+            page = query(application_inventory_query(table, after))
+            if not isinstance(page, list) or len(page) > 64:
+                raise SupervisorError("Application backup inventory page is invalid")
+            if not page:
+                break
+            for raw in page:
+                row = object_mapping(raw)
+                key = row.get("key")
+                if not isinstance(key, str) or not key or key <= after:
+                    raise SupervisorError("Application inventory cursor did not advance")
+                rows.append(row)
+                after = key
+        tables[table] = rows
+    result = {"version": 1, "issuing_store": marker, "tables": tables}
+    validate_application_inventory(result)
+    return result
+
+
+def validate_application_inventory(value: object) -> dict[str, object]:
+    selected = object_mapping(value)
+    if set(selected) != {"version", "issuing_store", "tables"} or selected.get("version") != 1:
+        raise SupervisorError("Backup is missing its application closure inventory")
+    try:
+        uuid.UUID(str(selected["issuing_store"]))
+    except ValueError as error:
+        raise SupervisorError("Backup application authority is invalid") from error
+    tables = object_mapping(selected.get("tables"))
+    if set(tables) != set(APPLICATION_BACKUP_TABLES):
+        raise SupervisorError("Backup application inventory omits required owners")
+    for value in tables.values():
+        if not isinstance(value, list):
+            raise SupervisorError("Backup application inventory rows are invalid")
+        after = ""
+        for raw in value:
+            row = object_mapping(raw)
+            key = row.get("key")
+            if (
+                set(row) != {"key", "sha256", "references"}
+                or not isinstance(key, str) or not key or key <= after
+                or not isinstance(row.get("sha256"), str)
+                or re.fullmatch(r"[a-f0-9]{64}", str(row["sha256"])) is None
+                or not isinstance(row.get("references"), str)
+            ):
+                raise SupervisorError("Backup application row commitment is invalid")
+            after = key
+    return selected
+
+
+def inspect_backup(
+    source: Path, interpretation: str, verifier: Path | None = None,
+) -> dict[str, object]:
+    """Read-only inspection shares the exact restore verifier and performs no repair."""
+    try:
+        manifest, config, payloads = validated_restore_backup(source, interpretation)
+        if verifier is not None:
+            config = {**config, "payload_verifier": payload_verifier(verifier)}
+        verify_payload_inventory(source, config, payloads, read_only_source=True)
+    except (SupervisorError, OSError, ValueError) as error:
+        return {
+            "backup": str(source), "complete": False, "restorable": False,
+            "refusal": str(error), "physical_reclaimed_bytes": None,
+        }
+    application = validate_application_inventory(manifest.get("application_inventory"))
+    return {
+        "backup": str(source), "backup_version": 4, "complete": True,
+        "state_root": manifest["state_root"],
+        "interpretation": config["interpretation"],
+        "application_inventory": application,
+        "payload_inventory": payloads,
+        "copied_bytes": sum((source / name).stat().st_size for name in object_mapping(manifest["files"])),
+        "physical_reclaimed_bytes": None,
+        "unsettled_effects": "Original stage, attempt, file and history states are preserved in the inventories; inspection does not settle them.",
+    }
+
+
 def backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
@@ -6737,6 +6882,7 @@ def _backup(
         )
     payload_inventory = freeze_payloads(state, config)
     verify_payload_inventory(state, config, payload_inventory)
+    application_inventory = capture_application_inventory(state, config)
     stop(state, config)
     if not (state / "database").is_dir():
         raise SupervisorError("No initialized database to back up")
@@ -6767,11 +6913,12 @@ def _backup(
         destination / "backup.json",
         {
             "owner": OWNER,
-            "backup_version": 3,
+            "backup_version": 4,
             "state_root": str(state),
             "interpretation": config["interpretation"],
             "files": files,
             "payload_inventory": payload_inventory,
+            "application_inventory": application_inventory,
         },
     )
     return {
@@ -8586,6 +8733,11 @@ def recover_maintenance(
                     "Current restore source is absent; admission remains closed"
                 )
             current_marker(state, source, credentials)
+            preserved, _original, _files = validated_restore_backup(
+                Path(str(pending["backup"])), SUBSTRATE_INTERPRETATION
+            )
+            if capture_application_inventory(state, source, credentials) != preserved["application_inventory"]:
+                raise SupervisorError("Restored application catalogue differs from its required inventory")
             # Re-mint source authorities before copying again: no old creation
             # capability from an unadmitted partial target survives recovery.
             rotate_source_authorities(state, source, credentials)
@@ -8631,7 +8783,7 @@ def validated_restore_backup(
     manifest = read_json(source / "backup.json")
     if (
         manifest.get("owner") != OWNER
-        or manifest.get("backup_version") != 3
+        or manifest.get("backup_version") != 4
         or manifest.get("interpretation") != interpretation
     ):
         raise SupervisorError("Unknown backup or incompatible interpretation")
@@ -8647,7 +8799,11 @@ def validated_restore_backup(
         if p.is_file() and p != source / "backup.json"
     }
     if actual != set(files):
-        raise SupervisorError("Backup file inventory differs from its manifest")
+        missing = sorted(set(files) - actual)
+        extra = sorted(actual - set(files))
+        raise SupervisorError(
+            f"Backup file inventory differs from its manifest; missing={missing!r}, unexpected={extra!r}"
+        )
     for name, digest in files.items():
         path = source / name
         if (
@@ -8657,6 +8813,7 @@ def validated_restore_backup(
             or file_digest(path) != digest
         ):
             raise SupervisorError("Backup path or content failed validation")
+    validate_application_inventory(manifest.get("application_inventory"))
     config = config_for(source)
     inventory = validate_payload_inventory(
         source, config, manifest.get("payload_inventory")
@@ -9825,6 +9982,7 @@ def parser() -> argparse.ArgumentParser:
             "stop",
             "kill",
             "backup",
+            "inspect-backup",
             "restore",
             "rebuild",
             "recover-maintenance",
@@ -9979,6 +10137,10 @@ def _dispatch(args: argparse.Namespace) -> int:
         output = recover_maintenance(
             args.state.absolute(), args.initializer_command or [], args.payload_verifier
         )
+    elif args.command == "inspect-backup":
+        if args.source is None:
+            raise SupervisorError("inspect-backup requires --source")
+        output = inspect_backup(args.source.absolute(), args.interpretation or SUBSTRATE_INTERPRETATION, args.payload_verifier)
     elif args.command == "restore":
         if args.source is None:
             raise SupervisorError("restore requires --source")
