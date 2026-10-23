@@ -22,7 +22,7 @@ fn snapshot() -> EvidenceSnapshot {
             },
             EvidenceFact {
                 member: "binary::unreported".into(),
-                kind: "test".into(),
+                kind: "rust_test".into(),
                 status: "unreported".into(),
                 crate_name: Some("pse-example".into()),
                 test_id: Some("binary::unreported".into()),
@@ -174,12 +174,26 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         assert_eq!(continued_b.generation,second.generation,"replaying activated A must preserve B and its cursor");
         assert_eq!(reader.status().await?["active_generation"],second.generation);
         let old=reader.select(&EvidenceQuery{generation:Some(first.generation.clone()),..Default::default()}).await?;assert_eq!(old.facts.len(),2);
-        let history=reader.generations(None,64).await?;assert_eq!(history["generations"].as_array().unwrap().len(),2);
+        let cut=reader.source_cut(&[first.generation.clone(),second.generation.clone(),first.generation.clone()],false).await?;
+        assert_eq!(cut.len(),2,"explicit multi-source membership deduplicates repeated generation IDs");
+        #[cfg(feature="evidence-query")]
+        {
+            let mut offline=crate::evidence_query::EvidenceAnalysis::new(vec![source.clone(),later.clone()],false)?;
+            let mut indexed=crate::evidence_query::EvidenceAnalysis::new(cut,false)?;
+            let question=crate::evidence_query::EvidenceQuestion::default();
+            assert_eq!(offline.ask(&question,&[]).await?,indexed.ask(&question,&[]).await?,"same selected facts give offline/indexed parity");
+        }
+        let mut version=source.clone();version.snapshot_digest="d".repeat(64);version.facts[1].status="pass".into();
+        let changed_receipt=importer.import(&version).await?;
+        assert!(reader.source_cut(&[first.generation.clone(),changed_receipt.generation.clone()],false).await.is_err());
+        assert_eq!(reader.source_cut(&[first.generation.clone(),changed_receipt.generation],true).await?.len(),2);
+        let history=reader.generations(None,64).await?;assert_eq!(history["generations"].as_array().unwrap().len(),3);
         // A staged generation with no complete membership never becomes selected.
         let (key,digest)= {let mut interrupted=source.clone();interrupted.source_id="interrupted".into();interrupted.identity()?};
         let row=pse_model::generated::runtime::evidence_generations::Row{key:key.clone(),authority:"owner".into(),codec:"owner-v1".into(),source_id:"interrupted".into(),snapshot_digest:"c".repeat(64),content_digest:digest,coverage:pse_model::generated::enums::EvidenceCoverage::Partial,expected_members:2,state:pse_model::generated::enums::EvidenceGenerationState::Staged};
         canonical::bounded_query(importer.query("CREATE type::record('evidence_generations',$key) CONTENT $row;")?.bind(("key",key.clone())).bind(("row",wire::encode_evidence_generations(&row)?))).await?;
-        assert!(matches!(reader.select(&EvidenceQuery{generation:Some(key),..Default::default()}).await,Err(EvidenceError::Cursor)));
+        assert!(matches!(reader.select(&EvidenceQuery{generation:Some(key.clone()),..Default::default()}).await,Err(EvidenceError::Cursor)));
+        assert!(matches!(reader.source_cut(&[key],false).await,Err(EvidenceError::Unavailable(_))));
         let mut invalid=options.clone();invalid.service_instance_id="foreign-service".into();assert!(matches!(EvidenceStore::open(&invalid,EvidenceAccess::Reader).await,Err(EvidenceError::Unavailable(_))));
         // Complete-response checking rejects preceding rows when a later statement fails.
         assert!(canonical::bounded_query(importer.query("SELECT * FROM evidence_facts LIMIT 1; THROW 'later statement failure';")?).await.is_err());
@@ -232,4 +246,12 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         Ok(result) => result.unwrap(),
         Err(panic) => std::panic::resume_unwind(panic),
     }
+}
+
+#[test]
+fn evidence_foreign_codec_context_and_sample_membership_refuse() {
+    let mut source=snapshot();source.version=1;assert!(source.validate().is_err());
+    source.version=2;source.codec="foreign-codec".into();assert!(source.validate().is_err());
+    let mut source=snapshot();source.facts[1].context_id=Some("undeclared".into());assert!(source.validate().is_err());
+    let mut source=snapshot();source.facts[1].value_ns=Some(f64::NAN);assert!(source.validate().is_err());
 }

@@ -132,12 +132,12 @@ impl EvidenceAnalysis {
         self.context.register_table("selected", selected.into_view()).map_err(invalid)?;
         let denominator = json_rows(&self.sql("SELECT count(*) AS selected_tests, count(crate_name) AS declared_crate_tests, count(context_id) AS declared_context_tests FROM selected WHERE kind IN ('rust_test','python_test')").await?)?;
         let mut subjects = self.context.sql(match question.operation {
-            EvidenceOperation::Subjects => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test')",
-            EvidenceOperation::Failures => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test') AND status IN ('failure','failed','error')",
-            EvidenceOperation::Missing => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test') AND status IN ('unreported','not_run','incomplete')",
-            EvidenceOperation::Distribution => "SELECT crate_name,context_id,status,count(*) AS subject_count FROM selected WHERE kind IN ('rust_test','python_test') GROUP BY crate_name,context_id,status",
-            EvidenceOperation::Diagnostics => "SELECT * FROM selected WHERE kind IN ('diagnostic_tool','diagnostic_target','diagnostic_science','diagnostic_artifact')",
-            EvidenceOperation::Measurements => "SELECT generation,context_id,population_id,status,count(*) AS sample_count,min(value_ns) AS min_ns,max(value_ns) AS max_ns,avg(value_ns) AS mean_ns FROM selected WHERE kind='criterion_sample' GROUP BY generation,context_id,population_id,status",
+            EvidenceOperation::Subjects => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test') ORDER BY generation,member",
+            EvidenceOperation::Failures => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test') AND status IN ('failure','failed','error') ORDER BY generation,member",
+            EvidenceOperation::Missing => "SELECT * FROM selected WHERE kind IN ('rust_test','python_test') AND status IN ('unreported','not_run','incomplete') ORDER BY generation,member",
+            EvidenceOperation::Distribution => "SELECT crate_name,context_id,status,count(*) AS subject_count FROM selected WHERE kind IN ('rust_test','python_test') GROUP BY crate_name,context_id,status ORDER BY crate_name,context_id,status",
+            EvidenceOperation::Diagnostics => "SELECT * FROM selected WHERE kind IN ('diagnostic_tool','diagnostic_target','diagnostic_science','diagnostic_artifact') ORDER BY generation,member",
+            EvidenceOperation::Measurements => "SELECT generation,context_id,population_id,status,count(*) AS sample_count,min(value_ns) AS min_ns,max(value_ns) AS max_ns,avg(value_ns) AS mean_ns FROM selected WHERE kind='criterion_sample' GROUP BY generation,context_id,population_id,status ORDER BY generation,context_id,population_id,status",
         }).await.map_err(invalid)?;
         if let Some(value) = &question.status { subjects = subjects.filter(col("status").eq(lit(value.clone()))).map_err(invalid)?; }
         let batches = subjects.limit(0, Some(limit + 1)).map_err(invalid)?.collect().await.map_err(invalid)?;
@@ -147,7 +147,7 @@ impl EvidenceAnalysis {
         let mut output = serde_json::json!({"operation":question.operation,"denominator":denominator,"rows":rows,"truncated":truncated,"limit":limit,"history":self.history,"sources":self.sources(observations),"detail_access":"separate explicit owner or supplied-copy selection"});
         if matches!(question.operation, EvidenceOperation::Diagnostics) {
             output["declared_links"] = serde_json::to_value(json_rows(&self.sql("SELECT generation,member,link_relation,link_target,status FROM evidence WHERE kind='declared_link' ORDER BY generation,member LIMIT 10001").await?)?).map_err(invalid)?;
-            output["linked_actions"] = serde_json::to_value(json_rows(&self.sql("SELECT l.generation AS referring_generation, d.generation AS diagnostic_generation, d.status AS tool_outcome FROM evidence l JOIN evidence d ON l.link_target=d.detail_ref WHERE l.kind='declared_link' AND l.link_relation='diagnostic_action' AND d.kind='diagnostic_tool' LIMIT 10001").await?)?).map_err(invalid)?;
+            output["linked_actions"] = serde_json::to_value(json_rows(&self.sql("SELECT l.generation AS referring_generation, d.generation AS diagnostic_generation, d.status AS tool_outcome FROM evidence l JOIN evidence d ON l.link_target=d.detail_ref WHERE l.kind='declared_link' AND l.link_relation='diagnostic_action' AND d.kind='diagnostic_tool' ORDER BY referring_generation,diagnostic_generation LIMIT 10001").await?)?).map_err(invalid)?;
             output["association_rule"] = "declared exact references only; absent correspondence is unknown".into();
         }
         if matches!(question.operation, EvidenceOperation::Measurements) {
@@ -197,4 +197,88 @@ fn json_rows(batches: &[RecordBatch]) -> Result<Vec<serde_json::Value>, Evidence
         }
     }
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::evidence::EvidenceFact;
+    fn source(id: &str) -> EvidenceSnapshot {
+        let mut facts = Vec::new();
+        for (member, status, owner) in [("failure", "failure", Some("pse-alpha")), ("missing", "unreported", Some("pse-alpha")), ("skipped", "skipped", Some("pse-beta")), ("reused", "reused", None)] {
+            facts.push(EvidenceFact { member: member.into(), kind: "rust_test".into(), status: status.into(), binary_id: Some("actual-binary".into()), test_id: Some(format!("actual-binary::{member}")), crate_name: owner.map(str::to_owned), ..Default::default() });
+        }
+        facts.push(EvidenceFact { member: "command".into(), kind: "invocation".into(), status: "command_failure".into(), ..Default::default() });
+        EvidenceSnapshot { version: 2, authority: "authentic-owner".into(), codec: "exact-resource-files-invocation-v2".into(), source_id: id.into(), snapshot_digest: "a".repeat(64), coverage: "partial".into(), expected_members: facts.iter().map(|f| f.member.clone()).collect(), facts }
+    }
+    #[tokio::test]
+    async fn evidence_query_denominators_filters_and_distinct_outcomes() {
+        let snapshot = source("one");
+        let mut analysis = EvidenceAnalysis::new(vec![snapshot.clone(),snapshot], false).unwrap();
+        let result = analysis.ask(&EvidenceQuestion { operation: EvidenceOperation::Failures, ..Default::default() }, &[]).await.unwrap();
+        assert_eq!(result["denominator"][0]["selected_tests"], 4);
+        assert_eq!(result["rows"].as_array().unwrap().len(), 1);
+        assert_eq!(result["rows"][0]["test_id"], "actual-binary::failure");
+        assert_eq!(result["sources"].as_array().unwrap().len(), 1, "repeated imports cannot duplicate samples");
+        let result = analysis.ask(&EvidenceQuestion { operation: EvidenceOperation::Missing, crate_name: Some("pse-alpha".into()), ..Default::default() }, &[]).await.unwrap();
+        assert_eq!(result["denominator"][0]["selected_tests"], 2);
+        assert_eq!(result["rows"][0]["status"], "unreported");
+        let result = analysis.ask(&EvidenceQuestion { operation: EvidenceOperation::Distribution, ..Default::default() }, &[]).await.unwrap();
+        assert_eq!(result["rows"].as_array().unwrap().len(),4);
+    }
+    #[tokio::test]
+    async fn evidence_query_source_versions_and_explicit_freshness() {
+        let original = source("one");
+        let mut changed = original.clone();
+        changed.snapshot_digest = "b".repeat(64);
+        assert!(EvidenceAnalysis::new(vec![original.clone(), changed.clone()], false).is_err());
+        let mut history = EvidenceAnalysis::new(vec![original.clone(),changed], true).unwrap();
+        let observations = [EvidenceSourceObservation { authority:original.authority,codec:original.codec,source_id:original.source_id,snapshot_digest:None }];
+        let result = history.ask(&Default::default(), &observations).await.unwrap();
+        assert_eq!(result["sources"][0]["freshness"], "missing");
+        let observations = [EvidenceSourceObservation { snapshot_digest:Some("a".repeat(64)), ..observations[0].clone() }];
+        let result = history.ask(&Default::default(), &observations).await.unwrap();
+        assert_eq!(result["sources"][0]["freshness"], "matches-supplied-observation");
+        assert_eq!(result["sources"][1]["freshness"], "stale");
+    }
+    #[tokio::test]
+    async fn evidence_query_exact_links_never_temporal_neighbors() {
+        let mut invocation = source("invocation");
+        invocation.facts.push(EvidenceFact {member:"diagnostic".into(),kind:"declared_link".into(),status:"declared".into(),link_relation:Some("diagnostic_action".into()),link_target:Some("sha256:recorded".into()),..Default::default()});
+        invocation.expected_members.push("diagnostic".into());
+        let mut action = source("linked");
+        action.codec = "active-diagnostic-action-v1".into();
+        action.facts = vec![EvidenceFact {member:"action".into(),kind:"diagnostic_tool".into(),status:"tool_failure".into(),detail_ref:Some("sha256:recorded".into()),..Default::default()}];
+        action.expected_members = vec!["action".into()];
+        let mut unrelated = action.clone();
+        unrelated.source_id = "standalone-nearby".into();
+        unrelated.facts[0].detail_ref = Some("sha256:unrelated".into());
+        let mut analysis = EvidenceAnalysis::new(vec![invocation,action,unrelated],false).unwrap();
+        let result = analysis.ask(&EvidenceQuestion {operation:EvidenceOperation::Diagnostics,..Default::default()}, &[]).await.unwrap();
+        assert_eq!(result["rows"].as_array().unwrap().len(),2);
+        assert_eq!(result["linked_actions"].as_array().unwrap().len(),1);
+        assert_eq!(result["linked_actions"][0]["tool_outcome"],"tool_failure");
+    }
+    #[tokio::test]
+    async fn evidence_query_measurements_keep_censored_populations_and_source_context() {
+        let mut source = source("measurement");
+        source.codec = "process-cost-v5".into();
+        source.facts = vec![
+            EvidenceFact {member:"population".into(),kind:"measurement_population".into(),status:"censored".into(),population_id:Some("workload".into()),..Default::default()},
+            EvidenceFact {member:"membership".into(),kind:"measurement_association".into(),status:"unavailable".into(),population_id:Some("workload".into()),..Default::default()},
+        ];
+        for (index,value) in [10.0,30.0].iter().enumerate() {
+            source.facts.push(EvidenceFact {member:format!("sample:{index}"),kind:"criterion_sample".into(),status:"measured".into(),population_id:Some("workload".into()),sample_id:Some(format!("row:{index}")),value_ns:Some(*value),..Default::default()});
+        }
+        source.expected_members = source.facts.iter().map(|f| f.member.clone()).collect();
+        let mut other = source.clone();
+        other.source_id = "other-build".into();
+        let mut analysis = EvidenceAnalysis::new(vec![source.clone(), source,other],false).unwrap();
+        let result = analysis.ask(&EvidenceQuestion {operation:EvidenceOperation::Measurements,..Default::default()}, &[]).await.unwrap();
+        assert_eq!(result["rows"].as_array().unwrap().len(),2,"unknown context cannot merge independent sources");
+        assert_eq!(result["rows"][0]["sample_count"],2);
+        assert_eq!(result["rows"][0]["mean_ns"],20.0);
+        assert_eq!(result["populations"][0]["status"],"censored");
+        assert_eq!(result["association"][0]["status"],"unavailable");
+    }
 }
