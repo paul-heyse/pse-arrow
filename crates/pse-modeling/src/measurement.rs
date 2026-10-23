@@ -22,6 +22,13 @@ pub struct Measurement<'a> {
     pub provenance: &'a Provenance,
 }
 impl CheckedPackage {
+    /// Original attribute declaration for an admitted measurement record, including
+    /// inherited/derived fields of an admitted keyed data row. This is provenance,
+    /// never an inferred transformation or uncertainty rule.
+    pub fn measurement_attribute_declaration(&self,record:DeclarationId,attribute:&str)->Result<DeclarationId>{
+        let record=self.record(record).ok_or_else(||invalid(record,"measurement record absent"))?;
+        self.kinds.get(&record.kind).and_then(|kind|kind.attributes.iter().find(|(name,_)|name==attribute).map(|(_,id)|*id)).ok_or_else(||invalid(record.kind,"measurement attribute declaration absent"))
+    }
     /// Select one measured attribute and its declared uncertainty, or one explicitly
     /// selected standard-deviation attribute. The scientific reader's taint rules apply.
     pub fn measurement(
