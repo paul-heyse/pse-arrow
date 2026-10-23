@@ -567,7 +567,11 @@ Optional tools are explicit installs: `just diagnostic-tools mcpls`, `just diagn
 and `just diagnostic-python-tools`. Passive context, run and activity readers install nothing.
 The separate cooperative taskdump Python environment is built with `just py-sync-taskdump`;
 select its interpreter explicitly and keep it separate from ordinary/native correctness
-extensions. Broad workstation sudo permission does not change these command effects or make
+extensions. The cargo-hack feature adapter selects that same `diagnostic-taskdump` profile
+and existing taskdump flag configuration when a check explicitly selects the feature. Its
+force-validation unit-graph probes use the same environment; ordinary combinations keep their
+ordinary profile and flags. An explicitly conflicting profile is refused before Cargo runs.
+Broad workstation sudo permission does not change these command effects or make
 root the owner of ordinary builds.
 
 The opt-in kernel and subprocess controls live in `scripts/tests/plan30_*_check.py`,

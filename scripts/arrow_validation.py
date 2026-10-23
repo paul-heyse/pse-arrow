@@ -279,8 +279,10 @@ def graph_command(command: Sequence[str]) -> list[str]:
     return result
 
 
-def capture(command: Sequence[str]) -> bytes:
-    response = subprocess.run(command, capture_output=True, check=False)
+def capture(
+    command: Sequence[str], *, env: Mapping[str, str] | None = None
+) -> bytes:
+    response = subprocess.run(command, capture_output=True, check=False, env=env)
     if response.returncode:
         raise ValidationError(
             f"{shlex.join(command)} failed:\n{response.stderr.decode()}"

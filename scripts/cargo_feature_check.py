@@ -22,6 +22,7 @@ from pathlib import Path
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts import build_environment
 from scripts.arrow_validation import capture, compose
 
 
@@ -82,6 +83,49 @@ def qualify_features(arguments: list[str]) -> list[str]:
     return qualified
 
 
+def diagnostic_check(arguments: list[str]) -> tuple[list[str], dict[str, str] | None]:
+    """Select the existing isolated taskdump route only for its explicit feature."""
+    if not arguments or arguments[0] != "check":
+        return arguments, None
+    selected = False
+    profile: str | None = None
+    boundary = arguments.index("--") if "--" in arguments else len(arguments)
+    index = 1
+    while index < boundary:
+        argument = arguments[index]
+        if argument in {"--features", "-F", "--profile"}:
+            if index + 1 == boundary:
+                raise ValueError(f"{argument} requires a value")
+            index += 1
+            if argument == "--profile":
+                profile = arguments[index]
+            else:
+                selected |= any(
+                    feature.rsplit("/", 1)[-1] == "diagnostic-taskdump"
+                    for feature in re.split(r"[\s,]+", arguments[index])
+                )
+        elif argument.startswith(("--features=", "-F")):
+            value = argument.split("=", 1)[1] if argument.startswith("--features=") else argument[2:]
+            selected |= any(
+                feature.rsplit("/", 1)[-1] == "diagnostic-taskdump"
+                for feature in re.split(r"[\s,]+", value)
+            )
+        elif argument.startswith("--profile="):
+            profile = argument.removeprefix("--profile=")
+        index += 1
+    if not selected:
+        return arguments, None
+    if (profile is not None and profile != "diagnostic-taskdump") or "--release" in arguments[:boundary]:
+        raise ValueError("diagnostic-taskdump checks require the isolated diagnostic-taskdump profile")
+    command = arguments.copy()
+    if profile is None:
+        command[boundary:boundary] = ["--profile", "diagnostic-taskdump"]
+    environment = build_environment.configure(
+        Path(__file__).resolve().parents[1], dict(os.environ), taskdump=True
+    )
+    return command, environment
+
+
 def cargo_executable() -> str:
     """Use Cargo's existing executable selection without a toolchain override."""
     cargo = os.environ.get("CARGO") or shutil.which("cargo")
@@ -97,18 +141,24 @@ def cargo_executable() -> str:
 def main() -> int:
     """Forward to existing Cargo with inherited streams and its failure status."""
     try:
-        arguments = qualify_features(sys.argv[1:])
+        arguments, environment = diagnostic_check(qualify_features(sys.argv[1:]))
         cargo = cargo_executable()
         command = ["cargo", *arguments]
         if arguments[:1] == ["check"]:
-            command = compose(command, run=lambda scope: capture([cargo, *scope[1:]]))
+            command = compose(
+                command,
+                run=lambda scope: capture([cargo, *scope[1:]], env=environment),
+            )
             print(
                 "cargo feature check: " + shlex.join(command),
                 file=sys.stderr,
                 flush=True,
             )
         command[0] = cargo
-        code = subprocess.run(command, check=False).returncode
+        if environment is None:
+            code = subprocess.run(command, check=False).returncode
+        else:
+            code = subprocess.run(command, check=False, env=environment).returncode
         # Shell exit status for a child terminated by a signal.
         return code if code >= 0 else 128 - code
     except (OSError, ValueError, tomllib.TOMLDecodeError) as error:

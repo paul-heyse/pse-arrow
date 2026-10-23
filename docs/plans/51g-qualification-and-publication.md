@@ -242,6 +242,21 @@ startup failure prompted an environment-shaped investigation. The documentation 
 617 chapters before final prose. Feature powerset/no-default, final executable controls,
 retirement preflight and final publication results remain to be recorded before Q03/Q04 close.
 
+The rebuilt dedicated `pse-project`/`pse-evidence` binaries passed their actual public controls:
+`PSE_EVIDENCE_TEST_TOOL=<rebuilt-tool> .venv/bin/python -m unittest
+scripts.tests.evidence_native` passed **4/4**, 4.770 s, with an absent service and no implicit
+build. The native/store `scripts.python_tests test_project_cli.py -m component -q` journey
+passed **1/1**, 37.75 s. An initial invocation omitted `--native` and failed before collection
+because the installed linked extension could not load `libcoinmumps`; rerunning through the
+existing native environment corrected the command, with no extension or loader-path change.
+
+The keep-going feature matrix exposed taskdump combinations run without required Tokio cfg.
+The original cargo-hack adapter now selects the existing isolated diagnostic profile and
+`build_environment.configure(..., taskdump=True)`, including the same flags for force-validation
+graph probes. Ordinary combinations retain ordinary flags. **42** adapter/validation/environment
+controls pass; Ruff passes and the final type check is recorded below. Exact failed combinations
+are rerun separately rather than relabelling the initial matrix as clean.
+
 ### Mistakes corrected
 
 The first disposable recovery fixture omitted a real project/fork/raw draft; it now proves the
