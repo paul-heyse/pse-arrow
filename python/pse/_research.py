@@ -10,12 +10,12 @@ from pse.contracts.documents import (
     ResearchDatasetRequest,
     ResearchPublicationIntent,
     ResearchPublicationIntentOutput,
-    ResearchPublicationOutput,
+    ResearchPublication,
     ResearchPublicationPreviewOutput,
     ResearchPublicationRequest,
     ResearchReadRequest,
     ResearchReadResultOutput,
-    ResearchSelectionOutput,
+    ResearchSelection,
     ResearchSelectionRequest,
 )
 
@@ -28,7 +28,7 @@ class ResearchRuntime:
         """Admit original typed attribute references into an immutable version."""
         return self._handle.research_dataset_create(request)
 
-    def research_selection_create(self, request: ResearchSelectionRequest) -> ResearchSelectionOutput:
+    def research_selection_create(self, request: ResearchSelectionRequest) -> ResearchSelection:
         """Freeze complete original observations, exclusions and calibration context."""
         return self._handle.research_selection_create(request)
 
@@ -48,7 +48,7 @@ class ResearchRuntime:
         """Inspect an admitted authored delta from original qualified fitted cells."""
         return self._handle.research_publication_preview(request)
 
-    def research_publish(self, intent: ResearchPublicationIntent | ResearchPublicationIntentOutput) -> ResearchPublicationOutput:
+    def research_publish(self, intent: ResearchPublicationIntent | ResearchPublicationIntentOutput) -> ResearchPublication:
         """Settle or execute one retained exact source publication intent."""
         return self._handle.research_publish(intent)
 
