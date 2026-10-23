@@ -692,6 +692,7 @@ mod tests {
         retained.failure = None;
         retained.unavailable.clear();
         retained.sources.push(ReviewSourceDocument {
+            context: None,
             identity: source,
             interpretation: "original source".into(),
             build: ContentHash::from_bytes([33; 32]),

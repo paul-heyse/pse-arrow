@@ -2462,6 +2462,11 @@ impl ModelingPackage {
     ) -> Result<usize, WorkflowError> {
         use datafusion::arrow::ipc::writer::StreamWriter;
         let mut extent = 1024_usize;
+        if let Some(context) = &self.project_context {
+            extent = extent.checked_add(crate::workflow::replay::encoded_extent(context, maximum_bytes)?)
+                .filter(|bytes| *bytes <= maximum_bytes)
+                .ok_or_else(|| contract("selected historical context exceeds finite allocation"))?;
+        }
         {
             let mut add = |bytes: usize| -> Result<(), WorkflowError> {
                 extent = extent
@@ -2678,6 +2683,7 @@ impl ModelingPackage {
             review_context::{ReviewProviderDescriptor, ReviewSourceDocument},
         };
         Ok(ReviewSourceDocument {
+            context: self.project_context.clone(),
             identity: self.revision.identity().as_id(),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             build: pse_backend_native::execution::LINKED.build_identity(),
