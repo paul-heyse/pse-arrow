@@ -146,7 +146,10 @@ it does not guess CSV columns or scan other directories.
 Open the frozen research selection before preparing its fit. `research_publication_preview`
 selects an exact sealed run/attempt and explicit scalar-parameter mappings, reads the original
 qualified fitted cells, and returns an admitted source delta plus an immutable publication
-intent. Retain that intent for `research_publish`, including through uncertain responses.
+intent. Preview is local admission: it does not move a source head or create a publication
+receipt. Target preparation explicitly demands mapped parameters even when the current model
+does not otherwise use them. Retain that intent for `research_publish`, including through
+uncertain responses.
 Publication preserves authored declarations and checks full quantity/unit meaning, explicit
 bounds, original fit ancestry and source-head CAS. It retains result protection through source
 activation. Withheld covariance remains withheld; it does not erase an independently eligible
@@ -154,8 +157,8 @@ point estimate. `research_publication_open` returns the new parameter source wit
 an ordinary downstream study.
 
 `study_workbench_page` browses compact indexed headers. `freeze_study_cohort` captures complete
-bounded membership in one native snapshot (at most64 studies and128 occurrences), refusing
-excess rather than truncating analysis. Project filtering currently admits at most64 branch
+bounded membership in one native snapshot (at most 64 studies and 128 occurrences), refusing
+excess rather than truncating analysis. Project filtering currently admits at most 64 branch
 owners; select a branch/source to narrow a larger project. A frozen document does not grant
 payload lifetime: `FrozenStudyCohort.result` reopens its exact original protected selection.
 `aggregate` selects registered physically typed outputs, currently including simulation samples,

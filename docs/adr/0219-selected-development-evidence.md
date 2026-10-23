@@ -8,11 +8,11 @@ level: decision
 principles: [AP-04, AP-06, DP-09]
 blueprint: [§24.1, §23.1]
 review: "not-required: New relation families and composed workflows within existing scientific, source, result and tooling decisions; maintainer authorized the detailed Plan51c/51d execution approach."
-evidence: Interface-checked
+evidence: "Tested: native evidence query/generation controls, 48 host adapter/lifecycle controls and three actual supplied-only executable controls on Linux with force-validated native queries; assembled qualification remains Plan51g."
 supersedes: []
 superseded-by: null
 revisit: A concrete selected evidence question requires source authority replacement or cannot be answered from authentic supplied facts and explicit cuts.
-verification: Targeted authentic source, physical, publication, cursor, coverage and public-consumer controls at the owning plan; assembled qualification remains Plan51g.
+verification: Authentic declared populations, supplied-only executable questions, native generation/cut visibility, exact diagnostic links/detail and measurement context/sample controls at the owning plan; assembled qualification remains Plan51g.
 ---
 
 # ADR-0219: Query selected development evidence without transferring source authority
@@ -51,7 +51,7 @@ Original immutable intents, issuing-authority checks, short guarded transactions
 
 ### Confirmation
 
-Interface-checked against current admitted source, fit export, exact result readers, project/history and isolated evidence APIs at 77877da13. The owning plan will record implemented/tested evidence and its limits; no assembled qualification or performance measurement is claimed here.
+Implemented and targeted-tested through authentic owner adapters, actual supplied-only native queries with unavailable service/product context, explicit persistent generations/cuts, declared diagnostic associations and selected released/copied detail. Measurement controls retain genuine samples, censoring, actual/unknown context and unsupported membership. The owning plan records exact commands, corrected failures and support limits. No assembled qualification or performance measurement is claimed.
 
 ## Pros and cons
 
@@ -64,3 +64,4 @@ Reuses established scientific and operational ownership; requires explicit versi
 ## Status history
 
 - 2026-10-23 — proposed before implementation under maintainer-authorized execution.
+- 2026-10-23 — implementation and targeted functional evidence published; status remains proposed, with assembled qualification at Plan51g.

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 251
+revision: 252
 date: 2026-10-23
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 252 | 2026-10-23 | Publish Plan51c/51d admitted research, original eligible-cell publication, frozen protected cohort/observer and authentic supplied/indexed evidence contracts and support limits (§19.4/§24.1). | Maintainer-authorized 51c/51d implementation; PSE_DESIGN_EDIT=1 authorizes enduring publication. Targeted Rust/Python/offline evidence at the companions; full hygiene and assembled qualification remain Plan51g; ADR-0218/0219 remain proposed. |
 | 251 | 2026-10-23 | ADR-0218/0219: selected scientific research, original fit-publication evidence, bounded cohort/observer and authentic offline/indexed development evidence targets (§19.4/§24.1). | Maintainer-authorized Plan51c/51d execution; PSE_DESIGN_EDIT=1 authorizes target publication; implementation/targeted evidence stay at their plans, assembled qualification at Plan51g. |
 | 250 | 2026-10-22 | Publish Plan51b exact source selections, immutable raw version recovery, merge preimage/issuer controls, protected authored/physical historical consumption and passive preparation metadata (§14.3/§20.6). | Maintainer-authorized Plan51b implementation; PSE_DESIGN_EDIT=1 authorizes enduring publication; targeted evidence at Plan51b, assembled qualification remains Plan51g; ADR-0217 remains proposed. |
 | 249 | 2026-10-22 | ADR-0217: exact project editing, compensating undo, UTC context corrections and passive preparation discovery (§14.3/§20.5–§20.6/§21.1). | Maintainer-authorized Plan51b execution; PSE_DESIGN_EDIT=1 authorizes target publication; qualification remains at Plan51. |

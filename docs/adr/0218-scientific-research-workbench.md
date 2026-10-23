@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-06, DP-09, PS-02, PS-10]
 blueprint: [§19.3, §19.4, §20.6]
 review: "not-required: New relation families and composed workflows within existing scientific, source, result and tooling decisions; maintainer authorized the detailed Plan51c/51d execution approach."
-evidence: Interface-checked
+evidence: "Tested: research_calibrated_fit_reopens_and_publishes_original_cells, public cohort/observer controls and Python research/workbench journeys on Linux with the pinned MX1.0 service and force-validated correctness builds; assembled qualification remains Plan51g."
 supersedes: []
 superseded-by: null
 revisit: A concrete selected research operation cannot preserve physical meaning, exact original fit evidence or source/result ownership through these existing owners.
@@ -51,7 +51,7 @@ Original immutable intents, issuing-authority checks, short guarded transactions
 
 ### Confirmation
 
-Interface-checked against current admitted source, fit export, exact result readers, project/history and isolated evidence APIs at 77877da13. The owning plan will record implemented/tested evidence and its limits; no assembled qualification or performance measurement is claimed here.
+Implemented and targeted-tested through admitted Parquet/measurement sources, actual calibrated residual LM, original eligible fit export, local preview/guarded publication and downstream prediction. Native snapshot cohorts and passive observation use original protected results/progress; public Python and typed CLI consumers are exercised. The owning plan records exact commands, corrected failures and support limits. No assembled qualification or performance measurement is claimed.
 
 ## Pros and cons
 
@@ -64,3 +64,4 @@ Reuses established scientific and operational ownership; requires explicit versi
 ## Status history
 
 - 2026-10-23 — proposed before implementation under maintainer-authorized execution.
+- 2026-10-23 — implementation and targeted functional evidence published; status remains proposed, with assembled qualification at Plan51g.

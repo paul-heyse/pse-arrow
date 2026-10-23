@@ -505,12 +505,30 @@ design-change tracking are owned by
 
 > Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
 
-Selected authentic owner snapshots support supplied-only Arrow/DataFusion evidence queries and
-explicit cuts over the independently disposable tooling index. Contexts, declared links and
-measurement populations extend the existing evidence family; terminal/resource owners remain
-independently readable. Index presence grants no raw-detail custody or current freshness.
-Diagnostic tool, target and scientific outcomes stay distinct, and unknown sample associations
-or comparability remain explicit. Offline inspection requires no service or product extension.
+Selected authentic owner snapshots support supplied-only Arrow/DataFusion evidence questions
+and explicit activated cuts over the independently disposable tooling index. Typed invocation,
+assessment, diagnostic, host and measurement adapters retain authority/codec/identity, source
+digest, declared inventory/context, coverage and actual links. Failed, unreported, skipped,
+reused/transferred and command-failure populations remain distinct. Offline dispatch precedes
+service/activity initialization and requires neither a product extension, implicit build nor
+unrelated traversal; original snapshot/detail inspection remains usable without the optional
+query executable.
+
+Imports reuse the same facts and staged/activated generation owner. Repeated snapshots deduplicate;
+changed versions require explicit history selection. Results describe their selected imported cut;
+freshness is established only by supplied current observations, with stale/missing sources explicit.
+Diagnostic questions preserve separate tool, target and scientific outcomes. Only declared links
+associate actions and invocations; timestamps establish no association. Selected raw detail uses
+original owner protection or a validated supplied copy, optionally bound to an expected digest;
+index presence grants no custody. Released detail leaves frozen summaries usable.
+
+Measurement populations preserve actual context and sample membership, genuine samples separately
+from reported summaries, failed/censored samples, known capture costs and explicit unknowns.
+Unmeasured smoke output is not a performance sample. Criterion-to-invocation membership remains
+unavailable when its owner does not record it; these queries establish no causal defect, regression
+or quantitative benefit. Storage-health collection and portable closure/release remain separately
+owned capabilities. The [substrate guide](../../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence)
+describes the supported selected-source commands and operational limits.
 
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a evidence catalogue).
 

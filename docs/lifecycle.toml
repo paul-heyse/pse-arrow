@@ -2504,8 +2504,8 @@ status_profile = "finding"
 status_column = 1
 owner_column = 2
 
-# Plan51 is a proposed series. Its coordinator owns all native execution/inquiry state;
-# publication and these bindings do not authorize implementation.
+# Plan51 coordinator owns native execution/inquiry state; implementation authorization
+# and targeted/assembled evidence remain explicit in that owner and its companions.
 
 [[scope_tables]]
 path = "docs/plans/51-engineering-workspaces-and-evidence.md"

@@ -1,6 +1,6 @@
 ---
 title: "Plan 51d: Development and research evidence"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0219]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,7 +14,7 @@ doc_topics: [current-work, design, diagnostics, validation, performance]
 
 ## Useful behavior and authority
 
-**Proposed:** ask precise questions over selected authentic test, diagnostic and performance
+**Implemented:** ask precise questions over selected authentic test, diagnostic and performance
 histories: which declared tests failed, which crates/contexts they belong to, what is unreported,
 which diagnostic artifacts actually relate to a failure and which measurements form a comparable
 population. Supply sources explicitly for offline analysis; import compact projections into the
@@ -163,16 +163,101 @@ complete the capability without a quantitative benefit claim.
 
 ## Verification and evolution
 
-**Proposed:** targeted adapter/query/CLI tests establish source interpretation and query behavior;
-51g owns composed qualification and zero-target static checks at scope end. Source fixtures must
-exercise real prefixes and owner decoders; no tests that merely mirror a proposed table layout.
-No full project rebuild or heavyweight native study is needed to validate offline evidence logic.
+**Implemented:** EV01–EV05 are complete at targeted acceptance on 2026-10-23. The
+[coordinator](51-engineering-workspaces-and-evidence.md#package-state-and-execution-route)
+owns package/opportunity state. Source owners remain independent; a new runner or diagnostic
+producer supplies authentic owner facts and explicit associations rather than a heuristic log
+parser. LC04 remains responsible for storage-health collection. This work accepts its declared
+references when supplied, without inventing process/scientific correspondence.
 
-A new test runner adds an authentic adapter and declared inventory mapping. A new diagnostic tool
-adds original action/artifact facts. Neither changes terminal/resource authority, scientific
-result storage or the existing product execution route. Current checkpoint (2026-10-23): authentic
-source adapters, supplied-only DataFusion analysis, explicit persistent source cuts, diagnostic
-closure selection and measurement populations are integrated. Host adapter and actual offline
-executable controls pass; targeted native query/generation controls pass within the current
-combined selection. Whole-series static/assembled qualification remains 51g. The coordinator
-owns package disposition; no performance benefit is claimed.
+**Tested:** Linux targeted functional acceptance below used pinned tools and a zero-failure
+baseline. Arrow-consuming native builds explicitly verified force-validation. The shared native
+command is recorded once in [51c verification](51c-scientific-data-studies-and-results.md#verification-and-handoff).
+It includes all evidence query, canonical import/cut and existing evidence-capture controls in
+the four selected packages, alongside the scientific/workbench controls; its result is not a
+whole-product or full-series qualification.
+
+| Command / selected scope | Final result |
+| --- | --- |
+| Shared Rust acceptance linked above | 70 passed, zero failed, 1,839 excluded by the explicit selection; actual native fit/publication/downstream, source/replay, cohort/observer, evidence and CLI controls across 10 binaries (Nextest `83280600-0939-478c-8157-c53fa09c321b`) |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_evidence_sources scripts.tests.test_evidence_projection scripts.tests.test_evidence_store scripts.tests.test_active_diagnostics` | 48 passed, zero failed; authentic owner adapters, declared inventories, interrupted/unreported/skipped/reused/transferred populations, foreign codec/copy refusal, independent lifecycle/detail and CLI dispatch |
+| `scripts/pse-env -- just evidence-build` | Passed explicit optional native executable build; no query performs this build implicitly |
+| `PSE_EVIDENCE_TEST_TOOL="$PWD/target/debug/pse-evidence" scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.evidence_native` | 3 passed, zero failed; actual executable over supplied authentic invocation, diagnostic and measurement artifacts with service/license/activity context unavailable, no unrelated traversal or implicit product build, exact links, released detail and actual samples |
+| `scripts/pse-env -- just codegen` | Passed original registry/generator publication, including native evidence schema and selected query contracts |
+| `scripts/pse-env -- just family-check` | Passed single pinned Arrow/Parquet/object_store/DataFusion universe after wiring the optional native query edge |
+
+The native query controls independently specify failed/unreported denominators and context
+populations, preserve separate diagnostic tool/target/scientific outcomes, require exact declared
+links and exclude unrelated timestamp neighbors. Canonical controls cover scoped roles,
+staged/activated generation visibility, duplicate import, changed snapshots, explicit generation
+cuts/history, supplied freshness observations, offline/indexed parity and derived-index loss
+without source mutation. Measurement fixtures vary actual build/provider/workload/capture context,
+retain failed/censored samples and report unavailable membership instead of inventing it.
+
+**Not run:** whole-series integration, full hygiene and whole-series manual governance/native/
+powerset qualification, additional operating systems or fresh performance campaigns. Mechanical
+ADR/formatting and 616-chapter documentation publication passed; [51c mechanical publication](51c-scientific-data-studies-and-results.md#verification-and-handoff)
+records the format-only Ruff diagnostics that remain for Q03, without a clean lint claim. Q01–Q04 in 51g own
+those boundaries. **Measured:** no quantitative speed, regression or capacity claim is made;
+authentic sample ingestion is a functional capability, not a benchmark of this implementation.
+
+## Outcome
+
+### What was built
+
+**Implemented:** typed authentic invocation, assessment, diagnostic, measurement and host adapters
+extend the existing evidence family with original source identity/codec/digest, declared inventory
+and compact contexts/links. Explicit outcome and coverage populations remain distinct. Source
+validation uses the original owner; unsupported or corrupt input cannot become empty success.
+Actual Rust binary/test and Python node identities use declared mapping without guessed crates.
+
+**Implemented:** a supplied-only built native DataFusion query tool answers finite evidence
+questions with selected Arrow relations, context filters, distributions, coverage and exact
+association joins. Thin Python/CLI dispatch runs before service/activity configuration and retains
+independent snapshot/detail inspection when the optional native executable is absent. Queries
+neither scan arbitrary storage nor initialize a product, start a service or compile implicitly.
+
+**Implemented:** the existing isolated staged/activated tooling index reuses the same facts for
+explicit import/query/status/rebuild/drop and selected generation cuts. Duplicate snapshots
+deduplicate, changed versions require explicit history, and freshness is matching/stale/missing
+only against supplied observations; otherwise results describe their imported cut. The index
+confers no terminal, raw-artifact, resource-release or scientific authority.
+
+**Implemented:** linked/standalone diagnostic questions preserve separate outcomes and original
+artifact references. Detail selects original protected artifacts or validated supplied copies,
+with optional digest binding; released detail does not erase the summary or reopen an old path.
+Performance questions expose actual context, sample membership, distributions, reported summaries,
+failed/censored samples and known capture overhead independently. Genuine Criterion samples are
+accepted only through validated source data; unavailable invocation membership stays unavailable.
+
+### A mistake made and corrected
+
+**Tested:** initial native queries lacked the engine catalog/schema because the shared engine
+factory deliberately disables a default namespace. The selected query consumer now registers its
+own namespace and tables instead of changing global engine policy. Independent review exposed
+context filtering dropping target/scientific/artifact facts and selected diagnostic queries
+including unrelated links. All action facts now retain their original context; joins retain only
+the exact declared referring invocation. The two-context fixture supplies all fourteen declared
+context fields rather than treating omitted fields as comparable.
+
+The initial combined 43-pass/7-fail Rust run included these query initialization failures and
+separate scientific fixture failures. The former were corrected at the query owner; later final
+acceptance supersedes those failures rather than recording a nonzero baseline. No nearest-time
+join, default success or lint suppression was introduced to make acceptance pass.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** finite operation-shaped questions use the existing EngineFactory/DataFusion
+rather than a generic SQL platform. Original process-cost/measurement reports and unmeasured smoke
+records are supported at their actual scope; nested preparation/admission reports are not silently
+flattened into complete performance populations. Optional explicit invocation sample files must
+validate actual owner membership. Unknown context or Criterion association remains explicit.
+LC04 storage-health collection and LC01/LC03 portable closure/release are later-owned consumers,
+not duplicated here. No fresh benchmark was required because no performance benefit is claimed.
+
+Enduring authority and query semantics live at blueprint §24.1 and proposed ADR-0219; operator
+commands and current limits are in the [substrate guide](../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence).
+The evidence implementation worktree was merged with qualified main repairs preserved, then the
+clean merged worktree and branch were removed. Retain this completed companion while later
+51e–51g work consumes it; Q04 owns aggregate retirement and existing-plan reconciliation. Full
+Plan51 qualification and ADR acceptance remain separate.

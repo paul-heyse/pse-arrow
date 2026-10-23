@@ -134,10 +134,9 @@ owners rather than inventing a type/service for every conceptual name.
 The review lists conditional impacts, not seven required waivers. The selected target avoids
 the backend/payload/resource-authority replacements. No unaccepted rule change is used to make
 the design work. Maintainer selections of 2026-10-22 authorize full planning coverage and authoring-
-time design selection, not a blanket waiver. The subsequent explicit 51a implementation request
-authorizes its foundation scope, without changing the remaining packages or rule decisions.
-A newly discovered actual change
-must be presented with its consequence and confirmed before the dependent target is revised.
+time design selection, not a blanket waiver. Subsequent explicit execution requests authorize
+51a–51d; targeted evidence lives in their companions, without changing later package authorization
+or the rule decisions. A newly discovered actual change must be presented with its consequence and confirmed before the dependent target is revised.
 
 | Review item | Plan disposition | Route / consequence |
 | --- | --- | --- |
@@ -157,17 +156,17 @@ Resolved here can close an authoring choice without claiming product implementat
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 | --- | --- | --- | --- |
 | O01 | resolved: implemented and targeted-tested | PJ01–PJ04 | Exact navigation/selection, logical comparison, guarded explicit merge/publication and compensating undo; [51b evidence](51b-projects-revisions-and-temporal-context.md#verification-and-handoff); series qualification remains Q01–Q04 |
-| O02 | partial: PJ05 implemented; SC02 scheduled | PJ05/SC02 | Effective/recorded context and exact source reopening integrated with actual source consumers; PJ05 actual study/fit provenance is targeted-tested. Wider calibration/observation selection remains SC02 |
+| O02 | resolved: implemented and targeted-tested | PJ05/SC02 | Effective/recorded context, exact source reopen and frozen calibrated observation selection; actual transformed sigma/weights, invalid-domain/unknown-uncertainty refusal and unchanged old fit receipts after correction; [51c evidence](51c-scientific-data-studies-and-results.md#verification-and-handoff) |
 | O03 | resolved: implemented and targeted-tested | PJ02/PJ04 | Immutable raw versions, local admission/diagnostics, savepoint restoration, original intent settlement and one-occurrence cancellation/undo custody; [51b evidence](51b-projects-revisions-and-temporal-context.md#verification-and-handoff) |
-| O04 | scheduled | SC04/SC05 | Indexed study selection and protected original result access |
-| O05 | scheduled | SC01–SC03 | Raw measurement → calibration → admitted fit → parameter revision → downstream study |
-| O06 | scheduled | EV01–EV03 | Authentic selected test facts, honest denominators and protected artifact retrieval |
-| O07 | scheduled | EV04/LC04 | Real diagnostic relationships and separate tool/target/scientific outcomes |
-| O08 | scheduled | EV05 | Comparable measurement cohorts with actual sample membership and unknown conditions |
+| O04 | resolved: implemented and targeted-tested | SC04/SC05 | Native snapshot cohorts and protected selected physical KPI analysis preserve complete missing/failed populations; passive per-attempt reconnect reports catch-up or explicit gaps; [51c evidence](51c-scientific-data-studies-and-results.md#verification-and-handoff) |
+| O05 | resolved: implemented and targeted-tested | SC01–SC03 | Original measurements → authored calibration/transformed uncertainty → actual LM → original eligible cells → guarded parameter-source publication → downstream prediction; [51c evidence](51c-scientific-data-studies-and-results.md#verification-and-handoff) |
+| O06 | resolved: implemented and targeted-tested | EV01–EV03 | Authentic declared test populations, supplied-only DataFusion questions, exact activated cuts/freshness and protected detail; [51d evidence](51d-development-and-research-evidence.md#verification-and-evolution) |
+| O07 | partial: EV04 complete; LC04 scheduled | EV04/LC04 | Declared diagnostic links and separate tool/target/scientific outcomes with released-detail controls are targeted-tested; actual storage-health collection remains LC04 |
+| O08 | resolved: implemented and targeted-tested | EV05 | Explicit authentic measurement contexts/sample populations, failed/censored and unsupported membership; [51d evidence](51d-development-and-research-evidence.md#verification-and-evolution); no quantitative improvement claim |
 | O09 | scheduled | LC01/DL01–DL02 | Exact selected closure and explicit new supported reproduction/import |
 | O10 | resolved: no additional native working store | ST02/PJ02 | Existing immutable documents/RPDS plus catalogue transactions; revisit a concrete unmet operation |
 | O11 | resolved: implemented and targeted-tested | PJ06 | Passive resident/canonical discovery through existing owners, actual compatibility and explicit unchecked eligibility; no measured performance claim |
-| O12 | scheduled | ST02/SC04/EV02 | Operation-shaped native indexes and selected columnar analytics; no universal query framework |
+| O12 | resolved: implemented and targeted-tested | ST02/SC04/EV02 | Operation-shaped native filters and selected Arrow/DataFusion cohort/evidence analytics; no universal query framework; [51c](51c-scientific-data-studies-and-results.md#verification-and-handoff)/[51d](51d-development-and-research-evidence.md#verification-and-evolution) |
 | O13 | resolved: foundation operations | ST02–ST04 | Implemented and targeted-tested project/evidence transactions, exact settlement and protected selections; [51a verification](51a-storage-foundations-and-project-ownership.md#verification-and-handoff). Future consumers retain these contracts; assembled series qualification is Q02/Q03. |
 | O14 | scheduled | LC02/LC03 | Application-closure recovery and explicit retained-resource explanations |
 | O15 | scheduled | LC04 | Useful MX/native storage health joined only to real owner evidence |
@@ -176,7 +175,7 @@ Resolved here can close an authoring choice without claiming product implementat
 | O18 | scheduled: bounded inquiry | DL03 | Resolve offline/browser participation; no ready KV1.0 OPFS Tree or browser solver claim |
 | O19 | scheduled: bounded inquiry | LC05 | Decide a complete-artifact confidentiality capability; no default new crypto rollout |
 | O20 | scheduled | DL01/DL02/DL04 | Logical editable project exchange; collaboration implementation conditional on explicit selection |
-| O21 | scheduled | SC05/SC06 | Read-only observation/reconnect now; separately bounded external-acquisition decision |
+| O21 | resolved: implemented and targeted-tested; batch decision settled | SC05/SC06 | Read-only observation/reconnect with actual progress/history, source gaps and no cancellation ownership; explicit file/batch admission selected, no external acquisition/control producer |
 
 ## Inquiry outcomes and remaining questions
 
@@ -201,10 +200,9 @@ functional/platform/rule target, obtain that selection before adding dependent i
 
 ## Package state and execution route
 
-ST01–ST04 and PJ01–PJ06 are complete at targeted acceptance. Initial foundation consumers
-advance the other named adjacent packages only partially; their remaining scope is unchanged.
-Whole-series assembled and static qualification remains Q01–Q04. Authoring alone establishes
-none of the remaining implementation.
+ST01–ST04, PJ01–PJ06, SC01–SC06 and EV01–EV05 are complete at targeted acceptance.
+LC01–LC05, DL01–DL04 and whole-series assembled/static qualification Q01–Q04 remain separate
+remaining scope. Completed companions stay retained dependencies until the aggregate Q04 handoff.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
@@ -218,17 +216,17 @@ none of the remaining implementation.
 | PJ04 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ04) | Implemented exact three-way decisions, private original-text proof, derived checksum composition and compensating undo; Tested conflicts, replay, ancestry, foreign issuers and unchanged old receipts |
 | PJ05 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ05) | Implemented UTC/cut/correction selection and protected authored/physical reopen; Tested native history, actual recorded study/lane and reopened native fit receipts retaining original context |
 | PJ06 | complete | [51b](51b-projects-revisions-and-temporal-context.md#PJ06) | Implemented bounded passive inspection with existing eligibility owners; Tested no recency/counter/compilation effects and issuer/revision-scoped headers |
-| SC01 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC01) | Dataset/measurement versions and admitted source bridge |
-| SC02 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC02) | Explicit calibration and observation selection |
-| SC03 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC03) | Qualified fit-to-parameter-source publication |
-| SC04 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC04) | Cohort/result query and lazy detail consumer |
-| SC05 | in-progress | [51c](51c-scientific-data-studies-and-results.md#SC05) | Study progress observer and reconnect |
+| SC01 | complete | [51c](51c-scientific-data-studies-and-results.md#SC01) | Implemented immutable raw/curated/derived references, typed detail and original source/data admission; Tested real Parquet, physical refusal, exact reopen and immutable correction |
+| SC02 | complete | [51c](51c-scientific-data-studies-and-results.md#SC02) | Implemented authored calibration/transformed sigma and frozen complete observation selection; Tested actual weights, unknown sigma/exclusion, validity and temporal correction |
+| SC03 | complete | [51c](51c-scientific-data-studies-and-results.md#SC03) | Implemented local preview and original eligible fit-cell guarded publication/ancestry; Tested lost reply settlement, moved head, independent covariance and actual downstream prediction |
+| SC04 | complete | [51c](51c-scientific-data-studies-and-results.md#SC04) | Implemented indexed browse, native snapshot cohorts and selected protected physical KPI analysis; Tested complete failed/unattempted population, incompatible quantity and unrelated opaque payload isolation |
+| SC05 | complete | [51c](51c-scientific-data-studies-and-results.md#SC05) | Implemented bounded passive per-attempt observation and issuer/context cursors; Tested running/terminal catch-up, missing prefix, current resync and exit without science cancellation |
 | SC06 | complete | [51c](51c-scientific-data-studies-and-results.md#SC06) | Batch/file admission selected; no external producer or control effects; I09 retains the observable revisit trigger |
-| EV01 | in-progress | [51d](51d-development-and-research-evidence.md#EV01) | 51a supplies authentic FileStore invocation snapshots and coverage; other source adapters/mappings remain |
-| EV02 | in-progress | [51d](51d-development-and-research-evidence.md#EV02) | Supplied-only offline columnar query |
-| EV03 | in-progress | [51d](51d-development-and-research-evidence.md#EV03) | 51a supplies isolated index and CLI import/query/history; broader evidence workbench composition remains |
-| EV04 | in-progress | [51d](51d-development-and-research-evidence.md#EV04) | Linked and standalone diagnostics with protected details |
-| EV05 | in-progress | [51d](51d-development-and-research-evidence.md#EV05) | Comparable performance populations |
+| EV01 | complete | [51d](51d-development-and-research-evidence.md#EV01) | Implemented authentic invocation/assessment/diagnostic/host/measurement adapters and declared populations; Tested codec, identity, inventory and explicit coverage controls |
+| EV02 | complete | [51d](51d-development-and-research-evidence.md#EV02) | Implemented supplied-only selected Arrow/DataFusion questions and thin CLI; Tested actual executable with unavailable service/extension context and no implicit build or unrelated traversal |
+| EV03 | complete | [51d](51d-development-and-research-evidence.md#EV03) | Implemented explicit activated cuts/history, deduplicated source versions and supplied freshness; Tested native generation visibility, offline/index parity, duplicates and source preservation |
+| EV04 | complete | [51d](51d-development-and-research-evidence.md#EV04) | Implemented exact linked/standalone diagnostic contexts and protected/copied selected detail; Tested independent outcomes, unrelated link refusal and released detail; LC04 remains separate |
+| EV05 | complete | [51d](51d-development-and-research-evidence.md#EV05) | Implemented actual context/sample/censored populations and reported statistics; Tested varied context, true sample membership, unmeasured smoke and unsupported associations; no speed claim |
 | LC01 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC01) | Selected portable closure and reproduction composition |
 | LC02 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC02) | Explainable application backup/recovery closure |
 | LC03 | planned | [51e](51e-reproducibility-lifecycle-and-storage-health.md#LC03) | Exact retention/protection explanations and explicit release |
@@ -297,15 +295,34 @@ documents are unchanged. Implementation requires subsequent maintainer authoriza
 in [51b verification](51b-projects-revisions-and-temporal-context.md#verification-and-handoff).
 Whole-series assembled/static qualification remains Q01–Q04. Enduring project/history/preparation
 contracts are published at blueprint §14.3/§20.6 with proposed ADR-0217. 51a/51b stay retained
-dependencies until Q04. This handoff does not authorize 51c–51g execution or close older plan series.
+dependencies until Q04. That earlier handoff did not authorize 51c–51g execution or close older
+plan series; the subsequent 51c/51d authorization and completion are recorded below.
 
 
-## 51c/51d execution checkpoint
+## 51c/51d execution outcome
 
-The maintainer authorized all SC01–SC06 and EV01–EV05 on 2026-10-23. Shared scientific and derived-evidence contracts precede independent research/publication, cohort/observer and evidence-query streams. SC06 adopts explicit file/batch admission; I09 records that choice. Targeted functional acceptance belongs to the companions, whole-series hygiene/qualification remains Q01–Q04. Other plans retain their existing scope.
+**Implemented:** the maintainer authorized SC01–SC06 and EV01–EV05 on 2026-10-23; all are
+complete at their targeted functional boundary. The native research/workbench, public
+Rust/Python/CLI and supplied-only/indexed evidence consumers are integrated into main. SC06
+selects explicit file/batch admission and no streaming/control producer. I09 retains the
+observable revisit trigger. Proposed ADR-0218/0219 and blueprint §19.4/§24.1 carry enduring
+contracts; the substrate guide carries commands and limits.
 
-Integration checkpoint: research/source publication, native frozen cohorts and passive observation,
-public Rust/Python/CLI adapters, and offline/persistent evidence workbench implementations are
-merged into main. Targeted acceptance is running; original scientific fixtures and synchronized
-Python catalogues remain under correction. Host-side and actual offline evidence controls pass.
-No assembled Plan51 or measured benefit claim is made.
+**Tested:** [51c verification](51c-scientific-data-studies-and-results.md#verification-and-handoff)
+owns the shared 70-pass/zero-fail native selection, actual calibrated LM/publication/downstream
+prediction, protected cohorts/observer and two passing public Python journeys.
+[51d verification](51d-development-and-research-evidence.md#verification-and-evolution) adds
+48 passing host controls and three actual offline-executable controls. Correctness builds,
+full generator publication, family and environment checks passed against the zero baseline.
+Earlier failed runs were corrected at their source owners; their failures are not a quality
+baseline. All three clean implementation worktrees/branches were merged and removed, preserving
+qualified main repairs and the user's untracked library reference. Discrete commits retain the
+implementation and corrections.
+
+**Not run:** whole-series assembled qualification, scope-end hygiene/manual checks and performance
+campaigns remain Q01–Q04. Mechanical ADR/formatting and documentation publication passed;
+the format-only Ruff invocation reported 66 diagnostics against zero, retained as Q03 repair
+work rather than a clean quality claim. **Measured:** no speed/capacity improvement is claimed. LC01–LC05,
+DL01–DL04 and Q01–Q04 remain at their existing owners; EV04 does not complete LC04's future
+storage-health collector. Keep completed 51a–51d dependencies until aggregate Q04 retirement.
+Older plan scope and formal ADR acceptance are unchanged.

@@ -949,21 +949,38 @@ ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
 > Decision: [ADR-0218](../../adr/0218-scientific-research-workbench.md) (proposed; maintainer-authorized Plan51c target).
 
-Research dataset versions reference existing admitted measurements and data objects. Calibrated
-observation selections retain explicit transformed uncertainty, provenance and frozen temporal
-context. Qualified fit cells and their original eligibility are retained by the fit result owner
-for exact reopening and deliberate parameter-source publication. Source activation, publication
-receipt and ancestry share the existing source CAS. Bounded frozen cohorts distinguish missing
-outcomes; read-only study observation reports source gaps without cancelling science. Explicit
-file/batch acquisition is selected; no external streaming producer is adopted.
+Research dataset versions reference existing admitted measurements and data objects. Raw,
+curated and derived versions retain their ancestry. Frozen observation selections retain exact
+physical/temporal context, authored calibrated values and explicitly transformed uncertainty;
+unknown uncertainty cannot enter a weighted fit as zero. Selected detail exposes the original
+member and exclusion references. Admission uses the existing scientific source and data owners.
+
+Qualified fitted cells retain their original fit eligibility in the sealed result. A parameter
+publication selects one exact run/attempt and explicit target mappings with full quantity/unit
+meaning and bounds. Preview admits an immutable local delta without changing the source head.
+Explicit publish retains original result protection through the ordinary source CAS, atomically
+recording ancestry and the publication receipt. Unknown effects settle the original intent before
+new mutable preflight. Point-estimate eligibility and covariance qualification remain independent.
+Downstream packages retain the consumed research ancestry in original execution/replay inputs.
+
+Indexed study headers and bounded native snapshot cohorts freeze complete membership before
+selected Arrow/DataFusion analysis. Cohorts preserve missing, failed and unattempted members;
+physical quantity/unit compatibility governs comparisons, and unsupported relation meaning
+refuses aggregation. Metadata grants no payload lifetime: selected results reopen through their
+original protected owner. Read-only study observation composes bounded per-attempt progress and
+terminal history with issuer/context cursors. Reconnect catches up or reports a gap/current
+resynchronization, including unavailable remote live or retired history; observer exit neither
+cancels nor advances science. Explicit file/batch acquisition uses the existing typed package
+loader; no external streaming producer or control effects are adopted. Operational bounds and
+Rust/Python/CLI entrypoints are in the [substrate guide](../../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence).
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Residual LM uses three explicit library-relative algorithm criteria: relative cost, relative
 step and column/residual cosine, each fixed at 30 times f64 epsilon. Original-space physical
 stationarity, rank and covariance qualification remain separate gates. The exact criteria
-and effective work caps are recorded; FitProfileV6 and scientific ReplayDocument Version3
-identify the changed policy rather than reinterpret previous defaults. These values are
+and effective work caps are recorded; versioned fit profiles and scientific replay documents
+retain that policy alongside exact research attribution rather than reinterpret previous defaults. These values are
 not public tuning inputs and establish no speed claim.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).

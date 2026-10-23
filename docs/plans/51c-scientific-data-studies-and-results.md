@@ -1,6 +1,6 @@
 ---
 title: "Plan 51c: Scientific data, studies and results"
-status: in-progress
+status: complete
 date: 2026-10-22
 adrs: [ADR-0218]
 review_sources: [docs/functional_reviews/surrealkv-surrealmx-functional-extensions-2026-10-22.md]
@@ -14,7 +14,7 @@ doc_topics: [current-work, design, numerical-execution, validation, storage]
 
 ## Scientific target and existing foundations
 
-**Proposed:** navigate a complete, explicit chain from original measurements through calibration,
+**Implemented:** navigate a complete, explicit chain from original measurements through calibration,
 observation selection and a qualified fit to a newly authored parameter revision and downstream
 study. Select study/result cohorts by their actual scientific context, inspect original protected
 results lazily and follow progress with truthful reconnect behavior. O04/O05/O12/O21 disposition
@@ -29,7 +29,7 @@ check original experiments and candidate assessments. `FitReport` retains candid
 residuals, trajectories, checks and qualified covariance/Wald/profile evidence. Runtime fit
 parameter/observation/fitted-cell access retains run and source-unit context.
 
-The missing capability is composed research ownership and an explicit fit-result-to-authored-
+The extension composes research ownership and an explicit fit-result-to-authored-
 parameter-to-downstream-study bridge. Do not duplicate fitting, introduce a calibration solver,
 silently copy floating-point values or make a successful database write a scientific qualification.
 Library-owned mathematics and class-specific native solvers keep their current responsibilities.
@@ -203,15 +203,131 @@ before implementation. Do not add a speculative acquisition framework or real-ti
 
 ## Verification and handoff
 
-**Proposed:** targeted scientific/physical and operation tests accompany the changed paths;
-51g owns assembled study, fitting, Python and scope-end qualification. A database-only test cannot
-qualify numerical behavior. Parameter publication requires the existing scientific outcome checks,
-not new assertions about a solver based on metadata success.
+**Implemented:** SC01–SC06 are complete at targeted acceptance on 2026-10-23. The
+[coordinator](51-engineering-workspaces-and-evidence.md#package-state-and-execution-route)
+owns package/opportunity state. SC06 selects explicit file/batch admission, without external
+streaming acquisition or control effects. Revisit only a named producer with defined clock,
+calibration, ordering, idempotence and loss semantics.
 
-Current checkpoint (2026-10-23): SC01–SC05 implementations and Rust/Python/CLI consumers are
-integrated. Targeted acceptance is in progress: native workbench/observer and original-source
-attribution controls pass, while scientific publication/Parquet fixtures are being repaired and
-public Python verification awaits synchronized generated/native document catalogues. This is
-not assembled qualification. SC06 resolves to explicit file/batch admission through the existing
-typed package loader; revisit only a named producer with defined clock, calibration, ordering,
-idempotence and loss semantics. No external streaming/control integration is adopted.
+**Tested:** the following commands exercised the actual pinned Linux/MX1.0 store, original
+scientific producers and selected protected readers. Correctness builds explicitly verified
+Arrow force-validation; the failure baseline for every check is zero. These are affected
+functional controls, not whole-series qualification.
+
+The shared Rust acceptance command for 51c/51d is:
+
+```bash
+scripts/pse-env --native=solver -- .venv/bin/python -m scripts.arrow_validation nextest run --locked \
+  -p pse-runtime -p pse-operations -p pse-backend-native -p xtask \
+  --features pse-runtime/canonical-tests,pse-runtime/solver-ipopt,pse-operations/evidence-query,xtask/project-tools,xtask/evidence-tools,xtask/canonical-tests \
+  -E 'test(research_) | test(workbench_) | test(study_observer_) | test(evidence_) | test(project_cli_runtime_) | test(bounded_progress_snapshot_after) | test(compact_projection) | test(review_context_ingress_keeps_large_integer_payload_and_rejects_unknown_version) | test(review_context_selection_refuses_unbounded_duplicate_and_oversized_facts) | test(plan38b_requested_seed_survives_cancellation_before_dispatch_and_portable_reconstruction) | test(fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile)'
+```
+
+| Command / scope | Result and boundary |
+| --- | --- |
+| Shared Rust acceptance above | 70 passed, zero failed, 1,839 excluded by the explicit selection; actual native fit/publication/downstream, source/replay, cohort/observer, evidence and CLI controls across 10 binaries (Nextest `83280600-0939-478c-8157-c53fa09c321b`) |
+| `scripts/pse-env -- just py-sync-correctness` | Passed actual force-validated dev extension build, native signature generation and annotation checks on Python 3.14.8 |
+| `scripts/pse-env -- .venv/bin/python -m pytest -q python/pse/tests/test_research.py python/pse/tests/test_study_workbench.py --basetemp /tmp/pse51cd-py-final` | 2 passed, zero failed; public creation/discovery, typed member/selection/exclusion detail, physical refusal, immutable correction, protected reopen, actual two-point study browsing/cohort and passive observer authority/reconnect/exit |
+| `scripts/pse-env -- just codegen` | Passed all five generator targets, including strict documents, registry/Arrow/native schemas, Python contracts, actual native stubs and Ipopt bindings |
+| `scripts/pse-env -- just project-build` | Passed dedicated CLI build; `project_cli_runtime_import_fork_compare_and_passive_discovery` in the Rust selection exercises actual file/batch admission and the shared typed CLI handler |
+| `scripts/pse-env -- just ready` | Passed configured environment/deployment checks; unrelated historical resources on unsupported deployment profiles remain untouched and cleanup deferred |
+| `scripts/pse-env -- just family-check` | Passed one exact Arrow/Parquet/object_store/DataFusion type universe after the optional evidence-query dependency edge |
+
+The scientific control `research_calibrated_fit_reopens_and_publishes_original_cells` admits an
+authored affine calibration with non-unit slope and transformed sigma, verifies actual weighted
+residuals, performs residual LM, drops live results and reopens original eligible fitted cells.
+It retains usable estimates while actual covariance is withheld, checks wrong attempt/unit/bounds,
+local-only preview, lost activation reply settlement, moved-head refusal, backdated correction,
+actual native ancestry filtering and an ordinary downstream study reporting prediction 11 from
+the published intercept 3 and slope 2. `research_parquet_versions_reopen_original_typed_data_and_reject_partial_input`
+uses real Parquet and original data admission. Unknown sigma, explicit exclusion, partial selection
+and invalid calibration-domain controls retain original scientific refusal behavior.
+
+`workbench_public_cohort_retains_population_compares_value_variants_and_refuses_incompatible_quantity`
+uses a complete success/failed/unattempted population, real selected simulation samples and an
+unrelated deliberately opaque payload that must not be decoded. Native snapshot and original
+protected readers govern membership and detail. The public observer and backend snapshot tests
+exercise actual running-to-terminal progress, bounded later-sequence capture, full catch-up,
+unavailable-prefix gap/current resync, issuer/context rejection and observation without a
+scientific cancellation lease. Portable replay/review-context controls cover the changed envelopes.
+
+**Not run:** whole-series integration, all solver/Python journeys, full hygiene, governance,
+native/powerset checks, other platforms or performance campaigns. These remain Q01–Q04 in 51g.
+**Measured:** no quantitative performance improvement is claimed. Existing selected-result
+protection is reused; metadata inspection or a cohort document grants no retention right.
+
+**Tested (mechanical publication):** `scripts/pse-env -- just turn-end` passed ADR indexing
+and formatting; `scripts/pse-env -- just docs` published 616 chapters with scoped search. These
+are not whole-series quality evidence. The final format-only Ruff `--exit-zero` invocation
+printed 66 diagnostics against the zero target; it does not claim a clean lint result. The
+new undefined native/forward type annotations and misplaced export import were corrected, then
+the correctness extension/stub and two Python journeys passed again. Remaining style/type/lint
+qualification and repair belong to Q03; no nonzero baseline is accepted. A formatter-only change
+to an unrelated existing diagnostic fixture was excluded. Historical unsupported-profile resource
+cleanup was deferred without retiring or deleting those resources.
+
+## Outcome
+
+### What was built
+
+**Implemented:** immutable raw/curated/derived dataset versions and exact frozen research
+selections compose existing typed measurements, authored calibration, physical admission and
+project temporal context. Selected detail exposes typed original members and inclusion reasons.
+Research attribution is retained by original direct/study execution inputs and portable replay;
+compact study/run projections are derived from those owners, not attached after execution.
+Identical repeated sources deduplicate; mixed inputs remain valid with unavailable single-source
+projection when a compact row cannot represent them.
+
+**Implemented:** explicit preview/publish/reopen composes original qualified fit exports, local
+source admission, guarded source activation and atomic ancestry/receipt publication. There is no
+copy-floats bypass, duplicate fit report or parallel result backend. Original result protection is
+held through activation; replay settles the original intent before new mutable checks.
+
+**Implemented:** native indexed browsing and one-snapshot frozen cohorts support selected protected
+Arrow/DataFusion analysis across physically compatible source revisions, with honest missing and
+failed populations. Rust/Python/CLI consumers expose dataset/selection detail, publication,
+workbench/cohort/result analysis and passive reconnectable observation. Bounded per-attempt
+capture selects before copying, distinguishes live/current/terminal sources and does not cancel
+science on exit.
+
+### A mistake made and corrected
+
+**Tested:** functional acceptance exposed publication preparation pruning mapped parameters that
+were unused by the current target. The preparation now explicitly demands mapped paths through
+the original bindings. Preview initially used a durable edit path; the existing source guard
+correctly refused it. Preview now uses original local admission, and only explicit publishing
+performs the guarded durable effect. The downstream fixture now contains a real parameter
+consumer and uses a feasible-point route, proving the published values affect its prediction.
+Authentic physical documents and their canonical dimensionless storage unit replaced invalid
+synthetic fixture assumptions. No physical checks were weakened.
+
+Independent implementation review identified progress capture starving later source sequences and
+loss of compact metadata for valid repeated/mixed execution inputs; the owning capture/projection
+mechanisms were corrected. Python acceptance caught assumed output type names and a nested
+standalone document-header mismatch. Ordinary nested types, synchronized generated catalogues
+and actual compiled signatures repaired the boundary. A final generated batch annotation used an
+unresolved qualified name; removing its redundant native string annotation reuses the original
+Arrow output type hint, with a rebuilt extension, regenerated stub and passing Python rerun.
+Public exports now live with the other imports, and the forward physical-context annotation
+matches adjacent declarations. Unknown-version tests now reject a future
+version instead of the newly current one. Earlier affected 64-pass/2-fail Rust and failing Python
+runs did not establish acceptance; the final results above supersede those repaired failures.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** selected bounded polling composes original progress/history rather than adopting
+native live delivery as durable history. Initial KPI aggregation supports registered relations
+with complete physical meaning, including simulation samples; unsupported relations refuse.
+Native cohorts allow at most 64 studies/128 occurrences and project selection at most 64 branch
+owners, requiring narrower selection for larger populations rather than truncated rankings.
+Calibration uses explicitly authored transformed sigma, without introducing speculative nonlinear
+uncertainty propagation. External acquisition remains the selected file/batch capability.
+No solver, dependency pin, process-memory policy or storage topology was changed.
+
+Enduring contracts are at blueprint §19.4/§20.6 with proposed ADR-0218; operational entrypoints,
+limits and reference-filter meanings are in the [substrate guide](../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence).
+All three implementation worktrees were merged, conflicts preserved the already-integrated and
+repaired main implementations, and clean merged worktrees/branches were removed. The supplied
+untracked library reference was preserved. Keep this completed companion while 51e–51g consume
+its contracts; Q04 owns aggregate retirement, existing-plan reconciliation and final publication.
+ADR acceptance and full Plan51 completion are not claimed.
