@@ -6408,6 +6408,38 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertFalse(server.config_for(restored)["accepting_writes"])
         self.assertEqual(server.read_json(backup / "backup.json"), manifest)
 
+    def test_readonly_payload_verification_keeps_descriptors_outside_backup(self) -> None:
+        config = self.initialized()
+        verifier = {"binary": "/controlled/native-verifier", "sha256": "a" * 64}
+        config["payload_verifier"] = verifier
+        inventory = [{
+            "database": config["database"],
+            "payload_incarnation": config["payload_incarnation"],
+            "instance": {
+                "key": str(server.uuid.uuid4()), "state": "sealed",
+                "digest": "original", "encoding": "opaque-bytes-v1",
+                "batch_count": "0", "schema": "", "interpretation": "original",
+                "payload_bytes": "3",
+            }, "files": {},
+        }]
+        before = set(self.state.rglob("*"))
+        def native(arguments: list[str], **_options: object) -> subprocess.CompletedProcess[str]:
+            descriptor = Path(arguments[2])
+            self.assertNotEqual(descriptor.parent, self.state)
+            self.assertTrue(descriptor.is_file())
+            return subprocess.CompletedProcess(arguments, 0, '{"verified_payload_files":1}', "")
+        with patch.object(server, "payload_verifier", return_value=verifier), patch.object(server.subprocess, "run", side_effect=native):
+            server.verify_payload_inventory(self.state, config, inventory, read_only_source=True)
+        self.assertEqual(set(self.state.rglob("*")), before)
+
+    def test_inspect_backup_refuses_native_semantic_payload_failure(self) -> None:
+        backup = self.backup_fixture()
+        with patch.object(server, "verify_payload_inventory", side_effect=server.SupervisorError("canonical payload meaning differs")):
+            inspection = server.inspect_backup(backup, server.SUBSTRATE_INTERPRETATION)
+        self.assertFalse(inspection["complete"])
+        self.assertFalse(inspection["restorable"])
+        self.assertIn("canonical payload meaning differs", str(inspection["refusal"]))
+
     def test_inspect_backup_reports_incomplete_members_without_effects(self) -> None:
         backup = self.backup_fixture()
         (backup / "database/fixture").unlink()
