@@ -115,7 +115,7 @@ on 2026-10-22; RC23 remains unselected following its no-adoption recommendation:
 | Rule | Proposed consequence | Decision / route | If not selected |
 | --- | --- | --- | --- |
 | RC22 | Execute the same Rust study policy in a pinned Surrealism module within a database transaction; change execution/deployment/capability contracts at blueprint §19.3/§20 | accepted by maintainer, 2026-10-22; proposed ADR-0214 records the I26/GOV02 module, failure, resource and activation contract before implementation | STO09 uses batched scope retrieval, pure Rust decisions and guarded application |
-| RC23 | Add authored finite configuration exploration and attributed conflict/Unknown results, potentially with a Z3 binding and new public/replay contract | pending; PRE09/I27/GOV02 presents finite vocabulary, alternatives, native identity and evidence before target adoption | Existing concrete requests/routing remain; no configuration feature or SMT dependency is added |
+| RC23 | Add authored finite configuration exploration and attributed conflict/Unknown results, potentially with a Z3 binding and new public/replay contract | not selected; PRE09/I27 completed the finite-vocabulary/enumeration versus Z3 comparison with no new feature or binding adoption | Existing concrete requests/routing remain; no configuration feature or SMT dependency is added |
 
 RC22 is selected implementation scope as of 2026-10-22. RC23 remains an unselected proposal;
 its inquiry does not authorize a new configuration policy or public request shape. A third-party patch
@@ -1833,5 +1833,18 @@ equivalence and Rust docs passed. Its original failure was `lint-license` and si
 findings; `just lint-license lint-py typecheck` then passed with zero diagnostics from the
 changed sources (the type checker reports three existing configured suppressions, not errors).
 The native workspace Clippy command additionally selected canonical tests/maintenance and
-passed with zero warnings. Final affected feature, governance and book results follow here
-before release of this owner.
+passed with zero warnings.
+
+| Final command/mode | Result against zero target |
+| --- | --- |
+| `scripts/pse-env --resource-class build --native -- .venv/bin/python -m scripts.arrow_validation clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process,pse-operations/canonical-tests,pse-operations/canonical-maintenance -- -D warnings` | **Tested: passed**, zero warnings, 1m28s; `/tmp/pse49fgh-clippy-native.log`. This includes live canonical test code omitted by the ordinary default feature set. |
+| `scripts/pse-env --resource-class build --native -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py" cargo hack --keep-going check -p pse-operations -p xtask --feature-powerset --depth 2 --locked` | In progress: the two changed roots' 99 combinations, including no-default; explicit Arrow validation remains enforced by the existing feature-check owner. This is not the complete workspace powerset. |
+| `just governance`, through light `scripts/pse-env` | **Tested: passed**, including 26 governance tests, generated equivalence and family checks; assessment `20261023T202923.514922Z-governance-761088-ff2288`. |
+| `just docs`, through light `scripts/pse-env` | **Tested: passed**, 617 chapters and scoped search; `/tmp/pse49fgh-docs-publication.log`. Final retirement changes receive their own publication check. |
+| `just ready`, through build `scripts/pse-env`, after supported service-generation recovery | **Tested: passed**, skills wiring, pinned tools/extension and open SurrealDB3.3.4/MX1.0 deployment; assessment `20261023T203625.787822Z-ready-1059480-8dc022`. |
+
+Historical unsupported-profile cleanup deferrals retain their original owners and unknown
+logical effects. They do not convert an incomplete fixture to a success or invalidate the
+named completed current-service journeys. All three worker worktrees were cleanly removed
+after their already-cherry-picked histories were merged with the root integration tree
+unchanged. The unrelated maintainer edit remains excluded.
