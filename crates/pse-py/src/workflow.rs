@@ -1037,6 +1037,7 @@ impl NativeRuntime {
         ))
     }
     #[pyo3(signature=(operation,project,scope,source,effective_from_us,*,effective_to_us=None,corrects=None,deleted=false))]
+    #[expect(clippy::too_many_arguments, reason = "An exact historical context append carries source, interval, correction and original operation independently across the Python boundary")]
     fn project_context_append(
         &self,
         py: Python<'_>,
@@ -1223,6 +1224,7 @@ impl NativeRuntime {
         Ok(documents::DocumentValue(value))
     }
     #[pyo3(signature=(operation,project,branch,key,base,content,*,expected=None))]
+    #[expect(clippy::too_many_arguments, reason = "The typed Python boundary forwards the original exact draft operation premises without changing its public call contract")]
     fn project_draft_save_intent(
         &self,
         py: Python<'_>,

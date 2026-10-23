@@ -450,7 +450,7 @@ pub fn read_invocation(path: &Path) -> Result<InvocationEvidenceDocument, Observ
 pub fn read_context(
     path: &Path,
 ) -> Result<crate::workflow::ReviewContextDocument, ObservationError> {
-    let doc: crate::workflow::ReviewContextDocument = read_document::<_, 1>(path)?;
+    let doc: crate::workflow::ReviewContextDocument = read_document::<_, 2>(path)?;
     doc.validate().map_err(|error| format(error.to_string()))?;
     Ok(doc)
 }

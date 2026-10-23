@@ -231,7 +231,7 @@ impl ReviewHandoffSession {
             serde_json::to_vec(&*invocation).map_err(|error| invalid(error.to_string()))?;
         let mut evidence = FrozenEvidenceSet::default();
         evidence.contexts.push(
-            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 1>(
+            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 2>(
                 &context_bytes,
             )
             .map_err(|error| invalid(error.to_string()))?,
@@ -278,7 +278,7 @@ impl ReviewHandoffSession {
         let bytes = serde_json::to_vec(context).map_err(|error| invalid(error.to_string()))?;
         let mut evidence = FrozenEvidenceSet::default();
         evidence.contexts.push(
-            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 1>(&bytes)
+            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 2>(&bytes)
                 .map_err(|error| invalid(error.to_string()))?,
         );
         evidence.engine_observations.extend(
