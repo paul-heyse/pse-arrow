@@ -1097,7 +1097,7 @@ impl Runtime {
                         .await?;
                     // Variant sources carry their own exact OperationSource; parent attribution
                     // attaches only when the scientific source remains that original source.
-                    if historical_context.as_ref().is_some_and(|c| c.context.revision == actual_revision) {
+                    if historical_context.as_ref().is_some_and(|c| c.context.source_identity == package.revision.identity().to_string()) {
                         self.restore_project_context(&mut package, historical_context.as_ref()).await?;
                     }
                     lane.source = Some((actual_revision.into(), physical, package));
