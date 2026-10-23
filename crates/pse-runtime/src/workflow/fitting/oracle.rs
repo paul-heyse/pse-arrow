@@ -3062,7 +3062,7 @@ mod tests {
         assert_eq!(report.predictions, vec![Some(2.)]);
         assert!(result.usable());
     }
-    #[cfg(feature = "solver-ipopt")]
+    #[cfg(all(feature = "solver-ipopt", feature = "solver-diffsol"))]
     #[tokio::test]
     async fn final_fit_derivative_failure_preserves_fresh_original_values() {
         // sqrt is defined at zero; its derivative is not. The optional response
