@@ -266,7 +266,9 @@ is introduced. This static assessment establishes no parallel throughput benefit
 `just governance` passes, including all generator equivalence and family checks. The actual
 native correctness extension and installed stub check pass. `just ready` passed after the
 startup failure prompted an environment-shaped investigation and again after the taskdump-route
-repair (doctor 1.5 s; no environment failure). The documentation build passed
+repair (doctor 1.5 s; no environment failure). Ready also retained explicit deferred cleanup
+notices for historical unsupported fixture profiles. Those unrelated records were preserved;
+a ready pass is not a claim that the host contains no legacy cleanup obligations. The documentation build passed
 617 chapters before final prose. Feature powerset/no-default, final executable controls,
 retirement preflight and final publication results remain to be recorded before Q03/Q04 close.
 
