@@ -2413,9 +2413,9 @@ pub struct StudyPlan {
     pub inputs: super::StudyInputs,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 13;
+const STUDY_DEFINITION_VERSION: u32 = 14;
 
-/// Version 13 of a study's definition: the store's `definition` document and the content of
+/// Version 14 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

@@ -1291,7 +1291,7 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
         Vec<pse_model::strategy::NumericalStrategy>,
         Vec<crate::workflow::OperationSource>,
     ) = serde_json::from_slice(&selection).unwrap();
-    assert_eq!(selection_version, 2);
+    assert_eq!(selection_version, 3);
     assert_eq!(sources.len(), 1);
     assert_eq!(
         sources[0],

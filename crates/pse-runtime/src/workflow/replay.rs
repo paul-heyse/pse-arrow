@@ -439,7 +439,7 @@ pub struct ReplayCoverage {
 #[serde(deny_unknown_fields)]
 pub struct ReplayDocument {
     /// Explicit current document version.
-    pub version: pse_model::document::Version<3>,
+    pub version: pse_model::document::Version<4>,
     /// Historical source execution; a numerical rerun always gets another identity.
     pub source_run: RunId,
     /// Exact original independent-sequence failure policy.

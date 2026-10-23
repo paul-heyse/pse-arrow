@@ -227,7 +227,7 @@ pub struct ReviewScientificCoordinates {
 #[serde(deny_unknown_fields)]
 pub struct ReviewContextDocument {
     /// Current descriptive codec version.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Original execution identity; absent for a pre-handle failure.
     pub run_id: Option<RunId>,
     /// Actual durable attempt, only when retained explicitly.

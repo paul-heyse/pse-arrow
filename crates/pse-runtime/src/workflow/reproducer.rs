@@ -102,7 +102,7 @@ pub enum ReproducerInput {
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticReproducer {
     /// Executable request codec.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Original text or exact selected frozen codec.
     pub input: ReproducerInput,
     /// Explicit finite allowance for all reconstruction/admission/execution.
