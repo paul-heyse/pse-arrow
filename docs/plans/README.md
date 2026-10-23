@@ -1,11 +1,19 @@
 # Current work and plans
 
+[Plan52: Agent effectiveness and engineering workflows](52-agent-effectiveness-and-engineering-workflows.md)
+captures all O01–O30 and operator-confirmed RC01–RC09 from the agent-effectiveness review.
+Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
+companions 52a–52h develop context/editing, knowledge, verification, execution, experiments,
+evidence/tracing, agent/operator workflows and assembled qualification. The series is drafted;
+authoring and document checks establish no production delivery or execution authorization.
+Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
+
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)
 is complete at the selected project/research/evidence, lifecycle, recovery and portable-exchange
 boundaries. Its [assembled Outcome](51g-qualification-and-publication.md#verification-and-outcome--assembled-execution-2026-10-23)
 owns actual qualification, repaired failures and limits, including the mixed-concurrency Rust
 result and composed feature-check evidence. Enduring meaning lives in the architecture and
-operator guides. The highest-numbered coordinator and consumed companions/source review remain
+operator guides. The coordinator and consumed companions/source review remain
 retained for qualification and proposed ADR readers; they authorize no new work. Plans32/40
 keep their independent remaining scope.
 

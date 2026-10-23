@@ -1,0 +1,154 @@
+---
+title: "Plan 52a: Context, navigation and semantic editing"
+status: draft
+date: 2026-10-23
+adrs: []
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+doc_role: plan
+doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
+doc_topics: [current-work, design, environment, preparation]
+---
+
+# Plan 52a: Context, navigation and semantic editing
+
+## Target and foundation
+
+**Proposed:** help Codex identify the right owner, recover a decision, assess a design change and
+make a coherent edit without reconstructing every relationship manually. Owns source-review
+O01–O04/O07; [the coordinator](52-agent-effectiveness-and-engineering-workflows.md) owns progress,
+rule decisions and inquiries. Source inspection supports the boundaries below, not newly tested
+semantic-edit compatibility.
+
+`scripts/workspace_context.py` already composes recipe/native scope and Git changes;
+`boundary_leads` is bounded text search. `document_lifecycle.aggregate` supplies native status
+and relationships. `semantic_navigation.py` and `codex_session.py` attach mcpls0.8.0 to Rust
+analyzer/Pyrefly. Use those owners before introducing another language service or graph.
+
+Generated ownership has several real chains: runtime boundary schemas and
+`pse-codegen::documents::generate_catalogue`; `pse-schema` registry declarations/DocumentSpec;
+xtask schema generators; and `_native.pyi` from actual PyO3 metadata through
+`xtask/src/codegen/python_stubs.rs`. A text match in generated output cannot assign all these
+to `boundary_documents.rs`. Exact producer relationships belong with the producer.
+
+## Design and work packages
+
+<a id="A01"></a>
+### A01 — Task context and attributable rationale
+
+Extend `workspace_context` with task-shaped composition from a named plan/package, source paths
+or symbol and explicitly selected evidence. Include native state/owner, relevant Git commits,
+dirty delta, selected owned work and unresolved questions. Use existing readers for each fact;
+no new editable task record. Source-only operation works without the database or history adapter.
+Git `log -S/-G/-L`/blame support rationale discovery; B02 can later supply attributed conversation
+leads. A historic statement is not a fresh instruction, and an old result is not current proof.
+
+Return readable and bounded JSON views with exact basis, omissions and continuation. Keep
+accepted/current/proposed/historical meaning distinct. No whole-workspace dump or implicit raw
+transcript ingestion. Migrate the current context command's consumers rather than keep competing
+old/new interpretations.
+
+Acceptance: reconstruct a named partially implemented contract change with its real generator,
+consumers, dirty state and next open decision. Include a retired historical rationale and a
+contradicting current owner; the current owner remains authoritative. Database/history
+unavailability does not prevent the source-only packet. Target `scripts/tests` for the pure
+composition and exercise the actual context CLI.
+
+<a id="A02"></a>
+### A02 — Declared ownership and cross-language paths
+
+Have each generation owner expose its declaration→generator→output relationships, then compose
+with Rust/Python semantic references and current catalogue identities. Initial paths are in
+memory; B04 persistence is optional access acceleration. Distinguish declared, language-resolved,
+text and unresolved relationships. Include field-level correspondence only where actually
+specified. Preserve dynamic dispatch, macros and string consumers as explicit coverage limits.
+
+First consumer follows one real runtime request across catalogue, generated contracts, PyO3,
+Python facade and targeted tests; a second checks a registry-owned generated path and the stub
+producer so the implementation cannot encode the catalogue-only mistake. Generated files name
+their edit owner, never receive hand edits. Extend `affected` only as conservative package reach,
+not a semantic completeness claim. A legitimate future generator supplies its own mapping
+instead of another filename heuristic in the consumer.
+
+Acceptance: these distinct paths return correct declaration owners and source versions; an
+unknown dynamic/string edge remains a lead, not exact impact. Tests derive expected links from
+explicit selected declarations, not from the traversal's inferred names. Remove the inaccurate
+universal generated-owner interpretation once actual consumers use this view; retain useful text
+search as clearly labeled evidence.
+
+<a id="A03"></a>
+### A03 — Semantic edit preview and actual support
+
+Resolve I01 by invoking existing mcpls `get_tool_support`, `prepare_rename`, `rename_symbol` and
+`get_code_actions` on representative Rust and Python symbols. The pinned
+[refactoring contract](https://raw.githubusercontent.com/bug-ops/mcpls/v0.8.0/book/src/tools/refactoring.md)
+returns edits rather than applying them. Expose server readiness, stale positions/document
+versions, `dropped`, `truncated` and unsupported results. Preview exact edits against their source
+cut; revalidate changed files before application through the ordinary owned patch path.
+
+Require a real cross-file Rust rename and useful supported Python edit behavior. Do not imply
+language rename migrates PyO3 strings, wire names or generated contracts; A02 routes those to their
+owners. If Pyrefly cannot supply rename, select a maintained compatible adapter/server only after
+showing the existing bridge cannot; Serena's
+[symbol tools](https://github.com/oraios/serena/blob/main/src/serena/tools/symbol_tools.py) are a
+candidate for extra body-level operations. Keep ordinary reviewed edits available. Unsupported
+semantic rename must stay explicit; a spelling replacement does not close that support claim.
+
+Acceptance: actual language consumers return complete previews, a deliberately partial response
+is refused as a complete rename, and source drift blocks stale edits. Verify that applied files
+and edits match the approved preview; interrupted or partial application remains incomplete,
+even if the edited subset compiles. This needs ordinary edit-result reconciliation, not a new
+transaction framework. Compile/test the changed
+fixture behavior with the correct feature environment. Record precise supported/unsupported
+operations and the I01 outcome in the coordinator; expand adapters only for an actual missing
+consumer capability.
+
+<a id="A04"></a>
+### A04 — Structural migrations with positive and negative examples
+
+Use ast-grep, already part of bootstrap tooling, for shape/context transformations with
+metavariables, `inside`/`has`, fixes and rewrite rules. See its
+[rules](https://ast-grep.github.io/guide/rule-config.html),
+[rewrites](https://ast-grep.github.io/guide/rewrite-code.html) and
+[rule tests](https://ast-grep.github.io/guide/test-rule.html). Qualify executable availability
+before use. Retain one reusable transformation where a real recurring pattern warrants it;
+one-off narrow scripts remain appropriate otherwise.
+
+I02 checks Python3.14 syntax and binding/import requirements. LibCST's
+[metadata](https://libcst.readthedocs.io/en/latest/metadata.html) and
+[codemods](https://libcst.readthedocs.io/en/latest/codemods.html) are candidates when concrete
+format preservation and qualified-name resolution matter. Prefer ast-grep for supported local
+shapes; if neither parser supports the actual syntax, use a bounded explicit transform and keep
+semantic limits visible. Do not introduce another type checker or service for syntactic work.
+
+Acceptance: preview a real selected migration with positive/near-miss fixtures and expected fix
+snapshots, preserve Python comments/import identity where claimed, modify declarations rather
+than generated outputs and regenerate affected artifacts. Compile and run targeted behavior
+checks. Delete superseded textual substitution machinery once its consumers move.
+
+<a id="A05"></a>
+### A05 — Design alternative consequences
+
+Consume working A01/A02 plus selected B03 research to answer a real pre-change question, such
+as moving coordination into SurrealDB or changing a boundary field. Return the proposal,
+affected contracts/owners/generators/consumers, required decision routes, likely removals and
+unknowns for two plausible arrangements. Separate actual current relationships from proposed
+impact. B04 knowledge retrieval can enrich the view later; it is not a prerequisite to useful
+source-backed design assistance.
+
+Use existing `ScopeItem.relationships`, declaration maps and conservative dependency reach.
+No universal ontology, generated plan approval or architectural score. CLI JSON/readable text
+comes first under G01's shared vocabulary. Acceptance: compare two designs whose ownership and
+migration boundaries differ, expose one unresolved dynamic consumer, and retain the simpler
+alternative where it serves the task. The output must help an actual planning consumer, not
+merely display a populated graph.
+
+## Dependencies and verification
+
+A01/A02 can begin independently. A03/A04 consume actual source versions and declaration owners;
+A05 needs usable A01/A02, not all 52b. B02/B04 improve retrieval without taking task authority.
+G04 consumes these paths for integration. Package state stays at the coordinator.
+
+**Proposed verification:** targeted host composition tests, representative bridge requests and
+compile/unit checks for actual changed fixtures. Scope-end assembled qualification belongs to
+52h. New runtime document families, if needed, follow FND00 before implementation; pure host
+context does not acquire a product Arrow schema simply because JSON is returned.

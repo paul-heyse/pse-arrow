@@ -5,6 +5,9 @@ reasoning and source context, semantic editing, behavioral/scientific verificati
 local research and operator interfaces on the completed Plans50–51 foundation. Its recommendations
 and rule questions are proposals, with free-to-run local tooling as the selected constraint;
 they authorize no installation or implementation.
+The [Plan52 coordinator](../plans/52-agent-effectiveness-and-engineering-workflows.md) owns
+the resulting scheduled scope, operator-confirmed rule directions and conditional investigations;
+the review remains source evidence rather than implementation status.
 
 The [SurrealKV and SurrealMX review](surrealkv-surrealmx-functional-extensions-2026-10-22.md)
 explores project, scientific-data, evidence-analysis, storage-topology and delivery capabilities.

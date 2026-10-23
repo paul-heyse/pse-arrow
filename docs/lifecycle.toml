@@ -2502,3 +2502,81 @@ id_pattern = '^(I[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+# Plan52 owns scheduled package, opportunity and inquiry state. Drafted scope is not
+# implemented behavior; consumers read these native tables rather than a second ledger.
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "package-state"
+heading = "Package state and execution route"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^((?:FND|A|B|C|D|E|F|G|H)[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required behavior or disposition",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "inquiry-outcomes"
+heading = "Inquiry outcomes and remaining questions"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::A05"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::B04"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::B05"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::G05"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H03"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H04"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H03"
+kind = "depends-on"
