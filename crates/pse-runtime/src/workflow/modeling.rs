@@ -3,7 +3,7 @@
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
 mod bound;
 mod canonical;
-pub(crate) use canonical::LocalSourcePremises;
+pub(crate) use canonical::{AdmittedModelRevision,LocalSourcePremises};
 pub(crate) use canonical::reload::RetainedIngress;
 pub(in crate::workflow) mod cases;
 mod conformance;
@@ -85,6 +85,10 @@ pub(super) mod assessment;
 pub(super) mod documents;
 pub(super) mod results;
 mod views;
+mod project_comparison;
+mod project_preparation;
+pub use project_preparation::{PreparationDiscoveryRequest,PreparationDiscoveryReport,PreparationProductKind,PreparationEligibility,ResidentPreparation};
+pub use project_comparison::{ProjectComparisonSelection,ProjectChangeImpact,ProjectObjectChange,ProjectComparison,ProjectSourceObject,ProjectSourceDetail,ProjectDocumentSource,ProjectMergeChoice,ProjectMergeResolution,ProjectMergeConflict,ProjectMergeConflictKind,ProjectMergePreview,ProjectMergeMode,ProjectMergeIntent};
 use super::{PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, relation};
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
@@ -465,70 +469,6 @@ impl Runtime {
                 let _ = canonical::reload::retain_initial(&package, documents);
                 // An acknowledged source effect is the outcome even if cancellation
                 // arrived during publication. The Python recovery callback retains it.
-                Ok(package)
-            })
-            .await
-    }
-    /// Admit raw project documents locally, then publish under the original project/source CAS.
-    /// Malformed input fails before any source publication; saved draft custody is separate.
-    pub(crate) async fn project_publish_documents(
-        &self,
-        intent: &pse_operations::canonical_projects::ProjectPublication,
-        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
-        physical: PhysicalContext,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.canonical_store()?;
-                let previous = match intent.expected() {
-                    Some(key) => Some(
-                        canonical::SourceRevision::open(
-                            self,
-                            store
-                                .revision(key)
-                                .await?
-                                .ok_or_else(|| contract("project source base unavailable"))?,
-                        )
-                        .await?,
-                    ),
-                    None => None,
-                };
-                let token = cancel.token();
-                let validation = self.admission_context();
-                documents.validate_context(
-                    self.registry(),
-                    &validation,
-                    &self.shared.pool(),
-                    &token,
-                )?;
-                let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
-                    documents,
-                    self.registry(),
-                    &physical,
-                    self.shared.budget().math.workspace_bytes,
-                    &self.shared.pool(),
-                    &token,
-                )?;
-                let revision = canonical::persist_with_project(
-                    self,
-                    canonical::CanonicalIngress {
-                        rows,
-                        physical: &physical,
-                        physical_scope: scope,
-                        documents: &inventory,
-                        sources: &sources,
-                        fits: &fits,
-                        loader: Some(documents),
-                    },
-                    previous.as_ref(),
-                    cancel,
-                    Some(intent),
-                )
-                .await?;
-                let package = self.package_from_revision(revision, physical, BTreeMap::new())?;
-                let _ = canonical::reload::retain_initial(&package, documents);
                 Ok(package)
             })
             .await

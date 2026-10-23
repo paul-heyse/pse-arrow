@@ -687,6 +687,15 @@ pub enum ProjectNavigation {
     /// Restore an exact savepoint as a new head generation.
     Restore {#[doc="Stable record identity."] key:String,#[doc="Stable draft identity."] draft:String,#[doc="Expected mutable head generation."] generation:u64},
 }
+/// Versioned public command transport; the action carries no scientific authority.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectNavigationRequest {
+    /// Command codec version.
+    pub version:pse_model::document::Version<1>,
+    /// Explicit presentation or visibility change.
+    pub action:ProjectNavigation,
+}
 /// Finite metadata page selector; cursor is scoped to the issuing store and owner.
 #[derive(Clone,Copy,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
 #[serde(rename_all="snake_case")]
@@ -695,6 +704,17 @@ pub enum ProjectMetadataKind {#[doc="All project headers."] Projects,#[doc="Draf
 #[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectMetadataCursor {issuing_store:String,kind:ProjectMetadataKind,owner:String,after:String}
+/// Exact owner and optional continuation for a bounded live metadata listing.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectMetadataRequest {
+    /// Header collection to inspect.
+    pub kind:ProjectMetadataKind,
+    /// Project, branch, draft or version according to kind; empty for all projects.
+    pub owner:String,
+    /// Original continuation from the same store and collection.
+    pub cursor:Option<ProjectMetadataCursor>,
+}
 /// Bounded metadata only; selected raw bodies are fetched separately.
 #[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -754,6 +774,47 @@ mod tests {
         reason = "isolated native project fixtures assert exact owned effects"
     )]
     use super::*;
+    #[tokio::test]
+    async fn project_navigation_versions_savepoints_and_visibility_are_exact() {
+        let store=fixture().await;
+        let source=store.edit("origin",None,"origin-rev",&[]).await.unwrap();
+        store.create_project("create-nav","project-nav","Before").await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let fork=store.project_fork_intent(&project,"branch-id","branch-owner",&source,"fork-nav").unwrap().with_branch_name("main").unwrap();
+        let head=store.edit_project(&fork,&[]).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let branch=store.project_branch("branch-id").await.unwrap().unwrap();
+        assert_eq!(branch.name,"main");
+        store.save_project_draft("save-one",&project,&branch,"draft-nav",&head.key,None,b"[[malformed",None).await.unwrap();
+        let first=store.project_draft("draft-nav").await.unwrap().unwrap();
+        assert_eq!(first.version.key,"save-one");
+        store.project_navigate("point-one",&project,&ProjectNavigation::Savepoint{key:"point-id".into(),name:"first".into(),draft:first.key.clone(),version:first.version.key.clone(),generation:first.generation}).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.save_project_draft("save-two",&project,&branch,"draft-nav",&head.key,Some(1),b"new malformed",None).await.unwrap();
+        assert!(store.save_project_draft("save-race",&project,&branch,"draft-nav",&head.key,Some(1),b"loser",None).await.is_err());
+        assert_eq!(store.project_draft_version("save-one").await.unwrap().unwrap(),first.version);
+        store.project_navigate("restore-one",&project,&ProjectNavigation::Restore{key:"point-id".into(),draft:"draft-nav".into(),generation:2}).await.unwrap();
+        let restored=store.project_draft("draft-nav").await.unwrap().unwrap();
+        assert_eq!(restored.generation,3);assert_eq!(restored.version.key,"save-one");
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("bookmark-one",&project,&ProjectNavigation::Bookmark{key:"bookmark-id".into(),name:"baseline".into(),revision:head.key.clone()}).await.unwrap();
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("rename-branch",&project,&ProjectNavigation::BranchName{key:"branch-id".into(),name:"renamed".into()}).await.unwrap();
+        let page=store.project_metadata(ProjectMetadataKind::Bookmarks,"project-nav",None).await.unwrap();
+        assert_eq!(page.bookmarks[0].revision,head.key);
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        let delete=ProjectNavigation::ProjectVisibility{deleted:true};
+        store.project_navigate("delete-project",&project,&delete).await.unwrap();
+        assert!(store.project("project-nav").await.unwrap().unwrap().deleted);
+        assert!(store.save_project_draft("deleted-save",&project,&branch,"draft-nav",&head.key,Some(3),b"no",None).await.is_err());
+        // Lost-response settlement uses original coordinates even after later membership changes.
+        assert_eq!(store.project_navigate("delete-project",&project,&delete).await.unwrap().key,"delete-project");
+        let project=store.project("project-nav").await.unwrap().unwrap();
+        store.project_navigate("restore-project",&project,&ProjectNavigation::ProjectVisibility{deleted:false}).await.unwrap();
+        assert!(!store.project("project-nav").await.unwrap().unwrap().deleted);
+        assert_eq!(store.project_metadata(ProjectMetadataKind::Drafts,"branch-id",None).await.unwrap().drafts[0].version,"save-one");
+        store.disconnect().await.unwrap();
+    }
     async fn fixture() -> CanonicalStore {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");

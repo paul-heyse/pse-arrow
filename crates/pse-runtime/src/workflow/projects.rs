@@ -17,6 +17,23 @@ pub struct ProjectDraftDocuments {
     /// Complete packages in original package order, with original relative paths/bytes.
     pub packages: Vec<BTreeMap<String, Vec<u8>>>,
 }
+/// Exact-source typed draft edits. Reconstruction checks scientific and physical identity
+/// before rebinding the original process-local parent token.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectDraftDelta {
+    /// Draft codec version.
+    pub version:pse_model::document::Version<1>,
+    /// Exact immutable source and physical premises.
+    pub source:super::OperationSource,
+    /// Original local parent token captured with the edits.
+    pub parent_local:String,
+    /// Existing typed source edits; omissions inherit.
+    pub delta:super::SourceDelta,
+}
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum DraftContent { Documents(ProjectDraftDocuments), Delta(ProjectDraftDelta) }
 /// Original, read-only issued large-draft custody intent. Preserve this value unchanged
 /// until exact project and artifact receipts settle; it grants no scientific execution.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -286,7 +303,7 @@ impl Runtime {
                 .project_draft(key)
                 .await?
                 .ok_or_else(|| contract("project draft unavailable"))?;
-            self.hydrate_selected_draft(&draft).await
+            self.hydrate_selected_draft(&draft.version).await
         })
         .await
     }
@@ -294,7 +311,7 @@ impl Runtime {
     // mutable draft key after a caller selected the exact descriptor/generation.
     async fn hydrate_selected_draft(
         &self,
-        draft: &pse_operations::canonical_projects::Draft,
+        draft: &pse_operations::canonical_projects::DraftVersion,
     ) -> Result<pse_columnar::Leased<[u8]>, WorkflowError> {
         let store = self.canonical_store()?;
         let Some(artifact) = draft.artifact.as_deref() else {
@@ -339,6 +356,50 @@ impl Runtime {
             lease,
         ))
     }
+    /// Capture recoverable typed edits against one exact currently admitted parent.
+    pub fn project_draft_delta(&self,base:&ModelingPackage,delta:super::SourceDelta)->Result<ProjectDraftDelta,WorkflowError>{
+        if delta.parent!=base.revision_id(){return Err(contract("draft edits name a different local parent"));}
+        Ok(ProjectDraftDelta{version:pse_model::document::Version,source:super::OperationSource::of(base),parent_local:base.revision_id().into(),delta})
+    }
+    /// Authenticate and admit one immutable version locally, without publishing a branch head.
+    pub async fn project_admit_draft_version(&self,version:&pse_operations::canonical_projects::DraftVersion,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
+        self.scope_activity(async{
+            let store=self.canonical_store()?;
+            let actual=store.project_draft_version(&version.key).await?.ok_or_else(||contract("draft version unavailable"))?;
+            if actual!=*version{return Err(contract("draft version descriptor differs"));}
+            let base=store.revision(&version.base_revision).await?.ok_or_else(||contract("draft source base unavailable"))?;
+            let bytes=self.hydrate_selected_draft(version).await?;
+            let _lease=self.shared.math().reserve("project:draft-decode",bytes.len().checked_mul(4).ok_or_else(||contract("draft document extent"))?)?;
+            let content:DraftContent=serde_json::from_slice(&bytes).map_err(|e|contract(format!("project draft document codec: {e}")))?;
+            match content {
+                DraftContent::Documents(content)=>{
+                    // Authenticate the selected admitted base/physical closure before loading replacement documents.
+                    let _base=self.modeling_revision(base,physical.clone(),BTreeMap::new()).await?;
+                    let pool=self.shared.pool();let token=cancel.token();let validation=self.admission_context();
+                    let bundles=content.packages.iter().map(|documents|pse_admission::authoring_driver::document::load_package_documents_owned(documents,self.registry(),pse_authoring::ParseBudget::default(),&pool,&token,&validation)).collect::<Result<Vec<_>,_>>()?;
+                    let documents=pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(bundles,&pool,&token)?;
+                    self.project_admit_documents_locally(&documents,physical,cancel).await
+                },
+                DraftContent::Delta(content)=>{
+                    if content.delta.parent!=content.parent_local{return Err(contract("draft original parent token differs"));}
+                    let mut base=self.modeling_revision(base,physical,BTreeMap::new()).await?;
+                    self.restore_project_context(&mut base,content.source.context.as_ref()).await?;
+                    base.construct_study_variant(&content.source,content.delta,cancel).await
+                }
+            }
+        }).await
+    }
+    /// Explicit local admission, retaining version-linked diagnostics even for malformed text.
+    pub async fn project_admit_draft(&self,operation:&str,key:&str,physical:PhysicalContext,cancel:&crate::CancelSource)->Result<ModelingPackage,WorkflowError>{
+        self.scope_activity(async{
+            let store=self.canonical_store()?;let draft=store.project_draft(key).await?.ok_or_else(||contract("draft unavailable"))?;
+            if draft.deleted{return Err(contract("draft is soft deleted"));}
+            let result=self.project_admit_draft_version(&draft.version,physical,cancel).await;
+            let message=match &result {Ok(_)=>"admitted locally; branch is unchanged".into(),Err(error)=>error.to_string()};
+            store.project_record_diagnostic(operation,&draft.version.key,&message,result.is_ok()).await?;
+            result
+        }).await
+    }
     /// Decode and admit the exact saved generation; publish only after scientific admission succeeds.
     pub async fn project_publish_draft(
         &self,
@@ -371,40 +432,8 @@ impl Runtime {
                 }
                 return Err(contract("project draft generation changed"));
             }
-            let bytes = self.hydrate_selected_draft(&saved).await?;
-            let _lease = self.shared.math().reserve(
-                "project:draft-decode",
-                bytes
-                    .len()
-                    .checked_mul(4)
-                    .ok_or_else(|| contract("draft document extent"))?,
-            )?;
-            let content: ProjectDraftDocuments =
-                pse_model::document::decode_versioned::<ProjectDraftDocuments, 1>(&bytes)
-                    .map_err(|e| contract(format!("project draft document codec: {e}")))?;
-            let pool = self.shared.pool();
-            let token = cancel.token();
-            let validation = self.admission_context();
-            let bundles = content
-                .packages
-                .iter()
-                .map(|documents| {
-                    pse_admission::authoring_driver::document::load_package_documents_owned(
-                        documents,
-                        self.registry(),
-                        pse_authoring::ParseBudget::default(),
-                        &pool,
-                        &token,
-                        &validation,
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            let documents =
-                pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-                    bundles, &pool, &token,
-                )?;
-            self.project_publish_documents(intent, &documents, physical, cancel)
-                .await
+            let admitted=self.project_admit_draft_version(&saved.version,physical,cancel).await?;
+            self.project_publish_admitted(intent,&admitted,cancel).await
         })
         .await
     }
@@ -514,7 +543,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            &*runtime.hydrate_selected_draft(&selected).await.unwrap(),
+            &*runtime.hydrate_selected_draft(&selected.version).await.unwrap(),
             body.as_slice(),
             "hydration must consume the selected immutable descriptor, never reread the mutable draft key"
         );

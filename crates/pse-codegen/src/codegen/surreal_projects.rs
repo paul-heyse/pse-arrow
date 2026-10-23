@@ -81,7 +81,8 @@ DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$oper
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
     FOR $parent IN $intent.extra_parents {
         fn::pse_project_v1::root($expiry,$parent,'project-ancestry:'+$operation+':'+$parent);
-        CREATE ONLY type::record('canonical_project_ancestry',[$operation,$parent]) CONTENT {key:$operation+':'+$parent,revision:$operation,parent:$parent};
+        LET $edge=<string>string::len($operation)+':'+$operation+$parent;
+        CREATE ONLY type::record('canonical_project_ancestry',$edge) CONTENT {key:$edge,revision:$operation,parent:$parent};
     };
     UPDATE ONLY type::record('canonical_project_branches',$intent.branch) SET generation+=1dec;
     LET $project=IF $intent.kind='fork' { UPDATE ONLY type::record('canonical_projects',$intent.project) SET generation+=1dec } ELSE { SELECT * FROM ONLY type::record('canonical_projects',$intent.project) };
@@ -96,7 +97,7 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
     LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$row.base_revision);
     IF $revision=NONE OR $revision.problem!=$branch.problem { THROW 'PSE_REFUSAL:project_source_unavailable'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_project_drafts',$row.draft) FOR UPDATE;
-    IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
+    IF ($old.generation ?? NONE)!=$expected OR ($old!=NONE AND ($old.deleted OR $old.branch!=$row.branch OR $old.project!=$row.project)) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.generation!=($expected ?? 0dec)+1dec OR ($row.artifact!=NONE AND bytes::len($row.content)!=0) { THROW 'PSE_REFUSAL:project_draft_changed'; };
     IF $row.artifact!=NONE {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.artifact);

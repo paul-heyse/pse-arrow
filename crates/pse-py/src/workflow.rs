@@ -1094,6 +1094,21 @@ impl NativeRuntime {
         )?;
         Ok(pyo3::types::PyBytes::new(py, &body))
     }
+    fn project_navigate(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,request:documents::DocumentInput<pse_operations::canonical_projects::ProjectNavigationRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_navigate(operation,&project.0,&request.0.action).await?)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    }
+    fn project_metadata(&self,py:Python<'_>,request:documents::DocumentInput<pse_operations::canonical_projects::ProjectMetadataRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectMetadataPage>>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_metadata(request.0.kind,&request.0.owner,request.0.cursor.as_ref()).await?)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    }
+    fn project_draft_version(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::DraftVersion>>>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_draft_version(key).await?)}),||stop.cancel())?;Ok(value.map(documents::DocumentValue))
+    }
+    fn project_draft_delta(&self,py:Python<'_>,source:&NativeModelingPackage,delta:documents::DocumentInput<native::SourceDelta>)->PyResult<documents::DocumentValue<native::ProjectDraftDelta>>{
+        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_draft_delta(&source.inner,delta.0)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+    }
+    fn project_admit_draft(&self,py:Python<'_>,operation:&str,key:&str,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage>{
+        let stop=CancelSource::new();let token=&stop;let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_admit_draft(operation,key,physical.inner.clone(),token).await}),||stop.cancel())?;Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+    }
     fn project_acknowledgement(
         &self,
         py: Python<'_>,
