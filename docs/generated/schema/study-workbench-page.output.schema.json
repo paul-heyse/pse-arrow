@@ -19,7 +19,7 @@
           "type": "string"
         },
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterBodyOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
           "description": "Exact original predicates."
         },
         "issuing_store": {
@@ -34,7 +34,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchFilterBodyOutput": {
+    "StudyWorkbenchFilterOutput": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -78,7 +78,7 @@
           ]
         },
         "research_reference": {
-          "description": "Exact original research reference key; never a floating latest query.",
+          "description": "Dataset/selection keys select consumed ancestry; publication operation keys\nselect the exact resulting parameter source. Existing ResearchReference keys\nselect their explicitly named source/run neighborhood, without proving consumption.",
           "type": [
             "string",
             "null"

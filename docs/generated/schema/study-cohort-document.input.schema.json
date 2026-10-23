@@ -299,7 +299,7 @@
       "description": "One complete bounded population selected before any analytical payload work.",
       "properties": {
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterBody",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact native predicates."
         },
         "maximum_members": {
@@ -365,7 +365,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterBody": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -409,7 +409,7 @@
           ]
         },
         "research_reference": {
-          "description": "Exact original research reference key; never a floating latest query.",
+          "description": "Dataset/selection keys select consumed ancestry; publication operation keys\nselect the exact resulting parameter source. Existing ResearchReference keys\nselect their explicitly named source/run neighborhood, without proving consumption.",
           "type": [
             "string",
             "null"

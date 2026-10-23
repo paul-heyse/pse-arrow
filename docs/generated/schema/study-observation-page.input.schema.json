@@ -1325,7 +1325,7 @@
       "description": "One complete bounded population selected before any analytical payload work.",
       "properties": {
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterBody",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact native predicates."
         },
         "maximum_members": {
@@ -1357,7 +1357,7 @@
       ],
       "type": "string"
     },
-    "StudyObservationContextBody": {
+    "StudyObservationContext": {
       "additionalProperties": false,
       "description": "Original immutable selection binds a cursor independently from mutable metadata revisions.",
       "properties": {
@@ -1427,7 +1427,7 @@
       "description": "Portable reconnect coordinates; decoding grants no result or cancellation authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/StudyObservationContextBody",
+          "$ref": "#/$defs/StudyObservationContext",
           "description": "Exact scientific and engineering context."
         },
         "issuing_store": {
@@ -1441,7 +1441,7 @@
         "sources": {
           "description": "Original parent and retry sources; older attempts remain present.",
           "items": {
-            "$ref": "#/$defs/StudyObservationPositionBody"
+            "$ref": "#/$defs/StudyObservationPosition"
           },
           "type": "array"
         }
@@ -1454,7 +1454,7 @@
       ],
       "type": "object"
     },
-    "StudyObservationPositionBody": {
+    "StudyObservationPosition": {
       "additionalProperties": false,
       "description": "Position in one exact attempt, with separate native source and durable batch clocks.",
       "properties": {
@@ -1605,7 +1605,7 @@
           ]
         },
         "position": {
-          "$ref": "#/$defs/StudyObservationPositionBody",
+          "$ref": "#/$defs/StudyObservationPosition",
           "description": "Exact original run/attempt position after this page."
         }
       },
@@ -1650,7 +1650,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterBody": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -1694,7 +1694,7 @@
           ]
         },
         "research_reference": {
-          "description": "Exact original research reference key; never a floating latest query.",
+          "description": "Dataset/selection keys select consumed ancestry; publication operation keys\nselect the exact resulting parameter source. Existing ResearchReference keys\nselect their explicitly named source/run neighborhood, without proving consumption.",
           "type": [
             "string",
             "null"
