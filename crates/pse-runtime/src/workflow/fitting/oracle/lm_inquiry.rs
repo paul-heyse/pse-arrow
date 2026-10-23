@@ -1231,13 +1231,16 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     let (receipt_version, selection, _sources): RecordedSelection =
         serde_json::from_slice(&reopened.run.as_ref().unwrap().source_selection).unwrap();
     assert_eq!(receipt_version, 1);
-    let (selection_version, _identity, _physical, strategies): (
+    let (selection_version, _identity, _physical, strategies, sources): (
         u8,
         serde_json::Value,
         ContentHash,
         Vec<pse_model::strategy::NumericalStrategy>,
+        Vec<crate::workflow::OperationSource>,
     ) = serde_json::from_slice(&selection).unwrap();
-    assert_eq!(selection_version, 1);
+    assert_eq!(selection_version, 2);
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0], crate::workflow::OperationSource::of(&prepared.source));
     assert_eq!(strategies.len(), 1);
     let stored_strategy = &strategies[0];
     assert_eq!(
