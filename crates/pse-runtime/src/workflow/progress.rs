@@ -92,6 +92,13 @@ impl Runtime {
     }
 }
 impl ProgressStream {
+    /// Exact physical progress batch position, scoped to this immutable terminal attempt.
+    pub(super) fn batch_position(&self) -> u64 { self.ordinal }
+    /// Resume an observer at a previously captured immutable batch position.
+    pub(super) fn resume_batch(&mut self, ordinal:u64) -> Result<(),WorkflowError> {
+        if ordinal>self.batches {return Err(super::contract("progress observer batch cursor exceeds original history"));}
+        self.ordinal=ordinal; Ok(())
+    }
     /// Original terminal telemetry coverage copied under this exact read permission.
     /// This copied fact remains inspectable after close and grants no further reads.
     pub fn coverage(&self) -> &ProgressCoverage {

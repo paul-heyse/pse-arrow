@@ -323,6 +323,11 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> obje
     fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$row.run);
     LET $run = SELECT * FROM ONLY type::record('canonical_runs', $row.run);
     IF $run = NONE OR $run.problem != $row.problem OR $run.revision != $row.revision { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    IF $row.physical_revision!=NONE AND array::len(SELECT key FROM canonical_run_sources WHERE run=$row.run AND revision=$row.physical_revision LIMIT 1)!=1 { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    IF $row.context!=NONE {
+        LET $context=SELECT revision,physical_revision,physical_source_identity FROM ONLY type::record('canonical_project_contexts',$row.context);
+        IF $context=NONE OR $context.revision!=$row.revision OR $context.physical_revision!=$row.physical_revision OR $context.physical_source_identity!=$row.physical_identity { THROW 'PSE_REFUSAL:study_source_run_unavailable'; };
+    };
     fn::pse_history_v1::associate($rpc_expiry,$row.key,$row.run,NONE);
     LET $rpc_result = CREATE ONLY type::record('canonical_studies', $row.key) CONTENT $row;
     fn::pse_study_v1::readiness_cursor($rpc_expiry,$row.key,true);
