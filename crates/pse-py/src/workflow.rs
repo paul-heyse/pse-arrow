@@ -818,7 +818,7 @@ impl NativeRuntime {
         ))
     }
     /// Capture the project-scoped recorded context cut, independent of source sequence.
-    fn project_context_cut(&self, py: Python<'_>, project: &str) -> PyResult<documents::DocumentValue<native::ContextCut>> {
+    fn project_context_cut(&self, py: Python<'_>, project: &str) -> PyResult<documents::DocumentValue<pse_operations::canonical_contexts::ContextCut>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.project_context_cut(project).await?)
@@ -826,7 +826,7 @@ impl NativeRuntime {
         Ok(documents::DocumentValue(value))
     }
     /// Query original immutable context at an explicit UTC microsecond instant and cut.
-    fn project_context_select(&self,py:Python<'_>,cut:documents::DocumentInput<native::ContextCut>,scope:&str,effective_at_us:i64)->PyResult<Option<documents::DocumentValue<native::ContextSelection>>> {
+    fn project_context_select(&self,py:Python<'_>,cut:documents::DocumentInput<pse_operations::canonical_contexts::ContextCut>,scope:&str,effective_at_us:i64)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_contexts::ContextSelection>>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.select_project_context(&cut.0,scope,effective_at_us).await?)
@@ -834,7 +834,7 @@ impl NativeRuntime {
         Ok(value.map(documents::DocumentValue))
     }
     /// Exact immutable metadata remains available for tombstones and hidden projects.
-    fn project_context_record(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<native::ProjectContext>>> {
+    fn project_context_record(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_contexts::ProjectContext>>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             Ok(runtime.canonical_store()?.project_context_record(key).await?)
@@ -842,7 +842,7 @@ impl NativeRuntime {
         Ok(value.map(documents::DocumentValue))
     }
     /// Load the selected exact source through the normal source owner; no latest lookup.
-    fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<native::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
+    fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async {
             runtime.project_context_package(&selection.0,physical.inner.clone(),&stop).await
@@ -850,7 +850,7 @@ impl NativeRuntime {
         Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
     #[pyo3(signature=(operation,project,scope,source,effective_from_us,*,effective_to_us=None,corrects=None,deleted=false))]
-    fn project_context_append(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,scope:&str,source:&NativeModelingPackage,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->PyResult<documents::DocumentValue<native::ProjectContext>> {
+    fn project_context_append(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,scope:&str,source:&NativeModelingPackage,effective_from_us:i64,effective_to_us:Option<i64>,corrects:Option<&str>,deleted:bool)->PyResult<documents::DocumentValue<pse_operations::canonical_contexts::ProjectContext>> {
         let stop=CancelSource::new();
         let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
             runtime.project_record_context(operation,&project.0,scope,&source.inner,effective_from_us,effective_to_us,corrects,deleted).await
