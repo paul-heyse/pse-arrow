@@ -55,7 +55,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     LET $pins=SELECT key FROM canonical_protections WHERE revision=$s.revision AND released=false AND (expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65;
     LET $stages=SELECT key FROM canonical_stages WHERE problem=$revision.problem AND activated=false AND abandoned=false ORDER BY key LIMIT 65;
     LET $project_refs=SELECT key FROM canonical_research_references WHERE revision=$s.revision ORDER BY key LIMIT 65;
-    LET $imports=SELECT key FROM canonical_project_imports WHERE revision=$s.revision AND complete=false ORDER BY key LIMIT 65;
+    LET $imports=SELECT key FROM canonical_project_imports WHERE complete=false AND (revision=$s.revision OR ($s.kind='draft_version' AND project=type::record('canonical_project_draft_versions',$s.key).project)) ORDER BY key LIMIT 65;
     LET $borrowers=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_result_protections WHERE run=$s.key AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
     LET $attempts=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_attempts WHERE run=$s.key AND phase NOT IN ['terminal','terminal_compacted'] ORDER BY key LIMIT 65} ELSE {[]};
     LET $studies=IF $s.kind IN ['run_results','run_history'] {SELECT key FROM canonical_studies WHERE run=$s.key AND (SELECT * FROM ONLY type::record('canonical_study_retirements',key))=NONE ORDER BY key LIMIT 65} ELSE {[]};
@@ -106,9 +106,13 @@ DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) 
     IF array::len($explanation.blockers)!=0 {THROW 'PSE_REFUSAL:project_draft_changed';};
     LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$v.base_revision);
     fn::pse_execution_v1::source_creator($expiry,$revision.problem,'project-draft-version:'+$v.key);
+    LET $root=SELECT * FROM ONLY type::record('canonical_roots','project-draft-version:'+$v.key) FOR UPDATE;
+    IF $root=NONE OR $root.problem!=$revision.problem OR $root.revision!=$v.base_revision OR $root.owner_kind!='project' OR $root.owner!='project-draft-version:'+$v.key {THROW 'PSE_REFUSAL:retained_owner_selection_changed';};
     IF $v.artifact!=NONE {
+        LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$v.artifact) FOR UPDATE;
+        IF $artifact=NONE OR $artifact.kind!='project-draft' OR $artifact.revision!=$v.base_revision OR !$artifact.active OR $artifact.retiring {THROW 'PSE_REFUSAL:project_source_unavailable';};
         LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$v.artifact AND owner_kind='project' AND owner=$v.draft LIMIT 65;
-        IF array::len($owners)>64 {THROW 'PSE_REFUSAL:project_metadata_bound';};
+        IF array::len($owners)!=1 {THROW 'PSE_REFUSAL:project_draft_changed';};
         FOR $owner IN $owners {fn::pse_artifact_v1::release($expiry,object::remove($owner,['id']));};
     };
     DELETE ONLY type::record('canonical_roots','project-draft-version:'+$v.key);
@@ -120,7 +124,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::release($expiry:int,$s:object) -> object {
     // Explanation is advisory. The original owner checks live guards in this
     // same effect transaction; no prior explanation is a deletion capability.
     LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$s.revision);
-    LET $pending_import=SELECT key FROM canonical_project_imports WHERE revision=$s.revision AND complete=false LIMIT 1;
+    LET $pending_import=SELECT key FROM canonical_project_imports WHERE complete=false AND (revision=$s.revision OR ($s.kind='draft_version' AND project=type::record('canonical_project_draft_versions',$s.key).project)) LIMIT 1;
     IF array::len($pending_import)!=0 {THROW 'PSE_REFUSAL:project_source_unavailable';};
     IF $s.kind='run_results' {
         LET $retirement=fn::pse_retention_v1::forget_run($expiry,$s.key);
