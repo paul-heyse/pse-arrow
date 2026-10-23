@@ -885,6 +885,17 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0220](../../adr/0220-selected-closure-and-fresh-authority-exchange.md) (proposed; maintainer-authorized Plan51e–51g target).
+
+Selected logical project closure composes original protected source/result/artifact owners and
+publishes a versioned manifest after verified copying. Fresh-authority import uses ordinary
+admission and the existing source/project guarded activation with exact original-intent
+settlement. Imported historical executions/publications remain origin-qualified evidence;
+they never mint receiving producer receipts, terminal authority or seed eligibility. Retention
+explanation is observational and explicit release rechecks current owner guards. Application
+backup/recovery keeps its original service/file authority and full required external closure.
+
+
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).
 
 > Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; maintainer-authorized Plan51b implementation, targeted evidence at its Outcome).
