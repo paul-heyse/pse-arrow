@@ -112,6 +112,12 @@ def prepare(source: Path, scratch: Path) -> dict[str, object]:
     return receipt
 
 
+def selected_test_passed(output: str) -> bool:
+    return ("running 1 test\n" in output
+            and f"test {TEST} ..." in output
+            and "test result: ok. 1 passed; 0 failed;" in output)
+
+
 def run(scratch: Path, receipt: dict[str, object]) -> int:
     command = [
         "cargo", "test", "--manifest-path", str(scratch / "source/Cargo.toml"),
@@ -134,11 +140,14 @@ def run(scratch: Path, receipt: dict[str, object]) -> int:
     print(json.dumps({"receipt": str(scratch / "probe.json"), "command": command, "test_log": receipt["test_log"]}, indent=2), flush=True)
     with (scratch / "probe.log").open("w") as log:
         result = subprocess.run(command, cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT, check=False)
-    receipt["exit_code"] = result.returncode
-    receipt["result"] = "passed" if result.returncode == 0 else "failed"
+    output = (scratch / "probe.log").read_text()
+    exit_code = result.returncode or (0 if selected_test_passed(output) else 1)
+    receipt["cargo_exit_code"] = result.returncode
+    receipt["exit_code"] = exit_code
+    receipt["result"] = "passed" if exit_code == 0 else "failed"
     (scratch / "probe.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
-    print((scratch / "probe.log").read_text()[-20000:], flush=True)
-    return result.returncode
+    print(output[-20000:], flush=True)
+    return exit_code
 
 
 def main() -> int:
