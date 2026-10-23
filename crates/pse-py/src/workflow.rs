@@ -843,17 +843,17 @@ impl NativeRuntime {
     }
     /// Reopen original persisted source and physical closures without caller-supplied documents.
     fn project_context_reopen(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>)->PyResult<NativeModelingPackage> {
-        let stop=CancelSource::new();
-        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async {
-            runtime.project_context_reopen(&selection.0,&stop).await
+        let stop=CancelSource::new();let cancelled=&stop;
+        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_context_reopen(&selection.0,cancelled).await
         }),||stop.cancel())?;
         Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
     /// Load the selected exact source through the normal source owner; no latest lookup.
     fn project_context_package(&self,py:Python<'_>,selection:documents::DocumentInput<pse_operations::canonical_contexts::ContextSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage> {
-        let stop=CancelSource::new();
-        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async {
-            runtime.project_context_package(&selection.0,physical.inner.clone(),&stop).await
+        let stop=CancelSource::new();let cancelled=&stop;
+        let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move {
+            runtime.project_context_package(&selection.0,physical.inner.clone(),cancelled).await
         }),||stop.cancel())?;
         Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
@@ -1091,22 +1091,22 @@ impl NativeRuntime {
         py: Python<'py>,
         key: &str,
     ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
-        let stop = CancelSource::new();
+        let stop = CancelSource::new();let cancelled=&stop;
         let body = blocking(
             py,
             &self.owner,
             self.recording_operation(&stop, |runtime| async move {
-                runtime.project_draft_bytes(key,&stop).await
+                runtime.project_draft_bytes(key,cancelled).await
             }),
             || stop.cancel(),
         )?;
         Ok(pyo3::types::PyBytes::new(py, &body))
     }
     fn project_select(&self,py:Python<'_>,request:documents::DocumentInput<native::ProjectSelectRequest>,physical:&NativePhysicalContext)->PyResult<documents::DocumentValue<native::ProjectSelection>>{
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async{runtime.project_select(&request.0,physical.inner.clone(),&stop).await}),||stop.cancel())?;Ok(documents::DocumentValue(value))
+        let stop=CancelSource::new();let cancelled=&stop;let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_select(&request.0,physical.inner.clone(),cancelled).await}),||stop.cancel())?;Ok(documents::DocumentValue(value))
     }
     fn project_open_selection(&self,py:Python<'_>,selection:documents::DocumentInput<native::ProjectSelection>,physical:&NativePhysicalContext)->PyResult<NativeModelingPackage>{
-        let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async{runtime.project_open_selection(&selection.0,physical.inner.clone(),&stop).await}),||stop.cancel())?;Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
+        let stop=CancelSource::new();let cancelled=&stop;let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_open_selection(&selection.0,physical.inner.clone(),cancelled).await}),||stop.cancel())?;Ok(NativeModelingPackage::from_revision(self.owner.clone(),value))
     }
     fn project_navigate(&self,py:Python<'_>,operation:&str,project:documents::DocumentInput<pse_operations::canonical_projects::Project>,request:documents::DocumentInput<pse_operations::canonical_projects::ProjectNavigationRequest>)->PyResult<documents::DocumentValue<pse_operations::canonical_projects::ProjectAcknowledgement>>{
         let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_navigate(operation,&project.0,&request.0.action).await?)}),||stop.cancel())?;Ok(documents::DocumentValue(value))
@@ -1116,6 +1116,9 @@ impl NativeRuntime {
     }
     fn project_draft_version(&self,py:Python<'_>,key:&str)->PyResult<Option<documents::DocumentValue<pse_operations::canonical_projects::DraftVersion>>>{
         let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{Ok(runtime.canonical_store()?.project_draft_version(key).await?)}),||stop.cancel())?;Ok(value.map(documents::DocumentValue))
+    }
+    fn project_draft_version_bytes<'py>(&self,py:Python<'py>,key:&str)->PyResult<Bound<'py,pyo3::types::PyBytes>>{
+        let stop=CancelSource::new();let cancelled=&stop;let body=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_draft_version_bytes(key,cancelled).await}),||stop.cancel())?;Ok(pyo3::types::PyBytes::new(py,&body))
     }
     fn project_draft_delta(&self,py:Python<'_>,source:&NativeModelingPackage,delta:documents::DocumentInput<native::SourceDelta>)->PyResult<documents::DocumentValue<native::ProjectDraftDelta>>{
         let stop=CancelSource::new();let value=blocking(py,&self.owner,self.recording_operation(&stop,|runtime|async move{runtime.project_draft_delta(&source.inner,delta.0)}),||stop.cancel())?;Ok(documents::DocumentValue(value))

@@ -92,7 +92,7 @@ impl Runtime {
                 ProjectReference::Branch{key}=>{let branch=store.project_branch(key).await?.ok_or_else(||contract("project branch unavailable"))?;let revision=store.project_branch_revision(key).await?.ok_or_else(||contract("project branch source unavailable"))?;if revision.problem!=branch.problem{return Err(contract("branch source owner differs"));}(branch.project,revision)},
                 ProjectReference::Bookmark{key}=>{let bookmark=store.project_bookmark(key).await?.ok_or_else(||contract("project bookmark unavailable"))?;let revision=store.revision(&bookmark.revision).await?.ok_or_else(||contract("bookmarked source unavailable"))?;(bookmark.project,revision)},
             };
-            let package=self.modeling_revision(revision.clone(),physical,BTreeMap::new()).await?;let source=super::OperationSource::of(&package);
+            let package=self.project_boxed(self.modeling_revision(revision.clone(),physical,BTreeMap::new()))?.await?;let source=super::OperationSource::of(&package);
             Ok(ProjectSelection{issuing_store:store.issuing_store()?.into(),project,reference:request.reference.clone(),problem:revision.problem,revision:revision.key,source_identity:source.revision,physical_context:source.physical_context})
         })).await
     }
@@ -106,7 +106,7 @@ impl Runtime {
                 ProjectReference::Bookmark{key}=>{let bookmark=store.project_bookmark(key).await?.ok_or_else(||contract("project bookmark unavailable"))?;if bookmark.project!=selection.project||bookmark.revision!=selection.revision{return Err(contract("project selection bookmark differs"));}},
             }
             let revision=store.revision(&selection.revision).await?.ok_or_else(||contract("selected source unavailable"))?;if revision.problem!=selection.problem{return Err(contract("selected source problem differs"));}
-            let package=self.modeling_revision(revision,physical,BTreeMap::new()).await?;if super::OperationSource::of(&package).revision!=selection.source_identity{return Err(contract("selected admitted source differs"));}Ok(package)
+            let package=self.project_boxed(self.modeling_revision(revision,physical,BTreeMap::new()))?.await?;if super::OperationSource::of(&package).revision!=selection.source_identity{return Err(contract("selected admitted source differs"));}Ok(package)
         })).await
     }
 }
@@ -127,6 +127,13 @@ pub struct ProjectDraftSaveIntent {
     artifact: Option<pse_operations::canonical_artifacts::Artifact>,
 }
 impl Runtime {
+    /// Keep nested scientific continuations off the caller stack and charged to its pool.
+    pub(in crate::workflow) fn project_boxed<'a,T:'a,F>(&self,operation:F)->Result<std::pin::Pin<Box<dyn Future<Output=Result<T,WorkflowError>>+Send+'a>>,WorkflowError>
+    where F:Future<Output=Result<T,WorkflowError>>+Send+'a {
+        let extent=size_of::<F>().checked_add(512).ok_or_else(||contract("project continuation extent"))?;
+        let owner=self.shared.math().reserve("project:continuation",extent)?;
+        Ok(Box::pin(async move{let _owner=owner;operation.await}))
+    }
     /// Read-only issue of the original immutable raw-draft custody effect.
     pub async fn project_draft_save_intent(
         &self,
@@ -385,6 +392,13 @@ impl Runtime {
         }))
         .await
     }
+    /// Read one original immutable raw version, including opaque artifact custody.
+    pub async fn project_draft_version_bytes(&self,key:&str,cancel:&crate::CancelSource)->Result<pse_columnar::Leased<[u8]>,WorkflowError>{
+        self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)),async{
+            draft_checkpoint(cancel)?;let version=self.canonical_store()?.project_draft_version(key).await?.ok_or_else(||contract("draft version unavailable"))?;
+            self.hydrate_selected_draft(&version,cancel).await
+        })).await
+    }
     // Selection and hydration have deliberately separate lifetimes. Never reread a
     // mutable draft key after a caller selected the exact descriptor/generation.
     async fn hydrate_selected_draft(
@@ -460,17 +474,17 @@ impl Runtime {
             match content {
                 DraftContent::Documents(content)=>{
                     // Authenticate the selected admitted base/physical closure before loading replacement documents.
-                    let _base=self.modeling_revision(base,physical.clone(),BTreeMap::new()).await?;
+                    let _base=self.project_boxed(self.modeling_revision(base,physical.clone(),BTreeMap::new()))?.await?;
                     let pool=self.shared.pool();let token=cancel.token();let validation=self.admission_context();
                     let bundles=content.packages.iter().map(|documents|pse_admission::authoring_driver::document::load_package_documents_owned(documents,self.registry(),pse_authoring::ParseBudget::default(),&pool,&token,&validation)).collect::<Result<Vec<_>,_>>()?;
                     let documents=pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(bundles,&pool,&token)?;
-                    self.project_admit_documents_locally(&documents,physical,cancel).await
+                    self.project_boxed(self.project_admit_documents_locally(&documents,physical,cancel))?.await
                 },
                 DraftContent::Delta(content)=>{
                     if content.issuing_store!=store.issuing_store()? || content.base_revision!=version.base_revision || content.delta.parent!=content.parent_local{return Err(contract("draft original parent token differs"));}
-                    let mut base=self.modeling_revision(base,physical,BTreeMap::new()).await?;
+                    let mut base=self.project_boxed(self.modeling_revision(base,physical,BTreeMap::new()))?.await?;
                     self.restore_project_context(&mut base,content.source.context.as_ref()).await?;
-                    base.construct_study_variant(&content.source,content.delta,cancel).await
+                    self.project_boxed(base.construct_study_variant(&content.source,content.delta,cancel))?.await
                 }
             }
         })).await
@@ -480,7 +494,7 @@ impl Runtime {
         self.scope_activity(pse_operations::canonical::operation_scope(draft_deadline(Some(cancel)), async{
             draft_checkpoint(cancel)?;let store=self.canonical_store()?;let draft=store.project_draft(key).await?.ok_or_else(||contract("draft unavailable"))?;
             if draft.deleted{return Err(contract("draft is soft deleted"));}
-            let result=self.project_admit_draft_version(&draft.version,physical,cancel).await;
+            let result=self.project_boxed(self.project_admit_draft_version(&draft.version,physical,cancel))?.await;
             let message=match &result {Ok(_)=>"admitted locally; branch is unchanged".into(),Err(error)=>error.to_string()};
             store.project_record_diagnostic(operation,&draft.version.key,&message,result.is_ok()).await?;
             result
@@ -519,8 +533,8 @@ impl Runtime {
                 }
                 return Err(contract("project draft generation changed"));
             }
-            let admitted=self.project_admit_draft_version(&saved.version,physical,cancel).await?;
-            self.project_publish_admitted(intent,&admitted,cancel).await
+            let admitted=self.project_boxed(self.project_admit_draft_version(&saved.version,physical,cancel))?.await?;
+            self.project_boxed(self.project_publish_admitted(intent,&admitted,cancel))?.await
         }))
         .await
     }

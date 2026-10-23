@@ -375,7 +375,7 @@ impl Runtime {
         cancel: &CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
         let local = Self::from_shared_local(self.shared.clone(), self.model.clone())?;
-        let mut package = local.modeling_from_documents(documents, physical, cancel).await?;
+        let mut package = self.project_boxed(local.modeling_from_documents(documents, physical, cancel))?.await?;
         package.runtime = self.clone();
         Ok(package)
     }
@@ -390,8 +390,8 @@ impl Runtime {
         let store = self.canonical_store()?;
         let key = intent.expected().ok_or_else(|| contract("admitted publication requires an exact parent"))?;
         let revision = store.revision(key).await?.ok_or_else(|| contract("admitted publication parent unavailable"))?;
-        let parent = self.modeling_revision(revision,admitted.physical.clone(),admitted.providers.as_ref().clone()).await?;
-        super::canonical::publish_admitted_project(self,intent,&parent,admitted,cancel).await
+        let parent = self.project_boxed(self.modeling_revision(revision,admitted.physical.clone(),admitted.providers.as_ref().clone()))?.await?;
+        self.project_boxed(super::canonical::publish_admitted_project(self,intent,&parent,admitted,cancel))?.await
     }
     async fn project_is_ancestor(&self, ancestor: &str, descendant: &str, cancel: &CancelSource) -> Result<bool, WorkflowError> {
         let store = self.canonical_store()?;
@@ -425,12 +425,13 @@ impl Runtime {
     /// Retain one immutable saved version, without publishing a temporary source revision.
     pub async fn project_merge_draft_intent(&self, publication: ProjectPublication, base: &ModelingPackage, target: &ModelingPackage, version: &DraftVersion, resolutions: Vec<ProjectMergeResolution>, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
         self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
-            let proposal = self.project_admit_draft_version(version,target.physical.clone(),cancel).await?;
+            let proposal = self.project_boxed(self.project_admit_draft_version(version,target.physical.clone(),cancel))?.await?;
             self.project_merge_decision(publication,base,target,&proposal,ProjectMergeProposal::Draft { version: version.clone() },resolutions,cancel).await
         })).await
     }
     async fn project_merge_decision(&self, publication: ProjectPublication, base: &ModelingPackage, target: &ModelingPackage, proposal: &ModelingPackage, descriptor: ProjectMergeProposal, resolutions: Vec<ProjectMergeResolution>, cancel: &CancelSource) -> Result<ProjectMergeIntent, WorkflowError> {
         self.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
+            for package in [base,target,proposal] {if package.runtime_store_issuer()?!=self.canonical_store()?.issuing_store()? {return Err(contract("merge source issuing authority differs"));}}
             let (base_key,target_key,proposal_key) = (&base.recorded_revision()?.key,&target.recorded_revision()?.key,descriptor.ancestor());
             if publication.expected() != Some(target_key.as_str()) || !self.project_is_ancestor(base_key,target_key,cancel).await? || !self.project_is_ancestor(base_key,proposal_key,cancel).await? { return Err(contract("merge base is not an ancestor of both exact selections")); }
             let preview = self.project_merge_preview(base,target,proposal,&resolutions,cancel).await?;
@@ -472,7 +473,7 @@ impl Runtime {
                     let selected = store.revision(revision).await?.ok_or_else(|| contract("merge proposal source unavailable"))?;
                     self.modeling_revision(selected,physical.clone(),BTreeMap::new()).await?
                 }
-                ProjectMergeProposal::Draft { version } => self.project_admit_draft_version(version,physical.clone(),cancel).await?,
+                ProjectMergeProposal::Draft { version } => self.project_boxed(self.project_admit_draft_version(version,physical.clone(),cancel))?.await?,
             };
             let (base,target,proposal) = (&packages[0],&packages[1],&proposal);
             if !self.project_is_ancestor(&intent.base,&intent.target,cancel).await? || !self.project_is_ancestor(&intent.base,intent.proposal.ancestor(),cancel).await? { return Err(contract("retained merge ancestry differs")); }
