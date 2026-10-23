@@ -13,7 +13,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import msgspec
 
@@ -63,6 +63,13 @@ class StorageHealthTests(unittest.TestCase):
         path.write_bytes(msgspec.json.encode(record))
         return path
 
+    def selected_service(self) -> server.SelectedService:
+        return server.SelectedService(
+            self.state, 9000,
+            {"instance_id": "selected-instance", "server": {"binary_sha256": "b" * 64}},
+            "credential-digest", "proof-digest", "a" * 32, "fixture-selection-secret",
+        )
+
     def test_representative_original_gauges_preserve_labels_precision_and_limits(self) -> None:
         record = health.read(self.save(fixture(self.state)))
         self.assertEqual(record.metrics["async_queue_depth"].samples[0].value, 3)
@@ -85,7 +92,8 @@ class StorageHealthTests(unittest.TestCase):
     def test_unavailable_service_keeps_real_independent_host_observations_without_repairs(self) -> None:
         with (
             patch.object(server, "config_for", side_effect=server.SupervisorError("absent")),
-            patch.object(server, "metric_snapshot", side_effect=server.SupervisorError("absent")),
+            patch.object(server, "selected_service", side_effect=server.SupervisorError("absent")),
+            patch.object(server, "metric_snapshot", side_effect=AssertionError("unverified metrics")),
             patch.object(server, "start", side_effect=AssertionError("hidden start")),
             patch.object(server, "recover_file_owners", side_effect=AssertionError("hidden GC")),
             patch.object(server, "recover_maintenance", side_effect=AssertionError("hidden repair")),
@@ -109,7 +117,7 @@ class StorageHealthTests(unittest.TestCase):
     def test_failed_service_control_keeps_independent_host_observation(self) -> None:
         with (
             patch.object(server, "config_for", side_effect=server.SupervisorError("absent")),
-            patch.object(server, "metric_snapshot", side_effect=subprocess.TimeoutExpired("systemctl", 1)),
+            patch.object(server, "selected_service", side_effect=subprocess.TimeoutExpired("systemctl", 1)),
         ):
             record = health.capture(self.state, time.monotonic() + 5)
         self.assertEqual(record.service.status, "unavailable")
@@ -127,7 +135,7 @@ class StorageHealthTests(unittest.TestCase):
         }
 
     def test_capture_checks_actual_service_identity_and_nonfinite_observations(self) -> None:
-        for variation in ("foreign_state", "foreign_instance", "nonfinite", "missing_time"):
+        for variation in ("foreign_state", "foreign_instance", "foreign_invocation", "nonfinite", "missing_time"):
             with self.subTest(variation=variation):
                 def metrics(*_args: object, variation: str = variation) -> dict:
                     original = self.original_metrics()
@@ -135,6 +143,8 @@ class StorageHealthTests(unittest.TestCase):
                         original["identity"]["state"] = str(self.root / "other")
                     elif variation == "foreign_instance":
                         original["identity"]["instance_id"] = "other"
+                    elif variation == "foreign_invocation":
+                        original["identity"]["invocation"] = "c" * 32
                     elif variation == "nonfinite":
                         original["families"][server.MX_METRIC_PREFIX + "poisoned"]["samples"][0]["value"] = float("nan")
                     else:
@@ -143,11 +153,15 @@ class StorageHealthTests(unittest.TestCase):
                 with (
                     patch.object(server, "config_for", return_value={"instance_id": "selected-instance", "resources": {}, "accepting_writes": True}),
                     patch.object(server, "database_endpoint", return_value="mem://configured?aol=sync&sync=every"),
+                    patch.object(server, "selected_service", return_value=self.selected_service()),
+                    patch.object(server.SelectedService, "recheck"),
                     patch.object(server, "metric_snapshot", side_effect=metrics),
-                    patch.object(health, "selected_cgroup", side_effect=AssertionError("foreign service joined")),
+                    patch.object(health, "selected_cgroup", return_value=fixture(self.state).cgroup),
+                    patch.object(health, "process_identity", return_value=fixture(self.state).observer),
                 ):
                     record = health.capture(self.state, time.monotonic() + 5)
-                self.assertEqual(record.service.status, "unavailable")
+                self.assertEqual(record.service.status, "available")
+                self.assertEqual(record.service.identity, fixture(self.state).service.identity)
                 self.assertTrue(all(f.status == "unavailable" for f in record.metrics.values()))
                 self.assertEqual(record.host["MemTotal_bytes"].status, "available")
 
@@ -156,6 +170,8 @@ class StorageHealthTests(unittest.TestCase):
         with (
             patch.object(server, "config_for", return_value=config),
             patch.object(server, "database_endpoint", return_value="mem://configured?aol=sync&sync=every"),
+            patch.object(server, "selected_service", return_value=self.selected_service()),
+            patch.object(server.SelectedService, "recheck"),
             patch.object(server, "metric_snapshot", side_effect=lambda *_: self.original_metrics()),
             patch.object(health, "selected_cgroup", return_value=fixture(self.state).cgroup),
             patch.object(health, "process_identity", return_value=fixture(self.state).observer),
@@ -165,6 +181,67 @@ class StorageHealthTests(unittest.TestCase):
         self.assertEqual(record.metrics["poisoned"].samples[0].value, 1)
         self.assertEqual(record.configuration["configured_endpoint"].value, "mem://configured?aol=sync&sync=every")
         self.assertEqual(record.scientific_outcome, "unknown")
+
+    def test_oversized_actual_metric_response_retains_independent_verified_service(self) -> None:
+        config = {"instance_id": "selected-instance", "resources": {}, "accepting_writes": True}
+        response = MagicMock()
+        response.status = 200
+        received = 0
+
+        def read1(maximum: int) -> bytes:
+            nonlocal received
+            received += maximum
+            return b"x" * maximum
+
+        response.read1.side_effect = read1
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        with (
+            patch.object(server, "config_for", return_value=config),
+            patch.object(server, "database_endpoint", return_value="mem://configured"),
+            patch.object(server, "selected_service", return_value=self.selected_service()),
+            patch.object(server.SelectedService, "recheck") as recheck,
+            patch.object(server.http.client, "HTTPConnection", return_value=connection),
+            patch.object(server, "selected_metric_values", side_effect=AssertionError("truncated prefix parsed")),
+            patch.object(health, "selected_cgroup", return_value=fixture(self.state).cgroup),
+            patch.object(health, "process_identity", return_value=fixture(self.state).observer),
+        ):
+            record = health.capture(self.state, time.monotonic() + 5)
+        self.assertEqual(received, (4 << 20) + 1)
+        connection.close.assert_called_once()
+        recheck.assert_called_once()
+        self.assertEqual(record.service.status, "available")
+        self.assertEqual(record.service.identity, fixture(self.state).service.identity)
+        self.assertEqual(record.service_outcome, "observed")
+        self.assertEqual(record.cgroup, fixture(self.state).cgroup)
+        self.assertEqual(record.correspondence, "selected-service-cgroup")
+        self.assertEqual(record.tool_outcome, "partial")
+        self.assertEqual(record.scientific_outcome, "unknown")
+        self.assertIsNone(record.metric_started_unix_ns)
+        self.assertIsNone(record.metric_finished_unix_ns)
+        for field in record.metrics.values():
+            self.assertEqual(field.status, "unavailable")
+            self.assertEqual(field.samples, [])
+            self.assertEqual(field.reason, "Selected native metrics exceeds its response bound")
+        self.assertEqual(health.read(self.save(record)), record)
+
+    def test_failed_metric_capture_cannot_retain_changed_service_identity(self) -> None:
+        config = {"instance_id": "selected-instance", "resources": {}, "accepting_writes": True}
+        with (
+            patch.object(server, "config_for", return_value=config),
+            patch.object(server, "database_endpoint", return_value="mem://configured"),
+            patch.object(server, "selected_service", return_value=self.selected_service()),
+            patch.object(server.SelectedService, "recheck", side_effect=server.SupervisorError("service changed")),
+            patch.object(server, "metric_snapshot", side_effect=server.SupervisorError("Selected native metrics exceeds its response bound")),
+            patch.object(health, "selected_cgroup", side_effect=AssertionError("changed service joined")),
+        ):
+            record = health.capture(self.state, time.monotonic() + 5)
+        self.assertEqual(record.service.status, "unavailable")
+        self.assertIsNone(record.service.identity)
+        self.assertEqual(record.service_outcome, "unavailable")
+        self.assertEqual(record.correspondence, "unknown")
+        self.assertTrue(all(field.status == "unavailable" for field in record.metrics.values()))
+        self.assertEqual(record.host["MemTotal_bytes"].status, "available")
 
     def test_changed_cgroup_incarnation_retains_unknown_correspondence(self) -> None:
         identity = fixture(self.state).service.identity

@@ -181,10 +181,15 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
                 raise ValueError("unavailable service cannot authenticate engine observations")
         elif (
             identity.state != self.requested_state or self.service_outcome != "observed"
-            or self.metric_started_unix_ns is None or self.metric_finished_unix_ns is None
-            or not self.started_unix_ns <= self.metric_started_unix_ns <= self.metric_finished_unix_ns <= self.finished_unix_ns
         ):
-            raise ValueError("health metrics differ from selected service capture")
+            raise ValueError("health identity differs from selected service capture")
+        if identity is not None:
+            first, last = self.metric_started_unix_ns, self.metric_finished_unix_ns
+            if first is None and last is None:
+                if any(field.status != "unavailable" for field in self.metrics.values()):
+                    raise ValueError("health metrics lack original capture interval")
+            elif first is None or last is None or not self.started_unix_ns <= first <= last <= self.finished_unix_ns:
+                raise ValueError("health metrics differ from selected service capture")
         group = self.cgroup.identity
         if group is None:
             if self.correspondence != "unknown" or self.cgroup.processes or self.cgroup.status != "unavailable":
@@ -199,6 +204,7 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
             raise ValueError("health cgroup differs from selected service incarnation")
         if self.tool_outcome == "complete" and (
             identity is None or self.observer is None or self.cgroup.status != "observed"
+            or self.metric_started_unix_ns is None
             or any(f.status == "unavailable" for f in (*self.host.values(), *self.configuration.values()))
         ):
             raise ValueError("partial health capture cannot claim complete tool outcome")
@@ -387,12 +393,29 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
     group = CgroupObservation("unavailable", None, {name: unavailable("selected cgroup unavailable") for name in CGROUP_FIELDS}, [], "selected service unavailable")
     metric_started = metric_finished = None
     try:
-        identity, metrics, metric_started, metric_finished = selected_metrics(state, config, deadline, started)
-        service = Service("available", identity)
-        group = selected_cgroup(state, identity, deadline)
+        selected = server.selected_service(state, deadline)
+        identity = msgspec.convert(selected.identity, ServiceIdentity, strict=True)
+        if identity.state != str(state) or (config is not None and identity.instance_id != config["instance_id"]):
+            service = Service("unavailable", reason="verified service differs from requested authority")
+        else:
+            service = Service("available", identity)
+            try:
+                observed, decoded, first, last = selected_metrics(state, config, deadline, started)
+                if observed == identity:
+                    metrics, metric_started, metric_finished = decoded, first, last
+                else:
+                    metrics = {name: Metric("unavailable", [], "metrics differ from verified service incarnation") for name in server.MX_METRIC_FIELDS}
+            except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError) as error:
+                metrics = {name: Metric("unavailable", [], str(error)[:1024] or type(error).__name__) for name in server.MX_METRIC_FIELDS}
+            # A failed metric response proves neither service death nor continuity.
+            # Recheck the independent original owner before retaining its identity.
+            selected.recheck(deadline)
+            group = selected_cgroup(state, identity, deadline)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError, server.SupervisorError, host_admission.AdmissionError):
-        pass
-    partial = service.status == "unavailable" or observer is None or group.status != "observed" or any(f.status == "unavailable" for f in (*host.values(), *configuration.values()))
+        service = Service("unavailable", reason="selected service identity or continuity unavailable")
+        metrics = {name: Metric("unavailable", [], "selected service identity or continuity unavailable") for name in server.MX_METRIC_FIELDS}
+        metric_started = metric_finished = None
+    partial = service.status == "unavailable" or observer is None or group.status != "observed" or metric_started is None or any(f.status == "unavailable" for f in (*host.values(), *configuration.values()))
     return HealthSnapshot(
         SCHEMA, str(state), started, time.time_ns(), observer, host, service,
         configuration, metrics, metric_started, metric_finished, group,
