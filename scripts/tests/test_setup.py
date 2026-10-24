@@ -467,6 +467,16 @@ class ConfigurationTests(unittest.TestCase):
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0], str(doctor.venv_bin("python")))
 
+    def test_doctor_accepts_installed_libraries_without_console_entry_points(self) -> None:
+        with (
+            patch.object(doctor, "quality_tool_names", return_value=["libcst", "missing"]),
+            patch.object(doctor, "run", return_value=(0, '{"libcst": "1.9.0", "missing": "?"}')),
+            patch.object(Path, "exists", return_value=False),
+        ):
+            check = doctor.check_quality_tools()
+        self.assertFalse(check.ok)
+        self.assertEqual(check.detail, "missing not in .venv")
+
     def test_doctor_env_check_leaves_only_the_project_to_the_extension_check(
         self,
     ) -> None:

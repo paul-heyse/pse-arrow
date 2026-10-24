@@ -102,8 +102,8 @@ def pyproject() -> dict:
 def quality_tool_names() -> list[str]:
     """Tool names from [dependency-groups].quality; this script carries no copies.
 
-    The group declares floors, not exact pins, so only the distribution name is read;
-    whatever uv.lock resolved is the version that runs.
+    Exact versions belong to the declaration and lockfile; only the distribution
+    name is needed to inspect the selected environment.
     """
     names: list[str] = []
     for spec in pyproject().get("dependency-groups", {}).get("quality", []):
@@ -242,10 +242,11 @@ def check_quality_tools() -> Check:
     installed = json.loads(out) if code == 0 else {}
     problems, found = [], []
     for tool in tools:
-        exe = venv_bin(tool if tool != "import-linter" else "lint-imports")
-        if not exe.exists():
+        if installed.get(tool, "?") == "?":
             problems.append(f"{tool} not in .venv")
             continue
+        # Libraries used by tools (for example LibCST) need not publish a CLI.
+        # Entry-point presence is not a distribution-installation test.
         found.append(f"{tool} {installed.get(tool, '?')}")
     if problems:
         return Check(
