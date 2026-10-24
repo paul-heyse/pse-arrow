@@ -10,18 +10,23 @@ never starts Just, a compiler, a native extension or a service.
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import re
 import selectors
+import stat
 import subprocess
 import time
+from contextlib import ExitStack
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
+from scripts import workspace_sources
 from scripts.capabilities.model import Capability, Domain, Guide, Workflow
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SOURCE_INVENTORY = "docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md"
 SOURCE_REVIEW = "docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md"
@@ -286,13 +291,15 @@ def inventory(root: Path) -> tuple[tuple[Domain, ...], tuple[Workflow, ...], tup
         name = path.parent.name
         guide_id = "skill-" + name
         relative = path.relative_to(root).as_posix()
-        guides.append(Guide(id=guide_id, title=name, path=relative, kind="skill"))
+        within_checkout = path.resolve().is_relative_to(root.resolve())
+        if within_checkout:
+            guides.append(Guide(id=guide_id, title=name, path=relative, kind="skill"))
         capabilities.append(Capability(
             id=guide_id, title=name, domain="knowledge" if name == "native-solver-libraries" else "governance",
             description="Read the owned skill instructions; preparation and action retain their separate phase and authorization boundaries.",
             owner=relative, source=relative, exposure="native", effects="Instruction retrieval only; no workflow execution.",
-            guides=(guide_id,), workflows=("plan-functional-review",) if name in {"plan-functional-extension-review", "functional-extension-review"} else ("inspect-plan",),
-            route=(relative,), reason="An owned instruction package remains native guidance, not a callable placeholder.",
+            guides=(guide_id,) if within_checkout else (), workflows=("plan-functional-review",) if name == "plan-functional-extension-review" else (),
+            route=(relative,), reason="An owned instruction package remains native guidance, not a callable placeholder." if within_checkout else "Retained native guidance outside checkout; the native agent skill loader owns access. No checkout guidance resource is registered.",
         ))
     return domains, workflows, tuple(guides), tuple(capabilities)
 
@@ -316,7 +323,10 @@ def _just_dump(root: Path) -> dict:
         ["just", "--dump", "--dump-format", "json"], cwd=root,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
     ) as process:
-        assert process.stdout is not None
+        if process.stdout is None:
+            process.kill()
+            process.wait()
+            raise RuntimeError("Just recipe inspection did not provide its output pipe")
         chunks: list[bytes] = []
         size = 0
         try:
@@ -344,7 +354,7 @@ def _just_dump(root: Path) -> dict:
                 process.wait()
     value = json.loads(b"".join(chunks))
     if not isinstance(value, dict) or not isinstance(value.get("recipes"), dict):
-        raise ValueError("Just did not return a recipe declaration object")
+        raise TypeError("Just did not return a recipe declaration object")
     return value
 
 
@@ -357,7 +367,8 @@ def _association(family: _Family | None) -> dict:
             "work_owner": capability.work_owner, "reason": capability.reason}
 
 
-def _leaf_sources(root: Path, recipe: dict, family: _Family | None) -> list[str]:
+def _leaf_sources(recipe: dict, family: _Family | None) -> list[str]:
+    """Extract untrusted references; only the source-read boundary admits paths."""
     body = json.dumps(recipe.get("body", []))
     references = re.findall(r"scripts/[a-zA-Z0-9_./-]+\.(?:py|rs|sh)|(?:scripts|pse)\.[a-zA-Z0-9_]+", body)
     paths = []
@@ -367,21 +378,49 @@ def _leaf_sources(root: Path, recipe: dict, family: _Family | None) -> list[str]
             path = reference.replace(".", "/") + ".py"
         elif reference.startswith("pse."):
             path = "python/" + reference.replace(".", "/") + ".py"
-        if (root / path).is_file() and path not in paths:
+        if path not in paths:
             paths.append(path)
     if family is not None and family.capability.owner not in paths:
         paths.append(family.capability.owner)
     return paths
 
 
+def _read_source_prefix(root: Path, relative: str) -> bytes:
+    """Capture one bounded admitted regular source without following link swaps."""
+    # The fixed root Just declaration is an explicit owner, though its
+    # extensionless spelling is outside the general source suffix policy.
+    root = root.resolve(strict=True)
+    path = root / "justfile" if relative == "justfile" else workspace_sources.selected_path(root, relative)
+    parts = path.relative_to(root).parts
+    # Admission precedes every read. Rooted no-follow opens also prevent a
+    # checked source/directory being swapped for a symlink before capture.
+    with ExitStack() as stack:
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        stack.callback(os.close, directory)
+        for part in parts[:-1]:
+            directory = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            stack.callback(os.close, directory)
+        descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        stack.callback(os.close, descriptor)
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError("source must be a regular file")
+        # Captured-prefix identity is explicit if a future source exceeds
+        # the bound; no outside source bytes are opened or read.
+        with os.fdopen(os.dup(descriptor), "rb") as source:
+            return source.read((256 << 10) + 1)
+
+
 def _source_excerpt(root: Path, relative: str) -> dict:
-    path = root / relative
-    # Captured-prefix identity is explicit if a future source exceeds the bound.
-    with path.open("rb") as source:
-        captured = source.read((256 << 10) + 1)
+    try:
+        captured = _read_source_prefix(root, relative)
+        text = captured[:256 << 10].decode("utf-8")
+    except (OSError, ValueError, RuntimeError):
+        return {"path": relative, "state": "unavailable", "captured_sha256": None,
+                "captured_bytes": 0, "source_truncated": False, "excerpt": [],
+                "excerpt_complete": False,
+                "reason": "Owner source is missing, inaccessible, not admitted, or invalid UTF-8; no excerpt is available."}
     truncated = len(captured) > 256 << 10
     captured = captured[:256 << 10]
-    text = captured.decode("utf-8")
     lines = text.splitlines()
     indexes: set[int] = set()
     for index, line in enumerate(lines):
@@ -397,7 +436,7 @@ def _source_excerpt(root: Path, relative: str) -> dict:
             break
         snippets.append({"line": index + 1, "text": excerpt})
         remaining -= len(excerpt) + 1
-    return {"path": relative, "captured_sha256": hashlib.sha256(captured).hexdigest(),
+    return {"path": relative, "state": "available", "captured_sha256": hashlib.sha256(captured).hexdigest(),
             "captured_bytes": len(captured), "source_truncated": truncated,
             "excerpt": snippets, "excerpt_complete": len(snippets) == len(lines) and not truncated,
             "meaning": "Bounded current owner-source excerpts, not an executable or complete derived argument schema."}
@@ -411,7 +450,7 @@ def describe_recipe(root: Path, name: str) -> dict:
     if recipe is None or recipe.get("private"):
         raise ValueError("Unknown public recipe: " + name)
     family = _recipe_family(name, _families())
-    sources = _leaf_sources(root, recipe, family)
+    sources = _leaf_sources(recipe, family)
     facts = [_source_excerpt(root, source) for source in sources[:8]]
     return {"schema": "capability-recipe-description-v1", "name": name,
             "description": recipe.get("doc") or "", "source": _source_excerpt(root, "justfile"),
@@ -419,6 +458,8 @@ def describe_recipe(root: Path, name: str) -> dict:
             "body": recipe.get("body", []), "dependencies": recipe.get("dependencies", []),
             "leaf_contracts": facts, "leaf_sources_omitted": max(0, len(sources) - 8),
             "leaf_schema_complete": False,
+            "source_coherence": "unverified",
+            "source_coherence_reason": "Just declarations and owner excerpts are separate bounded observations; no atomic common source cut is established.",
             "contract": "Live Just outer declaration and captured leaf-owner source; variadic forwarding does not establish leaf arguments/defaults. Complete parser/native binding remains owned by ADP03/ADP04.",
             "usage_route": ["just", "--usage", name], "definition_route": ["just", "--show", name],
             "source_inventory": SOURCE_INVENTORY, "source_review": SOURCE_REVIEW,
@@ -435,7 +476,7 @@ def inspect_entrypoints(root: Path, *, offset: int = 0, limit: int = 50, kind: s
     recursive implementation/symbol inventory or installed-utility availability probe.
     """
     kinds = {"recipe", "script", "native", "python", "skill", "session"}
-    if offset < 0 or not 1 <= limit <= 100 or kind is not None and kind not in kinds:
+    if offset < 0 or not 1 <= limit <= 100 or (kind is not None and kind not in kinds):
         raise ValueError("offset must be nonnegative, limit in 1..100, kind a known entrypoint kind")
     root = root.resolve(strict=True)
     families = _families()
@@ -453,7 +494,7 @@ def inspect_entrypoints(root: Path, *, offset: int = 0, limit: int = 50, kind: s
         family = _recipe_family(name, families)
         # Source links are extracted from the actual body, never used to guess
         # argument grammar or effect semantics. Rich leaf parsing belongs to ADP03.
-        references = _leaf_sources(root, recipe, family)
+        references = _leaf_sources(recipe, family)
         items.append({"kind": "recipe", "identity": name, "source": "justfile",
             "description": recipe.get("doc") or "", "outer_parameters": recipe.get("parameters", []),
             "attributes": recipe.get("attributes", []), "leaf_sources": references,
@@ -476,7 +517,7 @@ def inspect_entrypoints(root: Path, *, offset: int = 0, limit: int = 50, kind: s
         relative = path.relative_to(root).as_posix()
         if entry_kind == "skill":
             association = {"capability": "skill-" + path.parent.name, "classification": "native",
-                           "work_owner": None, "reason": "Owned instruction package; retrieval does not execute its workflow."}
+                           "work_owner": None, "reason": "Owned instruction package; retrieval does not execute its workflow." if path.resolve().is_relative_to(root) else "Retained native guidance outside checkout; its native agent skill loader owns access, with no checkout guidance resource."}
         else:
             association = _association(by_source.get(relative))
         items.append({"kind": entry_kind, "identity": relative, "source": relative, **association})

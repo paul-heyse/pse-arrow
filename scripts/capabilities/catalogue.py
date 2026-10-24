@@ -8,15 +8,17 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from fastmcp.tools import Tool
 from pydantic import JsonValue, TypeAdapter
 
 from scripts.capabilities.model import Capability, Domain, Guide, Workflow
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T", Domain, Workflow, Guide, Capability)
+
+if TYPE_CHECKING:
+    from fastmcp.tools import Tool
 
 
 @dataclass(frozen=True)
@@ -127,7 +129,7 @@ class Catalogue:
             raise ValueError(f"unknown capability: {identity}")
         item = self.capabilities[identity]
         tool = self.tools.get(identity)
-        result = {
+        result: dict[str, object] = {
             "revision": self.revision,
             "capability": item.model_dump(mode="json"),
             "callable": tool is not None,

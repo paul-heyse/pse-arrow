@@ -12,18 +12,22 @@ from __future__ import annotations
 
 import os
 import stat
-from collections.abc import Iterator, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from threading import RLock
+from typing import TYPE_CHECKING
 
-from fastmcp import FastMCP
 from fastmcp.resources import FunctionResource
 
-from scripts.capabilities.model import Guide
+if TYPE_CHECKING:
+    from collections.abc import Generator, Sequence
+
+    from fastmcp import FastMCP
+
+    from scripts.capabilities.model import Guide
 
 MAX_GUIDE_BYTES = 128 * 1024
 
@@ -80,7 +84,7 @@ class Guidance:
         self._baseline = {guide.id: self._observe(guide) for guide in self.guides}
 
     @contextmanager
-    def _open(self, guide: Guide) -> Iterator[tuple[int, str]]:
+    def _open(self, guide: Guide) -> Generator[tuple[int, str], None, None]:
         """Resolve internal links, then open beneath root without following swaps."""
         try:
             resolved = (self.root / guide.path).resolve(strict=True)
@@ -188,7 +192,8 @@ class Guidance:
                 for guide_id in selected:
                     if guide_id not in self._snapshots:
                         baseline = self._baseline[guide_id]
-                        assert isinstance(baseline, _Identity)
+                        if isinstance(baseline, GuidanceError):
+                            raise baseline
                         try:
                             snapshot = self._capture(self._guides[guide_id], baseline)
                         except GuidanceError as error:

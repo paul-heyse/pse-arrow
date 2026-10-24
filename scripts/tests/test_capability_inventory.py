@@ -2,16 +2,23 @@
 # Copyright (c) 2026 Paul Heyse
 """Focused source-only inventory and real declaration inspection controls."""
 
+# ruff: noqa: PT009, PT027 -- stdlib setup controls
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, NoReturn
 from unittest.mock import patch
 
 from scripts.capabilities import inventory as subject
+
+if TYPE_CHECKING:
+    from typing import BinaryIO
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -73,11 +80,15 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(capabilities["git-integration"].exposure, "native")
         self.assertEqual(capabilities["scientific-python-api"].exposure, "native")
         self.assertIn("Rust reader/parser/P0", capabilities["scientific-inputs"].description)
-        self.assertIn("ADP04", capabilities["scientific-inputs"].work_owner)
+        scientific_work_owner = capabilities["scientific-inputs"].work_owner
+        assert scientific_work_owner is not None
+        self.assertIn("ADP04", scientific_work_owner)
         self.assertIn("Instruction retrieval only", capabilities["skill-plan-functional-extension-review"].effects)
 
     def test_every_current_public_recipe_is_classified_without_running_it(self) -> None:
-        declaration = subject._just_dump(ROOT)
+        declaration = json.loads(subprocess.check_output(
+            ["just", "--dump", "--dump-format", "json"], cwd=ROOT, text=True, timeout=10,
+        ))
         expected = {name for name, row in declaration["recipes"].items() if not row.get("private")}
         pages = []
         offset = 0
@@ -154,24 +165,140 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(bounded["leaf_contracts"][0]["captured_bytes"], 256 << 10)
             self.assertLessEqual(len(str(bounded)), 12000)
 
+    def test_recipe_symlink_and_traversal_leaves_never_read_outside_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "checkout"
+            (root / "scripts").mkdir(parents=True)
+            outside = Path(directory) / "outside"
+            outside.mkdir()
+            secret = outside / "secret.py"
+            marker = "outside-text-must-never-be-read-93a2"
+            secret.write_text(marker)
+            (root / "scripts/linked.py").symlink_to(secret)
+            (root / "scripts/linked_dir").symlink_to(outside, target_is_directory=True)
+            (root / "justfile").write_text(
+                "inspect:\n"
+                "  @python scripts/linked.py\n"
+                "  @python scripts/linked_dir/secret.py\n"
+                "  @python scripts/../../outside/secret.py\n"
+            )
+            identity = secret.stat()
+            original_fdopen = os.fdopen
+
+            def guarded_fdopen(descriptor: int, mode: Literal["rb"]) -> BinaryIO:
+                opened = os.fstat(descriptor)
+                self.assertNotEqual((opened.st_dev, opened.st_ino), (identity.st_dev, identity.st_ino), "outside source reached the read boundary")
+                return original_fdopen(descriptor, mode)
+
+            with patch.object(subject.os, "fdopen", side_effect=guarded_fdopen):
+                result = subject.describe_recipe(root, "inspect")
+            self.assertNotIn(marker, str(result))
+            leaves = {row["path"]: row for row in result["leaf_contracts"]}
+            self.assertEqual(set(leaves), {"scripts/linked.py", "scripts/linked_dir/secret.py", "scripts/../../outside/secret.py"})
+            for fact in leaves.values():
+                self.assertEqual(fact["state"], "unavailable")
+                self.assertEqual(fact["captured_bytes"], 0)
+                self.assertEqual(fact["excerpt"], [])
+                self.assertIsNone(fact["captured_sha256"])
+
+    def test_missing_leaf_is_an_explicit_fact_and_other_sources_remain_available(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts").mkdir()
+            (root / "scripts/present.py").write_text("parser.add_argument('--owned')\n")
+            (root / "justfile").write_text("inspect:\n  @python -m scripts.absent\n  @python scripts/present.py\n")
+            result = subject.describe_recipe(root, "inspect")
+            leaves = {row["path"]: row for row in result["leaf_contracts"]}
+            self.assertEqual(leaves["scripts/absent.py"]["state"], "unavailable")
+            self.assertEqual(leaves["scripts/present.py"]["state"], "available")
+            self.assertIn("--owned", str(leaves["scripts/present.py"]["excerpt"]))
+            self.assertEqual(result["source"]["state"], "available")
+
+    def test_admitted_leaf_swapped_for_outside_symlink_is_not_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "checkout"
+            (root / "scripts").mkdir(parents=True)
+            source = root / "scripts/owned.py"
+            source.write_text("# admitted source\n")
+            outside = Path(directory) / "outside.py"
+            marker = "outside-swap-must-never-be-read-47ac"
+            outside.write_text(marker)
+            original_selected = subject.workspace_sources.selected_path
+
+            def swap_after_admission(selected_root: Path, relative: str) -> Path:
+                admitted = original_selected(selected_root, relative)
+                source.unlink()
+                source.symlink_to(outside)
+                return admitted
+
+            declaration = {"recipes": {"inspect": {"body": [["python scripts/owned.py"]]}}}
+            with patch.object(subject, "_just_dump", return_value=declaration), patch.object(
+                subject.workspace_sources, "selected_path", side_effect=swap_after_admission
+            ), patch.object(subject.os, "fdopen", side_effect=AssertionError("swapped source reached a read")):
+                result = subject.describe_recipe(root, "inspect")
+            self.assertEqual(result["leaf_contracts"][0]["state"], "unavailable")
+            self.assertNotIn(marker, str(result))
+
+    def test_current_external_skill_links_remain_native_without_checkout_resources(self) -> None:
+        linked = [path for path in (ROOT / ".codex/skills").glob("*/SKILL.md") if not path.resolve().is_relative_to(ROOT.resolve())]
+        self.assertTrue(linked, "expected the selected native library skill link in this checkout")
+        _, _, guides, capabilities = subject.inventory(ROOT)
+        by_id = {row.id: row for row in capabilities}
+        for path in linked:
+            identity = "skill-" + path.parent.name
+            self.assertEqual(by_id[identity].exposure, "native")
+            self.assertEqual(by_id[identity].guides, ())
+            self.assertEqual(by_id[identity].route, (path.relative_to(ROOT).as_posix(),))
+            self.assertIn("outside checkout", by_id[identity].reason)
+            self.assertNotIn(identity, {row.id for row in guides})
+
+    def test_external_skill_metadata_and_entrypoint_do_not_read_its_body(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "checkout"
+            for relative in ("scripts", "xtask/src/bin", "python/pse", ".codex/skills"):
+                (root / relative).mkdir(parents=True)
+            outside = Path(directory) / "external-skill"
+            outside.mkdir()
+            marker = "outside-skill-body-must-not-be-read-a9bd"
+            (outside / "SKILL.md").write_text(marker)
+            (root / ".codex/skills/fake-library").symlink_to(outside, target_is_directory=True)
+            (root / "justfile").write_text("inspect:\n  @true\n")
+
+            def guarded_open(path: Path, *_args: object, **_kwargs: object) -> NoReturn:
+                raise AssertionError("Metadata discovery must not open skill bodies: " + str(path))
+
+            with patch.object(Path, "open", guarded_open):
+                _, _, guides, capabilities = subject.inventory(root)
+                result = subject.inspect_entrypoints(root, kind="skill")
+            capability = next(row for row in capabilities if row.id == "skill-fake-library")
+            self.assertEqual(capability.exposure, "native")
+            self.assertEqual(capability.guides, ())
+            self.assertIn("outside checkout", capability.reason)
+            self.assertNotIn("skill-fake-library", {row.id for row in guides})
+            self.assertEqual(result["totals"]["skill"], 1)
+            self.assertEqual(result["items"][0]["capability"], capability.id)
+            self.assertEqual(result["items"][0]["classification"], "native")
+            self.assertIn("outside checkout", result["items"][0]["reason"])
+            self.assertNotIn(marker, str(result))
+
     def test_inspection_rejects_invalid_selection_before_starting_just(self) -> None:
         with patch.object(subject, "_just_dump", side_effect=AssertionError("invalid request launched Just")):
-            for kwargs in ({"limit": 0}, {"limit": 101}, {"offset": -1}, {"kind": "similarity"}):
+            cases: tuple[tuple[int, int, str | None], ...] = ((0, 0, None), (0, 101, None), (-1, 50, None), (0, 50, "similarity"))
+            for offset, limit, kind in cases:
                 with self.assertRaises(ValueError):
-                    subject.inspect_entrypoints(ROOT, **kwargs)
+                    subject.inspect_entrypoints(ROOT, offset=offset, limit=limit, kind=kind)
 
     def test_just_output_is_bounded_and_failed_child_is_drained(self) -> None:
         original = subprocess.Popen
-        processes = []
+        processes: list[subprocess.Popen[bytes]] = []
 
-        def launch(*args, **kwargs):
-            process = original([sys.executable, "-c", "import sys,time;sys.stdout.write('x'*(5<<20));sys.stdout.flush();time.sleep(30)"], **kwargs)
+        def launch(_args: object, *, cwd: Path, stdout: int, stderr: int) -> subprocess.Popen[bytes]:
+            process = original([sys.executable, "-c", "import sys,time;sys.stdout.write('x'*(5<<20));sys.stdout.flush();time.sleep(30)"], cwd=cwd, stdout=stdout, stderr=stderr)
             processes.append(process)
             return process
 
-        with patch.object(subject.subprocess, "Popen", side_effect=launch):
-            with self.assertRaisesRegex(ValueError, "exceeded 4 MiB"):
-                subject._just_dump(ROOT)
+        with patch.object(subject.subprocess, "Popen", side_effect=launch), self.assertRaisesRegex(ValueError, "exceeded 4 MiB"):
+            subject.inspect_entrypoints(ROOT)
         self.assertEqual(len(processes), 1)
         self.assertIsNotNone(processes[0].poll())
 

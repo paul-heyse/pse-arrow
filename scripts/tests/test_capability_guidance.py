@@ -6,23 +6,29 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
+from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from fastmcp import Client, FastMCP
+from mcp_types import TextResourceContents
 
 from scripts.capabilities.guidance import (
     MAX_GUIDE_BYTES,
     Guidance,
     GuidanceError,
-    _Identity,
-    _Snapshot,
     register_guides,
 )
 from scripts.capabilities.model import Guide
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from typing import IO, Literal
 
 
 class GuidanceTests(unittest.TestCase):
@@ -136,15 +142,21 @@ class GuidanceTests(unittest.TestCase):
 
     def test_source_changed_during_capture_never_publishes_partial_bundle(self) -> None:
         guidance = Guidance(self.root, [self.first, self.second])
-        capture = guidance._capture
+        open_binary = os.fdopen
+        reads = 0
 
-        def capture_then_change(guide: Guide, baseline: _Identity) -> _Snapshot | None:
-            result = capture(guide, baseline)
-            if guide.id == "second":
-                (self.root / self.first.path).write_text("changed during bundle")
-            return result
+        @contextmanager
+        def open_then_change(
+            descriptor: int, mode: Literal["rb"]
+        ) -> Generator[IO[bytes], None, None]:
+            nonlocal reads
+            with open_binary(descriptor, mode) as source:
+                reads += 1
+                if reads == 2:
+                    (self.root / self.first.path).write_text("changed during bundle")
+                yield source
 
-        with patch.object(guidance, "_capture", side_effect=capture_then_change):
+        with patch("scripts.capabilities.guidance.os.fdopen", side_effect=open_then_change):
             bundle = guidance.instruction_bundle(["first", "second"])
         self.assertTrue(all(item["restart_required"] for item in bundle))
         self.assertTrue(all(not item["complete"] for item in bundle))
@@ -184,11 +196,14 @@ class GuidanceResourceTests(unittest.IsolatedAsyncioTestCase):
                 async with Client(server) as client:
                     resources = await client.list_resources()
             self.assertEqual(keys, {"owned": "resource:pse://guidance/owned@"})
-            self.assertEqual(str(resources[0].uri), guide.uri)
+            self.assertEqual(resources[0].uri, guide.uri)
             self.assertEqual(resources[0].mime_type, "application/json")
             async with Client(server) as client:
                 result = await client.read_resource(guide.uri)
-            payload = json.loads(result[0].text)
+            content = result[0]
+            if not isinstance(content, TextResourceContents):
+                self.fail("Guidance must be returned as text resource content.")
+            payload = json.loads(content.text)
             self.assertEqual(payload["content"], "# Owned\n[More](other.md)\n")
             self.assertTrue(payload["complete"])
             self.assertFalse(payload["restart_required"])

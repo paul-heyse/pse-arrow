@@ -12,9 +12,16 @@ from typing import Annotated
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
-from fastmcp.tools import ToolResult
-from fastmcp.server.transforms.visibility import get_visibility_rules, save_visibility_rules
+from fastmcp.server.context import (
+    Context,  # noqa: TC002 -- FastMCP evaluates tool annotations at registration.
+)
+from fastmcp.server.transforms.visibility import (
+    get_visibility_rules,
+    save_visibility_rules,
+)
+from fastmcp.tools import (
+    ToolResult,  # noqa: TC002 -- FastMCP evaluates tool return annotations.
+)
 from pydantic import Field, JsonValue
 
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
@@ -59,7 +66,7 @@ def build(root: Path = ROOT) -> Runtime:
     guidance = Guidance(root, guides)
     server = FastMCP("pse-capabilities", instructions=INSTRUCTIONS, strict_input_validation=True, mask_error_details=True)
     keys = register_guides(server, guidance)
-    for identity, tool in tools.items():
+    for tool in tools.values():
         server.add_tool(tool)
         server.disable(keys={tool.key})
     for identity, key in keys.items():
@@ -97,7 +104,7 @@ def build(root: Path = ROOT) -> Runtime:
         return result
 
     async def replace(ctx: Context, selected_keys: set[str]) -> tuple[bool, list[str]]:
-        rules: list[dict[str, JsonValue]] = [{"enabled": True, "keys": sorted(selected_keys)}] if selected_keys else []
+        rules = [JSON_OBJECT.validate_python({"enabled": True, "keys": sorted(selected_keys)})] if selected_keys else []
         async with lock:
             previous = await get_visibility_rules(ctx)
             if previous == rules:
@@ -128,8 +135,11 @@ def build(root: Path = ROOT) -> Runtime:
             raise refusal("pse.capabilities.unknown_selection", error) from error
         selected_keys = {tools[key].key for key in selected.capabilities if key in tools}
         selected_keys.update(keys[key] for key in selected.guides if key in keys)
+        try:
+            instructions = guidance.instruction_bundle([key for key in selected.guides if key != "root"])
+        except ValueError as error:
+            raise refusal("pse.capabilities.guidance_unavailable", error) from error
         changed, notifications = await replace(ctx, selected_keys)
-        instructions = guidance.instruction_bundle([key for key in selected.guides if key != "root"])
         remaining = 256 * 1024
         for instruction in instructions:
             content = instruction.get("content")
@@ -158,7 +168,7 @@ def build(root: Path = ROOT) -> Runtime:
     async def capabilities_reset(ctx: Context) -> dict[str, JsonValue]:
         """Restore bootstrap for this attachment. Native work is neither cancelled nor replayed; source/project/service context remains unchanged."""
         changed, notifications = await replace(ctx, set())
-        return {"revision": catalogue.revision, "changed": changed, "capabilities": [], "notification_omissions": notifications}
+        return JSON_OBJECT.validate_python({"revision": catalogue.revision, "changed": changed, "capabilities": [], "notification_omissions": notifications})
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
     async def capabilities_invoke_read(capability: str, arguments: dict[str, JsonValue]) -> ToolResult:
