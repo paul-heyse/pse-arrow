@@ -16,6 +16,7 @@ from scripts import (
     session_retrospective,
     workspace_sources,
     workspace_tasks,
+    workspace_domains,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -172,6 +173,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("query", nargs="?", default="")
     parser.add_argument("--owner")
+    parser.add_argument("--concept", choices=tuple(workspace_domains.CONCEPTS), help="primary exact owner-native concept query")
+    parser.add_argument("--identity", help="exact owner-native concept identity")
+    parser.add_argument("--topic", action="append", default=[], help="exact native metadata topic; repeated values are ANDed")
+    parser.add_argument("--role", help="exact interpreted document role")
+    parser.add_argument("--document", help="exact declaring document facet")
+    parser.add_argument("--publication-scope", choices=("Current", "Reference", "History"), help="exact publication scope, independent of native status")
+    parser.add_argument("--native-status", help="exact owner-native document/package status")
+    parser.add_argument("--origin", choices=("user-question", "agent-interpretation"), help="explicit research-question origin")
+    parser.add_argument("--native-reference", type=Path, help="explicit JSON selecting an original evidence adapter and member")
     parser.add_argument("--scope", action="store_true")
     parser.add_argument("--changed", action="store_true")
     parser.add_argument(
@@ -213,6 +223,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--archived-sessions", type=Path)
     parser.add_argument("--history-excerpt", type=Path, help="explicit selected locator JSON; reads bounded raw historical detail")
     args = parser.parse_args(argv)
+    if args.concept:
+        if any((args.search, args.symbol, args.retrospective, args.recall, args.history_excerpt, args.library, args.compare, args.scope, args.changed, args.path, args.line_history, args.history_query)):
+            parser.error("exact concept queries are separate from explicit lexical/history/task discovery")
+        try:
+            reference = None
+            if args.native_reference:
+                if args.native_reference.stat().st_size > 16 << 10:
+                    raise ValueError("native reference selection exceeds 16KiB")
+                reference = json.loads(args.native_reference.read_bytes())
+            identity = args.identity or (args.task if args.concept == "plan-package" else None)
+            result = workspace_domains.query(args.concept, identity, root=ROOT, topics=tuple(args.topic), role=args.role, owner=args.owner,
+                document=args.document, origin=args.origin, question=args.query if args.concept == "research-question" else None,
+                selected_reference=reference, publication_scope=args.publication_scope, native_status=args.native_status, limit=args.limit, offset=args.offset)
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            parser.exit(1, f"context: exact concept unavailable: {error}\n")
+        print(json.dumps(result, sort_keys=True, indent=None if args.json else 2))
+        return 0
+    if args.identity or args.topic or args.role or args.document or args.origin or args.native_reference or args.publication_scope or args.native_status:
+        parser.error("exact identity/topic/role/document/origin/reference facets require --concept")
     if args.history_query and not (args.task or args.path):
         parser.error("--history-query requires --task or --path")
     if (args.history_checkpoint or args.save_history_checkpoint) and not (args.retrospective or args.recall):
