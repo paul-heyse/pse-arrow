@@ -22,6 +22,7 @@ class WorkspaceTasksTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'docs/plans').mkdir(parents=True)
+            (root / 'docs/lifecycle.toml').write_text('version = 1\n')
             plan = 'docs/plans/task.md'
             owner = 'docs/plans/coordinator.md'
             (root / plan).write_text('# Task\nNext unresolved consumer\n')
@@ -50,6 +51,25 @@ class WorkspaceTasksTests(unittest.TestCase):
             self.assertEqual(result['sources'][0]['digest'], hashlib.sha256((root/'source.rs').read_bytes()).hexdigest())
             self.assertNotIn('text', result['sources'][0])
             self.assertIn('database and session history not required or opened', result['omissions'])
+
+    def test_native_rows_refuse_drift_and_capture_external_status_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'docs/plans').mkdir(parents=True)
+            (root/'docs/lifecycle.toml').write_text('version = 1\n')
+            plan='docs/plans/task.md'
+            external='docs/plans/external.md'
+            (root/plan).write_text('# Old plan\n')
+            (root/external).write_text('# Canonical status owner\n')
+            def aggregate(selected_root, policy, **options):
+                options['read_source'](external)
+                (root/plan).write_text('# Changed after native parsing\n')
+                return [{'document':plan,'native_id':'A01','state':'open'}]
+            with patch.object(workspace_tasks.document_lifecycle,'aggregate',side_effect=aggregate), patch.object(workspace_tasks.document_metadata,'load_policy',return_value={}):
+                result=workspace_tasks.task_packet(plan+'#A01',(),root=root)
+            self.assertEqual(result['native_scope'],[])
+            self.assertTrue(any('stale rows refused' in item for item in result['omissions']))
+            self.assertIn(external,[fact['path'] for fact in result['sources']])
 
     def test_alternatives_bind_distinct_sources_and_follow_renamed_optional_target_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

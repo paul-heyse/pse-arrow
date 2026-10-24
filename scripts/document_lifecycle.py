@@ -12,6 +12,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
@@ -141,7 +142,7 @@ class ScopeItem(TypedDict, total=False):
     relationships: list[dict[str, str]]
 
 
-def aggregate(root: Path, policy: dict, *, documents: set[str] | None = None) -> list[ScopeItem]:
+def aggregate(root: Path, policy: dict, *, documents: set[str] | None = None, read_source: Callable[[str], bytes] | None = None) -> list[ScopeItem]:
     if documents is not None:
         selected = set(documents)
         # Native status ownership can cross documents. Select the complete declared
@@ -169,7 +170,7 @@ def aggregate(root: Path, policy: dict, *, documents: set[str] | None = None) ->
             raise ValueError("scope table must belong to retained plan content")
         if path not in cache:
             document = metadata.read(
-                path.read_bytes(), binding["path"], identity=binding["path"], root=root
+                read_source(binding['path']) if read_source else path.read_bytes(), binding["path"], identity=binding["path"], root=root
             )
             cache[path] = (
                 document,

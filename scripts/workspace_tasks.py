@@ -46,6 +46,7 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
     selected = list(paths)
     rows = []
     omitted = []
+    native_inputs = {}
     if task:
         plan, separator, native_id = task.partition("#")
         fact = workspace_sources.source(plan, root=root)
@@ -53,7 +54,15 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
             raise ValueError("named task must belong to a retained plan")
         selected.extend([plan, fact["owner"]])
         try:
-            native = document_lifecycle.aggregate(root, document_metadata.load_policy(root), documents={plan, fact['owner']})
+            def read_native(relative: str) -> bytes:
+                if relative not in native_inputs:
+                    if len(native_inputs) >= 30:
+                        raise ValueError('native task source bound exceeded')
+                    native_inputs[relative] = workspace_sources.source(relative,root=root)
+                return native_inputs[relative]['text'].encode('utf-8')
+            for relative in (plan,fact['owner'].partition('#')[0],'docs/lifecycle.toml'):
+                read_native(relative)
+            native = document_lifecycle.aggregate(root, document_metadata.load_policy(root), documents={plan, fact['owner']}, read_source=read_native)
             rows = [row for row in native
                     if row["document"] in {plan, fact["owner"]}
                     and (not separator or row.get("native_id") == native_id)]
@@ -61,7 +70,13 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
                 omitted.append("named native package not found; no state inferred from prose")
         except (OSError, ValueError) as error:
             omitted.append(f"native scope unavailable: {error}")
+        selected.extend(native_inputs)
     facts = _files(tuple(dict.fromkeys(selected)), root)
+    by_path = {fact['path']:fact for fact in facts}
+    if any(by_path[path].get('digest') != fact['digest'] or by_path[path].get('metadata_inputs') != fact.get('metadata_inputs')
+           for path,fact in native_inputs.items()):
+        rows = []
+        omitted.append('native scope inputs changed during composition; stale rows refused')
     admitted = []
     for selected_file in facts:
         try:
