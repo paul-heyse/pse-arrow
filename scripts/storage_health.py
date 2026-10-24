@@ -255,11 +255,15 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
         ):
             raise ValueError("health cgroup differs from selected service incarnation")
         pressure = self.cgroup.pressure
-        if pressure is not None and pressure.identity is not None and (
-            group is None
-            or pressure.identity.boot != group.boot
-            or pressure.identity.group != group.group
-            or pressure.identity.inode != group.inode
+        if (
+            pressure is not None
+            and pressure.identity is not None
+            and (
+                group is None
+                or pressure.identity.boot != group.boot
+                or pressure.identity.group != group.group
+                or pressure.identity.inode != group.inode
+            )
         ):
             raise ValueError("health pressure differs from selected cgroup incarnation")
         if self.host_pressure is not None and (
@@ -276,7 +280,10 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
                 f.status == "unavailable"
                 for f in (*self.host.values(), *self.configuration.values())
             )
-            or (self.host_pressure is not None and self.host_pressure.status != "observed")
+            or (
+                self.host_pressure is not None
+                and self.host_pressure.status != "observed"
+            )
             or (pressure is not None and pressure.status != "observed")
         ):
             raise ValueError(

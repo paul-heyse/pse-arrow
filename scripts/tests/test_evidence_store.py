@@ -15,9 +15,8 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
-
 from scripts import evidence_store, resource_store, surreal_server
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 
 
 class EvidenceStoreTests(unittest.TestCase):

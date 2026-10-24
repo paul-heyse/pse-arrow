@@ -163,7 +163,9 @@ def _reuse_guarded(
     retained = []
     for name in sorted(reuse | transfer):
         if name in {"features-combinations", "features-no-default"}:
-            raise ValueError("feature gates resume combinations through fresh enumeration; whole-gate reuse/transfer is unsupported")
+            raise ValueError(
+                "feature gates resume combinations through fresh enumeration; whole-gate reuse/transfer is unsupported"
+            )
         if name not in declarations or previous.get(name) != declarations[name]:
             raise ValueError("reused command scope differs")
         check = observations[name]
@@ -308,14 +310,18 @@ def enumeration_selection(output: Path, listing: dict) -> list[dict]:
 
 def feature_execution(record: dict, literal: list[str]) -> None:
     """Admit only actual scoped correctness composition, never a display string."""
-    if (record.get("schema") != "cargo-feature-execution-v1"
+    if (
+        record.get("schema") != "cargo-feature-execution-v1"
         or record.get("literal_argv") != literal
         or record.get("correctness") != "arrow-unit-graph-force-validation-v1"
         or not record.get("effective_environment")
         or not record.get("validation_graphs")
         or not isinstance(record.get("actual_argv"), list)
-        or record["actual_argv"][1:2] != ["check"]):
-        raise ValueError("feature execution lacks literal scope or actual force-validation context")
+        or record["actual_argv"][1:2] != ["check"]
+    ):
+        raise ValueError(
+            "feature execution lacks literal scope or actual force-validation context"
+        )
     for graph in record["validation_graphs"]:
         if not graph.get("argv") or len(graph.get("sha256", "")) != 64:
             raise ValueError("missing actual validation graph identity")
@@ -330,28 +336,51 @@ def feature_campaign(directory: Path) -> dict:
     combinations = report["combinations"]
     if not commands or len(commands) != len(combinations):
         raise ValueError("missing feature combination from frozen enumeration")
-    for index, (command, combination) in enumerate(zip(commands, combinations, strict=True)):
+    for index, (command, combination) in enumerate(
+        zip(commands, combinations, strict=True)
+    ):
         if combination["index"] != index or combination["literal_argv"] != command:
-            raise ValueError("feature combination ordering differs from frozen enumeration")
-        if combination["status"] == "passed" and combination.get("evidence_kind") != "unchanged-input-reuse":
+            raise ValueError(
+                "feature combination ordering differs from frozen enumeration"
+            )
+        if (
+            combination["status"] == "passed"
+            and combination.get("evidence_kind") != "unchanged-input-reuse"
+        ):
             attempts = combination["attempts"]
-            if not attempts or attempts[-1]["status"] != "passed" or attempts[-1]["exit_code"] != 0:
+            if (
+                not attempts
+                or attempts[-1]["status"] != "passed"
+                or attempts[-1]["exit_code"] != 0
+            ):
                 raise ValueError("feature pass lacks a completed successful attempt")
             feature_execution(attempts[-1]["execution"], command)
-    if report.get("required_checks_covered") and (not report.get("source_unchanged") or not report.get("complete") or any(combination["status"] != "passed" for combination in combinations)):
+    if report.get("required_checks_covered") and (
+        not report.get("source_unchanged")
+        or not report.get("complete")
+        or any(combination["status"] != "passed" for combination in combinations)
+    ):
         raise ValueError("incomplete or failed feature combinations cannot qualify")
     return report
 
 
 def feature_combination_origin(origin: dict, frozen: dict, index: int) -> None:
     directory = Path(origin["path"]).resolve()
-    if origin["index"] != index or digest(directory / "feature-campaign.json") != origin["sha256"]:
+    if (
+        origin["index"] != index
+        or digest(directory / "feature-campaign.json") != origin["sha256"]
+    ):
         raise ValueError("changed original feature campaign")
     report = feature_campaign(directory)
     if report["frozen"] != frozen or not report.get("source_unchanged"):
-        raise ValueError("feature reuse requires the identical full Rust/compiler/native closure")
+        raise ValueError(
+            "feature reuse requires the identical full Rust/compiler/native closure"
+        )
     combination = report["combinations"][index]
-    if combination["status"] != "passed" or combination.get("evidence_kind") != "executed":
+    if (
+        combination["status"] != "passed"
+        or combination.get("evidence_kind") != "executed"
+    ):
         raise ValueError("feature reuse requires an original executed pass")
     attempt = combination["attempts"][-1]
     for name, expected in attempt["artifacts"].items():

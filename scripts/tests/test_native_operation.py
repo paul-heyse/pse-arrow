@@ -24,8 +24,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
-
 from scripts import (
     build_environment,
     build_measurements,
@@ -38,6 +36,7 @@ from scripts import (
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
 

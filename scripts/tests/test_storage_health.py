@@ -193,8 +193,16 @@ class StorageHealthTests(unittest.TestCase):
 
         record = fixture(self.state)
         record.cgroup.pressure = pressure.Sample(
-            "partial", pressure.Identity(BOOT, "/owned/service", 1, 20), 10, 20, 150,
-            {"cpu.pressure": pressure.Reading("unavailable", reason="permission denied")},
+            "partial",
+            pressure.Identity(BOOT, "/owned/service", 1, 20),
+            10,
+            20,
+            150,
+            {
+                "cpu.pressure": pressure.Reading(
+                    "unavailable", reason="permission denied"
+                )
+            },
         )
         self.assertEqual(health.read(self.save(record)), record)
         record.cgroup.pressure.identity.inode = 21

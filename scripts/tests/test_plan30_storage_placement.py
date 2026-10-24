@@ -13,10 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
-
 from scripts import host_admission as host
 from scripts import surreal_server as server
+from scripts.tests.server_receipt_fixture import fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
 

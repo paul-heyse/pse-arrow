@@ -24,11 +24,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
-
 from scripts import host_admission as host
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
 if TYPE_CHECKING:

@@ -49,9 +49,6 @@ from pse.contracts.documents import (
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
     DiagnosticReproducerOutput,
-    ReductionRequest,
-    ReductionRequestOutput,
-    ReductionDocumentOutput,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     HistoryObligation,
@@ -97,6 +94,9 @@ from pse.contracts.documents import (
     ProjectRecord,
     ProjectSelection,
     ProjectSelectRequest,
+    ReductionDocumentOutput,
+    ReductionRequest,
+    ReductionRequestOutput,
     ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
@@ -222,7 +222,9 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         """Run original-source diagnostics under one admission-to-result deadline."""
         return self._handle.diagnose_documents(request)
 
-    def reduce_diagnostic(self, request: ReductionRequest | ReductionRequestOutput) -> ReductionDocumentOutput:
+    def reduce_diagnostic(
+        self, request: ReductionRequest | ReductionRequestOutput
+    ) -> ReductionDocumentOutput:
         """Reduce one separately selected source issue under explicit finite bounds."""
         return self._handle.reduce_diagnostic(request)
 

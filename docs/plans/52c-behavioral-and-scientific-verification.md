@@ -283,3 +283,7 @@ All three executor branches are merged into main, their scoped conflicts resolve
 artifacts retained, and their fully merged worktrees removed. Unrelated operator edits remain
 outside these commits. The ordinary build/diagnostic controls are drained; no service or shared
 compiler cache was stopped as part of worktree retirement.
+Root `PSE_RESOURCE_CLASS=light just turn-end` passed ADR indexing and formatting. Its safe
+format/import fixes were followed by the ten selected tooling unittest modules (56 passed,
+baseline zero). Turn-end separately deferred three historical unsupported-profile cleanups;
+those resources remain protected. This is not full hygiene or product qualification.

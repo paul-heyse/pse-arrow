@@ -1074,9 +1074,7 @@ def service_config_for(
             "Tooling requires the recorded authenticated loopback service"
         )
     receipt = object_mapping(config.get("server"))
-    if (
-        not surreal_source.admitted_receipt(receipt)
-    ):
+    if not surreal_source.admitted_receipt(receipt):
         raise SupervisorError("Tooling service is not the admitted MX generation")
     if (state / "fresh-engine-pending.json").exists():
         raise SupervisorError("Fresh-engine initialization is incomplete")
@@ -1260,9 +1258,7 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
         )
     if not retiring and not getattr(_LIFECYCLE, "retire_engine", False):
         receipt = object_mapping(config["server"])
-        if (
-            not surreal_source.admitted_receipt(receipt)
-        ):
+        if not surreal_source.admitted_receipt(receipt):
             raise SupervisorError(
                 "Server is not the admitted source-built MX generation"
             )
@@ -1423,7 +1419,9 @@ def install(version: str | None, tool_root: Path) -> dict[str, object]:
             "The managed source server supports Linux amd64/arm64 only"
         )
     try:
-        directory = checked_directory(tool_root / surreal_source.installation_name(tool_root))
+        directory = checked_directory(
+            tool_root / surreal_source.installation_name(tool_root)
+        )
         with state_lock(directory):
             return surreal_source.install(directory)
     except (surreal_source.BuildError, OSError, ValueError) as error:
@@ -5331,11 +5329,15 @@ def _start(
             resumed = True
             return None
         try:
-            current_build = surreal_source.admitted_receipt(object_mapping(config["server"]), revalidate=True)
+            current_build = surreal_source.admitted_receipt(
+                object_mapping(config["server"]), revalidate=True
+            )
         except surreal_source.BuildError as error:
             raise SupervisorError(str(error)) from error
         if not current_build:
-            raise SupervisorError("Server build context changed; install its current effective generation before launch")
+            raise SupervisorError(
+                "Server build context changed; install its current effective generation before launch"
+            )
         systemctl("show-environment")
         allocation = config["resources"]
         if not isinstance(allocation, dict):
@@ -8433,7 +8435,9 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
                     or pending.get("phase") not in {"discarding", "publishing"}
                     or old["instance_id"]
                     not in {pending.get("predecessor"), target.get("instance_id")}
-                    or not surreal_source.admitted_receipt(object_mapping(target.get("server")))
+                    or not surreal_source.admitted_receipt(
+                        object_mapping(target.get("server"))
+                    )
                 ):
                     raise SupervisorError(
                         "Fresh-engine pending identity does not match this exact target"

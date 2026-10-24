@@ -982,13 +982,22 @@ def run_gates(
                 try:
                     campaign_directory = output / gate.name
                     campaign = validation_receipts.feature_campaign(campaign_directory)
-                    record["feature_campaign"] = str(campaign_directory.relative_to(output) / "feature-campaign.json")
+                    record["feature_campaign"] = str(
+                        campaign_directory.relative_to(output) / "feature-campaign.json"
+                    )
                     record["evidence_kind"] = campaign["evidence_kind"]
                     for artifact in campaign_directory.rglob("*"):
                         if artifact.is_file():
-                            record["artifacts"][str(artifact.relative_to(output))] = validation_receipts.digest(artifact)
-                    if not campaign["required_checks_covered"] and record["status"] == "passed":
-                        raise ValueError("feature campaign is missing successful complete coverage")
+                            record["artifacts"][str(artifact.relative_to(output))] = (
+                                validation_receipts.digest(artifact)
+                            )
+                    if (
+                        not campaign["required_checks_covered"]
+                        and record["status"] == "passed"
+                    ):
+                        raise ValueError(
+                            "feature campaign is missing successful complete coverage"
+                        )
                 except (OSError, ValueError, KeyError, TypeError) as error:
                     record["report_errors"].append(str(error))
                     if record["status"] == "passed":

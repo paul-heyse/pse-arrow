@@ -23,7 +23,11 @@ cargo-fuzz = true
 workspace = true
 
 [features]
-fuzz-inspection = ["dep:libfuzzer-sys", "dep:pse-runtime", "dep:pse-diagnostics"]
+fuzz-inspection = [
+  "dep:libfuzzer-sys",
+  "dep:pse-runtime",
+  "dep:pse-diagnostics",
+]
 force-validate = [
   "pse-admission?/force-validate",
   "pse-codegen/force-validate",

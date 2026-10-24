@@ -1234,7 +1234,9 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
 ) -> None:
     """Exercise generated request/result codecs and the actual native CLI consumer."""
     recorded = _reproducer_text_request(inspection_settings)
-    assert isinstance(recorded.input, documents.ReproducerExtractionInputBodyOriginalText)
+    assert isinstance(
+        recorded.input, documents.ReproducerExtractionInputBodyOriginalText
+    )
     case = SemanticId.from_hex("4d" * 16)
     text = (
         "package reduction_text {def Root {"
@@ -1247,7 +1249,9 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
         physical_documents=physical_documents(),
         model_documents=(package_documents(text),),
         case_id=case,
-        settings=msgspec.structs.replace(pse.SolveSettings(), intent=NativeSolveIntent.ROOT),
+        settings=msgspec.structs.replace(
+            pse.SolveSettings(), intent=NativeSolveIntent.ROOT
+        ),
         allowance=ClosedDuration(secs=60, nanos=0),
     )
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
@@ -1256,8 +1260,10 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
         (tmp_path / "original.json").write_bytes(codec.encode_json(original))
         assert original.failure is None, codec.encode_json(original.failure).decode()
         issue = next(
-            finding for finding in original.findings
-            if finding.code in ("math.domain", "math.evaluation", "candidate.evaluation_failed")
+            finding
+            for finding in original.findings
+            if finding.code
+            in ("math.domain", "math.evaluation", "candidate.evaluation_failed")
         )
         assert issue.sources, "the producer must retain actual typed source attribution"
     finally:
@@ -1268,20 +1274,48 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
         ("annotation start x(-1);", "initial_point"),
     ):
         start = text.index(needle)
-        anchors.append({"package": 0, "document": "models/fixed.pse", "start": start,
-                        "end": start + len(needle), "role": role})
+        anchors.append(
+            {
+                "package": 0,
+                "document": "models/fixed.pse",
+                "start": start,
+                "end": start + len(needle),
+                "role": role,
+            }
+        )
     command = codec.decode_json(
-        codec.encode_json({"version": 1, "runtime": recorded.runtime, "reduction": {
-            "version": 1, "original": operation, "issue": issue, "anchors": anchors,
-            "operators": ["declaration_deletion", "binary_subexpression"],
-            "maximum_candidates": 48, "allowance": {"secs": 60, "nanos": 0},
-        }}), documents.ReductionCommandRequest,
+        codec.encode_json(
+            {
+                "version": 1,
+                "runtime": recorded.runtime,
+                "reduction": {
+                    "version": 1,
+                    "original": operation,
+                    "issue": issue,
+                    "anchors": anchors,
+                    "operators": ["declaration_deletion", "binary_subexpression"],
+                    "maximum_candidates": 48,
+                    "allowance": {"secs": 60, "nanos": 0},
+                },
+            }
+        ),
+        documents.ReductionCommandRequest,
     )
     source = tmp_path / "reduction.json"
     source.write_bytes(codec.encode_json(command))
     completed = subprocess.run(
-        [sys.executable, "-m", "pse.diagnostics", "reduce", "--request", str(source), "--json"],
-        check=False, capture_output=True, timeout=90,
+        [
+            sys.executable,
+            "-m",
+            "pse.diagnostics",
+            "reduce",
+            "--request",
+            str(source),
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        timeout=90,
     )
     assert completed.returncode == 0, completed.stderr.decode()
     result = codec.decode_json(completed.stdout, documents.ReductionDocumentOutput)
@@ -1291,4 +1325,7 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
     assert "log(x)" in reduced and "annotation start x(-1);" in reduced
     assert result.attempts[0].disposition == "preserved"
     for mapping in result.correspondence:
-        assert text[mapping.original.start:mapping.original.end] == reduced[mapping.reduced.start:mapping.reduced.end]
+        assert (
+            text[mapping.original.start : mapping.original.end]
+            == reduced[mapping.reduced.start : mapping.reduced.end]
+        )

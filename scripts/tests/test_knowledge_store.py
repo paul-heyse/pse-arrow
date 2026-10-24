@@ -124,15 +124,18 @@ class KnowledgeStoreTests(unittest.TestCase):
         self.assertEqual(result, {"generation": "selected"})
 
     def test_partial_domain_projection_is_refused_before_native_effects(self) -> None:
-        with patch.object(
-            knowledge_store.workspace_domains,
-            "project",
-            return_value={"complete": False, "omissions": ["subject bound exceeded"]},
+        with (
+            patch.object(
+                knowledge_store.workspace_domains,
+                "project",
+                return_value={
+                    "complete": False,
+                    "omissions": ["subject bound exceeded"],
+                },
+            ),
+            self.assertRaisesRegex(ValueError, "incomplete owner-native projection"),
         ):
-            with self.assertRaisesRegex(
-                ValueError, "incomplete owner-native projection"
-            ):
-                knowledge_store.corpus(("owner.md",))
+            knowledge_store.corpus(("owner.md",))
 
     def test_shared_source_does_not_attribute_whole_document_to_section(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -710,18 +710,41 @@ mod tests {
             let actual = &decoded.operations[0];
             assert_eq!(actual.kind, "decoder.structured-control");
             assert_eq!(actual.outcome, Some(Outcome::Completed));
-            assert_eq!(actual.metrics.iter().find(|metric| metric.name == "actual.calls").unwrap().latest,
-                       Value::Count(count));
+            assert_eq!(
+                actual
+                    .metrics
+                    .iter()
+                    .find(|metric| metric.name == "actual.calls")
+                    .unwrap()
+                    .latest,
+                Value::Count(count)
+            );
             // Truncation cannot silently produce a complete accepted record.
             for end in [0, 1, bytes.len() / 2, bytes.len() - 1] {
                 assert!(decode_document::<FrozenEvidenceSet, 3>(&bytes[..end]).is_err());
             }
         }
         let oversized = vec![b' '; MAXIMUM_DOCUMENT_BYTES + 1];
-        assert!(decode_document::<FrozenEvidenceSet, 3>(&oversized).unwrap_err().to_string().contains("exceeds 64 MiB"));
-        assert!(decode_document::<FrozenEvidenceSet, 3>(br#"{"version":999,"checkpoints":"invalid body"}"#)
-            .unwrap_err().to_string().contains("unsupported"));
-        assert!(decode_document::<FrozenEvidenceSet, 3>(br#"{"version":3,"checkpoints":[{"process":null}]}"#).is_err());
+        assert!(
+            decode_document::<FrozenEvidenceSet, 3>(&oversized)
+                .unwrap_err()
+                .to_string()
+                .contains("exceeds 64 MiB")
+        );
+        assert!(
+            decode_document::<FrozenEvidenceSet, 3>(
+                br#"{"version":999,"checkpoints":"invalid body"}"#
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("unsupported")
+        );
+        assert!(
+            decode_document::<FrozenEvidenceSet, 3>(
+                br#"{"version":3,"checkpoints":[{"process":null}]}"#
+            )
+            .is_err()
+        );
     }
 }
 
