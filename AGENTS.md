@@ -104,7 +104,11 @@ or rejects it before effects; use `just codegen-check` for comparison and zero-a
 under any shell, `--native` adds the linked solver environment, and `cargo c` / `cargo t`
 carry force-validation. Workload recipes run through `scripts/pse-env`; the fixed read-only
 `just activity` observer runs directly so unavailable workload admission or compiler setup
-remains diagnosable. This exception accepts observer options, never an arbitrary command.
+remains diagnosable. These exceptions accept observer options or the fixed capability server,
+never an arbitrary command.
+`just capabilities` similarly serves the source-only FastMCP read/control interface without
+lifetime workload admission; see the [interface guide](docs/dev/capability-interface.md).
+Effectful bindings retain their native environment/admission owners.
 Direnv and Claude
 sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
 

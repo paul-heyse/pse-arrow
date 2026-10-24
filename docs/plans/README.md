@@ -11,7 +11,7 @@ qualification. Plan52 retains its separate capability scope and delivered founda
 
 [Plan52: Agent effectiveness and engineering workflows](52-agent-effectiveness-and-engineering-workflows.md)
 captures the original O01–O30/RC01–RC09 and the unified-interface review's separately scoped
-O01–O10/Q01–Q06/RC01–RC05, with accepted target directions and planned interface delivery.
+O01–O10/Q01–Q06/RC01–RC05, with accepted target directions and delivered source-only interface foundations.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
 companions 52a–52k develop context/editing, knowledge, verification, execution, experiments,
 evidence/tracing, agent/operator workflows, canonical capabilities/reveal, native contracts/tool
@@ -29,6 +29,11 @@ records selected historical replay, actual semantic Git bisection, isolated data
 and optional confined parser experiments, including corrected failures and owned cleanup.
 Other packages remain planned, and targeted acceptance does not
 establish assembled Plan52 qualification.
+The [52i execution checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52i-execution-checkpoint--2026-10-24)
+links delivered canonical discovery/classification, progressive guidance, fixed STDIO serving and
+actual Codex exact-read access. Native/parser adaptation, specialist migration and broader agent
+qualification retain their 52j/52k/52h owners. Launch guidance lives in the
+[capability interface guide](../dev/capability-interface.md).
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

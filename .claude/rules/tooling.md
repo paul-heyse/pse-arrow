@@ -30,6 +30,10 @@ keep it accurate when you change them.
 - **Fixed observation.** `just activity` runs its read-only observer directly, without workload
   admission or compiler preparation. It accepts observer options, never an arbitrary executable;
   report unavailable observations as unavailable, not empty success.
+- **Fixed capability serving.** `just capabilities` launches the checkout's canonical STDIO
+  read/control endpoint without lifetime workload admission or startup setup. It accepts no
+  arbitrary executable. Selected effectful operations must retain their native environment,
+  admission and lifetime owners; presentation changes do not grant execution permission.
 - **Placement owns resource policy.** Workload commands run in their own supervised scope;
   the explicit ordinary-build mode may omit OS memory caps. Do not add another wrapper.
   Builders call `pse_env.placement()` per command (a transient unit name

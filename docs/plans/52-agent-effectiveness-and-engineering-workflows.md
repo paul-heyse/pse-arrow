@@ -277,9 +277,9 @@ is required. Package completion does not automatically resolve an opportunity's 
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | One exact domain/workflow/component model covering all agent-tool families; metadata derives actual reveal/dispatch/help. |
-| O02 | scheduled | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Deterministic process-scoped reveal/reset plus actual Codex refresh or faithful same-endpoint exact adaptation. |
-| O03 | scheduled | [CAP04/G03](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Root→workflow→operation guidance from native owners; actual planning-only and editing task evaluation. |
+| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical model, bounded classification and source-only dispatch delivered; native adaptation and derived consumers remain ADP05/MCP04. |
+| O02 | scheduled | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic process-scoped reveal/reset and actual Codex exact read adaptation delivered; broader host resource/prompt and adapted-tool journeys remain MCP02. |
+| O03 | scheduled | [CAP04/G03](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Progressive native-owner guidance and planning-only selection delivered; actual editing/task-effectiveness evaluation remains G03. |
 | O04 | scheduled | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Pydantic host types and Rust-derived native schemas with mandatory native validation/admission before effects. |
 | O05 | scheduled | [ADP03/ADP04/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Refactor/adapt difficult operations across repository, preserve behavior, migrate callers and delete replacements. |
 | O06 | scheduled | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Reachable cheap bootstrap, lazy service acquisition, explicit identities and independent admission/lifetime. |
@@ -299,7 +299,7 @@ or product integration. Preserve failed/inconclusive evidence and update depende
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| Q01 | open | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Configure the canonical endpoint using the working environment-JSON attachment approach; verify actual Codex list-change refresh/resources/prompts and select the best supported presentation. If useful select exact schema/invocation adaptation within the same endpoint delegating canonical validation/middleware/effects/results. |
+| Q01 | open | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex STDIO browse/describe/select/exact-read/reset passed; host retained its initial tool inventory, so canonical same-endpoint read adaptation is selected. Broader resource/prompt and future effectful-operation presentation remain to qualify; see 52i Outcome. |
 | Q02 | open | [ADP01](52j-native-contracts-and-tool-adaptation.md#ADP01) | Bind representative native schema variants and decoders; authoring versus hydrated, local refs, recursion, enums and contextual refusal before effects. |
 | Q03 | open | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Lazy proxy acquisition, selected-service identity, thread/lifetime/cancellation/teardown with actual specialist consumers. |
 | Q04 | open | [ADP03](52j-native-contracts-and-tool-adaptation.md#ADP03) | Choose typed extraction versus faithful process adapter for archive/diagnostic examples, then apply per-family; no arbitrary shell wrapper. |
@@ -351,18 +351,18 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | H02 | planned | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
 | H03 | planned | [52h](52h-qualification-and-publication.md#H03) | Scope-end static/manual checks |
 | H04 | planned | [52h](52h-qualification-and-publication.md#H04) | Enduring contracts, actual Outcome and retirement readiness |
-| CAP01 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical exposure and first operation |
-| CAP02 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP02) | Exact catalogue and bounded preparation |
-| CAP03 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Deterministic reveal/reset |
-| CAP04 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Progressive owner guidance |
-| CAP05 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Whole-repository classification/exposure |
+| CAP01 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical exposure and five actual source-only bindings; 52i Outcome owns evidence |
+| CAP02 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP02) | Exact catalogue, actual schemas and bounded preparation |
+| CAP03 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic replacement/reset and actual Codex exact-read route |
+| CAP04 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Lazy protected owner guidance and planning-only selection |
+| CAP05 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Bounded whole-entrypoint classification; actual native adaptation remains ADP05 |
 | ADP01 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Native schema/decoder fidelity and Q02 |
-| ADP02 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Typed host requests, independent outcomes and handles |
+| ADP02 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Source-only typed-host and bounded-result prerequisite delivered; native outcomes/handles/cancellation remain |
 | ADP03 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Parser-bound extraction/adaptation and Q04 |
 | ADP04 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Native/language/database integrations and Q03 |
 | ADP05 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | All-family migration and replacement retirement |
-| MCP01 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap attachment and lazy resources/Q03 |
-| MCP02 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex reveal/presentation/Q01 |
+| MCP01 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Fixed source-only STDIO bootstrap delivered; specialist acquisition/lifetimes/Q03 remain |
+| MCP02 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex source-only exact-read journey delivered; broader attachment consumers/Q01 remain |
 | MCP03 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded revision coherence and Q06 |
 | MCP04 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference and conditional faithful CLI/Q05 |
 | MCP05 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Interface observation and evidence integration |
@@ -398,13 +398,12 @@ source/consumer changes; G02 consumes real canonical operations and G05 useful c
 H01–H04 close assembled scope
 once selected functionality and inquiry outcomes are ready.
 
-For the unified extension, start CAP01's metadata contract, ADP02's minimal source-only operation
-and MCP01's cheap bootstrap together: discovery→guidance→real read→native result is the first
-useful slice. CAP02/CAP03/CAP04 then compose exact catalogue/reveal/instructions with MCP02's
-actual host test. Start Q02 native schema/decoder work and Q03 specialist lifetime inquiry early;
+For the unified extension, CAP01–CAP05 and ADP02/MCP01/MCP02's source-only prerequisites now
+deliver discovery→guidance→real read→native result, including the actual host test. Continue
+Q02 native schema/decoder work and Q03 specialist lifetime inquiry with their actual consumers;
 only affected native/specialist operations wait for those actual integrations. MCP03's loaded
 revision behavior accompanies serving code/guidance changes. ADP03 adapts coherent difficult
-families with their callers, CAP05 classifies remaining inventory and ADP05 verifies actual
+families with their callers, new entry points extend CAP05's canonical classification and ADP05 verifies actual
 migration/deletion. G02/G03 evaluate real workflows, F01/F02 and MCP05 integrate evidence, MCP04
 derives references and any selected CLI. H01 reconciles all required and conditional scope before
 H02–H04. These are contract/evidence dependencies, not whole-document serial barriers. Preserve
@@ -500,3 +499,20 @@ this authoring. Rule directions are accepted; actual instruction/boundary change
 The next implementation authorization can start the first slice described above. H01–H04 remain
 the assembled qualification/publication owner for expanded 52a–52k, while C04 and independent
 Plan28/32/40/53 obligations retain their current owners and evidence limits.
+
+### 52i execution checkpoint — 2026-10-24
+
+CAP01–CAP05 are delivered at the maintainer-selected boundary: complete bounded classification,
+canonical exposure, exact navigation, atomic reveal/reset and progressive owner instructions,
+with existing clean source-only operations callable. The
+[52i Outcome](52i-canonical-capabilities-and-progressive-reveal.md#verification-and-outcome--2026-10-24)
+owns implementation, actual Codex evidence, repaired mistakes and targeted qualification.
+RC02's Pydantic host-contract rule/direct dependency and RC05's fixed source-only launch guidance
+are implemented for this slice; neither changes scientific contracts or native effect admission.
+
+ADP02/MCP01/MCP02 remain partially implemented at their explicit prerequisite boundaries.
+Continue ADP01's native schema fidelity and ADP03/ADP04's parser/specialist integrations before
+claiming whole-inventory adaptation or migrating their native consumers. MCP03/MCP04 still own
+broader coherence/derived consumers; G02/G03 and H01–H04 retain actual assembled agent evaluation
+and publication. Unified opportunities remain scheduled where those consumers are outstanding.
+Original a–h evidence, the C04 denial and independent Plan28/32/40/53 work are unchanged.

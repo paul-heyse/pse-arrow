@@ -1,6 +1,6 @@
 ---
 title: "Plan 52i: Canonical capabilities and progressive reveal"
-status: draft
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
@@ -13,13 +13,14 @@ doc_topics: [current-work, design, environment, documentation, libraries]
 
 ## Purpose and foundation
 
-**Proposed:** make every agent-facing capability discoverable through one structured FastMCP
+**Implemented:** make every agent-facing capability discoverable through one structured FastMCP
 entry point, with exact conceptual navigation, relevant instructions and deliberate reveal.
 This companion develops the [unified-interface review](../functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md)
 O01–O03 and the exposure portions of O09/Q01/Q06. The
 [coordinator](52-agent-effectiveness-and-engineering-workflows.md#unified-interface-opportunity-dispositions)
-owns all progress and source-qualified dispositions. Creating these documents does not implement
-or attach the interface.
+owns all progress and source-qualified dispositions. The execution Outcome below records the
+delivered source-only interface and actual Codex attachment; classification does not imply that
+every native operation has been adapted.
 
 Existing `scripts/workspace_domains.py`, `workspace_context.py`, native lifecycle projections,
 recipe introspection and semantic-navigation bridges supply useful facts. They currently expose
@@ -211,7 +212,98 @@ solver contract, distributed control plane or universal result ontology is selec
 native assurance cannot be supplied by tool annotations. A clean catalogue is not full-plan
 acceptance, and reveal is not proof of reduced runtime work or improved agent productivity.
 
-**Proposed verification:** targeted metadata/reveal/guidance tests accompany functional changes;
-actual attachment behavior belongs to MCP02, native contract fidelity to ADP01 and assembled
-agent journeys to 52h. The review's bounded library-client probes are historical feasibility
-evidence only. This authoring adds no production endpoint, host qualification or measured benefit.
+## Verification and Outcome — 2026-10-24
+
+### What was built
+
+**Implemented:** CAP01–CAP05 deliver `scripts.capabilities`, the fixed `just capabilities`
+STDIO launcher and the [interface guide](../dev/capability-interface.md). Strict Pydantic host
+metadata supplies exact domain/workflow views, actual registered schemas, progressive owner
+instructions and atomic replacement/reset through FastMCP visibility. There are five real
+source-only operations: task context, exact concepts, producer relationships, recipe description
+and explicit entry-point inspection. Six bootstrap tools include an exact selected-read invoker
+that delegates the same registered FastMCP validation, middleware, visibility and result path.
+There is no arbitrary shell dispatcher or second developer endpoint.
+
+**Implemented:** classification covers the actual bounded entry-point inventory: 222 public
+recipes, 129 top-level script candidates, eight native frontends, 22 Python boundary modules,
+15 skills and three session/configuration owners, with zero unclassified candidates in those
+scopes. Native routes and deferred adaptations remain distinguishable from callable bindings;
+their source owners, reasons and follow-up packages are discoverable. This is neither recursive
+symbol completeness nor installed-tool readiness. The maintainer selected full classification
+plus existing clean host bindings for this execution; substantial parser/native adaptations
+remain ADP01/ADP03–ADP05 in 52j, and specialist integration remains in 52k.
+
+**Tested:** source-only mode, baseline zero, 66 tests passed with:
+
+```bash
+scripts/pse-env --resource-class light -- .venv/bin/python -m unittest \
+  scripts.tests.test_capabilities scripts.tests.test_capability_guidance \
+  scripts.tests.test_capability_inventory scripts.tests.test_workspace_context \
+  scripts.tests.test_workspace_tasks scripts.tests.test_workspace_domains -v
+```
+
+The tests exercise real independent STDIO processes, concurrent replacement/reset, unknown and
+hidden refusals, strict canonical dispatch, bounded preparation/results, planning-only guidance,
+changed instructions, source protection and external-skill boundaries. The fixed-launch test
+calls `just capabilities` with invalid workload admission, a missing store and a foreign virtual
+environment setting; browsing, selection and an actual task-context read succeed without creating
+the missing directories. The bounded inventory read returned no omissions. Expected malformed
+request diagnostics in negative tests are not test failures.
+
+**Tested:** a fresh actual Codex CLI attachment completed browse → describe actual schema →
+select → `capabilities_invoke_read` → reset, returning the real CAP01 task packet and its native
+incompleteness/omissions. This host retained its initial tool inventory after selection, so the
+same-endpoint exact read adapter is the selected supported route for this host. No machine
+configuration was changed. Ordinary dynamic calls, instruction resources and process independence
+were exercised by library-client tests; this does not qualify all Codex resource/prompt consumers
+or future effectful tools. MCP02 retains those obligations.
+
+**Tested:** scoped `.venv/bin/ruff check` and `.venv/bin/pyrefly check`, through
+`scripts/pse-env --resource-class light --`, cover `scripts/capabilities/` and
+`scripts/tests/test_capabilities.py`, `test_capability_guidance.py` and
+`test_capability_inventory.py`: zero findings/errors against baseline zero. One import-order
+finding was corrected. `just turn-end`, `just lint-agents`, `just docs` and
+`scripts/pse-env --docs --resource-class light -- python3 -m scripts.document_lifecycle validate`
+passed (the lifecycle projection validated 1,235 scope items). The docs build initially lacked
+an existing ignored historical `.log` publication asset; copying that exact existing asset from
+main into this worktree restored its prerequisite without changing source or publication rules.
+`just ready` passed with an expected absent-native-extension
+warning in this source-only environment; its cleanup observer also reported unrelated historical
+unsupported server profiles, which this scope did not alter. No Rust/scientific build, full
+`just hygiene`, integrated product campaign or productivity measurement was run. H03 retains
+assembled-series qualification; these host tests make no scientific or performance claim.
+
+### A mistake made and corrected
+
+The first actual host smoke test annotated presentation selection as an external write, causing
+the read-only Codex attachment to deny select/reset. They now accurately describe their external
+world effect as read-only, with idempotence and no destructive effects; no permission policy was
+loosened. A second smoke test exposed this host's static tool inventory; the final actual journey
+used canonical exact read dispatch successfully. Earlier failed probes remain scoped evidence,
+not a claim that ordinary dynamic reveal worked in that host.
+
+Independent implementation review also found guidance could fail after visibility changed,
+outer results could conceal native incompleteness, and recipe excerpts could bypass source
+protection. All three were repaired with regression coverage: guidance prepares before the
+single visibility commit, nested incompleteness survives, and excerpts reuse protected rooted
+source admission. The focused follow-up review found no residual issue in those repairs.
+
+### Deviations from the plan, deliberate
+
+Ordinary lazy `FunctionResource` registration serves owned skill/document bodies instead of
+`SkillProvider`, whose installed implementation eagerly reads skill bodies and would bypass the
+shared bounded snapshot/restart contract. Linked library skills outside the checkout retain
+their native loader route. This preserves progressive guidance without copying policies.
+
+Only clean source-only bindings were made callable. Existing effectful tools, specialized
+services and parser-heavy commands remain usable through native routes and explicitly owned
+adaptations, rather than acquiring placeholder MCP schemas. Recipe declarations and protected
+leaf excerpts are separately observed and explicitly report unverified source coherence.
+Pydantic 2.14.1 is now an exact direct tooling dependency (already resolved transitively); no
+Rust-generated scientific contract was duplicated or changed. Docker and HTTP serving were
+excluded as selected by the maintainer.
+
+Enduring launch, discovery, source-fidelity and lifetime meaning lives in the interface guide
+and agent environment/rules. This completed companion remains retained because 52j/52k and
+52h consume its package anchors and acceptance boundaries; it authorizes no further scope.

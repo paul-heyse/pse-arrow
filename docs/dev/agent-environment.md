@@ -552,6 +552,16 @@ deliberately with `just --yes <recipe>`.
 
 ## Runtime capabilities
 
+### Canonical capability entry point
+
+`just capabilities` launches this checkout's fixed, source-only FastMCP STDIO entry point without
+workload admission or startup preparation. Each attachment owns a process. Follow the
+[capability interface guide](capability-interface.md) for connection configuration, exact
+browse/describe/select/reset, progressive instructions and the same-endpoint read invocation route
+for hosts retaining a static callable inventory. Native tool routes remain available; specialist
+migration and effectful operation admission retain their actual owners. Restart for relevant
+serving code/instruction changes. This exception accepts no arbitrary executable or command.
+
 ### Focused command and source context
 
 Use `just context QUERY --json` for selected recipe grammar; `--owner`/`--scope` read native

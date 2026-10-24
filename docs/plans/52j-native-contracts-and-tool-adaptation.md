@@ -11,6 +11,15 @@ doc_topics: [current-work, design, environment, libraries, diagnostics]
 
 # Plan 52j: Native contracts and tool adaptation
 
+## Prerequisite delivery — 2026-10-24
+
+The [52i Outcome](52i-canonical-capabilities-and-progressive-reveal.md#verification-and-outcome--2026-10-24)
+records ADP02's delivered source-only prerequisite: actual typed host callables, strict canonical
+validation, bounded payloads and preserved native incompleteness/refusals. The exact Pydantic
+dependency and accepted host/scientific rule distinction are implemented. Native schema/decoder
+integration, richer independent outcomes/handles/cancellation and all-family adaptation remain
+under the package owners below. The numeric coordinator alone owns their progress state.
+
 ## Target and responsibility
 
 **Proposed:** make existing operations directly usable through the single FastMCP surface with

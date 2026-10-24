@@ -11,6 +11,16 @@ doc_topics: [current-work, environment, design, diagnostics, documentation]
 
 # Plan 52k: Unified entry point and derived interfaces
 
+## Prerequisite delivery — 2026-10-24
+
+The [52i Outcome](52i-canonical-capabilities-and-progressive-reveal.md#verification-and-outcome--2026-10-24)
+records MCP01's fixed source-only STDIO launch and MCP02's actual Codex browse/describe/select/
+exact-read/reset journey. This host retained its initial tool inventory; the selected same-endpoint
+read invoker delegates canonical FastMCP dispatch. These are delivered prerequisites, not full
+specialist migration or resource/prompt/effectful-tool qualification. MCP01–MCP05 below retain
+their remaining lifetime, presentation, coherence, derived-consumer and observation obligations;
+the numeric coordinator alone owns their progress state.
+
 ## Target and responsibility
 
 **Proposed:** one canonical FastMCP entry point serves agent-facing capabilities through the
