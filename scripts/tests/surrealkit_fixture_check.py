@@ -7,14 +7,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import tempfile
 import tomllib
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch
 
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
+from scripts import surrealkit_population as population
 from scripts import test_resources as resources
 
 
@@ -62,32 +65,26 @@ def oracle(
         else:
             assert isinstance(values[0], str), (case["name"], values)
             assert case["error_contains"] in values[0], (case["name"], values)
-    # Populate an actual readiness selection; compare indexed and full-scan paths.
-    checked_sql(
-        config,
-        namespace,
-        database,
-        "FOR $n IN 0..64 { CREATE type::record('canonical_study_readiness', <string>$n) SET key=<string>$n,point=<string>$n,study='fixture',ordinal=<decimal>$n,source_revision=0dec,pending=0dec,eligible=$n%2=0,premises=NONE,dirty=false,notify=false,notify_revision=0dec,notify_after=''; };",
-    )
-    selection = "SELECT VALUE ordinal FROM canonical_study_readiness {hint} WHERE study='fixture' AND eligible=true AND ordinal>=16dec ORDER BY ordinal LIMIT 8"
+    # Consume the settled named population rather than an ad hoc row loop.
+    selection = population.READINESS
     answers = [
-        checked_sql(config, namespace, database, selection.format(hint=hint) + ";")[0]
+        checked_sql(config, namespace, population.DATABASE, selection.format(hint=hint) + ";")[0]
         for hint in ("", "WITH INDEX study_ready_candidates", "WITH NOINDEX")
     ]
     assert (
-        answers == [[str(value) for value in (16, 18, 20, 22, 24, 26, 28, 30)]] * 3
+        answers == [population.READINESS_ANSWER] * 3
     ), answers
     plans: dict[str, object] = {}
     queries = {
         "readiness": selection.format(hint=""),
         "membership": "SELECT key FROM canonical_memberships WHERE problem='fixture' AND scope='fixture' AND key>'0' ORDER BY key LIMIT 64",
         "result_blocks": "SELECT key FROM canonical_result_block_outputs WHERE result_set='fixture' AND output='value' AND partition='fixture' AND start>=0dec ORDER BY start LIMIT 64",
-        "analysis_edges": "SELECT key FROM canonical_analysis_edges WHERE source='fixture' AND key>'0' ORDER BY key LIMIT 64",
+        "analysis_edges": "SELECT key FROM canonical_analysis_edges WHERE source='fixture_n0' AND key>'0' ORDER BY key LIMIT 64",
     }
     for name, query in queries.items():
-        plans[name] = checked_sql(config, namespace, database, query + " EXPLAIN;")[0]
+        plans[name] = checked_sql(config, namespace, population.DATABASE, query + " EXPLAIN;")[0]
     plans["readiness_full"] = checked_sql(
-        config, namespace, database, selection.format(hint="") + " EXPLAIN FULL;"
+        config, namespace, population.DATABASE, selection.format(hint="") + " EXPLAIN FULL;"
     )[0]
     catalogs = {
         table: checked_sql(config, namespace, database, f"INFO FOR TABLE {table};")[0]
@@ -101,7 +98,9 @@ def oracle(
     return {
         "direct_cases": len(suite["cases"]),
         "definitions_acknowledged": len(installed),
-        "readiness_rows": 64,
+        "population": population.NAME,
+        "readiness_rows": len(population.rows()["canonical_study_readiness"]),
+        "readiness_answers": answers,
         "plans": plans,
         "catalogs": catalogs,
     }
@@ -111,6 +110,8 @@ def wrong_namespace(
     config: dict[str, object],
     record: resources.ResourceRecord,
     other: resources.ResourceRecord,
+    *,
+    inspection: bool = False,
 ) -> None:
     secret = server.read_json(
         Path(cast("str", record["directory"])) / "credentials.json"
@@ -121,8 +122,8 @@ def wrong_namespace(
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
     env.update(
-        SURREAL_USER=cast("str", secret["username"]),
-        SURREAL_PASS=cast("str", secret["password"]),
+        SURREAL_USER=cast("str", secret["inspection_username" if inspection else "username"]),
+        SURREAL_PASS=cast("str", secret["inspection_password" if inspection else "password"]),
     )
     with tempfile.TemporaryDirectory(
         dir=Path(cast("str", record["directory"]))
@@ -160,16 +161,18 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
     binary = tool.acquire(tool_root)
     invocation = resources.invocation(
         "surrealkit",
-        [{"name": "generated_contract"}, {"name": "other_fixture"}],
+        [{"name": "generated_contract"}, {"name": "other_fixture"}, {"name": "interrupted_fixture"}],
         terminal_owner="standalone",
     )
     os.environ[resources.MARKER] = str(invocation)
     resource = tool.provision(state, test="generated_contract")
     other = tool.provision(state, test="other_fixture")
+    interrupted = tool.provision(state, test="interrupted_fixture")
     folder = tool.stage(resource, tool.ROOT / tool.GENERATED_SCHEMA)
     proof: dict[str, object] = {
         "resource": resource,
         "other": other,
+        "interrupted": interrupted,
         "invocation": str(invocation),
         "release": tool.verify(binary),
     }
@@ -180,10 +183,45 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         report = json.loads((folder / "test-both.json").read_text())
         assert report["cases_total"] == 21
         assert report["cases_failed"] == 0
+        first_population = tool.populate(resource)
+        other_population = tool.populate(other)
+        # Every fixture was independently read back by populate; compare only
+        # declared logical content, retaining fresh identities and credentials.
+        assert first_population["content_sha256"] == other_population["content_sha256"]
+        assert first_population["rows"] == other_population["rows"]
+        assert first_population["namespace"] != other_population["namespace"]
+        _, _, first_secret = tool.fixture(resource)
+        _, _, other_secret = tool.fixture(other)
+        for field in ("password", "inspection_password"):
+            assert first_secret[field] != other_secret[field]
+        proof["populations"] = [first_population, other_population]
+        # Interrupt actual setup after mutation submission, before settlement.
+        # This uses a real SIGINT at a precise boundary rather than racing a
+        # sleep against the database. The original operation is never replayed.
+        with patch.object(tool, "settle_population", side_effect=lambda _: signal.raise_signal(signal.SIGINT)):
+            try:
+                tool.populate(interrupted)
+            except KeyboardInterrupt:
+                pass
+            else:
+                raise AssertionError("SIGINT did not interrupt population setup")
+        pending = resources.resource_status(interrupted)
+        assert pending["pin"] is True and pending["drained"] is False
+        assert pending["tool_population"]["phase"] == "population_submitted"
+        try:
+            tool.fixture(interrupted)
+        except tool.ToolError:
+            pass
+        else:
+            raise AssertionError("Interrupted population was reusable before settlement")
+        proof["interrupted_population"] = tool.settle_population(interrupted)
         record, config, _ = tool.fixture(resource)
         with tool.activity(resource):
             proof["oracle"] = oracle(config, record)
             wrong_namespace(config, record, resources.resource_status(other))
+            wrong_namespace(config, resources.resource_status(other), record)
+            wrong_namespace(config, record, resources.resource_status(other), inspection=True)
+            wrong_namespace(config, resources.resource_status(other), record, inspection=True)
             resources.record_drain(resource)
         proof["beta_report"] = report
         proof["frozen_files"] = resources.resource_status(resource)["tool_rollouts"][
@@ -192,7 +230,7 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         (evidence / "qualification.json").write_text(json.dumps(proof, indent=2) + "\n")
         eligible = resources.finalize(
             invocation,
-            {"generated_contract": "pass", "other_fixture": "pass"},
+            {"generated_contract": "pass", "other_fixture": "pass", "interrupted_fixture": "pass"},
             complete=True,
             terminal_owner="standalone",
             terminal={"evidence": str(evidence / "qualification.json")},
@@ -200,6 +238,11 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         finalized = True
         assert resource in eligible
         assert other in eligible
+        assert interrupted in eligible
+        assert resources.reclaim(interrupted) == "removed"
+        # Interruption disposition must preserve both independent populations.
+        assert tool.settle_population(resource)["content_sha256"] == first_population["content_sha256"]
+        assert tool.settle_population(other)["content_sha256"] == other_population["content_sha256"]
         assert resources.reclaim(resource) == "removed"
         # Exact namespace removal must leave the independently registered owner.
         catalog = cast(
@@ -215,6 +258,7 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
                 {
                     "resource": resource,
                     "other": other,
+                    "interrupted": interrupted,
                     "cleanup": "removed",
                     "unrelated_fixture_preserved_until_own_removal": True,
                 }
@@ -225,7 +269,7 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         if not finalized:
             resources.finalize(
                 invocation,
-                {"generated_contract": "failure", "other_fixture": "incomplete"},
+                {"generated_contract": "failure", "other_fixture": "incomplete", "interrupted_fixture": "incomplete"},
                 complete=True,
                 terminal_owner="standalone",
                 terminal={"evidence": str(evidence), "failure": True},
