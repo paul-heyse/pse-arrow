@@ -80,8 +80,12 @@ actual lower-triangle assembly rather than changing production to match the earl
 controls pass with zero failures. The coordinator retains the selected command and mode.
 A02/A03 compile under the force-validated native acceptance feature closure; their scientific
 assertions have not yet run because the copied main service's receipt is not admitted in this
-worktree. An isolated current-context service is the remaining prerequisite, not a reason to
-weaken service admission or alter Plan52 state.
+worktree. The isolated current-context source server and validated native Python extension are built.
+On 2026-10-24 the maintainer authorized permanently increasing functional storage slots to
+three. Four focused admission tests pass; full store charges and unknown-owner protection stay
+in force. The isolated canonical database is initialized without altering the existing main
+or Plan52 service. The independent phase classifier
+wrong-interior/missing-slack control also passed as one selected native-local test, baseline zero.
 
 **Tested:** `just plan53a-reference` uses the locked CPython 3.12.3 / NumPy 2.5.3 / SciPy 1.18.1
 environment and passes PFR 7/7, controlled CSTR 19/19 and decay-fit 25/25 checks, baseline zero.

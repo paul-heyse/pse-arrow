@@ -239,7 +239,8 @@ return integration into main awaits maintainer go-ahead. Other Plan53 packages r
 obsolete fallback-only guard and weak comparator premises; A02 adds regime and solved-variant
 witnesses; A03 adds integrated PR and nonlinear sensitivity/covariance witnesses; A04 restores
 independent reduced-equation reference entrypoints without changing frozen goldens. Committed
-main was imported through `50789ad66` at the first integration checkpoint, preserving Plan52 work.
+main was imported through `50789ad66` and then `616c787c9` at coherent integration checkpoints,
+preserving Plan52 work, including its frozen-supervisor authentication correction.
 
 **Tested:** `just unit-native-capability-package pse-backend-native
 'pse-backend-native/highs,pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance'
@@ -253,7 +254,12 @@ The companion records exact conditions and the remaining assembled consumer acce
 **Not_run / blocked prerequisite:** native A02/A03 durable journeys have compiled, but the
 canonical observer refused the copied main service receipt before assertions. Its admitted
 Cargo configuration belongs to main, not this worktree. No scientific assertion result is
-inferred from that incomplete invocation. A separate worktree-context service is being prepared;
-the main service is unchanged. A first preparation also correctly refused concurrent source
+inferred from that incomplete invocation. A separate worktree-context source server has now built successfully and its closed empty
+state is configured at `surreal-plan53a-20261023` on port 18253. On 2026-10-24, the maintainer authorized permanently raising functional store slots from two
+to three after main and Plan52 services occupied both prior slots. Four focused admission tests
+pass with baseline zero, retaining full per-store charges, unknown-owner protection, timeout and
+the unchanged timing-store limit. The isolated database is initialized; neither existing
+service is stopped or reconfigured. The validated native Python extension and current initializer
+are built; assembled scientific acceptance is the next step. A first preparation also correctly refused concurrent source
 mutation; subsequent preparation uses a frozen committed tree. Whole-repository checks,
 benchmark campaigns, installed parity and other Plan53 packages are outside this execution.

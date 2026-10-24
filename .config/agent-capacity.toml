@@ -25,7 +25,8 @@ memory_gib = 24
 [functional]
 slot_gib = 40
 store_gib = 8
-store_slots = 2
+# Allow main, a campaign and an isolated worktree to retain separate services.
+store_slots = 3
 receiver_gib = 32
 observer_gib = 4
 control_gib = 4

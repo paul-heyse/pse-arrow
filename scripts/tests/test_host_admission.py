@@ -2103,15 +2103,14 @@ class HostAdmissionTests(unittest.TestCase):
         self,
     ) -> None:
         profile = host.select("store-functional")
-        self.assertEqual(host.settings("functional")["store_slots"], 2)
+        slots = host.settings("functional")["store_slots"]
         self.assertEqual(profile.memory, 8 * host.GIB)
-        first = host.acquire(profile, directory=self.directory)
-        second = host.acquire(profile, directory=self.directory)
+        owners = [host.acquire(profile, directory=self.directory) for _ in range(slots)]
         with host.allocation_metadata(self.directory) as ledger:
-            self.assertEqual(len(ledger["owners"]), 2)
+            self.assertEqual(len(ledger["owners"]), slots)
             self.assertEqual(
                 sum(owner["memory"] for owner in ledger["owners"].values()),
-                16 * host.GIB,
+                slots * 8 * host.GIB,
             )
         begun = time.monotonic()
         with self.assertRaisesRegex(
@@ -2125,8 +2124,8 @@ class HostAdmissionTests(unittest.TestCase):
                 directory=self.directory,
                 deadline=time.monotonic() + 0.03,
             )
-        self.assertTrue(first.release())
-        self.assertTrue(second.release())
+        for owner in owners:
+            self.assertTrue(owner.release())
         with self.assertRaisesRegex(host.AdmissionError, "declared lane"):
             host.select("store-functional", "9G")
 
@@ -2137,9 +2136,10 @@ class HostAdmissionTests(unittest.TestCase):
             host.operation, "unit_observation", side_effect=ValueError("unknown")
         ):
             self.assertFalse(first.release())
-            second = host.acquire(
-                host.select("store-functional"), directory=self.directory
-            )
+            remaining = [
+                host.acquire(host.select("store-functional"), directory=self.directory)
+                for _ in range(host.settings("functional")["store_slots"] - 1)
+            ]
             with self.assertRaisesRegex(host.AdmissionError, "slots occupied"):
                 host.acquire(
                     host.select("store-functional"),
@@ -2148,8 +2148,10 @@ class HostAdmissionTests(unittest.TestCase):
                 )
             with host.allocation_metadata(self.directory) as ledger:
                 self.assertIn(first.nonce, ledger["owners"])
-                self.assertIn(second.nonce, ledger["owners"])
-        self.assertTrue(second.release())
+                for owner in remaining:
+                    self.assertIn(owner.nonce, ledger["owners"])
+        for owner in remaining:
+            self.assertTrue(owner.release())
 
     def test_timing_store_retains_its_single_declared_slot(self) -> None:
         self.assertEqual(host.settings("timing")["store_slots"], 1)
@@ -2163,6 +2165,7 @@ class HostAdmissionTests(unittest.TestCase):
 
     def test_store_slot_declarations_are_required_positive_integers(self) -> None:
         text = (host.ROOT / ".config/agent-capacity.toml").read_text()
+        slots = host.settings("functional")["store_slots"]
         for replacement in (
             "",
             "store_slots = 0",
@@ -2174,7 +2177,11 @@ class HostAdmissionTests(unittest.TestCase):
                 patch.object(
                     Path,
                     "read_text",
-                    return_value=text.replace("store_slots = 2", replacement),
+                    return_value=text.replace(
+                        f"store_slots = {slots}",
+                        replacement,
+                        1,
+                    ),
                 ),
                 self.assertRaisesRegex(
                     host.AdmissionError, "Invalid capacity declaration"
