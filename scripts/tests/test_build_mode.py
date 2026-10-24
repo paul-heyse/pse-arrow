@@ -99,7 +99,7 @@ class BuildModeTests(unittest.TestCase):
         self.assertTrue(build.unbounded)
         self.assertEqual(len(build.cores), 16)
         self.assertFalse(build.exclusive)
-        self.assertEqual(host.settings("build")["slots"], 4)
+        self.assertNotIn("build", host.policy())
         with self.assertRaises(host.AdmissionError):
             host.select("build", "40G")
 
@@ -111,6 +111,9 @@ class BuildModeTests(unittest.TestCase):
             }
 
         self.assertIsNone(host.conflict(build, {"other": record(build)}))
+        self.assertIsNone(
+            host.conflict(build, {str(index): record(build) for index in range(64)})
+        )
         for bounded in (host.select("timing"), host.select("reference")):
             self.assertIsNotNone(host.conflict(build, {"other": record(bounded)}))
             self.assertIsNotNone(host.conflict(bounded, {"other": record(build)}))
@@ -130,7 +133,7 @@ class BuildModeTests(unittest.TestCase):
             ):
                 owners = [
                     host.acquire(host.select("build"), directory=directory)
-                    for _ in range(4)
+                    for _ in range(17)
                 ]
             with host.allocation_metadata(directory) as ledger:
                 self.assertEqual(
