@@ -299,6 +299,15 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
 
 ## Choosing tests
 
+**Accepted target, implementation pending (Plan53 RC02).** Managed routes will consume
+one corresponding interpretation of actual selected fixture/effect/resource requirements.
+Nextest/pytest continue to select tests; requirements must follow actual catalog members and
+be checked before effect creation. Pure controls can shed demonstrated accidental barriers,
+while native/thread/timing, service-wide and remaining canonical protection retain their
+actual scopes. Existing route/group behavior remains in place until Plan53 C02/F01/F02
+migrates it; per-run exclusivity never establishes cross-run service quiet. See blueprint
+§24.1 and the [Plan53 coordinator](../plans/53-test-architecture-target.md).
+
 - `just unit-package <pkg> <filter> [args]` — a bare test-path word means `test(word)`; any
   other filterset passes through. The selection is intersected with `package(...)` over the
   final package set, so `pse-relations` (needed in the selection for force-validation)

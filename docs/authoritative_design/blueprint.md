@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 259
+revision: 260
 date: 2026-10-23
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 260 | 2026-10-23 | Publish operator-accepted Plan53 RC01/RC02 target: complete-Pass managed exit and corresponding selected effect requirements (§24.1). | Maintainer-authorized P00 execution; .design-edit authorizes publication. Behavior remains planned in C02/C04/F01/F02; no implementation or qualification claimed. |
 | 259 | 2026-10-23 | ADR-0223: separate source-aware scientific reduction from exact original reproduction; specify existing validation-owner combination reuse (§24.1). | Maintainer-authorized Plan52c/52d execution; .design-edit authorizes publication. ADR remains proposed; qualification stays with owning plans. |
 | 258 | 2026-10-23 | ADR-0222: owner-native development concepts, exact producer correspondence, attributed source cuts and disposable tooling projection (§24.1). | Maintainer-authorized Plan52a/52b implementation; PSE_DESIGN_EDIT=1. ADR remains proposed; selected checks do not establish assembled Plan52 qualification. |
 | 257 | 2026-10-23 | ADR-0221: add a test-scope diagnostic audit, test-assessment companion and separate living collection (§24.4), preserving existing principles, gates and finding ownership. | Maintainer-authorized process installation; PSE_DESIGN_EDIT=1. Record remains proposed; no test audit or product qualification performed. |

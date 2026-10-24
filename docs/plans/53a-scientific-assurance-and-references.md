@@ -1,6 +1,6 @@
 ---
 title: "Plan 53a: Scientific assurance and references"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]

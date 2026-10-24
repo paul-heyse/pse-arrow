@@ -618,6 +618,27 @@ drain, creation borrowers, references or unknown external effects. The selected 
 retains sole outcome authority. Plan50 C05 owns implementation and race/recovery qualification
 of this maintainer-selected extension to proposed ADR-0174.
 
+**Accepted target — Plan53 P00 (operator-confirmed 2026-10-23).** Managed correctness
+commands will return zero if and only if the selected terminal composer establishes a
+complete reconciled Pass. Raw child return (`workload_exit`), cancellation and cleanup
+remain separately observable. A zero-exit child with selected but missing reports cannot
+produce a zero managed correctness exit. Cleanup after terminal publication cannot rewrite
+the frozen assurance verdict. This changes the managed command's assurance interface, not
+`scripts/pse-env` signal/exit forwarding or read-only result-reader success semantics.
+Plan53 C04 owns implementation and caller/self-test migration; publication establishes no
+implemented exit behavior.
+
+The same accepted target gives actual selected effect/resource requirements one semantic
+owner across managed affected/native/Python/setup routes. Tool catalogs remain selection
+authority; homogeneous binary/module defaults and explicit exceptions must correspond to
+actual selected cases and guard effect creation. Demonstrably pure controls and the two
+identified local Python consumers lose accidental solver/canonical barriers only after their
+actual effects are removed. Genuine native thread, timing, service and remaining canonical
+protection stays conservative. Per-run exclusion is not service-wide quiet. Plan53 C02/F01/F02
+own implementation; this is neither a universal exact-test manifest nor permission to widen
+canonical concurrency. The [Plan53 coordinator](../../plans/53-test-architecture-target.md)
+owns current package and finding state.
+
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
 (default feature graph), `just native-test` (full linked native feature graph),

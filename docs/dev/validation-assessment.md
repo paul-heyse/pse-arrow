@@ -74,6 +74,15 @@ unreported test or interrupted producer cannot become a pass through a JUnit fil
 Captured producer/composer identities are association facts; current liveness and owned
 drain remain unobserved unless their owner supplies them.
 
+**Accepted target, implementation pending (Plan53 RC01).** Managed correctness commands
+will expose complete reconciled Pass through exit zero, retaining raw child status,
+cancellation and independent cleanup detail. The current child-status-preserving composer
+has not yet been migrated; do not infer complete assurance from its exit alone. Plan53 C04
+owns that behavior and its callers. This does not change result-reader exit zero, which means
+only that a selected record was read, or the environment wrapper's command/signal forwarding.
+The current target and implementation boundary live in blueprint §24.1 and the
+[Plan53 coordinator](../plans/53-test-architecture-target.md).
+
 `just activity` exposes current build/wait/admission observations without workload setup.
 Actual Cargo records identify compile/link/cache freshness; quiet CPU does not identify
 the owner of an artifact lock. `just context QUERY --json` projects declared commands and

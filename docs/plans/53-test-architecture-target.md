@@ -1,6 +1,6 @@
 ---
 title: "Plan 53: Test architecture target"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized **creation of these plan documents**, not execution of their implementation packages. RC01/RC02 were separately explicitly accepted on 2026-10-23. No production/test/tool changes or product qualification are claimed by this publication.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents and subsequently authorized execution of **P00 and A01–A04 only**, in a separate worktree with main integration pending explicit go-ahead. RC01/RC02 were separately explicitly accepted on 2026-10-23. No production/test/tool changes or product qualification are claimed by this publication.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -73,7 +73,7 @@ Document boundaries group reasoning; packages below group coherent producer/cons
 
 ## Accepted rule changes and advance publication
 
-Both source review impacts were **explicitly accepted by the operator on 2026-10-23** during plan preparation. Their acceptance does not authorize implementation in this document-creation turn.
+Both source review impacts were **explicitly accepted by the operator on 2026-10-23** during plan preparation. Their acceptance governs the authorized P00/A01–A04 execution; C02/C04/F implementation remains unselected.
 
 | Review impact | Accepted target consequence | Publication route and dependent work |
 |---|---|---|
@@ -89,15 +89,15 @@ B02's typed refusal direction fits the existing §23.2 source-owned typed-cause 
 
 ## Package state and execution route
 
-This is the **single package progress owner**. All packages are planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. All package acceptance is **Proposed / not_run** at authoring.
+This is the **single package progress owner**. P00 and A01–A04 are authorized; all other packages remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. All package acceptance is **Proposed / not_run** at authoring.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| P00 | planned | [Coordinator](#p00) | Accepted rule slices published before dependent changes |
-| A01 | planned | [53a](53a-scientific-assurance-and-references.md#a01) | Independent status inventory and finite/extent/wrong-result controls |
-| A02 | planned | [53a](53a-scientific-assurance-and-references.md#a02) | I01 resolved; regime/countercurrent/mixer witnesses, retained PID/nested-vapor evidence |
-| A03 | planned | [53a](53a-scientific-assurance-and-references.md#a03) | Integrated root/layout/curvature and exact/approximate nonlinear publication/readback |
-| A04 | planned | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent reference generators reproducible |
+| P00 | done | [Coordinator](#p00) | Accepted target published in blueprint §24.1, revision 260 and validation/environment guides; C02/C04/F behavior remains planned |
+| A01 | in-progress | [53a](53a-scientific-assurance-and-references.md#a01) | Independent status inventory and finite/extent/wrong-result controls |
+| A02 | in-progress | [53a](53a-scientific-assurance-and-references.md#a02) | I01 resolved; regime/countercurrent/mixer witnesses, retained PID/nested-vapor evidence |
+| A03 | in-progress | [53a](53a-scientific-assurance-and-references.md#a03) | Integrated root/layout/curvature and exact/approximate nonlinear publication/readback |
+| A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent reference generators reproducible |
 | B01 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 resolved; narrow source helper and truthful observed reuse, duplicate copies deleted |
 | B02 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b02) | I04 resolved; typed reasons and valid/single-change origin controls across consumers |
 | B03 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; participation/support scopes and real lifetime evidence retained |
@@ -222,3 +222,12 @@ Completion requires every required functional migration/deletion and selected as
 ## Checkpoint — document creation, 2026-10-23
 
 Eight draft documents now specify the target, coherent packages and their decision/evidence routes. RC01/RC02 acceptance is recorded; their authority publication and behavior changes remain planned. The single current-source reconciliation has been incorporated; no commit pin or ongoing churn ledger is required. All implementation and product qualification remain unexecuted by this plan-writing engagement. The next authorized execution can start with P00, inquiry decisions and independent ready packages described above; this checkpoint itself grants no execution authorization.
+
+## Execution checkpoint — P00/A01–A04, 2026-10-23
+
+Execution is authorized for P00 and the full scientific companion only. Work is isolated on
+`53a-scientific-assurance`, based on committed main; uncommitted Plan52 work is not copied.
+P00 publishes the accepted target through blueprint §24.1/revision 260 and the command/environment
+guides. Existing managed exits and scheduling remain unchanged. A01–A04 implement their owner-local
+controls and independent references. Committed main changes will be merged at coherent checkpoints;
+return integration into main awaits maintainer go-ahead. Other Plan53 packages remain planned.
