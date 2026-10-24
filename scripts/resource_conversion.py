@@ -3,9 +3,9 @@
 """Explicit quiescent conversion of the existing resource owner, retaining originals.
 
 This is a one-time format transition, never an ordinary reader or writer branch.
-Supported workload writers belong to host allocations; fixed capability endpoints
-and exact recorded process/scope owners are checked as well. Unknown or active
-cohorts refuse before the pending fence.
+Supported workload writers belong to host allocations; exact recorded registry
+process/scope owners are checked. Capability-server presence is not registry activity.
+Unknown or active registry owners refuse before the pending fence.
 After fencing, interrupted work remains protected and is resumed explicitly.
 """
 
@@ -188,38 +188,6 @@ def processes(deadline: float, proc: Path = Path("/proc")) -> list[dict]:
     return result
 
 
-def capability_endpoint(argv: list[str]) -> bool:
-    if (
-        not argv
-        or re.fullmatch(r"python(?:[0-9]+(?:\.[0-9]+)*)?", Path(argv[0]).name) is None
-    ):
-        return False
-    for index, argument in enumerate(argv[1:], 1):
-        if argument == "-m":
-            return index + 1 < len(argv) and (
-                argv[index + 1] == "scripts.capabilities"
-                or argv[index + 1].startswith("scripts.capabilities.")
-            )
-        if argument.startswith("-m"):
-            return argument[2:] == "scripts.capabilities" or argument[2:].startswith(
-                "scripts.capabilities."
-            )
-        if argument == "-c" or argument == "-" or not argument.startswith("-"):
-            return Path(argument).parts[-3:] == (
-                "scripts",
-                "capabilities",
-                "__main__.py",
-            )
-        if argument in {"-W", "-X", "--check-hash-based-pycs"}:
-            # These consume a value; refuse ambiguous parsing rather than miss a module.
-            return any(
-                item == "scripts.capabilities"
-                or item.startswith("scripts.capabilities.")
-                for item in argv[index + 1 :]
-            )
-    return False
-
-
 def validate_originals(values: dict[str, bytes]) -> None:
     for name, data in values.items():
         value = json.loads(data)
@@ -261,14 +229,8 @@ def images(root: Path, deadline: float) -> dict[str, bytes]:
 
 
 def quiescent(values: dict[str, bytes], deadline: float) -> None:
-    """Establish supported endpoint and writer cohorts, without payload drain claims."""
+    """Establish actual registry-owner cohorts, without payload drain claims."""
     scopes = {}
-    peers = processes(deadline)
-    for peer in peers:
-        if capability_endpoint(peer["argv"]):
-            raise files.StoreError(
-                f"Live capability endpoint pid={peer['pid']} start={peer['start']}; loaded reader generation is unproved; conversion refused"
-            )
     snapshot = host.readonly_snapshot(deadline=deadline)
     allocation = host.inherit(os.environ, deadline=deadline)
     own_group = operation.process_group(os.getpid())
@@ -286,7 +248,7 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
                         or own_group.startswith(binding["group"] + "/")
                     )
                 ):
-                    for peer in peers:
+                    for peer in processes(deadline):
                         if peer["pid"] == os.getpid():
                             continue
                         try:

@@ -241,26 +241,12 @@ class ResourceConversionTests(unittest.TestCase):
         ):
             self.convert()
 
-    def test_live_unadmitted_capability_endpoint_refuses_before_pending_fence(
-        self,
-    ) -> None:
-        self.processes.return_value = [
-            {
-                "pid": 123,
-                "start": "456",
-                "argv": [
-                    "/different-checkout/.venv/bin/python",
-                    "-m",
-                    "scripts.capabilities",
-                ],
-            }
-        ]
-        with self.assertRaisesRegex(
-            files.StoreError, "Live capability endpoint pid=123 start=456"
-        ):
-            self.convert()
-        self.assertFalse((self.root / "format-transition.json").exists())
-        self.assertEqual(files.read(self.root / "activation.json")["version"], 2)
+    def test_idle_capability_server_does_not_block_registry_conversion(self) -> None:
+        # Endpoint identity is unrelated to acquired registry ownership. Ordinary
+        # conversion must not census arbitrary live servers or require restarts.
+        self.processes.side_effect = AssertionError("unrelated process census")
+        self.assertEqual(self.convert()["version"], 3)
+        self.processes.assert_not_called()
 
     def test_own_allocation_exemption_refuses_other_live_scope_children(self) -> None:
         self.processes.return_value = [
@@ -472,28 +458,6 @@ class ProcessCohortTests(unittest.TestCase):
             + (b"\0" if command else b"")
         )
         return path
-
-    def test_supported_entrypoints_are_identified_without_matching_script_arguments(
-        self,
-    ) -> None:
-        for command in (
-            ["/repo/.venv/bin/python", "-m", "scripts.capabilities"],
-            ["python3.14", "-u", "-m", "scripts.capabilities"],
-            ["python", "-mscripts.capabilities"],
-            ["python", "scripts/capabilities/__main__.py"],
-            ["python", "/repo/scripts/capabilities/__main__.py"],
-            ["python", "-X", "dev", "-m", "scripts.capabilities"],
-        ):
-            with self.subTest(command=command):
-                self.assertTrue(conversion.capability_endpoint(command))
-        for command in (
-            ["python", "-m", "scripts.tests", "scripts.capabilities"],
-            ["python", "-c", "print('scripts.capabilities')"],
-            ["python", "ordinary.py", "-m", "scripts.capabilities"],
-            ["other", "-m", "scripts.capabilities"],
-        ):
-            with self.subTest(command=command):
-                self.assertFalse(conversion.capability_endpoint(command))
 
     def test_proc_discovery_retains_live_exact_identity_and_ignores_dead_processes(
         self,
