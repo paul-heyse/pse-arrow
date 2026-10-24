@@ -43,7 +43,7 @@ def qualify_asan(normal: dict, archive_instrumented: bool, rust_instrumented: bo
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--mode", choices=("asan", "gdb"), default="asan")
+    parser.add_argument("--mode", choices=("asan", "gdb"), default="gdb")
     parser.add_argument("--build-timeout", type=float, default=1800)
     args = parser.parse_args()
     output = args.output.resolve()
