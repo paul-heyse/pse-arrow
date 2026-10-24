@@ -383,8 +383,17 @@ settled; the Rust/Python overlap journey now passes both actual peers and checks
 Pass, distinct databases, matching import and removed resources through retained owners.
 The owned restart journey also passes its distinct actual Rust/pytest invocations with
 authentic child association, complete drain and cleanup, and an observed stopped fresh service.
-C05 is complete; the Outcome records the external server cache fragmentation exposed by its
-installation, which is not repaired or hidden by this test-architecture scope.
+C05 is complete. The separately maintainer-authorized followup corrected the external server
+cache fragmentation exposed by restart acceptance: package selection now reuses verified
+completed installations across caller worktree/compiler/loader/cache contexts, without changing
+original build provenance. Ordinary setup/tests require an installed package; only explicit
+installation may compile. The real installed-artifact control passed all six caller variants
+with zero compiler captures/build invocations and unchanged original receipts. The followup
+source/context/supervisor controls passed 295 tests against zero failures; the owning
+[53c Outcome](53c-invocation-requirements-and-outcomes.md#verification-and-outcome--2026-10-24)
+records the evidence and the [substrate guide](../dev/surreal-substrate.md#installed-external-server-reuse)
+owns enduring operation. C01–C05 have no remaining implementation or selected acceptance work;
+whole-series acceptance remains with G01.
 
 Plan52i–52k retain FastMCP exposure, adaptation and host qualification. No second agent CLI,
 result authority, broad repository-health check or measured speed claim is introduced. A04 and
