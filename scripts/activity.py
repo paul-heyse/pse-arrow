@@ -20,14 +20,18 @@ import sys
 import time
 from pathlib import Path
 
+import msgspec
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import (  # noqa: E402 -- direct-script path routing
+    activity_watch,
     build_observation,
     host_admission,
     native_operation,
     pse_env,
+    pressure_observation,
     run_inspection,
 )
 
@@ -170,9 +174,26 @@ def build_processes(root: Path) -> list[tuple[int, str, str, str]]:
     return sorted(found)
 
 
+def unit_pressure(unit: dict[str, str]) -> pressure_observation.Sample:
+    """Link kernel facts to the same unit incarnation observed by the caller."""
+    sample = pressure_observation.sample(unit.get("ControlGroup", ""))
+    try:
+        after = native_operation.unit_observation(unit["unit"], deadline=time.monotonic() + 1)
+        if after.get("LoadState") == "not-found" or any(after.get(key) != unit.get(key) for key in ("InvocationID", "ControlGroup")):
+            raise ValueError("selected unit incarnation changed during pressure observation")
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        return pressure_observation.Sample("unavailable", None, sample.started_monotonic_ns, time.monotonic_ns(), time.time_ns(), {}, reason=str(error))
+    return sample
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="structured output")
+    parser.add_argument("--watch", action="store_true", help="bounded detached watch of one exact run, attempt or unit")
+    parser.add_argument("--cursor", help="resume derived watch cursor for the same exact selection")
+    parser.add_argument("--max-wait", type=float, default=activity_watch.MAX_WAIT, help="watch wait in seconds (0..30; default 30)")
+    parser.add_argument("--pressure", action="store_true", help="include host PSI and selected cgroup pressure/placement")
+    parser.add_argument("--cgroup", help="exact absolute kernel cgroup for --pressure")
     parser.add_argument(
         "--admission",
         action="store_true",
@@ -199,7 +220,49 @@ def main(argv: list[str] | None = None) -> int:
     if args.registry is not None and args.run is None:
         parser.error("--registry requires --run")
     selection = list(dict.fromkeys(args.unit)) if args.unit is not None else None
+    if args.cursor is not None and not args.watch:
+        parser.error("--cursor requires --watch")
+    if not 0 <= args.max_wait <= activity_watch.MAX_WAIT:
+        parser.error("--max-wait must be between 0 and 30 seconds")
+    if args.cgroup is not None and (not args.pressure or not args.cgroup.startswith("/") or ".." in Path(args.cgroup).parts):
+        parser.error("--cgroup requires --pressure and an exact absolute kernel cgroup")
+    if args.watch:
+        if sum((args.run is not None, args.attempt is not None, bool(selection))) != 1 or (selection is not None and len(selection) != 1) or args.owner is not None or args.admission:
+            parser.error("--watch requires exactly one --run, --attempt or --unit")
+        kind = "run" if args.run is not None else "attempt" if args.attempt is not None else "unit"
+        handle = args.run if args.run is not None else args.attempt if args.attempt is not None else selection[0]
+        selected = activity_watch.selection(kind, handle, args.registry)
+        try:
+            result = activity_watch.watch(selected, cursor=args.cursor, max_wait=args.max_wait)
+            pressure_unavailable = False
+            if args.pressure:
+                group = args.cgroup or result["snapshot"].get("unit", {}).get("ControlGroup")
+                if args.cgroup is None and kind == "unit" and result["snapshot"].get("unit") is not None:
+                    captured = pressure_observation.Capture(pressure_observation.sample(), unit_pressure({"unit": handle, **result["snapshot"]["unit"]}))
+                else:
+                    captured = pressure_observation.capture(group)
+                result["pressure"] = msgspec.to_builtins(captured)
+                pressure_unavailable = captured.host.status != "observed" or captured.selected.status != "observed"
+            print(json.dumps(result, indent=2))
+            return int(pressure_unavailable or result["snapshot"]["state"] in {"observation-unavailable", "observation-lost"})
+        except KeyboardInterrupt:
+            print(json.dumps({"mode": "detached-no-write", "state": "watcher-detached", "selection": selected, "workload_action": "none"}))
+            return 130
+        except ValueError as error:
+            parser.error(str(error))
     observed, errors = units(selection)
+    units_available = observed is not None and not errors
+    pressure = None
+    if args.pressure:
+        groups = [args.cgroup] if args.cgroup is not None else list(dict.fromkeys(unit["ControlGroup"] for unit in (observed or []) if unit.get("ControlGroup")))
+        host_pressure = pressure_observation.sample()
+        selected_pressure = {group: pressure_observation.sample(group) for group in groups} if args.cgroup is not None else {unit["ControlGroup"]: unit_pressure(unit) for unit in (observed or []) if unit.get("ControlGroup")}
+        pressure = {"host": msgspec.to_builtins(host_pressure), "selected": {group: msgspec.to_builtins(sample) for group, sample in selected_pressure.items()}, "selection_status": "selected" if groups else "no-selected-cgroup"}
+        if host_pressure.status != "observed":
+            errors.append("host pressure observation partial or unavailable; see pressure fields")
+        for group, sample in selected_pressure.items():
+            if sample.status != "observed":
+                errors.append(f"{group} pressure observation partial or unavailable; see pressure fields")
     explanation: dict[str, object] | None = None
     if (
         args.admission
@@ -262,7 +325,6 @@ def main(argv: list[str] | None = None) -> int:
                     "status": "unavailable",
                     "error": str(error),
                 }
-    units_available = observed is not None and not errors
     try:
         builds = build_processes(ROOT)
     except OSError as error:
@@ -298,6 +360,7 @@ def main(argv: list[str] | None = None) -> int:
                     "slice": selected,
                     "aggregate_limits": bounds,
                     "explanation": explanation,
+                    "pressure": pressure,
                 },
                 indent=2,
             )
@@ -307,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
     if explanation is not None:
         print(json.dumps(explanation, indent=2))
+    if pressure is not None:
+        print("Pressure and placement: " + json.dumps(pressure))
     if build_stages:
         print("Build observations: " + json.dumps(build_stages))
     print(

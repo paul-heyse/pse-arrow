@@ -182,8 +182,24 @@ class StorageHealthTests(unittest.TestCase):
         self.assertGreater(total, 0)
         self.assertEqual(record.host["filesystem_available_bytes"].status, "available")
         self.assertEqual(record.correspondence, "unknown")
+        self.assertIsNotNone(record.host_pressure)
+        self.assertEqual(record.host_pressure.identity.group, None)
+        self.assertIn("cpu.pressure", record.host_pressure.fields)
         self.assertFalse(self.state.exists())
         self.assertEqual(health.read(self.save(record)), record)
+
+    def test_pressure_serialization_refuses_different_service_cgroup(self) -> None:
+        from scripts import pressure_observation as pressure
+
+        record = fixture(self.state)
+        record.cgroup.pressure = pressure.Sample(
+            "partial", pressure.Identity(BOOT, "/owned/service", 1, 20), 10, 20, 150,
+            {"cpu.pressure": pressure.Reading("unavailable", reason="permission denied")},
+        )
+        self.assertEqual(health.read(self.save(record)), record)
+        record.cgroup.pressure.identity.inode = 21
+        with self.assertRaisesRegex(ValueError, "pressure differs"):
+            health.read(self.save(record))
 
     def test_failed_service_control_keeps_independent_host_observation(self) -> None:
         with (
