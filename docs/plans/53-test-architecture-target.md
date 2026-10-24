@@ -93,7 +93,7 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| P00 | done | [Coordinator](#p00) | Accepted target published in blueprint §24.1, revision 260 and validation/environment guides; C02/C04/F behavior remains planned |
+| P00 | done | [Coordinator](#p00) | Accepted target published in blueprint §24.1, revision 260 and validation/environment guides; C02/C04 delivered below; F remains planned |
 | A01 | done | [53a](53a-scientific-assurance-and-references.md#a01) | Tested: independent status inventory and all three local comparison controls; nine selected native-local tests pass |
 | A02 | done | [53a](53a-scientific-assurance-and-references.md#a02) | Tested: nine-feed regime journey and wrong-regime controls; solved countercurrent and unequal-pressure mixer; current PID consumer qualification remains A04 |
 | A03 | done | [53a](53a-scientific-assurance-and-references.md#a03) | Tested: independent integrated PR root/layout/mixed Hessian and two-point exact/approximate nonlinear publication/readback |
@@ -103,10 +103,10 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | B03 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; seven support-enabled Rust and five support-absent Python/local controls pass with complete reconciled reports |
 | B04 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b04) | I05 resolved; nineteen families feed runtime/affected/archive consumers; migrated scientific and runtime controls and 162 tooling controls pass |
 | B05 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b05) | Compatible revision reuse and context/owner/budget refusal controls pass; two local Python cases pass with no-allocation guards through the existing result composer |
-| C01 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c01) | One invocation/config/profile/overlay interpretation with actual tool selection |
-| C02 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
-| C03 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
-| C04 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
+| C01 | done | [53c](53c-invocation-requirements-and-outcomes.md#c01) | One invocation/config/profile/overlay interpretation with actual tool selection |
+| C02 | done | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
+| C03 | done | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
+| C04 | done | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
 | C05 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
 | D01 | planned | [53d](53d-build-discovery-and-generation.md#d01) | Nextest authenticated by existing owner; consumed generation package inputs complete |
 | D02 | planned | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
@@ -137,7 +137,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I04 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned reasons fit §23.2; migrated constructors/forwarders preserve ValidationInvariant, ModelingContract, declaration and real source location. Codec/changed-prose controls pass; untouched contracts explicitly remain Unclassified. |
 | I05 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared families use real bounded package/P0/parser closure, exact data/source bytes, directory membership/absence and explicit synthetic substitutions. Drift refuses publication; unknown affected edges broaden. Full sufficient closures adopted without a minimality claim. |
 | I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Establish extension installer/build/stub/native consumed-input and binary-identity domain, mutable boundaries and unknown fallback. Reuse only known complete premises; otherwise prepare conservatively. |
-| I07 | open | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Inventory dormant Python Rust assertions and optional peer/restart/CLI claims; select active equivalent public coverage and real role routes, or explicitly retire unsupported claims. Required supported claims cannot silently disappear. |
+| I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; live peer acceptance remains C05. |
 | I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Identify true service-quiet versus database-local claims; select once-per-invocation owned service or justified narrower assertion and demonstrate two-run isolation. Retain protection until then; no blanket capacity relaxation. |
 | I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Establish selected-header/receipt reader and protected-origin inventory plus bounded stored-format transition. Choose authenticated migration or explicit reuse refusal with protected inspection. No missing record becomes empty/pass; no permanent parallel production path. |
 
@@ -173,21 +173,21 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-009](../design_review/test-audit/doubles-and-coupling.md#dta-009) | S04 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Existing counters prove no new body admissions; one complete private query observer handles other claims. Cold/invalidation and missing/truncated controls pass; fresh comparison remains. |
 | [DTA-010](../design_review/test-audit/doubles-and-coupling.md#dta-010) | S04 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | SourceBody::prepare replaces ten common math/backend construction paths; caller-owned attribution/cancel/residual differences remain. Targeted math/backend controls pass. |
 | [DTA-011](../design_review/test-audit/doubles-and-coupling.md#dta-011) | S06 | resolved | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Participation/support scopes documented and separated. Seven support-enabled Rust controls and three complementary support-absent Python reader/drop journeys pass against the current admitted service. |
-| [DTA-012](../design_review/test-audit/evidence-routes-and-execution.md#dta-012) | S06 | scheduled | [C04](53c-invocation-requirements-and-outcomes.md#c04) | RC01 public zero iff complete Pass; zero child/missing report nonzero, raw child and cleanup retained separately. |
+| [DTA-012](../design_review/test-audit/evidence-routes-and-execution.md#dta-012) | S06 | resolved | [C04](53c-invocation-requirements-and-outcomes.md#c04) | RC01 public zero iff complete Pass; zero child/missing report nonzero, raw child and cleanup retained separately. |
 | [DTA-013](../design_review/test-audit/evidence-routes-and-execution.md#dta-013) | S03 | scheduled | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Active Python assertions replace inactive Rust bodies; selected component/restart peers have real roles or obsolete unsupported claim retires. |
-| [DTA-014](../design_review/test-audit/evidence-routes-and-execution.md#dta-014) | S06 | scheduled | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Separate executed opt-in CLI result; selected missing prerequisite fails; API-only scope remains substantive. |
-| [DTA-015](../design_review/test-audit/evidence-routes-and-execution.md#dta-015) | S03, S06 | scheduled | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Managed affected/native/Python/setup requirements/environment/association/composer agree; C04 outcomes; bare route limits explicit. |
-| [DTA-016](../design_review/test-audit/evidence-routes-and-execution.md#dta-016) | S03, S09 | scheduled | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog and before-effects guard catch stale/missing scheduling facts after rename/new case; F01 consumes RC02. |
-| [DTA-017](../design_review/test-audit/evidence-routes-and-execution.md#dta-017) | S05 | scheduled | [C03](53c-invocation-requirements-and-outcomes.md#c03) | Installer/codegen/managed actual normal/build/dev target/host Arrow leaves verified; pure/unknown controls; stale metadata/check deleted. |
+| [DTA-014](../design_review/test-audit/evidence-routes-and-execution.md#dta-014) | S06 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Separate executed opt-in CLI result; selected missing prerequisite fails; API-only scope remains substantive. |
+| [DTA-015](../design_review/test-audit/evidence-routes-and-execution.md#dta-015) | S03, S06 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Managed affected/native/Python/setup requirements/environment/association/composer agree; C04 outcomes; bare route limits explicit. |
+| [DTA-016](../design_review/test-audit/evidence-routes-and-execution.md#dta-016) | S03, S09 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog and before-effects guard catch stale/missing scheduling facts after rename/new case; F01 consumes RC02. |
+| [DTA-017](../design_review/test-audit/evidence-routes-and-execution.md#dta-017) | S05 | resolved | [C03](53c-invocation-requirements-and-outcomes.md#c03) | Installer/codegen/managed actual normal/build/dev target/host Arrow leaves verified; pure/unknown controls; stale metadata/check deleted. |
 | [DTA-018](../design_review/test-audit/execution-efficiency.md#dta-018) | S04 | resolved | [B05](53b-test-helpers-inputs-and-fixtures.md#b05) | Compatible immutable revision reuse and two demonstrated local Python migrations pass. Fresh databases, schema/issuer identity, connections and drain controls remain; no blanket template. |
 | [DTA-019](../design_review/test-audit/evidence-routes-and-execution.md#dta-019) | S04 | resolved | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Actual consumer inventory removed unused FaultStore/FaultPlan/CountingStore, execution/introspection helpers, self-tests and dependencies. NativeFixture/factory/capture and independent fault controls remain. |
 | [DTA-020](../design_review/test-audit/oracles-and-acceptance.md#dta-020) | S01 | resolved | [A03](53a-scientific-assurance-and-references.md#a03) | Nonlinear active-constraint sensitivity/value Hessian and covariance publication/readback: exact 1/7 vs GN 1/5, second point 1/25 vs 1/17. |
 | [DTA-021](../design_review/test-audit/oracles-and-acceptance.md#dta-021) | S01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | Solved countercurrent and unequal-pressure min-vs-max/mean cases; PID nonzero-Td dynamics retained and generator handled by A04. |
-| [DTA-022](../design_review/test-audit/test-execution-system.md#dta-022) | S03, S05 | scheduled | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Single aliases/env/default/custom-config/profile/report/association interpretation; opaque arguments preserved, unsupported scope refuses. |
-| [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | S03 | scheduled | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual selected campaign-role correspondence catches lost member in nonempty union; obsolete recipe references removed. |
+| [DTA-022](../design_review/test-audit/test-execution-system.md#dta-022) | S03, S05 | resolved | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Single aliases/env/default/custom-config/profile/report/association interpretation; opaque arguments preserved, unsupported scope refuses. |
+| [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | S03 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual selected campaign-role correspondence catches lost member in nonempty union; obsolete recipe references removed. |
 | [DTA-024](../design_review/test-audit/test-execution-system.md#dta-024) | S05, S08 | scheduled | [D01](53d-build-discovery-and-generation.md#d01) | Existing tool identity extended to nextest; consumed selected package/fixture generation inputs included; Plan52 combo resume preserved. |
-| [DTA-025](../design_review/test-audit/evidence-routes-and-execution.md#dta-025) | S06 | scheduled | [C04](53c-invocation-requirements-and-outcomes.md#c04) | Authenticated typed setup failure and assertion-not-reached, no panic parsing; exact-generation preflight bounds repeats without hiding failure. |
-| [DTA-026](../design_review/test-audit/test-execution-system.md#dta-026) | S03 | scheduled | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Shared pure interpretation and explicit performing composition; C02/C04 migrate consumers/delete reciprocal duplicated meaning, not file-count cleanup. |
+| [DTA-025](../design_review/test-audit/evidence-routes-and-execution.md#dta-025) | S06 | resolved | [C04](53c-invocation-requirements-and-outcomes.md#c04) | Authenticated typed setup failure and assertion-not-reached, no panic parsing; exact-generation preflight bounds repeats without hiding failure. |
+| [DTA-026](../design_review/test-audit/test-execution-system.md#dta-026) | S03 | resolved | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Shared pure interpretation and explicit performing composition; C02/C04 migrate consumers/delete reciprocal duplicated meaning, not file-count cleanup. |
 | [DTA-027](../design_review/test-audit/doubles-and-coupling.md#dta-027) | S02 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared family roots/projections derive real package/import/data closure once; actual Rust/Python/conformance/runtime consumers use it. Authentic transport and bounded synthetic meanings remain distinct. |
 | [DTA-028](../design_review/test-audit/doubles-and-coupling.md#dta-028) | S01 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned typed reasons survive constructors, forwarding and diagnostic codec with declaration/code/actual location. Changed display wording does not own semantic assertions; targeted controls pass. |
 | [DTA-029](../design_review/test-audit/execution-efficiency.md#dta-029) | S04 | resolved | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | canonical-tests selects participation; test-support selects instrumentation/lifetime. Support-enabled Rust and support-absent Python reader/drop selections pass; D02 retains these intentional variants. |
@@ -366,16 +366,24 @@ measured execution-speed claim is introduced. A04 and C–G keep their existing 
 
 ## C01–C05 execution checkpoint — 2026-10-24
 
-The operator authorized the complete 53c scope with FastMCP-aligned boundaries.
-Plan52i–52k own exposure, interface adaptation and assembled host qualification;
-53c owns native test selection, effect requirements and reconciled assurance.
-No second agent CLI or result authority is introduced. Native runner options and
-independently useful low-level executors retain their existing owners.
+**Implemented and Tested — C01–C04:** one shared native/Python interpretation feeds tool
+selection, structured TOML report configuration, actual requirements, before-effects managed
+fixture admission and reconciled complete-Pass exit. Installer/codegen and strict producer
+selection prove actual target/host Arrow leaves. Stale metadata/governance checks and duplicate
+parsers are removed. The focused 318-test tooling matrix, actual correctness-extension install,
+native setup payload control and selected setup subprocess pass against zero failures.
+[53c's Outcome](53c-invocation-requirements-and-outcomes.md#verification-and-outcome--2026-10-24)
+records commands and limits. Required campaign roles survive the observer handoff.
 
-Execution starts with shared pure interpretation and structured report copies,
-then actual catalogue/requirement admission and reconciled terminal semantics.
-Arrow installer/codegen consumers and active boundary/optional peer migrations
-are isolated implementation assignments; integrated acceptance stays here.
-The selected restart capability will receive an owned real lifecycle driver.
-Dormant diagnostic combinations without a production Python producer receive an
-explicit unreachable-case disposition, while real public paths retain evidence.
+**Implemented and Tested — C05, live peer acceptance pending:** four selected public Python
+cases pass, including both B05 effect-free cases; five substantive API-only cases and two
+separate operator cases pass. The executor is captured before another Cargo feature build can
+replace its target alias. I07's diagnostic coverage disposition and supported peer routes are
+settled; the Rust/Python overlap journey now passes both actual peers and checks complete
+Pass, distinct databases, matching import and removed resources through retained owners.
+The live owned restart journey remains in progress behind its source-server prerequisite.
+
+Plan52i–52k retain FastMCP exposure, adaptation and host qualification. No second agent CLI,
+result authority, broad repository-health check or measured speed claim is introduced. A04 and
+D–G retain their separate scope. The three clean implementation worktrees and their branches
+were removed after verifying every patch was integrated into main.

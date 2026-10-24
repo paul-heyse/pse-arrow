@@ -57,7 +57,7 @@ Use C01 selected identity and C02 association for the selected managed route, bu
 <a id="c05"></a>
 ### C05 — Explicit active boundary and optional evidence scope
 
-Resolve I07 for inactive/optional bodies: the Rust `pse-py` harness is intentionally disabled for the cdylib extension link boundary. Inventory its inactive assertions, add equivalent public Python-boundary tests in actual selected scope, then delete the dead Rust bodies. Enabling a dormant harness alone is not the target. Preserve each boundary guarantee and test category; do not copy low-level internal assertions into unrelated Python tests.
+Resolve I07 for inactive/optional bodies: the Rust `pse-py` harness is intentionally disabled for the cdylib extension link boundary. Inventory its inactive assertions, test actual public Python-boundary producers in selected scope and explicitly dispose synthetic combinations without a public producer, then delete the dead Rust bodies. Enabling a dormant harness alone is not the target. Preserve lower schema/runtime/codec coverage and test categories; do not manufacture production APIs or claim equivalent public coverage for unreachable combinations.
 
 Extract `qualify_operator` CLI evidence into a separately executed opt-in case/driver result. The substantive API-only path remains meaningful; if CLI is selected and its prerequisite is absent, report failure for that explicit scope. Add explicit component peer routing for pytest context overlap, rather than a broad unittest discovery rewrite. Required external-restart peer scope gets a real selected route, or retire the obsolete body/claim with a reason if the capability is unsupported. No automatic optional-feature sweep. C02 owns role correspondence so a required selected peer cannot quietly disappear.
 
@@ -84,21 +84,113 @@ combinations with no public producer without claiming equivalent public coverage
 Optional operator evidence is independently selected and reported; its existing
 native executor is implementation evidence, not FastMCP host qualification.
 
-## Execution checkpoint — 2026-10-24
+## Verification and Outcome — 2026-10-24
 
-The shared native/Python interpreter, structured TOML report copies, catalogue-derived
-requirements, selected-role checks, managed fixture guards and outcome reconciliation are
-integrated. Installer/codegen and strict producer build selection now prove actual Arrow
-leaves. Stale metadata/governance presence checks and inactive Rust diagnostic bodies are
-removed. Optional operator cases and component overlap/restart drivers have explicit routes.
+### What was built
 
-Known empty selection is a persisted not-run refusal, not uncollected scope. Fixture
-preparation failure retains selected scope with incomplete assurance before test launch.
-Typed Rust setup observations retain unknown assertion reach; Python pre-yield failures
-retain not-reached. Passed negative controls remain passed. Frozen assurance is preserved
-when later projection or cleanup fails; managed zero still requires completed reconciliation.
+**Implemented:** C01–C04 share a pure Cargo/nextest/pytest interpretation, selected-profile
+TOMLKit report copy, authentic catalogues and one requirement owner. Managed fixture/effect
+admission checks demand before effects; required campaign roles cannot disappear behind a
+nonempty selection. Setup executes the actual selected unittest names in its child. The
+installer, strict producer and codegen adapters prove actual Arrow target/host leaves and
+retain the selected Maturin/Cargo build. Stale validation metadata, its presence test and
+reciprocal duplicate parsers are removed.
 
-The focused contract suite passed 331 tests against zero failures before the final native
-admission/selection joins; a subsequent 85-test changed-contract slice passed. Actual native
-compilation and public Python/operator/restart/overlap journeys are the remaining acceptance.
-No broad repository-health or benchmark campaign is selected.
+**Implemented:** managed zero requires complete reconciled Pass. Raw child exit, known-empty
+not-run refusal, preparation failure, authenticated typed setup facts, assertion reach,
+cancellation, frozen assurance, authentic peer identity and independent cleanup are retained
+through the established invocation/result owners. Rust setup errors report reach unknown;
+Python pre-yield failures report not-reached. Passed intentional negative controls remain Pass.
+No panic-text parsing, production IPC guard around direct solver calls, global governor,
+second agent CLI or parallel result store is introduced. Plan53f owns scheduler refinement;
+Plan52i–52k own the single FastMCP surface and its assembled qualification.
+
+**Implemented and Tested:** C05 removes the two inactive `pse-py` diagnostic bodies without
+enabling the cdylib harness. Actual Python settings/configuration and native route-refusal
+projections execute. No public custom registry produces the synthetic SchemaUnknownReference
+case; the synthetic NativeReuse report combining source/revision, physical/missing observations
+and WorkflowPanic likewise has no public producer in this scope. Existing lower schema,
+runtime taxonomy and codec/source/physical coverage is retained; equivalent public coverage
+for those combinations is not claimed. A KINSOL layout-change sequence legitimately succeeds;
+POUNCE-convex RequireReuse instead reports a real route-admission refusal. The final test
+asserts that actual public contract. No test-only production constructor was added.
+
+**Implemented and Tested:** operator graph/query evidence has two independently selected
+opt-in roles. The existing database-fixture consumer runs substantive API checks first and
+then the separate operator driver; missing selected prerequisites fail. Capturing the selected
+executor through the existing initializer owner prevents Cargo alias replacement. The
+context-overlap pytest peer is component scoped, with explicit native-context and role demand.
+The restart driver selects native compiler inputs locally while retaining the parent runtime
+library/source-installer context; its fresh nonresident service never grants authority over
+the selected main service. Actual overlap acceptance passes; restart acceptance remains pending below.
+
+### Verification
+
+All passing checks below target zero failures; earlier failed/refused attempts remain failed
+records and do not establish acceptance. Local development mode is used, with explicit actual
+Arrow force-validation for correctness build/test closures and native libraries where needed.
+
+- **Tested:** `scripts/pse-env -- .venv/bin/python -m unittest` with the 18 scoped modules
+  `test_test_invocation`, `test_native_tests`, `test_test_run`, `test_test_resources`,
+  `test_test_requirements`, `test_python_tests`, `test_scientific_inputs`, `test_setup_report`,
+  `test_arrow_validation`, `test_python_extension`, `test_codegen_builds`,
+  `test_producer_deployment`, `test_recipe_arguments`, `test_validation`, `test_run_inspection`,
+  `test_regression_experiments`, `test_select` and `test_canonical_boundary_run`, each under
+  `scripts.tests`: **318 passed**. Controls cover aliases/profiles/configuration/opaque arguments,
+  unsupported/empty selection, actual declarations/roles, admission before allocation,
+  validation leaves, typed setup, incomplete reports, cancellation, terminal immutability,
+  cleanup/projection failure and authentic peers. Archive-consumer controls separately passed 13.
+- **Tested:** `just py-sync-correctness auto` installed the actual force-validated native extension
+  and regenerated matching stubs. Actual graph-only installer/codegen selection controls prove
+  the selected Maturin normal/build/dev and host/target closures without executing a broad campaign.
+- **Tested:** `just unit-package pse-operations setup_failure_payload --execution-effects
+  native-local --features pse-operations/canonical-tests`: **1 passed**, 358 filtered out.
+  A real selected setup subprocess through `setup_report.execute` passed two invocation controls.
+- **Tested:** `scripts/pse-env --resource-class build --native -- .venv/bin/python -m
+  scripts.python_tests` selected the settings diagnostic, native route-refusal diagnostic,
+  capability-discovery hard-cut and canonical-constructor timeout cases, with `-m 'unit or
+  component' -n 0` and a fresh `--basetemp`: **4 passed**. Invocation
+  `68e16caff66940b4ad35a35d42708538` is complete Pass with four reported subjects; the two B05
+  cases retain local/effect-free requirements. No-allocation guards remain enabled.
+- **Tested:** `scripts/pse-env --resource-class build --native -- just unit-package pse-operations
+  'test(canonical_candidates_inspection) | test(canonical_graph_explanation)' --features
+  pse-operations/canonical-tests`: **5 passed**, 354 filtered out. Authentic invocation
+  `07c21df0b71948e688834f692805a623` supplies the independent API-only result.
+- **Tested:** the explicit `canonical_boundary_run operator` route with the current
+  canonical-tools executor passed **2 tests**, 436 filtered out, in invocation
+  `e4f184b396f144d795b643b8a4f58b47`. Both operator roles were actually selected.
+- **Tested:** the overlap driver prepared and ran in one admitted `exclusive-observer` lifetime
+  with a fresh temporary root. Its actual Rust and pytest component peers each passed one
+  case, with distinct databases, matching imported Python artifact, complete Pass and removed
+  resources. Authentic invocations `7521e4e56a894f8a98f8685a7cbac06e` and
+  `36f2215a45b64aa99d94a7728bcbc429` carry both context-overlap roles. The composed result is
+  `build/p53c-context-overlap-20261024-accepted/result.json`. Thirteen driver controls pass
+  after fixing the disposed-resource reader; the earlier 318-test matrix remains its own scope.
+- **Not yet accepted:** the live restart is waiting for the shared source-server installation
+  owned by another worktree.
+  Earlier source/environment drift, missing runtime/temp-directory prerequisites and occupied
+  observer attempts are retained as refused/failed evidence, not converted to Pass.
+- **Not run:** whole-repository hygiene, full suites/powersets, benchmark/reference campaigns,
+  Plan52 FastMCP host qualification and 53g assembled-series acceptance, per the operator's
+  functional-scope boundary. No measured speed improvement is claimed.
+
+### A mistake made and corrected
+
+The first new diagnostic case omitted authored starts and expected a KINSOL structural
+reuse failure that the real public sequence does not emit. Actual execution exposed both
+premises; it was replaced by the real route-refusal producer. Live operator execution also
+exposed loss of required roles at the observer handoff and replacement of the canonical-tools
+alias by another Cargo feature build. The composer now carries roles, and the existing
+initializer capture preserves the selected executable before preparation. The overlap driver
+also read a removed live projection after both actual peers passed; it now composes retained
+resource entries and frozen results, including each peer's selected role and complete Pass.
+
+### Deviations from the plan, deliberate
+
+Public diagnostics cover real producers rather than manufacturing equivalents for synthetic
+inactive combinations. Restart is activated through a real owned disposable service; it is
+not retired and it does not reset the selected service. Rust helper reach stays unknown where
+an error return alone cannot prove assertion-not-reached. Existing scheduling barriers remain
+conservative for F01/F02 to refine; this scope does not become a global effect interception or
+provenance/benchmark campaign. The companion remains retained for the active coordinator and
+D/F/G consumers; enduring operation is in the validation guide and blueprint §24.1.
