@@ -195,7 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.coverage is not None:
         from scripts.coverage_correspondence import inspect
-        result["coverage"] = inspect(args.coverage, args.base)
+        try:
+            result["coverage"] = inspect(args.coverage, args.base)
+        except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError) as error:
+            result["coverage"] = {
+                "status": "unavailable", "error": str(error),
+                "selection": "conservative dependency reach remains authoritative; coverage never omits tests",
+            }
     if args.json:
         print(json.dumps(result, sort_keys=True))
     else:
