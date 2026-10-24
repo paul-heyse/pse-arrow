@@ -117,7 +117,10 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             families = {spec.id: spec.family for spec in specs}
             self.assertEqual(families["navigation_hover"], "language-navigation")
             self.assertEqual(families["navigation_rename_preview"], "controlled-edits")
-            self.assertEqual(families["edit_preview_read"], "controlled-edits")
+            for operation in (
+                "edit_preview_read", "edit_preview_status", "edit_preview_release"
+            ):
+                self.assertEqual(families[operation], "controlled-edits")
             self.assertNotIn(
                 "preview", tools["edit_preview_apply"].parameters["properties"]
             )

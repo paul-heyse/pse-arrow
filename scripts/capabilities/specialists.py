@@ -14,11 +14,12 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
-from threading import RLock
+from threading import Lock, RLock
 from typing import TYPE_CHECKING, Annotated, Generic, Literal, TypeVar
 from urllib.parse import unquote, urlsplit
 
@@ -34,7 +35,7 @@ from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator
     from contextlib import AbstractAsyncContextManager
 
     from mcp.types import Tool as MCPTool
@@ -132,6 +133,39 @@ def refusal(operation: str, error: Exception) -> ToolError:
             }
         )
     )
+
+
+class PreviewAvailability(Contract):
+    preview_sha256: Digest
+    available: bool
+    admitted: Annotated[int, Field(ge=0)]
+    reconciliation_required: bool
+    releasable: bool
+
+
+class PreviewRetention(Contract):
+    retained_count: Annotated[int, Field(ge=0)]
+    retained_bytes: Annotated[int, Field(ge=0)]
+    count_capacity: Annotated[int, Field(ge=1)]
+    byte_capacity: Annotated[int, Field(ge=1)]
+
+
+class PreviewStatus(PreviewRetention):
+    selected: PreviewAvailability | None
+
+
+class PreviewRelease(PreviewRetention):
+    preview_sha256: Digest
+    status: Literal["released", "unavailable"]
+
+
+class PreviewWork:
+    """Only retained handles have state; serialized work never holds the owner lock."""
+
+    def __init__(self) -> None:
+        self.lock = Lock()
+        self.admitted = 0
+        self.reconciliation_required = False
 
 
 class PreviewCapacityError(ValueError):
@@ -270,10 +304,11 @@ class Specialists:
         self._preview_byte_capacity = preview_byte_capacity
         self._previews: dict[str, bytes] = {}
         self._preview_bytes = 0
+        self._preview_work: dict[str, PreviewWork] = {}
         self._preview_lock = RLock()
 
     def retain_preview(self, preview: dict) -> dict:
-        """Keep exact immutable bytes until endpoint close; never evict issued handles."""
+        """Keep exact immutable bytes until explicit release or endpoint close; never evict."""
         if semantic_edits.validate(preview).resolve() != self.root:
             raise ValueError("preview belongs to another checkout")
         # Match semantic_edits.reconcile's preview_sha256, including its JSON encoding.
@@ -296,6 +331,7 @@ class Specialists:
                         f"new preview requires {len(original)} bytes"
                     )
                 self._previews[digest] = original
+                self._preview_work[digest] = PreviewWork()
                 self._preview_bytes += len(original)
         return self.preview_summary(digest, preview)
 
@@ -311,12 +347,139 @@ class Specialists:
                 raise ValueError(
                     "unknown edit preview digest for this endpoint; recreate and review it here"
                 )
-            if hashlib.sha256(original).hexdigest() != preview_sha256:
-                raise ValueError("retained edit preview digest mismatch")
+        if hashlib.sha256(original).hexdigest() != preview_sha256:
+            raise ValueError("retained edit preview digest mismatch")
         preview = json.loads(original)
         if semantic_edits.validate(preview).resolve() != self.root:
             raise ValueError("preview belongs to another checkout")
         return preview
+
+    @staticmethod
+    def _validate_digest(preview_sha256: str) -> None:
+        if not re.fullmatch(r"[a-f0-9]{64}", preview_sha256):
+            raise ValueError(
+                "preview digest must be exactly 64 lowercase hexadecimal characters"
+            )
+
+    def _retention(self) -> dict[str, int]:
+        # Caller holds the short owner lock.
+        return {
+            "retained_count": len(self._previews),
+            "retained_bytes": self._preview_bytes,
+            "count_capacity": self._preview_capacity,
+            "byte_capacity": self._preview_byte_capacity,
+        }
+
+    def preview_status(self, preview_sha256: str | None = None) -> PreviewStatus:
+        if preview_sha256 is not None:
+            self._validate_digest(preview_sha256)
+        with self._preview_lock:
+            selected = None
+            if preview_sha256 is not None:
+                work = self._preview_work.get(preview_sha256)
+                available = not self.closed and preview_sha256 in self._previews
+                selected = PreviewAvailability(
+                    preview_sha256=preview_sha256,
+                    available=available,
+                    admitted=work.admitted if work is not None else 0,
+                    reconciliation_required=(
+                        work.reconciliation_required if work is not None else False
+                    ),
+                    releasable=(
+                        available
+                        and work is not None
+                        and not work.admitted
+                        and not work.reconciliation_required
+                    ),
+                )
+            return PreviewStatus(**self._retention(), selected=selected)
+
+    def release_preview(self, preview_sha256: str) -> PreviewRelease:
+        self._validate_digest(preview_sha256)
+        with self._preview_lock:
+            original = self._previews.get(preview_sha256)
+            if original is None or self.closed:
+                status = "unavailable"
+            else:
+                work = self._preview_work[preview_sha256]
+                if work.admitted or work.reconciliation_required:
+                    raise ValueError(
+                        "preview release refused while work is admitted or reconciliation is required"
+                    )
+                del self._previews[preview_sha256]
+                del self._preview_work[preview_sha256]
+                self._preview_bytes -= len(original)
+                status = "released"
+            return PreviewRelease(
+                **self._retention(), preview_sha256=preview_sha256, status=status
+            )
+
+    @contextmanager
+    def _preview_operation(
+        self, preview_sha256: str
+    ) -> Iterator[tuple[dict, PreviewWork]]:
+        self._validate_digest(preview_sha256)
+        with self._preview_lock:
+            if self.closed or preview_sha256 not in self._previews:
+                raise ValueError("unknown edit preview digest for this endpoint")
+            work = self._preview_work[preview_sha256]
+            # Admission precedes waiting for the per-handle lock. Release cannot
+            # remove the original digest while an operation is queued or running.
+            work.admitted += 1
+        try:
+            with work.lock:
+                yield self.retained_preview(preview_sha256), work
+        finally:
+            # Runs in the synchronous effect owner's thread, after actual return,
+            # even when a request awaiting that thread has been cancelled.
+            with self._preview_lock:
+                work.admitted -= 1
+
+    @staticmethod
+    def _exhaustive_classification(
+        preview_sha256: str, preview: dict, result: dict
+    ) -> bool:
+        """Release settlement concerns observation, not semantic `complete` success."""
+        if result.get("preview_sha256") != preview_sha256:
+            return False
+        edited = {file["path"] for file in preview["files"]}
+        basis = set(preview["basis"]) - edited
+        for key, expected, states in (
+            ("files", edited, {"unchanged", "applied", "diverged", "missing"}),
+            ("basis", basis, {"unchanged", "diverged", "missing"}),
+        ):
+            rows = result.get(key)
+            if not isinstance(rows, list) or len(rows) != len(expected):
+                return False
+            if any(
+                not isinstance(row, dict) or row.get("state") not in states
+                for row in rows
+            ):
+                return False
+            if {row.get("path") for row in rows} != expected:
+                return False
+        return True
+
+    def apply_preview(self, preview_sha256: str, receipt: str) -> dict:
+        with self._preview_operation(preview_sha256) as (preview, work):
+            with self._preview_lock:
+                work.reconciliation_required = True
+            destination = semantic_edits.owned_path(
+                self.root, receipt, allow_missing=True
+            )
+            result = semantic_edits.apply(preview, destination)
+            if self._exhaustive_classification(preview_sha256, preview, result):
+                with self._preview_lock:
+                    work.reconciliation_required = False
+            return result
+
+    def reconcile_preview(self, preview_sha256: str) -> dict:
+        with self._preview_operation(preview_sha256) as (preview, work):
+            result = semantic_edits.reconcile(preview)
+            if self._exhaustive_classification(preview_sha256, preview, result):
+                with self._preview_lock:
+                    work.reconciliation_required = False
+            return result
 
     @staticmethod
     def file_summary(file: dict, index: int) -> dict:
@@ -347,7 +510,7 @@ class Specialists:
             if len(preview["files"]) > PREVIEW_SUMMARY_FILES
             else None,
             "detail_operation": "edit_preview_read",
-            "lifetime": "Exact handle retained by this endpoint until it closes; reconnecting creates a new owner.",
+            "lifetime": "Exact handle retained by this endpoint until explicit release or close; reconnecting creates a new owner.",
         }
 
     def read_preview(
@@ -613,6 +776,7 @@ class Specialists:
         with self._preview_lock:
             self.closed = True
             self._previews.clear()
+            self._preview_work.clear()
             self._preview_bytes = 0
         for connection in (*self.languages.values(), self.database):
             if connection is not None:
@@ -981,7 +1145,7 @@ def bindings(
         owned: Owned,
         source_sha256: Digest | None = None,
     ) -> ReadResult:
-        """Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live only until this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage."""
+        """Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live until explicit release or this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage."""
         return await read(
             "navigation_rename_preview",
             preview_result(
@@ -1010,7 +1174,7 @@ def bindings(
         kind_filter: ActionKind | None = None,
         source_sha256: Digest | None = None,
     ) -> ReadResult:
-        """Retain one complete code-action preview and return its endpoint-lifetime digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings."""
+        """Retain one complete code-action preview and return its endpoint-owned digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings."""
         arguments = {
             "file_path": file_path,
             "start_line": start_line,
@@ -1039,7 +1203,7 @@ def bindings(
         offset: PreviewOffset = 0,
         limit: PreviewLimit = PREVIEW_TEXT_CHARACTERS,
     ) -> ReadResult:
-        """Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire when it closes; no source read, edit, server acquisition or handle renewal occurs."""
+        """Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire on explicit release or close; no source read, edit, server acquisition or handle renewal occurs."""
         try:
             return bounded(
                 owner.read_preview(preview_sha256, file_index, side, offset, limit),
@@ -1048,16 +1212,27 @@ def bindings(
         except (ValueError, OSError) as error:
             raise refusal("edit_preview_read", error) from error
 
+    def edit_preview_status(preview_sha256: Digest | None = None) -> PreviewStatus:
+        """Inspect this endpoint's retained count/bytes and capacities, optionally one exact handle's availability and release blockers. No source bodies, source reads, edits, server acquisition or handle renewal."""
+        try:
+            return owner.preview_status(preview_sha256)
+        except (ValueError, OSError) as error:
+            raise refusal("edit_preview_status", error) from error
+
+    def edit_preview_release(preview_sha256: Digest) -> PreviewRelease:
+        """Explicitly release this endpoint's exact retained handle and reclaim its capacity. Unknown, foreign and already released digests are unavailable. Refuse admitted work or required reconciliation. Never applies, rolls back or declares an edit complete; siblings are preserved."""
+        try:
+            return owner.release_preview(preview_sha256)
+        except (ValueError, OSError) as error:
+            raise refusal("edit_preview_release", error) from error
+
     def edit_preview_apply(preview_sha256: Digest, receipt: str) -> ReadResult:
-        """Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire when the endpoint closes. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority."""
+        """Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire on explicit release or endpoint close. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority."""
         preview = None
         try:
             preview = owner.retained_preview(preview_sha256)
-            destination = semantic_edits.owned_path(
-                owner.root, receipt, allow_missing=True
-            )
             return bounded(
-                semantic_edits.apply(preview, destination), "edit_preview_apply"
+                owner.apply_preview(preview_sha256, receipt), "edit_preview_apply"
             )
         except (ValueError, OSError) as error:
             if preview is not None:
@@ -1076,10 +1251,10 @@ def bindings(
             raise refusal("edit_preview_apply", error) from error
 
     def edit_preview_reconcile(preview_sha256: Digest) -> ReadResult:
-        """Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire when the endpoint closes. Never writes source or reacquires a server."""
+        """Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire on explicit release or endpoint close. Never writes source or reacquires a server."""
         try:
             return bounded(
-                semantic_edits.reconcile(owner.retained_preview(preview_sha256)),
+                owner.reconcile_preview(preview_sha256),
                 "edit_preview_reconcile",
             )
         except (ValueError, OSError) as error:
@@ -1171,6 +1346,8 @@ def bindings(
         (navigation_rename_preview, "editing"),
         (navigation_action_preview, "editing"),
         (edit_preview_read, "editing"),
+        (edit_preview_status, "editing"),
+        (edit_preview_release, "editing"),
         (edit_preview_apply, "editing"),
         (edit_preview_reconcile, "editing"),
         (database_select, "integration"),
@@ -1181,13 +1358,13 @@ def bindings(
     tools: dict[str, Tool] = {}
     specs: list[Capability] = []
     for function, domain in rows:
-        effectful = function is edit_preview_apply or function is database_query
+        effectful = function in (edit_preview_apply, edit_preview_release, database_query)
         tool = Tool.from_function(
             function,
             annotations=ToolAnnotations(
                 read_only_hint=not effectful,
                 destructive_hint=effectful,
-                idempotent_hint=not effectful,
+                idempotent_hint=not effectful or function is edit_preview_release,
                 open_world_hint=False,
             ),
         )
@@ -1206,6 +1383,8 @@ def bindings(
                 if function
                 in (
                     edit_preview_read,
+                    edit_preview_status,
+                    edit_preview_release,
                     edit_preview_apply,
                     edit_preview_reconcile,
                     navigation_rename_preview,
@@ -1219,7 +1398,13 @@ def bindings(
             owner=source,
             source=source,
             exposure="tool",
-            effects="Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
+            effects=(
+                "Release only this endpoint's selected retained preview bytes; refuses admitted work and unresolved reconciliation; no source edit or rollback."
+                if function is edit_preview_release
+                else "Read only endpoint-local preview retention metadata; no source read, edits or provider acquisition."
+                if function is edit_preview_status
+                else "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection."
+            ),
         )
         tool.tags.update(spec.tags)
         tools[spec.id] = tool
