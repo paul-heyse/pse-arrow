@@ -495,6 +495,7 @@ def run_rust(
     inventory: Mapping[str, object] | None = None,
     effects: str = "canonical",
     package_scope: bool = False,
+    on_invocation: Callable[[Path], None] | None = None,
 ) -> int:
     environment = arrow_validation.rust_test_environment(
         os.environ if env is None else env
@@ -516,7 +517,8 @@ def run_rust(
         and "--binaries-metadata" not in command
     ):
         return observer_rust(
-            list(command), environment, effects=effects, package_scope=package_scope
+            list(command), environment, effects=effects, package_scope=package_scope,
+            on_invocation=on_invocation,
         )
     if package_scope:
         raise ValueError("package-scoped invocation requires its preparing observer")
@@ -569,6 +571,8 @@ def run_rust(
         resources.publish_selection(path, selected)
     else:
         path = resources.invocation("rust", selected)
+    if on_invocation is not None:
+        on_invocation(path)
     # Ordinary local unit routes enumerate here rather than through the native
     # observer. They use the same invocation preparation after actual selection.
     from scripts import scientific_inputs
@@ -628,6 +632,7 @@ def observer_rust(
     *,
     effects: str = "canonical",
     package_scope: bool = False,
+    on_invocation: Callable[[Path], None] | None = None,
 ) -> int:
     """Prepare exact artifacts before the scientific observer's process cap."""
     from scripts import (  # noqa: PLC0415 -- runner cycle
@@ -669,6 +674,7 @@ def observer_rust(
             },
             inventory=inventory,
             effects=effects,
+            on_invocation=on_invocation,
         )
     if worker is None:
         raise resources.ResourceError("Canonical execution requires its worker")
@@ -686,6 +692,8 @@ def observer_rust(
         resources.publish_selection(invocation, selected)
     else:
         invocation = resources.invocation("rust", selected)
+    if on_invocation is not None:
+        on_invocation(invocation)
     forwarded = {
         **fixtures,
         resources.MARKER: str(invocation),

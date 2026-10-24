@@ -4,26 +4,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import subprocess
-import tempfile
 from pathlib import Path
-from typing import TypeVar
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from scripts.active_diagnostics import ActionRequest
+from scripts.capabilities import process
 from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.operations import bounded
 from scripts.test_archives import ArchiveRequest, ReplayRequest
-
-JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
-T = TypeVar("T")
-
 
 class ArchiveInspectRequest(Contract):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
@@ -67,70 +61,8 @@ def failure(operation: str, error: Exception) -> ToolError:
     }))
 
 
-async def settled(task: asyncio.Task[T]) -> T:
-    """Repeated transport cancellation cannot abandon an already owned helper."""
-    while True:
-        try:
-            return await asyncio.shield(task)
-        except asyncio.CancelledError:
-            if task.done():
-                return task.result()
-
-
 async def run_worker(root: Path, operation: str, request: BaseModel) -> HostResult:
-    """Run one closed kernel on its own main thread, preserving native signal/drain ownership.
-
-    No timeout or disconnect establishes rollback. On cancellation, signal only
-    the unreaped direct helper; the environment/native owners forward and drain
-    their own children. An attached diagnostic subject is outside this ownership.
-    """
-    if operation not in {"archive", "replay", "diagnostic"}:
-        raise ValueError("unsupported fixed host operation")
-    with tempfile.TemporaryDirectory(prefix="pse-capability-host-") as temporary:
-        directory = Path(temporary)
-        source, destination = directory / "request.json", directory / "response.json"
-        source.write_text(request.model_dump_json(exclude_unset=True))
-        source.chmod(0o600)
-        with tempfile.TemporaryFile() as log:
-            spawn = asyncio.create_task(asyncio.create_subprocess_exec(
-                str(root / "scripts/pse-env"), "--",
-                str(root / ".venv/bin/python"), "-m", "scripts.capabilities.host_worker",
-                operation, str(source), str(destination),
-                cwd=root, stdout=log, stderr=log,
-            ))
-            process = None
-            waiting = None
-            try:
-                process = await asyncio.shield(spawn)
-                waiting = asyncio.create_task(process.wait())
-                code = await asyncio.shield(waiting)
-            except asyncio.CancelledError:
-                # Shield spawn as well as wait: cancellation can arrive after OS
-                # creation but before create_subprocess_exec returns its handle.
-                process = await settled(spawn)
-                if process.returncode is None:
-                    try:
-                        process.terminate()
-                    except ProcessLookupError:
-                        pass
-                if waiting is None:
-                    waiting = asyncio.create_task(process.wait())
-                await settled(waiting)
-                raise
-            if code != 0 or not destination.is_file():
-                log.seek(0)
-                diagnostic = log.read(16384).decode(errors="replace")
-                raise ToolError(json.dumps({
-                    "code": "pse.host.helper_unsettled",
-                    "operation": operation, "helper_exit_code": code,
-                    "message": diagnostic,
-                    "output": getattr(request, "output", None),
-                    "settlement": "inspect native owner output; helper exit alone is not settlement",
-                }))
-            response = JSON_OBJECT.validate_json(destination.read_bytes())
-            if "error" in response:
-                raise ToolError(json.dumps(response["error"]))
-            return project(response["result"], operation)
+    return project(await process.run_worker(root, "host", operation, request), operation)
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
