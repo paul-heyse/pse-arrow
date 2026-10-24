@@ -553,7 +553,7 @@ class BuildMeasurementTests(unittest.TestCase):
             source.mkdir()
             target = source / "target"
             for effective in (target, Path(directory) / "external", source / "other"):
-                with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(effective)})) as query:
+                with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(effective), "build_directory": str(target)})) as query:
                     if effective == target:
                         build_measurements.validate_target(source, target, ["cargo"], {})
                     else:
@@ -564,6 +564,35 @@ class BuildMeasurementTests(unittest.TestCase):
                 with patch.object(build_measurements.subprocess, "check_output") as query, self.assertRaisesRegex(ValueError, "default Cargo target"):
                     build_measurements.validate_target(source, target, ["cargo"], {key: str(target)})
                 query.assert_not_called()
+
+    def test_actual_intermediate_build_directory_escape_refuses_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            source = base / "source"
+            (source / "src").mkdir(parents=True)
+            (source / "src/lib.rs").write_text("pub fn value() -> u32 { 1 }\n")
+            (source / "Cargo.toml").write_text('[package]\nname="placement-fixture"\nversion="0.0.0"\nedition="2024"\n[workspace]\n')
+            (source / "Cargo.lock").write_text('version=4\n[[package]]\nname="placement-fixture"\nversion="0.0.0"\n')
+            target = source / "target"
+            target.mkdir()
+            artifact = target / "owned-artifact"
+            artifact.write_text("retain")
+            cargo = [subprocess.check_output(["rustup", "which", "cargo"], cwd=Path(build_measurements.__file__).resolve().parents[1], text=True).strip()]
+            env = build_measurements.snapshot_environment(dict(os.environ))
+            env.update(RUSTC_WRAPPER="", CARGO_HOME=str(base / "cargo-home"))
+            env.pop("CARGO_BUILD_BUILD_DIR", None)
+            build_measurements.validate_target(source, target, cargo, env)
+            identities = {"source_identity": build_measurements.directory_identity(source), "target_identity": build_measurements.directory_identity(target)}
+            external = base / "external-build"
+            with self.assertRaisesRegex(ValueError, "build directory"):
+                build_measurements.recover_target(source, target, cargo, {**env, "CARGO_BUILD_BUILD_DIR": str(external)}, **identities)
+            self.assertEqual(artifact.read_text(), "retain")
+            config = base / ".cargo"
+            config.mkdir()
+            (config / "config.toml").write_text(f'[build]\nbuild-dir={json.dumps(str(external))}\n')
+            with self.assertRaisesRegex(ValueError, "build directory"):
+                build_measurements.recover_target(source, target, cargo, env, **identities)
+            self.assertEqual(artifact.read_text(), "retain")
 
     def test_recovery_refuses_unowned_symlinked_and_replaced_targets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -601,7 +630,7 @@ class BuildMeasurementTests(unittest.TestCase):
             retained = source / "authored.rs"
             retained.write_text("source")
             identities = {"source_identity": build_measurements.directory_identity(source), "target_identity": build_measurements.directory_identity(target)}
-            with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(target)})):
+            with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(target), "build_directory": str(target)})):
                 build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
             self.assertFalse(target.exists())
             self.assertEqual(retained.read_text(), "source")
@@ -610,7 +639,7 @@ class BuildMeasurementTests(unittest.TestCase):
             def replace(*_args: object, **_kwargs: object) -> str:
                 target.rename(source / "previous-target")
                 target.mkdir()
-                return json.dumps({"target_directory": str(target)})
+                return json.dumps({"target_directory": str(target), "build_directory": str(target)})
             with patch.object(build_measurements.subprocess, "check_output", side_effect=replace), self.assertRaisesRegex(ValueError, "during recovery"):
                 build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
             self.assertTrue(target.exists())

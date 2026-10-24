@@ -339,6 +339,8 @@ def validate_target(
     )
     if Path(metadata["target_directory"]) != target:
         raise ValueError("effective Cargo target escapes the selected snapshot target")
+    if metadata.get("build_directory") != str(target):
+        raise ValueError("effective Cargo build directory differs from the selected snapshot target")
 
 
 def recover_target(
