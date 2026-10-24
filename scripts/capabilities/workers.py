@@ -5,6 +5,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class WorkerCall:
+    """One binding's actual fixed child and lifetime, shared by dispatch and fencing."""
+
+    worker: str
+    operation: str
+    lifetime: Literal["attached", "detached"] = "attached"
+
+    @property
+    def declaration(self) -> Worker:
+        if self.worker not in WORKERS:
+            raise ValueError("unsupported fixed worker operation")
+        return WORKERS[self.worker]
 
 
 @dataclass(frozen=True)

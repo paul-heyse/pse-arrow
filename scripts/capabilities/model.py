@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from scripts.capabilities.workers import WorkerCall
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
 
@@ -58,6 +59,7 @@ class Capability(Contract):
     route: tuple[str, ...] = ()
     reason: str = ""
     work_owner: str | None = None
+    worker: WorkerCall | None = None
 
     @property
     def tags(self) -> set[str]:

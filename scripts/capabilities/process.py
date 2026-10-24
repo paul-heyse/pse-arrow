@@ -18,7 +18,7 @@ from typing import TypeVar
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from scripts.capabilities.workers import WORKERS
+from scripts.capabilities.workers import WorkerCall
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T")
@@ -35,7 +35,7 @@ async def settled(task: asyncio.Task[T]) -> T:
 
 
 async def run_worker(
-    root: Path, worker: str, operation: str, request: BaseModel | dict[str, JsonValue]
+    root: Path, call: WorkerCall, request: BaseModel | dict[str, JsonValue]
 ) -> dict[str, JsonValue]:
     """Run one closed kernel on its own main thread, preserving native signal/drain ownership.
 
@@ -43,9 +43,10 @@ async def run_worker(
     the unreaped direct helper; the environment/native owners forward and drain
     their own children. An attached diagnostic subject is outside this ownership.
     """
-    if worker not in WORKERS or operation not in WORKERS[worker].operations:
+    declaration = call.declaration
+    operation = call.operation
+    if call.lifetime != "attached" or operation not in declaration.operations:
         raise ValueError("unsupported fixed worker operation")
-    declaration = WORKERS[worker]
     with tempfile.TemporaryDirectory(prefix="pse-capability-host-") as temporary:
         directory = Path(temporary)
         source, destination = directory / "request.json", directory / "response.json"

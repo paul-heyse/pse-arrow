@@ -29,6 +29,8 @@ from scripts.tests import assessment_fixture
 from scripts.tests.test_capabilities import content
 from scripts.validation_scope import Gate, comprehensive, expand, functional_gates
 
+from scripts.capabilities.workers import WorkerCall, WORKERS
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -393,8 +395,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     await process.run_worker(
                         ROOT,
-                        worker_name,
-                        operation,
+                        WorkerCall(worker_name, operation),
                         subject.OutputRequest(output="build/new"),
                     )
 
@@ -416,8 +417,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     await process.run_worker(
                         ROOT,
-                        "native",
-                        "source_admit",
+                        WorkerCall("native", "source_admit"),
                         {
                             "schema_set_fingerprint": "native",
                             "arguments": {"value": value},
@@ -428,7 +428,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                     self.assertRaisesRegex(ValueError, "Out of range float"),
                 ):
                     await process.run_worker(
-                        ROOT, "native", "source_admit", NativeEnvelope(value=value)
+                        ROOT, WorkerCall("native", "source_admit"), NativeEnvelope(value=value)
                     )
 
     async def test_native_unsettled_helper_withholds_source_bearing_diagnostics(
@@ -453,7 +453,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
             self.assertRaises(ToolError) as failure,
         ):
             await process.run_worker(
-                ROOT, "native", "source_admit", {"schema_set_fingerprint": "native"}
+                ROOT, WorkerCall("native", "source_admit"), {"schema_set_fingerprint": "native"}
             )
         self.assertIn("source-bearing diagnostics withheld", str(failure.exception))
         self.assertNotIn("PRIVATE SOURCE BODY", str(failure.exception))
@@ -497,8 +497,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     await process.run_worker(
                         ROOT,
-                        worker_name,
-                        operation,
+                        WorkerCall(worker_name, operation),
                         subject.OutputRequest(output="build/original-owner-output"),
                     )
                 encoded = str(failure.exception)
@@ -529,7 +528,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
         # owner before it can prepare one coherent catalogue/validation closure.
         self.assertIn(
             "--native=solver,klu,isolation,uno,petsc",
-            process.WORKERS["rust-tests"].environment,
+            WORKERS["rust-tests"].environment,
         )
         _, tools = subject.bindings(ROOT)
         server = FastMCP("scoped-rust-controls", strict_input_validation=True)
@@ -562,7 +561,7 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                     "failed",
                 )
                 self.assertEqual(
-                    launch.call_args.args[1:3], ("rust-tests", "rust-test")
+                    launch.call_args.args[1], WorkerCall("rust-tests", "rust-test")
                 )
                 for invalid in (
                     {

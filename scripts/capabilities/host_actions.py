@@ -18,7 +18,8 @@ from scripts.active_diagnostics import (
 )
 from scripts.capabilities import process
 from scripts.capabilities.model import Capability, Contract
-from scripts.capabilities.operations import bounded
+from scripts.capabilities.responses import HostResult, project, failure
+from scripts.capabilities.workers import WorkerCall
 from scripts.test_archives import (  # noqa: TC001 -- FastMCP resolves request annotations.
     ArchiveRequest,
     ReplayRequest,
@@ -50,49 +51,23 @@ class ActionReadRequest(Contract):
     action_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
-class HostResult(Contract):
-    """Projection completeness is independent from the native result's status."""
-
-    operation: str
-    result: dict[str, JsonValue]
-    detail_complete: bool
-    omissions: list[str]
+HOST_CALLS = {
+    "experiment_archive": WorkerCall("host", "archive"),
+    "experiment_replay": WorkerCall("host", "replay"),
+    "diagnostic_action": WorkerCall("host", "diagnostic"),
+}
 
 
-def project(value: object, operation: str) -> HostResult:
-    detail = bounded(value, operation)
-    return HostResult(
-        operation=operation,
-        result=detail.payload,
-        detail_complete=detail.complete,
-        omissions=detail.omissions,
-    )
-
-
-def failure(operation: str, error: Exception) -> ToolError:
-    return ToolError(
-        json.dumps(
-            {
-                "code": "pse.host." + operation + ".refused",
-                "cause": type(error).__name__,
-                "stage": "host_action",
-                "message": "The selected host request could not be served; supplied values are redacted.",
-                "remedy": "Inspect the original owner and any issued output before deciding whether another action is safe. No automatic retry or rollback is inferred.",
-            }
-        )
-    )
-
-
-async def run_worker(root: Path, operation: str, request: BaseModel) -> HostResult:
+async def run_worker(root: Path, call: WorkerCall, request: BaseModel) -> HostResult:
     return project(
-        await process.run_worker(root, "host", operation, request), operation
+        await process.run_worker(root, call, request), call.operation
     )
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     async def experiment_archive(request: ArchiveRequest) -> HostResult:
         """Archive one selected pure Rust test closure into an explicit fresh build directory. Retains real producer/resource handles; native archival remains unsupported. Cancellation uses the admitted helper owner and does not undo output."""
-        return await run_worker(root, "archive", request)
+        return await run_worker(root, HOST_CALLS["experiment_archive"], request)
 
     def experiment_inspect(request: ArchiveInspectRequest) -> HostResult:
         """Inspect retained archive bytes and page historical selected tests. Supply returned manifest_sha256 on continuation to refuse replaced source. Does not build or replay current source."""
@@ -113,11 +88,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
 
     async def experiment_replay(request: ReplayRequest) -> HostResult:
         """Replay exact retained pure test executables into a fresh explicit build directory with a new authentic invocation. Historical replay never qualifies current source. Cancellation retains native terminal/drain distinctions and partial artifacts."""
-        return await run_worker(root, "replay", request)
+        return await run_worker(root, HOST_CALLS["experiment_replay"], request)
 
     async def diagnostic_action(request: ActionRequest) -> HostResult:
         """Run an explicit diagnostic experiment, including exact PID/start attachment or literal owned launch argv. Helper/capture/decoder status and subject outcome remain independent. Cancelling the owned helper cannot cancel its observed subject; no rollback is promised."""
-        return await run_worker(root, "diagnostic", request)
+        return await run_worker(root, HOST_CALLS["diagnostic_action"], request)
 
     def diagnostic_action_read(request: ActionReadRequest) -> HostResult:
         """Read an exact retained action record and verified bounded text tails. Changed artifacts retain native refusals; reading never launches, cancels or retries a diagnostic subject."""
@@ -211,6 +186,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             else (
                 "Checkout environment and operation-specific native tools/identity admission",
             ),
+            worker=HOST_CALLS.get(tool.name),
         )
         tool.tags.update(spec.tags)
         specs.append(spec)

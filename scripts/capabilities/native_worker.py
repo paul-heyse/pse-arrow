@@ -19,7 +19,7 @@ from pydantic import JsonValue
 
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.native_schema import JSON_OBJECT
-from scripts.capabilities.operations import bounded
+from scripts.capabilities.responses import bounded
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

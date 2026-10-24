@@ -31,7 +31,7 @@ from pydantic import Field, JsonValue
 
 from scripts import pse_env, semantic_edits, semantic_navigation, surreal_server
 from scripts.capabilities.model import Capability, Contract
-from scripts.capabilities.operations import ReadResult, bounded
+from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine

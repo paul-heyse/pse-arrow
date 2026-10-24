@@ -23,6 +23,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
 
 from scripts.capabilities.workers import WORKERS
+from scripts.capabilities.source_modules import module_candidates
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -50,7 +51,7 @@ COMMON = (
 
 @dataclass(frozen=True)
 class Source:
-    digest: str
+    digest: str | None
     dependencies: tuple[str, ...]
 
 
@@ -65,7 +66,7 @@ def local_imports(raw: bytes) -> tuple[str, ...]:
             names = [node.module, *(node.module + "." + a.name for a in node.names)]
         for name in names:
             if name.startswith("scripts."):
-                paths.add(name.replace(".", "/") + ".py")
+                paths.update(module_candidates(name))
     return tuple(sorted(paths))
 
 
@@ -81,12 +82,10 @@ class Sources:
             if relative in self.sources:
                 continue
             path = self.root / relative
-            if not path.is_file():
-                continue  # An imported name may be an attribute, not a module.
-            raw = self._read(relative)
-            dependencies = local_imports(raw)
+            raw = self._read_optional(relative)
+            dependencies = local_imports(raw) if raw is not None else ()
             self.sources[relative] = Source(
-                hashlib.sha256(raw).hexdigest(), dependencies
+                hashlib.sha256(raw).hexdigest() if raw is not None else None, dependencies
             )
             pending.extend(dependencies)
         self.revision = hashlib.sha256(
@@ -95,6 +94,12 @@ class Sources:
                 sort_keys=True,
             ).encode()
         ).hexdigest()
+
+    def _read_optional(self, relative: str) -> bytes | None:
+        try:
+            return self._read(relative)
+        except FileNotFoundError:
+            return None
 
     def _read(self, relative: str) -> bytes:
         path = self.root / relative
@@ -140,7 +145,8 @@ class Sources:
                 if path not in self.sources or path in self.changed:
                     continue
                 try:
-                    digest = hashlib.sha256(self._read(path)).hexdigest()
+                    raw = self._read_optional(path)
+                    digest = hashlib.sha256(raw).hexdigest() if raw is not None else None
                 except (OSError, ValueError):
                     self.changed.add(path)
                 else:
@@ -171,17 +177,8 @@ class Interface:
             # Fixed workers are executed by name in fresh children, not imported
             # into the serving process. Their modules and local imports still
             # interpret the loaded contract and must share its restart fence.
-            worker = (
-                "native"
-                if name.startswith("native_")
-                else "host"
-                if module == "scripts.capabilities.host_actions"
-                else "qualification"
-                if module == "scripts.capabilities.qualification"
-                else None
-            )
-            if worker is not None:
-                paths.append(WORKERS[worker].module.replace(".", "/") + ".py")
+            if spec.worker is not None:
+                paths.append(spec.worker.declaration.module.replace(".", "/") + ".py")
             # Custom Tool implementations have an owner class rather than fn.
             paths.append(type(tool).__module__.replace(".", "/") + ".py")
             self.operations[name] = sources.closure(paths)

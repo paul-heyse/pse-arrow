@@ -21,7 +21,7 @@ from mcp.types import TextContent
 
 from scripts import semantic_edits, semantic_navigation
 from scripts.capabilities import specialists
-from scripts.capabilities.operations import ReadResult
+from scripts.capabilities.responses import ReadResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator

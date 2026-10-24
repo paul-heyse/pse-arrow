@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
 from scripts.capabilities.diagnostics import safe_path
-from scripts.capabilities.qualification import (
+from scripts.capabilities.qualification_contracts import (
     AssessmentRequest,
     CompilationRequest,
     OutputRequest,
@@ -64,7 +64,7 @@ def selected(
 
 def execute(operation: str, document: str) -> dict[str, object]:
     if operation == "rust-test":
-        from scripts.capabilities.rust_tests import (  # noqa: PLC0415 -- selected worker only.
+        from scripts.capabilities.rust_test_contracts import (  # noqa: PLC0415 -- selected request only.
             RustTestRequest,
         )
         from scripts.capabilities.rust_tests import (  # noqa: PLC0415 -- lazy operation owner.

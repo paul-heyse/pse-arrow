@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `8a22b2cf1b2dfb71a8c0b093d6d990d16d4d2f8b4b5a9f93a04000d385de2a4d`.
+Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8fbe617ffeaaa6`.
 
 ## Domains
 
@@ -957,6 +957,7 @@ Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source
   "source": "scripts/active_diagnostics.py",
   "title": "Active process diagnostics and optional profilers",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "diagnose-run"
   ]
@@ -985,6 +986,7 @@ Exposure: **tool**. Owner: `scripts/validation_result.py`. Declaration source: [
   "source": "scripts/validation_result.py",
   "title": "assessment read",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -1414,6 +1416,11 @@ Exposure: **tool**. Owner: `scripts/validation.py`. Declaration source: [scripts
   "source": "scripts/validation.py",
   "title": "assessment run",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "assessment",
+    "worker": "qualification"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -1625,6 +1632,7 @@ Exposure: **tool**. Owner: `scripts/validation_scope.py`. Declaration source: [s
   "source": "scripts/validation_scope.py",
   "title": "assessment select",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -1797,6 +1805,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
   "source": "scripts/build_environment.py",
   "title": "Compilation and compiler-cache diagnosis",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -1830,6 +1839,7 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
   "source": "scripts/build_storage.py",
   "title": "Build-storage and disk health",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -1857,6 +1867,11 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "source": "justfile",
   "title": "compilation check",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "compilation",
+    "worker": "qualification"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -2017,6 +2032,11 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "source": "justfile",
   "title": "contracts check",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "contracts-check",
+    "worker": "qualification"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -2133,6 +2153,11 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "source": "justfile",
   "title": "contracts generate",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "contracts-generate",
+    "worker": "qualification"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -2255,6 +2280,7 @@ Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [s
   "source": "scripts/semantic_edits.py",
   "title": "Protected edits and structural migrations",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "change-generated-contract"
   ]
@@ -2283,6 +2309,7 @@ Exposure: **tool**. Owner: `scripts/coverage_correspondence.py`. Declaration sou
   "source": "scripts/coverage_correspondence.py",
   "title": "coverage correspondence read",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -2589,6 +2616,7 @@ Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [s
   "source": "scripts/surreal_server.py",
   "title": "Canonical database and specialist tooling",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "manage-project",
     "diagnose-run"
@@ -2619,6 +2647,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Info",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -2750,6 +2779,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Database List",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -2921,6 +2951,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Query",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -3062,6 +3093,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Select",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -3154,6 +3186,7 @@ Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.
   "source": "scripts/adr.py",
   "title": "Decisions, ADRs and deferred triggers",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan"
   ]
@@ -3187,6 +3220,7 @@ Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](http
   "source": "Cargo.toml",
   "title": "Pinned dependency maintenance",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -3216,6 +3250,11 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
   "source": "scripts/active_diagnostics.py",
   "title": "Run an explicit diagnostic action",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "diagnostic",
+    "worker": "host"
+  },
   "workflows": [
     "diagnose-run"
   ]
@@ -3565,6 +3604,7 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
   "source": "scripts/active_diagnostics.py",
   "title": "Read retained diagnostic output",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "diagnose-run",
     "investigate-evidence"
@@ -3705,6 +3745,7 @@ Exposure: **tool**. Owner: `scripts/document_lifecycle.py`. Declaration source: 
   "source": "scripts/document_lifecycle.py",
   "title": "document scope query",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4076,6 +4117,7 @@ Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source
   "source": "scripts/document_lifecycle.py",
   "title": "Documentation and native lifecycle",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan",
     "plan-functional-review"
@@ -4106,6 +4148,11 @@ Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.
   "source": "scripts/docs.py",
   "title": "documentation build",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "documentation",
+    "worker": "qualification"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -4222,6 +4269,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
   "source": "scripts/semantic_edits.py",
   "title": "Edit Preview Apply",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4324,6 +4372,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Edit Preview Read",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4453,6 +4502,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
   "source": "scripts/semantic_edits.py",
   "title": "Edit Preview Reconcile",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4554,6 +4604,7 @@ Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/
   "source": "scripts/pse_env.py",
   "title": "Environment explanation and preparation",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4580,6 +4631,7 @@ Exposure: **tool**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/ps
   "source": "scripts/pse_env.py",
   "title": "environment explain",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -4955,6 +5007,7 @@ Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: 
   "source": "xtask/src/evidence_tools.rs",
   "title": "Original evidence and derived tooling indexes",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "investigate-evidence"
   ]
@@ -4986,6 +5039,11 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
   "source": "scripts/test_archives.py",
   "title": "Archive selected historical tests",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "archive",
+    "worker": "host"
+  },
   "workflows": [
     "run-experiment"
   ]
@@ -5140,6 +5198,7 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
   "source": "scripts/test_archives.py",
   "title": "Inspect a retained test archive",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "run-experiment",
     "investigate-evidence"
@@ -5283,6 +5342,11 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
   "source": "scripts/test_archives.py",
   "title": "Replay retained historical tests",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "replay",
+    "worker": "host"
+  },
   "workflows": [
     "run-experiment"
   ]
@@ -5408,6 +5472,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
   "source": "scripts/experiments.py",
   "title": "Experiments, isolation and recovery",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "run-experiment"
   ]
@@ -5441,6 +5506,7 @@ Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/
   "source": "xtask/src/codegen.rs",
   "title": "Schemas, registry generation and compiled stubs",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "change-generated-contract"
   ]
@@ -5473,6 +5539,7 @@ Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts
   "source": "scripts/worktree.py",
   "title": "Git, isolation and repository integration",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -5502,6 +5569,7 @@ Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: 
   "source": "scripts/host_admission.py",
   "title": "Internal host boundary implementations",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -5532,6 +5600,7 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
   "source": "scripts/knowledge_store.py",
   "title": "Attributed knowledge and history",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan",
     "investigate-evidence"
@@ -5561,6 +5630,7 @@ Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [sc
   "source": "scripts/knowledge_store.py",
   "title": "knowledge source corpus",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -6013,6 +6083,7 @@ Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration sourc
   "source": "scripts/semantic_navigation.py",
   "title": "Language symbols and source navigation",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan"
   ]
@@ -6045,6 +6116,7 @@ Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [s
   "source": "scripts/library_skills.py",
   "title": "Library sources and capability guidance",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "plan-functional-review"
   ]
@@ -6073,6 +6145,7 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
   "source": "scripts/workspace_sources.py",
   "title": "library source packet",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -6470,7 +6543,7 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
 
 ### `native_contract_schema` — Read exact native schema or authoring guidance
 
-Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declaration source: [scripts/capabilities/schema_bindings.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/schema_bindings.py).
 
 ```json
 {
@@ -6488,9 +6561,10 @@ Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declar
   "prerequisites": [],
   "reason": "",
   "route": [],
-  "source": "scripts/capabilities/native.py",
+  "source": "scripts/capabilities/schema_bindings.py",
   "title": "Read exact native schema or authoring guidance",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "change-generated-contract"
   ]
@@ -6622,6 +6696,11 @@ Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration sou
   "source": "scripts/capabilities/native.py",
   "title": "Inspect published diagnostic checkpoint",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "diagnostic_inspect",
+    "worker": "native"
+  },
   "workflows": [
     "diagnose-run"
   ]
@@ -6953,6 +7032,11 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Dec
   "source": "scripts/capabilities/native.py",
   "title": "Inspect supplied frozen evidence",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "evidence_inspect",
+    "worker": "native"
+  },
   "workflows": [
     "diagnose-run"
   ]
@@ -7374,6 +7458,11 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source
   "source": "scripts/capabilities/native.py",
   "title": "Read original native invocation evidence",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "invocation_read",
+    "worker": "native"
+  },
   "workflows": [
     "diagnose-run"
   ]
@@ -7508,6 +7597,11 @@ Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declarat
   "source": "scripts/capabilities/native.py",
   "title": "Inspect preparation availability",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "preparation_discover",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -8381,6 +8475,11 @@ Exposure: **tool**. Owner: `pse.ProjectBundle.manifest + digest`. Declaration so
   "source": "scripts/capabilities/native.py",
   "title": "Inspect supplied project pack offline",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "project_bundle_inspect",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -8522,6 +8621,11 @@ Exposure: **tool**. Owner: `pse.Runtime.project_metadata`. Declaration source: [
   "source": "scripts/capabilities/native.py",
   "title": "Read project metadata page",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "project_metadata",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -8789,6 +8893,11 @@ Exposure: **tool**. Owner: `pse.Runtime.project_select`. Declaration source: [sc
   "source": "scripts/capabilities/native.py",
   "title": "Select exact project source",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "project_select",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -9110,6 +9219,11 @@ Exposure: **tool**. Owner: `pse.Runtime.research_read`. Declaration source: [scr
   "source": "scripts/capabilities/native.py",
   "title": "Read original scientific research metadata",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "research_read",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -9406,6 +9520,11 @@ Exposure: **tool**. Owner: `pse.Runtime.inspect_result`. Declaration source: [sc
   "source": "scripts/capabilities/native.py",
   "title": "Inspect protected scientific result shape or readable selected values",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "result_inspect",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -10458,6 +10577,11 @@ Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/c
   "source": "scripts/capabilities/native.py",
   "title": "Read exact stored scientific result window",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "result_read",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -10651,6 +10775,11 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.prep
   "source": "scripts/capabilities/native.py",
   "title": "Inspect retained revision preparations",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "revision_preparation_discover",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -11523,6 +11652,11 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.proj
   "source": "scripts/capabilities/native.py",
   "title": "Inspect exact retained source revision",
   "work_owner": null,
+  "worker": {
+    "lifetime": "detached",
+    "operation": "revision_source",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -11757,6 +11891,11 @@ Exposure: **tool**. Owner: `pse.Runtime.physical_from_documents + modeling_from_
   "source": "scripts/capabilities/native.py",
   "title": "Admit original authored source",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "source_admit",
+    "worker": "native"
+  },
   "workflows": [
     "manage-project"
   ]
@@ -11979,6 +12118,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Action Preview",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12156,6 +12296,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Call Hierarchy",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12285,6 +12426,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Code Actions",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12448,6 +12590,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Completions",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12588,6 +12731,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Declaration",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12717,6 +12861,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Definition",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12846,6 +12991,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Diagnostics",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -12963,6 +13109,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Hover",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13092,6 +13239,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Implementations",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13221,6 +13369,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Incoming Calls",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13414,6 +13563,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Outgoing Calls",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13607,6 +13757,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation References",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13740,6 +13891,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Rename Preview",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -13882,6 +14034,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Signature",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -14011,6 +14164,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Symbols",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -14128,6 +14282,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Tool Support",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -14233,6 +14388,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Type Definition",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -14362,6 +14518,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Workspace Symbols",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -14476,6 +14633,7 @@ Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration sourc
   "source": "scripts/producer_deployment.py",
   "title": "Producer deployment and worker integration",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "run-experiment"
   ]
@@ -14504,6 +14662,7 @@ Exposure: **tool**. Owner: `scripts/run_inspection.py`. Declaration source: [scr
   "source": "scripts/run_inspection.py",
   "title": "product run read",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15044,6 +15203,7 @@ Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [
   "source": "xtask/src/project_tools.rs",
   "title": "Projects, revisions and scientific data",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "manage-project"
   ]
@@ -15076,6 +15236,7 @@ Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: 
   "source": "scripts/python_extension.py",
   "title": "Python extension preparation",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15106,6 +15267,7 @@ Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: 
   "source": "scripts/validation_scope.py",
   "title": "Qualification groups and static checks",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -15135,6 +15297,7 @@ Exposure: **tool**. Owner: `scripts/select.py`. Declaration source: [scripts/sel
   "source": "scripts/select.py",
   "title": "rust test describe",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -15326,6 +15489,11 @@ Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/t
   "source": "scripts/test_run.py",
   "title": "rust test run",
   "work_owner": null,
+  "worker": {
+    "lifetime": "attached",
+    "operation": "rust-test",
+    "worker": "rust-tests"
+  },
   "workflows": [
     "qualify-change"
   ]
@@ -15525,6 +15693,7 @@ Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [p
   "source": "python/pse/diagnostics.py",
   "title": "Scientific diagnostics and offline inspection",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "diagnose-run",
     "investigate-evidence"
@@ -15560,6 +15729,7 @@ Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source:
   "source": "scripts/scientific_inputs.py",
   "title": "Captured scientific inputs and dependency reach",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change",
     "investigate-evidence"
@@ -15592,6 +15762,7 @@ Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [pyth
   "source": "python/pse/__init__.py",
   "title": "Native scientific Python boundary",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "manage-project",
     "qualify-change"
@@ -15624,6 +15795,7 @@ Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration sour
   "source": "scripts/scientific_reference.py",
   "title": "Scientific references and performance campaigns",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "run-experiment",
     "qualify-change"
@@ -15658,6 +15830,7 @@ Exposure: **native**. Owner: `scripts/codex_session.py`. Declaration source: [sc
   "source": "scripts/codex_session.py",
   "title": "Explicit session and specialist attachment",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15686,6 +15859,7 @@ Exposure: **native**. Owner: `.codex/skills/adr/SKILL.md`. Declaration source: [
   "source": ".codex/skills/adr/SKILL.md",
   "title": "adr",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15714,6 +15888,7 @@ Exposure: **native**. Owner: `.codex/skills/create-plan/SKILL.md`. Declaration s
   "source": ".codex/skills/create-plan/SKILL.md",
   "title": "create-plan",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15742,6 +15917,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit/SKILL.md`. De
   "source": ".codex/skills/design-principle-audit/SKILL.md",
   "title": "design-principle-audit",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15770,6 +15946,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit-tests/SKILL.m
   "source": ".codex/skills/design-principle-audit-tests/SKILL.md",
   "title": "design-principle-audit-tests",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15798,6 +15975,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review/SKILL.md`. Declaration
   "source": ".codex/skills/design-review/SKILL.md",
   "title": "design-review",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15826,6 +16004,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-audit/SKILL.md`. Decla
   "source": ".codex/skills/design-review-audit/SKILL.md",
   "title": "design-review-audit",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15854,6 +16033,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-process-simulator/SKIL
   "source": ".codex/skills/design-review-process-simulator/SKILL.md",
   "title": "design-review-process-simulator",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15882,6 +16062,7 @@ Exposure: **native**. Owner: `.codex/skills/execute-plan/SKILL.md`. Declaration 
   "source": ".codex/skills/execute-plan/SKILL.md",
   "title": "execute-plan",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15910,6 +16091,7 @@ Exposure: **native**. Owner: `.codex/skills/functional-extension-review/SKILL.md
   "source": ".codex/skills/functional-extension-review/SKILL.md",
   "title": "functional-extension-review",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15936,6 +16118,7 @@ Exposure: **native**. Owner: `.codex/skills/native-solver-libraries/SKILL.md`. D
   "source": ".codex/skills/native-solver-libraries/SKILL.md",
   "title": "native-solver-libraries",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15964,6 +16147,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-completion-audit/SKILL.md`. Dec
   "source": ".codex/skills/plan-completion-audit/SKILL.md",
   "title": "plan-completion-audit",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -15992,6 +16176,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-creation/SKILL.md`. Declaration
   "source": ".codex/skills/plan-creation/SKILL.md",
   "title": "plan-creation",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -16020,6 +16205,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-design-review/SKILL.md`. Declar
   "source": ".codex/skills/plan-design-review/SKILL.md",
   "title": "plan-design-review",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -16048,6 +16234,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-execution/SKILL.md`. Declaratio
   "source": ".codex/skills/plan-execution/SKILL.md",
   "title": "plan-execution",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -16076,6 +16263,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-functional-extension-review/SKI
   "source": ".codex/skills/plan-functional-extension-review/SKILL.md",
   "title": "plan-functional-extension-review",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "plan-functional-review"
   ]
@@ -16106,6 +16294,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-improvement-review/SKILL.md`. D
   "source": ".codex/skills/plan-improvement-review/SKILL.md",
   "title": "plan-improvement-review",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -16135,6 +16324,7 @@ Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [
   "source": "scripts/workspace_tasks.py",
   "title": "Source context and declared ownership",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan",
     "change-generated-contract"
@@ -16164,6 +16354,7 @@ Exposure: **tool**. Owner: `scripts/build_storage.py`. Declaration source: [scri
   "source": "scripts/build_storage.py",
   "title": "storage observe",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -16487,6 +16678,7 @@ Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/s
   "source": "scripts/select.py",
   "title": "Selected correctness and scientific validation",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -16518,6 +16710,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
   "source": "scripts/assertion_sensitivity.py",
   "title": "Coverage, mutation and boundary fuzzing",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "qualify-change"
   ]
@@ -16550,6 +16743,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
   "source": "scripts/activity.py",
   "title": "Workload observation and retained results",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "diagnose-run",
     "qualify-change"
@@ -16579,6 +16773,7 @@ Exposure: **tool**. Owner: `scripts/activity_watch.py`. Declaration source: [scr
   "source": "scripts/activity_watch.py",
   "title": "workload watch",
   "work_owner": null,
+  "worker": null,
   "workflows": []
 }
 ```
@@ -17266,6 +17461,7 @@ Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [
   "source": "scripts/workspace_domains.py",
   "title": "Exact native concepts",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan",
     "plan-functional-review"
@@ -18810,7 +19006,7 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
 
 ### `workspace_inventory` — Current entry-point inventory
 
-Exposure: **tool**. Owner: `scripts/capabilities/inventory.py`. Declaration source: [scripts/capabilities/inventory.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/inventory.py).
+Exposure: **tool**. Owner: `scripts/capabilities/entrypoints.py`. Declaration source: [scripts/capabilities/entrypoints.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/entrypoints.py).
 
 ```json
 {
@@ -18824,13 +19020,14 @@ Exposure: **tool**. Owner: `scripts/capabilities/inventory.py`. Declaration sour
     "tooling"
   ],
   "id": "workspace_inventory",
-  "owner": "scripts/capabilities/inventory.py",
+  "owner": "scripts/capabilities/entrypoints.py",
   "prerequisites": [],
   "reason": "",
   "route": [],
-  "source": "scripts/capabilities/inventory.py",
+  "source": "scripts/capabilities/entrypoints.py",
   "title": "Current entry-point inventory",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan"
   ]
@@ -19173,6 +19370,7 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
   "source": "scripts/workspace_sources.py",
   "title": "Declared producer relationships",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "change-generated-contract"
   ]
@@ -19569,6 +19767,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "source": "justfile",
   "title": "Exact native recipe",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan"
   ]
@@ -19904,6 +20103,7 @@ Exposure: **tool**. Owner: `scripts/workspace_tasks.py`. Declaration source: [sc
   "source": "scripts/workspace_tasks.py",
   "title": "Task context",
   "work_owner": null,
+  "worker": null,
   "workflows": [
     "inspect-plan"
   ]

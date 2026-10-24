@@ -16,7 +16,7 @@ from fastmcp.tools import Tool
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.coherence import Sources, install
 from scripts.capabilities.model import Capability, Domain
-from scripts.capabilities.workers import WORKERS
+from scripts.capabilities.workers import WORKERS, WorkerCall
 
 
 class CoherenceTests(unittest.IsolatedAsyncioTestCase):
@@ -195,6 +195,7 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
                     source="scripts/first.py",
                     exposure="tool",
                     effects="Test fixture counter",
+                    worker=WorkerCall(worker_name, next(iter(WORKERS[worker_name].operations))),
                 )
                 catalogue = Catalogue(
                     (Domain(id="source", title="Source", description="Source"),),

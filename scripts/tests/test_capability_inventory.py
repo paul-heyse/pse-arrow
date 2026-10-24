@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NoReturn
 from unittest.mock import patch
 
-from scripts.capabilities import inventory as subject
+from scripts.capabilities import entrypoints as subject
+from scripts.capabilities import inventory as declarations
 
 if TYPE_CHECKING:
     from typing import BinaryIO
@@ -35,7 +36,7 @@ class InventoryTests(unittest.TestCase):
                 side_effect=AssertionError("startup launched a process"),
             ),
         ):
-            domains, workflows, guides, capabilities = subject.inventory(ROOT)
+            domains, workflows, guides, capabilities = declarations.inventory(ROOT)
         domain_ids = {row.id for row in domains}
         workflow_ids = {row.id for row in workflows}
         guide_ids = {row.id for row in guides}
@@ -97,7 +98,7 @@ class InventoryTests(unittest.TestCase):
     def test_representative_families_retain_real_routes_and_honest_maturity(
         self,
     ) -> None:
-        capabilities = {row.id: row for row in subject.inventory(ROOT)[3]}
+        capabilities = {row.id: row for row in declarations.inventory(ROOT)[3]}
         expected = {
             "language-navigation": ("editing", "scripts/semantic_navigation.py"),
             "knowledge-recall": ("knowledge", "scripts/knowledge_store.py"),
@@ -359,7 +360,7 @@ class InventoryTests(unittest.TestCase):
         self.assertTrue(
             linked, "expected the selected native library skill link in this checkout"
         )
-        _, _, guides, capabilities = subject.inventory(ROOT)
+        _, _, guides, capabilities = declarations.inventory(ROOT)
         by_id = {row.id: row for row in capabilities}
         for path in linked:
             identity = "skill-" + path.parent.name
@@ -391,7 +392,7 @@ class InventoryTests(unittest.TestCase):
                 )
 
             with patch.object(Path, "open", guarded_open):
-                _, _, guides, capabilities = subject.inventory(root)
+                _, _, guides, capabilities = declarations.inventory(root)
                 result = subject.inspect_entrypoints(root, kind="skill")
             capability = next(
                 row for row in capabilities if row.id == "skill-fake-library"

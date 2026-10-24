@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from scripts import test_invocation, test_resources, test_run
 from scripts.capabilities import rust_tests as subject
+from scripts.capabilities import rust_test_contracts as contracts
 
 
 def inventory() -> dict:
@@ -33,7 +34,7 @@ def inventory() -> dict:
 class ScopedRustSelectionTests(unittest.TestCase):
     def test_native_unit_and_named_integration_selection_share_normalizer(self) -> None:
         with patch.dict(os.environ, {"PSE_NEXTEST_ACTION": "run --no-fail-fast"}):
-            request = subject.RustTestSelection(
+            request = contracts.RustTestSelection(
                 package="pse-ids",
                 expression="control",
                 features=["pse-ids/force-validate"],
@@ -48,7 +49,7 @@ class ScopedRustSelectionTests(unittest.TestCase):
             self.assertEqual(normalized.nextest_profile, "local")
             self.assertIn("--lib", command)
             self.assertIn("--locked", command)
-            integration, normalized = subject.RustTestSelection(
+            integration, normalized = contracts.RustTestSelection(
                 package="pse-ids",
                 kind="integration",
                 target="public-api",
@@ -69,7 +70,7 @@ class ScopedRustSelectionTests(unittest.TestCase):
             {"package": "pse-ids", "expression": "control", "extra": ["--unknown"]},
         ):
             with self.subTest(values=values), self.assertRaises(ValidationError):
-                subject.RustTestSelection.model_validate(values)
+                contracts.RustTestSelection.model_validate(values)
         for action in ("list", "run --unknown-scope-option", "run --no-run"):
             with (
                 self.subTest(action=action),
@@ -83,15 +84,15 @@ class ScopedRustSelectionTests(unittest.TestCase):
             ):
                 subject.execute(
                     Path.cwd(),
-                    subject.RustTestRequest(
+                    contracts.RustTestRequest(
                         package="pse-ids", expression="control", output="build/new"
                     ),
                 )
 
     def test_description_does_not_claim_compiled_catalogue(self) -> None:
         with patch.dict(os.environ, {"PSE_NEXTEST_ACTION": "run"}):
-            result = subject.describe(
-                subject.RustTestSelection(package="pse-ids", expression="control")
+            result = contracts.describe(
+                contracts.RustTestSelection(package="pse-ids", expression="control")
             )
         self.assertIsNone(result["catalogue"])
         self.assertFalse(result["compiled_or_enumerated"])
@@ -262,7 +263,7 @@ class InvocationCallbackTests(unittest.TestCase):
         ):
             result = subject.execute(
                 self.root,
-                subject.RustTestRequest(
+                contracts.RustTestRequest(
                     package="pse-ids",
                     expression="control",
                     execution_effects="native-local",
@@ -315,7 +316,7 @@ class InvocationCallbackTests(unittest.TestCase):
         ):
             result = subject.execute(
                 self.root,
-                subject.RustTestRequest(
+                contracts.RustTestRequest(
                     package="pse-ids", expression="control", output=str(output)
                 ),
             )

@@ -32,8 +32,8 @@ from scripts import (
     test_run,
 )
 from scripts.capabilities import observation
-from scripts.capabilities.host_actions import project
-from scripts.capabilities.operations import bounded
+from scripts.capabilities.responses import project
+from scripts.capabilities.responses import bounded
 from scripts.capabilities.server import Runtime, build
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -26,7 +26,7 @@ from pydantic import ValidationError
 from scripts.capabilities import server
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.model import Capability, Domain, Guide, Workflow
-from scripts.capabilities.operations import bounded
+from scripts.capabilities.responses import bounded
 from scripts.capabilities.server import build
 
 if TYPE_CHECKING:

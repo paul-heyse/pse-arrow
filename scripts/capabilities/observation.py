@@ -31,7 +31,7 @@ from mcp.types import CallToolResult
 from opentelemetry.trace import get_current_span
 from pydantic import ValidationError
 
-from scripts.capabilities.native import BINDINGS
+from scripts.capabilities.native_contracts import BINDINGS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
