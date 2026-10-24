@@ -12,6 +12,7 @@ import selectors
 import subprocess
 import time
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 from scripts import docs, document_metadata
@@ -122,6 +123,26 @@ def _read(root: Path, relative: str, max_bytes: int) -> bytes:
     return raw
 
 
+def _stamp(path: Path) -> tuple[int, int, int, int, int]:
+    info = path.stat()
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+
+
+@lru_cache(maxsize=8)
+def _document_context(root: Path, policy_stamp: tuple, site_stamp: tuple) -> tuple[dict, dict, list[dict]]:
+    """Reuse one native interpretation per unchanged policy cut, not per result row."""
+    inputs = []
+    for relative, expected in (("docs/lifecycle.toml", policy_stamp), ("docs/site.toml", site_stamp)):
+        raw = _read(root, relative, 4 << 20)
+        if _stamp(root / relative) != expected:
+            raise ValueError("metadata interpretation changed during selection")
+        inputs.append({"path": relative, "digest": hashlib.sha256(raw).hexdigest(), "role": "metadata-interpretation"})
+    policy, site = document_metadata.load_policy(root), docs.configuration(root)
+    if _stamp(root / "docs/lifecycle.toml") != policy_stamp or _stamp(root / "docs/site.toml") != site_stamp:
+        raise ValueError("metadata interpretation changed during read")
+    return policy, site, inputs
+
+
 def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max_bytes: int = 4 << 20, expected_digest: str | None = None) -> dict:
     raw = _read(root, relative, max_bytes)
     digest = hashlib.sha256(raw).hexdigest()
@@ -129,11 +150,17 @@ def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max
         raise ValueError("selected source changed since selection")
     text = raw.decode("utf-8")
     role, scope, owner = "source", "Current", relative
+    metadata, metadata_inputs, topics = {}, [], []
     scope_basis = "current source bytes; no document authority inferred"
     if Path(relative).suffix == ".md":
-        metadata = document_metadata.read(raw, relative, identity=relative, root=root).metadata
+        document = document_metadata.read(raw, relative, identity=relative, root=root)
+        metadata = dict(document.metadata)
+        if (root / 'docs/lifecycle.toml').is_file() and (root / 'docs/site.toml').is_file():
+            policy, site, metadata_inputs = _document_context(root, _stamp(root / 'docs/lifecycle.toml'), _stamp(root / 'docs/site.toml'))
+            metadata.update(document_metadata.interpreted(root, root / relative, document, policy, site))
         role = str(metadata.get("doc_role", "reference"))
         owner = str(metadata.get("doc_owner", relative))
+        topics = list(metadata.get('doc_topics', []))
         status = metadata.get("status", "")
         if not isinstance(status, str):
             raise ValueError("document status must be a string")
@@ -142,7 +169,7 @@ def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max
             scope = docs.document_scope(Path(relative).relative_to("docs"), status, docs.configuration(root))
         scope_basis = "native publication scope" if scope else "unpublished or unclassified document; authority unresolved"
         scope = scope or "Reference"
-    return {"id": relative, "path": relative, "digest": digest, "revision": revision, "revision_basis": "HEAD context only; content digest identifies dirty and clean bytes", "role": role, "scope": scope, "scope_basis": scope_basis, "owner": owner, "text": text, "bytes": len(raw), "basis": "exact selected file content"}
+    return {"id": relative, "path": relative, "digest": digest, "revision": revision, "revision_basis": "HEAD context only; content digest identifies dirty and clean bytes", "role": role, "scope": scope, "scope_basis": scope_basis, "owner": owner, "topics":topics, "native_id":metadata.get('id', relative), "native_status":metadata.get('status'), "metadata":metadata, "metadata_inputs":metadata_inputs, "text": text, "bytes": len(raw), "basis": "exact selected file content"}
 
 
 def paths(*, root: Path = ROOT, roots: tuple[str, ...] = (), max_files: int = 4096, max_bytes: int = 4 << 20, seconds: float = 3) -> dict:
@@ -242,9 +269,12 @@ def search(query: str, *, root: Path = ROOT, roots: tuple[str, ...] = (), roles:
     return {"version": 1, "query": query, "matching": "literal" if literal else "lexical terms", "items": items[offset:offset+limit], "next_offset": offset+limit if len(items)>offset+limit else None, "coverage": "complete selected Git paths" if complete else "partial selected Git paths", "complete": complete, "gaps": gaps, "scanned_files": scanned_files, "scanned_bytes": scanned_bytes, "membership": {key:value for key,value in membership.items() if key!="paths"}, "meaning": "source-only lexical leads; native role/scope precedence is not scientific or semantic proof; no database required"}
 
 
-def relationships(symbol: str | tuple[str, ...], *, root: Path = ROOT, limit: int = 40) -> dict:
+def relationships(symbol: str | tuple[str, ...] = (), *, root: Path = ROOT, limit: int = 40, predicates: dict[str, str] | None = None) -> dict:
     queries = (symbol,) if isinstance(symbol, str) else symbol
-    if not queries or len(queries) > 128 or any(not value or len(value)>512 for value in queries) or not 1 <= limit <= 100:
+    allowed = {'declaration_kind','declaration_key','source_path','source_symbol','source_role','source_identity','generator_path','generator_symbol','output_path','direction','basis','producer'}
+    if predicates is not None and (not predicates or set(predicates)-allowed or any(not isinstance(value,str) or not value or len(value)>4096 for value in predicates.values())):
+        raise ValueError('exact producer predicates require declared field names and bounded literal values')
+    if (not queries and not predicates) or len(queries) > 128 or any(not value or len(value)>512 for value in queries) or not 1 <= limit <= 100:
         raise ValueError("bounded literal symbols/paths and limit required")
     records = []
     producers = []
@@ -270,10 +300,12 @@ def relationships(symbol: str | tuple[str, ...], *, root: Path = ROOT, limit: in
                 if time.monotonic()>=deadline or len(source_facts)>=128:
                     gaps.append("producer_relationship_read_bound")
                     break
-                if not any(query.casefold() in json.dumps(row).casefold() for query in queries):
+                if predicates and not all((producer if key=='producer' else row.get(key)) == value for key,value in predicates.items()):
+                    continue
+                if queries and not any(query.casefold() in json.dumps(row).casefold() for query in queries):
                     continue
                 if len(records)<limit+1:
-                    records.append(row)
+                    records.append({'producer':producer, **row})
                 # Only producer-declared locations can establish a source link.
                 for key in ("source_path", "generator_path", "input_path", "path"):
                     declared = row.get(key)
@@ -286,7 +318,7 @@ def relationships(symbol: str | tuple[str, ...], *, root: Path = ROOT, limit: in
                             source_facts[declared] = {"path": declared, "availability": "unavailable_or_unadmitted"}
         except (ValueError, OSError, UnicodeError):
             gaps.append("unavailable_or_invalid_producer:"+relative)
-    return {"symbol": symbol if isinstance(symbol,str) else None, "queries": list(queries), "items": records[:limit], "truncated": len(records)>limit or bool(gaps), "producers": producers, "producer_documents": documents, "current_source_facts": list(source_facts.values()), "revision": revision, "gaps": gaps, "coverage": "producer-declared paths only; dynamic consumers unresolved; no inferred declaration locations", "availability": "available" if producers else "not generated; run just codegen explicitly"}
+    return {"symbol": symbol if isinstance(symbol,str) else None, "queries": list(queries), "predicates":predicates, "selection_basis":"exact field conjunction" if predicates and not queries else "literal text leads over producer records", "items": records[:limit], "truncated": len(records)>limit or bool(gaps), "producers": producers, "producer_documents": documents, "current_source_facts": list(source_facts.values()), "revision": revision, "gaps": gaps, "producer_freshness":"unverified; producer declaration identity and current source bytes are distinct", "coverage": "producer-declared paths only; dynamic consumers unresolved; no inferred declaration locations", "availability": "available" if producers else "not generated; run just codegen explicitly"}
 
 
 def _toml(root: Path, relative: str) -> tuple[dict, dict]:

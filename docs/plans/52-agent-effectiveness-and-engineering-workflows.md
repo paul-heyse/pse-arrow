@@ -139,13 +139,13 @@ an explicit supported decision and fallback, not silence under a completed-serie
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | resolved | [A01](52a-context-navigation-and-semantic-editing.md#A01) | Source-linked task continuity and rationale |
+| O01 | in-progress | [A01](52a-context-navigation-and-semantic-editing.md#A01) | Source-linked task continuity and rationale |
 | O02 | scheduled | [A02](52a-context-navigation-and-semantic-editing.md#A02) | Declared cross-language/generator paths, with uncertain leads separate |
 | O03 | resolved | [A03](52a-context-navigation-and-semantic-editing.md#A03) | Qualified semantic edit preview and honest unsupported cases |
 | O04 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | Tested structural transforms and declaration-aware changes |
-| O05 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Useful lexical retrieval plus bounded local semantic decision |
+| O05 | in-progress | [B01/B05](52b-local-knowledge-and-research.md#B01) | Useful lexical retrieval plus bounded local semantic decision |
 | O06 | resolved | [B03](52b-local-knowledge-and-research.md#B03) | Exact-version research and evolution packets |
-| O07 | resolved | [A05](52a-context-navigation-and-semantic-editing.md#A05) | Consequences of actual design alternatives |
+| O07 | in-progress | [A05](52a-context-navigation-and-semantic-editing.md#A05) | Consequences of actual design alternatives |
 | O08 | scheduled | [C01](52c-behavioral-and-scientific-verification.md#C01) | Source/coverage correspondence, missing behavior and exclusions |
 | O09 | scheduled | [C02](52c-behavioral-and-scientific-verification.md#C02) | Independent semantic properties and shrinking action sequences |
 | O10 | scheduled | [C03](52c-behavioral-and-scientific-verification.md#C03) | Selected plausible-wrong implementation challenges |
@@ -200,12 +200,12 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | FND00 | in-progress | [Coordinator](#FND00) | Decision/declaration slices precede dependent changes |
-| A01 | done | [52a](52a-context-navigation-and-semantic-editing.md#A01) | Current task packet and historical rationale |
+| A01 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A01) | Current task packet and historical rationale |
 | A02 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A02) | Actual generator/consumer paths |
 | A03 | done | [52a](52a-context-navigation-and-semantic-editing.md#A03) | Real semantic-edit consumer and I01 |
 | A04 | done | [52a](52a-context-navigation-and-semantic-editing.md#A04) | Structural transforms and I02 |
-| A05 | done | [52a](52a-context-navigation-and-semantic-editing.md#A05) | Supported alternative-impact comparison |
-| B01 | done | [52b](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical retrieval and first I03 decision |
+| A05 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A05) | Supported alternative-impact comparison |
+| B01 | in-progress | [52b](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical retrieval and first I03 decision |
 | B02 | done | [52b](52b-local-knowledge-and-research.md#B02) | Activity discovery/logical history and I04 |
 | B03 | done | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
 | B04 | in-progress | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
@@ -291,3 +291,13 @@ after its actual local-model compatibility/usefulness comparison. FastMCP is the
 operator-selected framework for the MCP client; ordinary CLI/source-only operations remain usable.
 Other Plan52 scope, including assembled 52h qualification, is planned. No whole-series or
 productivity/performance claim follows from these targeted checks.
+
+### Owner-selected structured-query pivot
+
+On 2026-10-23 the maintainer selected first-principles domain modeling and exact structured
+queries for generated/controlled content, with native topics as secondary aids. This reopens the
+affected A01/A02/A05/B01/B04 acceptance while retaining earlier checks' original scope.
+[52b's target](52b-local-knowledge-and-research.md#B04) owns concrete concepts, exact production
+correspondence, native authority/state distinctions and query behavior. The requested SurrealDB,
+tooling and SurrealKV source review informs the physical realization. Semantic models remain
+unselected; no new database or authority is implicit. A03/A04/B02/B03's unaffected delivery remains.

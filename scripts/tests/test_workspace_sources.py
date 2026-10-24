@@ -129,6 +129,43 @@ scope = "History"
         self.write("vendor/sample/src/lib.rs","pub fn patched_read() -> &'static str { \"patched\" }\n")
         self.write("patches/sample.patch", "--- a/src/lib.rs\n+++ b/src/lib.rs\n-pub fn registry_read() {}\n+pub fn patched_read() {}\n")
 
+    def test_interpreted_metadata_inheritance_and_policy_change_are_bound_separately(self) -> None:
+        self.write('docs/lifecycle.toml', '''version = 1
+topics = ["architecture"]
+[defaults]
+doc_owner = "docs/README.md"
+[collections.contracts]
+doc_role = "contract"
+doc_topics = ["architecture"]
+''')
+        self.write('docs/contracts/inherited.md', '---\ntitle: Native contract\nstatus: proposed\n---\n# Native section\n')
+        before = sources.source('docs/contracts/inherited.md', root=self.root)
+        self.assertEqual(before['role'], 'contract')
+        self.assertEqual(before['topics'], ['architecture'])
+        self.assertEqual(before['owner'], 'docs/README.md')
+        self.assertEqual(before['metadata']['metadata_origins']['doc_role'], 'collection:contracts')
+        self.assertEqual(before['scope'], 'Current')
+        self.assertEqual(before['native_status'], 'proposed')
+        policy = self.root/'docs/lifecycle.toml'
+        policy.write_text(policy.read_text().replace('doc_role = "contract"','doc_role = "reference"'))
+        after = sources.source('docs/contracts/inherited.md', root=self.root)
+        self.assertEqual(after['role'], 'reference')
+        self.assertEqual(before['digest'], after['digest'])
+        self.assertNotEqual(before['metadata_inputs'][0]['digest'], after['metadata_inputs'][0]['digest'])
+
+    def test_exact_production_filter_never_invents_shared_generator_correspondence(self) -> None:
+        self.write('docs/generated/source-relationships/test/relationships.json', json.dumps({
+            'schema_version':1, 'producer':'exact-test', 'relationships':[
+                {'declaration_kind':'relation', 'declaration_key':'A@1','source_path':None,'generator_path':'src/shared.rs','generator_symbol':'generate','output_path':'a.rs'},
+                {'declaration_kind':'relation', 'declaration_key':'B@1','source_path':None,'generator_path':'src/shared.rs','generator_symbol':'generate','output_path':'b.rs'}]}))
+        selected = sources.relationships(root=self.root, predicates={'producer':'exact-test','declaration_key':'A@1'})
+        self.assertEqual(selected['selection_basis'], 'exact field conjunction')
+        self.assertEqual([row['output_path'] for row in selected['items']], ['a.rs'])
+        self.assertIsNone(selected['items'][0]['source_path'])
+        absent = sources.relationships(root=self.root,predicates={'declaration_key':'A@1','output_path':'b.rs'})
+        self.assertEqual(absent['items'], [])
+        self.assertIn('unverified', selected['producer_freshness'])
+
     def test_research_packet_reconstructs_exact_pin_patch_api_and_unknown_lifetime(self) -> None:
         self.cargo()
         packet=sources.library_packet("sample",root=self.root,references=("vendor/sample/src/lib.rs","patches/sample.patch"),features=("fast",))

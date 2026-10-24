@@ -53,22 +53,7 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
             raise ValueError("named task must belong to a retained plan")
         selected.extend([plan, fact["owner"]])
         try:
-            policy = document_metadata.load_policy(root)
-            relevant = {plan, fact["owner"]}
-            # Select the owner-connected component before parsing native tables.
-            # The native reader still interprets all statuses and relationships.
-            while True:
-                widened = relevant | {endpoint.split("::", 1)[0]
-                    for edge in policy.get("relationships", [])
-                    if edge["from"].split("::", 1)[0] in relevant or edge["to"].split("::", 1)[0] in relevant
-                    for endpoint in (edge["from"], edge["to"])}
-                if widened == relevant:
-                    break
-                relevant = widened
-            selected_policy = {**policy,
-                "scope_tables": [binding for binding in policy.get("scope_tables", []) if binding["path"] in relevant],
-                "relationships": [edge for edge in policy.get("relationships", []) if edge["from"].split("::", 1)[0] in relevant]}
-            native = document_lifecycle.aggregate(root, selected_policy)
+            native = document_lifecycle.aggregate(root, document_metadata.load_policy(root), documents={plan, fact['owner']})
             rows = [row for row in native
                     if row["document"] in {plan, fact["owner"]}
                     and (not separator or row.get("native_id") == native_id)]

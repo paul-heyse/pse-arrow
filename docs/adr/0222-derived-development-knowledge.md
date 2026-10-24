@@ -28,13 +28,15 @@ private service selection and disposable generations (blueprint §24.1).
 
 ## Scope
 
-Introduce separately declared development-knowledge sources, edges, excerpts and exact corpus
-generations in the existing tooling database. This extends the derived relation family and its
+Introduce separately declared development-knowledge subjects, exact productions, typed relationships, source contributors,
+excerpts and exact corpus generations in the existing tooling database. This extends the derived relation family and its
 readers, not canonical scientific authority, model hashes or terminal/result custody.
 
 ## Drivers
 
-A question must retrieve attributable current/historical evidence and navigate declared links.
+A question selects a meaningful owner-native concept by exact identity and follows declared links;
+source versions and excerpts supply attributable current/historical evidence. Topics and text are
+secondary discovery aids, and semantic similarity is unselected.
 A corpus contains multiple immutable source versions at once; importing source B must not replace
 source A or change evidence's independent active-snapshot pointer. Reads must survive missing
 indexes through source-only access and never initialize a service implicitly.
@@ -49,7 +51,10 @@ The latter preserves authority and shares actual deployment/credential/generatio
 
 ### Consequences
 
-Registry declarations generate tooling DDL/codecs and search indexes. A separately staged corpus
+Registry declarations generate tooling DDL/codecs and access indexes. Typed concepts consume native
+document/scope/producer/evidence meanings; exact production triples preserve declaration-specific
+outputs. Native metadata inheritance and status namespaces remain distinct. Generic tags or file
+chunks do not define the domain, and undeclared links remain unknown. A separately staged corpus
 activates only after exact source/edge/excerpt membership is reconciled. Knowledge-only reset
 leaves evidence generations intact; explicit whole-tooling disposal affects both derived families.
 
@@ -78,3 +83,5 @@ memory product. Source-only queries remain useful when persistent access is unav
 ## Status history
 
 - 2026-10-23: Proposed before implementation under the maintainer-authorized RC01/RC06 target.
+
+- 2026-10-23: Maintainer selected explicit domain modeling and structured owner-native queries; amended the proposed target before dependent structured projection changes.

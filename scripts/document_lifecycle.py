@@ -141,7 +141,24 @@ class ScopeItem(TypedDict, total=False):
     relationships: list[dict[str, str]]
 
 
-def aggregate(root: Path, policy: dict) -> list[ScopeItem]:
+def aggregate(root: Path, policy: dict, *, documents: set[str] | None = None) -> list[ScopeItem]:
+    if documents is not None:
+        selected = set(documents)
+        # Native status ownership can cross documents. Select the complete declared
+        # connected component before parsing, while preserving one interpretation.
+        while True:
+            widened = selected | {
+                endpoint.split('::', 1)[0]
+                for edge in policy.get('relationships', [])
+                if edge['from'].split('::', 1)[0] in selected or edge['to'].split('::', 1)[0] in selected
+                for endpoint in (edge['from'], edge['to'])
+            }
+            if widened == selected:
+                break
+            selected = widened
+        policy = {**policy,
+            'scope_tables': [binding for binding in policy.get('scope_tables', []) if binding['path'] in selected],
+            'relationships': [edge for edge in policy.get('relationships', []) if edge['from'].split('::', 1)[0] in selected]}
     result: list[ScopeItem] = []
     seen = set()
     cache = {}
@@ -272,6 +289,7 @@ def aggregate(root: Path, policy: dict) -> list[ScopeItem]:
         if (
             re.match(r"(?:2[89]|[3-9][0-9])[a-z]?-", path.name)
             and path.relative_to(root).as_posix() not in bound_documents
+            and (documents is None or path.relative_to(root).as_posix() in selected)
         ):
             result.append(
                 {

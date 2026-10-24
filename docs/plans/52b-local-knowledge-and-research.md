@@ -28,15 +28,23 @@ Development knowledge needs a separate derived family in the existing disposable
 
 ## Selected realization and alternatives
 
-Start with source-selected lexical search: exact bounded file reads and excerpt matching, native
-role filtering and dirty-source detection. Implementation uses the existing literal/OR-term Python
-regex once on captured bytes; redundant per-file ripgrep subprocesses were removed. Ripgrep remains
-a manual discovery tool. This refinement avoids duplicate matching/process work without adding an
-index or search engine; no speed claim is inferred. This provides a useful server-independent consumer
-without writing a general search engine. The selected persistent target is SurrealDB full-text
-and typed graph links in the existing tooling database, with explicit import/refresh and atomic
-generation activation. B04 adds that integration once useful source questions work. No extra
-SQLite database or universal indexing daemon is selected.
+The maintainer selected a structured, domain-model-first pivot on 2026-10-23. Primary questions
+select concepts by the identities and contracts of their existing owners, with exact predicates
+and declared relationships. Document roles/topics/owners, authored ADR identities and statuses,
+native `ScopeItem` identities/status ownership, registry declaration keys and producer-declared
+production paths are facts to consume, not text to rediscover. AP-04 and the core's semantic-model-
+first requirement govern construction, validation and query behavior, not only result labels.
+
+Source-only exact adapters serve these questions without a database. The disposable SurrealDB
+projection accelerates selected structured queries without becoming a new semantic authority.
+Lexical matching is an explicit discovery fallback for unstructured text or missing declarations;
+semantic similarity remains unselected. Secondary topics come from native metadata, rather than
+a new arbitrary tagging scheme. A topic or term match establishes neither identity nor relationship.
+
+Bounded lexical fallback uses the existing literal/OR-term Python regex once on captured bytes;
+redundant per-file ripgrep subprocesses were removed. Ripgrep remains a manual discovery tool.
+This avoids duplicate matching/process work without adding a search engine or claiming measured speed.
+No extra SQLite database, universal indexing daemon or general memory product is selected.
 
 Published Pagefind serves website search and remains useful. Its
 [search API](https://pagefind.app/docs/search-config/) may support selected headless consumers,
@@ -124,12 +132,32 @@ unknown. A05 consumes the packet without depending on B04 persistence.
 <a id="B04"></a>
 ### B04 — Derived development-knowledge and experiment relations
 
-After FND00's short relation-family ADR/declaration slice, introduce separately typed source,
-relationship and selected excerpt/reference records through existing registry/generators. Consume
-A02 producer relationships, B01 selected source facts, B02 explicitly selected historical facts,
-B03 research evidence and existing development-evidence references. User questions/agent
-interpretations retain their origin; a suggestion is not an accepted plan decision. Do not store
-canonical scientific research objects under a new generic meaning.
+After FND00's short relation-family ADR/declaration slice, project the smallest sufficient set
+of owner-native development concepts above immutable source versions. Keep document role and
+publication scope separate from decision status and package state. A currently published proposal
+is still proposed. Use typed records, meaningful source roles and closed relationship kinds;
+construction and queries enforce their applicable combinations.
+
+Documents/contracts/decisions consume interpreted metadata and stable section owners; plan
+packages consume native scope rows. Declarations, generators and generated artifacts consume
+A02's exact production records. Retain declaration–generator–specific-output triples: splitting
+them into two generic edges must not create a false cross-product between a generator's outputs.
+Unavailable registry declaration locations remain unavailable. Multiple contributors keep their
+source roles; a catalogue registration is not a type-definition location.
+
+Evidence references use existing authority/codec/source/version/member identities and original
+adapters. Narrow experiments/diagnostics retain their producer meanings. An explicitly selected
+research question or agent interpretation keeps that origin; there is no new experiment/question
+lifecycle or scientific research authority. Native state and topic inheritance come from actual
+owners and retain the lifecycle/site policy versions that affect interpretation. Generic source
+files and excerpts are provenance carriers, not substitutes for all these concepts.
+
+Primary finite queries select kind, owner, native identity, document role, declared topics and
+typed relationships by exact conjunction. They answer, for example, who generates an exact output,
+what a named native package depends on, which owner governs a stable section, and which explicitly
+linked evidence supports an item. A missing governing-contract or qualification-evidence link is
+reported as undeclared in the inspected population; neither prose proximity nor a shared tag fills it.
+Optional full-text filtering occurs within a structurally selected population.
 
 Reuse tooling-database `evidence_store` staging/activation/lifecycle patterns without falsely
 encoding all knowledge as accepted EvidenceFact codecs. Keep original payloads at their owners;
@@ -137,8 +165,8 @@ store compact source identity, locator, basis and exact membership. Explicit imp
 generation then atomically activates it; interruption cannot expose half a corpus. Reads select
 a cut, retain missing/stale sources and do not auto-open unprotected historical absolute paths.
 
-Use native graph traversal and full-text indexes for actual question→source→experiment→diagnostic
-paths. [SurrealDB hybrid search](https://surrealdb.com/docs/learn/data-models/vector-search/hybrid-search)
+Use native schema/constraints, indexes and graph/record queries for the selected exact concept
+and production paths; full-text indexes support optional discovery within that population. [SurrealDB hybrid search](https://surrealdb.com/docs/learn/data-models/vector-search/hybrid-search)
 and [derived tables](https://surrealdb.com/docs/reference/query-language/statements/define/table)
 are concrete mechanisms; functions/views may supply recurring selected queries. Events/changefeeds
 are optional invalidation signals, not a new durable scheduler. Surrealism is selected only for
@@ -147,8 +175,10 @@ extra database deployment or duplicate scientific evaluator is needed. Compare r
 database queries with the existing supplied-source/offline DataFusion route before adding database
 computation; choose the simpler mechanism for its actual consumer.
 
-Acceptance: navigate one actual design/library question through exact evidence to an experiment,
-query lexical and graph views on the same cut, import twice without inflation, interrupt import,
+Acceptance: answer the concrete exact concept queries above, reject invalid concept/relationship
+combinations, and demonstrate two declarations sharing one generator without invented output
+correspondence. Navigate one actual design/library question through exact evidence to its original
+experiment/diagnostic references. Query structured and optional lexical/graph views on the same cut, import twice without inflation, interrupt import,
 modify/delete a source, and drop/rebuild the projection while native facts remain unchanged.
 Explain exact query plans on the selected custom server. B01 source-only operation must survive
 index loss. Delete any replaced ad hoc knowledge parsers only after their consumers migrate.
@@ -230,3 +260,12 @@ pipeline. The finite `semantic_retrieval compare` experiment remains opt-in with
 runtime/model/source identities and no implicit installation or service. Reranking, fusion and
 Agent Memory remain unselected; revisit when a concrete persistent concept-retrieval miss warrants
 a narrower comparison. This outcome does not establish that those mechanisms lack value generally.
+
+### Structured pivot checkpoint
+
+The earlier host/lexical and model comparison evidence above retains its original population.
+It does not close the subsequent structured-query pivot. A01/A02/A05/B01/B04 are in progress for
+exact owner-native selectors, interpreted inherited metadata, typed concept/production projection
+and their actual consumers. The requested SurrealDB/tooling/SurrealKV capability review informs
+the physical realization before it is finalized. Source identity, atomic activation, exact replay
+reconciliation and source-only operation remain required. No new storage authority is selected.
