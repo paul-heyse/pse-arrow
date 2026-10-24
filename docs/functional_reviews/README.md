@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [Rust build-reuse tooling review](rust-build-reuse-tooling-2026-10-24.md) assesses
+sccache, cargo-shear and cargo-hakari for one local machine. It recommends sccache 0.18.0 with
+a declared version and the current incremental split. It corrects the premise that basedirs
+normalizes Rust keys across checkouts. It proposes driving cargo-shear to zero at the causes
+of its findings, with machete retired. It does not re-adopt hakari: Cargo unit graphs show
+native workspace unification holds, and the remaining host/target splits do not justify a
+workspace-hack. Its opportunities authorize no configuration or plan change.
+
 The [FastMCP usability and tooling-evolution review](fastmcp-usability-and-tooling-evolution-2026-10-24.md)
 assesses the implemented single endpoint and the Python/Rust operations beneath it. It proposes
 constructible typed requests, useful selective results, progressive instructions, actionable
