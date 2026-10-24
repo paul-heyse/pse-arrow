@@ -20,7 +20,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -1409,55 +1408,36 @@ def namespace_sql(
     database: str | None = None,
     deadline: float | None = None,
 ) -> list[object]:
-    """Checked root administration for registered enclosing fixture namespaces."""
+    """Bounded root SQL with exact unselected, namespace or database context."""
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
-    credentials = surreal_server.read_json(Path(str(config["credentials_file"])))
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(("SURREAL", "DATABASE_"))
-    }
-    environment.update(
-        SURREAL_USER=str(credentials["username"]),
-        SURREAL_PASS=str(credentials["password"]),
+    if database is not None and namespace is None:
+        raise ResourceError("Database administration requires its namespace")
+    if any(value is not None and not re.fullmatch(r"[A-Za-z0-9_]{1,128}", value)
+           for value in (namespace, database)):
+        raise ResourceError("Namespace administration requires exact bounded identifiers")
+    namespace_only = namespace is not None and database is None
+    query = (
+        "USE NS " + surreal_server.sql_identifier(namespace) + ";\n" + sql
+        if namespace_only else sql
     )
-    server = config["server"]
-    if not isinstance(server, dict):
-        raise ResourceError("Invalid namespace administration binary")
-    # The pinned CLI unconditionally saves SQL to history.txt. Keep credential
-    # provisioning inputs private and ephemeral, away from the checkout/history.
-    with tempfile.TemporaryDirectory(
-        dir=Path(str(config["credentials_file"])).parent
-    ) as working:
-        result = subprocess.run(
-            [
-                str(server["binary"]),
-                "sql",
-                "--endpoint",
-                str(config["endpoint"]),
-                "--json",
-                "--hide-welcome",
-                *(["--namespace", namespace] if namespace else []),
-                *(["--database", database] if database else []),
-            ],
-            input=sql,
-            env=environment,
-            cwd=working,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=CLEANUP_TIMEOUT_SECONDS
-            if deadline is None
-            else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS),
-        )
     try:
-        values = cli_json(result.stdout, namespace=namespace, database=database)
-    except ValueError as error:
-        raise ResourceError("Namespace operation acknowledgment unavailable") from error
-    if result.returncode or result.stderr.strip() or not isinstance(values, list):
-        raise ResourceError("Namespace operation failed; ownership remains protective")
-    return values
+        results = surreal_server.administrative_results(
+            Path(str(config["credentials_file"])).parent, query,
+            min(deadline, time.monotonic() + CLEANUP_TIMEOUT_SECONDS)
+            if deadline is not None else time.monotonic() + CLEANUP_TIMEOUT_SECONDS,
+            namespace=namespace if database is not None else None,
+            database=database, select_context=database is not None,
+        )
+    except (surreal_server.SupervisorError, OSError, ValueError) as error:
+        raise ResourceError("Namespace operation acknowledgment unavailable; ownership remains protective") from error
+    if namespace_only:
+        if results[0]["status"] != "OK" or results[0]["result"] != {"namespace": namespace, "database": None}:
+            raise ResourceError("Namespace-only selection acknowledgment differs")
+        results = results[1:]
+    if not results:
+        raise ResourceError("Namespace operation acknowledgment unavailable")
+    return [row["result"] for row in results]
 
 
 def remove_namespace(
@@ -1499,9 +1479,8 @@ def remove_namespace(
         raise ResourceError(
             "Owned namespace child cleanup unproved; resource remains charged"
         )
-    # The pinned SQL shell reselects its session namespace after every query.
-    # Remove the enclosing namespace from an unselected root session, otherwise
-    # that reselect silently recreates the just-removed namespace.
+    # Enclosing namespace removal is deliberately unselected; later observation
+    # must not acquire a new context for the namespace being proved absent.
     if namespace_sql(
         config, f"REMOVE NAMESPACE IF EXISTS {namespace};", deadline=deadline
     ) != [None]:
@@ -1528,53 +1507,11 @@ def remove_database(
 ) -> None:
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
-    credentials = surreal_server.read_json(
-        Path(str(config["credentials_file"])),
-        **({"deadline": deadline} if deadline is not None else {}),
+    values = namespace_sql(
+        config, "REMOVE DATABASE IF EXISTS " + surreal_server.sql_identifier(record["database"]) + ";",
+        namespace=str(config["namespace"]), deadline=deadline,
     )
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith("SURREAL_")
-    }
-    environment.update(
-        SURREAL_USER=str(credentials["username"]),
-        SURREAL_PASS=str(credentials["password"]),
-    )
-    server = config["server"]
-    if not isinstance(server, dict):
-        raise ResourceError("Invalid server binary configuration")
-    command = [
-        str(server["binary"]),
-        "sql",
-        "--endpoint",
-        str(config["endpoint"]),
-        "--namespace",
-        str(config["namespace"]),
-        "--json",
-        "--hide-welcome",
-    ]
-    result = subprocess.run(
-        command,
-        input=f"REMOVE DATABASE IF EXISTS {record['database']};\n",
-        cwd=str(record["state"]),
-        env=environment,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=(
-            CLEANUP_TIMEOUT_SECONDS
-            if deadline is None
-            else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS)
-        ),
-    )
-    try:
-        completed = cli_json(result.stdout, namespace=str(config["namespace"])) == [
-            None
-        ]
-    except ValueError:
-        completed = False
-    if result.returncode or result.stderr.strip() or not completed:
+    if values != [None]:
         raise ResourceError("Owned database cleanup failed; resource remains pinned")
 
 
