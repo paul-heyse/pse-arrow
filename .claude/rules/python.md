@@ -18,7 +18,10 @@ There are exactly two, and they do not overlap (blueprint §21.1):
   — it sets `forbid_extra_keys` and owns the hooks. `cattrs.Converter`,
   `GenConverter`, bare `structure`/`unstructure`, `json` and `tomllib` are banned imports.
 
-Adding a third way to describe a record is the failure mode this rule exists to prevent.
+Adding a third way to describe a scientific package record is the failure mode this rule
+exists to prevent. Host tools under `scripts/` may use Pydantic for their own validated
+requests, exposure metadata and results. They must not mirror Rust-owned scientific fields
+or replace native decoding/admission (Plan52 unified-interface RC02).
 
 ## `Any` is banned
 
@@ -36,7 +39,7 @@ effective for modules that postpone annotations.
 
 numpy and scipy may be imported only in `python/pse/_array.py`, the parity harness and
 tests; import-linter enforces it. `_array.py` passes `zero_copy_only=True` and every
-copy carries a `copy_reason`. `idaes`, `pandas`, `pydantic`, `sympy`, `networkx`,
+copy carries a `copy_reason`. `idaes`, `pandas`, `sympy`, `networkx`,
 `matplotlib` and `click` never appear outside the parity harness; `pyomo` and `pint`
 only in the isolated parity harness and its tests. Production Pyomo adapters are removed.
 
