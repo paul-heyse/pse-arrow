@@ -16,10 +16,14 @@ authors.workspace = true
 # (.cargo/config.toml [alias]).
 publish = false
 
+[package.metadata]
+cargo-fuzz = true
+
 [lints]
 workspace = true
 
 [features]
+fuzz-inspection = ["dep:libfuzzer-sys", "dep:pse-runtime", "dep:pse-diagnostics"]
 force-validate = [
   "pse-admission?/force-validate",
   "pse-codegen/force-validate",
@@ -77,6 +81,7 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas"]
 
 [dependencies]
+libfuzzer-sys = { workspace = true, optional = true }
 pse-admission = { workspace = true, optional = true }
 pse-operations = { workspace = true, optional = true }
 pse-buildinfo.workspace = true
@@ -152,3 +157,19 @@ required-features = ["package-fixtures"]
 name = "pse-native-lane"
 path = "src/bin/pse-native-lane.rs"
 required-features = ["package-fixtures", "native-solvers"]
+
+[[bin]]
+name = "frozen-inspection-fuzz"
+path = "src/bin/frozen-inspection-fuzz.rs"
+required-features = ["fuzz-inspection"]
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "inspection-fuzz-seeds"
+path = "src/bin/inspection-fuzz-seeds.rs"
+required-features = ["fuzz-inspection"]
+test = false
+doc = false
+bench = false

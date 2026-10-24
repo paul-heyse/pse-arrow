@@ -320,8 +320,9 @@ def check_cargo_tools() -> Check:
     installed = dict(re.findall(r"^([a-z0-9-]+) v([0-9.]+)", out, re.MULTILINE))
     tools = cargo_tool_names()
     missing = [name for name in tools if name not in installed]
-    from scripts.cargo_tools import versions
-    drift = [f"{name}={installed[name]} (want {wanted})" for name, wanted in versions().items()
+    with (ROOT / ".config/diagnostic-tools.toml").open("rb") as source:
+        pinned_tools = tomllib.load(source)["cargo-tools"]
+    drift = [f"{name}={installed[name]} (want {wanted})" for name, wanted in pinned_tools.items()
              if name in installed and installed[name] != wanted]
     problems = missing + drift
     return Check(
