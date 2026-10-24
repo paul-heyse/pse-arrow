@@ -20,6 +20,24 @@ from scripts.tests import plan50_database_fixture as database_fixture
 
 
 class RestartPeerTests(unittest.TestCase):
+    def test_overlap_composes_the_durable_disposed_resource_and_frozen_result(self) -> None:
+        record = {"invocation": "authentic-child", "disposition": "pass", "cleanup": "removed"}
+        result = {"invocation": "authentic-child", "terminal_identity": "frozen",
+                  "terminal": {"complete": True}, "assurance": "pass", "subjects": [],
+                  "resources": [{"resource": "disposed"}]}
+        with (
+            patch.object(overlap.test_resources, "storage") as store,
+            patch.object(overlap.test_resources, "entry_facts", return_value=record),
+            patch.object(overlap.run_inspection, "product_result", return_value=result) as read,
+            patch.object(overlap.test_resources, "resource_status") as live,
+        ):
+            facts, invocation = overlap.peer_result("disposed")
+        store.return_value.resource_snapshot.assert_called_once_with("disposed")
+        read.assert_called_once_with("authentic-child")
+        live.assert_not_called()
+        self.assertEqual(facts, record)
+        self.assertEqual(invocation["terminal_identity"], "frozen")
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

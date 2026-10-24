@@ -17,6 +17,7 @@ from scripts import (
     native_operation,
     native_tests,
     producer_deployment,
+    run_inspection,
     test_resources,
     test_run,
 )
@@ -25,6 +26,18 @@ ROOT = Path(__file__).resolve().parents[2]
 FILTER = (
     "test(=testing::canonical_server_unit::plan30_rust_python_fixture_context_overlap)"
 )
+
+
+def peer_result(resource: str) -> tuple[dict[str, object], dict[str, object]]:
+    # Successful cleanup removes the mutable live projection. Its durable entry
+    # and frozen invocation remain the authority for disposition and outcome.
+    record = test_resources.entry_facts(test_resources.storage().resource_snapshot(resource))
+    result = run_inspection.product_result(str(record["invocation"]))
+    if not any(item["resource"] == resource for item in result["resources"]):
+        raise RuntimeError("Overlap resource lost its authentic invocation membership")
+    return dict(record), {
+        key: result[key] for key in ("invocation", "terminal_identity", "terminal", "assurance", "subjects")
+    }
 
 
 def main() -> int:
@@ -168,10 +181,12 @@ def main() -> int:
         observed = directory / (language + "-observed.json")
         if ready.exists() and observed.exists():
             declaration = json.loads(ready.read_text())
+            resource, invocation = peer_result(declaration["resource"])
             records[language] = {
                 "ready": declaration,
                 "observed": json.loads(observed.read_text()),
-                "resource": test_resources.resource_status(declaration["resource"]),
+                "resource": resource,
+                "invocation": invocation,
             }
     imported_path = directory / "python-native-imported.json"
     imported_python_native = (
@@ -188,6 +203,9 @@ def main() -> int:
         ] and all(
             item["resource"]["disposition"] == "pass"
             and item["resource"]["cleanup"] == "removed"
+            and item["invocation"]["assurance"] == "pass"
+            and item["invocation"]["terminal"]["complete"] is True
+            and any("context-overlap" in subject["requirements"]["roles"] for subject in item["invocation"]["subjects"])
             for item in records.values()
         )
     native_operation.write_json(
