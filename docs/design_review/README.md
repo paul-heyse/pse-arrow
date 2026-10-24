@@ -16,8 +16,8 @@ or a pending decision depends on it and then retires to Git history (ADR-0096); 
 cite retired reviews as `git:<commit>:<path>`.
 
 The [living diagnostic account](audit/README.md) owns broad diagnosis at its stated baseline.
-The [separate test account](test-audit/README.md) owns test-scope diagnosis and begins as an
-unperformed-audit scaffold. Use design-principle-audit or design-principle-audit-tests for the
+The [separate test account](test-audit/README.md) owns test-scope diagnosis at its recorded
+baseline. Use design-principle-audit or design-principle-audit-tests for the
 applicable engagement under the binding, then preserve
 the operator's holistic, library-targeted, principle-focused or combined focus. Requested
 recommendation audits use [net-change companions](reviews/audits/README.md) and an attributed
@@ -30,6 +30,13 @@ selected by `[core].test_assessment`. It interprets the existing principles for 
 independent oracles, shared helpers, assertions, boundary fidelity, isolation and execution cost.
 It introduces no new principles, gates or required test mix. The two audit accounts retain
 independent baselines and one primary home per finding; plans remain the progress owners.
+
+The [test architecture target review](reviews/design_review_test-architecture-target_2026-10-23.md)
+develops a coherent target and corrective changes from the holistic test audit. It accounts
+for all 48 DTA identities, including retained guarantees and withdrawn diagnoses, and connects
+scientific assurance, shared preparation, execution requirements, evidence lifetimes and
+scheduling. Its recommendations and rule impacts are proposals for plan creation, not
+implementation or qualification evidence.
 
 The [execution-performance recommendations audit](reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md)
 independently reconciles both external performance reviews against current source and the
