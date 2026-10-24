@@ -1193,6 +1193,10 @@ def admitted_runtime_server(
     if not isinstance(supervisor, dict) or supervisor.get("supervisor_script") != str(
         SCRIPT
     ):
+        if SCRIPT.parent.parent.parent.name == ".generations":
+            raise SupervisorError(
+                "Running immutable supervisor is not the selected service binding"
+            )
         return surreal_source.admitted_receipt(receipt)
     directory = SCRIPT.parent.parent
     service = service_directory(state, deadline=deadline)
@@ -1439,8 +1443,8 @@ def default_tool_root() -> Path:
     )
 
 
-def install(version: str | None, tool_root: Path) -> dict[str, object]:
-    """Install only the exact source-built server and admitted MX adapter."""
+def install(version: str | None, tool_root: Path, *, build: bool = False) -> dict[str, object]:
+    """Reuse the pinned external package; only build-server authorizes compilation."""
     if version not in {None, "v" + surreal_source.VERSION}:
         raise SupervisorError(
             "Canonical storage requires pinned SurrealDB 3.3.4 with MX 1.0.0"
@@ -1451,10 +1455,10 @@ def install(version: str | None, tool_root: Path) -> dict[str, object]:
         )
     try:
         directory = checked_directory(
-            tool_root / surreal_source.installation_name(tool_root)
+            tool_root / surreal_source.installation_name()
         )
         with state_lock(directory):
-            return surreal_source.install(directory)
+            return (surreal_source.install(directory) if build else surreal_source.require_installed(directory))
     except (surreal_source.BuildError, OSError, ValueError) as error:
         raise SupervisorError(str(error)) from error
 
@@ -5485,13 +5489,13 @@ def _start(
             return None
         try:
             current_build = surreal_source.admitted_receipt(
-                object_mapping(config["server"]), revalidate=True
+                object_mapping(config["server"])
             )
         except surreal_source.BuildError as error:
             raise SupervisorError(str(error)) from error
         if not current_build:
             raise SupervisorError(
-                "Server build context changed; install its current effective generation before launch"
+                "Server package changed or receipt is incomplete; explicitly install the pinned package before launch"
             )
         systemctl("show-environment")
         allocation = config["resources"]
@@ -10419,7 +10423,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             "Qualification control is only available with ensure-primary"
         )
     if args.command == "build-server":
-        output = install(args.version, args.tool_root or default_tool_root())
+        output = install(args.version, args.tool_root or default_tool_root(), build=True)
     elif args.command == "module-qualification":
         output = select_module_qualification(
             args.state.absolute(), args.module_receipt, long_hold=args.long_hold

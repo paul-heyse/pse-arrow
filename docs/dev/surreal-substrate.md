@@ -1006,26 +1006,37 @@ The profile follows the official [start command](https://surrealdb.com/docs/refe
 and the tagged source integration linked above. Actual patched-source controls establish
 the selected profile's behavior; a stock release's result does not qualify these patches.
 
-### Custom-source installation equivalence
+### Installed external server reuse
 
-The custom server installer uses a versioned complete-context receipt. Its effective key covers
-parsed Cargo/toolchain TOML (including value types and array order), definition roots and relative
-paths, exact source/patch/features/profile, actual compiler/linker/native inputs and the controlled
-build environment. Raw configuration bytes remain provenance. Comments, formatting and table-key
-order can reuse an artifact inside this understood domain; executable-affecting changes choose a
-different immutable namespace. Unsupported environment/configuration semantics refuse rather than
-alias an old binary. Scientific/canonical hashes are unchanged.
+The installed server is selected by its package recipe: pinned upstream revision (and its
+locked dependencies), exact patches and dependency archive, features, release profile and
+explicit build overrides, engine/SDK versions and platform. A shared package directory under
+the tools root owns selection and exclusion across checkouts. Worktree paths, current compiler,
+Cargo configuration, loader paths, wrappers and sccache configuration do not select another
+installed executable. Changing the package recipe deliberately selects a different package.
 
-Passive receipt consumers validate recorded context and current declarations without rescanning
-native installations. Installation and a stopped-to-live launch fully recapture the actual build
-context. Incomplete historical receipts cannot acquire new qualification by relabeling them. Build
-inside the final namespace from the start: moving an existing Cargo target there and observing a
-fresh result is not evidence that it was compiled with the new source/build-script paths. An
-existing live generation is never automatically restarted by this identity change.
-An interrupted source build resumes only with the exact current versioned build request for
-that namespace/context. Unknown, stale, malformed or relocated targets are preserved and refused;
-target symlinks cannot authorize shared artifacts. A completed receipt has its separate reuse
-contract above.
+The original complete-context receipt remains build provenance, including its compiler,
+configuration, native inputs, environment and build namespace. Reuse verifies that receipt's
+internal identity, current package recipe, retained lockfile and executable digest; it does not
+recapture or compare the caller's compiler environment. Existing complete installations are
+verified and selected in place without moving targets, rewriting receipts or compiling. The
+atomic selection binds the original receipt's path and digest. A corrupt published selection
+refuses rather than silently switching artifacts. Incomplete historical receipts cannot acquire
+qualification through adoption. Runtime generation binding, actual executable integrity,
+loader availability and protocol readiness retain their existing lifecycle owners.
+
+Ordinary setup, fresh-engine and tests reuse an installed package or fail with an explicit
+installation instruction. Only the existing `build-server` action may acquire source and
+compile an absent package; it too reuses an already completed installation. The explicit builder
+still closes its actual compiler context before and after compilation. An interrupted build
+resumes only with the exact versioned request for that build namespace/context; unknown,
+stale, malformed or relocated targets and target symlinks are preserved and refused. An
+existing live service is never restarted merely to update package selection.
+
+The focused `scripts.tests.surreal_install_equivalence_check` control consumes an already built
+installation and checks caller worktree/PATH/loader/wrapper/cache changes, unchanged original
+receipts and zero compiler captures/build invocations. It never starts a service or edits
+checkout configuration. This is reuse evidence, not a measured build-speed improvement.
 
 ## Standalone beta tooling fixtures
 

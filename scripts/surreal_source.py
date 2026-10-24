@@ -17,7 +17,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import tomllib
 import urllib.request
 from pathlib import Path
 
@@ -149,9 +148,6 @@ def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
     ):
         return False
     try:
-        declaration = installation_context.canonical(
-            tomllib.loads((ROOT / "rust-toolchain.toml").read_text())
-        )
         return (
             receipt.get("effective_key") == effective_key(recorded)
             and {
@@ -160,7 +156,6 @@ def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
                 if key not in {"build_context", "installation_namespace"}
             }
             == source_inputs()
-            and context["toolchain_declaration"] == declaration
         )
     except (OSError, ValueError):
         return False
@@ -169,9 +164,8 @@ def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
 def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
     """Authenticate a compiled receipt inside its verified immutable runtime.
 
-    Compilation configuration keeps its original path-bearing identity. This
-    consumer cannot reinterpret those paths as a compiler invocation in the
-    copied runtime tree. The controller still performs full launch revalidation.
+    Compilation configuration remains original build provenance. Runtime reuse
+    validates package identity, never the caller's current compiler environment.
     """
     if generation != ROOT or generation.parent.name != ".generations":
         return False
@@ -196,51 +190,103 @@ def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
     return recorded is not None and _closed_passive_receipt(receipt, recorded)
 
 
-def admitted_receipt(
-    receipt: dict,
-    selected: dict[str, object] | None = None,
-    *,
-    revalidate: bool = False,
-) -> bool:
+def admitted_receipt(receipt: dict) -> bool:
+    """Validate package/provenance metadata; launch owners verify executable bytes."""
     recorded = _receipt_inputs(receipt)
-    if recorded is None:
-        return False
-    if selected is None and not revalidate:
-        # Ordinary passive consumers also verify current compiler configuration.
-        # Only admitted_runtime_receipt has a verified immutable runtime route.
-        if not _closed_passive_receipt(receipt, recorded):
-            return False
-        try:
-            configs, _, _ = installation_context.configuration(
-                ROOT,
-                {
-                    "HOME": os.environ.get("HOME", str(Path.home())),
-                    **(
-                        {"CARGO_HOME": os.environ["CARGO_HOME"]}
-                        if "CARGO_HOME" in os.environ
-                        else {}
-                    ),
-                },
-            )
-        except (OSError, ValueError):
-            return False
-        return recorded["build_context"]["configuration"] == configs
-    current = (
-        inputs(Path(recorded["installation_namespace"]))
-        if selected is None
-        else selected
-    )
-    return (
-        receipt.get("effective_key") == effective_key(current) and recorded == current
-    )
+    return recorded is not None and _closed_passive_receipt(receipt, recorded)
 
 
-def installation_name(tool_root: Path | None = None) -> str:
-    return name_for(inputs(tool_root))
+def installation_name() -> str:
+    return name_for(source_inputs())
 
 
 def name_for(selected: dict[str, object]) -> str:
-    return f"v{VERSION}-mx{ENGINE}-effective-v1-{effective_key(selected)[:20]}"
+    package = {
+        key: value for key, value in selected.items()
+        if key not in {"build_context", "installation_namespace"}
+    }
+    return f"v{VERSION}-mx{ENGINE}-package-v1-{effective_key(package)[:20]}"
+
+
+def installed_receipt(path: Path) -> dict[str, object]:
+    """Verify an installed package without invoking its compiler or executable."""
+    receipt = json.loads(path.read_text())
+    if not isinstance(receipt, dict) or not admitted_receipt(receipt):
+        raise BuildError("Installed server inputs changed or receipt is incomplete")
+    directory = path.parent
+    binary = directory / "source" / "target" / PROFILE / "surreal"
+    if any(part.is_symlink() for part in (path, binary, *binary.parents)):
+        raise BuildError("Installed server artifact must not traverse symlinks")
+    if receipt.get("binary") != str(binary) or not binary.is_file() or receipt.get("binary_sha256") != digest(binary):
+        raise BuildError("Installed server binary differs from its admitted receipt")
+    lock = directory / "source/Cargo.lock"
+    if lock.is_symlink() or receipt.get("lockfile_sha256") != digest(lock):
+        raise BuildError("Installed server lockfile differs from its admitted receipt")
+    return receipt
+
+
+def select_installed(directory: Path) -> dict[str, object] | None:
+    """Select once per package under the caller's directory lock.
+
+    Adopt complete earlier installations in place: their original receipt and
+    executable never move or acquire a fictitious new build context. A published
+    selection fails closed on corruption; it never falls back to another build.
+    """
+    selection = directory / "selection.json"
+    if selection.is_symlink():
+        raise BuildError("Installed server package selection must not be a symlink")
+    if selection.exists():
+        recorded = json.loads(selection.read_text())
+        if not isinstance(recorded, dict):
+            raise BuildError("Installed server package selection is invalid")
+        relative = recorded.get("release")
+        if (
+            recorded.get("schema") != "surreal-source-selection-v1"
+            or recorded.get("package") != installation_name()
+            or not isinstance(relative, str)
+            or len(Path(relative).parts) != 2
+            or Path(relative).name != "release.json"
+            or Path(relative).parts[0] in {".", ".."}
+            or Path(relative).is_absolute()
+        ):
+            raise BuildError("Installed server package selection is invalid")
+        path = directory.parent / relative
+        if path.is_symlink() or recorded.get("release_sha256") != digest(path):
+            raise BuildError("Installed server receipt differs from its package selection")
+        return installed_receipt(path)
+    own = directory / "release.json"
+    if own.exists():
+        candidates = [own]
+    else:
+        candidates = sorted(directory.parent.glob(f"v{VERSION}-mx{ENGINE}-effective-v1-*/release.json"))
+    for path in candidates:
+        try:
+            receipt = installed_receipt(path)
+        except (BuildError, OSError, ValueError):
+            if path == own:
+                raise
+            continue
+        pending = directory / "selection.json.pending"
+        with pending.open("w") as output:
+            json.dump({
+                "schema": "surreal-source-selection-v1",
+                "package": installation_name(),
+                "release": str(path.relative_to(directory.parent)),
+                "release_sha256": digest(path),
+            }, output, sort_keys=True)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        pending.replace(selection)
+        return receipt
+    return None
+
+
+def require_installed(directory: Path) -> dict[str, object]:
+    receipt = select_installed(directory)
+    if receipt is None:
+        raise BuildError("Pinned server package is not installed; explicitly run build-server before setup or tests (no automatic compilation)")
+    return receipt
 
 
 def build_request(selected: dict[str, object]) -> dict[str, object]:
@@ -383,6 +429,12 @@ def acquire_diskann(source: Path, scratch: Path) -> None:
 
 
 def install(directory: Path) -> dict[str, object]:
+    """Explicit installation only; ordinary consumers call require_installed."""
+    if directory.name != installation_name():
+        raise BuildError("Installer directory differs from the pinned package namespace")
+    cached = select_installed(directory)
+    if cached is not None:
+        return cached
     context, provenance, environment = build_context()
     selected = {
         **source_inputs(),
@@ -391,27 +443,11 @@ def install(directory: Path) -> dict[str, object]:
     }
     if directory.name != name_for(selected):
         raise BuildError(
-            "Installer directory differs from its effective namespace; select installation_name(tool_root)"
+            "Package recipe changed while closing the explicit build context"
         )
     receipt_path = directory / "release.json"
     source = directory / "source"
     binary = source / "target" / PROFILE / "surreal"
-    if receipt_path.exists():
-        receipt = json.loads(receipt_path.read_text())
-        if not admitted_receipt(receipt, selected):
-            raise BuildError(
-                "Installed server inputs changed or receipt is incomplete; use its new input directory"
-            )
-        verify_source(source)
-        if receipt.get("lockfile_sha256") != digest(source / "Cargo.lock"):
-            raise BuildError(
-                "Installed server lockfile differs from its admitted receipt"
-            )
-        if not binary.is_file() or receipt.get("binary_sha256") != digest(binary):
-            raise BuildError(
-                "Installed server binary differs from its admitted receipt"
-            )
-        return receipt
     if not source.exists():
         with tempfile.TemporaryDirectory(prefix="acquire-", dir=directory) as scratch:
             pending = Path(scratch) / "source"
@@ -510,7 +546,7 @@ def install(directory: Path) -> dict[str, object]:
         output.flush()
         os.fsync(output.fileno())
     temporary.replace(receipt_path)
-    return receipt
+    return require_installed(directory)
 
 
 def build_child(directory: Path) -> None:

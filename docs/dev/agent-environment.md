@@ -192,7 +192,10 @@ The pinned cache client can lazily start a server after a connection race. The w
 contains that fallback in its client process group and refuses the result if the admitted
 service dies. This bounds surviving work; it does not establish that no transient fork
 or cache effect occurred during the race. Explicit measurement servers keep their own
-foreground lifecycle and endpoint.
+foreground lifecycle and endpoint. The installed external SurrealDB server uses
+[package selection](surreal-substrate.md#installed-external-server-reuse), separate from these
+compiler-cache contexts. Ordinary setup/tests reuse it or require explicit installation;
+worktree and runtime environment changes never trigger an external source build.
 
 `PSE_MEMORY_MAX` requests a positive finite cap. Requests above 40 GiB consume two
 functional slots; above 80 GiB requires exclusive heavy admission. A larger request
