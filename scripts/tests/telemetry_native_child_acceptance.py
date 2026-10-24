@@ -89,13 +89,22 @@ def inspect_records(records: list[tuple[str, bytes]]) -> dict[str, object]:
             <= fields.keys(),
             "child_fixture.result_references_missing",
         )
-        case_pids[str(fields["native.child.pid"].int_value)] = fields[
-            "native.attempt"
-        ].string_value
+        # tracing-opentelemetry 0.34.0 sends unsigned tracing values through
+        # its debug visitor as strings. Reading protobuf's unset int_value
+        # silently returns zero; validate the actual wire variant instead.
+        pid = fields["native.child.pid"]
+        require(
+            pid.HasField("string_value")
+            and pid.string_value.isascii()
+            and pid.string_value.isdecimal()
+            and 0 < int(pid.string_value) < 2**32,
+            "child_fixture.child_pid_wire_value_invalid",
+        )
+        case_pids[pid.string_value] = fields["native.attempt"].string_value
         targets.append(fields["acceptance.target"].double_value)
     require(
         sorted(targets) == [2.0, 2.0, 4.0] and len(case_pids) == 3,
-        "child_fixture.actual_result_references_changed",
+        f"child_fixture.actual_result_references_changed: targets={targets!r}, child_attempts={case_pids!r}",
     )
     launch = {
         span.span_id.hex(): span
