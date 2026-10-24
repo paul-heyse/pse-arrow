@@ -6310,6 +6310,7 @@ dependencies = [
  "arrow-array",
  "arrow-ipc",
  "arrow-schema",
+ "hex",
  "petgraph",
  "prettyplease 0.3.0",
  "proc-macro2",
@@ -6320,6 +6321,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "syn 3.0.5",
 ]
 
