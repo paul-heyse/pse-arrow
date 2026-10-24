@@ -15,12 +15,12 @@ from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
 from scripts.capabilities.diagnostics import safe_path
-from scripts.capabilities.worker_progress import ProgressReporter, OwnerReference
 from scripts.capabilities.qualification_contracts import (
     AssessmentRequest,
     CompilationRequest,
     OutputRequest,
 )
+from scripts.capabilities.worker_progress import OwnerReference, ProgressReporter
 from scripts.validation_scope import Gate, expand
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,7 +63,9 @@ def selected(
     raise ValueError("unsupported fixed qualification operation")
 
 
-def execute(operation: str, document: str, *, progress: ProgressReporter | None = None) -> dict[str, object]:
+def execute(
+    operation: str, document: str, *, progress: ProgressReporter | None = None
+) -> dict[str, object]:
     if operation == "rust-test":
         from scripts.capabilities.rust_test_contracts import (  # noqa: PLC0415 -- selected request only.
             RustTestRequest,
@@ -72,7 +74,9 @@ def execute(operation: str, document: str, *, progress: ProgressReporter | None 
             execute as run_tests,
         )
 
-        return run_tests(ROOT, RustTestRequest.model_validate_json(document), progress=progress)
+        return run_tests(
+            ROOT, RustTestRequest.model_validate_json(document), progress=progress
+        )
     gates, requested_output, capture, request = selected(operation, document)
     kinds = validation.preflight_kinds(gates)
     skipped = os.environ.get("PSE_PREFLIGHT") == "off"
@@ -98,7 +102,15 @@ def execute(operation: str, document: str, *, progress: ProgressReporter | None 
                 reuse=tuple(request.reuse) if request is not None else (),
                 transfer=tuple(request.transfer) if request is not None else (),
                 change_reason=request.change_reason if request is not None else None,
-                on_progress=(lambda _stage, path: progress.publish("assessment", "started", reference=OwnerReference(kind="assessment", locator=str(path)))) if progress is not None else None,
+                on_progress=(
+                    lambda _stage, path: progress.publish(
+                        "assessment",
+                        "started",
+                        reference=OwnerReference(kind="assessment", locator=str(path)),
+                    )
+                )
+                if progress is not None
+                else None,
             )
         except KeyboardInterrupt:
             # The assessment owns checkpoints, process groups and terminal
@@ -208,7 +220,9 @@ def main(argv: list[str] | None = None) -> int:
     response: dict[str, object]
     try:
         progress.publish("request", "started")
-        response = {"result": execute(operation, Path(source).read_text(), progress=progress)}
+        response = {
+            "result": execute(operation, Path(source).read_text(), progress=progress)
+        }
         progress.publish("request", "completed")
     except (
         OSError,

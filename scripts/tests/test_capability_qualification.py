@@ -25,11 +25,10 @@ from scripts.capabilities import qualification as subject
 from scripts.capabilities import qualification_worker as worker
 from scripts.capabilities.inventory import inventory
 from scripts.capabilities.model import Contract
+from scripts.capabilities.workers import WORKERS, WorkerCall
 from scripts.tests import assessment_fixture
 from scripts.tests.test_capabilities import content
 from scripts.validation_scope import Gate, comprehensive, expand, functional_gates
-
-from scripts.capabilities.workers import WorkerCall, WORKERS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -428,7 +427,9 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                     self.assertRaisesRegex(ValueError, "Out of range float"),
                 ):
                     await process.run_worker(
-                        ROOT, WorkerCall("native", "source_admit"), NativeEnvelope(value=value)
+                        ROOT,
+                        WorkerCall("native", "source_admit"),
+                        NativeEnvelope(value=value),
                     )
 
     async def test_native_unsettled_helper_withholds_source_bearing_diagnostics(
@@ -453,7 +454,9 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
             self.assertRaises(ToolError) as failure,
         ):
             await process.run_worker(
-                ROOT, WorkerCall("native", "source_admit"), {"schema_set_fingerprint": "native"}
+                ROOT,
+                WorkerCall("native", "source_admit"),
+                {"schema_set_fingerprint": "native"},
             )
         self.assertIn("source-bearing diagnostics withheld", str(failure.exception))
         self.assertNotIn("PRIVATE SOURCE BODY", str(failure.exception))

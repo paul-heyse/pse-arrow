@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from jsonschema.exceptions import ValidationError as SchemaValidationError
 
     from pse import DiagnosticReport, Runtime
-    from scripts.capabilities.native import Result
+    from scripts.capabilities.native_contracts import Result
 
 T = TypeVar("T")
 
@@ -184,7 +184,7 @@ def scientific_error(
     location = getattr(report, "decode_location", None)
     if location is not None:
         from pse import codec  # noqa: PLC0415
-        from scripts.capabilities.native import BINDINGS  # noqa: PLC0415
+        from scripts.capabilities.native_contracts import BINDINGS  # noqa: PLC0415
         from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
 
         keys: frozenset[str] = frozenset({"version", "document_version"})
@@ -265,7 +265,7 @@ def execute(
         documents as contracts,
     )
     from scripts.capabilities import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
-        native as host,
+        native_contracts as host,
     )
 
     supplied = dict(arguments)
@@ -575,7 +575,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         operation, arguments = worker_request(selected)
-        progress = ProgressReporter(Path(selected[1]).parent / "progress.json", operation) if destination is not None else None
+        progress = (
+            ProgressReporter(Path(selected[1]).parent / "progress.json", operation)
+            if destination is not None
+            else None
+        )
         if progress is not None:
             progress.publish("native", "started")
         with tempfile.TemporaryDirectory(prefix="pse-capability-native-") as directory:

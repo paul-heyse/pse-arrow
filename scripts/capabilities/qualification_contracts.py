@@ -1,11 +1,22 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Qualification selection contracts independent of worker transport and binding factories."""
+
 from __future__ import annotations
+
 from typing import Annotated, Literal
+
 from pydantic import ConfigDict, Field, TypeAdapter, model_validator
+
 from scripts.capabilities.model import Contract
-from scripts.validation_scope import EXCLUSIONS, FUNCTIONAL_SCOPES, GROUPS, Gate, comprehensive, expand, functional_gates
+from scripts.validation_scope import (
+    FUNCTIONAL_SCOPES,
+    GROUPS,
+    Gate,
+    comprehensive,
+    expand,
+    functional_gates,
+)
 
 Group = Annotated[str, Field(json_schema_extra={"enum": sorted(GROUPS)})]
 FunctionalScope = Annotated[
@@ -123,5 +134,3 @@ class OutputRequest(Contract):
     )
 
     output: str = Field(min_length=1)
-
-

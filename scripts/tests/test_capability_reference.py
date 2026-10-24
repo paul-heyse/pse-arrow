@@ -68,6 +68,13 @@ class ReferenceTests(unittest.TestCase):
         _, workspace_tools = operations.bindings(ROOT)
         _, host_tools = host_queries.bindings(ROOT)
         tools = {**workspace_tools, **host_tools}
+        reference_tool = tools.pop("rust_test_reference_read")
+        assert reference_tool.output_schema is not None
+        Draft202012Validator.check_schema(reference_tool.output_schema)
+        self.assertEqual(
+            reference_tool.output_schema["properties"]["outcome"]["enum"],
+            ["issued", "not_observed"],
+        )
         self.assertEqual(len(tools), 14)
         for identity, tool in tools.items():
             with self.subTest(operation=identity):

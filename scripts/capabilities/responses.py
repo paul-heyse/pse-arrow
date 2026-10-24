@@ -1,18 +1,24 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Lightweight response boundaries, independent of registered operation owners."""
+
 from __future__ import annotations
+
 import json
 import math
 from typing import TYPE_CHECKING, TypeVar, overload
+
 from fastmcp.exceptions import ToolError
 from pydantic import JsonValue, TypeAdapter
-from scripts.capabilities.model import Contract
+
 from scripts.capabilities.diagnostics import refusal
+from scripts.capabilities.model import Contract
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 T = TypeVar("T")
 JSON = TypeAdapter(JsonValue)
+
 
 class ReadResult(Contract):
     operation: str
@@ -181,5 +187,3 @@ def failure(operation: str, error: Exception) -> ToolError:
             }
         )
     )
-
-

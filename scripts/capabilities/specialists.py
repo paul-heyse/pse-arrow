@@ -35,7 +35,13 @@ from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator
+    from collections.abc import (
+        AsyncGenerator,
+        Awaitable,
+        Callable,
+        Coroutine,
+        Generator,
+    )
     from contextlib import AbstractAsyncContextManager
 
     from mcp.types import Tool as MCPTool
@@ -417,7 +423,7 @@ class Specialists:
     @contextmanager
     def _preview_operation(
         self, preview_sha256: str
-    ) -> Iterator[tuple[dict, PreviewWork]]:
+    ) -> Generator[tuple[dict, PreviewWork]]:
         self._validate_digest(preview_sha256)
         with self._preview_lock:
             if self.closed or preview_sha256 not in self._previews:
@@ -1358,7 +1364,11 @@ def bindings(
     tools: dict[str, Tool] = {}
     specs: list[Capability] = []
     for function, domain in rows:
-        effectful = function in (edit_preview_apply, edit_preview_release, database_query)
+        effectful = function in (
+            edit_preview_apply,
+            edit_preview_release,
+            database_query,
+        )
         tool = Tool.from_function(
             function,
             annotations=ToolAnnotations(
@@ -1398,13 +1408,31 @@ def bindings(
             owner=source,
             source=source,
             exposure="tool",
-            requirements=(Prerequisite(
-                kind="selected-service", owner="scripts/surreal_server.py", provider="surreal-selected",
-                preparation=("database_select",),
-            ),) if domain == "integration" else (Prerequisite(
-                kind="language-provider", owner="scripts/semantic_navigation.py",
-                preparation=("navigation_tool_support",),
-            ),) if function not in (edit_preview_read, edit_preview_status, edit_preview_release, edit_preview_apply, edit_preview_reconcile) else (),
+            requirements=(
+                Prerequisite(
+                    kind="selected-service",
+                    owner="scripts/surreal_server.py",
+                    provider="surreal-selected",
+                    preparation=("database_select",),
+                ),
+            )
+            if domain == "integration"
+            else (
+                Prerequisite(
+                    kind="language-provider",
+                    owner="scripts/semantic_navigation.py",
+                    preparation=("navigation_tool_support",),
+                ),
+            )
+            if function
+            not in (
+                edit_preview_read,
+                edit_preview_status,
+                edit_preview_release,
+                edit_preview_apply,
+                edit_preview_reconcile,
+            )
+            else (),
             effects=(
                 "Release only this endpoint's selected retained preview bytes; refuses admitted work and unresolved reconciliation; no source edit or rollback."
                 if function is edit_preview_release

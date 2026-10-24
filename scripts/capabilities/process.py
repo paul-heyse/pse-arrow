@@ -13,13 +13,15 @@ import json
 import tempfile
 from contextlib import suppress
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from scripts.capabilities.workers import WorkerCall
 from scripts.capabilities.worker_progress import ProgressObserver
+
+if TYPE_CHECKING:
+    from scripts.capabilities.workers import WorkerCall
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T")

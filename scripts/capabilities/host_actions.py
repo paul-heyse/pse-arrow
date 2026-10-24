@@ -4,21 +4,19 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from typing import TYPE_CHECKING
 
-from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from scripts.active_diagnostics import (
     ActionRequest,  # noqa: TC001 -- FastMCP resolves request annotations.
 )
 from scripts.capabilities import process
 from scripts.capabilities.model import Capability, Contract, Prerequisite
-from scripts.capabilities.responses import HostResult, project, failure
+from scripts.capabilities.responses import HostResult, failure, project
 from scripts.capabilities.workers import WorkerCall
 from scripts.test_archives import (  # noqa: TC001 -- FastMCP resolves request annotations.
     ArchiveRequest,
@@ -59,9 +57,7 @@ HOST_CALLS = {
 
 
 async def run_worker(root: Path, call: WorkerCall, request: BaseModel) -> HostResult:
-    return project(
-        await process.run_worker(root, call, request), call.operation
-    )
+    return project(await process.run_worker(root, call, request), call.operation)
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
@@ -181,9 +177,15 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 "Checkout environment and operation-specific native tools/identity admission",
             ),
             worker_calls=(HOST_CALLS[tool.name],) if tool.name in HOST_CALLS else (),
-            requirements=() if readonly else (Prerequisite(
-                kind="checkout-environment", owner="scripts/pse_env.py", preparation=("environment_explain",),
-            ),),
+            requirements=()
+            if readonly
+            else (
+                Prerequisite(
+                    kind="checkout-environment",
+                    owner="scripts/pse_env.py",
+                    preparation=("environment_explain",),
+                ),
+            ),
         )
         tool.tags.update(spec.tags)
         specs.append(spec)

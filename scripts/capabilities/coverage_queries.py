@@ -4,10 +4,7 @@
 
 from __future__ import annotations
 
-import asyncio
-import os
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated
 
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
@@ -16,6 +13,10 @@ from pydantic import Field
 from scripts.capabilities import read_contracts as answers
 from scripts.capabilities.model import Capability
 from scripts.capabilities.responses import owner_read
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 Limit = Annotated[int, Field(ge=1, le=100)]
 Offset = Annotated[int, Field(ge=0)]
@@ -26,27 +27,27 @@ Paths = Annotated[list[str], Field(max_length=64)]
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def coverage_correspondence_read(
-            directory: str, base: str
-        ) -> answers.CoverageResult | answers.DetailRefused:
-            """Inspect a retained coverage capture against an exact Git base. Verify captured report/population digests and retain source freshness, uncovered regions and correspondence limits; coverage is not behavioral adequacy."""
-            from scripts import (  # noqa: PLC0415 -- lazy operation owner.
-                coverage_correspondence,
-            )
+        directory: str, base: str
+    ) -> answers.CoverageResult | answers.DetailRefused:
+        """Inspect a retained coverage capture against an exact Git base. Verify captured report/population digests and retain source freshness, uncovered regions and correspondence limits; coverage is not behavioral adequacy."""
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+            coverage_correspondence,
+        )
 
-            return owner_read(
-                "coverage_correspondence_read",
-                lambda: coverage_correspondence.inspect(root / directory, base),
-                project=answers.coverage,
-            )
+        return owner_read(
+            "coverage_correspondence_read",
+            lambda: coverage_correspondence.inspect(root / directory, base),
+            project=answers.coverage,
+        )
 
     entries = (
         (
-                    coverage_correspondence_read,
-                    "validation",
-                    "verification-techniques",
-                    "scripts/coverage_correspondence.py",
-                    ("qualification",),
-                ),
+            coverage_correspondence_read,
+            "validation",
+            "verification-techniques",
+            "scripts/coverage_correspondence.py",
+            ("qualification",),
+        ),
     )
     tools: dict[str, Tool] = {}
     specs = []

@@ -6,24 +6,28 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING
 
-from pydantic import ConfigDict, Field, TypeAdapter, model_validator
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from scripts import (
     arrow_validation,
-    select,
-    test_invocation,
     test_resources,
     test_run,
     validation,
 )
-from scripts.capabilities.model import Contract
-from scripts.capabilities.worker_progress import ProgressReporter, OwnerReference
+from scripts.capabilities.rust_test_contracts import (
+    INVOCATION,
+    InvocationReference,
+    RustTestRequest,
+)
+from scripts.capabilities.worker_progress import OwnerReference, ProgressReporter
 
-from scripts.capabilities.rust_test_contracts import RustTestRequest, INVOCATION, InvocationReference
 
-def execute(root: Path, request: RustTestRequest, *, progress: ProgressReporter | None = None) -> dict[str, object]:
+def execute(
+    root: Path, request: RustTestRequest, *, progress: ProgressReporter | None = None
+) -> dict[str, object]:
     command, normalized = request.prepared()
     environment = arrow_validation.rust_test_environment(os.environ)
     inherited = environment.get(test_resources.MARKER) or None
@@ -42,16 +46,25 @@ def execute(root: Path, request: RustTestRequest, *, progress: ProgressReporter 
         validation.write_json(
             output / "invocation-reference.json",
             InvocationReference(
-                invocation=str(path), registry=str(test_resources.registry()),
+                invocation=str(path),
+                registry=str(test_resources.registry()),
                 ownership="borrowed" if inherited is not None else "owned",
-                terminal_owner="original outer owner" if inherited is not None else "native runner",
+                terminal_owner="original outer owner"
+                if inherited is not None
+                else "native runner",
             ).model_dump(mode="json"),
         )
         if progress is not None:
-            progress.publish("execution", "started", reference=OwnerReference(
-                kind="invocation", locator=str(path), registry=str(test_resources.registry()),
-                ownership="borrowed" if inherited is not None else "owned",
-            ))
+            progress.publish(
+                "execution",
+                "started",
+                reference=OwnerReference(
+                    kind="invocation",
+                    locator=str(path),
+                    registry=str(test_resources.registry()),
+                    ownership="borrowed" if inherited is not None else "owned",
+                ),
+            )
 
     code = test_run.run_rust(
         command,

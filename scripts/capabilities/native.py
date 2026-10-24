@@ -8,27 +8,28 @@ import asyncio
 import json
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING
 
 from fastmcp.tools import Tool, ToolResult
 from mcp.types import ToolAnnotations
-from pydantic import Field, JsonValue, PrivateAttr, ValidationError
+from pydantic import JsonValue, PrivateAttr, ValidationError
 
-from scripts.capabilities.native_contracts import Resources, Source, Preparation, Deployment, Metadata, Select, Revision, RevisionPreparation, Bundle, Diagnostic, Evidence, Invocation, Result, ResultInspection, Binding, BINDINGS
-from scripts.capabilities.diagnostics import refusal, safe_path, schema_keys
+from scripts.capabilities import schema_bindings
+from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.model import Capability
+from scripts.capabilities.native_contracts import (
+    BINDINGS,
+    Binding,
+)
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
-from scripts.capabilities.responses import ReadResult, bounded
 from scripts.capabilities.process import run_worker
+from scripts.capabilities.responses import ReadResult, bounded
 from scripts.capabilities.workers import WORKERS
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-Positive = Annotated[int, Field(ge=1)]
-Text = Annotated[str, Field(min_length=1)]
-Row = Annotated[int, Field(ge=0, le=(1 << 64) - 1)]
 _PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 
 
@@ -184,9 +185,7 @@ class NativeTool(Tool):
                 if self._binding.prepare_import:
                     # Actions use the shared settled transport: cancellation
                     # signals only this admitted helper and joins native drain.
-                    value = await run_worker(
-                        self._root, self._binding.worker, data
-                    )
+                    value = await run_worker(self._root, self._binding.worker, data)
                 else:
                     task = asyncio.create_task(
                         asyncio.to_thread(
@@ -286,6 +285,5 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         specs.append(spec)
         tools[name] = tool
 
-    from scripts.capabilities import schema_bindings  # noqa: PLC0415 -- composition only.
     schema_specs, schema_tools = schema_bindings.bindings(root)
     return (*specs, *schema_specs), {**tools, **schema_tools}

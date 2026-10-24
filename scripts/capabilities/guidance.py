@@ -134,86 +134,148 @@ class Guidance:
         self._package_snapshots: dict[str, dict[str, _Snapshot]] = {}
 
     def _observe_package(self, guide: Guide) -> dict[str, _Identity] | GuidanceError:
-        """Walk stat-only membership beneath held no-follow directory handles."""
+        """Represent source failures as part of the captured observation cut."""
         try:
-            members: dict[str, _Identity] = {}
-            total = 0
-            entries = 0
-            directories = 0
-            files = 0
-
-            def walk(descriptor: int, parent: Path, depth: int) -> None:
-                nonlocal total, entries, directories, files
-                # scandir(fd) keeps enumeration beneath the held directory and
-                # closes its own duplicate, not our no-follow descriptor. Count
-                # before retaining/sorting names or opening descendants: file and
-                # byte limits alone cannot bound empty directory populations.
-                names: list[tuple[str, bool]] = []
-                with os.scandir(descriptor) as scan:
-                    for entry in scan:
-                        entries += 1
-                        if entries > MAX_SKILL_ENTRIES:
-                            raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its entry limit.")
-                        info = entry.stat(follow_symlinks=False)
-                        if stat.S_ISLNK(info.st_mode):
-                            raise GuidanceError("package_symlink", guide.id, "Skill packages cannot contain symlinked paths.")
-                        directory = stat.S_ISDIR(info.st_mode)
-                        if directory:
-                            directories += 1
-                            if directories > MAX_SKILL_DIRECTORIES or depth >= MAX_SKILL_DEPTH:
-                                raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its directory or depth limit.")
-                        elif stat.S_ISREG(info.st_mode):
-                            files += 1
-                            if files > MAX_SKILL_FILES:
-                                raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its file limit.")
-                        else:
-                            raise GuidanceError("invalid_source", guide.id, "Skill sources must be regular files.")
-                        names.append((entry.name, directory))
-                for name, directory in sorted(names):
-                    relative = parent / name
-                    if directory:
-                        child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                        dir_fd=descriptor)
-                        try:
-                            walk(child, relative, depth + 1)
-                        finally:
-                            os.close(child)
-                    else:
-                        source = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
-                                         dir_fd=descriptor)
-                        try:
-                            if not stat.S_ISREG(os.fstat(source).st_mode):
-                                raise GuidanceError("invalid_source", guide.id, "Skill sources must be regular files.")
-                            observed = self._identity(source, relative.as_posix())
-                        finally:
-                            os.close(source)
-                        members[relative.as_posix()] = observed
-                        total += observed.size
-                        if observed.size > MAX_GUIDE_BYTES:
-                            raise GuidanceError("oversized_source", guide.id, "A skill file exceeds the 128 KiB limit.")
-                        if total > MAX_SKILL_BYTES:
-                            raise GuidanceError("oversized_package", guide.id, "A skill package exceeds the 1 MiB limit.")
-
-            parent = Path(guide.path).parent
-            with ExitStack() as stack:
-                descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-                stack.callback(os.close, descriptor)
-                relative = Path()
-                for part in parent.parts:
-                    if stat.S_ISLNK(os.stat(part, dir_fd=descriptor, follow_symlinks=False).st_mode):
-                        raise GuidanceError("package_symlink", guide.id, "Skill packages cannot contain symlinked paths.")
-                    descriptor = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                         dir_fd=descriptor)
-                    stack.callback(os.close, descriptor)
-                    relative /= part
-                walk(descriptor, relative, 0)
-            if guide.path not in members:
-                raise GuidanceError("missing_source", guide.id, "Skill main source is missing or inaccessible.")
-            return dict(sorted(members.items()))
+            return self._scan_package(guide)
         except (OSError, RuntimeError):
-            return GuidanceError("missing_source", guide.id, "Skill package is missing or inaccessible.")
+            return GuidanceError(
+                "missing_source", guide.id, "Skill package is missing or inaccessible."
+            )
         except GuidanceError as error:
             return error
+
+    def _scan_package(self, guide: Guide) -> dict[str, _Identity]:
+        """Walk stat-only membership beneath held no-follow directory handles."""
+        members: dict[str, _Identity] = {}
+        total = 0
+        entries = 0
+        directories = 0
+        files = 0
+
+        def walk(descriptor: int, parent: Path, depth: int) -> None:
+            nonlocal total, entries, directories, files
+            # scandir(fd) keeps enumeration beneath the held directory and
+            # closes its own duplicate, not our no-follow descriptor. Count
+            # before retaining/sorting names or opening descendants: file and
+            # byte limits alone cannot bound empty directory populations.
+            names: list[tuple[str, bool]] = []
+            with os.scandir(descriptor) as scan:
+                for entry in scan:
+                    entries += 1
+                    if entries > MAX_SKILL_ENTRIES:
+                        raise GuidanceError(
+                            "oversized_package",
+                            guide.id,
+                            "Skill package exceeds its entry limit.",
+                        )
+                    info = entry.stat(follow_symlinks=False)
+                    if stat.S_ISLNK(info.st_mode):
+                        raise GuidanceError(
+                            "package_symlink",
+                            guide.id,
+                            "Skill packages cannot contain symlinked paths.",
+                        )
+                    directory = stat.S_ISDIR(info.st_mode)
+                    if directory:
+                        directories += 1
+                        if (
+                            directories > MAX_SKILL_DIRECTORIES
+                            or depth >= MAX_SKILL_DEPTH
+                        ):
+                            raise GuidanceError(
+                                "oversized_package",
+                                guide.id,
+                                "Skill package exceeds its directory or depth limit.",
+                            )
+                    elif stat.S_ISREG(info.st_mode):
+                        files += 1
+                        if files > MAX_SKILL_FILES:
+                            raise GuidanceError(
+                                "oversized_package",
+                                guide.id,
+                                "Skill package exceeds its file limit.",
+                            )
+                    else:
+                        raise GuidanceError(
+                            "invalid_source",
+                            guide.id,
+                            "Skill sources must be regular files.",
+                        )
+                    names.append((entry.name, directory))
+            for name, directory in sorted(names):
+                relative = parent / name
+                if directory:
+                    child = os.open(
+                        name,
+                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                        dir_fd=descriptor,
+                    )
+                    try:
+                        walk(child, relative, depth + 1)
+                    finally:
+                        os.close(child)
+                else:
+                    source = os.open(
+                        name,
+                        os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                        dir_fd=descriptor,
+                    )
+                    try:
+                        if not stat.S_ISREG(os.fstat(source).st_mode):
+                            raise GuidanceError(
+                                "invalid_source",
+                                guide.id,
+                                "Skill sources must be regular files.",
+                            )
+                        observed = self._identity(source, relative.as_posix())
+                    finally:
+                        os.close(source)
+                    members[relative.as_posix()] = observed
+                    total += observed.size
+                    if observed.size > MAX_GUIDE_BYTES:
+                        raise GuidanceError(
+                            "oversized_source",
+                            guide.id,
+                            "A skill file exceeds the 128 KiB limit.",
+                        )
+                    if total > MAX_SKILL_BYTES:
+                        raise GuidanceError(
+                            "oversized_package",
+                            guide.id,
+                            "A skill package exceeds the 1 MiB limit.",
+                        )
+
+        parent = Path(guide.path).parent
+        with ExitStack() as stack:
+            descriptor = os.open(
+                self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            )
+            stack.callback(os.close, descriptor)
+            relative = Path()
+            for part in parent.parts:
+                if stat.S_ISLNK(
+                    os.stat(part, dir_fd=descriptor, follow_symlinks=False).st_mode
+                ):
+                    raise GuidanceError(
+                        "package_symlink",
+                        guide.id,
+                        "Skill packages cannot contain symlinked paths.",
+                    )
+                descriptor = os.open(
+                    part,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=descriptor,
+                )
+                stack.callback(os.close, descriptor)
+                relative /= part
+            walk(descriptor, relative, 0)
+        if guide.path not in members:
+            raise GuidanceError(
+                "missing_source",
+                guide.id,
+                "Skill main source is missing or inaccessible.",
+            )
+        return dict(sorted(members.items()))
 
     @staticmethod
     def _file_id(path: str) -> str:
@@ -229,6 +291,41 @@ class Guidance:
             digest.update(bytes.fromhex(snapshot.digest))
         return digest.hexdigest()
 
+    def register_package_resources(
+        self, server: FastMCP, guide_id: str
+    ) -> dict[str, str]:
+        """Register only the package resources owned by this captured guide cut."""
+        guide = self._guides[guide_id]
+        keys: dict[str, str] = {}
+        package = self._packages.get(guide.id)
+        if package is not None:
+            manifest = FunctionResource.from_function(
+                partial(self.manifest_resource, guide.id),
+                uri=guide.uri + "/manifest",
+                name=guide.id + "-manifest",
+                description="Complete captured owned skill supporting-file manifest; no activation or execution.",
+                mime_type="application/json",
+                tags={"guide:" + guide.id},
+            )
+            server.add_resource(manifest)
+            keys[guide.id + "/manifest"] = manifest.key
+        if isinstance(package, dict):
+            for path in package:
+                if path == guide.path:
+                    continue
+                file_id = self._file_id(path)
+                support = FunctionResource.from_function(
+                    partial(self.read_support, guide.id, file_id),
+                    uri=guide.uri + "/files/" + file_id,
+                    name=guide.id + "-" + file_id,
+                    description="Read one complete captured owned supporting file; no trust, activation or execution.",
+                    mime_type=mimetypes.guess_type(path)[0] or "text/plain",
+                    tags={"guide:" + guide.id},
+                )
+                server.add_resource(support)
+                keys[guide.id + "/" + file_id] = support.key
+        return keys
+
     def resource_owners(self) -> dict[str, str]:
         """Exact source-resource ownership for visibility and loaded fences."""
         owners = {guide.uri: guide.id for guide in self.guides}
@@ -236,8 +333,13 @@ class Guidance:
             uri = self._guides[identity].uri
             owners[uri + "/manifest"] = identity
             if isinstance(package, dict):
-                owners.update({uri + "/files/" + self._file_id(path): identity
-                               for path in package if path != self._guides[identity].path})
+                owners.update(
+                    {
+                        uri + "/files/" + self._file_id(path): identity
+                        for path in package
+                        if path != self._guides[identity].path
+                    }
+                )
         return owners
 
     def _prepare_packages(self, selected: list[str]) -> dict[str, dict[str, _Snapshot]]:
@@ -273,22 +375,48 @@ class Guidance:
         with self._lock:
             main = self.read(guide_id)
             if guide_id not in self._packages:
-                raise GuidanceError("not_skill_package", guide_id, "Guide has no owned supporting-file package.")
+                raise GuidanceError(
+                    "not_skill_package",
+                    guide_id,
+                    "Guide has no owned supporting-file package.",
+                )
             if main["restart_required"] or not main["complete"]:
-                raise GuidanceError("restart_required", guide_id, "Skill package changed; restart before reading supporting files.")
+                raise GuidanceError(
+                    "restart_required",
+                    guide_id,
+                    "Skill package changed; restart before reading supporting files.",
+                )
             guide = self._guides[guide_id]
             captured = self._package_snapshots[guide_id]
             return {
-                "guide_id": guide_id, "guide_digest": self._snapshots[guide_id].digest,
+                "guide_id": guide_id,
+                "guide_digest": self._snapshots[guide_id].digest,
                 "package_digest": self._package_digest(captured),
                 "complete": True,
-                "limits": {"file_bytes": MAX_GUIDE_BYTES, "files": MAX_SKILL_FILES, "package_bytes": MAX_SKILL_BYTES,
-                           "entries": MAX_SKILL_ENTRIES, "directories": MAX_SKILL_DIRECTORIES,
-                           "depth": MAX_SKILL_DEPTH},
+                "limits": {
+                    "file_bytes": MAX_GUIDE_BYTES,
+                    "files": MAX_SKILL_FILES,
+                    "package_bytes": MAX_SKILL_BYTES,
+                    "entries": MAX_SKILL_ENTRIES,
+                    "directories": MAX_SKILL_DIRECTORIES,
+                    "depth": MAX_SKILL_DEPTH,
+                },
                 "files": [
-                    {"id": self._file_id(path), "path": Path(path).relative_to(Path(guide.path).parent).as_posix(),
-                     "uri": guide.uri if path == guide.path else guide.uri + "/files/" + self._file_id(path),
-                     "digest": snapshot.digest, "bytes": len(snapshot.content.encode() if isinstance(snapshot.content, str) else snapshot.content)}
+                    {
+                        "id": self._file_id(path),
+                        "path": Path(path)
+                        .relative_to(Path(guide.path).parent)
+                        .as_posix(),
+                        "uri": guide.uri
+                        if path == guide.path
+                        else guide.uri + "/files/" + self._file_id(path),
+                        "digest": snapshot.digest,
+                        "bytes": len(
+                            snapshot.content.encode()
+                            if isinstance(snapshot.content, str)
+                            else snapshot.content
+                        ),
+                    }
                     for path, snapshot in captured.items()
                 ],
             }
@@ -298,31 +426,66 @@ class Guidance:
             manifest = self.manifest(guide_id)
             guide = self._guides[guide_id]
             captured = self._package_snapshots[guide_id]
-            path = next((path for path in captured if self._file_id(path) == file_id and path != guide.path), None)
+            path = next(
+                (
+                    path
+                    for path in captured
+                    if self._file_id(path) == file_id and path != guide.path
+                ),
+                None,
+            )
             if path is None:
-                raise GuidanceError("unknown_support", guide_id, "Supporting file is not in this captured skill package.")
+                raise GuidanceError(
+                    "unknown_support",
+                    guide_id,
+                    "Supporting file is not in this captured skill package.",
+                )
             snapshot = captured[path]
-            metadata = {"guide_id": guide_id, "guide_digest": manifest["guide_digest"],
-                        "package_digest": manifest["package_digest"], "digest": snapshot.digest,
-                        "path": path, "complete": True, "restart_required": False}
-            return ResourceResult(contents=[ResourceContent(content=snapshot.content,
-                mime_type=mimetypes.guess_type(path)[0] or "text/plain", meta=metadata)], meta=metadata)
+            metadata = {
+                "guide_id": guide_id,
+                "guide_digest": manifest["guide_digest"],
+                "package_digest": manifest["package_digest"],
+                "digest": snapshot.digest,
+                "path": path,
+                "complete": True,
+                "restart_required": False,
+            }
+            return ResourceResult(
+                contents=[
+                    ResourceContent(
+                        content=snapshot.content,
+                        mime_type=mimetypes.guess_type(path)[0] or "text/plain",
+                        meta=metadata,
+                    )
+                ],
+                meta=metadata,
+            )
 
     def references(self, ids: Sequence[str]) -> list[dict[str, object]]:
         """Compact complete-resource receipts; no instruction body is duplicated."""
-        return [{key: value for key, value in item.items() if key != "content"}
-                for item in self.instruction_bundle(ids)]
+        return [
+            {key: value for key, value in item.items() if key != "content"}
+            for item in self.instruction_bundle(ids)
+        ]
 
     def resource(self, guide_id: str) -> ResourceResult:
         value = self.read(guide_id)
         metadata = {key: item for key, item in value.items() if key != "content"}
-        return ResourceResult(contents=[ResourceContent(content=value,
-            mime_type="application/json", meta=metadata)], meta=metadata)
+        return ResourceResult(
+            contents=[
+                ResourceContent(
+                    content=value, mime_type="application/json", meta=metadata
+                )
+            ],
+            meta=metadata,
+        )
 
     def manifest_resource(self, guide_id: str) -> ResourceResult:
         manifest = self.manifest(guide_id)
-        return ResourceResult(contents=[ResourceContent(content=manifest, mime_type="application/json")],
-                              meta={"guide_id": guide_id, "package_digest": manifest["package_digest"]})
+        return ResourceResult(
+            contents=[ResourceContent(content=manifest, mime_type="application/json")],
+            meta={"guide_id": guide_id, "package_digest": manifest["package_digest"]},
+        )
 
     @contextmanager
     def _open(self, guide: Guide) -> Generator[tuple[int, str], None, None]:
@@ -481,7 +644,11 @@ class Guidance:
                     ):
                         self._changed.add(guide_id)
                 for identity in selected:
-                    if identity in self._packages and self._observe_package(self._guides[identity]) != self._packages[identity]:
+                    if (
+                        identity in self._packages
+                        and self._observe_package(self._guides[identity])
+                        != self._packages[identity]
+                    ):
                         self._changed.add(identity)
                 if not self._changed.intersection(selected):
                     self._snapshots.update(pending)
@@ -502,7 +669,9 @@ class Guidance:
             "digest": snapshot.digest if snapshot else None,
             "restart_required": restart,
             "complete": snapshot is not None,
-            "supporting_manifest": guide.uri + "/manifest" if guide.id in self._packages else None,
+            "supporting_manifest": guide.uri + "/manifest"
+            if guide.id in self._packages
+            else None,
             "package_digest": self._package_digest(package) if package else None,
             "omissions": []
             if snapshot
@@ -525,24 +694,5 @@ def register_guides(server: FastMCP, guidance: Guidance) -> dict[str, str]:
         )
         server.add_resource(resource)
         keys[guide.id] = resource.key
-        package = guidance._packages.get(guide.id)
-        if package is not None:
-            manifest = FunctionResource.from_function(
-                partial(guidance.manifest_resource, guide.id), uri=guide.uri + "/manifest",
-                name=guide.id + "-manifest", description="Complete captured owned skill supporting-file manifest; no activation or execution.",
-                mime_type="application/json", tags={"guide:" + guide.id})
-            server.add_resource(manifest)
-            keys[guide.id + "/manifest"] = manifest.key
-        if isinstance(package, dict):
-            for path in package:
-                if path == guide.path:
-                    continue
-                file_id = guidance._file_id(path)
-                support = FunctionResource.from_function(
-                    partial(guidance.read_support, guide.id, file_id),
-                    uri=guide.uri + "/files/" + file_id, name=guide.id + "-" + file_id,
-                    description="Read one complete captured owned supporting file; no trust, activation or execution.",
-                    mime_type=mimetypes.guess_type(path)[0] or "text/plain", tags={"guide:" + guide.id})
-                server.add_resource(support)
-                keys[guide.id + "/" + file_id] = support.key
+        keys.update(guidance.register_package_resources(server, guide.id))
     return keys

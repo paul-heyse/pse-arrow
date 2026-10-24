@@ -118,7 +118,9 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(families["navigation_hover"], "language-navigation")
             self.assertEqual(families["navigation_rename_preview"], "controlled-edits")
             for operation in (
-                "edit_preview_read", "edit_preview_status", "edit_preview_release"
+                "edit_preview_read",
+                "edit_preview_status",
+                "edit_preview_release",
             ):
                 self.assertEqual(families[operation], "controlled-edits")
             self.assertNotIn(

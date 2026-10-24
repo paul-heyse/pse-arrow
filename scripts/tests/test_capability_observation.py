@@ -32,8 +32,7 @@ from scripts import (
     test_run,
 )
 from scripts.capabilities import observation
-from scripts.capabilities.responses import project
-from scripts.capabilities.responses import bounded
+from scripts.capabilities.responses import bounded, project
 from scripts.capabilities.server import Runtime, build
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -312,7 +311,9 @@ class ObservationTests(unittest.IsolatedAsyncioTestCase):
                             },
                         )
                         native = object_value(
-                            object_value(later.structured_content)["payload"]
+                            object_value(
+                                object_value(later.structured_content)["result"]
+                            )["payload"]
                         )
                         self.assertFalse(native["terminal"]["complete"])
                         self.assertEqual(native["workload_exit"], 130)

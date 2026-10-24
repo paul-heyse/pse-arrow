@@ -11,12 +11,10 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from scripts.capabilities import read_contracts
-from scripts.capabilities.responses import owner_read
 from scripts.capabilities.model import Capability
-
+from scripts.capabilities.responses import owner_read
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
 Bound = Annotated[int, Field(ge=1, le=100)]
@@ -26,23 +24,23 @@ PathList = Annotated[list[str], Field(max_length=8)]
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def workspace_producer_relationships(
-            paths: PathList, limit: Bound = 40
-        ) -> read_contracts.ProducerRelationshipsResult | read_contracts.DetailRefused:
-            """Find declared producer relationships for exact source/output paths. Unknown edges are not evidence of no impact; generated files name edit owners."""
-            from scripts.workspace_sources import relationships  # noqa: PLC0415
+        paths: PathList, limit: Bound = 40
+    ) -> read_contracts.ProducerRelationshipsResult | read_contracts.DetailRefused:
+        """Find declared producer relationships for exact source/output paths. Unknown edges are not evidence of no impact; generated files name edit owners."""
+        from scripts.workspace_sources import relationships  # noqa: PLC0415
 
-            return owner_read(
-                "workspace_producer_relationships",
-                lambda: relationships(root=root, exact_paths=tuple(paths), limit=limit),
-                project=read_contracts.producer_relationships,
-            )
+        return owner_read(
+            "workspace_producer_relationships",
+            lambda: relationships(root=root, exact_paths=tuple(paths), limit=limit),
+            project=read_contracts.producer_relationships,
+        )
 
     rows = (
         (
-                    workspace_producer_relationships,
-                    "Declared producer relationships",
-                    "scripts/workspace_sources.py",
-                ),
+            workspace_producer_relationships,
+            "Declared producer relationships",
+            "scripts/workspace_sources.py",
+        ),
     )
     specs = []
     tools: dict[str, Tool] = {}

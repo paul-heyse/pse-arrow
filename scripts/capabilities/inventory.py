@@ -654,86 +654,231 @@ def inventory(
             ),
         )
     )
+
     # These intent groups are the only authored workflow membership. Optional
     # groups are revealed deliberately through capabilities_select.workflow_steps.
-    def step(identity: str, purpose: str, *capabilities: str,
-             default: bool = True, guides: tuple[str, ...] = ()) -> WorkflowStep:
-        return WorkflowStep(id=identity, purpose=purpose, capabilities=capabilities,
-                            default=default, guides=guides)
+    def step(
+        identity: str,
+        purpose: str,
+        *capabilities: str,
+        default: bool = True,
+        guides: tuple[str, ...] = (),
+    ) -> WorkflowStep:
+        return WorkflowStep(
+            id=identity,
+            purpose=purpose,
+            capabilities=capabilities,
+            default=default,
+            guides=guides,
+        )
 
     steps = {
         "inspect-plan": (
-            step("scope", "Read the exact task owner and page its current native scope without authorizing execution.",
-                 "workspace_task_context", "document_scope_query"),
-            step("source-navigation", "Follow a selected source symbol or original source evidence when scope needs clarification.",
-                 "navigation_definition", "navigation_references", "knowledge_source_corpus", default=False),
-            step("native-route", "Inspect an exact native recipe when the plan names a command.",
-                 "workspace_recipe_describe", default=False),
+            step(
+                "scope",
+                "Read the exact task owner and page its current native scope without authorizing execution.",
+                "workspace_task_context",
+                "document_scope_query",
+            ),
+            step(
+                "source-navigation",
+                "Follow a selected source symbol or original source evidence when scope needs clarification.",
+                "navigation_definition",
+                "navigation_references",
+                "knowledge_source_corpus",
+                default=False,
+            ),
+            step(
+                "native-route",
+                "Inspect an exact native recipe when the plan names a command.",
+                "workspace_recipe_describe",
+                default=False,
+            ),
         ),
         "change-generated-contract": (
-            step("declaration", "Read task context, locate authored producers and inspect the exact generated native schema before editing.",
-                 "workspace_task_context", "workspace_producer_relationships", "native_contract_schema"),
-            step("edit", "Preview and deliberately apply an authored source change; reconcile any interrupted apply.",
-                 "navigation_rename_preview", "navigation_action_preview", "edit_preview_read", "edit_preview_apply", "edit_preview_reconcile", default=False),
-            step("regenerate", "Run the original generator after editing its declaration, then compare generated contracts.",
-                 "contracts_generate", "contracts_check", default=False),
+            step(
+                "declaration",
+                "Read task context, locate authored producers and inspect the exact generated native schema before editing.",
+                "workspace_task_context",
+                "workspace_producer_relationships",
+                "native_contract_schema",
+            ),
+            step(
+                "edit",
+                "Preview and deliberately apply an authored source change; reconcile any interrupted apply.",
+                "navigation_rename_preview",
+                "navigation_action_preview",
+                "edit_preview_read",
+                "edit_preview_apply",
+                "edit_preview_reconcile",
+                default=False,
+            ),
+            step(
+                "regenerate",
+                "Run the original generator after editing its declaration, then compare generated contracts.",
+                "contracts_generate",
+                "contracts_check",
+                default=False,
+            ),
         ),
         "plan-functional-review": (
-            step("prepare", "Retrieve the planning skill and original capability context; preserve the inquiry and planning phase boundary.",
-                 "skill-plan-functional-extension-review", "workspace_concepts_query",
-                 guides=("skill-plan-functional-extension-review",)),
-            step("library-sources", "Inspect exact library/source evidence relevant to the selected functional inquiry.",
-                 "library_source_packet", "document_scope_query", default=False),
+            step(
+                "prepare",
+                "Retrieve the planning skill and original capability context; preserve the inquiry and planning phase boundary.",
+                "skill-plan-functional-extension-review",
+                "workspace_concepts_query",
+                guides=("skill-plan-functional-extension-review",),
+            ),
+            step(
+                "library-sources",
+                "Inspect exact library/source evidence relevant to the selected functional inquiry.",
+                "library_source_packet",
+                "document_scope_query",
+                default=False,
+            ),
         ),
         "diagnose-run": (
-            step("original-result", "Read the authentic invocation and separate workload, assurance and drain outcomes before choosing diagnostics.",
-                 "product_run_read", "workload_watch"),
-            step("scientific-detail", "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment.",
-                 "native_invocation_read", "native_evidence_inspect", "native_diagnostic_inspect", default=False),
-            step("active-experiment", "Perform only a deliberately selected diagnostic experiment and read its retained original record.",
-                 "diagnostic_action", "diagnostic_action_read", default=False),
+            step(
+                "original-result",
+                "Read the authentic invocation and separate workload, assurance and drain outcomes before choosing diagnostics.",
+                "product_run_read",
+                "workload_watch",
+            ),
+            step(
+                "scientific-detail",
+                "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment.",
+                "native_invocation_read",
+                "native_evidence_inspect",
+                "native_diagnostic_inspect",
+                default=False,
+            ),
+            step(
+                "active-experiment",
+                "Perform only a deliberately selected diagnostic experiment and read its retained original record.",
+                "diagnostic_action",
+                "diagnostic_action_read",
+                default=False,
+            ),
         ),
         "qualify-change": (
-            step("select", "Describe the relevant assessment and test closure before choosing correctness scope.",
-                 "assessment_select", "rust_test_describe"),
-            step("execute", "Run the selected native checks at the authorized qualification boundary and retain authentic results.",
-                 "compilation_check", "rust_test_run", "assessment_run", default=False),
-            step("evidence", "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope.",
-                 "product_run_read", "rust_test_reference_read", "assessment_read", "coverage_correspondence_read", default=False),
-            step("prepare", "Inspect selected readiness and explicitly prepare only the required owner stage.",
-                 "capability_readiness", "capability_readiness_check", "python_extension_dev_stage", "python_extension_native_stage", default=False),
+            step(
+                "select",
+                "Describe the relevant assessment and test closure before choosing correctness scope.",
+                "assessment_select",
+                "rust_test_describe",
+            ),
+            step(
+                "execute",
+                "Run the selected native checks at the authorized qualification boundary and retain authentic results.",
+                "compilation_check",
+                "rust_test_run",
+                "assessment_run",
+                default=False,
+            ),
+            step(
+                "evidence",
+                "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope.",
+                "product_run_read",
+                "rust_test_reference_read",
+                "assessment_read",
+                "coverage_correspondence_read",
+                default=False,
+            ),
+            step(
+                "prepare",
+                "Inspect selected readiness and explicitly prepare only the required owner stage.",
+                "capability_readiness",
+                "capability_readiness_check",
+                "python_extension_dev_stage",
+                "python_extension_native_stage",
+                default=False,
+            ),
         ),
         "investigate-evidence": (
-            step("source", "Read attributed original source evidence with explicit completeness.",
-                 "knowledge_source_corpus"),
-            step("retained-run", "Follow an authentic run or diagnostic action record without rerunning its subject.",
-                 "product_run_read", "diagnostic_action_read", default=False),
-            step("native-evidence", "Inspect exact native scientific evidence in the selected existing environment.",
-                 "native_evidence_inspect", "native_invocation_read", default=False),
-            step("archive", "Inspect original historical archive bytes without treating them as current-source qualification.",
-                 "experiment_inspect", default=False),
+            step(
+                "source",
+                "Read attributed original source evidence with explicit completeness.",
+                "knowledge_source_corpus",
+            ),
+            step(
+                "retained-run",
+                "Follow an authentic run or diagnostic action record without rerunning its subject.",
+                "product_run_read",
+                "diagnostic_action_read",
+                default=False,
+            ),
+            step(
+                "native-evidence",
+                "Inspect exact native scientific evidence in the selected existing environment.",
+                "native_evidence_inspect",
+                "native_invocation_read",
+                default=False,
+            ),
+            step(
+                "archive",
+                "Inspect original historical archive bytes without treating them as current-source qualification.",
+                "experiment_inspect",
+                default=False,
+            ),
         ),
         "manage-project": (
-            step("context", "Inspect exact project metadata and revision source in an already prepared native environment.",
-                 "native_project_metadata", "native_revision_source"),
-            step("select", "Deliberately select an existing project through its native owner.",
-                 "native_project_select", default=False),
-            step("source-admission", "Discover exact preparation requirements and explicitly admit authored source through its native validator.",
-                 "native_preparation_discover", "native_revision_preparation_discover", "native_source_admit", default=False),
-            step("results", "Inspect selected original project/result/research artifacts without asserting a solve outcome.",
-                 "native_project_bundle_inspect", "native_result_read", "native_result_inspect", "native_research_read", default=False),
+            step(
+                "context",
+                "Inspect exact project metadata and revision source in an already prepared native environment.",
+                "native_project_metadata",
+                "native_revision_source",
+            ),
+            step(
+                "select",
+                "Deliberately select an existing project through its native owner.",
+                "native_project_select",
+                default=False,
+            ),
+            step(
+                "source-admission",
+                "Discover exact preparation requirements and explicitly admit authored source through its native validator.",
+                "native_preparation_discover",
+                "native_revision_preparation_discover",
+                "native_source_admit",
+                default=False,
+            ),
+            step(
+                "results",
+                "Inspect selected original project/result/research artifacts without asserting a solve outcome.",
+                "native_project_bundle_inspect",
+                "native_result_read",
+                "native_result_inspect",
+                "native_research_read",
+                default=False,
+            ),
         ),
         "run-experiment": (
-            step("archive", "Create an explicitly selected pure-test archive with original isolation and recovery ownership.",
-                 "experiment_archive"),
-            step("inspect", "Verify exact retained archive bytes before interpreting or replaying historical results.",
-                 "experiment_inspect"),
-            step("replay", "Deliberately replay historical executables into fresh output; replay does not qualify current source.",
-                 "experiment_replay", default=False),
+            step(
+                "archive",
+                "Create an explicitly selected pure-test archive with original isolation and recovery ownership.",
+                "experiment_archive",
+            ),
+            step(
+                "inspect",
+                "Verify exact retained archive bytes before interpreting or replaying historical results.",
+                "experiment_inspect",
+            ),
+            step(
+                "replay",
+                "Deliberately replay historical executables into fresh output; replay does not qualify current source.",
+                "experiment_replay",
+                default=False,
+            ),
         ),
     }
     workflows = tuple(
-        Workflow(id=identity, title=title, description=description, guides=guides, steps=steps[identity])
+        Workflow(
+            id=identity,
+            title=title,
+            description=description,
+            guides=guides,
+            steps=steps[identity],
+        )
         for identity, title, description, guides in (
             (
                 "inspect-plan",
@@ -816,5 +961,3 @@ def inventory(
             )
         )
     return domains, workflows, tuple(guides), tuple(capabilities)
-
-

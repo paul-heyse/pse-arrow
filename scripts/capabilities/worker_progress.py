@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 import tempfile
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pydantic import Field
 
@@ -20,20 +18,51 @@ MAX_REFERENCES = 8
 POLL_SECONDS = 0.25
 
 
+ReferenceKind = Literal["invocation", "assessment", "diagnostic", "archive"]
+ReferenceOwnership = Literal["owned", "borrowed"]
+
+
+class OwnerReferencePayload(TypedDict):
+    kind: ReferenceKind
+    locator: str
+    registry: str | None
+    ownership: ReferenceOwnership | None
+
+
+class Recovery(TypedDict):
+    references: list[OwnerReferencePayload]
+    observation_omissions: list[str]
+    settlement: str
+
+
 class OwnerReference(Contract):
-    kind: Literal["invocation", "assessment", "diagnostic", "archive"]
+    kind: ReferenceKind
     locator: str = Field(min_length=1, max_length=4096)
     registry: str | None = Field(default=None, max_length=4096)
-    ownership: Literal["owned", "borrowed"] | None = None
+    ownership: ReferenceOwnership | None = None
 
 
 class WorkerProgress(Contract):
     version: Literal[1] = 1
     operation: str = Field(min_length=1, max_length=96)
     sequence: int = Field(ge=1)
-    stage: Literal["environment", "extension", "stubs", "admit", "import", "request", "assessment", "execution", "native", "archive", "diagnostic"]
+    stage: Literal[
+        "environment",
+        "extension",
+        "stubs",
+        "admit",
+        "import",
+        "request",
+        "assessment",
+        "execution",
+        "native",
+        "archive",
+        "diagnostic",
+    ]
     state: Literal["started", "completed", "failed"]
-    references: tuple[OwnerReference, ...] = Field(default=(), max_length=MAX_REFERENCES)
+    references: tuple[OwnerReference, ...] = Field(
+        default=(), max_length=MAX_REFERENCES
+    )
     references_complete: bool = True
 
 
@@ -60,21 +89,33 @@ class ProgressReporter:
             else:
                 self.references_complete = False
         self.sequence += 1
-        value = WorkerProgress.model_validate({
-            "operation": self.operation, "sequence": self.sequence,
-            "stage": stage, "state": state, "references": tuple(self.references),
-            "references_complete": self.references_complete,
-        })
+        value = WorkerProgress.model_validate(
+            {
+                "operation": self.operation,
+                "sequence": self.sequence,
+                "stage": stage,
+                "state": state,
+                "references": tuple(self.references),
+                "references_complete": self.references_complete,
+            }
+        )
         raw = value.model_dump_json().encode()
         if len(raw) > MAX_PROGRESS_BYTES:
             # Keep the stable original reference. Additional child identities stay
             # available through that original owner's bounded readers.
-            value = value.model_copy(update={"references": tuple(self.references[:1]), "references_complete": False})
+            value = value.model_copy(
+                update={
+                    "references": tuple(self.references[:1]),
+                    "references_complete": False,
+                }
+            )
             raw = value.model_dump_json().encode()
         if len(raw) > MAX_PROGRESS_BYTES:
             return
         try:
-            with tempfile.NamedTemporaryFile(dir=self.path.parent, prefix=".progress-", delete=False) as stream:
+            with tempfile.NamedTemporaryFile(
+                dir=self.path.parent, prefix=".progress-", delete=False
+            ) as stream:
                 temporary = Path(stream.name)
                 try:
                     stream.write(raw)
@@ -106,7 +147,9 @@ class ProgressObserver:
     """Coalesce request-local snapshots; notification loss is not kernel failure."""
 
     def __init__(self, path: Path, operation: str):
-        from fastmcp.server.dependencies import get_context  # noqa: PLC0415 -- optional request context.
+        from fastmcp.server.dependencies import (  # noqa: PLC0415 -- selected request context.
+            get_context,
+        )
 
         self.path = path
         self.operation = operation
@@ -131,9 +174,14 @@ class ProgressObserver:
         self.latest = value
         if self.context is not None:
             try:
-                await asyncio.wait_for(self.context.report_progress(
-                    progress=value.sequence, total=None, message=value.model_dump_json(),
-                ), timeout=0.5)
+                await asyncio.wait_for(
+                    self.context.report_progress(
+                        progress=value.sequence,
+                        total=None,
+                        message=value.model_dump_json(),
+                    ),
+                    timeout=0.5,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -147,9 +195,19 @@ class ProgressObserver:
             await asyncio.wait({waiting}, timeout=POLL_SECONDS)
         await self.update()
 
-    def recovery(self) -> dict[str, object]:
+    def recovery(self) -> Recovery:
         return {
-            "references": [reference.model_dump(mode="json") for reference in self.latest.references] if self.latest else [],
+            "references": [
+                OwnerReferencePayload(
+                    kind=reference.kind,
+                    locator=reference.locator,
+                    registry=reference.registry,
+                    ownership=reference.ownership,
+                )
+                for reference in self.latest.references
+            ]
+            if self.latest
+            else [],
             "observation_omissions": self.omissions,
             "settlement": "Original owner readers retain terminal and drain authority; progress is observation only.",
         }

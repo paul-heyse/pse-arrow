@@ -11,13 +11,17 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import JsonValue
-
 from scripts import python_extension
-from scripts.capabilities.preparation import ImportCheckRequest, ImportCheckResult, StageInvocation
+from scripts.capabilities.preparation import (
+    ImportCheckRequest,
+    ImportCheckResult,
+    StageInvocation,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from pydantic import JsonValue
 
 
 def invoke(
@@ -29,8 +33,12 @@ def invoke(
     if operation == "stage":
         request = StageInvocation.model_validate_json(document)
         result = python_extension.run_stages(
-            request.stage, request.mode, request.profile, python_extension.bind_interpreter(os.environ),
-            validated=request.validated, on_stage=on_stage,
+            request.stage,
+            request.mode,
+            request.profile,
+            python_extension.bind_interpreter(os.environ),
+            validated=request.validated,
+            on_stage=on_stage,
         )
         return result.model_dump(mode="json")
     if operation == "import-check":
@@ -42,16 +50,37 @@ def invoke(
                 # Native read dispatch uses this same fixed checkout interpreter,
                 # rather than a caller's alternate installer environment.
                 python_extension.capture(
-                    python_extension.bind_interpreter({**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix}),
-                    validated=request.validated, native=request.mode == "native",
+                    python_extension.bind_interpreter(
+                        {**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix}
+                    ),
+                    validated=request.validated,
+                    native=request.mode == "native",
                 )
             )
         except (OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
-            result = ImportCheckResult(mode=request.mode, validated=request.validated, compatible=False, cause=type(error).__name__)
+            result = ImportCheckResult(
+                mode=request.mode,
+                validated=request.validated,
+                compatible=False,
+                cause=type(error).__name__,
+            )
         else:
-            result = ImportCheckResult(mode=request.mode, validated=request.validated, compatible=True, artifact=artifact)
+            result = ImportCheckResult(
+                mode=request.mode,
+                validated=request.validated,
+                compatible=True,
+                artifact=artifact,
+            )
         if on_stage is not None:
-            on_stage("import", python_extension.StageResult(stage="admit", status="admitted" if result.compatible else "failed", exit_code=0 if result.compatible else 1, artifact=result.artifact))
+            on_stage(
+                "import",
+                python_extension.StageResult(
+                    stage="admit",
+                    status="admitted" if result.compatible else "failed",
+                    exit_code=0 if result.compatible else 1,
+                    artifact=result.artifact,
+                ),
+            )
         return result.model_dump(mode="json")
     raise ValueError("unsupported fixed preparation operation")
 
@@ -61,7 +90,9 @@ def main(argv: list[str] | None = None) -> int:
 
     arguments = sys.argv[1:] if argv is None else argv
     if len(arguments) != 3 or arguments[0] not in {"stage", "import-check"}:
-        raise ValueError("select one fixed preparation operation, request file and response file")
+        raise ValueError(
+            "select one fixed preparation operation, request file and response file"
+        )
     operation, source, destination = arguments
     reporter = ProgressReporter(Path(source).parent / "progress.json", operation)
     active_stage: str | None = None
@@ -69,19 +100,37 @@ def main(argv: list[str] | None = None) -> int:
     def observe(stage: str, result: python_extension.StageResult | None) -> None:
         nonlocal active_stage
         active_stage = stage
-        reporter.publish(stage, "started" if result is None else "failed" if result.exit_code else "completed")
+        reporter.publish(
+            stage,
+            "started"
+            if result is None
+            else "failed"
+            if result.exit_code
+            else "completed",
+        )
 
     try:
-        response = {"result": invoke(operation, Path(source).read_text(), on_stage=observe)}
-    except (OSError, ValueError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
+        response = {
+            "result": invoke(operation, Path(source).read_text(), on_stage=observe)
+        }
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ) as error:
         if active_stage is not None:
             reporter.publish(active_stage, "failed")
-        response = {"error": {
-            "code": "pse.preparation.refused", "stage": "preparation",
-            "cause": type(error).__name__,
-            "message": "The selected preparation could not return a completed owner result; supplied values are redacted.",
-            "remedy": "Inspect the original stage owner and existing artifacts before explicitly selecting further preparation. No retry, rollback or successful installation is inferred.",
-        }}
+        response = {
+            "error": {
+                "code": "pse.preparation.refused",
+                "stage": "preparation",
+                "cause": type(error).__name__,
+                "message": "The selected preparation could not return a completed owner result; supplied values are redacted.",
+                "remedy": "Inspect the original stage owner and existing artifacts before explicitly selecting further preparation. No retry, rollback or successful installation is inferred.",
+            }
+        }
     with Path(destination).open("x") as stream:
         json.dump(response, stream)
     return 0

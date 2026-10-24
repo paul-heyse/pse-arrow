@@ -11,12 +11,11 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from scripts.capabilities import read_contracts
-from scripts.capabilities.responses import owner_read
+from scripts.capabilities.entrypoints import describe_recipe, inspect_entrypoints
 from scripts.capabilities.model import Capability
-
+from scripts.capabilities.responses import owner_read
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
 Bound = Annotated[int, Field(ge=1, le=100)]
@@ -26,40 +25,36 @@ PathList = Annotated[list[str], Field(max_length=8)]
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def workspace_recipe_describe(
-            recipe: str,
-        ) -> read_contracts.RecipeDescriptionResult | read_contracts.DetailRefused:
-            """Describe an exact public recipe from its current declaration, including native grammar and limitations. This never runs that recipe."""
-            from scripts.capabilities.entrypoints import describe_recipe  # noqa: PLC0415
-
-            return owner_read(
-                "workspace_recipe_describe",
-                lambda: describe_recipe(root, recipe),
-                project=read_contracts.recipe_description,
-            )
+        recipe: str,
+    ) -> read_contracts.RecipeDescriptionResult | read_contracts.DetailRefused:
+        """Describe an exact public recipe from its current declaration, including native grammar and limitations. This never runs that recipe."""
+        return owner_read(
+            "workspace_recipe_describe",
+            lambda: describe_recipe(root, recipe),
+            project=read_contracts.recipe_description,
+        )
 
     def workspace_inventory(
-            offset: Offset = 0, limit: Bound = 50, kind: str | None = None
-        ) -> read_contracts.InventoryResult | read_contracts.DetailRefused:
-            """Explicitly inspect current public recipe/script/native/skill entry points. This bounded read never executes the discovered operations."""
-            from scripts.capabilities.entrypoints import inspect_entrypoints  # noqa: PLC0415
-
-            return owner_read(
-                "workspace_inventory",
-                lambda: inspect_entrypoints(root, offset=offset, limit=limit, kind=kind),
-                project=read_contracts.inventory,
-            )
+        offset: Offset = 0, limit: Bound = 50, kind: str | None = None
+    ) -> read_contracts.InventoryResult | read_contracts.DetailRefused:
+        """Explicitly inspect current public recipe/script/native/skill entry points. This bounded read never executes the discovered operations."""
+        return owner_read(
+            "workspace_inventory",
+            lambda: inspect_entrypoints(root, offset=offset, limit=limit, kind=kind),
+            project=read_contracts.inventory,
+        )
 
     rows = (
         (
-                    workspace_recipe_describe,
-                    "Exact native recipe",
-                    "justfile",
-                ),
+            workspace_recipe_describe,
+            "Exact native recipe",
+            "justfile",
+        ),
         (
-                    workspace_inventory,
-                    "Current entry-point inventory",
-                    "scripts/capabilities/entrypoints.py",
-                ),
+            workspace_inventory,
+            "Current entry-point inventory",
+            "scripts/capabilities/entrypoints.py",
+        ),
     )
     specs = []
     tools: dict[str, Tool] = {}

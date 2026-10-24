@@ -13,7 +13,9 @@ from fastmcp.exceptions import PromptError, ResourceError
 from fastmcp.prompts import Prompt
 from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools, Transform
 from mcp.types import ToolAnnotations
-from pydantic import JsonValue
+from pydantic import (
+    JsonValue,  # noqa: TC002 -- Pydantic resolves the receipt field at runtime.
+)
 
 from scripts.capabilities.diagnostics import refusal
 from scripts.capabilities.model import Contract

@@ -1,21 +1,30 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Pure native schema inspection without execution adapter imports."""
+
 from __future__ import annotations
-from pathlib import Path
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from typing import Annotated, Literal
-from pydantic import Field
+
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
+
+from scripts.capabilities.diagnostics import refusal
 from scripts.capabilities.model import Capability
 from scripts.capabilities.native_schema import SchemaSet
 from scripts.capabilities.responses import ReadResult, bounded
-from scripts.capabilities.diagnostics import refusal
+
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     schemas = SchemaSet(root)
     specs: list[Capability] = []
     tools: dict[str, Tool] = {}
+
     def native_contract_schema(
         slug: Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{0,95}$")],
         direction: Literal["input", "output"] | None = None,

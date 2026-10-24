@@ -25,7 +25,7 @@ from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
 from pydantic import JsonValue
 
-from scripts.capabilities import native, native_worker
+from scripts.capabilities import native, native_contracts, native_worker
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.server import build
 
@@ -318,7 +318,8 @@ class NativeSchemaTests(unittest.TestCase):
             embedded, self.schemas.document("result-inspection-request", "input")
         )
         self.assertEqual(
-            native.ResultInspection.model_fields["request"].annotation, JsonValue
+            native_contracts.ResultInspection.model_fields["request"].annotation,
+            JsonValue,
         )
         output = tool.output_schema
         self.assertIsNotNone(output)

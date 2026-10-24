@@ -11,12 +11,10 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from scripts.capabilities import read_contracts
-from scripts.capabilities.responses import owner_read
 from scripts.capabilities.model import Capability
-
+from scripts.capabilities.responses import owner_read
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
 Bound = Annotated[int, Field(ge=1, le=100)]
@@ -26,23 +24,23 @@ PathList = Annotated[list[str], Field(max_length=8)]
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def workspace_task_context(
-            task: str | None = None, paths: PathList | None = None
-        ) -> read_contracts.TaskContextResult | read_contracts.DetailRefused:
-            """Read an exact task/package and selected source paths. Derived facts retain native status, source protection and omissions; no work is executed."""
-            from scripts.workspace_tasks import task_packet  # noqa: PLC0415
+        task: str | None = None, paths: PathList | None = None
+    ) -> read_contracts.TaskContextResult | read_contracts.DetailRefused:
+        """Read an exact task/package and selected source paths. Derived facts retain native status, source protection and omissions; no work is executed."""
+        from scripts.workspace_tasks import task_packet  # noqa: PLC0415
 
-            return owner_read(
-                "workspace_task_context",
-                lambda: task_packet(task, tuple(paths or ()), root=root),
-                project=read_contracts.task_context,
-            )
+        return owner_read(
+            "workspace_task_context",
+            lambda: task_packet(task, tuple(paths or ()), root=root),
+            project=read_contracts.task_context,
+        )
 
     rows = (
         (
-                    workspace_task_context,
-                    "Task context",
-                    "scripts/workspace_tasks.py",
-                ),
+            workspace_task_context,
+            "Task context",
+            "scripts/workspace_tasks.py",
+        ),
     )
     specs = []
     tools: dict[str, Tool] = {}

@@ -15,8 +15,8 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from scripts import test_invocation, test_resources, test_run
-from scripts.capabilities import rust_tests as subject
 from scripts.capabilities import rust_test_contracts as contracts
+from scripts.capabilities import rust_tests as subject
 
 
 def inventory() -> dict:

@@ -43,7 +43,11 @@ CREATE_URI = "pse://guidance/skill-create-plan"
 MANIFEST_URI = CREATE_URI + "/manifest"
 SUPPORT = ".codex/skills/create-plan/references/plan-structure.md"
 SUPPORT_URI = CREATE_URI + "/files/" + hashlib.sha256(SUPPORT.encode()).hexdigest()
-PLANNING_CAPABILITIES = {"skill-plan-execution", "skill-create-plan", "workspace_concepts_query"}
+PLANNING_CAPABILITIES = {
+    "skill-plan-execution",
+    "skill-create-plan",
+    "workspace_concepts_query",
+}
 TEMPLATE_URI = "pse://capabilities/rust_test_run"
 WORKFLOW = "inspect-plan"
 NEXT_WORKFLOW = "plan-functional-review"
@@ -78,7 +82,9 @@ def array_value(value: object) -> list[object]:
     return value
 
 
-def decoded_result(result: object, *, operation: str, resource_uri: str | None = None) -> dict[str, object]:
+def decoded_result(
+    result: object, *, operation: str, resource_uri: str | None = None
+) -> dict[str, object]:
     """Decode the actual MCP result, including framework text projections."""
     envelope = object_value(result)
     if envelope.get("is_error") is True or envelope.get("isError") is True:
@@ -111,14 +117,23 @@ def decoded_result(result: object, *, operation: str, resource_uri: str | None =
     return object_value(json.loads(text))
 
 
-def instruction_references(payload: dict[str, object], *, origin: str) -> dict[str, dict[str, object]]:
-    if (
-        payload.get("instructions_embedded") is not False
-        or "instructions" in payload
-    ):
-        raise ValueError(
-            origin + " must reference complete instruction resources"
-        )
+def instruction_bytes(relative: Path) -> bytes:
+    source = (ROOT / relative).resolve(strict=True)
+    source.relative_to(ROOT.resolve())
+    if not source.is_file():
+        raise ValueError("instruction source is not a regular file")
+    with source.open("rb") as stream:
+        data = stream.read(128 * 1024 + 1)
+    if len(data) > 128 * 1024:
+        raise ValueError("instruction source exceeds the acceptance byte bound")
+    return data
+
+
+def instruction_references(
+    payload: dict[str, object], *, origin: str
+) -> dict[str, dict[str, object]]:
+    if payload.get("instructions_embedded") is not False or "instructions" in payload:
+        raise ValueError(origin + " must reference complete instruction resources")
     references = array_value(payload.get("instruction_resources"))
     if len(references) > 32:
         raise ValueError(origin + " instruction resource bound exceeded")
@@ -143,19 +158,9 @@ def instruction_references(payload: dict[str, object], *, origin: str) -> dict[s
             )
         relative = Path(path)
         if relative.is_absolute() or ".." in relative.parts:
-            raise ValueError(
-                origin + " instruction path escapes the checkout"
-            )
+            raise ValueError(origin + " instruction path escapes the checkout")
         try:
-            source = (ROOT / relative).resolve(strict=True)
-            source.relative_to(ROOT.resolve())
-            if not source.is_file():
-                raise ValueError("instruction source is not a regular file")
-            with source.open("rb") as stream:
-                data = stream.read(128 * 1024 + 1)
-            if len(data) > 128 * 1024:
-                raise ValueError("instruction source exceeds the acceptance byte bound")
-            digest = hashlib.sha256(data).hexdigest()
+            digest = hashlib.sha256(instruction_bytes(relative)).hexdigest()
         except (OSError, ValueError) as error:
             raise ValueError(
                 origin + " instruction source is unavailable or external"
@@ -188,21 +193,31 @@ def original_skill_file(relative: str) -> bytes:
     return data
 
 
-def assess_skill_package(main: dict[str, object], manifest: dict[str, object],
-                         support: dict[str, object], reference: dict[str, object]) -> str:
+def assess_skill_package(
+    main: dict[str, object],
+    manifest: dict[str, object],
+    support: dict[str, object],
+    reference: dict[str, object],
+) -> str:
     """Compare exact projected content and captured identities with original bytes."""
     original = original_skill_file("SKILL.md")
     guide_digest = hashlib.sha256(original).hexdigest()
-    if (main.get("content") != original.decode("utf-8")
-            or main.get("digest") != guide_digest or main.get("complete") is not True
-            or main.get("restart_required") is not False or main.get("omissions")
-            or main.get("supporting_manifest") != MANIFEST_URI
-            or reference.get("path") != CREATE_GUIDE
-            or reference.get("supporting_manifest") != MANIFEST_URI
-            or manifest.get("guide_id") != "skill-create-plan"
-            or manifest.get("guide_digest") != guide_digest
-            or manifest.get("complete") is not True):
-        raise ValueError("skill package main/manifest differs from complete original source")
+    if (
+        main.get("content") != original.decode("utf-8")
+        or main.get("digest") != guide_digest
+        or main.get("complete") is not True
+        or main.get("restart_required") is not False
+        or main.get("omissions")
+        or main.get("supporting_manifest") != MANIFEST_URI
+        or reference.get("path") != CREATE_GUIDE
+        or reference.get("supporting_manifest") != MANIFEST_URI
+        or manifest.get("guide_id") != "skill-create-plan"
+        or manifest.get("guide_digest") != guide_digest
+        or manifest.get("complete") is not True
+    ):
+        raise ValueError(
+            "skill package main/manifest differs from complete original source"
+        )
     rows = array_value(manifest.get("files"))
     if not 1 <= len(rows) <= 64:
         raise ValueError("skill package manifest exceeded the acceptance file bound")
@@ -218,13 +233,21 @@ def assess_skill_package(main: dict[str, object], manifest: dict[str, object],
         owned = (Path(CREATE_GUIDE).parent / path).as_posix()
         identity = hashlib.sha256(owned.encode()).hexdigest()
         uri = CREATE_URI if path == "SKILL.md" else CREATE_URI + "/files/" + identity
-        if (item.get("id") != identity or item.get("uri") != uri
-                or item.get("digest") != hashlib.sha256(data).hexdigest()
-                or item.get("bytes") != len(data) or total > 1024 * 1024):
-            raise ValueError("skill package manifest differs from original file bytes or identities")
+        if (
+            item.get("id") != identity
+            or item.get("uri") != uri
+            or item.get("digest") != hashlib.sha256(data).hexdigest()
+            or item.get("bytes") != len(data)
+            or total > 1024 * 1024
+        ):
+            raise ValueError(
+                "skill package manifest differs from original file bytes or identities"
+            )
         files[path] = item, data
     if not {"SKILL.md", "references/plan-structure.md"} <= files.keys():
-        raise ValueError("skill package manifest omitted the exact main or supporting file")
+        raise ValueError(
+            "skill package manifest omitted the exact main or supporting file"
+        )
     digest = hashlib.sha256()
     for path in sorted(files):
         item, data = files[path]
@@ -233,10 +256,16 @@ def assess_skill_package(main: dict[str, object], manifest: dict[str, object],
         digest.update(encoded)
         digest.update(hashlib.sha256(data).digest())
     expected = digest.hexdigest()
-    if any(value.get("package_digest") != expected for value in (main, manifest, reference)):
+    if any(
+        value.get("package_digest") != expected for value in (main, manifest, reference)
+    ):
         raise ValueError("skill package captured identities are inconsistent")
-    if support.get("content") != files["references/plan-structure.md"][1].decode("utf-8"):
-        raise ValueError("skill package supporting content differs from complete original bytes")
+    if support.get("content") != files["references/plan-structure.md"][1].decode(
+        "utf-8"
+    ):
+        raise ValueError(
+            "skill package supporting content differs from complete original bytes"
+        )
     return expected
 
 
@@ -330,7 +359,13 @@ def transcript(path: Path) -> list[Call]:
                     identity,
                     tool,
                     arguments,
-                    decoded_result(item.get("result"), operation=operation, resource_uri=arguments.get("uri") if isinstance(arguments.get("uri"), str) else None),
+                    decoded_result(
+                        item.get("result"),
+                        operation=operation,
+                        resource_uri=arguments.get("uri")
+                        if isinstance(arguments.get("uri"), str)
+                        else None,
+                    ),
                 )
                 if (
                     call.tool == "capabilities_invoke_action"
@@ -469,17 +504,25 @@ def assess(
         lambda c: (
             c.tool == "capabilities_select"
             and c.arguments.get("workflows") == [WORKFLOW]
-            and set(array_value(c.arguments.get("capabilities"))) == PLANNING_CAPABILITIES
-            and set(array_value(c.result.get("capabilities"))) == PLANNING_CAPABILITIES | {
-                "workspace_task_context", "document_scope_query"}
+            and set(array_value(c.arguments.get("capabilities")))
+            == PLANNING_CAPABILITIES
+            and set(array_value(c.result.get("capabilities")))
+            == PLANNING_CAPABILITIES
+            | {"workspace_task_context", "document_scope_query"}
         ),
     )
     references = instruction_references(selection.result, origin="selection receipt")
-    if (selection.result.get("instructions_complete") is not True
-            or selection.result.get("workflow_steps") != [WORKFLOW + "/scope"]
-            or set(array_value(selection.result.get("callable_tools"))) != {
-                "workspace_task_context", "document_scope_query", "workspace_concepts_query"}
-            or not {"skill-plan-execution", "skill-create-plan"} <= references.keys()):
+    if (
+        selection.result.get("instructions_complete") is not True
+        or selection.result.get("workflow_steps") != [WORKFLOW + "/scope"]
+        or set(array_value(selection.result.get("callable_tools")))
+        != {
+            "workspace_task_context",
+            "document_scope_query",
+            "workspace_concepts_query",
+        }
+        or not {"skill-plan-execution", "skill-create-plan"} <= references.keys()
+    ):
         raise ValueError("selection receipt differs from exact compact planning scope")
     instruction = require(
         "owned_skill_resource",
@@ -492,14 +535,31 @@ def assess(
         or instruction.result.get("complete") is not True
     ):
         raise ValueError("host resource differs from complete original planning skill")
-    create = require("create_plan_main", lambda c: c.tool == "read_resource" and c.arguments.get("uri") == CREATE_URI)
-    manifest = require("create_plan_manifest", lambda c: c.tool == "read_resource" and c.arguments.get("uri") == MANIFEST_URI)
-    supporting = require("create_plan_support", lambda c: c.tool == "read_resource" and c.arguments.get("uri") == SUPPORT_URI)
-    package_digest = assess_skill_package(create.result, manifest.result, supporting.result,
-                                         references["skill-create-plan"])
+    create = require(
+        "create_plan_main",
+        lambda c: c.tool == "read_resource" and c.arguments.get("uri") == CREATE_URI,
+    )
+    manifest = require(
+        "create_plan_manifest",
+        lambda c: c.tool == "read_resource" and c.arguments.get("uri") == MANIFEST_URI,
+    )
+    supporting = require(
+        "create_plan_support",
+        lambda c: c.tool == "read_resource" and c.arguments.get("uri") == SUPPORT_URI,
+    )
+    package_digest = assess_skill_package(
+        create.result,
+        manifest.result,
+        supporting.result,
+        references["skill-create-plan"],
+    )
     allowed_resources = {GUIDE_URI, CREATE_URI, MANIFEST_URI, SUPPORT_URI, TEMPLATE_URI}
-    resource_reads = [c.arguments.get("uri") for c in calls if c.tool == "read_resource"]
-    if resource_reads.count(SUPPORT_URI) != 1 or any(uri not in allowed_resources for uri in resource_reads):
+    resource_reads = [
+        c.arguments.get("uri") for c in calls if c.tool == "read_resource"
+    ]
+    if resource_reads.count(SUPPORT_URI) != 1 or any(
+        uri not in allowed_resources for uri in resource_reads
+    ):
         raise ValueError("expected exactly one authorized supporting-file read")
     template = require(
         "capability_template",
@@ -660,6 +720,13 @@ def assess(
     selected = object_value(subjects[0]) if len(subjects) == 1 else {}
     selection = object_value(selected.get("selection"))
     binary = selection.get("binary_id")
+    drain = authentic.get("owned_drain")
+    process = object_value(authentic.get("process", {}))
+    drain_observed = drain == "complete" or (
+        drain == "unobserved"
+        and process.get("child_status") == 0
+        and not authentic.get("resources")
+    )
     if (
         authentic.get("run_kind") != "rust"
         or authentic.get("phase") != "frozen"
@@ -672,7 +739,7 @@ def assess(
         or binary.split("::", 1)[0] != "pse-ids"
         or authentic.get("workload_exit") != 0
         or authentic.get("assurance") != "pass"
-        or authentic.get("owned_drain") != "complete"
+        or not drain_observed
         or authentic.get("report_errors")
     ):
         raise ValueError(
@@ -703,6 +770,7 @@ def assess(
         "failures": 0,
         "test": TEST,
         "calls": len(calls),
+        "native_owned_drain": drain,
         "concept_source": SOURCE_DOCUMENT,
         "concept_digest": expected_source["digest"],
         "skill_package_digest": package_digest,

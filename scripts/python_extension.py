@@ -26,7 +26,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ExtensionContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
 
 
 class ExtensionArtifact(ExtensionContract):
@@ -51,7 +53,9 @@ class StageResult(ExtensionContract):
 
 
 class PreparationResult(ExtensionContract):
-    operation: Literal["sync", "environment", "prepare", "stubs", "stubs-check", "admit"]
+    operation: Literal[
+        "sync", "environment", "prepare", "stubs", "stubs-check", "admit"
+    ]
     mode: Mode
     profile: str
     validated: bool
@@ -380,7 +384,9 @@ def selected_environment(
     """Resolve the environment once through the existing checkout owner."""
     from scripts import pse_env  # noqa: PLC0415
 
-    return bind_interpreter(pse_env.compose(ROOT, os.environ if environment is None else environment))
+    return bind_interpreter(
+        pse_env.compose(ROOT, os.environ if environment is None else environment)
+    )
 
 
 def bind_interpreter(environment: Mapping[str, str]) -> dict[str, str]:
@@ -636,7 +642,9 @@ def extension_prepare(
             "artifact": installed,
         }:
             return StageResult(
-                stage="prepare", status="reused", receipt=str(path),
+                stage="prepare",
+                status="reused",
+                receipt=str(path),
                 artifact=ExtensionArtifact.model_validate(installed),
             )
     if validated:
@@ -655,7 +663,8 @@ def extension_prepare(
     if inputs is not None:
         publish_receipt(path, {"inputs": inputs, "artifact": installed})
     return StageResult(
-        stage="prepare", status="prepared",
+        stage="prepare",
+        status="prepared",
         artifact=ExtensionArtifact.model_validate(installed),
         receipt=str(path) if inputs is not None else None,
         published=inputs is not None,
@@ -689,7 +698,9 @@ def stubs_prepare(
     path = stage_receipt("stubs", environment)
     if not check and inputs is not None and read_receipt(path) == expected:
         return StageResult(
-            stage="stubs", status="reused", receipt=str(path),
+            stage="stubs",
+            status="reused",
+            receipt=str(path),
             artifact=ExtensionArtifact.model_validate(artifact),
         )
     command = [
@@ -742,17 +753,31 @@ def run_stages(
     on_stage: Callable[[str, StageResult | None], None] | None = None,
 ) -> PreparationResult:
     """Run selected owner stages in an already resolved environment, without relaunch."""
-    if operation not in {"sync", "environment", "prepare", "stubs", "stubs-check", "admit"}:
+    if operation not in {
+        "sync",
+        "environment",
+        "prepare",
+        "stubs",
+        "stubs-check",
+        "admit",
+    }:
         raise ValueError("unsupported Python preparation stage")
     if mode not in {"dev", "native"}:
         raise ValueError("resolved extension mode must be dev or native")
     stages: list[StageResult] = []
     selected = (
         ("environment", "prepare", "stubs", "admit")
-        if operation == "sync" else (operation,)
+        if operation == "sync"
+        else (operation,)
     )
     for stage in selected:
-        progress_stage = "extension" if stage == "prepare" else "stubs" if stage == "stubs-check" else stage
+        progress_stage = (
+            "extension"
+            if stage == "prepare"
+            else "stubs"
+            if stage == "stubs-check"
+            else stage
+        )
         if on_stage is not None:
             on_stage(progress_stage, None)
         if stage == "environment":
@@ -761,12 +786,16 @@ def run_stages(
             result = extension_prepare(mode, profile, environment, validated=validated)
         elif stage in {"stubs", "stubs-check"}:
             result = stubs_prepare(
-                mode, profile, environment,
-                validated=validated, check=stage == "stubs-check",
+                mode,
+                profile,
+                environment,
+                validated=validated,
+                check=stage == "stubs-check",
             )
         else:
             result = StageResult(
-                stage="admit", status="admitted",
+                stage="admit",
+                status="admitted",
                 artifact=ExtensionArtifact.model_validate(
                     capture(environment, validated=validated, native=mode == "native")
                 ),
@@ -776,11 +805,16 @@ def run_stages(
             on_stage(progress_stage, result)
         if result.exit_code:
             break
-    return PreparationResult.model_validate({
-        "operation": operation, "mode": mode, "profile": profile,
-        "validated": validated, "stages": stages,
-        "exit_code": stages[-1].exit_code,
-    })
+    return PreparationResult.model_validate(
+        {
+            "operation": operation,
+            "mode": mode,
+            "profile": profile,
+            "validated": validated,
+            "stages": stages,
+            "exit_code": stages[-1].exit_code,
+        }
+    )
 
 
 def launch(

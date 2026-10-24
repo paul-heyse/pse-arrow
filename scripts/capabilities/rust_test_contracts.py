@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Scoped test selection and normalization, without test execution owners."""
+
 from __future__ import annotations
+
 from typing import Annotated, Literal
+
 from pydantic import ConfigDict, Field, TypeAdapter, model_validator
+
 from scripts import select, test_invocation
 from scripts.capabilities.model import Contract
 
@@ -95,5 +99,3 @@ def describe(request: RustTestSelection) -> dict[str, object]:
         "package_scope": request.kind == "unit",
         "assurance": "Declared request only; actual force-validation closure and catalogue are prepared by the native runner during execution.",
     }
-
-

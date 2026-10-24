@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def module_candidates(name: str) -> tuple[str, ...]:
@@ -15,7 +18,10 @@ def module_candidates(name: str) -> tuple[str, ...]:
     parts = name.split(".")
     prefix = "python/" if parts[0] == "pse" else ""
     return tuple(
-        [prefix + "/".join(parts[:end]) + "/__init__.py" for end in range(1, len(parts) + 1)]
+        [
+            prefix + "/".join(parts[:end]) + "/__init__.py"
+            for end in range(1, len(parts) + 1)
+        ]
         + [prefix + "/".join(parts) + ".py"]
     )
 

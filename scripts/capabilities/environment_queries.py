@@ -4,10 +4,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated
 
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
@@ -16,6 +14,10 @@ from pydantic import Field
 from scripts.capabilities import read_contracts as answers
 from scripts.capabilities.model import Capability
 from scripts.capabilities.responses import owner_read
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 Limit = Annotated[int, Field(ge=1, le=100)]
 Offset = Annotated[int, Field(ge=0)]
@@ -26,53 +28,53 @@ Paths = Annotated[list[str], Field(max_length=64)]
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def environment_explain() -> answers.EnvironmentResult | answers.DetailRefused:
-            """Observe checkout/tool placement without evaluating local shell, building or allocating work. Credentials are not request fields."""
-            from scripts import (  # noqa: PLC0415 -- lazy operation owner.
-                pse_env,
-            )
+        """Observe checkout/tool placement without evaluating local shell, building or allocating work. Credentials are not request fields."""
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+            pse_env,
+        )
 
-            return owner_read(
-                "environment_explain",
-                lambda: pse_env.operation_description(root, os.environ, None),
-                project=answers.environment,
-            )
+        return owner_read(
+            "environment_explain",
+            lambda: pse_env.operation_description(root, os.environ, None),
+            project=answers.environment,
+        )
 
     def storage_observe() -> answers.StorageResult | answers.DetailRefused:
-            """Observe configured store identities only, without recursive size traversal, reclamation or an assertion of disposable storage."""
-            from scripts import (  # noqa: PLC0415 -- lazy operation owner.
-                build_storage,
-                pse_env,
-            )
+        """Observe configured store identities only, without recursive size traversal, reclamation or an assertion of disposable storage."""
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+            build_storage,
+            pse_env,
+        )
 
-            return owner_read(
-                "storage_observe",
-                lambda: {
-                    "items": build_storage.observe(
-                        build_storage.stores(
-                            root, pse_env.base_environment(root, os.environ)
-                        ),
-                        metadata_only=True,
+        return owner_read(
+            "storage_observe",
+            lambda: {
+                "items": build_storage.observe(
+                    build_storage.stores(
+                        root, pse_env.base_environment(root, os.environ)
                     ),
-                    "reclamation_authorized": False,
-                },
-                project=answers.storage,
-            )
+                    metadata_only=True,
+                ),
+                "reclamation_authorized": False,
+            },
+            project=answers.storage,
+        )
 
     entries = (
         (
-                    environment_explain,
-                    "environment",
-                    "environment-preparation",
-                    "scripts/pse_env.py",
-                    ("environment",),
-                ),
+            environment_explain,
+            "environment",
+            "environment-preparation",
+            "scripts/pse_env.py",
+            ("environment",),
+        ),
         (
-                    storage_observe,
-                    "environment",
-                    "build-storage",
-                    "scripts/build_storage.py",
-                    ("environment",),
-                ),
+            storage_observe,
+            "environment",
+            "build-storage",
+            "scripts/build_storage.py",
+            ("environment",),
+        ),
     )
     tools: dict[str, Tool] = {}
     specs = []

@@ -1,16 +1,21 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Native binding declarations and host requests; no execution composition."""
+
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import Annotated
+
 from pydantic import Field, JsonValue
+
 from scripts.capabilities.model import Contract, Prerequisite
 from scripts.capabilities.workers import WorkerCall
 
 Positive = Annotated[int, Field(ge=1)]
 Text = Annotated[str, Field(min_length=1)]
 Row = Annotated[int, Field(ge=0, le=(1 << 64) - 1)]
+
 
 class Resources(Contract):
     memory_limit_bytes: Positive = 16 << 30
@@ -101,19 +106,29 @@ class Binding:
 
     @property
     def worker(self) -> WorkerCall:
-        return WorkerCall("native", self.operation, "attached" if self.prepare_import else "detached")
+        return WorkerCall(
+            "native", self.operation, "attached" if self.prepare_import else "detached"
+        )
 
     @property
     def requirements(self) -> tuple[Prerequisite, ...]:
         extension = Prerequisite(
-            kind="python-extension", owner="scripts/python_extension.py", mode="native", validated=True,
+            kind="python-extension",
+            owner="scripts/python_extension.py",
+            mode="native",
+            validated=True,
             preparation=("python_extension_native_stage",),
         )
         if issubclass(self.request, Deployment):
-            return (extension, Prerequisite(
-                kind="selected-service", owner="scripts/surreal_server.py", provider="canonical-request",
-                preparation=("just", "surreal-start"),
-            ))
+            return (
+                extension,
+                Prerequisite(
+                    kind="selected-service",
+                    owner="scripts/surreal_server.py",
+                    provider="canonical-request",
+                    preparation=("just", "surreal-start"),
+                ),
+            )
         return (extension,)
 
 
@@ -268,5 +283,3 @@ BINDINGS = (
         "result-inspection-document",
     ),
 )
-
-

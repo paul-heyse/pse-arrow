@@ -121,6 +121,12 @@ def _native(
 ) -> tuple[dict[str, JsonValue], list[dict[str, JsonValue]]]:
     """Select only declared owner envelopes/fields, never scan arbitrary payloads."""
     envelope = _object(content)
+    # These typed reader unions have one framework-owned serialization wrapper.
+    # Unwrap only that exact published shape, never an arbitrary nested payload.
+    if name in {"product_run_read", "assessment_read", "workload_watch"} and set(
+        envelope
+    ) == {"result"}:
+        envelope = _object(envelope["result"])
     operation = {
         "experiment_archive": "archive",
         "experiment_replay": "replay",

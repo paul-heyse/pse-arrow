@@ -62,6 +62,7 @@ class ActionTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(server, "inventory", return_value=index),
             patch.object(server, "bindings", return_value=((spec,), {"edit": tool})),
+            patch.object(server.readiness, "bindings", return_value=((), {})),
         ):
             runtime = server.build(ROOT)
         async with Client(runtime.server) as client:

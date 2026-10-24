@@ -48,14 +48,20 @@ class Catalogue:
             step_ids: set[str] = set()
             for step in workflow.steps:
                 if step.id in step_ids:
-                    raise ValueError(f"duplicate workflow step: {workflow.id}: {step.id}")
+                    raise ValueError(
+                        f"duplicate workflow step: {workflow.id}: {step.id}"
+                    )
                 step_ids.add(step.id)
                 if len(set(step.capabilities)) != len(step.capabilities):
-                    raise ValueError(f"duplicate workflow step capability: {workflow.id}: {step.id}")
+                    raise ValueError(
+                        f"duplicate workflow step capability: {workflow.id}: {step.id}"
+                    )
                 for identity in step.capabilities:
                     memberships.setdefault(identity, set()).add(workflow.id)
         capabilities = tuple(
-            item.model_copy(update={"workflows": tuple(sorted(memberships.get(item.id, ())))})
+            item.model_copy(
+                update={"workflows": tuple(sorted(memberships.get(item.id, ())))}
+            )
             for item in capabilities
         )
         self.capabilities = self._index(capabilities)
@@ -81,10 +87,19 @@ class Catalogue:
             if item.id in tools and tools[item.id].name != item.id:
                 raise ValueError(f"tool identity mismatch: {item.id}")
             if item.id in tools:
-                tools[item.id].tags = {tag for tag in tools[item.id].tags if not tag.startswith("workflow:")} | item.tags
+                tools[item.id].tags = {
+                    tag
+                    for tag in tools[item.id].tags
+                    if not tag.startswith("workflow:")
+                } | item.tags
         if set(tools) - set(self.capabilities):
             raise ValueError("undeclared callable tools")
-        for item in (*domains, *workflows, *capabilities, *(step for workflow in workflows for step in workflow.steps)):
+        for item in (
+            *domains,
+            *workflows,
+            *capabilities,
+            *(step for workflow in workflows for step in workflow.steps),
+        ):
             for guide in item.guides:
                 if guide not in self.guides:
                     raise ValueError(f"unknown guidance: {item.id}: {guide}")
@@ -186,7 +201,10 @@ class Catalogue:
         return JSON_OBJECT.validate_python(result)
 
     def select(
-        self, domains: list[str], workflows: list[str], capabilities: list[str],
+        self,
+        domains: list[str],
+        workflows: list[str],
+        capabilities: list[str],
         workflow_steps: dict[str, list[str]] | None = None,
     ) -> Selection:
         chosen = set(capabilities)
@@ -218,7 +236,11 @@ class Catalogue:
         expanded = set(capabilities)
         for identity in domains:
             expanded.update(self._by_domain[identity])
-        chosen.update(member for identity in expanded for member in self._by_family[identity])
+        chosen.update(
+            member for identity in expanded for member in self._by_family[identity]
+        )
         for identity in chosen:
             guides.update(self.capabilities[identity].guides)
-        return Selection(tuple(sorted(chosen)), tuple(sorted(guides)), tuple(sorted(effective_steps)))
+        return Selection(
+            tuple(sorted(chosen)), tuple(sorted(guides)), tuple(sorted(effective_steps))
+        )

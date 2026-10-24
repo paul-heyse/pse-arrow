@@ -21,7 +21,7 @@ from fastmcp.server.transforms.visibility import (
     save_visibility_rules,
 )
 from fastmcp.tools import (
-    ToolResult,  # noqa: TC002 -- FastMCP evaluates tool return annotations.
+    ToolResult,
 )
 from mcp.types import ResourceLink, TextContent
 from pydantic import Field, JsonValue
@@ -32,10 +32,10 @@ from scripts.capabilities import (
     native,
     observation,
     operations,
-    presentation,
     preparation,
-    readiness,
+    presentation,
     qualification,
+    readiness,
     specialists,
 )
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
@@ -114,7 +114,9 @@ def build(root: Path = ROOT) -> Runtime:
     domains, workflows, guides, declared = inventory(root)
     bound, tools = bindings(root, owner=owner)
     readiness_specs, readiness_tools = readiness.bindings(
-        root, capabilities=lambda: catalogue.capabilities, specialists=owner,
+        root,
+        capabilities=lambda: catalogue.capabilities,
+        specialists=owner,
     )
     bound = (*bound, *readiness_specs)
     tools.update(readiness_tools)
@@ -232,13 +234,15 @@ def build(root: Path = ROOT) -> Runtime:
         return True, []
 
     @server.tool(
-        output_schema=presentation.SelectionReceipt.model_json_schema(mode="serialization"),
+        output_schema=presentation.SelectionReceipt.model_json_schema(
+            mode="serialization"
+        ),
         annotations={
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
             "openWorldHint": False,
-        }
+        },
     )
     async def capabilities_select(
         ctx: Context,
@@ -257,10 +261,14 @@ def build(root: Path = ROOT) -> Runtime:
         selected_keys = {
             tools[key].key for key in selected.capabilities if key in tools
         }
-        selected_keys.update(value for key, value in keys.items()
-                             if key.split("/", 1)[0] in selected.guides)
         selected_keys.update(
-            presentation_view.workflow_keys[key] for key in dict.fromkeys([*(workflows or []), *(workflow_steps or {})])
+            value
+            for key, value in keys.items()
+            if key.split("/", 1)[0] in selected.guides
+        )
+        selected_keys.update(
+            presentation_view.workflow_keys[key]
+            for key in dict.fromkeys([*(workflows or []), *(workflow_steps or {})])
         )
         try:
             instructions = guidance.references(selected.guides)
@@ -275,17 +283,29 @@ def build(root: Path = ROOT) -> Runtime:
             callable_tools=[key for key in selected.capabilities if key in tools],
             non_callable=[key for key in selected.capabilities if key not in tools],
             workflow_steps=list(selected.steps),
-            instruction_resources=[presentation.InstructionReference.model_validate(item) for item in instructions],
+            instruction_resources=[
+                presentation.InstructionReference.model_validate(item)
+                for item in instructions
+            ],
             instructions_complete=all(item["complete"] for item in instructions),
             notification_omissions=notifications,
             context=presentation.SelectionContext(checkout=str(root)),
         )
         value = receipt.model_dump(mode="json")
         return ToolResult(
-            content=[TextContent(type="text", text=json.dumps(value, sort_keys=True)),
-                     *(ResourceLink(type="resource_link", uri=item.uri, name=item.id,
-                                    description="Read complete captured owned guidance.", mime_type="application/json")
-                       for item in receipt.instruction_resources)],
+            content=[
+                TextContent(type="text", text=json.dumps(value, sort_keys=True)),
+                *(
+                    ResourceLink(
+                        type="resource_link",
+                        uri=item.uri,
+                        name=item.id,
+                        description="Read complete captured owned guidance.",
+                        mime_type="application/json",
+                    )
+                    for item in receipt.instruction_resources
+                ),
+            ],
             structured_content=value,
         )
 

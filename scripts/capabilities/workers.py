@@ -44,7 +44,11 @@ WORKERS = {
     "prep-native": Worker(
         "scripts.capabilities.preparation_worker",
         frozenset({"stage"}),
-        ("--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc"),
+        (
+            "--recipe-default-class",
+            "compile",
+            "--native=solver,klu,isolation,uno,petsc",
+        ),
     ),
     "host": Worker(
         "scripts.capabilities.host_worker",

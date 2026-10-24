@@ -195,7 +195,11 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
                     source="scripts/first.py",
                     exposure="tool",
                     effects="Test fixture counter",
-                    worker_calls=(WorkerCall(worker_name, next(iter(WORKERS[worker_name].operations))),),
+                    worker_calls=(
+                        WorkerCall(
+                            worker_name, next(iter(WORKERS[worker_name].operations))
+                        ),
+                    ),
                 )
                 catalogue = Catalogue(
                     (Domain(id="source", title="Source", description="Source"),),

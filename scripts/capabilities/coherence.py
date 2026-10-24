@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
 
-from scripts.capabilities.workers import WORKERS
 from scripts.capabilities.source_modules import module_candidates
+from scripts.capabilities.workers import WORKERS
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from fastmcp.server.middleware import CallNext, MiddlewareContext
     from fastmcp.tools import ToolResult
     from mcp.types import CallToolRequestParams
+    from pydantic import JsonValue
 
     from scripts.capabilities.catalogue import Catalogue
 
@@ -83,9 +84,12 @@ class Sources:
                 continue
             path = self.root / relative
             raw = self._read_optional(relative)
-            dependencies = local_imports(raw) if raw is not None and path.suffix == ".py" else ()
+            dependencies = (
+                local_imports(raw) if raw is not None and path.suffix == ".py" else ()
+            )
             self.sources[relative] = Source(
-                hashlib.sha256(raw).hexdigest() if raw is not None else None, dependencies
+                hashlib.sha256(raw).hexdigest() if raw is not None else None,
+                dependencies,
             )
             pending.extend(dependencies)
         self.revision = hashlib.sha256(
@@ -146,7 +150,9 @@ class Sources:
                     continue
                 try:
                     raw = self._read_optional(path)
-                    digest = hashlib.sha256(raw).hexdigest() if raw is not None else None
+                    digest = (
+                        hashlib.sha256(raw).hexdigest() if raw is not None else None
+                    )
                 except (OSError, ValueError):
                     self.changed.add(path)
                 else:
@@ -184,7 +190,7 @@ class Interface:
             paths.append(type(tool).__module__.replace(".", "/") + ".py")
             self.operations[name] = sources.closure(paths)
 
-    def status(self, capability: str | None = None) -> dict[str, object]:
+    def status(self, capability: str | None = None) -> dict[str, JsonValue]:
         paths = self.common | self.operations.get(capability, frozenset())
         changed = self.sources.check(paths)
         return {

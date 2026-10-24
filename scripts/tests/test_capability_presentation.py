@@ -116,7 +116,13 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
             title="Inspect a plan",
             description="Plan the investigation without authorizing implementation.",
             guides=("planning",),
-            steps=(WorkflowStep(id="source", capabilities=("owned_read",), purpose="Inspect the selected source"),),
+            steps=(
+                WorkflowStep(
+                    id="source",
+                    capabilities=("owned_read",),
+                    purpose="Inspect the selected source",
+                ),
+            ),
         )
         self.catalogue = Catalogue(
             (Domain(id="source", title="Source", description="Source reads"),),
@@ -130,7 +136,13 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         self.observed = ObservedContent()
         self.server.add_middleware(self.observed)
         self.guide_keys = register_guides(self.server, self.guidance)
-        self.server.disable(keys={value for key, value in self.guide_keys.items() if key.split("/", 1)[0] == "planning"})
+        self.server.disable(
+            keys={
+                value
+                for key, value in self.guide_keys.items()
+                if key.split("/", 1)[0] == "planning"
+            }
+        )
         self.server.add_tool(self.tool)
         self.server.disable(keys={self.tool.key})
         with patch.object(

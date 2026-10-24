@@ -205,27 +205,46 @@ class SkillPackageTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.directory = self.root / ".codex/skills/owned"
         self.directory.mkdir(parents=True)
-        (self.directory / "SKILL.md").write_text("# Owned\nRead [support](examples/support.md).\n")
+        (self.directory / "SKILL.md").write_text(
+            "# Owned\nRead [support](examples/support.md).\n"
+        )
         (self.directory / "examples").mkdir()
         self.support = self.directory / "examples/support.md"
         self.support.write_text("# Complete supporting instructions\n")
-        self.guide = Guide(id="owned", title="Owned", path=".codex/skills/owned/SKILL.md", kind="skill")
+        self.guide = Guide(
+            id="owned", title="Owned", path=".codex/skills/owned/SKILL.md", kind="skill"
+        )
 
-    def test_lazy_manifest_and_deliberate_support_share_one_package_digest(self) -> None:
-        with patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("startup must stay lazy")):
+    def test_lazy_manifest_and_deliberate_support_share_one_package_digest(
+        self,
+    ) -> None:
+        with patch(
+            "scripts.capabilities.guidance.os.fdopen",
+            side_effect=AssertionError("startup must stay lazy"),
+        ):
             guidance = Guidance(self.root, [self.guide])
         reference = guidance.references(["owned"])[0]
         self.assertNotIn("content", reference)
         manifest = guidance.manifest("owned")
         self.assertEqual(reference["package_digest"], manifest["package_digest"])
         self.assertEqual(reference["digest"], manifest["guide_digest"])
-        self.assertEqual({row["path"] for row in manifest["files"]}, {"SKILL.md", "examples/support.md"})
-        supporting = next(row for row in manifest["files"] if row["path"] == "examples/support.md")
+        self.assertEqual(
+            {row["path"] for row in manifest["files"]},
+            {"SKILL.md", "examples/support.md"},
+        )
+        supporting = next(
+            row for row in manifest["files"] if row["path"] == "examples/support.md"
+        )
         result = guidance.read_support("owned", supporting["id"])
         self.assertEqual(result.contents[0].content, self.support.read_text())
         self.assertEqual(result.contents[0].mime_type, "text/markdown")
-        self.assertEqual(result.meta["digest"], sha256(self.support.read_bytes()).hexdigest())
-        self.assertEqual(result.meta["package_digest"], manifest["package_digest"])
+        metadata = result.meta
+        if metadata is None:
+            self.fail("Supporting resources must retain captured source metadata.")
+        self.assertEqual(
+            metadata["digest"], sha256(self.support.read_bytes()).hexdigest()
+        )
+        self.assertEqual(metadata["package_digest"], manifest["package_digest"])
         with self.assertRaises(GuidanceError):
             guidance.read_support("owned", "../SKILL.md")
 
@@ -238,7 +257,12 @@ class SkillPackageTests(unittest.TestCase):
         result = guidance.read_support("owned", support["id"])
         self.assertEqual(result.contents[0].content, data)
         self.assertEqual(result.contents[0].mime_type, "image/png")
-        self.assertEqual(result.meta["digest"], sha256(data).hexdigest())
+        metadata = result.meta
+        if metadata is None:
+            self.fail(
+                "Binary supporting resources must retain captured source metadata."
+            )
+        self.assertEqual(metadata["digest"], sha256(data).hexdigest())
 
     def test_support_changes_before_capture_refuse_new_main_and_manifest(self) -> None:
         for mutation in ("change", "missing", "added"):
@@ -264,7 +288,9 @@ class SkillPackageTests(unittest.TestCase):
         guidance = Guidance(self.root, [self.guide])
         main = guidance.read("owned")
         manifest = guidance.manifest("owned")
-        supporting = next(row for row in manifest["files"] if row["path"] == "examples/support.md")
+        supporting = next(
+            row for row in manifest["files"] if row["path"] == "examples/support.md"
+        )
         self.support.unlink()
         captured = guidance.read("owned")
         self.assertEqual(captured["content"], main["content"])
@@ -282,24 +308,40 @@ class SkillPackageTests(unittest.TestCase):
         yielded = 0
 
         @contextmanager
-        def counted(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+        def counted(
+            descriptor: int,
+        ) -> Generator[Iterator[os.DirEntry[str]], None, None]:
             nonlocal scanned
             scanned += 1
             with real_scandir(descriptor) as scan:
+
                 def entries() -> Iterator[os.DirEntry[str]]:
                     nonlocal yielded
                     for entry in scan:
                         yielded += 1
-                        self.assertLessEqual(yielded, 5, "must stop at entry limit plus one")
+                        self.assertLessEqual(
+                            yielded, 5, "must stop at entry limit plus one"
+                        )
                         yield entry
+
                 yield entries()
 
         with (
             patch("scripts.capabilities.guidance.MAX_SKILL_ENTRIES", 4),
             patch("scripts.capabilities.guidance.os.scandir", side_effect=counted),
-            patch("scripts.capabilities.guidance.os.listdir", side_effect=AssertionError("must stream entries")),
-            patch("scripts.capabilities.guidance.sorted", side_effect=AssertionError("must refuse before sorting excess"), create=True),
-            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+            patch(
+                "scripts.capabilities.guidance.os.listdir",
+                side_effect=AssertionError("must stream entries"),
+            ),
+            patch(
+                "scripts.capabilities.guidance.sorted",
+                side_effect=AssertionError("must refuse before sorting excess"),
+                create=True,
+            ),
+            patch(
+                "scripts.capabilities.guidance.os.fdopen",
+                side_effect=AssertionError("must not read bodies"),
+            ),
         ):
             guidance = Guidance(self.root, [self.guide])
             with self.assertRaises(GuidanceError) as caught:
@@ -307,7 +349,9 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(caught.exception.details["code"], "oversized_package")
         self.assertEqual((scanned, yielded), (1, 5))
 
-    def test_directory_bound_refuses_many_empty_directories_before_sorting(self) -> None:
+    def test_directory_bound_refuses_many_empty_directories_before_sorting(
+        self,
+    ) -> None:
         for index in range(24):
             (self.directory / ("empty-" + str(index))).mkdir()
         real_scandir = os.scandir
@@ -315,23 +359,40 @@ class SkillPackageTests(unittest.TestCase):
         yielded = 0
 
         @contextmanager
-        def counted(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+        def counted(
+            descriptor: int,
+        ) -> Generator[Iterator[os.DirEntry[str]], None, None]:
             nonlocal scanned
             scanned += 1
             with real_scandir(descriptor) as scan:
+
                 def entries() -> Iterator[os.DirEntry[str]]:
                     nonlocal yielded
                     for entry in scan:
                         yielded += 1
-                        self.assertLessEqual(yielded, 4, "two allowed directories plus one excess and main file")
+                        self.assertLessEqual(
+                            yielded,
+                            4,
+                            "two allowed directories plus one excess and main file",
+                        )
                         yield entry
+
                 yield entries()
 
         with (
             patch("scripts.capabilities.guidance.MAX_SKILL_DIRECTORIES", 2),
             patch("scripts.capabilities.guidance.os.scandir", side_effect=counted),
-            patch("scripts.capabilities.guidance.sorted", side_effect=AssertionError("must refuse directory excess before sorting"), create=True),
-            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+            patch(
+                "scripts.capabilities.guidance.sorted",
+                side_effect=AssertionError(
+                    "must refuse directory excess before sorting"
+                ),
+                create=True,
+            ),
+            patch(
+                "scripts.capabilities.guidance.os.fdopen",
+                side_effect=AssertionError("must not read bodies"),
+            ),
         ):
             guidance = Guidance(self.root, [self.guide])
             with self.assertRaises(GuidanceError) as caught:
@@ -353,15 +414,21 @@ class SkillPackageTests(unittest.TestCase):
         opened: list[str | bytes | os.PathLike[str] | os.PathLike[bytes]] = []
 
         @contextmanager
-        def counted_scan(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+        def counted_scan(
+            descriptor: int,
+        ) -> Generator[Iterator[os.DirEntry[str]], None, None]:
             nonlocal scanned
             scanned += 1
             self.assertLessEqual(scanned, 3, "root plus two allowed levels")
             with real_scandir(descriptor) as scan:
                 yield scan
 
-        def counted_open(path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
-                         flags: int, *, dir_fd: int | None = None) -> int:
+        def counted_open(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
             opened.append(path)
             return real_open(path, flags, dir_fd=dir_fd)
 
@@ -369,7 +436,10 @@ class SkillPackageTests(unittest.TestCase):
             patch("scripts.capabilities.guidance.MAX_SKILL_DEPTH", 2),
             patch("scripts.capabilities.guidance.os.scandir", side_effect=counted_scan),
             patch("scripts.capabilities.guidance.os.open", side_effect=counted_open),
-            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+            patch(
+                "scripts.capabilities.guidance.os.fdopen",
+                side_effect=AssertionError("must not read bodies"),
+            ),
         ):
             guidance = Guidance(self.root, [self.guide])
             with self.assertRaises(GuidanceError) as caught:
@@ -378,22 +448,30 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(scanned, 3)
         self.assertNotIn("level-2", opened)
 
-    def test_streaming_scan_refuses_directory_symlinks_before_following_them(self) -> None:
+    def test_streaming_scan_refuses_directory_symlinks_before_following_them(
+        self,
+    ) -> None:
         real_scandir = os.scandir
         with tempfile.TemporaryDirectory() as outside:
             for target in (self.support.parent, Path(outside)):
                 with self.subTest(target=target):
                     alias = self.directory / "alias-directory"
                     alias.symlink_to(target, target_is_directory=True)
-                    with patch("scripts.capabilities.guidance.os.scandir", wraps=real_scandir) as scan:
+                    with patch(
+                        "scripts.capabilities.guidance.os.scandir", wraps=real_scandir
+                    ) as scan:
                         guidance = Guidance(self.root, [self.guide])
                         with self.assertRaises(GuidanceError) as caught:
                             guidance.read("owned")
-                    self.assertEqual(caught.exception.details["code"], "package_symlink")
+                    self.assertEqual(
+                        caught.exception.details["code"], "package_symlink"
+                    )
                     self.assertEqual(scan.call_count, 1)
                     alias.unlink()
 
-    def test_bounded_membership_is_deterministic_and_exposes_traversal_limits(self) -> None:
+    def test_bounded_membership_is_deterministic_and_exposes_traversal_limits(
+        self,
+    ) -> None:
         (self.directory / "z-last.md").write_text("last")
         (self.directory / "a-first.md").write_text("first")
         manifest = Guidance(self.root, [self.guide]).manifest("owned")
@@ -404,8 +482,11 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(manifest["limits"]["depth"], 8)
 
     def test_package_size_count_and_symlink_refusals(self) -> None:
-        cases = ((1, MAX_GUIDE_BYTES + 1, "oversized_source"),
-                 (64, 1, "oversized_package"), (8, MAX_GUIDE_BYTES, "oversized_package"))
+        cases = (
+            (1, MAX_GUIDE_BYTES + 1, "oversized_source"),
+            (64, 1, "oversized_package"),
+            (8, MAX_GUIDE_BYTES, "oversized_package"),
+        )
         for count, size, expected in cases:
             with self.subTest(count=count, size=size):
                 for path in self.directory.glob("bound-*"):
@@ -425,17 +506,19 @@ class SkillPackageTests(unittest.TestCase):
 
     def test_change_during_package_capture_publishes_no_partial_snapshot(self) -> None:
         guidance = Guidance(self.root, [self.guide])
-        capture = guidance._capture
+        capture = guidance._capture  # noqa: SLF001 -- inject a race at the snapshot capture boundary.
+
         def mutate(guide: Guide, baseline: _Identity) -> _Snapshot | None:
             result = capture(guide, baseline)
             if guide.path.endswith("SKILL.md"):
                 self.support.write_text("changed while capturing main")
             return result
+
         with patch.object(guidance, "_capture", side_effect=mutate):
             result = guidance.read("owned")
         self.assertFalse(result["complete"])
         self.assertTrue(result["restart_required"])
-        self.assertEqual(guidance._package_snapshots, {})
+        self.assertEqual(guidance._package_snapshots, {})  # noqa: SLF001 -- prove the injected race published no partial package.
 
 
 class GuidanceResourceTests(unittest.IsolatedAsyncioTestCase):

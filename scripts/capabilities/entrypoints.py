@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Explicit Just/source inspection, independent of catalogue declaration loading."""
+
 from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -12,11 +14,20 @@ import subprocess
 import time
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
+
 from scripts import workspace_sources
-from scripts.capabilities.inventory import _Family, _families, CAP05, SOURCE_INVENTORY, SOURCE_REVIEW
+from scripts.capabilities.inventory import (
+    CAP05,
+    SOURCE_INVENTORY,
+    SOURCE_REVIEW,
+    _families,
+    _Family,
+)
 from scripts.capabilities.source_modules import module_sources
+
 if TYPE_CHECKING:
     from pathlib import Path
+
 
 def _recipe_family(name: str, families: tuple[_Family, ...]) -> _Family | None:
     # Exact declarations win over deliberately declared family prefixes. Unknown
@@ -97,7 +108,8 @@ def _leaf_sources(root: Path, recipe: dict, family: _Family | None) -> list[str]
     """Extract untrusted references; only the source-read boundary admits paths."""
     body = json.dumps(recipe.get("body", []))
     references = re.findall(
-        r"scripts/[a-zA-Z0-9_./-]+\.(?:py|rs|sh)|(?:scripts|pse)(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+", body
+        r"scripts/[a-zA-Z0-9_./-]+\.(?:py|rs|sh)|(?:scripts|pse)(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+",
+        body,
     )
     paths = []
     for reference in references:
@@ -110,7 +122,11 @@ def _leaf_sources(root: Path, recipe: dict, family: _Family | None) -> list[str]
                         paths.append(source)
                 continue
             # An unresolved spelling remains an attributed unavailable lead.
-            path = ("python/" if reference.startswith("pse.") else "") + reference.replace(".", "/") + ".py"
+            path = (
+                ("python/" if reference.startswith("pse.") else "")
+                + reference.replace(".", "/")
+                + ".py"
+            )
         if path not in paths:
             paths.append(path)
     if family is not None and family.capability.owner not in paths:
@@ -289,7 +305,9 @@ def inspect_entrypoints(
         if path.is_file() and (path.suffix in {".py", ".sh", ".rs"} or not path.suffix)
     ]
     candidates += [("native", path) for path in (root / "xtask/src/bin").glob("*.rs")]
-    candidates += [("script", path) for path in (root / "scripts").glob("*/__main__.py")]
+    candidates += [
+        ("script", path) for path in (root / "scripts").glob("*/__main__.py")
+    ]
     candidates += [("native", root / "xtask/src/main.rs")]
     candidates += [("python", path) for path in (root / "python/pse").glob("*.py")]
     candidates += [

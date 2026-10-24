@@ -40,21 +40,46 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
         digest.update(encoded)
         digest.update(hashlib.sha256(data).digest())
         identity = hashlib.sha256(encoded).hexdigest()
-        package_files.append({
-            "id": identity, "path": (output / path).relative_to(create.parent).as_posix(),
-            "uri": check.CREATE_URI if path == check.CREATE_GUIDE else check.SUPPORT_URI,
-            "digest": hashlib.sha256(data).hexdigest(), "bytes": len(data),
-        })
+        package_files.append(
+            {
+                "id": identity,
+                "path": (output / path).relative_to(create.parent).as_posix(),
+                "uri": check.CREATE_URI
+                if path == check.CREATE_GUIDE
+                else check.SUPPORT_URI,
+                "digest": hashlib.sha256(data).hexdigest(),
+                "bytes": len(data),
+            }
+        )
     package_digest = digest.hexdigest()
-    manifest = {"guide_id": "skill-create-plan", "guide_digest": package_files[0]["digest"],
-                "package_digest": package_digest, "complete": True, "files": package_files}
+    manifest = {
+        "guide_id": "skill-create-plan",
+        "guide_digest": package_files[0]["digest"],
+        "package_digest": package_digest,
+        "complete": True,
+        "files": package_files,
+    }
+
     def reference(identity: str, path: str) -> dict:
-        return {"id": identity, "uri": "pse://guidance/" + identity,
-                "path": path, "digest": hashlib.sha256((output / path).read_bytes()).hexdigest(),
-                "complete": True, "restart_required": False, "omissions": []}
-    references = [reference("root", "AGENTS.md"), reference("skill-plan-execution", check.GUIDE),
-                  {**reference("skill-create-plan", check.CREATE_GUIDE),
-                   "supporting_manifest": check.MANIFEST_URI, "package_digest": package_digest}]
+        return {
+            "id": identity,
+            "uri": "pse://guidance/" + identity,
+            "path": path,
+            "digest": hashlib.sha256((output / path).read_bytes()).hexdigest(),
+            "complete": True,
+            "restart_required": False,
+            "omissions": [],
+        }
+
+    references = [
+        reference("root", "AGENTS.md"),
+        reference("skill-plan-execution", check.GUIDE),
+        {
+            **reference("skill-create-plan", check.CREATE_GUIDE),
+            "supporting_manifest": check.MANIFEST_URI,
+            "package_digest": package_digest,
+        },
+    ]
     create_result = {**references[2], "content": create.read_text()}
     source = output / check.SOURCE_DOCUMENT
     source.parent.mkdir(parents=True)
@@ -189,11 +214,25 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
         ),
         (
             "capabilities_select",
-            {"workflows": [check.WORKFLOW], "capabilities": sorted(check.PLANNING_CAPABILITIES)},
-            {"capabilities": sorted(check.PLANNING_CAPABILITIES | {"workspace_task_context", "document_scope_query"}),
-             "callable_tools": ["workspace_task_context", "document_scope_query", "workspace_concepts_query"],
-             "workflow_steps": [check.WORKFLOW + "/scope"], "instructions_complete": True,
-             "instructions_embedded": False, "instruction_resources": references},
+            {
+                "workflows": [check.WORKFLOW],
+                "capabilities": sorted(check.PLANNING_CAPABILITIES),
+            },
+            {
+                "capabilities": sorted(
+                    check.PLANNING_CAPABILITIES
+                    | {"workspace_task_context", "document_scope_query"}
+                ),
+                "callable_tools": [
+                    "workspace_task_context",
+                    "document_scope_query",
+                    "workspace_concepts_query",
+                ],
+                "workflow_steps": [check.WORKFLOW + "/scope"],
+                "instructions_complete": True,
+                "instructions_embedded": False,
+                "instruction_resources": references,
+            },
         ),
         (
             "read_resource",
@@ -290,7 +329,11 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
         }
         completed = {**item, "status": "completed", "result": mcp_result}
         if tool in {"read_resource", "get_prompt"}:
-            projected = result["content"] if supplied.get("uri") == check.SUPPORT_URI else json.dumps(result)
+            projected = (
+                result["content"]
+                if supplied.get("uri") == check.SUPPORT_URI
+                else json.dumps(result)
+            )
             mcp_result["structured_content"] = {"result": projected}
         else:
             mcp_result["structured_content"] = result
@@ -336,8 +379,12 @@ class CodexEvidenceTests(unittest.TestCase):
         self.assertEqual(len(check.object_value(outcome["stages"])), 22)
         self.assertEqual(authentic, self.native)
         self.assertEqual(outcome["supporting_file"], check.SUPPORT)
-        manifest = next(call for call in calls if call.arguments.get("uri") == check.MANIFEST_URI)
-        self.assertEqual(outcome["skill_package_digest"], manifest.result["package_digest"])
+        manifest = next(
+            call for call in calls if call.arguments.get("uri") == check.MANIFEST_URI
+        )
+        self.assertEqual(
+            outcome["skill_package_digest"], manifest.result["package_digest"]
+        )
         reader.assert_called_once_with(
             self.native["run_path"], registry=Path("/registry"), limit=10
         )
@@ -353,11 +400,26 @@ class CodexEvidenceTests(unittest.TestCase):
                 self.transcript(events), self.output, self.guide
             )
         self.assertEqual(outcome["passed"], 1)
+
         # The following phase still waits for both catalogue answers.
         late = events.pop(5)
         events.insert(8, late)
         with self.assertRaisesRegex(ValueError, "describe_skill"):
             check.assess(self.transcript(events), self.output, self.guide)
+
+    def test_direct_child_exit_does_not_upgrade_unobserved_native_drain(self) -> None:
+        calls = self.transcript(self.events)
+        self.native.update(
+            owned_drain="unobserved", process={"child_status": 0}, resources=[]
+        )
+        reader = next(call for call in calls if call.operation == "product_run_read")
+        check.object_value(reader.result["payload"]).update(self.native)
+        with patch.object(
+            check.run_inspection, "product_result", return_value=self.native
+        ):
+            outcome, _ = check.assess(calls, self.output, self.guide)
+        self.assertEqual(outcome["passed"], 1)
+        self.assertEqual(outcome["native_owned_drain"], "unobserved")
 
     def test_phase_two_parallel_descriptions_can_complete_in_reverse_order(
         self,
@@ -422,28 +484,55 @@ class CodexEvidenceTests(unittest.TestCase):
         ):
             check.assess(calls, self.output, self.guide)
 
-    def test_planning_selection_requires_explicit_concept_and_compact_source_refs(self) -> None:
+    def test_planning_selection_requires_explicit_concept_and_compact_source_refs(
+        self,
+    ) -> None:
         original = self.transcript(self.events)
-        for change in ("missing_concept", "embedded", "instructions", "body", "digest", "incomplete", "expanded"):
+        for change in (
+            "missing_concept",
+            "embedded",
+            "instructions",
+            "body",
+            "digest",
+            "incomplete",
+            "expanded",
+        ):
             calls = copy.deepcopy(original)
-            selected = next(call for call in calls if call.tool == "capabilities_select")
+            selected = next(
+                call for call in calls if call.tool == "capabilities_select"
+            )
             if change == "missing_concept":
-                check.array_value(selected.arguments["capabilities"]).remove("workspace_concepts_query")
+                check.array_value(selected.arguments["capabilities"]).remove(
+                    "workspace_concepts_query"
+                )
             elif change == "embedded":
                 selected.result["instructions_embedded"] = True
             elif change == "instructions":
                 selected.result["instructions"] = ["duplicated body"]
             elif change in {"body", "digest"}:
-                reference = check.object_value(check.array_value(selected.result["instruction_resources"])[0])
-                reference["content" if change == "body" else "digest"] = "duplicated" if change == "body" else "0" * 64
+                reference = check.object_value(
+                    check.array_value(selected.result["instruction_resources"])[0]
+                )
+                reference["content" if change == "body" else "digest"] = (
+                    "duplicated" if change == "body" else "0" * 64
+                )
             elif change == "incomplete":
                 selected.result["instructions_complete"] = False
             else:
-                check.array_value(selected.result["callable_tools"]).append("contracts_generate")
-            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "planning_selection|selection receipt"):
+                check.array_value(selected.result["callable_tools"]).append(
+                    "contracts_generate"
+                )
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(
+                    ValueError, "planning_selection|selection receipt"
+                ),
+            ):
                 check.assess(calls, self.output, self.guide)
 
-    def test_skill_package_content_digest_paths_and_captured_identity_are_independent(self) -> None:
+    def test_skill_package_content_digest_paths_and_captured_identity_are_independent(
+        self,
+    ) -> None:
         original = self.transcript(self.events)
         for target, key, value in (
             ("main", "content", "changed main"),
@@ -461,44 +550,85 @@ class CodexEvidenceTests(unittest.TestCase):
             ("reference", "package_digest", "0" * 64),
         ):
             calls = copy.deepcopy(original)
-            resources = {call.arguments.get("uri"): call for call in calls if call.tool == "read_resource"}
+            resources = {
+                call.arguments.get("uri"): call
+                for call in calls
+                if call.tool == "read_resource"
+            }
             if target == "file":
                 manifest = resources[check.MANIFEST_URI].result
                 selected = check.object_value(check.array_value(manifest["files"])[1])
             elif target == "reference":
-                selection = next(call for call in calls if call.tool == "capabilities_select")
-                selected = next(check.object_value(item) for item in check.array_value(selection.result["instruction_resources"])
-                                if check.object_value(item)["id"] == "skill-create-plan")
+                selection = next(
+                    call for call in calls if call.tool == "capabilities_select"
+                )
+                selected = next(
+                    check.object_value(item)
+                    for item in check.array_value(
+                        selection.result["instruction_resources"]
+                    )
+                    if check.object_value(item)["id"] == "skill-create-plan"
+                )
             else:
-                uri = {"main": check.CREATE_URI, "manifest": check.MANIFEST_URI, "support": check.SUPPORT_URI}[target]
+                uri = {
+                    "main": check.CREATE_URI,
+                    "manifest": check.MANIFEST_URI,
+                    "support": check.SUPPORT_URI,
+                }[target]
                 selected = resources[uri].result
             selected[key] = value
-            with self.subTest(target=target, field=key), self.assertRaisesRegex(ValueError, "skill package"):
+            with (
+                self.subTest(target=target, field=key),
+                self.assertRaisesRegex(ValueError, "skill package"),
+            ):
                 check.assess(calls, self.output, self.guide)
 
     def test_manifest_and_exactly_one_original_support_read_are_required(self) -> None:
         calls = self.transcript(self.events)
-        for uri, stage in ((check.CREATE_URI, "create_plan_main"),
-                           (check.MANIFEST_URI, "create_plan_manifest"),
-                           (check.SUPPORT_URI, "create_plan_support")):
+        for uri, stage in (
+            (check.CREATE_URI, "create_plan_main"),
+            (check.MANIFEST_URI, "create_plan_manifest"),
+            (check.SUPPORT_URI, "create_plan_support"),
+        ):
             with self.subTest(uri=uri), self.assertRaisesRegex(ValueError, stage):
-                check.assess([call for call in calls if call.arguments.get("uri") != uri], self.output, self.guide)
-        support = next(call for call in calls if call.arguments.get("uri") == check.SUPPORT_URI)
-        with self.assertRaisesRegex(ValueError, "exactly one authorized supporting-file"):
+                check.assess(
+                    [call for call in calls if call.arguments.get("uri") != uri],
+                    self.output,
+                    self.guide,
+                )
+        support = next(
+            call for call in calls if call.arguments.get("uri") == check.SUPPORT_URI
+        )
+        with self.assertRaisesRegex(
+            ValueError, "exactly one authorized supporting-file"
+        ):
             check.assess([*calls, support], self.output, self.guide)
-        foreign = check.Call(support.index, "foreign", "read_resource",
-                             {"uri": check.CREATE_URI + "/files/foreign"}, {"content": "foreign"})
-        with self.assertRaisesRegex(ValueError, "exactly one authorized supporting-file"):
+        foreign = check.Call(
+            support.index,
+            "foreign",
+            "read_resource",
+            {"uri": check.CREATE_URI + "/files/foreign"},
+            {"content": "foreign"},
+        )
+        with self.assertRaisesRegex(
+            ValueError, "exactly one authorized supporting-file"
+        ):
             check.assess([*calls, foreign], self.output, self.guide)
 
     def test_only_the_exact_support_resource_decodes_primitive_markdown(self) -> None:
         raw = "# Complete owned support\n"
         envelope = {"structured_content": {"result": raw}}
-        self.assertEqual(check.decoded_result(envelope, operation="read_resource", resource_uri=check.SUPPORT_URI),
-                         {"content": raw})
+        self.assertEqual(
+            check.decoded_result(
+                envelope, operation="read_resource", resource_uri=check.SUPPORT_URI
+            ),
+            {"content": raw},
+        )
         for uri in (None, check.GUIDE_URI, check.CREATE_URI + "/files/foreign"):
             with self.subTest(uri=uri), self.assertRaises(ValueError):
-                check.decoded_result(envelope, operation="read_resource", resource_uri=uri)
+                check.decoded_result(
+                    envelope, operation="read_resource", resource_uri=uri
+                )
 
     def test_claimed_pass_without_actual_calls_is_refused(self) -> None:
         events = [self.events[0], self.events[-2], self.events[-1]]

@@ -7,7 +7,10 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from scripts.capabilities.workers import WorkerCall
+
+from scripts.capabilities.workers import (
+    WorkerCall,  # noqa: TC001 -- Pydantic resolves the declaration field at runtime.
+)
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
 
@@ -53,7 +56,13 @@ class Workflow(Contract):
 
 
 class Prerequisite(Contract):
-    kind: Literal["python-extension", "selected-service", "language-provider", "executable", "checkout-environment"]
+    kind: Literal[
+        "python-extension",
+        "selected-service",
+        "language-provider",
+        "executable",
+        "checkout-environment",
+    ]
     owner: str
     preparation: tuple[str, ...] = ()
     provider: str | None = None

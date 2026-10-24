@@ -15,9 +15,9 @@ from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from scripts.capabilities.diagnostics import refusal
 from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.rust_test_contracts import InvocationReference
-from scripts.capabilities.diagnostics import refusal
 
 
 class ReferenceRead(Contract):
@@ -29,7 +29,9 @@ class ReferenceRead(Contract):
 
 
 def read(root: Path, output: str) -> ReferenceRead:
-    from scripts import run_inspection  # noqa: PLC0415 -- selected original registry reader.
+    from scripts import (  # noqa: PLC0415 -- selected original registry reader.
+        run_inspection,
+    )
 
     root = root.absolute()
     path = Path(output)
@@ -42,16 +44,20 @@ def read(root: Path, output: str) -> ReferenceRead:
             # Hold every ancestor instead of checking a pathname that can be
             # swapped before a later open. Include the checkout's ancestors so
             # neither the root nor an output parent can redirect observation.
-            directory = os.open(root.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            directory = os.open(
+                root.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            )
             stack.callback(os.close, directory)
             for part in (*root.parts[1:], *path.relative_to(root).parts):
                 directory = os.open(
-                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    part,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                     dir_fd=directory,
                 )
                 stack.callback(os.close, directory)
             descriptor = os.open(
-                "invocation-reference.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                "invocation-reference.json",
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                 dir_fd=directory,
             )
             stack.callback(os.close, descriptor)
@@ -63,24 +69,68 @@ def read(root: Path, output: str) -> ReferenceRead:
                 raise ValueError("reference must be a bounded ordinary owner record")
             raw = stream.read(16385)
             after = os.fstat(descriptor)
-            current = os.stat("invocation-reference.json", dir_fd=directory, follow_symlinks=False)
-    identity = lambda item: (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
-    if identity(before) != identity(after) or identity(before) != identity(current) or len(raw) > 16384:
+            current = os.stat(
+                "invocation-reference.json", dir_fd=directory, follow_symlinks=False
+            )
+
+    def identity(item: os.stat_result) -> tuple[int, int, int, int, int]:
+        return (
+            item.st_dev,
+            item.st_ino,
+            item.st_size,
+            item.st_mtime_ns,
+            item.st_ctime_ns,
+        )
+
+    if (
+        identity(before) != identity(after)
+        or identity(before) != identity(current)
+        or len(raw) > 16384
+    ):
         raise ValueError("owner reference changed during observation")
     reference = InvocationReference.model_validate_json(raw)
     run_inspection.resolve(reference.invocation, Path(reference.registry))
-    return ReferenceRead(outcome="issued", reference=reference, source_sha256=hashlib.sha256(raw).hexdigest(), reader="product_run_read")
+    return ReferenceRead(
+        outcome="issued",
+        reference=reference,
+        source_sha256=hashlib.sha256(raw).hexdigest(),
+        reader="product_run_read",
+    )
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
-    def rust_test_reference_read(output: str = Field(min_length=1, max_length=4096)) -> ReferenceRead:
+    def rust_test_reference_read(
+        output: str = Field(min_length=1, max_length=4096),
+    ) -> ReferenceRead:
         """Read an actual scoped Rust action's invocation-reference.json before final return. The requested output alone is unconfirmed; an issued reference is checked against its original registry. Continue with product_run_read/workload_watch; no build, launch, replay or native settlement follows from reading."""
         try:
             return read(root, output)
         except (OSError, ValueError) as error:
-            raise refusal("pse.rust_test.reference_unavailable", operation="rust_test_reference_read") from error
+            raise refusal(
+                "pse.rust_test.reference_unavailable",
+                operation="rust_test_reference_read",
+            ) from error
 
-    tool = Tool.from_function(rust_test_reference_read, annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False))
-    spec = Capability(id=tool.name, title="Read original scoped test reference", description=tool.description or "", domain="execution", family="workload-observation", guides=("root", "qualification"), owner="scripts/capabilities/rust_references.py", source="scripts/capabilities/rust_references.py", exposure="tool", effects="Read a bounded original reference and its registry identity; no workload or preparation.")
+    tool = Tool.from_function(
+        rust_test_reference_read,
+        annotations=ToolAnnotations(
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
+        ),
+    )
+    spec = Capability(
+        id=tool.name,
+        title="Read original scoped test reference",
+        description=tool.description or "",
+        domain="execution",
+        family="workload-observation",
+        guides=("root", "qualification"),
+        owner="scripts/capabilities/rust_references.py",
+        source="scripts/capabilities/rust_references.py",
+        exposure="tool",
+        effects="Read a bounded original reference and its registry identity; no workload or preparation.",
+    )
     tool.tags.update(spec.tags)
     return (spec,), {spec.id: tool}
