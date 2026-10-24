@@ -180,7 +180,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             else (
                 "Checkout environment and operation-specific native tools/identity admission",
             ),
-            worker=HOST_CALLS.get(tool.name),
+            worker_calls=(HOST_CALLS[tool.name],) if tool.name in HOST_CALLS else (),
             requirements=() if readonly else (Prerequisite(
                 kind="checkout-environment", owner="scripts/pse_env.py", preparation=("environment_explain",),
             ),),

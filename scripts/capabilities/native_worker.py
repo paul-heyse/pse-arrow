@@ -20,6 +20,7 @@ from pydantic import JsonValue
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.responses import bounded
+from scripts.capabilities.worker_progress import ProgressReporter
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -574,8 +575,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         operation, arguments = worker_request(selected)
+        progress = ProgressReporter(Path(selected[1]).parent / "progress.json", operation) if destination is not None else None
+        if progress is not None:
+            progress.publish("native", "started")
         with tempfile.TemporaryDirectory(prefix="pse-capability-native-") as directory:
             value = execute(operation, arguments, scratch=Path(directory))
+        if progress is not None:
+            progress.publish("native", "completed")
     except (ImportError, ModuleNotFoundError) as error:
         value = {
             "outcome": "prerequisite_unavailable",

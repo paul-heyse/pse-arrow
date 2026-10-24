@@ -19,10 +19,11 @@ from scripts import (
     validation,
 )
 from scripts.capabilities.model import Contract
+from scripts.capabilities.worker_progress import ProgressReporter, OwnerReference
 
 from scripts.capabilities.rust_test_contracts import RustTestRequest, INVOCATION
 
-def execute(root: Path, request: RustTestRequest) -> dict[str, object]:
+def execute(root: Path, request: RustTestRequest, *, progress: ProgressReporter | None = None) -> dict[str, object]:
     command, normalized = request.prepared()
     environment = arrow_validation.rust_test_environment(os.environ)
     inherited = environment.get(test_resources.MARKER) or None
@@ -49,6 +50,11 @@ def execute(root: Path, request: RustTestRequest) -> dict[str, object]:
                 else "native runner",
             },
         )
+        if progress is not None:
+            progress.publish("execution", "started", reference=OwnerReference(
+                kind="invocation", locator=str(path), registry=str(test_resources.registry()),
+                ownership="borrowed" if inherited is not None else "owned",
+            ))
 
     code = test_run.run_rust(
         command,

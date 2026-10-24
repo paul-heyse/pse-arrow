@@ -16,6 +16,7 @@ from pathlib import Path
 from pydantic import JsonValue, ValidationError
 
 from scripts.capabilities.diagnostics import safe_path
+from scripts.capabilities.worker_progress import ProgressReporter
 
 
 def invoke(operation: str, document: str) -> dict[str, JsonValue]:
@@ -40,10 +41,13 @@ def main(argv: list[str] | None = None) -> int:
     if len(arguments) != 3 or arguments[0] not in {"archive", "replay", "diagnostic"}:
         raise ValueError("select one fixed operation, request file and response file")
     operation, source, destination = arguments
+    progress = ProgressReporter(Path(source).parent / "progress.json", operation)
     response: dict[str, object]
     try:
+        progress.publish("request", "started")
         result = invoke(operation, Path(source).read_text())
         response = {"result": result}
+        progress.publish("request", "completed")
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         detail: dict[str, object] = {
             "code": "pse.host." + operation + ".refused",

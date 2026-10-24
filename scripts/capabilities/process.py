@@ -19,6 +19,7 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from scripts.capabilities.workers import WorkerCall
+from scripts.capabilities.worker_progress import ProgressObserver
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T")
@@ -49,6 +50,7 @@ async def run_worker(
         raise ValueError("unsupported fixed worker operation")
     with tempfile.TemporaryDirectory(prefix="pse-capability-host-") as temporary:
         directory = Path(temporary)
+        observer = ProgressObserver(directory / "progress.json", operation)
         source, destination = directory / "request.json", directory / "response.json"
         value = (
             request.model_dump(mode="json", exclude_unset=True)
@@ -76,10 +78,13 @@ async def run_worker(
             )
             process = None
             waiting = None
+            observing = None
             try:
                 process = await asyncio.shield(spawn)
                 waiting = asyncio.create_task(process.wait())
+                observing = asyncio.create_task(observer.until(waiting))
                 code = await asyncio.shield(waiting)
+                await asyncio.shield(observing)
             except asyncio.CancelledError:
                 # Shield spawn as well as wait: cancellation can arrive after OS
                 # creation but before create_subprocess_exec returns its handle.
@@ -90,6 +95,8 @@ async def run_worker(
                 if waiting is None:
                     waiting = asyncio.create_task(process.wait())
                 await settled(waiting)
+                if observing is not None:
+                    await settled(observing)
                 raise
             if code != 0 or not destination.is_file():
                 diagnostic = "Native helper did not return structured output; source-bearing diagnostics withheld."
@@ -105,6 +112,7 @@ async def run_worker(
                             "requested_output": value.get("output"),
                             "output_admission": "unconfirmed",
                             "settlement": "inspect native owner output; helper exit alone is not settlement",
+                            "observation": observer.recovery(),
                         }
                     )
                 )

@@ -171,7 +171,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner=source,
             source=source,
             exposure="tool",
-            worker=QUALIFICATION_CALLS.get(tool.name),
+            worker_calls=(QUALIFICATION_CALLS[tool.name],) if tool.name in QUALIFICATION_CALLS else (),
             requirements=() if readonly else (Prerequisite(
                 kind="checkout-environment", owner="scripts/pse_env.py", preparation=("environment_explain",),
             ), Prerequisite(kind="executable", owner="scripts/pse_env.py", provider="just")),

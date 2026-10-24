@@ -237,7 +237,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             source="scripts/capabilities/native.py",
             exposure="tool",
             effects=binding.effects,
-            worker=binding.worker,
+            worker_calls=(binding.worker,),
             requirements=binding.requirements,
             prerequisites=(
                 (

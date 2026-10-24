@@ -77,7 +77,7 @@ class Capability(Contract):
     route: tuple[str, ...] = ()
     reason: str = ""
     work_owner: str | None = None
-    worker: WorkerCall | None = None
+    worker_calls: tuple[WorkerCall, ...] = ()
     requirements: tuple[Prerequisite, ...] = ()
 
     @property

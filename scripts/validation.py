@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Never
 
 if TYPE_CHECKING:
     from collections.abc import (
+        Callable,
         Mapping,
     )
 
@@ -735,6 +736,7 @@ def run_gates(
     reuse: tuple[str, ...] = (),
     transfer: tuple[str, ...] = (),
     change_reason: str | None = None,
+    on_progress: Callable[[str, Path], None] | None = None,
 ) -> int:
     if (reuse or transfer) and reuse_from is None:
         raise ValueError("reuse and transfer require an origin report")
@@ -798,6 +800,8 @@ def run_gates(
         output / "scope.json", {"checks": receipt["scope"], "exclusions": EXCLUSIONS}
     )
     checkpoint(output, receipt)
+    if on_progress is not None:
+        on_progress("admitted", output)
     env = command_env()
     env["PSE_ACCEPTANCE_OUTPUT"] = str(output)
     if "producer-fixture" in selected:
@@ -910,6 +914,8 @@ def run_gates(
         }
         receipt["checks"].append(record)
         checkpoint(output, receipt)
+        if on_progress is not None:
+            on_progress(record["status"], output)
         if interrupted or dependencies:
             print(
                 f"validation: {gate.name}: {record['status']}"

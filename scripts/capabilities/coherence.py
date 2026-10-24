@@ -177,8 +177,8 @@ class Interface:
             # Fixed workers are executed by name in fresh children, not imported
             # into the serving process. Their modules and local imports still
             # interpret the loaded contract and must share its restart fence.
-            if spec.worker is not None:
-                paths.append(spec.worker.declaration.module.replace(".", "/") + ".py")
+            for call in spec.worker_calls:
+                paths.append(call.declaration.module.replace(".", "/") + ".py")
             # Custom Tool implementations have an owner class rather than fn.
             paths.append(type(tool).__module__.replace(".", "/") + ".py")
             self.operations[name] = sources.closure(paths)
