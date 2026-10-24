@@ -579,7 +579,11 @@ formulations. Parity does not establish numerical IDAES equivalence
   a weaker freshness check ([ADR-0160](../../adr/0160-centralize-testing-responsibility.md)).
 - Test selection belongs to nextest and pytest; no exact-name acceptance manifest exists.
   Reports distinguish executed, unchanged-input reuse, reviewed transfer and not-run
-  evidence. Current receipts bind conservative gate-specific consumed inputs and actual
+  evidence. Feature campaigns may reuse individual completed passing combinations only from a
+  complete frozen cargo-hack enumeration with identical literal arguments, tool/compiler identity,
+  conservative consumed inputs, native context and actual force-validation coverage. Missing,
+  failed or interrupted combinations prevent complete qualification; reused results are explicitly
+  identified and never described as fresh execution. Current receipts bind conservative gate-specific consumed inputs and actual
   native/binary provenance; unknown scope captures all inputs. One terminal composer
   reconciles actual selection, failure, cancellation and missing evidence. Comprehensive
   qualification runs the shared native graph once, with separate feature-absence controls
@@ -670,6 +674,16 @@ The [environment](../../dev/agent-environment.md) and
 > Decision: [ADR-0222](../../adr/0222-derived-development-knowledge.md)
 > (proposed; maintainer-authorized Plan52a/52b target). Selected host/native checks establish
 > these bounded tooling behaviors, not assembled Plan52 or scientific qualification.
+
+Scientific reduction is a separate diagnostic request/result contract from original reproduction.
+The first supported family retains an authored numerical evaluation-domain issue under explicit
+code/stage/rule, source correspondence and necessary domain conditions. Candidate execution uses
+the existing runtime, admission and cancellation owners. Parser errors, unrelated failures and
+incomplete evidence do not establish preservation; search reports only its actual moves and bounds.
+The original typed reproducer and `OriginalFailureReproduced` meaning are unchanged.
+
+> Decision: [ADR-0223](../../adr/0223-separate-scientific-reduction.md) — Proposed,
+> maintainer-authorized Plan52c target; implementation and qualification remain at C06.
 
 ### 24.2 Current qualification basis
 

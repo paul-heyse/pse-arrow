@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 258
+revision: 259
 date: 2026-10-23
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 259 | 2026-10-23 | ADR-0223: separate source-aware scientific reduction from exact original reproduction; specify existing validation-owner combination reuse (§24.1). | Maintainer-authorized Plan52c/52d execution; .design-edit authorizes publication. ADR remains proposed; qualification stays with owning plans. |
 | 258 | 2026-10-23 | ADR-0222: owner-native development concepts, exact producer correspondence, attributed source cuts and disposable tooling projection (§24.1). | Maintainer-authorized Plan52a/52b implementation; PSE_DESIGN_EDIT=1. ADR remains proposed; selected checks do not establish assembled Plan52 qualification. |
 | 257 | 2026-10-23 | ADR-0221: add a test-scope diagnostic audit, test-assessment companion and separate living collection (§24.4), preserving existing principles, gates and finding ownership. | Maintainer-authorized process installation; PSE_DESIGN_EDIT=1. Record remains proposed; no test audit or product qualification performed. |
 | 256 | 2026-10-23 | ADR-0214/0215: publish versioned bounded canonical graph explanations, generated maintenance replay/protection and scientific-boundary acceptance (§19.2/§19.8/§20.6/§24.2). | Maintainer-authorized remaining Plan49f–49h implementation and publication; PSE_DESIGN_EDIT=1. Formal ADR statuses remain proposed; selected qualification is not a whole-product campaign. |
