@@ -31,8 +31,10 @@ class ToolingExperimentTests(unittest.TestCase):
         self.binary.write_bytes(b"exact-admitted-parser")
         self.receipt = self.root / "release.json"
         self.release = {
-            "binary": str(self.binary), "binary_sha256": tooling.surreal_source.digest(self.binary),
-            "effective_key": "exact-context", "version": "3.3.4",
+            "binary": str(self.binary),
+            "binary_sha256": tooling.surreal_source.digest(self.binary),
+            "effective_key": "exact-context",
+            "version": "3.3.4",
         }
         self.receipt.write_text(json.dumps(self.release))
         self.bwrap = self.root / "bwrap"
@@ -43,15 +45,31 @@ class ToolingExperimentTests(unittest.TestCase):
     def invoke(self, *, library_parser: bool = False) -> tuple[int, dict]:
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            code = tooling.main([
-                "surrealql-validate", "--input", str(self.source), "--output", str(self.output),
-                *( ["--parser-binary", str(self.binary)] if library_parser else ["--server-receipt", str(self.receipt)] ),
-            ])
+            code = tooling.main(
+                [
+                    "surrealql-validate",
+                    "--input",
+                    str(self.source),
+                    "--output",
+                    str(self.output),
+                    *(
+                        ["--parser-binary", str(self.binary)]
+                        if library_parser
+                        else ["--server-receipt", str(self.receipt)]
+                    ),
+                ]
+            )
         return code, json.loads(stdout.getvalue())
 
-    def staged(self, command: list[str], output: Path, label: str, work: Path, deadline: float) -> dict:
+    def staged(
+        self, command: list[str], output: Path, label: str, work: Path, deadline: float
+    ) -> dict:
         self.calls.append((command, label))
-        stdout = tooling.BUBBLEWRAP_VERSION if label == "bubblewrap-version" else "statically linked"
+        stdout = (
+            tooling.BUBBLEWRAP_VERSION
+            if label == "bubblewrap-version"
+            else "statically linked"
+        )
         (output / f"{label}.stdout.txt").write_text(stdout)
         (output / f"{label}.stderr.txt").write_text("")
         if label == "parser":
@@ -59,19 +77,38 @@ class ToolingExperimentTests(unittest.TestCase):
             snapshot = work / "input-000.surql"
             self.source.write_text("RETURN changed-after-snapshot;\n")
             self.assertEqual(snapshot.read_text(), "RETURN 1;\n")
-            (output / "payload-output/namespace-ready").write_bytes(b"namespace-established\n")
+            (output / "payload-output/namespace-ready").write_bytes(
+                b"namespace-established\n"
+            )
             (output / "payload-output/write-witness").write_bytes(b"owned-output\n")
-        return {"status": "returned", "exit_code": 0, "process": {"owned_drain": "complete"}, "errors": [], "truncated": False}
+        return {
+            "status": "returned",
+            "exit_code": 0,
+            "process": {"owned_drain": "complete"},
+            "errors": [],
+            "truncated": False,
+        }
 
     def configured(self, callback=None):
         stack = contextlib.ExitStack()
-        stack.enter_context(patch.object(tooling, "admitted_server", return_value=(self.receipt, self.release)))
-        stack.enter_context(patch.object(tooling.shutil, "which", return_value=str(self.bwrap)))
-        stack.enter_context(patch.object(tooling, "stage", side_effect=callback or self.staged))
+        stack.enter_context(
+            patch.object(
+                tooling, "admitted_server", return_value=(self.receipt, self.release)
+            )
+        )
+        stack.enter_context(
+            patch.object(tooling.shutil, "which", return_value=str(self.bwrap))
+        )
+        stack.enter_context(
+            patch.object(tooling, "stage", side_effect=callback or self.staged)
+        )
         return stack
 
     def test_finite_api_freezes_inputs_and_preserves_result(self) -> None:
-        with self.configured(), patch.dict(os.environ, {"PSE_TOOL_PROBE_SECRET": "do-not-record"}):
+        with (
+            self.configured(),
+            patch.dict(os.environ, {"PSE_TOOL_PROBE_SECRET": "do-not-record"}),
+        ):
             code, result = self.invoke()
         self.assertEqual(code, 0)
         self.assertEqual(result["outcome"], "valid")
@@ -87,20 +124,43 @@ class ToolingExperimentTests(unittest.TestCase):
         self.assertNotIn("--ro-bind-try", command)
         self.assertNotIn("--share-net", command)
         self.assertIn('/tool/surreal validate "$@"', command[command.index("-c") + 1])
-        self.assertFalse(any(path.name.startswith(".probe-") for path in self.output.iterdir()))
+        self.assertFalse(
+            any(path.name.startswith(".probe-") for path in self.output.iterdir())
+        )
         self.assertTrue((self.output / "server-receipt.json").is_file())
         self.assertEqual(result["parser"]["selection"], "server-cli")
-        self.assertEqual(result["parser"]["syntax_profile"], "server-cli-experimental-grammar-disabled")
+        self.assertEqual(
+            result["parser"]["syntax_profile"],
+            "server-cli-experimental-grammar-disabled",
+        )
 
     def parser_report(self, *, valid: bool = True) -> dict:
         return {
-            "schema": "surrealql-validation-v1", "valid": valid,
-            "parser": {"library": "surrealdb-syn", "version": "compiled-version", "syntax_profile": "all-features", "scope": "parse-only"},
-            "files": [{"input": "/inputs/input-000.surql", "valid": valid,
-                       "error": None if valid else {"kind": "syntax", "message": "Parse error: exact library diagnostic"}}],
+            "schema": "surrealql-validation-v1",
+            "valid": valid,
+            "parser": {
+                "library": "surrealdb-syn",
+                "version": "compiled-version",
+                "syntax_profile": "all-features",
+                "scope": "parse-only",
+            },
+            "files": [
+                {
+                    "input": "/inputs/input-000.surql",
+                    "valid": valid,
+                    "error": None
+                    if valid
+                    else {
+                        "kind": "syntax",
+                        "message": "Parse error: exact library diagnostic",
+                    },
+                }
+            ],
         }
 
-    def test_explicit_library_parser_preserves_metadata_errors_and_exact_binary(self) -> None:
+    def test_explicit_library_parser_preserves_metadata_errors_and_exact_binary(
+        self,
+    ) -> None:
         self.binary.chmod(0o500)
         expected = self.parser_report(valid=False)
 
@@ -111,20 +171,32 @@ class ToolingExperimentTests(unittest.TestCase):
                 observed["exit_code"] = 1
             return observed
 
-        with self.configured(library), patch.object(tooling, "admitted_server", side_effect=AssertionError("server route selected")):
+        with (
+            self.configured(library),
+            patch.object(
+                tooling,
+                "admitted_server",
+                side_effect=AssertionError("server route selected"),
+            ),
+        ):
             code, result = self.invoke(library_parser=True)
         self.assertEqual(code, 1)
         self.assertEqual(result["outcome"], "invalid")
         self.assertEqual(result["validation"], expected)
         self.assertEqual(result["parser"]["selection"], "library-parser")
         self.assertEqual(result["parser"]["reported"]["version"], "compiled-version")
-        self.assertEqual(result["parser"]["binary_sha256"], self.release["binary_sha256"])
+        self.assertEqual(
+            result["parser"]["binary_sha256"], self.release["binary_sha256"]
+        )
         self.assertNotIn("server", result)
         self.assertFalse((self.output / "server-receipt.json").exists())
         command = self.calls[-1][0]
         self.assertIn("/tool/parser", command)
         self.assertNotIn("/tool/surreal", command)
-        self.assertIn('exec /tool/parser surrealql-validate "$@"', command[command.index("-c") + 1])
+        self.assertIn(
+            'exec /tool/parser surrealql-validate "$@"',
+            command[command.index("-c") + 1],
+        )
 
     def test_library_report_refuses_missing_or_contradictory_population(self) -> None:
         valid = self.parser_report()
@@ -147,14 +219,32 @@ class ToolingExperimentTests(unittest.TestCase):
 
     def test_parser_selection_is_explicit_and_rejects_mixed_sources(self) -> None:
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            tooling.main(["surrealql-validate", "--input", str(self.source), "--output", str(self.output), "--server-receipt", str(self.receipt), "--parser-binary", str(self.binary)])
+            tooling.main(
+                [
+                    "surrealql-validate",
+                    "--input",
+                    str(self.source),
+                    "--output",
+                    str(self.output),
+                    "--server-receipt",
+                    str(self.receipt),
+                    "--parser-binary",
+                    str(self.binary),
+                ]
+            )
 
     def test_namespace_refusal_does_not_run_unconfined_parser(self) -> None:
         def refused(command, output, label, work, deadline):
             if label == "parser":
                 self.calls.append((command, label))
-                return {"status": "returned", "exit_code": 1, "process": {"owned_drain": "complete"}, "errors": []}
+                return {
+                    "status": "returned",
+                    "exit_code": 1,
+                    "process": {"owned_drain": "complete"},
+                    "errors": [],
+                }
             return self.staged(command, output, label, work, deadline)
+
         with self.configured(refused):
             code, result = self.invoke()
         self.assertEqual(code, 125)
@@ -169,9 +259,12 @@ class ToolingExperimentTests(unittest.TestCase):
             if label == "parser":
                 result["exit_code"] = 1
             return result
+
         with self.configured(invalid):
             code, result = self.invoke()
-        self.assertEqual((code, result["outcome"], result["cleanup"]), (1, "invalid", "complete"))
+        self.assertEqual(
+            (code, result["outcome"], result["cleanup"]), (1, "invalid", "complete")
+        )
 
     def test_unknown_drain_retains_only_owned_workspace(self) -> None:
         def unresolved(command, output, label, work, deadline):
@@ -179,6 +272,7 @@ class ToolingExperimentTests(unittest.TestCase):
             if label == "parser":
                 result["process"]["owned_drain"] = "unresolved"
             return result
+
         unrelated = self.root / "unrelated"
         unrelated.write_text("preserve")
         with self.configured(unresolved):
@@ -196,27 +290,44 @@ class ToolingExperimentTests(unittest.TestCase):
                 result["exit_code"] = 128 + signal.SIGTERM
                 result["process"]["forwarded_signal"] = signal.SIGTERM
             return result
+
         with self.configured(cancelled):
             code, result = self.invoke()
-        self.assertEqual((code, result["outcome"], result["drain"]), (143, "cancelled", "complete"))
+        self.assertEqual(
+            (code, result["outcome"], result["drain"]), (143, "cancelled", "complete")
+        )
         self.assertEqual(result["cleanup"], "complete")
 
     def test_preparation_cancellation_launches_nothing(self) -> None:
         def admit(_path):
             os.kill(os.getpid(), signal.SIGTERM)
             return self.receipt, self.release
-        with self.configured(), patch.object(tooling, "admitted_server", side_effect=admit):
+
+        with (
+            self.configured(),
+            patch.object(tooling, "admitted_server", side_effect=admit),
+        ):
             code, result = self.invoke()
-        self.assertEqual((code, result["outcome"], result["drain"]), (143, "cancelled", "not-started"))
+        self.assertEqual(
+            (code, result["outcome"], result["drain"]),
+            (143, "cancelled", "not-started"),
+        )
         self.assertEqual(self.calls, [])
         self.assertEqual(result["cleanup"], "complete")
 
     def test_changed_receipt_or_binary_refuses_before_launch(self) -> None:
-        with patch.object(tooling.surreal_source, "admitted_receipt", return_value=False), patch.object(tooling, "stage", side_effect=AssertionError("launched")):
+        with (
+            patch.object(
+                tooling.surreal_source, "admitted_receipt", return_value=False
+            ),
+            patch.object(tooling, "stage", side_effect=AssertionError("launched")),
+        ):
             code, result = self.invoke()
         self.assertEqual(code, 125)
         self.assertEqual(result["drain"], "not-started")
-        with patch.object(tooling.surreal_source, "admitted_receipt", return_value=True):
+        with patch.object(
+            tooling.surreal_source, "admitted_receipt", return_value=True
+        ):
             self.binary.write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "binary differs"):
                 tooling.admitted_server(self.receipt)
@@ -241,13 +352,23 @@ class ToolingExperimentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unrecognized"):
             tooling.dependencies("", 0)
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            tooling.main(["arbitrary-command", "--input", str(self.source), "--output", str(self.output)])
+            tooling.main(
+                [
+                    "arbitrary-command",
+                    "--input",
+                    str(self.source),
+                    "--output",
+                    str(self.output),
+                ]
+            )
 
 
 class NativeNamespaceTests(unittest.TestCase):
     """Revealing checks use actual Bubblewrap and the existing child-scope owner."""
 
-    def test_actual_readonly_fixture_private_output_environment_and_timeout(self) -> None:
+    def test_actual_readonly_fixture_private_output_environment_and_timeout(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             output = root / "logs"
@@ -258,21 +379,48 @@ class NativeNamespaceTests(unittest.TestCase):
             witness.write_bytes(tooling.WITNESS)
             shell = Path("/bin/sh").resolve()
             deadline = time.monotonic() + 30
-            observed = tooling.stage(["/usr/bin/ldd", str(shell)], output, "shell-runtime", root, deadline)
+            observed = tooling.stage(
+                ["/usr/bin/ldd", str(shell)], output, "shell-runtime", root, deadline
+            )
             self.assertEqual(observed["process"]["owned_drain"], "complete")
-            dependencies = tooling.dependencies((output / "shell-runtime.stdout.txt").read_text(), observed["exit_code"])
+            dependencies = tooling.dependencies(
+                (output / "shell-runtime.stdout.txt").read_text(), observed["exit_code"]
+            )
             command = tooling.namespace_command(
-                Path("/usr/local/bin/bwrap"), {"sh": shell, "surreal": shell},
-                {path: path.resolve() for path in dependencies}, [], witness, payload,
+                Path("/usr/local/bin/bwrap"),
+                {"sh": shell, "surreal": shell},
+                {path: path.resolve() for path in dependencies},
+                [],
+                witness,
+                payload,
             )
             split = command.index("--")
-            script = "[ -z \"${PSE_E04_SECRET+x}\" ] || exit 81; [ ! -e /etc/passwd ] || exit 82; " + tooling.PARSER_LAUNCH.replace('exec /tool/surreal validate "$@"', "exit 0")
+            script = (
+                '[ -z "${PSE_E04_SECRET+x}" ] || exit 81; [ ! -e /etc/passwd ] || exit 82; '
+                + tooling.PARSER_LAUNCH.replace(
+                    'exec /tool/surreal validate "$@"', "exit 0"
+                )
+            )
             with patch.dict(os.environ, {"PSE_E04_SECRET": "private"}):
-                result = tooling.stage([*command[:split + 1], "/tool/sh", "-c", script], output, "witness", root, deadline)
+                result = tooling.stage(
+                    [*command[: split + 1], "/tool/sh", "-c", script],
+                    output,
+                    "witness",
+                    root,
+                    deadline,
+                )
             self.assertTrue(tooling.successful(result), result)
             self.assertEqual(witness.read_bytes(), tooling.WITNESS)
-            self.assertEqual((payload / "write-witness").read_bytes(), b"owned-output\n")
-            timed = tooling.stage([*command[:split + 1], "/tool/sh", "-c", "while :; do :; done"], output, "cancel", root, time.monotonic() + 0.4)
+            self.assertEqual(
+                (payload / "write-witness").read_bytes(), b"owned-output\n"
+            )
+            timed = tooling.stage(
+                [*command[: split + 1], "/tool/sh", "-c", "while :; do :; done"],
+                output,
+                "cancel",
+                root,
+                time.monotonic() + 0.4,
+            )
             self.assertEqual(timed["status"], "timed_out")
             self.assertEqual(timed["process"]["owned_drain"], "complete")
             self.assertEqual(timed["process"]["forwarded_signal"], signal.SIGTERM)

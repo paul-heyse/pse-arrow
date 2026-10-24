@@ -8,8 +8,8 @@ from __future__ import annotations
 import contextlib
 import errno
 import fcntl
-import io
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -50,6 +50,86 @@ def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
         listener_owned=phase in {server.Readiness.READY, server.Readiness.STARTING},
         protocol_ready=phase is server.Readiness.READY,
     )
+
+
+class AdministrativeTransportTests(unittest.TestCase):
+    def test_preserves_multiline_comment_and_literal_bytes_and_explicit_errors(
+        self,
+    ) -> None:
+        query = (
+            "// retained comment\nRETURN 'line\\n// literal';\nTHROW 'fixture refusal';"
+        )
+        outcomes = [
+            {"status": "OK", "result": "line\\n// literal"},
+            {"status": "ERR", "result": "fixture refusal"},
+        ]
+        with (
+            patch.object(server, "config_for", return_value={"port": 18080}),
+            patch.object(
+                server,
+                "read_json",
+                return_value={"username": "fixture", "password": "private"},
+            ),
+            patch.object(
+                server.urllib.request,
+                "urlopen",
+                return_value=io.BytesIO(json.dumps(outcomes).encode()),
+            ) as send,
+        ):
+            self.assertEqual(
+                server.administrative_results(
+                    Path("/fixture"),
+                    query,
+                    time.monotonic() + 5,
+                    namespace="owned",
+                    database="fixture",
+                ),
+                outcomes,
+            )
+        request = send.call_args.args[0]
+        self.assertEqual(request.data, query.encode())
+        self.assertEqual(request.get_header("Surreal-ns"), "owned")
+        self.assertEqual(request.get_header("Surreal-db"), "fixture")
+        with (
+            patch.object(server, "administrative_results", return_value=outcomes),
+            self.assertRaisesRegex(server.SupervisorError, "failed or incomplete"),
+        ):
+            server.administrative_query(Path("/fixture"), query, time.monotonic() + 5)
+
+    def test_refuses_malformed_or_oversize_statement_envelopes(self) -> None:
+        for payload in (
+            b"not json",
+            b"{}",
+            b"[]",
+            b"[null]",
+            b'[{"status":"OK"}]',
+            b'[{"status":[],"result":null}]',
+            b'[{"status":"ERR","result":null}]',
+            b'[{"status":"unknown","result":null}]',
+            b" " * (server.MESSAGE_BYTES + 1),
+        ):
+            with (
+                self.subTest(payload_size=len(payload)),
+                patch.object(server, "config_for", return_value={"port": 18080}),
+                patch.object(
+                    server,
+                    "read_json",
+                    return_value={"username": "fixture", "password": "private"},
+                ),
+                patch.object(
+                    server.urllib.request, "urlopen", return_value=io.BytesIO(payload)
+                ),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "invalid or incomplete|exceeded|valid JSON"
+                ),
+            ):
+                server.administrative_results(
+                    Path("/fixture"),
+                    "RETURN 1;",
+                    time.monotonic() + 5,
+                    namespace="owned",
+                    database="fixture",
+                )
 
 
 class LifecycleClockTests(unittest.TestCase):
@@ -1488,7 +1568,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
-            patch.object(frozen, "build_context", side_effect=AssertionError("compiler scan")),
+            patch.object(
+                frozen, "build_context", side_effect=AssertionError("compiler scan")
+            ),
         ):
             self.assertEqual(server.config_for(self.state), config)
         # The runtime path cannot be selected by a controller outside the tree.
@@ -1496,18 +1578,30 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertEqual(server.config_for(self.state), config)
         runtime.assert_not_called()
 
-    def test_frozen_config_refuses_wrong_binding_generation_bytes_and_receipt_key(self) -> None:
+    def test_frozen_config_refuses_wrong_binding_generation_bytes_and_receipt_key(
+        self,
+    ) -> None:
         config = self.initialized()
         script, frozen = self.frozen_source(config)
         original = json.loads(json.dumps(config))
-        for change in ("script", "sha256", "executable", "effective_key", "captured_bytes"):
+        for change in (
+            "script",
+            "sha256",
+            "executable",
+            "effective_key",
+            "captured_bytes",
+        ):
             candidate = json.loads(json.dumps(original))
             if change == "script":
-                candidate["service_supervisor"]["supervisor_script"] = str(self.state / "fake/scripts/surreal_server.py")
+                candidate["service_supervisor"]["supervisor_script"] = str(
+                    self.state / "fake/scripts/surreal_server.py"
+                )
             elif change == "sha256":
                 candidate["service_supervisor"]["supervisor_sha256"] = "0" * 64
             elif change == "executable":
-                candidate["service_supervisor"]["supervisor_executable"] = "/different/python"
+                candidate["service_supervisor"]["supervisor_executable"] = (
+                    "/different/python"
+                )
             elif change == "effective_key":
                 candidate["server"]["effective_key"] = "0" * 64
             captured = script.parent.parent / ".cargo/config.toml"
@@ -1527,7 +1621,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 captured.write_bytes(before)
                 server.write_json(self.state / "config.json", original)
 
-    def test_frozen_supervisor_cannot_admit_same_receipt_for_another_state(self) -> None:
+    def test_frozen_supervisor_cannot_admit_same_receipt_for_another_state(
+        self,
+    ) -> None:
         config = self.initialized()
         script, frozen = self.frozen_source(config)
         other = self.root / "other-state"
@@ -1536,11 +1632,15 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
-            self.assertRaisesRegex(server.SupervisorError, "bound immutable service generation"),
+            self.assertRaisesRegex(
+                server.SupervisorError, "bound immutable service generation"
+            ),
         ):
             server.config_for(other)
 
-    def test_frozen_runtime_preserves_actual_binary_digest_check_before_launch(self) -> None:
+    def test_frozen_runtime_preserves_actual_binary_digest_check_before_launch(
+        self,
+    ) -> None:
         config = self.initialized()
         script, frozen = self.frozen_source(config)
         binary = Path(str(server.object_mapping(config["server"])["binary"]))
@@ -1550,10 +1650,20 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
-            patch.object(server._STARTUP, "deadline", time.monotonic() + 30, create=True),
+            patch.object(
+                server._STARTUP, "deadline", time.monotonic() + 30, create=True
+            ),
             patch.object(server, "storage_launch", return_value={"binding": binding}),
-            patch.object(server, "resume_storage_allocation", return_value=self.allocation),
-            patch.object(host, "allocation_metadata", return_value=contextlib.nullcontext({"owners": {self.allocation.nonce: {"units": {unit: binding}}}})),
+            patch.object(
+                server, "resume_storage_allocation", return_value=self.allocation
+            ),
+            patch.object(
+                host,
+                "allocation_metadata",
+                return_value=contextlib.nullcontext(
+                    {"owners": {self.allocation.nonce: {"units": {unit: binding}}}}
+                ),
+            ),
             patch.object(server.os, "sched_setaffinity"),
             patch.object(server, "BoundedLog") as log,
             self.assertRaisesRegex(server.SupervisorError, "Storage binary differs"),
@@ -1788,6 +1898,269 @@ class SurrealSupervisorTests(unittest.TestCase):
                 pending = current
                 self.assertEqual(selected["instance_id"], config["instance_id"])
                 self.assertFalse(selected["accepting_writes"])
+
+    def test_initialize_listener_failure_preserves_published_generation_and_materialization(
+        self,
+    ) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        worker = self.root / "captured-worker"
+        worker.write_bytes(b"fixture worker")
+        replacement = server.publish_generation(self.state, worker)
+        self.assertNotEqual(replacement, config["service_supervisor"])
+
+        def failed_listener(_state: Path) -> str:
+            current = server.config_for(self.state)
+            current.update(service_supervisor=replacement, unit_materialized=True)
+            server.write_json(self.state / "config.json", current)
+            raise server.SupervisorError("listener setup failed after publication")
+
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "drain_maintenance_listener"),
+            patch.object(server, "maintenance_endpoint", side_effect=failed_listener),
+            self.assertRaisesRegex(
+                server.SupervisorError, "listener setup failed after publication"
+            ),
+        ):
+            server.initialize(self.state, ["/current/xtask"])
+        retained = server.config_for(self.state)
+        self.assertEqual(retained["service_supervisor"], replacement)
+        self.assertTrue(retained["unit_materialized"])
+        self.assertFalse(retained["accepting_writes"])
+        self.assertEqual(retained["derived_rebuild_pending"]["phase"], "initializing")
+
+    def test_materialization_lost_ack_recovers_exact_private_declaration_only_after_drain(
+        self,
+    ) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with patch.dict(
+            os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}
+        ):
+            server.materialize_service(self.state, config, self.allocation)
+            declaration = (
+                self.root / "user-config/systemd/user" / server.unit_name(self.state)
+            )
+            before = declaration.read_bytes()
+            config.pop("unit_materialized")
+            server.write_json(self.state / "config.json", config)
+            with (
+                server.lifecycle_reservation(self.state),
+                patch.object(server, "all_contexts_drained") as drain,
+                patch.object(
+                    server,
+                    "service_readiness",
+                    return_value=server.ServiceObservation(
+                        server.Readiness.ACTIONABLE_ABSENT,
+                        self.state,
+                        config["instance_id"],
+                        server.unit_name(self.state),
+                        "exact drained fixture",
+                        manager={"ActiveState": "inactive", "ControlGroup": ""},
+                    ),
+                ),
+            ):
+                server.materialize_service(self.state, config, self.allocation)
+            drain.assert_called_once_with(self.state)
+            self.assertEqual(declaration.read_bytes(), before)
+            self.assertTrue(server.config_for(self.state)["unit_materialized"])
+
+    def test_materialization_lost_ack_refuses_changed_foreign_or_undrained_unit(
+        self,
+    ) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with patch.dict(
+            os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}
+        ):
+            server.materialize_service(self.state, config, self.allocation)
+            declaration = (
+                self.root / "user-config/systemd/user" / server.unit_name(self.state)
+            )
+            before = declaration.read_bytes()
+            config.pop("unit_materialized")
+            server.write_json(self.state / "config.json", config)
+            for change in ("content", "mode", "symlink", "undrained"):
+                with self.subTest(change=change):
+                    if change == "content":
+                        declaration.write_bytes(before + b"# foreign declaration\n")
+                    elif change == "mode":
+                        declaration.chmod(0o644)
+                    elif change == "symlink":
+                        declaration.unlink()
+                        target = self.root / "redirected-unit"
+                        target.write_bytes(before)
+                        target.chmod(0o600)
+                        declaration.symlink_to(target)
+                    with (
+                        server.lifecycle_reservation(self.state),
+                        patch.object(server, "all_contexts_drained"),
+                        patch.object(
+                            server,
+                            "service_readiness",
+                            return_value=readiness_fixture(server.Readiness.MISMATCH),
+                        ),
+                        self.assertRaisesRegex(
+                            server.SupervisorError, "materialization|inactive drained"
+                        ),
+                    ):
+                        server.materialize_service(self.state, config, self.allocation)
+                    self.assertNotIn("unit_materialized", server.config_for(self.state))
+                    if declaration.is_symlink():
+                        declaration.unlink()
+                    declaration.write_bytes(before)
+                    declaration.chmod(0o600)
+
+    def interrupted_initializer_launch(
+        self,
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        config = self.initialized()
+        owner = {
+            "nonce": "a" * 32,
+            "purpose": "maintenance",
+            "pid": 999999,
+            "start": "dead",
+        }
+        config.update(
+            admission="validation_required",
+            accepting_writes=False,
+            derived_rebuild_pending={
+                "kind": "initialize",
+                "phase": "initializing",
+                "initializer": owner,
+                "target_namespace": config["namespace"],
+                "target_database": config["database"],
+            },
+        )
+        worker = self.root / "launch-worker"
+        worker.write_bytes(b"fixture captured generation")
+        replacement = server.publish_generation(self.state, worker)
+        launch = {
+            "allocation": str(self.root / "admission" / ("b" * 32)),
+            "generation": config["instance_id"],
+            "deadline": time.monotonic() + 30,
+            "supervisor_generation": replacement,
+            "server_generation": config["server"],
+            "service_class": config.get("service_class", "functional"),
+            "server_memory_bytes": config["resources"]["server_memory_bytes"],
+        }
+        server.write_json(self.state / "config.json", config)
+        server.write_json(self.state / "service-launch.json", launch)
+        server.write_json(
+            self.state / ".maintenance-listener.json",
+            {
+                "instance_id": config["instance_id"],
+                "owner": owner,
+                "supervisor": replacement,
+                "server": config["server"],
+                "resources": config["resources"],
+                "credentials_sha256": server.file_digest(
+                    self.state / "credentials.json"
+                ),
+                "root_bootstrap": None,
+            },
+        )
+        return config, launch
+
+    def test_interrupted_initializer_witness_authenticates_stale_config_for_drain_only(
+        self,
+    ) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        with (
+            patch.object(server, "start") as start,
+            patch.object(server, "materialize_service") as materialize,
+        ):
+            selected = server.storage_launch_drain_config(self.state, config, launch)
+        self.assertEqual(
+            selected["service_supervisor"], launch["supervisor_generation"]
+        )
+        self.assertEqual(
+            {**selected, "service_supervisor": config["service_supervisor"]}, config
+        )
+        self.assertEqual(server.config_for(self.state), config)
+        start.assert_not_called()
+        materialize.assert_not_called()
+
+    def test_interrupted_initializer_drain_refuses_changed_owner_generation_or_bound_launch(
+        self,
+    ) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        marker_path = self.state / ".maintenance-listener.json"
+        original = server.read_json(marker_path)
+        for changed in ("owner", "generation", "bound", "mode", "symlink", "moved"):
+            with self.subTest(changed=changed):
+                marker = json.loads(json.dumps(original))
+                candidate = dict(launch)
+                if changed == "owner":
+                    marker["owner"]["nonce"] = "c" * 32
+                elif changed == "generation":
+                    marker["supervisor"] = config["service_supervisor"]
+                elif changed == "bound":
+                    candidate["binding"] = {"group": "/recorded/group"}
+                elif changed == "moved":
+                    marker["supervisor"]["supervisor_script"] = str(
+                        self.root
+                        / "foreign/.generations"
+                        / ("d" * 64)
+                        / "scripts/surreal_server.py"
+                    )
+                    candidate["supervisor_generation"] = marker["supervisor"]
+                server.write_json(marker_path, marker)
+                if changed == "mode":
+                    marker_path.chmod(0o644)
+                elif changed == "symlink":
+                    marker_path.rename(self.state / "other-marker.json")
+                    marker_path.symlink_to(self.state / "other-marker.json")
+                with self.assertRaises(server.SupervisorError):
+                    server.storage_launch_drain_config(self.state, config, candidate)
+                if marker_path.is_symlink():
+                    marker_path.unlink()
+                server.write_json(marker_path, original)
+        self.assertEqual(server.config_for(self.state), config)
+
+    def test_interrupted_initializer_drain_refuses_changed_observations(self) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        verify = server.verify_generation
+
+        def changed(directory: Path) -> server.GenerationVerification:
+            verified = verify(directory)
+            path = self.state / ".maintenance-listener.json"
+            marker = server.read_json(path)
+            marker["owner"]["nonce"] = "c" * 32
+            server.write_json(path, marker)
+            return verified
+
+        with (
+            patch.object(server, "verify_generation", side_effect=changed),
+            self.assertRaisesRegex(server.SupervisorError, "observations changed"),
+        ):
+            server.storage_launch_drain_config(self.state, config, launch)
+
+    def test_non_initializer_maintenance_marker_preserves_exact_history_drain_route(
+        self,
+    ) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        config["admission"] = "quiesced"
+        config["derived_rebuild_pending"]["kind"] = "rebuild"
+        config["derived_rebuild_pending"]["phase"] = "accounts"
+        server.write_json(self.state / "config.json", config)
+        history = self.state / ".profile-history"
+        history.mkdir(mode=0o700)
+        prior = {**config, "service_supervisor": launch["supervisor_generation"]}
+        server.write_json(history / (("d" * 32) + ".json"), prior)
+        with patch.object(
+            server,
+            "interrupted_initializer_drain_config",
+            side_effect=AssertionError("unrelated initializer route"),
+        ):
+            self.assertEqual(
+                server.storage_launch_drain_config(self.state, config, launch), prior
+            )
+        self.assertEqual(server.config_for(self.state), config)
 
     def test_initializer_child_failure_drains_under_existing_lifetime(self) -> None:
         config = self.initialized()

@@ -945,6 +945,13 @@ borrowers or changed current-version backup inventories refuse recovery. Current
 restore retains its backup and exact export/copy ownership contract; it is independent of
 fresh design-phase regeneration.
 
+Interrupted listener publication retains its authoritative supervisor/unit acknowledgement;
+failure closure never replaces it with an older caller snapshot. Recovery recognizes a lost
+unit acknowledgement only from the exact private declaration and independent shutdown proof.
+An interrupted initializer's private listener marker and pending owner may authenticate an
+unbound generation solely to confirm drain. That temporary interpretation cannot execute or
+readmit the generation, and changed, foreign or incomplete evidence keeps ownership protected.
+
 ## Targeted fixture controls
 
 ```bash
@@ -1043,6 +1050,30 @@ beta metadata setup and the repository's qualified SQL expectations. It refuses
 ambient targets, explicit actors, external/file inputs, seeds, changed schema files,
 coverage overrides and unowned rollout changes. Expansion requires qualification.
 
+Named disposable population operations are a separate admitted path:
+`just surrealkit populate --resource ID --population readiness-graph-v2` installs the
+generated schema and a deterministic small project/revision/readiness/analysis-graph
+specimen in that namespace. Its opaque evidence bytes are synthetic fixture data,
+never activated scientific results. Each fixture receives new namespace/VIEWER
+credentials and remains bound to its exact service generation. Arbitrary seed
+directories and SQL are still refused.
+
+Root namespace administration uses the existing bounded HTTP control with explicit per-statement
+outcomes. It preserves complete SQL text, including comments and multiline function bodies;
+flattening a schema can silently comment out its tail. Named population/oracle setup explicitly
+creates its owned database before applying the generated schema. No target selection creates a
+missing database as a substitute for setup or settlement. Actor permission probes remain separate
+credentialed sessions.
+
+Mutation acknowledgment and child drain do not establish settlement. The operation
+independently reads complete expected tables and relation endpoints, compares indexed,
+ordinary and full-scan readiness answers, and verifies VIEWER read/creation denial with
+privileged absence checks. Interrupted submission stays pinned and unavailable for
+ordinary tooling. `just surrealkit population-settle --resource ID` verifies that
+original population without resubmitting its mutations; partial/different content
+refuses. Disposal remains with the existing invocation/resource owner. Deterministic
+regeneration is selected; logical restore and physical copying are not adopted here.
+
 The complete disposable generated-contract control is:
 
 ```bash
@@ -1054,9 +1085,8 @@ scripts/pse-env --native= --resource-class light -- python -m scripts.tests.surr
 This compares direct generated installation with fresh sync/frozen replay/parity,
 checks namespace credentials and indexed readiness selection, and removes only
 terminally passed/drained namespaces. Beta keeps child databases for the external
-resource owner. Checked namespace removal uses an unselected root administration
-session and verifies absence: the pinned SQL shell otherwise reselects and recreates
-a just-removed namespace. Failed/unknown activities remain protected for exact
+resource owner. Checked namespace removal uses unselected root administration and
+verifies absence without reacquiring that context. Failed/unknown activities remain protected for exact
 reconciliation; a child exit does not prove server work settled. Permission evidence
 from this control covers root/namespace-owner execution, not record-user policy.
 

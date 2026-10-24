@@ -139,8 +139,12 @@ def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
     if any(
         not context.get(name)
         for name in (
-            "configuration", "toolchain_declaration", "tools", "toolchain",
-            "native", "owners",
+            "configuration",
+            "toolchain_declaration",
+            "tools",
+            "toolchain",
+            "native",
+            "owners",
         )
     ):
         return False
@@ -178,10 +182,13 @@ def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
     try:
         verified = surreal_server.verify_generation(generation)
         required = (
-            "scripts/surreal_source.py", "rust-toolchain.toml",
+            "scripts/surreal_source.py",
+            "rust-toolchain.toml",
             *("scripts/surrealdb-source/" + name for name in PATCHES),
         )
-        if any(verified.files.get(name) != digest(generation / name) for name in required):
+        if any(
+            verified.files.get(name) != digest(generation / name) for name in required
+        ):
             return False
     except (surreal_server.SupervisorError, OSError, ValueError):
         return False

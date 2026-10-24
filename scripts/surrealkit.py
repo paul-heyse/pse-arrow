@@ -511,38 +511,101 @@ def activity(
 
 
 def _population_sql(
-    config: Mapping[str, object], record: Mapping[str, object], sql: str,
+    config: Mapping[str, object],
+    record: Mapping[str, object],
+    sql: str,
 ) -> list[object]:
     values = test_resources.namespace_sql(
-        config, sql, namespace=str(record["namespace"]),
+        config,
+        sql,
+        namespace=str(record["namespace"]),
         database=surrealkit_population.DATABASE,
     )
     if not values or any(isinstance(value, str) for value in values):
-        raise ToolError("Population SQL refused or acknowledgment unavailable; scope remains pinned")
+        encoded = json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
+        errors = [
+            {"statement": index, "error": value}
+            for index, value in enumerate(values)
+            if isinstance(value, str)
+        ]
+        response = Path(str(record["directory"])) / (
+            "population-response-" + uuid.uuid4().hex + ".json"
+        )
+        surreal_server.write_json(
+            response,
+            {
+                "sql_sha256": hashlib.sha256(sql.encode()).hexdigest(),
+                "response_sha256": hashlib.sha256(encoded).hexdigest(),
+                "response": values,
+                "errors": errors,
+            },
+        )
+        specific = next(
+            (
+                str(item["error"])
+                for item in errors
+                if "not executed" not in str(item["error"]).lower()
+            ),
+            str(errors[0]["error"])
+            if errors
+            else "acknowledgment unavailable (empty response)",
+        )
+        raise ToolError(
+            "Population SQL refused; scope remains pinned: "
+            + specific[:240]
+            + "; private response "
+            + str(response)
+        )
     return values
 
 
 def inspection_sql(
-    config: Mapping[str, object], record: Mapping[str, object],
-    credentials: Mapping[str, object], sql: str,
+    config: Mapping[str, object],
+    record: Mapping[str, object],
+    credentials: Mapping[str, object],
+    sql: str,
 ) -> list[object]:
     """A fresh namespace VIEWER session; root readback determines write denial."""
-    env = {key: value for key, value in os.environ.items() if not key.startswith(("SURREAL", "DATABASE_"))}
-    env.update(SURREAL_USER=str(credentials["inspection_username"]),
-               SURREAL_PASS=str(credentials["inspection_password"]))
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("SURREAL", "DATABASE_"))
+    }
+    env.update(
+        SURREAL_USER=str(credentials["inspection_username"]),
+        SURREAL_PASS=str(credentials["inspection_password"]),
+    )
     server = cast("Mapping[str, object]", config["server"])
     namespace = str(record["namespace"])
     database = surrealkit_population.DATABASE
     with tempfile.TemporaryDirectory(dir=str(record["directory"])) as working:
         result = subprocess.run(
-            [str(server["binary"]), "sql", "--endpoint", str(config["endpoint"]),
-             "--auth-level", "namespace", "--namespace", namespace,
-             "--database", database, "--json", "--hide-welcome"],
-            input=sql, env=env, cwd=working, capture_output=True, text=True,
-            timeout=30, check=False,
+            [
+                str(server["binary"]),
+                "sql",
+                "--endpoint",
+                str(config["endpoint"]),
+                "--auth-level",
+                "namespace",
+                "--namespace",
+                namespace,
+                "--database",
+                database,
+                "--json",
+                "--hide-welcome",
+            ],
+            input=sql,
+            env=env,
+            cwd=working,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
         )
     try:
-        values = test_resources.cli_json(result.stdout, namespace=namespace, database=database)
+        values = test_resources.cli_json(
+            result.stdout, namespace=namespace, database=database
+        )
     except ValueError as error:
         raise ToolError("Inspection session acknowledgment unavailable") from error
     if result.returncode or result.stderr.strip() or not isinstance(values, list):
@@ -550,7 +613,9 @@ def inspection_sql(
     return values
 
 
-def populate(resource: str, name: str = surrealkit_population.NAME) -> dict[str, object]:
+def populate(
+    resource: str, name: str = surrealkit_population.NAME
+) -> dict[str, object]:
     """Install only a named versioned specimen into a fresh owned database.
 
     Input-folder seed refusal and toolkit --no-seed remain in force. The resource
@@ -563,28 +628,49 @@ def populate(resource: str, name: str = surrealkit_population.NAME) -> dict[str,
         raise ToolError(str(error)) from error
     record, _, _ = fixture(resource)
     if record.get("tool_population"):
-        raise ToolError("This namespace already owns a population; select a fresh fixture")
+        raise ToolError(
+            "This namespace already owns a population; select a fresh fixture"
+        )
     with activity(resource) as (record, config, _):
         if record.get("tool_population"):
-            raise ToolError("This namespace already owns a population; select a fresh fixture")
+            raise ToolError(
+                "This namespace already owns a population; select a fresh fixture"
+            )
         pending: dict[str, object] = {
-            "name": name, "content_sha256": content,
+            "name": name,
+            "content_sha256": content,
             "schema_sha256": digest(ROOT / GENERATED_SCHEMA),
-            "namespace": record["namespace"], "database": surrealkit_population.DATABASE,
+            "namespace": record["namespace"],
+            "database": surrealkit_population.DATABASE,
             "service_generation": record["service_generation"],
-            "credentials_sha256": record["credentials_sha256"], "phase": "schema_submitted",
+            "credentials_sha256": record["credentials_sha256"],
+            "phase": "schema_submitted",
         }
         with test_resources.resource_update(resource) as current:
             current["tool_population"] = pending
-        catalog = test_resources.namespace_sql(config, "INFO FOR NS;", namespace=record["namespace"])
-        if len(catalog) != 1 or not isinstance(catalog[0], dict) or not isinstance(catalog[0].get("databases"), dict):
+        catalog = test_resources.namespace_sql(
+            config, "INFO FOR NS;", namespace=record["namespace"]
+        )
+        if (
+            len(catalog) != 1
+            or not isinstance(catalog[0], dict)
+            or not isinstance(catalog[0].get("databases"), dict)
+        ):
             raise ToolError("Population database inventory unavailable")
         if surrealkit_population.DATABASE in catalog[0]["databases"]:
             raise ToolError("Named population requires an absent target database")
+        if test_resources.namespace_sql(
+            config,
+            "DEFINE DATABASE "
+            + surreal_server.sql_identifier(surrealkit_population.DATABASE)
+            + ";",
+            namespace=record["namespace"],
+        ) != [None]:
+            raise ToolError("Named population database creation unproved")
         declaration = (ROOT / GENERATED_SCHEMA).read_text()
         if not declaration.startswith("-- @generated by pse-schema; do not edit\n"):
             raise ToolError("Unknown generated declaration header")
-        _population_sql(config, record, " ".join(declaration.splitlines()[1:]))
+        _population_sql(config, record, declaration)
         with test_resources.resource_update(resource) as current:
             current["tool_population"]["phase"] = "population_submitted"
         _population_sql(config, record, sql)
@@ -600,15 +686,24 @@ def settle_population(resource: str) -> dict[str, object]:
     """
     before = test_resources.resource_status(resource)
     recovery = before.get("tool_population", {}).get("phase") == "population_submitted"
-    with activity(resource, _population_recovery=recovery) as (record, config, credentials):
+    with activity(resource, _population_recovery=recovery) as (
+        record,
+        config,
+        credentials,
+    ):
         pending = record.get("tool_population", {})
         name = pending.get("name")
-        if name != surrealkit_population.NAME or pending.get("phase") not in {"population_submitted", "settled"}:
+        if name != surrealkit_population.NAME or pending.get("phase") not in {
+            "population_submitted",
+            "settled",
+        }:
             raise ToolError("No exact submitted named population to settle")
         expected = {
-            "name": name, "content_sha256": surrealkit_population.identity(str(name)),
+            "name": name,
+            "content_sha256": surrealkit_population.identity(str(name)),
             "schema_sha256": digest(ROOT / GENERATED_SCHEMA),
-            "namespace": record["namespace"], "database": surrealkit_population.DATABASE,
+            "namespace": record["namespace"],
+            "database": surrealkit_population.DATABASE,
             "service_generation": record["service_generation"],
             "credentials_sha256": record["credentials_sha256"],
         }
@@ -616,22 +711,43 @@ def settle_population(resource: str) -> dict[str, object]:
             raise ToolError("Population identity differs from its submitted owner")
         for query, answer in surrealkit_population.checks(str(name)):
             if _population_sql(config, record, query) != [answer]:
-                raise ToolError("Population content/row/relation settlement differs from its declaration")
+                raise ToolError(
+                    "Population content/row/relation settlement differs from its declaration"
+                )
         # The read actor must actually see the rows; an empty SELECT is no proof.
-        if inspection_sql(config, record, credentials, "SELECT VALUE key FROM canonical_projects ORDER BY key;") != [["fixture_alpha", "fixture_beta", "fixture_gamma"]]:
+        if inspection_sql(
+            config,
+            record,
+            credentials,
+            "SELECT VALUE key FROM canonical_projects ORDER BY key;",
+        ) != [["fixture_alpha", "fixture_beta", "fixture_gamma"]]:
             raise ToolError("Population inspection read permission unproved")
-        inspection_sql(config, record, credentials,
-            "CREATE canonical_projects:fixture_viewer_forbidden SET key='fixture_viewer_forbidden',title='forbidden',deleted=false,generation=0dec;")
-        if _population_sql(config, record, "SELECT * FROM canonical_projects:fixture_viewer_forbidden;") != [[]]:
+        inspection_sql(
+            config,
+            record,
+            credentials,
+            "CREATE canonical_projects:fixture_viewer_forbidden SET key='fixture_viewer_forbidden',title='forbidden',deleted=false,generation=0dec;",
+        )
+        if _population_sql(
+            config, record, "SELECT * FROM canonical_projects:fixture_viewer_forbidden;"
+        ) != [[]]:
             raise ToolError("Population inspection write denial unproved")
         for hint in ("", "WITH INDEX study_ready_candidates", "WITH NOINDEX"):
             query = surrealkit_population.READINESS.format(hint=hint) + ";"
-            if _population_sql(config, record, query) != [surrealkit_population.READINESS_ANSWER]:
+            if _population_sql(config, record, query) != [
+                surrealkit_population.READINESS_ANSWER
+            ]:
                 raise ToolError("Population readiness ordered answer differs")
-        proof = {**expected, "phase": "settled", "rows": {
-            table: len(rows) for table, rows in surrealkit_population.rows(str(name)).items()
-        }, "permissions": "viewer_reads_owner_proves_no_write",
-            "readiness_answer": surrealkit_population.READINESS_ANSWER}
+        proof = {
+            **expected,
+            "phase": "settled",
+            "rows": {
+                table: len(rows)
+                for table, rows in surrealkit_population.rows(str(name)).items()
+            },
+            "permissions": "viewer_reads_owner_proves_no_write",
+            "readiness_answer": surrealkit_population.READINESS_ANSWER,
+        }
         with test_resources.resource_update(resource) as current:
             current["tool_population"] = proof
         test_resources.record_drain(resource)
@@ -732,7 +848,13 @@ def main() -> int:
             print(provision(args.state))
             return 0
         if args.command in {"populate", "population-settle"} and args.resource:
-            print(json.dumps(populate(args.resource, args.population) if args.command == "populate" else settle_population(args.resource)))
+            print(
+                json.dumps(
+                    populate(args.resource, args.population)
+                    if args.command == "populate"
+                    else settle_population(args.resource)
+                )
+            )
             return 0
         if args.command == "stage" and args.resource:
             print(

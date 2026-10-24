@@ -1190,7 +1190,9 @@ def admitted_runtime_server(
     """Select immutable receipt validation only for this exact bound supervisor."""
     receipt = object_mapping(config["server"])
     supervisor = config.get("service_supervisor")
-    if not isinstance(supervisor, dict) or supervisor.get("supervisor_script") != str(SCRIPT):
+    if not isinstance(supervisor, dict) or supervisor.get("supervisor_script") != str(
+        SCRIPT
+    ):
         return surreal_source.admitted_receipt(receipt)
     directory = SCRIPT.parent.parent
     service = service_directory(state, deadline=deadline)
@@ -1198,12 +1200,19 @@ def admitted_runtime_server(
         SCRIPT.name != "surreal_server.py"
         or SCRIPT.parent.name != "scripts"
         or directory.parent != service / ".generations"
-        or supervisor.get("supervisor_executable") != str(Path(sys.executable).resolve())
+        or supervisor.get("supervisor_executable")
+        != str(Path(sys.executable).resolve())
     ):
-        raise SupervisorError("Running supervisor is not its bound immutable service generation")
+        raise SupervisorError(
+            "Running supervisor is not its bound immutable service generation"
+        )
     verified = verify_generation(directory)
-    if verified.files.get("scripts/surreal_server.py") != supervisor.get("supervisor_sha256"):
-        raise SupervisorError("Running supervisor differs from its immutable service generation")
+    if verified.files.get("scripts/surreal_server.py") != supervisor.get(
+        "supervisor_sha256"
+    ):
+        raise SupervisorError(
+            "Running supervisor differs from its immutable service generation"
+        )
     return surreal_source.admitted_runtime_receipt(receipt, directory)
 
 
@@ -4757,6 +4766,17 @@ def storage_launch_drain_config(
             return config
     except SupervisorError:
         pass
+    marker_path = state / ".maintenance-listener.json"
+    pending = config.get("derived_rebuild_pending")
+    if (
+        isinstance(pending, dict)
+        and pending.get("kind") == "initialize"
+        and pending.get("phase") == "initializing"
+        and (marker_path.exists() or marker_path.is_symlink())
+    ):
+        return interrupted_initializer_drain_config(
+            state, config, launch, deadline=deadline
+        )
     if (
         config.get("owner") != OWNER
         or config.get("accepting_writes") is not False
@@ -4818,6 +4838,81 @@ def storage_launch_drain_config(
             raise SupervisorError("Historical launch supervisor identity differs")
         return predecessor
     raise SupervisorError("Exact historical failed-launch selection is unavailable")
+
+
+def interrupted_initializer_drain_config(
+    state: Path,
+    config: dict[str, object],
+    launch: dict[str, object],
+    *,
+    deadline: float | None = None,
+) -> dict[str, object]:
+    """Authenticate a lost initializer publication only to judge storage drain.
+
+    The pending initializer and private listener marker retain the actual launch
+    generation even if an interrupted caller wrote an older config snapshot.
+    This detached selection is never persisted, executed or used for admission.
+    """
+    marker_path = state / ".maintenance-listener.json"
+    if "binding" in launch or any(
+        path.is_symlink() for path in (marker_path, *marker_path.parents)
+    ):
+        raise SupervisorError(
+            "Interrupted initializer drain lacks an unbound private witness"
+        )
+    raw = private_record_bytes(marker_path, deadline, maximum_bytes=1024 * 1024)
+    marker = object_mapping(json.loads(raw))
+    pending = object_mapping(config.get("derived_rebuild_pending", {}))
+    supervisor = object_mapping(marker.get("supervisor", {}))
+    owner = object_mapping(marker.get("owner", {}))
+    if (
+        config.get("owner") != OWNER
+        or config.get("accepting_writes") is not False
+        or config.get("admission") not in {"validation_required", "quiesced"}
+        or pending.get("kind") != "initialize"
+        or pending.get("phase") != "initializing"
+        or owner != pending.get("initializer")
+        or owner.get("purpose") != "maintenance"
+        or not re.fullmatch(r"[a-f0-9]{32}", str(owner.get("nonce", "")))
+        or marker.get("instance_id") != config.get("instance_id")
+        or marker.get("server") != config.get("server")
+        or marker.get("resources") != config.get("resources")
+        or supervisor != launch.get("supervisor_generation")
+        or marker.get("credentials_sha256") != file_digest(state / "credentials.json")
+        or (pending.get("target_namespace"), pending.get("target_database"))
+        != (config.get("namespace"), config.get("database"))
+    ):
+        raise SupervisorError(
+            "Interrupted initializer drain witness differs from its exact pending owner"
+        )
+    script = Path(str(supervisor.get("supervisor_script", "")))
+    if (
+        not script.is_absolute()
+        or script.name != "surreal_server.py"
+        or script.parent.name != "scripts"
+        or script.parent.parent.parent != state / ".generations"
+        or supervisor.get("supervisor_executable")
+        != str(Path(sys.executable).resolve())
+    ):
+        raise SupervisorError(
+            "Interrupted initializer drain source escaped its immutable state"
+        )
+    with lifecycle_deadline(deadline):
+        verified = verify_generation(script.parent.parent)
+    if verified.files.get("scripts/surreal_server.py") != supervisor.get(
+        "supervisor_sha256"
+    ):
+        raise SupervisorError(
+            "Interrupted initializer drain supervisor identity differs"
+        )
+    reconstructed = {**config, "service_supervisor": supervisor}
+    if (
+        storage_launch(state, reconstructed, deadline=deadline) != launch
+        or private_record_bytes(marker_path, deadline, maximum_bytes=1024 * 1024) != raw
+        or config_for(state, deadline=deadline) != config
+    ):
+        raise SupervisorError("Interrupted initializer drain observations changed")
+    return reconstructed
 
 
 def recorded_storage_owner(
@@ -4981,9 +5076,47 @@ def materialize_service(
     placement = storage_placement(config, owner)
     text = f"[Unit]\nDescription=pse-arrow owned storage {config['instance_id']}\nStartLimitIntervalSec=300\nStartLimitBurst=3\n\n[Service]\nType=exec\nExecStart={executable}\nKillMode=control-group\nTimeoutStopSec=45\nRestart={restart}\nRestartSec=5\nSlice={placement['slice']}\nMemoryMax={placement['memory_bytes']}\nCPUQuota={integer(placement['cpu_threads']) * 100}%\nMemorySwapMax=0\nTasksMax=128\nStandardOutput=null\nStandardError=null\n\n[Install]\nWantedBy=default.target\n"
     if path.exists() and not config.get("unit_materialized"):
-        raise SupervisorError(
-            "Existing user unit is not this generation's materialization"
+        selected = config_for(state)
+        # Recover a lost publication ACK only for the exact private declaration
+        # under its closed, drained lifecycle owner. Equality never proves drain.
+        if (
+            getattr(_LIFECYCLE, "state", None) != state
+            or config.get("accepting_writes") is not False
+            or config.get("admission") not in {"quiesced", "validation_required"}
+            or any(candidate.is_symlink() for candidate in (path, *path.parents))
+            or not path.is_file()
+            or path.stat().st_uid != os.getuid()
+            or stat.S_IMODE(path.stat().st_mode) != 0o600
+            or path.read_text() != text
+            or any(
+                selected.get(key) != config.get(key)
+                for key in (
+                    "instance_id",
+                    "service_supervisor",
+                    "server",
+                    "resources",
+                    "service_class",
+                )
+            )
+        ):
+            raise SupervisorError(
+                "Existing user unit is not this generation's materialization"
+            )
+        all_contexts_drained(state)
+        observed = service_readiness(
+            state, config, deadline=getattr(_STARTUP, "deadline", None)
         )
+        if (
+            observed.phase is not Readiness.ACTIONABLE_ABSENT
+            or observed.state != state
+            or observed.unit != unit_name(state)
+            or observed.instance_id != config["instance_id"]
+            or observed.manager.get("ActiveState") not in {"inactive", "failed"}
+            or observed.listener_owned
+        ):
+            raise SupervisorError(
+                "Materialization recovery requires the exact inactive drained service"
+            )
     temporary = path.with_suffix(".pending")
     temporary.write_text(text)
     temporary.chmod(0o600)
@@ -7244,6 +7377,10 @@ def maintenance_endpoint(state: Path) -> str:
     else:
         private_offline_state(state, config)
         bootstrap = fresh_root_authority(state, config)
+        if not config.get("unit_materialized"):
+            # Prove a retained declaration against its current generation before
+            # publishing the next one. A lost ACK cannot authorize replacement.
+            materialize_service(state, config)
         config["service_supervisor"] = publish_generation(state)
         write_json(state / "config.json", config)
         write_json(
@@ -8680,6 +8817,16 @@ def initialize_rebuild(
             raise SupervisorError("Initializer owner changed; admission remains closed")
         maintenance_phase(state, selected, "validated")
     finally:
+        # Listener setup can publish a supervisor and materialize its unit before
+        # failing. Preserve those authoritative effects, including their ACK,
+        # rather than rolling them back with this caller's pre-start snapshot.
+        current = config_for(state)
+        if current.get("instance_id") != selected.get("instance_id"):
+            raise SupervisorError(
+                "Initializer service identity changed; admission remains closed"
+            )
+        selected.clear()
+        selected.update(current)
         selected["accepting_writes"] = False
         write_json(state / "config.json", selected)
         # Settle the listener's ownership as well as its physical process. A
@@ -9421,7 +9568,7 @@ def administrative_headers(
     return headers
 
 
-def administrative_query(
+def administrative_results(
     state: Path,
     query: str,
     deadline: float,
@@ -9430,7 +9577,7 @@ def administrative_query(
     database: str | None = None,
     select_context: bool = True,
 ) -> list[dict[str, object]]:
-    """Bounded authenticated administrative control; scientific RPC remains native WS."""
+    """Preserve SQL bytes and explicit per-statement outcomes in bounded control."""
     config = config_for(state)
     credentials = read_json(state / "credentials.json")
     token = base64.b64encode(
@@ -9447,18 +9594,51 @@ def administrative_query(
         payload = response.read(MESSAGE_BYTES + 1)
     if len(payload) > MESSAGE_BYTES:
         raise SupervisorError("Administrative response exceeded its bounded extent")
-    results = json.loads(payload)
+    try:
+        results = json.loads(payload)
+    except ValueError as error:
+        raise SupervisorError("Administrative response was not valid JSON") from error
     if (
         not isinstance(results, list)
         or not results
         or any(
-            not isinstance(row, dict) or row.get("status") != "OK" for row in results
+            not isinstance(row, dict)
+            or not isinstance(row.get("status"), str)
+            or row.get("status") not in {"OK", "ERR"}
+            or "result" not in row
+            or (row["status"] == "ERR" and not isinstance(row["result"], str))
+            for row in results
         )
     ):
         raise SupervisorError(
-            "Administrative query contained a failed or incomplete statement"
+            "Administrative response contained an invalid or incomplete statement"
         )
     remaining(deadline)
+    return results
+
+
+def administrative_query(
+    state: Path,
+    query: str,
+    deadline: float,
+    *,
+    namespace: str | None = None,
+    database: str | None = None,
+    select_context: bool = True,
+) -> list[dict[str, object]]:
+    """Bounded all-OK administrative control; scientific RPC remains native WS."""
+    results = administrative_results(
+        state,
+        query,
+        deadline,
+        namespace=namespace,
+        database=database,
+        select_context=select_context,
+    )
+    if any(row["status"] != "OK" for row in results):
+        raise SupervisorError(
+            "Administrative query contained a failed or incomplete statement"
+        )
     return results
 
 

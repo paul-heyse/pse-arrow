@@ -38,12 +38,12 @@ mod evidence_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
-#[cfg(feature = "surrealql-tools")]
-mod surrealql_tools;
 #[cfg(feature = "project-tools")]
 mod project_runtime;
 #[cfg(feature = "canonical-tools")]
 mod project_tools;
+#[cfg(feature = "surrealql-tools")]
+mod surrealql_tools;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 

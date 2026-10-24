@@ -27,7 +27,8 @@ and inquiry dispositions, shared decisions, cross-plan boundaries and overall co
 Companions own detailed designs and acceptance, linking here for current state. Architecture
 and ADRs retain contract/rationale authority. The maintainer subsequently authorized detailed execution of all 52a/52b on 2026-10-23,
 including their required FND00 and small G01 prerequisite slices. On 2026-10-23 the maintainer also
-authorized all C01–C08/D01–D04 and their necessary prerequisite slices. Other packages remain planned.
+authorized all C01–C08/D01–D04 and their necessary prerequisite slices. The maintainer
+subsequently authorized E01–E04 and their necessary integration fixes. Other packages remain planned.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -157,11 +158,11 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O15 | resolved | [D01](52d-execution-and-qualification-efficiency.md#D01) | Resumable observation of actual owned transitions |
 | O16 | resolved | [D02](52d-execution-and-qualification-efficiency.md#D02) | Exact feature enumeration and safe per-combination reuse |
 | O17 | resolved | [D03](52d-execution-and-qualification-efficiency.md#D03) | Safe effective-build equivalence or conservative explained fallback |
-| O18 | scheduled | [E01](52e-reproducible-experiments-and-isolation.md#E01) | Selected historical executable replay and dependency closure |
-| O19 | scheduled | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Owned representative database baselines with verified population |
+| O18 | resolved | [E01 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual selected remapped historical replay and protected retention; unsupported native closure refuses |
+| O19 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual independently settled v2 populations, permission/query equivalence, interrupted read-only settlement and isolated cleanup |
 | O20 | resolved | [D04](52d-execution-and-qualification-efficiency.md#D04) | Actual pressure/placement facts and explicit experiments |
-| O21 | scheduled | [E03](52e-reproducible-experiments-and-isolation.md#E03) | Owned regression search with exact/mixed/untestable outcomes |
-| O22 | scheduled | [E04](52e-reproducible-experiments-and-isolation.md#E04) | Optional rootless tooling environment with simpler fallback |
+| O21 | resolved | [E03 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual Git/Rust search found known bad revision through an unsupported revision; noisy retained comparison inconclusive |
+| O22 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Optional Bubblewrap isolation with actual server/library parser consumers, owned drain and cleanup |
 | O23 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Paired comparisons preserving unmatched subjects and denominators |
 | O24 | resolved | [B04](52b-local-knowledge-and-research.md#B04) | Derived development-knowledge/experiment links, separate from scientific research |
 | O25 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact finite trace continuity or explicit unsupported seam |
@@ -186,9 +187,9 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I05 | resolved | [C02](52c-behavioral-and-scientific-verification.md#C02) | Existing Proptest action sequences selected and actual stale-provider counterexample shrunk; add another framework only for an uncovered owner-specific behavior |
 | I06 | resolved | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual GDB lifecycle and deterministic production schedules selected; ASan unqualified after task denial; Loom not adopted for std/native path, with a pure-protocol revisit trigger |
 | I07 | resolved | [D03](52d-execution-and-qualification-efficiency.md#targeted-execution-outcome--2026-10-24) | Parsed TOML equivalence selected inside complete context; actual cold build/reuse passed; unsupported context and unknown targets refuse |
-| I08 | open | [E01](52e-reproducible-experiments-and-isolation.md#E01) | Pure archive replay then native closure; unsupported native replay stays explicit |
-| I09 | open | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Deterministic population/logical restore; physical copy only if separately justified |
-| I10 | open | [E04](52e-reproducible-experiments-and-isolation.md#E04) | Rootless experiment value/compatibility versus owned directory |
+| I08 | resolved | [E01 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Pure replay adopted; native archive refused before effects. Revisit only for a selected investigation that can close native deployment/ABI/license/config/data dependencies |
+| I09 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Deterministic regeneration adopted and actually qualified; logical restore/physical copy unselected. Revisit only for a concrete fixture question whose state cannot reasonably be regenerated |
+| I10 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Private directories default; optional Bubblewrap for a concrete permission-isolation consumer. Podman unselected until a different-userspace/dependency requirement recurs |
 | I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK/transport context propagation; no fake continuity |
 | I12 | open | [G02](52g-agent-and-operator-workflows.md#G02) | Thin MCP consumer benefit versus direct CLI; no second dispatcher |
 | I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
@@ -223,10 +224,10 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | D02 | done | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
 | D03 | done | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
 | D04 | done | [52d](52d-execution-and-qualification-efficiency.md#D04) | Pressure/topology and truthful unknowns |
-| E01 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E01) | Historical replay and I08 |
-| E02 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Verified representative fixtures and I09 |
-| E03 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Reproducible regression experiment |
-| E04 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Owned optional isolation and I10 |
+| E01 | done | [52e](52e-reproducible-experiments-and-isolation.md#E01) | Actual remapped replay, distinct producer/result, dependency refusal and protected detail reclamation; native archival unselected |
+| E02 | done | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Actual v2 populations, exact rows/edges/permissions, query equivalence, SIGINT/read-only settlement and sibling-preserving reclamation passed |
+| E03 | done | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Actual semantic bisection visited an untestable revision, found the known bad commit and removed only its temporary Git checkout/build output after drain; main and independent worktrees preserved; retained noisy comparison inconclusive |
+| E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
 | F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired evidence comparisons |
 | F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Finite trace seam and I11 |
 | G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
@@ -290,7 +291,8 @@ access and native structured knowledge. ADR-0222 preceded the new family; bluepr
 owns enduring meaning, while formal ADR status stays proposed. B05 selected structured access
 with lexical discovery and retired the unused model helper after its bounded comparison.
 FastMCP4.1.3/MCP2.3.0 are installed and exercised. The subsequent 52c/52d checkpoint below owns their delivery and execution limit. Other FND00/G01
-obligations and Plan52e–52h remain planned, including assembled qualification and scope-end hygiene/manual checks.
+obligations and Plan52f–52h remain planned, including assembled qualification and scope-end hygiene/manual checks.
+The subsequent 52e checkpoint below owns that authorized execution.
 No whole-series or productivity/performance claim follows from these targeted checks.
 
 ### Owner-selected structured-query pivot
@@ -328,5 +330,19 @@ original reproduction remains exact. RC03's narrower reuse unit is published at 
 Test Assessment1.2 guided execution without reopening settled reviews. I05 selects existing
 Proptest sequences. I06 records actual native/schedule outcomes independently. I07 selects parsed
 TOML equivalence only inside the closed context. Their details and revisit triggers live at their
-companion owners. Other FND00/G01 obligations and 52e–52h stay planned; full powerset, hygiene/manual
+companion owners. Other FND00/G01 obligations and 52f–52h stay planned; full powerset, hygiene/manual
 checks, assembled qualification and any performance/productivity benefit remain unestablished.
+
+### 52e execution checkpoint — 2026-10-24
+
+E01–E04 are authorized; [52e's Outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24)
+owns selected historical replay and retention, actual semantic Git bisection, retained inconclusive
+comparison and optional Bubblewrap/server/library parser consumers. Native archival and Podman
+remain unselected under the recorded revisit conditions. FND00 required no new runtime document
+family for these existing-owner tooling records.
+
+E02's actual disposable-service acceptance passed after repairing immutable receipt context,
+interrupted publication/drain recovery, full-schema transport, explicit database setup and unique
+fixture identities. The Outcome retains original failures and corrected acceptance separately.
+E01–E04 and I08–I10 are complete at their selected focused boundaries. Other FND00/G01
+obligations, C04's separately recorded denial boundary and Plan52f–52h retain their scope.
