@@ -60,6 +60,26 @@ class InstallationContextTests(unittest.TestCase):
         with patch('scripts.pse_env.compose',return_value={'CARGO_UNDERSTOOD_IN_FUTURE':'value'}), self.assertRaisesRegex(context.ContextError,'Unsupported Cargo environment'):
             context.controlled_environment(root,{})
 
+    def test_literal_tool_path_with_spaces_and_changed_executable_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            executable=Path(temporary)/"compiler path";executable.write_bytes(b"first")
+            before=context.tool(str(executable),Path(temporary),{})
+            executable.write_bytes(b"other")
+            self.assertNotEqual(before,context.tool(str(executable),Path(temporary),{}))
+
+    def test_relative_linker_and_added_parent_configuration_change_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)/"workspace"; (root/".cargo").mkdir(parents=True)
+            config=root/".cargo/config.toml";config.write_text('[target.x86_64-unknown-linux-gnu]\nlinker="bin/clang"\n')
+            env={"HOME":temporary,"CARGO_HOME":str(Path(temporary)/"home-cargo")}
+            before,_,_=context.configuration(root,env)
+            config.write_text('[target.x86_64-unknown-linux-gnu]\nlinker="other/clang"\n')
+            after,_,_=context.configuration(root,env)
+            self.assertNotEqual(before,after)
+            (Path(temporary)/".cargo").mkdir();(Path(temporary)/".cargo/config.toml").write_text('[build]\njobs=8\n')
+            parent,_,_=context.configuration(root,env)
+            self.assertNotEqual(after,parent)
+
 
 if __name__=='__main__':
     unittest.main()

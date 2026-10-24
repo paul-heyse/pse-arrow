@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import host_admission as host
 from scripts import surreal_server
 from scripts.tests.test_surrealism_module import fixture_module
@@ -77,6 +79,7 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertEqual(host.classify(["just", "py-unit"], native=True), "compile")
 
     def setUp(self) -> None:
+        fixture_build_context(self)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name) / "admission"
@@ -1200,7 +1203,7 @@ class HostAdmissionTests(unittest.TestCase):
             "profile_version": 3,
             "instance_id": "parked-reference",
             "server": {
-                "inputs": surreal_server.surreal_source.inputs(),
+                **fixture_receipt(),
                 "surrealmx_version": surreal_server.surreal_source.ENGINE,
                 "binary_sha256": "1" * 64,
             },

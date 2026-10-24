@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import host_admission as host
 from scripts import surreal_server as server
 from scripts.tests.test_surrealism_module import fixture_module
@@ -43,7 +45,7 @@ class StoragePlacementTests(unittest.TestCase):
                     return_value={
                         "binary": sys.executable,
                         "binary_sha256": server.file_digest(Path(sys.executable)),
-                        "inputs": server.surreal_source.inputs(),
+                        **fixture_receipt(),
                         "surrealmx_version": server.surreal_source.ENGINE,
                     },
                 ),

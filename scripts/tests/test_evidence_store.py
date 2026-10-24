@@ -15,11 +15,14 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import evidence_store, resource_store, surreal_server
 
 
 class EvidenceStoreTests(unittest.TestCase):
     def setUp(self) -> None:
+        fixture_build_context(self)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.state = Path(temporary.name) / "service"
@@ -33,7 +36,7 @@ class EvidenceStoreTests(unittest.TestCase):
             "accepting_writes": True,
             "admission": "open",
             "server": {
-                "inputs": surreal_server.surreal_source.inputs(),
+                **fixture_receipt(),
                 "surrealmx_version": surreal_server.surreal_source.ENGINE,
             },
         }

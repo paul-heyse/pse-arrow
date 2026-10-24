@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -209,6 +210,8 @@ def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
     for key in ("RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "PSE_SCCACHE_BINARY", "PSE_NATIVE_COMPILER_CACHE", "FC"):
         if env.get(key):
             tools[key] = tool(env[key], root, env)
+    if env.get("CMAKE_TOOLCHAIN_FILE"):
+        raise ContextError("External CMake toolchain programs require explicit installer support")
     for key in ("CFLAGS", "CXXFLAGS", "FFLAGS", "CPPFLAGS", "LDFLAGS", "BINDGEN_EXTRA_CLANG_ARGS"):
         if env.get(key):
             raise ContextError(f"External native flags {key} require explicit installer support")
@@ -244,10 +247,19 @@ def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
     flags = " ".join(str(value) for value in [configs, *[env.get(key, "") for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CFLAGS", "CXXFLAGS", "LDFLAGS", "BINDGEN_EXTRA_CLANG_ARGS")]])
     if "@" in flags or "linker-plugin-lto" in flags or "--sysroot" in flags or "-fplugin" in flags:
         raise ContextError("External response/plugin/sysroot flags are unsupported")
-    for backend in ("mold", "ld", "ld.lld", "pkg-config", "cmake", "make", "ninja", "git", "sh", "perl", "python3", "clang++"):
+    for backend in ("mold", "ld", "ld.lld", "pkg-config", "cmake", "make", "ninja", "git", "sh", "bash", "env", "perl", "python3", "clang++"):
         if shutil.which(backend, path=env.get("PATH")):
             tools[backend] = tool(backend, root, env)
-    roots = {sysroot, Path("/usr/include"), Path("/usr/local/include"), Path("/usr/local/lib"), Path("/usr/lib") / {"x86_64": "x86_64-linux-gnu", "aarch64": "aarch64-linux-gnu"}[platform.machine()], Path("/usr/lib/gcc"), Path("/usr/lib64")}
+    # Bind actual dynamic-loader resolution as well as executable bytes. ASLR
+    # addresses are excluded; unresolved libraries fail the supported context.
+    for selected in tools.values():
+        linked = subprocess.run(["ldd", selected["resolved"]], cwd=root, env=env, text=True, capture_output=True, check=False)
+        if "not found" in linked.stdout:
+            raise ContextError("Unresolved build-tool shared library")
+        if linked.returncode not in {0, 1}:
+            raise ContextError("Cannot inspect build-tool dynamic dependencies")
+        selected["linked_files"] = {str(path.resolve()): sha(path.resolve()) for name in re.findall(r"(?<!\S)(/[^\s]+)", linked.stdout) if (path := Path(name)).is_file()}
+    roots = {sysroot, Path("/etc/ld.so.cache"), Path("/etc/ld.so.conf"), Path("/etc/ld.so.conf.d"), Path("/usr/include"), Path("/usr/local/include"), Path("/usr/local/lib"), Path("/usr/lib") / {"x86_64": "x86_64-linux-gnu", "aarch64": "aarch64-linux-gnu"}[platform.machine()], Path("/usr/lib/gcc"), Path("/usr/lib64")}
     for key in NATIVE_PATHS:
         for value in env.get(key, "").split(os.pathsep):
             if value:
