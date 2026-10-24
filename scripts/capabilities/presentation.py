@@ -108,8 +108,19 @@ def register(
         result = {
             "revision": catalogue.revision,
             "workflow": catalogue.workflows[workflow].model_dump(mode="json"),
-            "capabilities": [catalogue.describe(key) for key in selection.capabilities],
-            "instructions": instructions,
+            "capabilities": [{
+                "id": key,
+                "title": catalogue.capabilities[key].title,
+                "exposure": catalogue.capabilities[key].exposure,
+                "effects": catalogue.capabilities[key].effects,
+                "description_uri": "pse://capabilities/" + key,
+            } for key in selection.capabilities],
+            "instruction_resources": [
+                {key: value for key, value in item.items() if key != "content"}
+                for item in instructions
+            ],
+            "instructions_embedded": False,
+            "instruction_access": "Read complete owned instructions through the listed resources. This prompt is a compact workflow index; no instruction body is truncated or duplicated here.",
             "effects": "Instruction retrieval only; no selection or workflow execution.",
         }
         content = json.dumps(result, sort_keys=True, allow_nan=False)

@@ -20,6 +20,8 @@ from scripts.tests import capability_codex_check as check
 
 def fixture(output: Path) -> tuple[list[dict], dict, str]:
     guide = "# Plan execution\nPrepare the approach; do not execute implementation.\n"
+    root_instructions = "# Original workflow instructions\n"
+    (output / "AGENTS.md").write_text(root_instructions)
     native = {
         "invocation": "a" * 32,
         "registry": "/registry",
@@ -41,7 +43,13 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
     action = {"operation": "rust_test_run", "result": {"exit_code": 0, "selected_count": 1, "invocation_ownership": "owned", "invocation": native["run_path"], "catalogue_reader": {"invocation": native["run_path"], "registry": "/registry"}}}
 
     def rendered(workflow: str) -> dict:
-        return {"messages": [{"role": "user", "content": json.dumps({"workflow": {"id": workflow}, "instructions": [{"content": guide}]})}]}
+        payload = {
+            "workflow": {"id": workflow},
+            "instructions_embedded": False,
+            "instruction_resources": [{"id": "root", "uri": "pse://guidance/root", "path": "AGENTS.md", "digest": hashlib.sha256(root_instructions.encode()).hexdigest(), "complete": True, "restart_required": False, "omissions": []}],
+            "capabilities": [{"id": "skill-plan-execution", "title": "Plan execution", "exposure": "native", "effects": "Instruction retrieval only", "description_uri": "pse://capabilities/skill-plan-execution"}],
+        }
+        return {"messages": [{"role": "user", "content": json.dumps(payload)}]}
 
     calls = [
         ("capabilities_domains", {}, {"kind": "domain", "items": [{"id": "source"}]}),
@@ -80,6 +88,9 @@ class CodexEvidenceTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.output = Path(temporary.name)
         self.events, self.native, self.guide = fixture(self.output)
+        root = patch.object(check, "ROOT", self.output)
+        root.start()
+        self.addCleanup(root.stop)
 
     def transcript(self, events: list[dict]) -> list[check.Call]:
         path = self.output / "events.jsonl"
@@ -96,6 +107,41 @@ class CodexEvidenceTests(unittest.TestCase):
         self.assertEqual(len(outcome["stages"]), 17)
         self.assertEqual(authentic, self.native)
         reader.assert_called_once_with(self.native["run_path"], registry=Path("/registry"), limit=10)
+
+    def test_phase_two_parallel_descriptions_can_complete_in_reverse_order(self) -> None:
+        events = copy.deepcopy(self.events)
+        skill_start, skill_done, action_start, action_done = events[6:10]
+        events[6:10] = [skill_start, action_start, action_done, skill_done]
+        with patch.object(check.run_inspection, "product_result", return_value=self.native):
+            outcome, _authentic = check.assess(self.transcript(events), self.output, self.guide)
+        self.assertEqual(outcome["passed"], 1)
+        selected_start, selected_done = events[10:12]
+        events[6:12] = [skill_start, action_start, action_done, selected_start, selected_done, skill_done]
+        with self.assertRaisesRegex(ValueError, "planning_selection"):
+            check.assess(self.transcript(events), self.output, self.guide)
+
+    def test_compact_prompt_resources_require_original_source_identity_and_digest(self) -> None:
+        calls = self.transcript(self.events)
+        prompt = next(call for call in calls if call.tool == "get_prompt")
+        original = json.loads(prompt.result["messages"][0]["content"])
+        for changes in (
+            {"digest": "0" * 64},
+            {"path": "../AGENTS.md"},
+            {"path": str(self.output / "AGENTS.md")},
+            {"path": "missing.md"},
+            {"uri": "pse://guidance/other"},
+            {"content": "duplicated instructions"},
+            {"complete": False},
+            {"restart_required": True},
+        ):
+            altered = copy.deepcopy(original)
+            altered["instruction_resources"][0].update(changes)
+            prompt.result["messages"][0]["content"] = json.dumps(altered)
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "workflow prompt"):
+                check.assess(calls, self.output, self.guide)
+        prompt.result["messages"][0]["content"] = json.dumps({**original, "instructions_embedded": True})
+        with self.assertRaisesRegex(ValueError, "reference complete instruction resources"):
+            check.assess(calls, self.output, self.guide)
 
     def test_claimed_pass_without_actual_calls_is_refused(self) -> None:
         events = [self.events[0], self.events[-2], self.events[-1]]

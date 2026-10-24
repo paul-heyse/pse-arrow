@@ -193,19 +193,21 @@ def assess(calls: list[Call], output: Path, guide: str) -> tuple[dict[str, objec
     cursor = -1
     stages: dict[str, str] = {}
 
-    def require(name: str, predicate: Callable[[Call], bool]) -> Call:
+    def require(name: str, predicate: Callable[[Call], bool], *, after: int | None = None) -> Call:
         nonlocal cursor
-        match = next((call for call in calls if call.index > cursor and predicate(call)), None)
+        lower = cursor if after is None else after
+        match = next((call for call in calls if call.index > lower and predicate(call)), None)
         if match is None:
             raise ValueError("missing or out-of-order host stage: " + name)
-        cursor = match.index
+        cursor = max(cursor, match.index)
         stages[name] = match.identity
         return match
 
     require("domains", lambda c: c.tool == "capabilities_domains" and c.result.get("kind") == "domain" and bool(c.result.get("items")))
     require("workflows", lambda c: c.tool == "capabilities_workflows" and c.result.get("kind") == "workflow" and bool(c.result.get("items")))
-    require("describe_skill", lambda c: c.tool == "capabilities_describe" and c.arguments.get("capability") == "skill-plan-execution" and object_value(c.result.get("capability")).get("id") == "skill-plan-execution")
-    described = require("describe_action", lambda c: c.tool == "capabilities_describe" and c.arguments.get("capability") == "rust_test_run" and isinstance(c.result.get("input_schema"), dict))
+    phase_two = cursor
+    require("describe_skill", lambda c: c.tool == "capabilities_describe" and c.arguments.get("capability") == "skill-plan-execution" and object_value(c.result.get("capability")).get("id") == "skill-plan-execution", after=phase_two)
+    described = require("describe_action", lambda c: c.tool == "capabilities_describe" and c.arguments.get("capability") == "rust_test_run" and isinstance(c.result.get("input_schema"), dict), after=phase_two)
     require("planning_selection", lambda c: c.tool == "capabilities_select" and c.arguments.get("workflows") == [WORKFLOW] and "skill-plan-execution" in array_value(c.result.get("capabilities")))
     instruction = require("owned_skill_resource", lambda c: c.tool == "read_resource" and c.arguments.get("uri") == GUIDE_URI)
     if instruction.result.get("content") != guide or instruction.result.get("digest") != hashlib.sha256(guide.encode()).hexdigest() or instruction.result.get("complete") is not True:
@@ -223,7 +225,37 @@ def assess(calls: list[Call], output: Path, guide: str) -> tuple[dict[str, objec
         if not isinstance(content, str):
             return False
         payload = object_value(json.loads(content))
-        return object_value(payload.get("workflow")).get("id") == workflow and bool(payload.get("instructions"))
+        if object_value(payload.get("workflow")).get("id") != workflow:
+            return False
+        if payload.get("instructions_embedded") is not False or "instructions" in payload:
+            raise ValueError("workflow prompt must reference complete instruction resources")
+        references = array_value(payload.get("instruction_resources"))
+        if not references:
+            raise ValueError("workflow prompt omitted instruction resource references")
+        identities: set[str] = set()
+        for value in references:
+            reference = object_value(value)
+            identity, path = reference.get("id"), reference.get("path")
+            if not isinstance(identity, str) or identity in identities or reference.get("uri") != "pse://guidance/" + identity or not isinstance(path, str) or "content" in reference or reference.get("complete") is not True or reference.get("restart_required") is not False or reference.get("omissions"):
+                raise ValueError("workflow prompt has an incomplete or invalid instruction resource")
+            relative = Path(path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError("workflow prompt instruction path escapes the checkout")
+            try:
+                source = (ROOT / relative).resolve(strict=True)
+                source.relative_to(ROOT.resolve())
+                digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            except (OSError, ValueError) as error:
+                raise ValueError("workflow prompt instruction source is unavailable or external") from error
+            if reference.get("digest") != digest:
+                raise ValueError("workflow prompt instruction digest differs from original source")
+            identities.add(identity)
+        for value in array_value(payload.get("capabilities")):
+            capability = object_value(value)
+            identity = capability.get("id")
+            if not isinstance(identity, str) or capability.get("description_uri") != "pse://capabilities/" + identity or set(capability) != {"id", "title", "exposure", "effects", "description_uri"}:
+                raise ValueError("workflow prompt capability metadata is not compact or exact")
+        return True
 
     require("planning_prompt", lambda c: workflow_prompt(c, WORKFLOW))
     require("planning_reset", lambda c: c.tool == "capabilities_reset" and c.result.get("capabilities") == [])

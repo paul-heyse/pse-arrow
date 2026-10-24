@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -257,9 +258,19 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(message.content.text)
         self.assertEqual(payload["revision"], self.catalogue.revision)
         self.assertEqual(payload["workflow"], self.workflow.model_dump(mode="json"))
-        self.assertEqual(payload["capabilities"], [self.catalogue.describe("owned_read")])
-        instructions = {item["id"]: item["content"] for item in payload["instructions"]}
-        self.assertEqual(instructions, {"root": "# Root instructions\n", "planning": self.skill})
+        self.assertEqual(payload["capabilities"], [{
+            "id": "owned_read", "title": self.capability.title,
+            "exposure": "tool", "effects": self.capability.effects,
+            "description_uri": "pse://capabilities/owned_read",
+        }])
+        instructions = {item["id"]: item for item in payload["instruction_resources"]}
+        self.assertFalse(payload["instructions_embedded"])
+        self.assertEqual(set(instructions), {"root", "planning"})
+        self.assertTrue(all("content" not in item for item in instructions.values()))
+        self.assertEqual(instructions["planning"]["digest"], sha256(self.skill.encode()).hexdigest())
+        self.assertEqual(instructions["planning"]["uri"], "pse://guidance/planning")
+        self.assertEqual(self.guidance.read("planning")["content"], self.skill)
+        self.assertLess(len(message.content.text.encode()), len(self.skill.encode()))
         self.assertEqual(
             json.loads(projected_text(projected)),
             {"messages": [{"role": message.role, "content": message.content.text}]},
