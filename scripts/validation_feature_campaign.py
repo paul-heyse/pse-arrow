@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from scripts import cargo_tools, installation_context, validation, validation_receipts
-from scripts.validation_scope import input_identity
+from scripts.validation_scope import input_identity, declared
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "validation-feature-campaign-v1"
@@ -145,11 +145,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--resume-from", type=Path)
     args = parser.parse_args(argv)
-    output = args.output or (Path(os.environ["PSE_FEATURE_REPORT"]) if os.environ.get("PSE_FEATURE_REPORT") else validation.fresh_output(ROOT, None, "features-" + args.mode))
+    selected_report = os.environ.get("PSE_FEATURE_REPORT")
+    output = args.output or (Path(selected_report) if selected_report else None)
     resume = args.resume_from or (Path(os.environ["PSE_FEATURE_RESUME_FROM"]) if os.environ.get("PSE_FEATURE_RESUME_FROM") else None)
     for name in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(name, validation.interrupt)
     try:
+        if selected_report is None:
+            # Direct recipes use the existing assessment/resource owner. Its
+            # nested recipe receives PSE_FEATURE_REPORT and executes once below.
+            selected = validation.fresh_output(ROOT, output, "features-" + args.mode)
+            gate = declared("features-combinations" if args.mode == "combinations" else "features-no-default")
+            print(f"validation evidence: {selected}", flush=True)
+            return validation.run_gates(ROOT, selected, [gate], reuse_from=resume)
+        if output is None:
+            raise ValueError("assessment feature output missing")
         return run(ROOT, output.resolve(), args.mode, resume_from=resume)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"feature campaign refused: {error}", file=sys.stderr)
