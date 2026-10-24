@@ -1,0 +1,102 @@
+{
+  "checks": {
+    "assertion_failures": 0,
+    "baseline": 0
+  },
+  "evidence": "Tested: isolated Python SDK APIs only; no product, MCP, network or backend",
+  "rejecting_exporter": {
+    "export_calls": 1,
+    "interpretation": "Processed and force_flush success do not establish exporter acceptance",
+    "processor_metric_points": [
+      {
+        "attributes": {
+          "otel.component.name": "simple_span_processor/0",
+          "otel.component.type": "simple_span_processor"
+        },
+        "exemplars": [],
+        "start_time_unix_nano": 1792870007521741538,
+        "time_unix_nano": 1792870007521749538,
+        "value": 1
+      }
+    ],
+    "provider_force_flush": true,
+    "spans_rejected": 1,
+    "successful_exports": 0
+  },
+  "sampling": {
+    "record_only": {
+      "exemplar_trace_matches": false,
+      "local_processor_finished": 1,
+      "ordinary_exported_spans": 0,
+      "recording": true,
+      "sampled_flag": false,
+      "trace_based_exemplars": 0
+    },
+    "sampled": {
+      "exemplar_trace_matches": true,
+      "local_processor_finished": 1,
+      "ordinary_exported_spans": 1,
+      "recording": true,
+      "sampled_flag": true,
+      "trace_based_exemplars": 1
+    }
+  },
+  "versions": {
+    "fastmcp": "4.1.3",
+    "mcp": "2.3.0",
+    "opentelemetry-api": "1.45.1",
+    "opentelemetry-sdk": "1.45.1",
+    "pydantic": "2.14.1"
+  },
+  "view": {
+    "distinct_detail_labels": 3,
+    "input_measurements": 3,
+    "limit": "Attribute projection only; no general cardinality cap demonstrated",
+    "points": [
+      {
+        "attributes": {
+          "stage": "prepare"
+        },
+        "bucket_counts": [
+          1,
+          1,
+          0
+        ],
+        "count": 2,
+        "exemplars": [],
+        "explicit_bounds": [
+          0.1,
+          1.0
+        ],
+        "max": 0.2,
+        "min": 0.05,
+        "start_time_unix_nano": 1792870007520085815,
+        "sum": 0.25,
+        "time_unix_nano": 1792870007520131876
+      },
+      {
+        "attributes": {
+          "stage": "execute"
+        },
+        "bucket_counts": [
+          0,
+          0,
+          1
+        ],
+        "count": 1,
+        "exemplars": [],
+        "explicit_bounds": [
+          0.1,
+          1.0
+        ],
+        "max": 2.0,
+        "min": 2.0,
+        "start_time_unix_nano": 1792870007520120796,
+        "sum": 2.0,
+        "time_unix_nano": 1792870007520131876
+      }
+    ],
+    "stage_series": 2,
+    "unit": "s"
+  }
+}

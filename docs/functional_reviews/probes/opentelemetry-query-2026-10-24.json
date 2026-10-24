@@ -1,0 +1,1363 @@
+{
+  "application_continuity": "not exercised",
+  "archive_sha256": "225883447a9e3c75cb52d5a64ece8618cf0d8f3d2eb0b424eebb2e51b0126faa",
+  "archive_url": "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-linux-amd64.tar.gz",
+  "backend_log_tail": "8+00:00 INFO openobserve_api_grpc::handler::grpc::flight::stream: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket-kmRMGX4] flight->search: stream end, is_super: false, took: 0 ms\n2026-10-24T19:26:53.841754658+00:00 INFO openobserve_api_grpc::handler::grpc::flight: Cleared session for trace_id: 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket-kmRMGX4\n2026-10-24T19:26:53.841755988+00:00 INFO openobserve_api_grpc::handler::grpc::flight::stream: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket-kmRMGX4] flight->search: drop FlightEncoderStream, is_super: false\n2026-10-24T19:26:53.841818139+00:00 INFO search::datafusion::distributed_plan::remote_scan_exec: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] flight->search: prepare to response node: http://127.0.0.1:59761, name: paul-X870-AORUS-ELITE-WIFI7, is_super: false, is_querier: true\n2026-10-24T19:26:53.841872170+00:00 INFO search::datafusion::distributed_plan::decoder_stream: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] flight->search: response node: http://127.0.0.1:59761, name: paul-X870-AORUS-ELITE-WIFI7, is_super: false, is_querier: true, files: 4, scan_size: 0 mb, num_rows: 12, batches: 1, bytes: 7.82 KB, avg_batch_time: 0 ms, took: 0 ms\n2026-10-24T19:26:53.841878580+00:00 INFO promql_service::search::grpc::wal: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] promql->wal->search: datafusion collect done\n2026-10-24T19:26:53.841898020+00:00 INFO search::datafusion::peak_memory_pool: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] DataFusion peak memory usage: 0 bytes (0.00 MB)\n2026-10-24T19:26:53.841902560+00:00 INFO promql_service::search::grpc::wal: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] promql->wal->search: load wal files: batches 4, scan_size 6884\n2026-10-24T19:26:53.841988071+00:00 INFO promql_service::search::grpc::wal: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] promql->wal->search: register mem table done\n2026-10-24T19:26:53.842256555+00:00 INFO promql::series_loader: [trace_id 01a16f615b9077f28003614eaf622c77] \\nRepartitionExec: partitioning=Hash([__hash__@0], 32), input_partitions=1\\n  FilterExec: _timestamp@1 >= 1792869678000000 AND _timestamp@1 <= 1792870014000000 AND exemplars@2 IS NOT NULL, projection=[__hash__@0, exemplars@2]\\n    DataSourceExec: partitions=1, partition_sizes=[1]\\n\n2026-10-24T19:26:53.842384927+00:00 INFO promql::series_loader: [trace_id: 01a16f615b9077f28003614eaf622c77] load hashing and sample took: 364.065\u00b5s, metrics count: 3, timestamp count: 1\n2026-10-24T19:26:53.842415527+00:00 INFO promql::series_loader::labels: [trace_id: 01a16f615b9077f28003614eaf622c77] load labels with InList timestamp filter for 1 values\n2026-10-24T19:26:53.842837813+00:00 INFO promql::series_loader: [trace_id 01a16f615b9077f28003614eaf622c77] \\nRepartitionExec: partitioning=Hash([__hash__@0], 32), input_partitions=1\\n  FilterExec: _timestamp@2 >= 1792869678000000 AND _timestamp@2 <= 1792870014000000 AND (__hash__@0 = 8815782525100131870 OR __hash__@0 = 15239659166101422414 OR __hash__@0 = 6654254477045112258) AND _timestamp@2 = 1792870008708585, projection=[__hash__@0, __name__@1, aggregation_temporality@3, flag@4, instrumentation_library_name@5, instrumentation_library_version@6, le@7, service_instance_id@8, service_name@9, stage@10, start_time@11]\\n    DataSourceExec: partitions=1, partition_sizes=[1]\\n\n2026-10-24T19:26:53.842975655+00:00 INFO promql::series_loader::labels: [trace_id: 01a16f615b9077f28003614eaf622c77] load and process all labels took: 586.898\u00b5s, label cache hits: 0, misses: 3\n2026-10-24T19:26:53.842978625+00:00 INFO promql::series_loader: [trace_id: 01a16f615b9077f28003614eaf622c77] load data from datafusion took: 978.974\u00b5s\n2026-10-24T19:26:53.842990305+00:00 INFO search::datafusion::peak_memory_pool: [trace_id 01a16f615b9077f28003614eaf622c77-wal-review_duration_bucket] DataFusion peak memory usage: 202332 bytes (0.19 MB)\n2026-10-24T19:26:53.842999655+00:00 INFO promql::engine::selector: [trace_id: 01a16f615b9077f28003614eaf622c77] load data done for stream: review_duration_bucket, took: 2 ms\n2026-10-24T19:26:53.843015805+00:00 INFO promql::engine::selector: [trace_id: 01a16f615b9077f28003614eaf622c77] [PromQL] sort samples by timestamps took: 11.93\u00b5s\n2026-10-24T19:26:53.843043986+00:00 INFO promql_service::search::grpc: [trace_id 01a16f615b9077f28003614eaf622c77] promql->search->grpc: group[1792869978000000, 1792870014000000] get resp, took: 2 ms\n2026-10-24T19:26:53.843144597+00:00 INFO promql_service::search: [trace_id 01a16f615b9077f28003614eaf622c77] promql->search->grpc: result node: http://127.0.0.1:59761, need_wal: true, files: 4, scan_size: 0 mb, took: 2 ms\n2026-10-24T19:26:53.843175067+00:00 INFO promql_service::search: [trace_id 01a16f615b9077f28003614eaf622c77] promql->search->result: files: 4, scan_size: 0 mb, took: 3 ms\n2026-10-24T19:26:53.843180407+00:00 INFO promql_service::search: [trace_id 01a16f615b9077f28003614eaf622c77] promql->search search finished took: 3 ms\n2026-10-24T19:26:53.843403740+00:00 INFO config::axum::middlewares::access_log: 127.0.0.1 \"GET /api/default/prometheus/api/v1/query_exemplars?query=review_duration_bucket&start=1792869978.7085853&end=1792870014.7085853 HTTP/1.1\" 200 - \"-\" \"-\" \"-\" 0.003\n2026-10-24T19:26:53.843760025+00:00 INFO openobserve_api_http::server: SIGTERM received\n2026-10-24T19:26:53.843763875+00:00 INFO openobserve_api_http::server: Node is offline\n2026-10-24T19:26:53.845218405+00:00 INFO openobserve: HTTP server stopped\n2026-10-24T19:26:53.845332446+00:00 INFO openobserve: Node left cluster\n2026-10-24T19:26:53.845342116+00:00 INFO openobserve_api_grpc::server: gRPC server starts shutting down\n2026-10-24T19:26:53.845659461+00:00 INFO openobserve: gRPC server stopped\n2026-10-24T19:26:53.845672321+00:00 INFO ingester::writer: [INGESTER:MEM] start flush all writers\n2026-10-24T19:26:53.845688911+00:00 INFO ingester::writer: [INGESTER:MEM:5] writer queue closed\n2026-10-24T19:26:53.845696821+00:00 INFO ingester::writer: [INGESTER:MEM:5] writer queue closed\n2026-10-24T19:26:53.845730402+00:00 INFO ingester::writer: [INGESTER:MEM:7] writer queue closed\n2026-10-24T19:26:53.845734592+00:00 INFO ingester::writer: [INGESTER:MEM:7] writer queue closed\n2026-10-24T19:26:53.845746742+00:00 INFO ingester::writer: [INGESTER:MEM:10] writer queue closed\n2026-10-24T19:26:53.845750612+00:00 INFO ingester::writer: [INGESTER:MEM:10] writer queue closed\n2026-10-24T19:26:53.845761742+00:00 INFO ingester::writer: [INGESTER:MEM:12] writer queue closed\n2026-10-24T19:26:53.845766072+00:00 INFO ingester::writer: [INGESTER:MEM:12] writer queue closed\n2026-10-24T19:26:53.845785332+00:00 INFO ingester::writer: [INGESTER:MEM:13] writer queue closed\n2026-10-24T19:26:53.845788182+00:00 INFO ingester::writer: [INGESTER:MEM:13] writer queue closed\n2026-10-24T19:26:53.845803183+00:00 INFO ingester::writer: [INGESTER:MEM:16] writer queue closed\n2026-10-24T19:26:53.845806093+00:00 INFO ingester::writer: [INGESTER:MEM:16] writer queue closed\n2026-10-24T19:26:53.845818523+00:00 INFO ingester::writer: [INGESTER:MEM:21] writer queue closed\n2026-10-24T19:26:53.845822393+00:00 INFO ingester::writer: [INGESTER:MEM:21] writer queue closed\n2026-10-24T19:26:53.845835783+00:00 INFO ingester::writer: [INGESTER:MEM:24] writer queue closed\n2026-10-24T19:26:53.845839083+00:00 INFO ingester::writer: [INGESTER:MEM:24] writer queue closed\n2026-10-24T19:26:53.845852983+00:00 INFO ingester::writer: [INGESTER:MEM:27] writer queue closed\n2026-10-24T19:26:53.845855743+00:00 INFO ingester::writer: [INGESTER:MEM:27] writer queue closed\n2026-10-24T19:26:53.845869414+00:00 INFO ingester::writer: [INGESTER:MEM:29] writer queue closed\n2026-10-24T19:26:53.845872604+00:00 INFO ingester::writer: [INGESTER:MEM:29] writer queue closed\n2026-10-24T19:26:53.845879754+00:00 INFO ingester::writer: [INGESTER:MEM] flush all writers done\n2026-10-24T19:26:53.860293907+00:00 INFO openobserve: backend job stopped\n2026-10-24T19:26:53.860296587+00:00 INFO openobserve: server stopped\n",
+  "checks": {
+    "assertion_failures": 0,
+    "baseline": 0,
+    "not_established": [
+      "point-specific start_time through PromQL",
+      "exemplar membership in each returned bucket",
+      "general PromQL rate/reset/histogram correctness",
+      "application or Collector propagation, durability or restart recovery"
+    ],
+    "retrieved_spans": 5,
+    "semantic_checks": [
+      "all three signal ingests returned HTTP 200",
+      "five unique span IDs, trace/operation/process association and four parent edges",
+      "SQL aggregate agrees with independently constructed fixture",
+      "correlated diagnostic log retains trace/span/code",
+      "SQL cumulative counter values and changed reset start retained",
+      "four PromQL requests returned nonempty successful results",
+      "exemplar pointers retain submitted trace/span identities"
+    ],
+    "trace_fixture_spans": 5
+  },
+  "child_pid": 3095340,
+  "child_returncode": 0,
+  "cleanup": "exact child terminated and reaped; temporary state removed",
+  "collector": "not exercised",
+  "counter_rows": {
+    "body": {
+      "cached_ratio": 0,
+      "from": 0,
+      "hits": [
+        {
+          "__hash__": 2316647252289239116,
+          "__name__": "review_counter",
+          "_timestamp": 1792869983708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "is_monotonic": "true",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 1.0
+        },
+        {
+          "__hash__": 2316647252289239116,
+          "__name__": "review_counter",
+          "_timestamp": 1792869993708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "is_monotonic": "true",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 4.0
+        },
+        {
+          "__hash__": 2316647252289239116,
+          "__name__": "review_counter",
+          "_timestamp": 1792870003708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "is_monotonic": "true",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 9.0
+        },
+        {
+          "__hash__": 2316647252289239116,
+          "__name__": "review_counter",
+          "_timestamp": 1792870008708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "is_monotonic": "true",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792870007708585268",
+          "value": 2.0
+        }
+      ],
+      "idx_scan_size": 0,
+      "is_histogram_eligible": true,
+      "is_partial": false,
+      "order_by": "asc",
+      "order_by_metadata": [
+        [
+          "_timestamp",
+          "asc"
+        ]
+      ],
+      "peak_memory_usage": 1.0,
+      "result_cache_ratio": 0,
+      "scan_records": 4,
+      "scan_size": 0,
+      "size": 10,
+      "took": 2,
+      "took_detail": {
+        "cache_took": 0,
+        "file_list_took": 0,
+        "idx_took": 0,
+        "search_took": 1,
+        "total": 2,
+        "wait_in_queue": 0
+      },
+      "total": 4,
+      "trace_id": "01a16f615b6a7020b25318699fdb4d15"
+    },
+    "status": 200
+  },
+  "exemplars": {
+    "body": {
+      "data": [
+        {
+          "exemplars": [
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869983,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869993,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870003,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870008,
+              "value": "0.2"
+            }
+          ],
+          "seriesLabels": {
+            "__name__": "review_duration_bucket",
+            "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+            "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+            "instrumentation_library_name": "review-fixture",
+            "instrumentation_library_version": "",
+            "le": "0.1",
+            "service_instance_id": "fixture-one",
+            "service_name": "review-fixture",
+            "stage": "execute",
+            "start_time": "1792870007708585268"
+          }
+        },
+        {
+          "exemplars": [
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869983,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869993,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870003,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870008,
+              "value": "0.2"
+            }
+          ],
+          "seriesLabels": {
+            "__name__": "review_duration_bucket",
+            "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+            "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+            "instrumentation_library_name": "review-fixture",
+            "instrumentation_library_version": "",
+            "le": "1",
+            "service_instance_id": "fixture-one",
+            "service_name": "review-fixture",
+            "stage": "execute",
+            "start_time": "1792870007708585268"
+          }
+        },
+        {
+          "exemplars": [
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869983,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792869993,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870003,
+              "value": "0.2"
+            },
+            {
+              "labels": {
+                "span_id": "0000000000000001",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "timestamp": 1792870008,
+              "value": "0.2"
+            }
+          ],
+          "seriesLabels": {
+            "__name__": "review_duration_bucket",
+            "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+            "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+            "instrumentation_library_name": "review-fixture",
+            "instrumentation_library_version": "",
+            "le": "inf",
+            "service_instance_id": "fixture-one",
+            "service_name": "review-fixture",
+            "stage": "execute",
+            "start_time": "1792870007708585268"
+          }
+        }
+      ],
+      "status": "success",
+      "trace_id": "01a16f615b9077f28003614eaf622c77"
+    },
+    "status": 200
+  },
+  "histogram_rows": {
+    "body": {
+      "cached_ratio": 0,
+      "from": 0,
+      "hits": [
+        {
+          "__hash__": 8815782525100131870,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869983708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869983708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 1.0
+        },
+        {
+          "__hash__": 6654254477045112258,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869983708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869983708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "0.1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 0.0
+        },
+        {
+          "__hash__": 15239659166101422414,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869983708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869983708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "inf",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 1.0
+        },
+        {
+          "__hash__": 8815782525100131870,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869993708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869993708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 4.0
+        },
+        {
+          "__hash__": 15239659166101422414,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869993708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869993708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "inf",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 4.0
+        },
+        {
+          "__hash__": 6654254477045112258,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792869993708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792869993708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "0.1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 0.0
+        },
+        {
+          "__hash__": 6654254477045112258,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870003708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870003708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "0.1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 0.0
+        },
+        {
+          "__hash__": 8815782525100131870,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870003708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870003708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 9.0
+        },
+        {
+          "__hash__": 15239659166101422414,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870003708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870003708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "inf",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792869973708585268",
+          "value": 9.0
+        },
+        {
+          "__hash__": 8815782525100131870,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870008708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870008708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792870007708585268",
+          "value": 2.0
+        },
+        {
+          "__hash__": 15239659166101422414,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870008708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870008708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "inf",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792870007708585268",
+          "value": 2.0
+        },
+        {
+          "__hash__": 6654254477045112258,
+          "__name__": "review_duration_bucket",
+          "_timestamp": 1792870008708585,
+          "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+          "exemplars": "[{\"value\":0.2,\"_timestamp\":1792870008708585,\"trace_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"span_id\":\"0000000000000001\"}]",
+          "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+          "instrumentation_library_name": "review-fixture",
+          "instrumentation_library_version": "",
+          "le": "0.1",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "stage": "execute",
+          "start_time": "1792870007708585268",
+          "value": 0.0
+        }
+      ],
+      "idx_scan_size": 0,
+      "is_histogram_eligible": true,
+      "is_partial": false,
+      "order_by": "asc",
+      "order_by_metadata": [
+        [
+          "_timestamp",
+          "asc"
+        ]
+      ],
+      "peak_memory_usage": 1.0,
+      "result_cache_ratio": 0,
+      "scan_records": 12,
+      "scan_size": 0,
+      "size": 16,
+      "took": 2,
+      "took_detail": {
+        "cache_took": 0,
+        "file_list_took": 0,
+        "idx_took": 0,
+        "search_took": 1,
+        "total": 2,
+        "wait_in_queue": 0
+      },
+      "total": 12,
+      "trace_id": "01a16f615b6d71f18808e476756bbddc"
+    },
+    "status": 200
+  },
+  "logs_ingest": {
+    "body": {},
+    "status": 200
+  },
+  "logs_query": {
+    "body": {
+      "cached_ratio": 0,
+      "from": 0,
+      "hits": [
+        {
+          "_timestamp": 1792870013708585,
+          "body": "synthetic classified refusal",
+          "dropped_attributes_count": 0,
+          "instrumentation_library_name": "review-fixture",
+          "pse_diagnostic_code": "fixture.refused",
+          "service_instance_id": "fixture-one",
+          "service_name": "review-fixture",
+          "severity": "ERROR",
+          "severity_number": 17,
+          "span_id": "0000000000000005",
+          "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "idx_scan_size": 0,
+      "is_histogram_eligible": true,
+      "is_partial": false,
+      "order_by": "desc",
+      "order_by_metadata": [
+        [
+          "_timestamp",
+          "desc"
+        ]
+      ],
+      "peak_memory_usage": 1.0,
+      "result_cache_ratio": 0,
+      "scan_records": 1,
+      "scan_size": 0,
+      "size": 2,
+      "took": 1,
+      "took_detail": {
+        "cache_took": 0,
+        "file_list_took": 0,
+        "idx_took": 0,
+        "search_took": 1,
+        "total": 1,
+        "wait_in_queue": 0
+      },
+      "total": 1,
+      "trace_id": "01a16f615b687d02bf2b8dff18ed07f7"
+    },
+    "status": 200
+  },
+  "metrics_ingest": [
+    {
+      "body": {
+        "partialSuccess": null
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "partialSuccess": null
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "partialSuccess": null
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "partialSuccess": null
+      },
+      "status": 200
+    }
+  ],
+  "promql": {
+    "histogram_quantile(0.95,sum by(le)(rate(review_duration_bucket[1m])))": {
+      "body": {
+        "data": {
+          "result": [
+            {
+              "metric": {},
+              "values": [
+                [
+                  1792869994,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792869995,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792869996,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792869997,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792869998,
+                  "0.955"
+                ],
+                [
+                  1792869999,
+                  "0.955"
+                ],
+                [
+                  1792870000,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792870001,
+                  "0.955"
+                ],
+                [
+                  1792870002,
+                  "0.955"
+                ],
+                [
+                  1792870003,
+                  "0.955"
+                ],
+                [
+                  1792870004,
+                  "0.955"
+                ],
+                [
+                  1792870005,
+                  "0.9549999999999998"
+                ],
+                [
+                  1792870006,
+                  "0.955"
+                ],
+                [
+                  1792870007,
+                  "0.955"
+                ],
+                [
+                  1792870008,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792870009,
+                  "0.955"
+                ],
+                [
+                  1792870010,
+                  "0.955"
+                ],
+                [
+                  1792870011,
+                  "0.9550000000000001"
+                ],
+                [
+                  1792870012,
+                  "0.955"
+                ],
+                [
+                  1792870013,
+                  "0.955"
+                ],
+                [
+                  1792870014,
+                  "0.9550000000000001"
+                ]
+              ]
+            }
+          ],
+          "resultType": "matrix"
+        },
+        "status": "success",
+        "trace_id": "01a16f615b8c72b3ab1a389a8e303e8a"
+      },
+      "status": 200
+    },
+    "increase(review_counter[1m])": {
+      "body": {
+        "data": {
+          "result": [
+            {
+              "metric": {
+                "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+                "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+                "instrumentation_library_name": "review-fixture",
+                "instrumentation_library_version": "",
+                "is_monotonic": "true",
+                "service_instance_id": "fixture-one",
+                "service_name": "review-fixture",
+                "stage": "execute",
+                "start_time": "1792870007708585268"
+              },
+              "values": [
+                [
+                  1792869994,
+                  "4.087424499999999"
+                ],
+                [
+                  1792869995,
+                  "4.3874245"
+                ],
+                [
+                  1792869996,
+                  "4.6874245000000005"
+                ],
+                [
+                  1792869997,
+                  "4.9874244999999995"
+                ],
+                [
+                  1792869998,
+                  "5.2874245"
+                ],
+                [
+                  1792869999,
+                  "5.587424499999999"
+                ],
+                [
+                  1792870000,
+                  "5.8874245"
+                ],
+                [
+                  1792870001,
+                  "6.1874245000000005"
+                ],
+                [
+                  1792870002,
+                  "6.4874245"
+                ],
+                [
+                  1792870003,
+                  "6.787424499999999"
+                ],
+                [
+                  1792870004,
+                  "9.116566"
+                ],
+                [
+                  1792870005,
+                  "9.516566000000001"
+                ],
+                [
+                  1792870006,
+                  "9.916566"
+                ],
+                [
+                  1792870007,
+                  "10.316566"
+                ],
+                [
+                  1792870008,
+                  "10.716566"
+                ],
+                [
+                  1792870009,
+                  "11.116566"
+                ],
+                [
+                  1792870010,
+                  "11.516566000000001"
+                ],
+                [
+                  1792870011,
+                  "11.916566"
+                ],
+                [
+                  1792870012,
+                  "12.316566"
+                ],
+                [
+                  1792870013,
+                  "12.716566"
+                ],
+                [
+                  1792870014,
+                  "13.116566"
+                ]
+              ]
+            }
+          ],
+          "resultType": "matrix"
+        },
+        "status": "success",
+        "trace_id": "01a16f615b857f90ab6794b7e0c4918a"
+      },
+      "status": 200
+    },
+    "review_counter": {
+      "body": {
+        "data": {
+          "result": [
+            {
+              "metric": {
+                "__name__": "review_counter",
+                "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+                "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+                "instrumentation_library_name": "review-fixture",
+                "instrumentation_library_version": "",
+                "is_monotonic": "true",
+                "service_instance_id": "fixture-one",
+                "service_name": "review-fixture",
+                "stage": "execute",
+                "start_time": "1792870007708585268"
+              },
+              "values": [
+                [
+                  1792869984,
+                  "1"
+                ],
+                [
+                  1792869985,
+                  "1"
+                ],
+                [
+                  1792869986,
+                  "1"
+                ],
+                [
+                  1792869987,
+                  "1"
+                ],
+                [
+                  1792869988,
+                  "1"
+                ],
+                [
+                  1792869989,
+                  "1"
+                ],
+                [
+                  1792869990,
+                  "1"
+                ],
+                [
+                  1792869991,
+                  "1"
+                ],
+                [
+                  1792869992,
+                  "1"
+                ],
+                [
+                  1792869993,
+                  "1"
+                ],
+                [
+                  1792869994,
+                  "4"
+                ],
+                [
+                  1792869995,
+                  "4"
+                ],
+                [
+                  1792869996,
+                  "4"
+                ],
+                [
+                  1792869997,
+                  "4"
+                ],
+                [
+                  1792869998,
+                  "4"
+                ],
+                [
+                  1792869999,
+                  "4"
+                ],
+                [
+                  1792870000,
+                  "4"
+                ],
+                [
+                  1792870001,
+                  "4"
+                ],
+                [
+                  1792870002,
+                  "4"
+                ],
+                [
+                  1792870003,
+                  "4"
+                ],
+                [
+                  1792870004,
+                  "9"
+                ],
+                [
+                  1792870005,
+                  "9"
+                ],
+                [
+                  1792870006,
+                  "9"
+                ],
+                [
+                  1792870007,
+                  "9"
+                ],
+                [
+                  1792870008,
+                  "9"
+                ],
+                [
+                  1792870009,
+                  "2"
+                ],
+                [
+                  1792870010,
+                  "2"
+                ],
+                [
+                  1792870011,
+                  "2"
+                ],
+                [
+                  1792870012,
+                  "2"
+                ],
+                [
+                  1792870013,
+                  "2"
+                ],
+                [
+                  1792870014,
+                  "2"
+                ]
+              ]
+            }
+          ],
+          "resultType": "matrix"
+        },
+        "status": "success",
+        "trace_id": "01a16f615b7071f09ab487fced0c6813"
+      },
+      "status": 200
+    },
+    "review_duration_count": {
+      "body": {
+        "data": {
+          "result": [
+            {
+              "metric": {
+                "__name__": "review_duration_count",
+                "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+                "flag": "DATA_POINT_FLAGS_DO_NOT_USE",
+                "instrumentation_library_name": "review-fixture",
+                "instrumentation_library_version": "",
+                "service_instance_id": "fixture-one",
+                "service_name": "review-fixture",
+                "stage": "execute",
+                "start_time": "1792870007708585268"
+              },
+              "values": [
+                [
+                  1792869984,
+                  "1"
+                ],
+                [
+                  1792869985,
+                  "1"
+                ],
+                [
+                  1792869986,
+                  "1"
+                ],
+                [
+                  1792869987,
+                  "1"
+                ],
+                [
+                  1792869988,
+                  "1"
+                ],
+                [
+                  1792869989,
+                  "1"
+                ],
+                [
+                  1792869990,
+                  "1"
+                ],
+                [
+                  1792869991,
+                  "1"
+                ],
+                [
+                  1792869992,
+                  "1"
+                ],
+                [
+                  1792869993,
+                  "1"
+                ],
+                [
+                  1792869994,
+                  "4"
+                ],
+                [
+                  1792869995,
+                  "4"
+                ],
+                [
+                  1792869996,
+                  "4"
+                ],
+                [
+                  1792869997,
+                  "4"
+                ],
+                [
+                  1792869998,
+                  "4"
+                ],
+                [
+                  1792869999,
+                  "4"
+                ],
+                [
+                  1792870000,
+                  "4"
+                ],
+                [
+                  1792870001,
+                  "4"
+                ],
+                [
+                  1792870002,
+                  "4"
+                ],
+                [
+                  1792870003,
+                  "4"
+                ],
+                [
+                  1792870004,
+                  "9"
+                ],
+                [
+                  1792870005,
+                  "9"
+                ],
+                [
+                  1792870006,
+                  "9"
+                ],
+                [
+                  1792870007,
+                  "9"
+                ],
+                [
+                  1792870008,
+                  "9"
+                ],
+                [
+                  1792870009,
+                  "2"
+                ],
+                [
+                  1792870010,
+                  "2"
+                ],
+                [
+                  1792870011,
+                  "2"
+                ],
+                [
+                  1792870012,
+                  "2"
+                ],
+                [
+                  1792870013,
+                  "2"
+                ],
+                [
+                  1792870014,
+                  "2"
+                ]
+              ]
+            }
+          ],
+          "resultType": "matrix"
+        },
+        "status": "success",
+        "trace_id": "01a16f615b887bb1b9d342d4a20cef49"
+      },
+      "status": 200
+    }
+  },
+  "scope": "synthetic OTLP JSON to disposable OpenObserve OSS 1.1.2",
+  "trace_aggregate": {
+    "body": {
+      "cached_ratio": 0,
+      "from": 0,
+      "hits": [
+        {
+          "span_count": 5
+        }
+      ],
+      "idx_scan_size": 0,
+      "is_histogram_eligible": true,
+      "is_partial": false,
+      "peak_memory_usage": 0.0,
+      "result_cache_ratio": 0,
+      "scan_records": 5,
+      "scan_size": 0,
+      "size": 2,
+      "took": 2,
+      "took_detail": {
+        "cache_took": 0,
+        "file_list_took": 0,
+        "idx_took": 0,
+        "search_took": 1,
+        "total": 2,
+        "wait_in_queue": 0
+      },
+      "total": 1,
+      "trace_id": "01a16f615b6578928f9cb9894393bafc"
+    },
+    "status": 200
+  },
+  "trace_pages": [
+    {
+      "body": {
+        "cached_ratio": 0,
+        "from": 0,
+        "hits": [
+          {
+            "_o2_ingest_ts": 1792870013709209,
+            "_timestamp": 1792870013707595,
+            "duration": 1000,
+            "end_time": 1792870013708595268,
+            "events": "[]",
+            "flags": 1,
+            "links": "[]",
+            "operation_name": "fixture-root",
+            "pse_operation_id": "fixture-operation",
+            "pse_stage": "prepare",
+            "service_name": "review-fixture",
+            "service_service_instance_id": "fixture-one",
+            "span_id": "0000000000000001",
+            "span_kind": "1",
+            "span_status": "UNSET",
+            "start_time": 1792870013707595268,
+            "status_code": 0,
+            "status_message": "",
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "_o2_ingest_ts": 1792870013709219,
+            "_timestamp": 1792870013707605,
+            "duration": 1000,
+            "end_time": 1792870013708605268,
+            "events": "[]",
+            "flags": 1,
+            "links": "[]",
+            "operation_name": "fixture-child",
+            "pse_operation_id": "fixture-operation",
+            "pse_stage": "prepare",
+            "reference_parent_span_id": "0000000000000001",
+            "reference_parent_trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reference_ref_type": "ChildOf",
+            "service_name": "review-fixture",
+            "service_service_instance_id": "fixture-one",
+            "span_id": "0000000000000002",
+            "span_kind": "1",
+            "span_status": "UNSET",
+            "start_time": 1792870013707605268,
+            "status_code": 0,
+            "status_message": "",
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "idx_scan_size": 0,
+        "is_histogram_eligible": true,
+        "is_partial": false,
+        "order_by": "asc",
+        "order_by_metadata": [
+          [
+            "start_time",
+            "asc"
+          ]
+        ],
+        "peak_memory_usage": 2.0,
+        "result_cache_ratio": 0,
+        "scan_records": 5,
+        "scan_size": 0,
+        "size": 2,
+        "took": 4,
+        "took_detail": {
+          "cache_took": 0,
+          "file_list_took": 0,
+          "idx_took": 0,
+          "search_took": 4,
+          "total": 4,
+          "wait_in_queue": 0
+        },
+        "total": 2,
+        "trace_id": "01a16f615b5a77a1b2e515968efd66cf"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "cached_ratio": 0,
+        "from": 2,
+        "hits": [
+          {
+            "_o2_ingest_ts": 1792870013709223,
+            "_timestamp": 1792870013707615,
+            "duration": 1000,
+            "end_time": 1792870013708615268,
+            "events": "[]",
+            "flags": 1,
+            "links": "[]",
+            "operation_name": "fixture-child",
+            "pse_operation_id": "fixture-operation",
+            "pse_stage": "execute",
+            "reference_parent_span_id": "0000000000000001",
+            "reference_parent_trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reference_ref_type": "ChildOf",
+            "service_name": "review-fixture",
+            "service_service_instance_id": "fixture-one",
+            "span_id": "0000000000000003",
+            "span_kind": "1",
+            "span_status": "UNSET",
+            "start_time": 1792870013707615268,
+            "status_code": 0,
+            "status_message": "",
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "_o2_ingest_ts": 1792870013709227,
+            "_timestamp": 1792870013707625,
+            "duration": 1000,
+            "end_time": 1792870013708625268,
+            "events": "[]",
+            "flags": 1,
+            "links": "[]",
+            "operation_name": "fixture-child",
+            "pse_operation_id": "fixture-operation",
+            "pse_stage": "execute",
+            "reference_parent_span_id": "0000000000000001",
+            "reference_parent_trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reference_ref_type": "ChildOf",
+            "service_name": "review-fixture",
+            "service_service_instance_id": "fixture-one",
+            "span_id": "0000000000000004",
+            "span_kind": "1",
+            "span_status": "UNSET",
+            "start_time": 1792870013707625268,
+            "status_code": 0,
+            "status_message": "",
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "idx_scan_size": 0,
+        "is_histogram_eligible": true,
+        "is_partial": false,
+        "order_by": "asc",
+        "order_by_metadata": [
+          [
+            "start_time",
+            "asc"
+          ]
+        ],
+        "peak_memory_usage": 2.0,
+        "result_cache_ratio": 0,
+        "scan_records": 5,
+        "scan_size": 0,
+        "size": 2,
+        "took": 2,
+        "took_detail": {
+          "cache_took": 0,
+          "file_list_took": 0,
+          "idx_took": 0,
+          "search_took": 2,
+          "total": 2,
+          "wait_in_queue": 0
+        },
+        "total": 2,
+        "trace_id": "01a16f615b5f7ca197d44ce8cf296dcb"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "cached_ratio": 0,
+        "from": 4,
+        "hits": [
+          {
+            "_o2_ingest_ts": 1792870013709231,
+            "_timestamp": 1792870013707635,
+            "duration": 1000,
+            "end_time": 1792870013708635268,
+            "events": "[]",
+            "flags": 1,
+            "links": "[]",
+            "operation_name": "fixture-child",
+            "pse_operation_id": "fixture-operation",
+            "pse_stage": "execute",
+            "reference_parent_span_id": "0000000000000001",
+            "reference_parent_trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reference_ref_type": "ChildOf",
+            "service_name": "review-fixture",
+            "service_service_instance_id": "fixture-one",
+            "span_id": "0000000000000005",
+            "span_kind": "1",
+            "span_status": "ERROR",
+            "start_time": 1792870013707635268,
+            "status_code": 2,
+            "status_message": "",
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "idx_scan_size": 0,
+        "is_histogram_eligible": true,
+        "is_partial": false,
+        "order_by": "asc",
+        "order_by_metadata": [
+          [
+            "start_time",
+            "asc"
+          ]
+        ],
+        "peak_memory_usage": 2.0,
+        "result_cache_ratio": 0,
+        "scan_records": 5,
+        "scan_size": 0,
+        "size": 2,
+        "took": 2,
+        "took_detail": {
+          "cache_took": 0,
+          "file_list_took": 0,
+          "idx_took": 0,
+          "search_took": 1,
+          "total": 2,
+          "wait_in_queue": 0
+        },
+        "total": 1,
+        "trace_id": "01a16f615b627760a2873492f09a3fcd"
+      },
+      "status": 200
+    }
+  ],
+  "traces_ingest": {
+    "body": {
+      "partialSuccess": null
+    },
+    "status": 200
+  }
+}
