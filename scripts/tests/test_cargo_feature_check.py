@@ -227,6 +227,15 @@ class CargoFeatureCheckTests(unittest.TestCase):
                     command, ["check", *features, "--profile=diagnostic-taskdump"]
                 )
 
+    def test_capture_only_retains_literal_argv_without_qualification_or_compilation(self) -> None:
+        capture=Path(self.directory.name)/"capture.jsonl"
+        arguments=["check","--manifest-path","not a manifest; $() \" /Cargo.toml","--features","a,b\nline"]
+        with patch.object(adapter.sys,"argv",["adapter",*arguments]), patch.dict(os.environ,{"PSE_FEATURE_CAPTURE":str(capture)}), patch.object(adapter,"qualify_features") as qualify, patch.object(adapter.subprocess,"run") as execute:
+            expect_equal(adapter.main(),0)
+        import json
+        expect_equal(json.loads(capture.read_text()),arguments)
+        qualify.assert_not_called();execute.assert_not_called()
+
     def test_path_fallback_and_configuration_failure_status(self) -> None:
         with (
             patch.object(adapter.sys, "argv", ["adapter", "--version"]),

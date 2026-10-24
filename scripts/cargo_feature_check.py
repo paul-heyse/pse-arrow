@@ -11,6 +11,8 @@ cargo-hack still owns enumeration, ordering, and keep-going failure accounting.
 from __future__ import annotations
 
 import os
+import json
+import hashlib
 import re
 import shlex
 import shutil
@@ -149,13 +151,30 @@ def cargo_executable() -> str:
 def main() -> int:
     """Forward to existing Cargo with inherited streams and its failure status."""
     try:
-        arguments, environment = diagnostic_check(qualify_features(sys.argv[1:]))
+        literal = sys.argv[1:]
+        # cargo-hack's printed commands are lossy display text. Its Cargo adapter
+        # boundary supplies literal argv and is the sole enumeration authority.
+        capture_path = os.environ.get("PSE_FEATURE_CAPTURE")
+        if capture_path and literal[:1] == ["check"]:
+            with Path(capture_path).open("a") as output:
+                output.write(json.dumps(literal) + "\n")
+                output.flush()
+                os.fsync(output.fileno())
+            return 0
+        arguments, environment = diagnostic_check(qualify_features(literal))
         cargo = cargo_executable()
         command = ["cargo", *arguments]
+        graphs = []
+
+        def validation_capture(scope: list[str]) -> bytes:
+            selected = [cargo, *scope[1:]]
+            data = capture(selected, env=environment)
+            graphs.append({"argv": selected, "sha256": hashlib.sha256(data).hexdigest()})
+            return data
         if arguments[:1] == ["check"]:
             command = compose(
                 command,
-                run=lambda scope: capture([cargo, *scope[1:]], env=environment),
+                run=validation_capture,
             )
             print(
                 "cargo feature check: " + shlex.join(command),
@@ -163,6 +182,11 @@ def main() -> int:
                 flush=True,
             )
         command[0] = cargo
+        if arguments[:1] == ["check"] and (attempt := os.environ.get("PSE_FEATURE_ATTEMPT")):
+            path = Path(attempt)
+            temporary = path.with_suffix(".pending")
+            temporary.write_text(json.dumps({"schema": "cargo-feature-execution-v1", "literal_argv": literal, "qualified_argv": arguments, "actual_argv": command, "correctness": "arrow-unit-graph-force-validation-v1", "validation_graphs": graphs, "effective_environment": {key: hashlib.sha256(value.encode()).hexdigest() for key, value in sorted((os.environ if environment is None else environment).items())}}, sort_keys=True) + "\n")
+            temporary.replace(path)
         if environment is None:
             code = subprocess.run(command, check=False).returncode
         else:

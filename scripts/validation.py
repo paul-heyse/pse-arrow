@@ -811,6 +811,12 @@ def run_gates(
         command = ["just", recipe, *(arg.format_map(context) for arg in gate.args)]
         report = Path(gate.report.format_map(context)) if gate.report else None
         gate_env = dict(env)
+        if recipe in {"features-combinations", "features-no-default"}:
+            gate_env["PSE_FEATURE_REPORT"] = str(output / gate.name)
+            if reuse_from is not None:
+                campaign_parent = reuse_from.resolve() / gate.name
+                if (campaign_parent / "feature-campaign.json").is_file():
+                    gate_env["PSE_FEATURE_RESUME_FROM"] = str(campaign_parent)
         if recipe in {"native-test", "native-python"}:
             gate_env.update(deployment_env)
         receipt_variable = {
@@ -972,6 +978,21 @@ def run_gates(
             interrupted = record["status"] == "interrupted"
             receipt["evidence"] = "Tested"
             checkpoint(output, receipt)  # Command survives collector or source errors.
+            if recipe in {"features-combinations", "features-no-default"}:
+                try:
+                    campaign_directory = output / gate.name
+                    campaign = validation_receipts.feature_campaign(campaign_directory)
+                    record["feature_campaign"] = str(campaign_directory.relative_to(output) / "feature-campaign.json")
+                    record["evidence_kind"] = campaign["evidence_kind"]
+                    for artifact in campaign_directory.rglob("*"):
+                        if artifact.is_file():
+                            record["artifacts"][str(artifact.relative_to(output))] = validation_receipts.digest(artifact)
+                    if not campaign["required_checks_covered"] and record["status"] == "passed":
+                        raise ValueError("feature campaign is missing successful complete coverage")
+                except (OSError, ValueError, KeyError, TypeError) as error:
+                    record["report_errors"].append(str(error))
+                    if record["status"] == "passed":
+                        record["status"] = "failed"
             if report:
                 compose_terminal(record, report, output, gate.name, reconcile=False)
             if gate.name == "setup-test" and gate.recipe == "setup-test-report":
@@ -1283,7 +1304,7 @@ def main(argv: list[str] | None = None) -> int:
             root,
             output,
             gates,
-            capture=not args.group,
+            capture=not args.group or args.group == "features-powerset",
             reuse_from=args.reuse_from,
             reuse=tuple(args.reuse),
             transfer=tuple(args.transfer),
