@@ -64,14 +64,17 @@ fn factory(delay: Duration) -> (Factory, Arc<AtomicUsize>, Arc<Mutex<Vec<Duratio
         .input(1, quantity, pse_quantity::IndexSet::new(), id)
         .unwrap();
     let residual = builder.binary(Binary::Sub, y, p, None, id).unwrap();
-    let body = finish_body_for_test(
-        id,
-        builder,
-        &[residual],
-        DerivativeOrder::First,
-        crate::library::Optimization::default(),
-        &ExecutionScope::new(control.clone(), None),
-    );
+    let body = SourceBody::prepare(
+            builder,
+            &[residual],
+            |prepared| crate::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
+            DerivativeOrder::First,
+            crate::library::Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &ExecutionScope::new(control.clone(), None),
+        ).unwrap();
     let bounds = vec![Unknown {
         id: unknown,
         lower: -10.,

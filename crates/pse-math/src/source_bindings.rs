@@ -216,6 +216,33 @@ pub struct SourceBody {
     bindings: SourceBindings,
 }
 impl SourceBody {
+    /// Prepare and compile all inputs and outputs with explicit receiving-source attribution.
+    /// The binding callback runs while the admitted original body is still alive, before
+    /// compilation can release it. Compilation policy and execution scope remain caller-owned.
+    /// # Errors
+    /// Physical preparation, incomplete or crossed attribution, compilation limits or cancellation.
+    pub fn prepare(
+        builder: crate::typed::BodyBuilder<'_>,
+        outputs: &[crate::typed::TypedValue],
+        bind: impl FnOnce(&PreparedBody) -> Result<SourceBindings, MathError>,
+        order: DerivativeOrder,
+        options: crate::library::Optimization,
+        limits: crate::jets::EvaluationLimits,
+        scope: &ExecutionScope,
+    ) -> Result<Self, MathError> {
+        let prepared = builder.prepare(outputs)?;
+        let bindings = bind(&prepared)?;
+        bindings.check(&prepared)?;
+        let compiled = prepared.compile(
+            &(0..prepared.output_count()).collect::<Vec<_>>(),
+            &(0..prepared.input_count()).collect::<Vec<_>>(),
+            order,
+            options,
+            limits,
+            scope,
+        )?;
+        Self::new(Arc::new(compiled), bindings)
+    }
     /// Refuse crossed body/context pairs before worker creation.
     pub fn new(compiled: Arc<CompiledBody>, bindings: SourceBindings) -> Result<Self, MathError> {
         bindings.check_compiled(&compiled)?;

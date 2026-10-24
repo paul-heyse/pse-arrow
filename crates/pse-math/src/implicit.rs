@@ -2371,30 +2371,7 @@ pub(crate) fn source_body_for_test(
     .unwrap();
     SourceBody::new(compiled, bindings).unwrap()
 }
-/// Same preparation and all-input/all-output compilation as BodyBuilder::finish,
-/// retaining actual fixture bindings before its original prepared source is released.
-#[cfg(test)]
-pub(crate) fn finish_body_for_test(
-    instance: SemanticId,
-    builder: crate::typed::BodyBuilder<'_>,
-    outputs: &[crate::typed::TypedValue],
-    order: DerivativeOrder,
-    options: crate::library::Optimization,
-    scope: &pse_kernels::ExecutionScope,
-) -> SourceBody {
-    let prepared = builder.prepare(outputs).unwrap();
-    let compiled = prepared
-        .compile(
-            &(0..prepared.output_count()).collect::<Vec<_>>(),
-            &(0..prepared.input_count()).collect::<Vec<_>>(),
-            order,
-            options,
-            crate::jets::EvaluationLimits::default(),
-            scope,
-        )
-        .unwrap();
-    source_body_for_test(instance, &prepared, Arc::new(compiled))
-}
+
 
 #[cfg(test)]
 pub(crate) fn residual_bodies_for_test(parameter: SourceBody) -> ResidualBodies {
@@ -3388,14 +3365,17 @@ mod tests {
         let residual = builder
             .binary(crate::typed::Binary::Sub, y, p, None, id)
             .unwrap();
-        let body = finish_body_for_test(
-            id,
+        let body = SourceBody::prepare(
             builder,
             &[residual],
+            |prepared| crate::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(control.clone(), None),
-        );
+        ).unwrap();
         let unknowns = vec![Unknown {
             id,
             lower: -10.0,
@@ -3649,14 +3629,17 @@ mod tests {
             .unwrap();
         let control = pse_diagnostics::Cancellation::new(false);
         let cancel = control.flag();
-        let body = finish_body_for_test(
-            id,
+        let body = SourceBody::prepare(
             builder,
             &[residual],
+            |prepared| crate::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(control.clone(), None),
-        );
+        ).unwrap();
         // Explicit operation-local admission reaches scratch, numeric factorization
         // and both IFT solve orders. Ordinary Problem::new remains serial.
         let mut problem = Problem::new_with_parallelism(

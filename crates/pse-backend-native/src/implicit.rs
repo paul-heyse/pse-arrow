@@ -522,28 +522,7 @@ pub(crate) fn source_body_for_test(
     .unwrap();
     pse_math::SourceBody::new(compiled, bindings).unwrap()
 }
-#[cfg(test)]
-fn finish_source_body_for_test(
-    instance: pse_ids::SemanticId,
-    builder: pse_math::typed::BodyBuilder<'_>,
-    outputs: &[pse_math::typed::TypedValue],
-    order: DerivativeOrder,
-    options: pse_math::library::Optimization,
-    scope: &pse_kernels::ExecutionScope,
-) -> pse_math::SourceBody {
-    let prepared = builder.prepare(outputs).unwrap();
-    let compiled = prepared
-        .compile(
-            &(0..prepared.output_count()).collect::<Vec<_>>(),
-            &(0..prepared.input_count()).collect::<Vec<_>>(),
-            order,
-            options,
-            Default::default(),
-            scope,
-        )
-        .unwrap();
-    source_body_for_test(instance, &prepared, Arc::new(compiled))
-}
+
 
 #[cfg(test)]
 pub(crate) fn test_residual_bodies(
@@ -974,14 +953,17 @@ mod tests {
             .binary(pse_math::typed::Binary::Sub, y, p, None, id)
             .unwrap();
         let revision = builder.admission_identity();
-        let body = finish_source_body_for_test(
-            id,
+        let body = pse_math::SourceBody::prepare(
             builder,
             &[residual],
+            |prepared| pse_math::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::First,
             Default::default(),
+            pse_math::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-        );
+        ).unwrap();
         let unknowns = vec![Unknown {
             id: unknown,
             lower: f64::NEG_INFINITY,
@@ -1246,14 +1228,17 @@ mod tests {
                     id,
                 )
                 .unwrap();
-            let body = finish_source_body_for_test(
-                id,
-                builder,
-                &[a, b],
-                order,
-                pse_math::library::Optimization::default(),
-                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-            );
+            let body = pse_math::SourceBody::prepare(
+            builder,
+            &[a, b],
+            |prepared| pse_math::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
+            order,
+            pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        ).unwrap();
             Problem::new(
                 id,
                 pse_ids::ContentHash::from_bytes([identity; 32]),
@@ -1535,14 +1520,17 @@ mod tests {
                     .unwrap(),
             );
         }
-        let body = finish_source_body_for_test(
-            id,
+        let body = pse_math::SourceBody::prepare(
             builder,
             &residuals,
+            |prepared| pse_math::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::First,
             pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-        );
+        ).unwrap();
         let mut problem = Arc::new(
             Problem::new(
                 id,
@@ -1685,14 +1673,17 @@ mod tests {
         let residual = builder
             .binary(pse_math::typed::Binary::Sub, y, p, None, id)
             .unwrap();
-        let body = finish_source_body_for_test(
-            id,
+        let body = pse_math::SourceBody::prepare(
             builder,
             &[residual],
+            |prepared| pse_math::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::Second,
             pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-        );
+        ).unwrap();
         let problem = Arc::new(
             Problem::new(
                 id,
@@ -1757,14 +1748,17 @@ mod tests {
         let residual = builder
             .binary(pse_math::typed::Binary::Sub, square, p, None, id)
             .unwrap();
-        let body = finish_source_body_for_test(
-            id,
+        let body = pse_math::SourceBody::prepare(
             builder,
             &[residual],
+            |prepared| pse_math::SourceBindings::new(
+                id, prepared, Default::default(), Default::default(), Default::default(),
+            ),
             DerivativeOrder::Second,
             pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-        );
+        ).unwrap();
         let problem = Arc::new(
             Problem::new(
                 id,
