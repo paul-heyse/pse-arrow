@@ -849,87 +849,45 @@ mod canonical_result_inspection_server_unit {
     use pse_operations::canonical_execution::{
         AttemptFence, RunRequest, SeedEligibility, TerminalClass,
     };
-    use pse_schema::model::{
-        Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl,
-        ResultSelectionRole, SnapshotClass,
-    };
+    use pse_relations::generated::{enums::DualQualification, runtime::solve_variables};
     use std::time::Duration;
 
     async fn wide_fixture() -> (Runtime, AttemptFence, RecordBatch) {
-        let base = super::super::tests::runtime_with_workspace(32 << 20);
-        let mut builder = pse_schema::RegistryBuilder::new();
-        let mut columns = vec![
-            FieldContract::key(
-                "row_id",
-                FieldContract::native(DataType::UInt64),
-                "Original source occurrence",
-            ),
-            FieldContract::native(DataType::Utf8)
-                .with_name("unit")
-                .with_doc("Original unit, retained rather than guessed"),
-            FieldContract::native(DataType::Utf8)
-                .with_name("basis")
-                .with_doc("Original physical basis"),
-            FieldContract::native(DataType::Boolean)
-                .with_name("valid")
-                .with_doc("Original producer validity, independent of readable success"),
-        ];
-        for index in 0..64 {
-            columns.push(FieldContract::native(DataType::Float64).with_name(format!("temperature_{index}")).optional()
-                .with_doc(&"Declared original temperature; units and basis are in this same original row. ".repeat(8))
-                .with_result_selection(ResultSelectionRole::Value));
+        let runtime = super::super::durable_tests::durable_runtime();
+        let validation = runtime.validation_context();
+        let mut builder =
+            solve_variables::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
+        let run_id = pse_operations::mint_id();
+        // These are original opaque identities, not resolved unit or quantity definitions.
+        let quantity_id = pse_ids::SemanticId::from_bytes([0x44; 16]);
+        let unit_id = pse_ids::SemanticId::from_bytes([0x55; 16]);
+        for (step, value) in [(0, Some(-0.0)), (1, None), (2, Some(273.15))] {
+            builder
+                .push(solve_variables::Row {
+                    run_id,
+                    step,
+                    symbol_id: pse_ids::SemanticId::from_bytes([0x33; 16]),
+                    quantity_id: Some(quantity_id),
+                    unit_id: Some(unit_id),
+                    fixed: step == 1,
+                    parameter: false,
+                    domain: None,
+                    value,
+                    lower: None,
+                    upper: None,
+                    lower_violation: None,
+                    upper_violation: None,
+                    tolerance: None,
+                    lower_dual: None,
+                    upper_dual: None,
+                    reduced_cost: None,
+                    stationarity: None,
+                    dual_qualification: DualQualification::Unavailable,
+                })
+                .unwrap();
         }
-        builder.declare_relation(
-            RelationDecl::new(
-                Namespace::Normalized,
-                "inspection_fixture",
-                1,
-                Authority::Derived,
-                SnapshotClass::Model,
-                "A compact wide recorded result fixture",
-            )
-            .granularity(DerivationGranularity::Rule)
-            .pk(&["row_id"])
-            .columns(columns),
-        );
-        let registry = Arc::new(builder.build().unwrap());
-        let local = Runtime::from_shared_local(
-            base.shared.clone(),
-            base.model.factory().bind_model(registry.clone()).unwrap(),
-        )
-        .unwrap();
-        let runtime = super::super::durable_tests::durable_runtime_on(local);
-        let spec = registry.relation("normalized.inspection_fixture").unwrap();
-        let schema = pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap();
-        let mut arrays: Vec<ArrayRef> = vec![
-            Arc::new(UInt64Array::from(vec![10, 20, 30])),
-            Arc::new(StringArray::from(vec!["K", "K", "K"])),
-            Arc::new(StringArray::from(vec!["SI", "SI", "SI"])),
-            Arc::new(BooleanArray::from(vec![true, false, true])),
-        ];
-        for _ in 0..64 {
-            arrays.push(Arc::new(Float64Array::from(vec![
-                Some(-0.0),
-                None,
-                Some(273.15),
-            ])));
-        }
-        let batch = RecordBatch::try_new(schema, arrays).unwrap();
-        let cancel = CancellationToken::new();
-        let owned = pse_columnar::owned_buffer::OwnedRecordBatch::copy(
-            &batch,
-            &runtime.shared.pool(),
-            &cancel,
-        )
-        .unwrap();
-        let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
-            &registry,
-            spec,
-            owned,
-            &runtime.validation_context(),
-            &cancel,
-        )
-        .unwrap();
+        let checked = builder.finish().unwrap();
+        let batch = checked.batch().clone();
         let store = runtime.canonical_store().unwrap();
         let revision = store
             .edit("readable-fixture", None, "source", &[])
@@ -958,7 +916,7 @@ mod canonical_result_inspection_server_unit {
         super::super::result_projection::store_result_table(
             store,
             &fence,
-            spec.id,
+            solve_variables::RELATION_ID,
             super::super::ResultCursor::from_checked(checked),
             &runtime.shared.pool(),
             &super::super::durable::PublicationAcks::new(&runtime.shared.pool()),
@@ -986,7 +944,7 @@ mod canonical_result_inspection_server_unit {
         ResultInspectionRequest {
             run: "readable-fixture".into(),
             attempt: fence.attempt().into(),
-            relation: "normalized.inspection_fixture".into(),
+            relation: "runtime.solve_variables".into(),
             start: 0,
             end: 3,
             expected_manifest: None,
@@ -1046,7 +1004,11 @@ mod canonical_result_inspection_server_unit {
         else {
             panic!("schema page: {discovered:?}")
         };
-        assert_eq!(*field_count, 68);
+        assert_eq!(*field_count, 19);
+        assert!(
+            *field_count > 16,
+            "registered relation exceeds the schema page cap"
+        );
         assert_eq!(fields.len(), 2);
         assert_eq!(*next, Some(2));
         assert_eq!(*recorded_rows, 3);
@@ -1054,7 +1016,7 @@ mod canonical_result_inspection_server_unit {
         let mut selected = request(
             &fence,
             ResultInspectionView::Values {
-                fields: vec!["temperature_63".into()],
+                fields: vec!["value".into()],
                 maximum_rows: 2,
             },
         );
@@ -1079,13 +1041,23 @@ mod canonical_result_inspection_server_unit {
         else {
             panic!("readable values: {values:?}")
         };
-        assert_eq!(selected_fields[0].name, "temperature_63");
+        assert_eq!(selected_fields[0].name, "value");
         assert_eq!(
             context_fields
                 .iter()
                 .map(|field| field.name.as_str())
                 .collect::<Vec<_>>(),
-            ["row_id", "unit", "basis", "valid"]
+            [
+                "run_id",
+                "step",
+                "symbol_id",
+                "quantity_id",
+                "unit_id",
+                "fixed",
+                "parameter",
+                "domain",
+                "dual_qualification",
+            ]
         );
         assert_eq!(*recorded_rows, 3);
         assert_eq!(*next_row, Some(2));
@@ -1101,17 +1073,49 @@ mod canonical_result_inspection_server_unit {
         );
         assert_eq!(rows[1].values, [ResultInspectionCell::Null]);
         assert_eq!(
-            rows[0].context[1],
-            ResultInspectionCell::Text { value: "K".into() }
+            rows[0].context[3],
+            ResultInspectionCell::Binary {
+                hex: "44".repeat(16)
+            }
         );
         assert_eq!(
-            rows[0].context[2],
-            ResultInspectionCell::Text { value: "SI".into() }
+            rows[0].context[4],
+            ResultInspectionCell::Binary {
+                hex: "55".repeat(16)
+            }
         );
         assert_eq!(
-            rows[1].context[3],
-            ResultInspectionCell::Boolean { value: false }
+            rows[1].context[5],
+            ResultInspectionCell::Boolean { value: true }
         );
+        assert_eq!(rows[0].context[7], ResultInspectionCell::Null);
+        assert_eq!(
+            rows[0].context[8],
+            ResultInspectionCell::Text {
+                value: "unavailable".into()
+            },
+            "original declared unavailable dual qualification, not scientific usability"
+        );
+        // Every descriptor retains the registered original interpretation. Opaque unit
+        // identities do not establish resolved definitions or a physical basis.
+        for field in selected_fields.iter().chain(context_fields) {
+            let original_schema = original.schema();
+            let source = original_schema.field(field.index);
+            assert_eq!(field.name, *source.name());
+            assert_eq!(field.nullable, source.is_nullable());
+            assert_eq!(
+                serde_json::from_str::<DataType>(&field.datatype_json).unwrap(),
+                *source.data_type()
+            );
+            assert_eq!(
+                field.metadata,
+                source
+                    .metadata()
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect::<BTreeMap<_, _>>()
+            );
+        }
         assert_eq!(
             schema_metadata.get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT),
             original
@@ -1154,7 +1158,7 @@ mod canonical_result_inspection_server_unit {
             .results(
                 "readable-fixture",
                 fence.attempt(),
-                "normalized.inspection_fixture",
+                "runtime.solve_variables",
                 0,
                 3,
                 CancellationToken::new(),
@@ -1175,7 +1179,7 @@ mod canonical_result_inspection_server_unit {
             ),
             (
                 ResultInspectionView::Values {
-                    fields: vec!["temperature_0".into()],
+                    fields: vec!["value".into()],
                     maximum_rows: 17,
                 },
                 ResultInspectionRefusal::Selection,
