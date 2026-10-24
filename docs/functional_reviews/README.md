@@ -1,5 +1,12 @@
 # Functional opportunity reviews
 
+The [unified FastMCP capability-interface review](unified-fastmcp-capability-interface-2026-10-24.md)
+develops the operator-selected single entry point, deterministic reveal and progressive
+instructions, with explicit design-principle assessment. It covers native schema alignment,
+tool adaptation, lazy dependencies, generated CLI fidelity and the gRPC alternative.
+It supersedes the earlier review's separate developer-surface and CLI-selection framing;
+its target and rule proposals do not change existing plan status or implement the interface.
+
 The [agent tool discovery and access review](agent-tool-discovery-and-access-2026-10-24.md)
 assesses repository-wide agent tooling, including capabilities beyond Plans47/50/51/52.
 It recommends source-backed conceptual discovery and selected optional FastMCP access,
