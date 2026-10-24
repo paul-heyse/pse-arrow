@@ -639,6 +639,38 @@ works without the service. Explicitly supplied or imported diagnostic evidence c
 observations without fabricating invocation, process or scientific associations. The
 [diagnostic guide](../../dev/simulation-diagnostics.md) owns operational usage.
 
+**Development knowledge and source-backed changes.** Native source owners supply exact
+contract-section, decision, plan-package, declaration, generator and generated-output identities.
+Interpreted metadata retains lifecycle/site policy inputs; decision state, package state and
+publication scope remain independent. A task packet consumes bounded captured native-reader
+bytes and refuses stale rows. Historical Git/session rationale is attributable evidence, never
+current authorization. Exact producer assertions preserve declaration–generator–specific-output
+correspondence; two declarations sharing a generator do not inherit each other's outputs.
+Catalogue registration, type definition and actual compiled PyO3 metadata retain distinct roles.
+
+The optional development-knowledge v2 projection reuses the existing private tooling database,
+roles and original request lifetime. Closed subjects, role-specific contributors, native topics,
+typed ENFORCED relations and exact Production assertions sit above immutable source versions.
+Record references carry explicit existence, kind and same-generation constraints; optional
+excerpt attribution is also checked on a required field. Only explicitly attributed excerpts
+participate in a subject's optional text filter. Source-only exact queries work without the
+projection; lexical discovery is explicit and semantic similarity remains unselected.
+
+Import reconciles every normalized family before atomic activation, including replay of an
+already active generation and acknowledgement-loss settlement. Exact CAS and issuer/query/cut
+cursors prevent stale activation, pointer rewind or mixed pages. Empty query results retain the
+complete provenance source cut. Current repository observations include policy contributors;
+external evidence references retain original authority/codec/source/version/member identity and
+grant no payload lifetime. Producer fingerprints remain unverified against the live registry,
+and undeclared governing/qualification relationships remain unknown. Knowledge-only reset leaves
+original files and the independent evidence projection intact. Whole-tooling disposal is explicit.
+The [environment](../../dev/agent-environment.md) and
+[substrate](../../dev/surreal-substrate.md#disposable-development-knowledge) guides own commands.
+
+> Decision: [ADR-0222](../../adr/0222-derived-development-knowledge.md)
+> (proposed; maintainer-authorized Plan52a/52b target). Selected host/native checks establish
+> these bounded tooling behaviors, not assembled Plan52 or scientific qualification.
+
 ### 24.2 Current qualification basis
 
 The historical full qualification basis is Plan 22's Q1 of 2026-09-29, on the final state of

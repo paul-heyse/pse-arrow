@@ -6,9 +6,9 @@ date: 2026-10-23
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-04, AP-07, DP-09, DP-23]
-blueprint: [§24.1, §23.1]
+blueprint: [§24.1]
 review: "not-required: short derived relation-family extension under existing tooling authority; Plan52 RC01 and RC06 explicitly selected by maintainer"
-evidence: Interface-checked
+evidence: "Tested: selected host composition and three pse-operations tests including authenticated custom-server constraints/replay/query/reset; actual CLI consumers. No assembled Plan52 or measured benefit claim."
 supersedes: []
 superseded-by: null
 revisit: A concrete consumer needs independent writable knowledge authority or a different deployment boundary.
@@ -66,8 +66,10 @@ are evidence, never current authorization; no global memory writer is introduced
 
 ### Confirmation
 
-Plan52b B04 owns actual two-source, interruption, query-plan, lifecycle and source-preservation
-qualification. This source assessment is Interface-checked, not implementation or measured benefit.
+Plan52b B04 owns the actual bounded multi-source, interruption, query-plan, lifecycle and
+source-preservation acceptance. The selected v2 host/native/CLI checks passed on 2026-10-23;
+the owning Outcome records commands and limits. This establishes Tested tooling behavior,
+not measured engineering benefit or assembled Plan52 qualification.
 
 ## Pros and cons
 
@@ -85,3 +87,4 @@ memory product. Source-only queries remain useful when persistent access is unav
 - 2026-10-23: Proposed before implementation under the maintainer-authorized RC01/RC06 target.
 
 - 2026-10-23: Maintainer selected explicit domain modeling and structured owner-native queries; amended the proposed target before dependent structured projection changes.
+- 2026-10-23: Implemented and exercised the selected v2 family and published its enduring meaning in blueprint §24.1; formal decision status remains proposed.
