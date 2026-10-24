@@ -1,6 +1,6 @@
 ---
 title: "Plan 52d: Execution and qualification efficiency"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -148,3 +148,43 @@ D02 captures literal check argv through the existing Cargo adapter; pinned cargo
 command list loses argument quoting and is not an execution input. The same tool still owns the
 complete ordered enumeration. D03's selected target includes one actual new complete-context
 custom-server build, followed by safe formatting-equivalence reuse. Both remain in progress.
+
+## Targeted execution Outcome — 2026-10-24
+
+**Implemented:** D01–D04 are delivered at the selected tooling/actual-consumer boundaries.
+The environment, qualification and substrate guides own enduring operation. RC03's narrower
+reuse unit was published in blueprint §24.1 before adoption. I07 selects canonical parsed TOML
+within the closed build-context domain, with explicit refusal outside it. This is not assembled
+Plan52 qualification or a measured productivity/build-speed improvement.
+
+**Tested, zero-failure target:**
+
+| Scope | Command/control and result | Limits |
+|---|---|---|
+| D01/D04 | The checkpoint's four-module unittest command: 45 passed; `scripts.tests.plan52_observation_check`: two actual controls passed, including build→test→terminal, detach/reconnect, quota/idle observations and disappearance. | One selected host journey; no scheduler, tuning or causal wait inference. |
+| D02 | Executor's targeted adapter/campaign/validation controls: 73 passed. `scripts.tests.feature_campaign_fixture_check` used pinned cargo-hack and an actual small workspace: 11 literal combinations, two completed before interruption, two reused unchanged, all 11 executed after a real Rust edit; separate one-combination no-default run passed. | The full repository powerset remains H03. Composed reuse is not fresh execution. |
+| D03 | `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_surreal_source scripts.tests.test_installation_context`: 19 passed after final guards. | Exact supported context only; old incomplete receipts/unknown targets refuse. |
+| D03 actual build | Main checkout, ordinary build context, 16 compiler jobs, initially absent source-local target in its final namespace: compile/link succeeded in 20m38s with zero compiler warnings/errors. | One cold release build under concurrent workstation work, no comparative performance claim. |
+| D03 actual reuse | `scripts.tests.surreal_install_equivalence_check.main()` imported in that same installer context: comments, formatting and table-key order reused identical binary/receipt; actual `-C opt-level=1` change refused old namespace. Original config restored exactly; zero build invocations/services started by the probe. | Controlled PATH is conservatively identity-bearing; an extra duplicate PATH entry first refused the module-form probe before configuration effects. No key relaxation/relabeling. |
+
+The complete main receipt is
+`/home/paul/.local/share/pse-arrow/tools/surreal/v3.3.4-mx1.0.0-effective-v1-8ef24b4c2e8c778c3b86/release.json`;
+`equivalence-check.json` in its parent records the actual reuse control. Binary SHA256 is
+`580cd93cd5db59dac2e5955e11705e26f4e92a8960ea99939a425a534234e10d`.
+Selected feature-campaign evidence is retained under
+`build/plan52cd-evidence-20261024/feature-campaign/`; host controls remain at
+`/home/paul/.cache/pse52-observation-20261023T1905/`.
+
+Mistakes corrected: cargo-hack's displayed text loses quoting, so execution captures literal
+adapter argv rather than parsing shell text. Moving a completed worker target and observing
+Cargo freshness did not qualify the new namespace; that receipt was withdrawn, the artifact
+remains unqualified, and a genuinely fresh main build supplied acceptance. Existing targets now
+require an exact versioned interrupted-build request, and symlink/unknown/mismatched targets
+are preserved and refused. Probe preconditions correctly exposed a caller PATH difference;
+the successful probe used the actual compiled context rather than rewriting its receipt.
+
+Three separately observed Plan30 lifecycle-mock failures were reproduced unchanged at baseline
+`05e6a2b8a` (the three backup/restore cases in `scripts.tests.test_plan30_lifecycle.Plan30LifecycleTests`, with the actual failures in
+`/tmp/pse-52d-05e6a2b8a-lifecycle-baseline/baseline.log`); they are not silently counted as passing
+or repaired in this scoped extension. No full hygiene, full powerset or assembled product/native
+qualification was run here; 52h retains those obligations and the zero-failure target.

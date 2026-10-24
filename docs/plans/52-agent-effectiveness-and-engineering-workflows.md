@@ -154,12 +154,12 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O12 | scheduled | [C05](52c-behavioral-and-scientific-verification.md#C05) | Legal-step numerical/derivative reference workbench |
 | O13 | scheduled | [C06](52c-behavioral-and-scientific-verification.md#C06) | Source-aware reduction with separate preserved-property claim |
 | O14 | scheduled | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Focused lifetime instrumentation and controlled schedule inquiry |
-| O15 | scheduled | [D01](52d-execution-and-qualification-efficiency.md#D01) | Resumable observation of actual owned transitions |
-| O16 | scheduled | [D02](52d-execution-and-qualification-efficiency.md#D02) | Exact feature enumeration and safe per-combination reuse |
-| O17 | scheduled | [D03](52d-execution-and-qualification-efficiency.md#D03) | Safe effective-build equivalence or conservative explained fallback |
+| O15 | resolved | [D01](52d-execution-and-qualification-efficiency.md#D01) | Resumable observation of actual owned transitions |
+| O16 | resolved | [D02](52d-execution-and-qualification-efficiency.md#D02) | Exact feature enumeration and safe per-combination reuse |
+| O17 | resolved | [D03](52d-execution-and-qualification-efficiency.md#D03) | Safe effective-build equivalence or conservative explained fallback |
 | O18 | scheduled | [E01](52e-reproducible-experiments-and-isolation.md#E01) | Selected historical executable replay and dependency closure |
 | O19 | scheduled | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Owned representative database baselines with verified population |
-| O20 | scheduled | [D04](52d-execution-and-qualification-efficiency.md#D04) | Actual pressure/placement facts and explicit experiments |
+| O20 | resolved | [D04](52d-execution-and-qualification-efficiency.md#D04) | Actual pressure/placement facts and explicit experiments |
 | O21 | scheduled | [E03](52e-reproducible-experiments-and-isolation.md#E03) | Owned regression search with exact/mixed/untestable outcomes |
 | O22 | scheduled | [E04](52e-reproducible-experiments-and-isolation.md#E04) | Optional rootless tooling environment with simpler fallback |
 | O23 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Paired comparisons preserving unmatched subjects and denominators |
@@ -185,7 +185,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I04 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Select bounded incremental stream adapter. Codex0.163 protocol listing inspected, but no isolated/live read-only App Server runtime qualified; no app-server startup/state repair required |
 | I05 | open | [C02](52c-behavioral-and-scientific-verification.md#C02) | Separate state-machine/Hypothesis addition versus existing Proptest sequences |
 | I06 | open | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual native instrumentation and modeled-schedule feasibility, separate outcomes |
-| I07 | open | [D03](52d-execution-and-qualification-efficiency.md#D03) | Effective TOML equivalence coverage versus raw identity with explanation |
+| I07 | resolved | [D03](52d-execution-and-qualification-efficiency.md#targeted-execution-outcome--2026-10-24) | Parsed TOML equivalence selected inside complete context; actual cold build/reuse passed; unsupported context and unknown targets refuse |
 | I08 | open | [E01](52e-reproducible-experiments-and-isolation.md#E01) | Pure archive replay then native closure; unsupported native replay stays explicit |
 | I09 | open | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Deterministic population/logical restore; physical copy only if separately justified |
 | I10 | open | [E04](52e-reproducible-experiments-and-isolation.md#E04) | Rootless experiment value/compatibility versus owned directory |
@@ -220,8 +220,8 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | C07 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
 | C08 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C08) | Controlled schedules; modeled I06 outcome |
 | D01 | done | [52d](52d-execution-and-qualification-efficiency.md#D01) | Cursor watch/reconciliation and real terminal |
-| D02 | in-progress | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
-| D03 | in-progress | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
+| D02 | done | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
+| D03 | done | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
 | D04 | done | [52d](52d-execution-and-qualification-efficiency.md#D04) | Pressure/topology and truthful unknowns |
 | E01 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E01) | Historical replay and I08 |
 | E02 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Verified representative fixtures and I09 |

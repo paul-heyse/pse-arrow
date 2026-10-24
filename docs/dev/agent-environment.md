@@ -425,6 +425,24 @@ preparation. Read the printed run with `just result <run-path> --failures`; read
 zero means the checkpoint was readable, not that its assessment passed. The
 [qualification guide](validation-assessment.md) owns result, reuse and completeness semantics.
 
+### Detached watches and pressure observations
+
+`just activity --watch --run ID --registry ROOT` watches one exact invocation;
+`--attempt ID` selects an admission attempt and `--unit NAME` selects one unit.
+The bounded response returns a cursor for the same selection (`--cursor TOKEN`,
+`--max-wait 0..30`). Reconnecting reconciles current owner records. Cancellation
+detaches the observer and leaves its producer running. Missing units, unavailable
+owners and terminal records without protected detail remain explicit; disappearance
+alone establishes neither success nor drain. The watch starts no daemon and promises
+no replay of transitions its sources did not retain.
+
+`just activity --pressure --unit NAME --json` adds host PSI and selected-cgroup
+CPU/I/O/memory counters plus effective placement/ancestor restrictions. `--cgroup PATH`
+selects an exact kernel group. Deltas require the same kernel/group identity and
+interval; reset, missing permission and unavailable fields are reported, not zeros.
+`storage-health --pressure` uses the same sampler. Idle CPU alone does not explain a
+wait, and these observations apply no topology or concurrency tuning.
+
 ## Hooks and permissions
 
 `scripts/agent-hooks.py` is the only hook script. `guard` (PreToolUse, both runtimes) refuses
