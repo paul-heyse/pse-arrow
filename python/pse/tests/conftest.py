@@ -371,6 +371,7 @@ def local_inspection_settings(
         target_partitions=1,
         spill_dir=str(tmp_path_factory.mktemp("local-inspection-spill")),
         max_spill_bytes=memory // 4,
+        batch_size=7,
         math_workspace_bytes=memory // 4,
         math_worker_bytes=memory // 8,
         math_artifact_bytes=memory // 16,
