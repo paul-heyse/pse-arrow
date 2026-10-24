@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Actual complete installer receipt reuse after Cargo TOML syntax-only changes.
+"""Reuse a real installed external server across caller-context changes.
 
-Uses one explicitly supplied, already built installation. Never starts a service
-or builds another server generation. The checkout config is restored exactly.
+Never builds, executes a server, edits checkout configuration or starts a service.
+Existing complete receipts retain their original bytes and build provenance.
 """
 
 from __future__ import annotations
@@ -27,110 +27,74 @@ def main() -> int:
     parser.add_argument("tool_root", type=Path)
     args = parser.parse_args()
     tool_root = args.tool_root.resolve()
-    directory = tool_root / source.installation_name(tool_root)
-    require(
-        (directory / "release.json").is_file(),
-        "complete current installation required; this probe never builds",
-    )
-    before = server.install(None, tool_root)
-    binary = Path(str(before["binary"]))
-    binary_digest = source.digest(binary)
-    receipt_bytes = (directory / "release.json").read_bytes()
-    config = source.ROOT / ".cargo/config.toml"
-    original = config.read_bytes()
-    (tool_root / "equivalence-original-cargo-config.toml").write_bytes(original)
-    text = original.decode()
-    ordered = 'linker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]'
-    require(
-        ordered in text, "fixture requires current explicit clang/mold target table"
-    )
-    variants = {
-        "comments": text + "\n# D03 actual syntax-equivalence probe\n",
-        "formatting": text.replace("jobs = 16", "jobs=16").replace(
-            "[build]", "[ build ]"
+    receipts = {path: path.read_bytes() for path in tool_root.glob("*/release.json")}
+    with (
+        patch.object(
+            source,
+            "build_context",
+            side_effect=AssertionError("reuse attempted compiler capture"),
         ),
-        "table-key-order": text.replace(
-            ordered, 'rustflags = ["-C", "link-arg=-fuse-ld=mold"]\nlinker = "clang"'
-        ),
-    }
-    observed = []
-    owned = original
-    actual_command = source.command
-    commands = []
-
-    def record(
-        arguments: list[str],
-        *,
-        log_path: Path | None = None,
-        environment: dict[str, str] | None = None,
-        stream: bool = False,
-    ) -> str:
-        commands.append(arguments)
-        return actual_command(
-            arguments, log_path=log_path, environment=environment, stream=stream
-        )
-
-    try:
-        for kind, value in variants.items():
-            require(
-                config.read_bytes() == owned,
-                "concurrent config mutation; refusing overwrite",
-            )
-            owned = value.encode()
-            config.write_bytes(owned)
-            with patch.object(source, "command", side_effect=record):
-                reused = server.install(None, tool_root)
-            require(
-                reused == before and source.digest(binary) == binary_digest,
-                "syntax change did not reuse identical receipt/binary",
-            )
-            require(
-                (directory / "release.json").read_bytes() == receipt_bytes,
-                "reuse rewrote original provenance",
-            )
-            observed.append(kind)
-        require(
-            config.read_bytes() == owned,
-            "concurrent config mutation; refusing overwrite",
-        )
-        owned = text.replace(
-            '"link-arg=-fuse-ld=mold"]',
-            '"link-arg=-fuse-ld=mold", "-C", "opt-level=1"]',
-        ).encode()
-        config.write_bytes(owned)
-        require(
-            source.installation_name(tool_root) != directory.name,
-            "actual codegen input did not change effective namespace",
-        )
-        try:
-            with patch.object(source, "command", side_effect=record):
-                source.install(directory)
-        except source.BuildError as error:
-            refusal = str(error)
-        else:
-            raise ValueError("changed executable input reused the old installation")
-        require(
-            not any(
-                command and Path(command[0]).name in {"cargo", "pse-env"}
-                for command in commands
+        patch.object(
+            source,
+            "command",
+            side_effect=AssertionError(
+                "reuse attempted a compiler, source probe or executable"
             ),
-            "reuse unexpectedly invoked a build",
-        )
-    finally:
-        if config.read_bytes() != owned:
-            raise ValueError(
-                "concurrent config mutation; original retained in equivalence-original-cargo-config.toml, no automatic overwrite"
-            )
-        config.write_bytes(original)
+        ),
+    ):
+        before = server.install(None, tool_root)
+        binary = Path(str(before["binary"]))
+        binary_digest = source.digest(binary)
+        observed = []
+        variants = {
+            "worktree": {},
+            "PATH": {"PATH": "/different/caller/bin"},
+            "LD_LIBRARY_PATH": {"LD_LIBRARY_PATH": "/different/runtime/libraries"},
+            "RUSTC_WRAPPER": {"RUSTC_WRAPPER": "/different/worktree/scripts/sccache"},
+            "SCCACHE_CONF": {
+                "SCCACHE_CONF": "/different/worktree/.config/sccache.toml"
+            },
+            "CARGO_HOME": {"CARGO_HOME": "/different/cargo/home"},
+        }
+        for kind, environment in variants.items():
+            with (
+                patch.dict(source.os.environ, environment),
+                patch.object(source, "ROOT", tool_root / "different-caller-worktree"),
+                patch.object(
+                    source.installation_context,
+                    "configuration",
+                    side_effect=AssertionError(
+                        "reuse attempted caller configuration capture"
+                    ),
+                ),
+            ):
+                reused = server.install(None, tool_root)
+                require(reused == before, "caller change selected a different artifact")
+                require(
+                    source.admitted_receipt(reused),
+                    "launch admission refused the installed package",
+                )
+                # Even an explicit installer must reuse a completed package.
+                require(
+                    server.install(None, tool_root, build=True) == before,
+                    "explicit installer did not reuse the completed package",
+                )
+            observed.append(kind)
+    require(source.digest(binary) == binary_digest, "reuse changed the executable")
+    require(
+        all(path.read_bytes() == original for path, original in receipts.items()),
+        "reuse rewrote original build provenance",
+    )
     result = {
         "tool_root": str(tool_root),
         "binary": str(binary),
         "binary_sha256": binary_digest,
-        "effective_key": before["effective_key"],
-        "syntax_reused": observed,
-        "original_receipt_unchanged": (directory / "release.json").read_bytes()
-        == receipt_bytes,
-        "executable_input_refused": refusal,
+        "original_build_key": before["effective_key"],
+        "package_selection": source.installation_name(),
+        "caller_context_reused": observed,
+        "original_receipts_unchanged": True,
+        "source_or_executable_commands": 0,
+        "compiler_captures": 0,
         "build_invocations": 0,
         "services_started": 0,
     }

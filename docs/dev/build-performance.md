@@ -12,7 +12,8 @@ symbolica, DataFusion and Arrow per mode. Only opt-in features —
 
 The pinned nightly is the supported Cargo path. ADR-0175 retires the redundant
 workspace-hack fallback and its generator routes after actual target/host/dev/native
-graph checks. Explicit correctness routes still verify Arrow leaf validation; ordinary
+graph checks. An installed `cargo-hakari` is therefore not an active build requirement;
+do not regenerate a competing workspace-hack crate. Explicit correctness routes still verify Arrow leaf validation; ordinary
 interactive builds keep that feature opt-in.
 
 Each checkout keeps its intermediates in its own `target/`. Cargo's build directory is
@@ -72,8 +73,10 @@ disable is introduced. Correctness recipes still request Arrow force validation.
 The automatic local cache has a 100 GiB budget under
 `${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`, with a dedicated endpoint. It
 does not stop the user's default cache server. An explicit `SCCACHE_DIR` keeps the
-user's server configuration. `build-cache-probe` uses a disposable server and checks
-an eligible Rust hit plus incremental pass-through. Product benefit must be measured
+user's server configuration. `build-cache-probe` uses a disposable foreground server and checks
+an eligible Rust hit plus incremental pass-through. Its compiler calls and statistics share
+that same endpoint. Explicit measurement runs preserve their owned endpoint through nested
+recipes; ordinary managed-cache statistics observe the admitted service. Product benefit must be measured
 with `bench-builds`; a canary is insufficient.
 
 The shared environment requires sccache client-side compilation, keeping compiler

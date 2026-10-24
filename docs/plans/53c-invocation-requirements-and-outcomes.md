@@ -181,10 +181,22 @@ Arrow force-validation for correctness build/test closures and native libraries 
   21m16s. Existing main receipt `8ef24b4c2e8c778c3b86` and selected build `81ef0cf3d75210ec44c3`
   have identical source/patch/features/profile, compiler tools and configuration; the context
   differs only in `LD_LIBRARY_PATH` and its native-directory snapshot. Worktree paths introduce
-  further distinct keys. The server installer currently keys complete caller contexts into
+  further distinct keys. At that acceptance the server installer keyed complete caller contexts into
   separate source/target directories. Its release profile uses fat LTO and one codegen unit,
-  making the fallback compilation expensive. This scope diagnoses that reuse boundary; it
-  does not change installed-build equivalence or optimize the external release profile.
+  making fallback compilation expensive. The separately authorized followup below corrects
+  package reuse; the external release profile remains unchanged.
+- **Implemented and Tested, followup:** installed external packages are selected independently
+  of caller compiler/worktree/loader/cache context. The original complete receipt is retained;
+  ordinary setup refuses an absent package rather than compiling. The actual
+  `scripts.tests.surreal_install_equivalence_check` control reused existing build
+  `3549c2a97bd565fd2497` across six caller-context variants, with all original receipt bytes
+  unchanged, zero compiler captures/builds and zero service starts. The
+  [substrate guide](../dev/surreal-substrate.md#installed-external-server-reuse) owns the
+  enduring contract. `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_surreal_server
+  scripts.tests.test_surreal_source scripts.tests.test_installation_context` passed 295 tests
+  against zero failures after replacing an accidental compiler-path refusal with an explicit
+  immutable-supervisor binding check. This is functional reuse evidence, not measured speed
+  benefit.
 - **Tested:** `just turn-end` completed ADR indexing and formatting with exit zero. The 20
   driver/requirement controls passed after formatting; unrelated dirty Python content was
   byte-for-byte preserved. Existing retained legacy-service cleanup warnings were not repaired

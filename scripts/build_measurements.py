@@ -335,6 +335,39 @@ def measure(
 ) -> dict:
     destination = output / name
     destination.mkdir()
+    env = env.copy()
+    server = start_cache_server(env, destination) if owned_cache else None
+    try:
+        return _measure_build(
+            source,
+            output,
+            name,
+            cargo,
+            env,
+            workspace=workspace,
+            packages=packages,
+            native=native,
+            server=server,
+        )
+    finally:
+        if server is not None:
+            stop_cache_server(server, env)
+
+
+def _measure_build(
+    source: Path,
+    output: Path,
+    name: str,
+    cargo: list[str],
+    env: dict[str, str],
+    *,
+    workspace: bool,
+    packages: tuple[str, ...],
+    native: bool,
+    server: subprocess.Popen | None,
+) -> dict:
+    """Resolve and run Cargo only after the selected foreground cache is ready."""
+    destination = output / name
     selection = (
         ["--workspace"]
         if workspace
@@ -403,7 +436,6 @@ def measure(
             "correctness_execution": False,
         },
     )
-    server = start_cache_server(env, destination) if owned_cache else None
     cache_before = cache_stats(env)
     free_before = shutil.disk_usage(output).free
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -462,8 +494,10 @@ def measure(
         "sampled_process_tree_peak_rss_bytes": peak,
         "peak_rss_scope": "Linux /proc descendants sampled every 100ms; shared pages may be counted more than once",
         "resource_scope": (
-            "build and owned foreground cache server, including server startup/shutdown CPU"
-            if owned_cache
+            "build and owned foreground cache server; CPU includes the complete server "
+            "lifetime (startup, pre-timing metadata service and shutdown); wall/RSS "
+            "cover the build interval"
+            if server is not None
             else "build descendants only; excludes any independent cache server"
         ),
         "cache_delta": counter_delta(cache_before, cache_after),
@@ -540,6 +574,16 @@ def start_cache_server(env: dict[str, str], output: Path) -> subprocess.Popen:
     endpoint = Path(env["SCCACHE_SERVER_UDS"])
     if endpoint.exists():
         raise ValueError("measurement endpoint is already occupied")
+    # Keep compilation and observation on this explicitly owned endpoint, including
+    # nested pse-env/just composition in workflow measurements.
+    binary = env.get("PSE_SCCACHE_BINARY", env["RUSTC_WRAPPER"])
+    env.update(
+        RUSTC_WRAPPER=binary,
+        SCCACHE_NO_DAEMON="1",
+        **{build_environment.FOREGROUND_CACHE: str(endpoint)},
+    )
+    if env.get("PSE_NATIVE_COMPILER_CACHE"):
+        env["PSE_NATIVE_COMPILER_CACHE"] = binary
     with (output / "cache-server.log").open("w") as log:
         server = subprocess.Popen(
             [env["RUSTC_WRAPPER"]],
@@ -672,9 +716,18 @@ def execute_workload(
     log: Path,
     *,
     owned_cache: bool,
+    correctness_cargo: list[str] | None = None,
 ) -> dict:
+    env = env.copy()
     server = start_cache_server(env, log.parent) if owned_cache else None
     try:
+        if correctness_cargo is not None:
+            command = correctness_command(
+                source,
+                correctness_cargo,
+                command[len(correctness_cargo) :],
+                env,
+            )
         started = time.monotonic()
         with log.open("w") as stream:
             result = subprocess.run(
@@ -1227,25 +1280,21 @@ def main() -> None:
     build_phases(source, args.repetitions, sample, screen=args.screen)
     if args.execute:
         execution = []
-        command = correctness_command(
-            source,
-            cargo,
-            [
-                "test",
-                *[arg for package in packages for arg in ("-p", package)],
-                "--lib",
-                "--locked",
-                *(
-                    [
-                        "--features",
-                        "pse-runtime/native-solvers,pse-tests-conformance/native-acceptance",
-                    ]
-                    if args.native
-                    else []
-                ),
-            ],
-            env,
-        )
+        command = [
+            *cargo,
+            "test",
+            *[arg for package in packages for arg in ("-p", package)],
+            "--lib",
+            "--locked",
+            *(
+                [
+                    "--features",
+                    "pse-runtime/native-solvers,pse-tests-conformance/native-acceptance",
+                ]
+                if args.native
+                else []
+            ),
+        ]
         for repetition in range(args.repetitions):
             result = execute_workload(
                 command,
@@ -1253,6 +1302,7 @@ def main() -> None:
                 env,
                 output / f"unit-execution-{repetition}.log",
                 owned_cache=args.cold_cache,
+                correctness_cargo=cargo,
             )
             execution.append({**result, "repetition": repetition})
             validation.write_json(output / "execution.json", execution)

@@ -21,6 +21,9 @@ def main() -> None:
         root = Path(directory)
         # This server and directory belong only to this probe.
         env.update(
+            # An explicit experiment owns its foreground server. The managed
+            # wrapper selects a shared admitted endpoint for ordinary builds.
+            RUSTC_WRAPPER=env["PSE_SCCACHE_BINARY"],
             SCCACHE_DIR=str(root / "cache"),
             SCCACHE_SERVER_UDS=str(root / "server.sock"),
         )
@@ -51,6 +54,7 @@ def main() -> None:
                 )
                 if flag.startswith("-Zthreads=")
             ]
+        server = build_measurements.start_cache_server(env, root)
         try:
             before = build_measurements.cache_stats(env)
             subprocess.run(command, env=env, check=True)
@@ -77,12 +81,7 @@ def main() -> None:
                 )
             )
         finally:
-            subprocess.run(
-                [env["RUSTC_WRAPPER"], "--stop-server"],
-                env=env,
-                check=False,
-                stdout=subprocess.DEVNULL,
-            )
+            build_measurements.stop_cache_server(server, env)
 
 
 if __name__ == "__main__":

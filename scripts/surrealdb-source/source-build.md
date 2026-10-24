@@ -1,7 +1,7 @@
 # Canonical server source integration
 
 `../surreal_source.py` owns the exact upstream revision, engine version, build
-features, compiler inputs and installation identity. `../surreal_server.py` owns
+features, package selection and original compiler provenance. `../surreal_server.py` owns
 admission, deployment resources and the selected state. ADR-0214 records the
 storage and transport decisions; Plan49a owns execution status.
 
@@ -10,7 +10,14 @@ order. It verifies every patched source file and the checksum-pinned DiskANN
 source, builds with the repository toolchain in that acquired tree's ordinary
 `target/`, with an explicit recorded `panic="unwind"` release override, then records
 the executable and lockfile digests. The compiled version
-includes the patch identity. Reuse refuses changed inputs, sources or executables.
+includes the patch identity. Package reuse checks the recipe, original complete receipt,
+lockfile and executable bytes. The original compiler/environment context is retained as
+provenance, never compared to the caller's worktree or runtime loader/cache settings.
+A one-time verified selection adopts existing complete installations in place; receipts and
+targets retain their original paths and bytes. Ordinary setup/tests refuse missing or corrupt
+packages without compiling. Only explicit `build-server` may build an absent package, and it
+also reuses completed packages. Interrupted compilation still requires its exact original
+build request. See [installed server reuse](../../docs/dev/surreal-substrate.md#installed-external-server-reuse).
 There is no released-binary fallback.
 
 | Input | Reason |

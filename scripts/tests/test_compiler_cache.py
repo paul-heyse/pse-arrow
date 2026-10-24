@@ -188,7 +188,6 @@ class CompilerCacheTests(unittest.TestCase):
     ) -> None:
         for arguments, extra in (
             ([], {"SCCACHE_START_SERVER": "1", "SCCACHE_NO_DAEMON": "1"}),
-            (["--show-stats"], {}),
             (["--stop-server"], {}),
         ):
             with (
@@ -211,6 +210,29 @@ class CompilerCacheTests(unittest.TestCase):
                     execute.call_args.args[2]["SCCACHE_SERVER_UDS"]
                     == "/explicit/measurement.sock"
                 )
+
+    def test_managed_statistics_use_the_same_admitted_service_as_compilation(
+        self,
+    ) -> None:
+        environment = {**self.env, "SCCACHE_SERVER_UDS": "/exported/unused.sock"}
+        service = Mock()
+        for arguments in (
+            ["--show-stats", "--stats-format=json"],
+            ["--stats-format=json", "--show-stats"],
+            ["--show-adv-stats"],
+            ["-s"],
+        ):
+            with (
+                self.subTest(arguments=arguments),
+                patch.dict(os.environ, environment, clear=True),
+                patch.object(cache, "ensure", return_value=service) as ensure,
+                patch.object(cache, "compile_command", return_value=0) as invoke,
+                patch.object(os, "execve") as execute,
+            ):
+                assert cache.main(arguments) == 0
+            ensure.assert_called_once_with(environment)
+            invoke.assert_called_once_with(arguments, environment, service)
+            execute.assert_not_called()
 
     def test_admin_missing_endpoint_refuses_without_guessing_global_server(
         self,

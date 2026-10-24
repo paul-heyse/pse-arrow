@@ -1312,6 +1312,137 @@ class BuildMeasurementTests(unittest.TestCase):
             {"hits": {"Rust": 2}},
         )
 
+    def test_owned_measurement_starts_cache_before_cargo_metadata_and_drains_failure(
+        self,
+    ) -> None:
+        events: list[str] = []
+        original = {"RUSTC_WRAPPER": "/checkout/scripts/sccache"}
+
+        def start(env: dict[str, str], _output: Path) -> object:
+            events.append("start")
+            env["RUSTC_WRAPPER"] = "/installed/sccache"
+            return "owned-server"
+
+        def resolve(
+            _source: Path, _cargo: list[str], _args: list[str], env: dict[str, str]
+        ) -> list[str]:
+            events.append("resolve")
+            self.assertEqual(env["RUSTC_WRAPPER"], "/installed/sccache")
+            raise ValueError("metadata refused")
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with (
+                patch.object(
+                    build_measurements, "start_cache_server", side_effect=start
+                ),
+                patch.object(
+                    build_measurements, "correctness_command", side_effect=resolve
+                ),
+                patch.object(
+                    build_measurements,
+                    "stop_cache_server",
+                    side_effect=lambda *_args: events.append("stop"),
+                ),
+                self.assertRaisesRegex(ValueError, "metadata refused"),
+            ):
+                build_measurements.measure(
+                    output, output, "sample", ["cargo"], original, owned_cache=True
+                )
+        self.assertEqual(events, ["start", "resolve", "stop"])
+        self.assertEqual(original["RUSTC_WRAPPER"], "/checkout/scripts/sccache")
+
+    def test_owned_execution_resolves_cargo_after_cache_readiness(self) -> None:
+        events: list[str] = []
+
+        def resolve(
+            _source: Path, _cargo: list[str], args: list[str], _env: dict[str, str]
+        ) -> list[str]:
+            events.append("resolve")
+            self.assertEqual(args, ["test", "--lib"])
+            return ["cargo", "test", "--lib", "--features", "validated"]
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with (
+                patch.object(
+                    build_measurements,
+                    "start_cache_server",
+                    side_effect=lambda *_args: events.append("start") or "owned-server",
+                ),
+                patch.object(
+                    build_measurements, "correctness_command", side_effect=resolve
+                ),
+                patch.object(
+                    build_measurements.subprocess,
+                    "run",
+                    side_effect=lambda *_args, **_kwargs: (
+                        events.append("run") or subprocess.CompletedProcess([], 0)
+                    ),
+                ) as execute,
+                patch.object(
+                    build_measurements,
+                    "stop_cache_server",
+                    side_effect=lambda *_args: events.append("stop"),
+                ),
+            ):
+                result = build_measurements.execute_workload(
+                    ["cargo", "test", "--lib"],
+                    output,
+                    {},
+                    output / "execution.log",
+                    owned_cache=True,
+                    correctness_cargo=["cargo"],
+                )
+        self.assertEqual(events, ["start", "resolve", "run", "stop"])
+        self.assertEqual(execute.call_args.args[0], result["command"])
+        self.assertEqual(result["exit_code"], 0)
+
+    def test_owned_cache_server_and_nested_compilers_share_explicit_endpoint(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            endpoint = output / "cache.sock"
+            env = {
+                "RUSTC_WRAPPER": str(build_environment.ROOT / "scripts/sccache"),
+                "PSE_SCCACHE_BINARY": "/installed/sccache",
+                "PSE_NATIVE_COMPILER_CACHE": "/checkout/scripts/sccache",
+                "SCCACHE_SERVER_UDS": str(endpoint),
+            }
+            with (
+                patch.object(build_measurements.subprocess, "Popen") as spawn,
+                patch.object(build_measurements.atexit, "register"),
+            ):
+
+                def listening(*_args: object, **_kwargs: object) -> object:
+                    endpoint.touch()
+                    return spawn.return_value
+
+                spawn.side_effect = listening
+                server = build_measurements.start_cache_server(env, output)
+            self.assertIs(server, spawn.return_value)
+            self.assertEqual(spawn.call_args.args[0], ["/installed/sccache"])
+            self.assertEqual(env[build_environment.FOREGROUND_CACHE], str(endpoint))
+            self.assertEqual(env["SCCACHE_NO_DAEMON"], "1")
+            nested = build_environment.configure(
+                build_environment.ROOT, env, cache="on"
+            )
+            self.assertEqual(nested["RUSTC_WRAPPER"], "/installed/sccache")
+            self.assertEqual(nested["PSE_NATIVE_COMPILER_CACHE"], "/installed/sccache")
+            self.assertEqual(nested["SCCACHE_SERVER_UDS"], str(endpoint))
+            stats = {"stats": {"cache_hits": {"counts": {"Rust": 1}}}}
+            with patch.object(
+                build_measurements.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, json.dumps(stats)),
+            ) as observe:
+                self.assertEqual(build_measurements.cache_stats(nested), stats)
+            self.assertEqual(observe.call_args.args[0][0], "/installed/sccache")
+            self.assertEqual(
+                observe.call_args.kwargs["env"]["SCCACHE_SERVER_UDS"], str(endpoint)
+            )
+
     def test_selected_roots_and_named_mixed_native_workloads(self) -> None:
         select = build_measurements.selected_packages
         self.assertEqual(

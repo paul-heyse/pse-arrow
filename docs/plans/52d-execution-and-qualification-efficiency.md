@@ -119,6 +119,15 @@ clear rebuild reason and explicit reviewed candidate inspection, without silent 
 Record I07's supported domain/fallback. Quantitative build-time gains need a measurement; source
 inspection alone establishes the avoidable namespace change.
 
+**2026-10-24 maintainer-authorized correction:** completed external server packages now use
+recipe-based selection, independent of the current caller/compiler/cache environment. Complete
+original build receipts retain their context and integrity; only the explicit builder compares
+live compiler inputs for a new/interrupted compilation. This supersedes D03's caller-context
+reuse restriction above, without changing scientific hashes or qualification evidence identities.
+The [installed server reuse contract](../dev/surreal-substrate.md#installed-external-server-reuse)
+owns current operation. The original D03 measurements/controls below retain their historical
+conditions; the followup real-artifact control in Plan53c records zero-build package reuse.
+
 <a id="D04"></a>
 ### D04 — Pressure, effective placement and selected host experiments
 
@@ -170,8 +179,9 @@ custom-server build, followed by safe formatting-equivalence reuse. Both remain 
 
 **Implemented:** D01–D04 are delivered at the selected tooling/actual-consumer boundaries.
 The environment, qualification and substrate guides own enduring operation. RC03's narrower
-reuse unit was published in blueprint §24.1 before adoption. I07 selects canonical parsed TOML
-within the closed build-context domain, with explicit refusal outside it. This is not assembled
+reuse unit was published in blueprint §24.1 before adoption. I07 originally selected canonical parsed TOML
+within the closed build-context domain; the authorized D03 correction above supersedes its
+restriction on completed external-package reuse. This is not assembled
 Plan52 qualification or a measured productivity/build-speed improvement.
 
 **Tested, zero-failure target:**
@@ -186,7 +196,8 @@ Plan52 qualification or a measured productivity/build-speed improvement.
 
 The complete main receipt is
 `/home/paul/.local/share/pse-arrow/tools/surreal/v3.3.4-mx1.0.0-effective-v1-8ef24b4c2e8c778c3b86/release.json`;
-`equivalence-check.json` in its parent records the actual reuse control. Binary SHA256 is
+The original reuse control was recorded in `equivalence-check.json` in its parent; that
+mutable diagnostic file now records the subsequent package-reuse control. Binary SHA256 is
 `580cd93cd5db59dac2e5955e11705e26f4e92a8960ea99939a425a534234e10d`.
 Selected feature-campaign evidence is retained under
 `build/plan52cd-evidence-20261024/feature-campaign/`; host controls remain at

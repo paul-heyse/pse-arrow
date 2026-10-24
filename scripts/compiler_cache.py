@@ -2,9 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 """One owned foreground cache service; compilers stay in their caller's cgroup.
 
-sccache 0.17 has no client-only switch. NO_DAEMON keeps a raced lazy-start
-child in the wrapper's process group. Service death refuses the result and
-terminates that group; a transient fork/cache effect remains possible.
+Client-side mode still permits a lazy server start on a connection race.
+NO_DAEMON keeps that child in the wrapper's process group. Service death
+refuses the result and terminates that group; a transient fork/cache effect
+remains possible.
 """
 
 from __future__ import annotations
@@ -669,12 +670,15 @@ def supervised_compile(
 def main(arguments: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if arguments is None else arguments)
     env = dict(os.environ)
+    statistics = any(
+        argument in {"--show-stats", "--show-adv-stats", "-s"} for argument in argv
+    )
     try:
         if len(argv) == 2 and argv[0] == "--pse-cache-serve":
             serve(Path(argv[1]))
             return 0
         if env.get("SCCACHE_START_SERVER") == "1" or (
-            argv and argv[0].startswith("--")
+            argv and argv[0].startswith("--") and not statistics
         ):
             if not env.get("SCCACHE_SERVER_UDS"):
                 refuse("explicit cache control requires its selected endpoint")
