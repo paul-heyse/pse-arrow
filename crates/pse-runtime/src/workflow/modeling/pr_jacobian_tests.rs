@@ -2049,10 +2049,16 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         assert_eq!(actual_rows.len(), row_ids.len());
         assert_eq!(actual_columns.len(), coordinate_ids.len());
         let actual_row_order = [0, 1].map(|i| {
-            row_ids.iter().position(|id| *id == actual_rows[i].id).unwrap()
+            row_ids
+                .iter()
+                .position(|id| *id == actual_rows[i].id)
+                .unwrap()
         });
         let actual_column_order = [0, 1].map(|i| {
-            coordinate_ids.iter().position(|id| *id == actual_columns[i]).unwrap()
+            coordinate_ids
+                .iter()
+                .position(|id| *id == actual_columns[i])
+                .unwrap()
         });
         assert_ne!(actual_row_order[0], actual_row_order[1]);
         assert_ne!(actual_column_order[0], actual_column_order[1]);
@@ -2117,20 +2123,31 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
             let row = actual_row_order[i];
             close(
                 &format!("value {}", ["mixed", "other"][row]),
-                values[i], expected_values[row],
+                values[i],
+                expected_values[row],
             );
             for j in 0..2 {
                 let left = actual_column_order[i];
                 let right = actual_column_order[j];
                 close(
-                    &format!("Jacobian {} / {}", ["mixed", "other"][row], ["u", "v"][right]),
-                    jacobian[i][j], expected_jacobian[row][right],
+                    &format!(
+                        "Jacobian {} / {}",
+                        ["mixed", "other"][row],
+                        ["u", "v"][right]
+                    ),
+                    jacobian[i][j],
+                    expected_jacobian[row][right],
                 );
-                let expected = 2. * expected_hessians[0][left][right]
-                    - 3. * expected_hessians[1][left][right];
+                let expected =
+                    2. * expected_hessians[0][left][right] - 3. * expected_hessians[1][left][right];
                 close(
-                    &format!("weighted Hessian {},{}", ["u", "v"][left], ["u", "v"][right]),
-                    hessian[i][j], expected,
+                    &format!(
+                        "weighted Hessian {},{}",
+                        ["u", "v"][left],
+                        ["u", "v"][right]
+                    ),
+                    hessian[i][j],
+                    expected,
                 );
             }
         }

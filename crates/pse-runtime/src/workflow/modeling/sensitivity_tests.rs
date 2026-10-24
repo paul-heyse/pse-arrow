@@ -595,26 +595,40 @@ async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
         // of query order. Every identity, unit, value and validity field remains exact.
         let mut sensitivities = sensitivities;
         let mut reopened_sensitivities = reopened_rows::<parametric_sensitivities::Row>(
-            &runtime, &result, "runtime.parametric_sensitivities",
-        ).await;
-        sensitivities.sort_by_key(|row| (
-            row.run_id, row.step, row.parameter_id, row.target_kind.as_str(), row.target_id,
-        ));
-        reopened_sensitivities.sort_by_key(|row| (
-            row.run_id, row.step, row.parameter_id, row.target_kind.as_str(), row.target_id,
-        ));
+            &runtime,
+            &result,
+            "runtime.parametric_sensitivities",
+        )
+        .await;
+        sensitivities.sort_by_key(|row| {
+            (
+                row.run_id,
+                row.step,
+                row.parameter_id,
+                row.target_kind.as_str(),
+                row.target_id,
+            )
+        });
+        reopened_sensitivities.sort_by_key(|row| {
+            (
+                row.run_id,
+                row.step,
+                row.parameter_id,
+                row.target_kind.as_str(),
+                row.target_id,
+            )
+        });
         assert_eq!(reopened_sensitivities, sensitivities);
         let mut hessians = hessians;
-        let mut reopened_hessians = reopened_rows::<reduced_hessians::Row>(
-            &runtime, &result, "runtime.reduced_hessians",
-        ).await;
+        let mut reopened_hessians =
+            reopened_rows::<reduced_hessians::Row>(&runtime, &result, "runtime.reduced_hessians")
+                .await;
         hessians.sort_by_key(|row| (row.run_id, row.step));
         reopened_hessians.sort_by_key(|row| (row.run_id, row.step));
         assert_eq!(reopened_hessians, hessians);
         let mut validity = validity;
-        let mut reopened_validity = reopened_rows::<local_validity::Row>(
-            &runtime, &result, "runtime.local_validity",
-        ).await;
+        let mut reopened_validity =
+            reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity").await;
         validity.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
         reopened_validity.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
         assert_eq!(reopened_validity, validity);

@@ -61,45 +61,52 @@ A01/A02/A03 may proceed independently once their scientific assumptions are sett
 Completion requires the targeted wrong-case controls, independent reference reproduction and assembled scientific/readback journeys selected by [53g](53g-qualification-and-publication.md). It does not imply all formulations, solvers, platforms or parity routes were qualified. No benchmark or new tolerance policy is required. Retire replaced assertions/reference locator machinery alongside migrated consumers, preserving retained policy and primitive evidence.
 
 
-## Execution evidence — 2026-10-23
+## Execution evidence — 2026-10-24
 
-**Implemented:** A01 independently declares all 19 HiGHS status expectations plus unknown
-fallbacks, and retains three quantity-specific comparators with finite/extent/time checks and
-meaningful wrong-result controls. A02 derives a conservative phase envelope from independently
-evaluated frozen Wagner inputs and directly joined resolved row/variable budgets. Perturbed
-Rachford–Rice brackets at 363/373 K separate the 358/378 K feeds; the temperature-binding
-budget and scalar feasibility envelope reduce the 5 K slack premise before applying
-`epsilon_phase²/(4*(slack_lower-residual))`. Both wrong interior-regime controls exercise the
-actual classifier. The authored unequal-pressure mixer separates minimum from maximum/mean;
-the default countercurrent exchanger uses independent constant-capacity epsilon–NTU values.
-A03 uses two independently analytic PR roots with keyed layout permutations and mixed terms,
-and two nonlinear constrained points with publication and durable reopening. It preserves the
-actual lower-triangle assembly rather than changing production to match the earlier shorthand.
+The [coordinator's current acceptance boundary](53-test-architecture-target.md#current-acceptance-boundary--2026-10-24)
+owns package progress, finding dispositions, exact modes, commands and current results.
 
-**Tested:** A01's nine selected native-local status/comparator and retained projection/dynamics
-controls pass with zero failures. The coordinator retains the selected command and mode.
-A02/A03 compile under the force-validated native acceptance feature closure; their scientific
-assertions have not yet run because the copied main service's receipt is not admitted in this
-worktree. The isolated current-context source server and validated native Python extension are built.
-On 2026-10-24 the maintainer authorized permanently increasing functional storage slots to
-three. Four focused admission tests pass; full store charges and unknown-owner protection stay
-in force. The isolated canonical database is initialized without altering the existing main
-or Plan52 service. The independent phase classifier
-wrong-interior/missing-slack control also passed as one selected native-local test, baseline zero.
+**Implemented/Tested:** A01's independent 19-status inventory/unknown fallbacks and three
+quantity-specific finite/extent/time comparators pass their meaningful controls. A02's nine-feed
+phase journey and wrong-regime classifier controls pass; actual countercurrent exchanger and
+unequal-pressure minimum mixer pass their independent expectations and original-space physical
+checks. Supported water-only specialization isolates these two new variants. Native component
+reports are assessed before complete original-space reconstruction, which can have a Constant
+outer outcome. The tight nested-vapor witness and existing PID declarations remain present;
+current assembled PID qualification is explicitly limited below.
 
-**Tested:** `just plan53a-reference` uses the locked CPython 3.12.3 / NumPy 2.5.3 / SciPy 1.18.1
-environment and passes PFR 7/7, controlled CSTR 19/19 and decay-fit 25/25 checks, baseline zero.
-`build/plan53a-reference/bin/python -m unittest scripts.tests.test_scientific_references -v`
-passes four controls. Focused Ruff and Pyrefly checks of the five new Python files pass.
-The entrypoints emit exact input/method/tolerance/environment/source identities and actual
-numeric deltas in `build/plan53a-reference-results/`; the frozen authored values stay unchanged.
-The PFR concentration difference is about `2.9e-9 mol/m³`; per maintainer guidance its standalone
-reproduction allowance is `1e-7 mol/m³`, still far below the production `1 mol/m³` acceptance.
-DOP853/Radau agreement remains a separate tight check. This numerical reproduction is not a
-certified global error bound or product qualification. I02 is resolved without a golden migration.
+**Implemented/Tested:** A03's two independently analytic PR roots pass integrated value,
+Jacobian and all three lower-triangle weighted-Hessian cells in both caller coordinate layouts.
+Expectations and row multipliers use the returned semantic identities, because selected rows
+retain source order. The independently known liquid root seeds a declared-point assembly test;
+actual runtime isolation still proves root selection. This does not claim default root-convergence
+accuracy, direct Hessian-action preparation or inner numerical-requirement propagation. Both
+nonlinear sensitivity/value-Hessian points and exact-versus-Gauss–Newton covariance points pass
+actual publication and durable reopening. Reopened rows are compared in their declared primary-key
+order, preserving full row content, identity and extent rather than assuming query ordering.
 
-**Remaining acceptance:** execute the A02/A03 native scientific/readback cases and the selected
-actual PFR, integrated/simultaneous controller and decay-fit reference consumers. Keep A02–A04
-in progress until these consumers pass. DTA-006's typed origin-sensitive refusal remains B02;
-this companion does not close all of R01 or the entire Plan53 series. No unrelated repo-health,
-benchmark or full-parity campaign is selected.
+**Implemented/Tested:** all three independent generators reproduce frozen consumed values in
+locked CPython 3.12.3 / NumPy 2.5.3 / SciPy 1.18.1: PFR 7/7, controlled CSTR 19/19, decay 25/25,
+with four comparison/provenance controls passing. PFR/controller generation reports were refreshed
+after final authored source changes. The PFR concentration difference is about `2.9e-9 mol/m³`;
+per maintainer guidance standalone reproduction allows `1e-7 mol/m³`, far below the production
+`1 mol/m³` acceptance, with separate tight DOP853/Radau agreement. No frozen golden changed.
+I02 is resolved; reproduction is numerical evidence, not a certified global error bound.
+
+**Tested — acceptance incomplete:** decay's actual native reference consumer passed. The final
+selected PFR and integrated/simultaneous controller run reports 1,208 checks, one failed fixture,
+two inconclusive fixtures and `complete=False`. Integrated controller reports a missing-layout
+invariant; simultaneous controller reaches a compiler resource limit; PFR retains closure-validity
+refusals despite supported interior temperature starts, plus 24 suspicious derivative entries
+among 1,877 comparisons (zero missing sparsity entries). CSTR initial density now accesses the
+same frozen source record through the declared interface; neither PID equations nor goldens changed.
+The scientific runtime paths behind these remaining failures were not expanded into a
+repository-health repair effort. A04 remains in progress until its selected consumer acceptance is settled;
+provenance repair and independent reference reproduction are already established separately.
+
+The maintainer-authorized permanent three functional store slots retain full memory charging,
+unknown-owner protection, the original admission timeout and one timing slot. Four focused controls
+pass after committed-main integration. The isolated canonical service was used without stopping
+or reconfiguring the existing main/Plan52 services. Final receipts and source correspondence are
+retained with the coordinator's artifacts; historical interrupted/refused preparations establish
+no scientific result. No full parity, benchmark or repository-wide health campaign was run.

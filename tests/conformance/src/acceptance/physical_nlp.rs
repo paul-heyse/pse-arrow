@@ -284,14 +284,9 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
         // final original-space reconstruction can have a Constant outcome.
         let mut settings = profile(Backend::Ipopt, false);
         settings.presolve = pse_backend_native::presolve::Policy::Off;
-        let prepared = seed_prepare(
-            &package,
-            case,
-            settings,
-            &CancelSource::new(),
-        )
-        .await
-        .unwrap();
+        let prepared = seed_prepare(&package, case, settings, &CancelSource::new())
+            .await
+            .unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();
         let report = authored_success(&result);
         assert!(
@@ -302,18 +297,27 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
         let native_reports = match &report.outcome {
             Outcome::Native(native) => vec![native.as_ref()],
             Outcome::Constant(original) => {
-                assert!(original.quality.feasible(), "{name}: original-space closure");
+                assert!(
+                    original.quality.feasible(),
+                    "{name}: original-space closure"
+                );
                 original.component_reports().collect()
             }
             Outcome::Rejected(error) => panic!("{name}: {error:?}"),
         };
         if name == "heat_exchanger_default_countercurrent" {
-            assert!(!native_reports.is_empty(), "{name}: actual native component required");
+            assert!(
+                !native_reports.is_empty(),
+                "{name}: actual native component required"
+            );
         }
         for native in native_reports {
             assert_eq!(native.backend, Backend::Ipopt, "{name}");
             assert!(
-                native.quality.as_ref().is_some_and(|quality| quality.feasible()),
+                native
+                    .quality
+                    .as_ref()
+                    .is_some_and(|quality| quality.feasible()),
                 "{name}: native component feasibility"
             );
         }

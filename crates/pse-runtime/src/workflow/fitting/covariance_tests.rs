@@ -1205,8 +1205,16 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             // Keep the explicit state and nonlinear equality in the prepared NLP.
             let problem = &prepared.problem;
             assert_eq!(problem.contract.variables.len(), 2);
-            let parameter = problem.contract.variables.iter().find(|v| v.id == id(A)).unwrap();
-            assert_eq!((parameter.lower, parameter.upper), (f64::NEG_INFINITY, f64::INFINITY));
+            let parameter = problem
+                .contract
+                .variables
+                .iter()
+                .find(|v| v.id == id(A))
+                .unwrap();
+            assert_eq!(
+                (parameter.lower, parameter.upper),
+                (f64::NEG_INFINITY, f64::INFINITY)
+            );
             assert_eq!(problem.contract.rows.len(), 1);
             assert_eq!(problem.bounds, vec![(0., 0.)]);
             assert_eq!(problem.experiments.len(), 1);
@@ -1217,7 +1225,12 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             assert_eq!(steady.constraints.len(), 1);
             assert_eq!(steady.coordinates.len(), 2);
             let state_id = steady.coordinates.iter().next().unwrap().0;
-            assert!(steady.variables.iter().any(|v| v.port.id == state_id && !v.fixed));
+            assert!(
+                steady
+                    .variables
+                    .iter()
+                    .any(|v| v.port.id == state_id && !v.fixed)
+            );
             let result = prepared.start().unwrap().wait().await.unwrap();
             assert!(result.usable(), "{:?}", result.report());
             let fitted = report(&result);
@@ -1226,18 +1239,26 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             assert_eq!(fitted.constraint_values.len(), 1);
             assert!(fitted.constraint_values[0].abs() < 1e-6, "{fitted:?}");
             // Publication separates the shared fitted parameter from the local state.
-            let parameters = fit_parameters::Row::rows(&result.table("runtime.fit_parameters").unwrap()).unwrap();
+            let parameters =
+                fit_parameters::Row::rows(&result.table("runtime.fit_parameters").unwrap())
+                    .unwrap();
             assert_eq!(parameters.len(), 1);
             assert_eq!(parameters[0].parameter_id, id(A));
             assert!((parameters[0].value.unwrap() - s).abs() < 1e-5);
-            let states = fit_variables::Row::rows(&result.table("runtime.fit_variables").unwrap()).unwrap();
+            let states =
+                fit_variables::Row::rows(&result.table("runtime.fit_variables").unwrap()).unwrap();
             assert_eq!(states.len(), 1);
             assert_eq!(states[0].symbol_id, state_id);
             assert!(!states[0].fixed);
-            assert!((states[0].value.unwrap() - s*s).abs() < 1e-5);
-            let constraints = fit_constraints::Row::rows(&result.table("runtime.fit_constraints").unwrap()).unwrap();
+            assert!((states[0].value.unwrap() - s * s).abs() < 1e-5);
+            let constraints =
+                fit_constraints::Row::rows(&result.table("runtime.fit_constraints").unwrap())
+                    .unwrap();
             assert_eq!(constraints.len(), 1);
-            assert_eq!((constraints[0].lower, constraints[0].upper), (Some(0.), Some(0.)));
+            assert_eq!(
+                (constraints[0].lower, constraints[0].upper),
+                (Some(0.), Some(0.))
+            );
             assert!(constraints[0].value.unwrap().abs() <= constraints[0].tolerance);
             let predictions =
                 fit_observations::Row::rows(&result.table("runtime.fit_observations").unwrap())
@@ -1291,22 +1312,28 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             // Match each relation's declared primary key, retaining exact whole rows.
             let mut published = published;
             let mut reopened_covariance = reopened_rows::<parameter_covariances::Row>(
-                &runtime, &result, "runtime.parameter_covariances",
-            ).await;
+                &runtime,
+                &result,
+                "runtime.parameter_covariances",
+            )
+            .await;
             published.sort_by_key(|row| row.run_id);
             reopened_covariance.sort_by_key(|row| row.run_id);
             assert_eq!(reopened_covariance, published);
             let mut validity_rows = validity_rows;
-            let mut reopened_validity = reopened_rows::<local_validity::Row>(
-                &runtime, &result, "runtime.local_validity",
-            ).await;
+            let mut reopened_validity =
+                reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity")
+                    .await;
             validity_rows.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
             reopened_validity.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
             assert_eq!(reopened_validity, validity_rows);
             let mut predictions = predictions;
             let mut reopened_observations = reopened_rows::<fit_observations::Row>(
-                &runtime, &result, "runtime.fit_observations",
-            ).await;
+                &runtime,
+                &result,
+                "runtime.fit_observations",
+            )
+            .await;
             predictions.sort_by_key(|row| (row.run_id, row.observation_id));
             reopened_observations.sort_by_key(|row| (row.run_id, row.observation_id));
             assert_eq!(reopened_observations, predictions);

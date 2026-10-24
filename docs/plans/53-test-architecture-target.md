@@ -95,9 +95,9 @@ This is the **single package progress owner**. P00 and A01–A04 are authorized;
 |---|---|---|---|
 | P00 | done | [Coordinator](#p00) | Accepted target published in blueprint §24.1, revision 260 and validation/environment guides; C02/C04/F behavior remains planned |
 | A01 | done | [53a](53a-scientific-assurance-and-references.md#a01) | Tested: independent status inventory and all three local comparison controls; nine selected native-local tests pass |
-| A02 | in-progress | [53a](53a-scientific-assurance-and-references.md#a02) | I01 resolved; regime/countercurrent/mixer witnesses, retained PID/nested-vapor evidence |
-| A03 | in-progress | [53a](53a-scientific-assurance-and-references.md#a03) | Integrated root/layout/curvature and exact/approximate nonlinear publication/readback |
-| A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent reference generators reproducible |
+| A02 | done | [53a](53a-scientific-assurance-and-references.md#a02) | Tested: nine-feed regime journey and wrong-regime controls; solved countercurrent and unequal-pressure mixer; current PID consumer qualification remains A04 |
+| A03 | done | [53a](53a-scientific-assurance-and-references.md#a03) | Tested: independent integrated PR root/layout/mixed Hessian and two-point exact/approximate nonlinear publication/readback |
+| A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent generators pass; PFR/controller assembled consumers retain failed/inconclusive acceptance below |
 | B01 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 resolved; narrow source helper and truthful observed reuse, duplicate copies deleted |
 | B02 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b02) | I04 resolved; typed reasons and valid/single-change origin controls across consumers |
 | B03 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; participation/support scopes and real lifetime evidence retained |
@@ -131,7 +131,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| I01 | resolved — implementation awaiting native acceptance | [A02](53a-scientific-assurance-and-references.md#a02) | Compute independent positive slack and propagated feasibility envelope for selected phase fixture; adopt concrete regime bound or choose a better away-transition case. Blocks that regime assertion, not historical policy or other cases. |
+| I01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | Compute independent positive slack and propagated feasibility envelope for selected phase fixture; adopt concrete regime bound or choose a better away-transition case. Blocks that regime assertion, not historical policy or other cases. |
 | I02 | resolved | [A04](53a-scientific-assurance-and-references.md#a04) | Locate/recover verifiable three generators or specify independent reduced equations/method/environment; reproduce references or explain reviewed discrepancy before golden migration. No production-output regeneration. |
 | I03 | open | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Determine whether existing semantic-body counters observe the asserted reuse invariant; select them or one private complete observer with cold/invalidation controls. Blocks observer migration only. |
 | I04 | open | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Enumerate consumed reasons/constructors/codec projections against §23.2; preserve code/declaration/location. Existing typed-source direction selected; any genuine incompatible promise needs a specific decision before incompatible migration. |
@@ -158,15 +158,15 @@ The source [review §4](../design_review/reviews/design_review_test-architecture
 
 ## Finding dispositions
 
-One primary work owner below coordinates contributors and closes only on actual evidence. All corrective rows are **scheduled**, not repaired. Disproved/superseded rows record the review's scoped diagnostic correction/withdrawal, not new implementation or portfolio-wide assurance. Each DTA link points to its original diagnostic home.
+One primary work owner below coordinates contributors and closes only on actual evidence. Corrective rows record their current scheduled or resolved scope; resolution requires the stated evidence. Disproved/superseded rows record the review's scoped diagnostic correction/withdrawal, not new implementation or portfolio-wide assurance. Each DTA link points to its original diagnostic home.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
 | [DTA-001](../design_review/test-audit/oracles-and-acceptance.md#dta-001) | S01 | disproved — examined reuse indictment | [A01](53a-scientific-assurance-and-references.md#a01) | Retain independent resolver/conversion/direct export and parity scale cancellation; no change in examined scope. Revisit only a concrete escaped policy/projection fault, not unexamined breadth. |
-| [DTA-002](../design_review/test-audit/oracles-and-acceptance.md#dta-002) | S01 | scheduled | [A02](53a-scientific-assurance-and-references.md#a02) | I01 justified phase/slack/feasibility bound plus wrong interior-regime control; historical policy and nested-vapor witness retained. |
-| [DTA-003](../design_review/test-audit/oracles-and-acceptance.md#dta-003) | S01 | scheduled | [A04](53a-scientific-assurance-and-references.md#a04) | All three committed independent generators reproduce declared consumed reference claims; discrepancies explained before updates. |
+| [DTA-002](../design_review/test-audit/oracles-and-acceptance.md#dta-002) | S01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | I01 justified phase/slack/feasibility bound plus wrong interior-regime control; historical policy and nested-vapor witness retained. |
+| [DTA-003](../design_review/test-audit/oracles-and-acceptance.md#dta-003) | S01 | resolved | [A04](53a-scientific-assurance-and-references.md#a04) | All three committed independent generators reproduce declared frozen claims, without golden migration. A04 retains separate failed/inconclusive production-consumer qualification. |
 | [DTA-004](../design_review/test-audit/oracles-and-acceptance.md#dta-004) | S05 | resolved | [A01](53a-scientific-assurance-and-references.md#a01) | Independent declared code/name/category/assurance inventory including limits/unknown; missing or misclassified declared arm fails. |
-| [DTA-005](../design_review/test-audit/oracles-and-acceptance.md#dta-005) | S01 | scheduled | [A03](53a-scientific-assurance-and-references.md#a03) | Integrated root/key/binding/mixed-second-order discriminator; retain independent primitive Hessians. |
+| [DTA-005](../design_review/test-audit/oracles-and-acceptance.md#dta-005) | S01 | resolved | [A03](53a-scientific-assurance-and-references.md#a03) | Integrated root/key/binding/mixed-second-order discriminator; retain independent primitive Hessians. |
 | [DTA-006](../design_review/test-audit/oracles-and-acceptance.md#dta-006) | S01 | scheduled | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Admitted valid origin-sensitive control then intended single-change typed refusal/declaration; unrelated missing-ID/context refusal fails. |
 | [DTA-007](../design_review/test-audit/oracles-and-acceptance.md#dta-007) | S01 | resolved | [A01](53a-scientific-assurance-and-references.md#a01) | Finite/extent/sample-time and meaningful wrong-result controls in all three helpers; distinct tolerance semantics retained. |
 | [DTA-008](../design_review/test-audit/doubles-and-coupling.md#dta-008) | S01 | superseded — withdrawn diagnosis | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Retain complementary static Ready and contextual readiness; no repair or blanket wrapper replacement. |
@@ -181,8 +181,8 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-017](../design_review/test-audit/evidence-routes-and-execution.md#dta-017) | S05 | scheduled | [C03](53c-invocation-requirements-and-outcomes.md#c03) | Installer/codegen/managed actual normal/build/dev target/host Arrow leaves verified; pure/unknown controls; stale metadata/check deleted. |
 | [DTA-018](../design_review/test-audit/execution-efficiency.md#dta-018) | S04 | scheduled | [B05](53b-test-helpers-inputs-and-fixtures.md#b05) | Remove concrete accidental durable consumers/repeated immutable preparation; preserve fresh DB/schema/identity/connections/drain, no blanket template. |
 | [DTA-019](../design_review/test-audit/evidence-routes-and-execution.md#dta-019) | S04 | scheduled | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Actual consumer inventory then unused doubles/helpers/devdeps deleted; fixture/capture and independent fault evidence retained. |
-| [DTA-020](../design_review/test-audit/oracles-and-acceptance.md#dta-020) | S01 | scheduled | [A03](53a-scientific-assurance-and-references.md#a03) | Nonlinear active-constraint sensitivity/value Hessian and covariance publication/readback: exact 1/7 vs GN 1/5, second point 1/25 vs 1/17. |
-| [DTA-021](../design_review/test-audit/oracles-and-acceptance.md#dta-021) | S01 | scheduled | [A02](53a-scientific-assurance-and-references.md#a02) | Solved countercurrent and unequal-pressure min-vs-max/mean cases; PID nonzero-Td dynamics retained and generator handled by A04. |
+| [DTA-020](../design_review/test-audit/oracles-and-acceptance.md#dta-020) | S01 | resolved | [A03](53a-scientific-assurance-and-references.md#a03) | Nonlinear active-constraint sensitivity/value Hessian and covariance publication/readback: exact 1/7 vs GN 1/5, second point 1/25 vs 1/17. |
+| [DTA-021](../design_review/test-audit/oracles-and-acceptance.md#dta-021) | S01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | Solved countercurrent and unequal-pressure min-vs-max/mean cases; PID nonzero-Td dynamics retained and generator handled by A04. |
 | [DTA-022](../design_review/test-audit/test-execution-system.md#dta-022) | S03, S05 | scheduled | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Single aliases/env/default/custom-config/profile/report/association interpretation; opaque arguments preserved, unsupported scope refuses. |
 | [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | S03 | scheduled | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual selected campaign-role correspondence catches lost member in nonempty union; obsolete recipe references removed. |
 | [DTA-024](../design_review/test-audit/test-execution-system.md#dta-024) | S05, S08 | scheduled | [D01](53d-build-discovery-and-generation.md#d01) | Existing tool identity extended to nextest; consumed selected package/fixture generation inputs included; Plan52 combo resume preserved. |
@@ -233,33 +233,112 @@ controls and independent references. Committed main changes will be merged at co
 return integration into main awaits maintainer go-ahead. Other Plan53 packages remain planned.
 
 
-### Current acceptance boundary
+### Current acceptance boundary — 2026-10-24
 
-**Implemented:** A01–A04 changes are committed in the isolated worktree. A01 replaces the
-obsolete fallback-only guard and weak comparator premises; A02 adds regime and solved-variant
-witnesses; A03 adds integrated PR and nonlinear sensitivity/covariance witnesses; A04 restores
-independent reduced-equation reference entrypoints without changing frozen goldens. Committed
-main was imported through `50789ad66` and then `616c787c9` at coherent integration checkpoints,
-preserving Plan52 work, including its frozen-supervisor authentication correction.
+**Implemented:** committed main is integrated through `338856873` (Plan52e closeout). P00
+publishes RC01/RC02 as accepted targets in blueprint §24.1/revision 260; it does not implement
+C02/C04/F01/F02. A01 replaces the fallback-only status guard and weak local comparator premises.
+A02 adds independent phase-regime and solved model-variant witnesses. A03 adds independent
+integrated PR curvature and nonlinear sensitivity/covariance publication/readback. A04 commits
+three independent reduced-equation generators and verifiable locators, preserving frozen goldens.
+The maintainer-selected functional store limit is permanently three; full per-store accounting,
+unknown-owner protection and the single timing-store slot remain in force.
 
-**Tested:** `just unit-native-capability-package pse-backend-native
-'pse-backend-native/highs,pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance'
-solver,klu,isolation,uno,petsc 'test(full_status_mapping_preserves_limits_and_ambiguity) | test(finite_bound_at_highs_infinity_threshold_is_rejected) | test(comparison_rejects_nonfinite) | test(row_comparison_rejects_missing) | test(trajectory_comparison_rejects_nonfinite) | test(projection_exact_rows_match_evaluator) | test(sdirk_matches_bdf_on_vessel)'
--p pse-math -p pse-runtime -p pse-tests-conformance` ran nine selected native-local tests with
-zero failures against baseline zero. `just plan53a-reference` passed PFR 7/7, controller 19/19
-and decay 25/25 reproduction checks; the isolated reference environment's
-`python -m unittest scripts.tests.test_scientific_references -v` passed four tests, baseline zero.
-The companion records exact conditions and the remaining assembled consumer acceptance.
+**Tested:** all 16 distinct selected native cases have passing results across focused runs,
+with zero failures in their final affected retries. This is cumulative targeted evidence, not a
+claim that one final invocation ran all 16 or that the repository passed. The nine native-local
+status/comparator/projection/dynamics controls, the phase wrong-case control, nine-feed phase
+journey, retained analytic sensitivity control, nonlinear sensitivity readback, nonlinear
+covariance readback, model-variant journey and integrated PR witness comprise that selection.
 
-**Not_run / blocked prerequisite:** native A02/A03 durable journeys have compiled, but the
-canonical observer refused the copied main service receipt before assertions. Its admitted
-Cargo configuration belongs to main, not this worktree. No scientific assertion result is
-inferred from that incomplete invocation. A separate worktree-context source server has now built successfully and its closed empty
-state is configured at `surreal-plan53a-20261023` on port 18253. On 2026-10-24, the maintainer authorized permanently raising functional store slots from two
-to three after main and Plan52 services occupied both prior slots. Four focused admission tests
-pass with baseline zero, retaining full per-store charges, unknown-owner protection, timeout and
-the unchanged timing-store limit. The isolated database is initialized; neither existing
-service is stopped or reconfigured. The validated native Python extension and current initializer
-are built; assembled scientific acceptance is the next step. A first preparation also correctly refused concurrent source
-mutation; subsequent preparation uses a frozen committed tree. Whole-repository checks,
-benchmark campaigns, installed parity and other Plan53 packages are outside this execution.
+The force-validated native command family is:
+
+```bash
+scripts/pse-env --recipe-default-class compile --native -- just unit-native-package pse-runtime \
+  'pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,pse-backend-native/highs' \
+  '<selected nextest filter>' -p pse-tests-conformance -p pse-backend-native -p pse-math
+```
+
+The final affected filters were
+`test(nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen)` and
+`test(nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen)` (both pass in the
+four-case correction run), `test(authored_countercurrent_and_unequal_pressure_variants)`
+(pass in the two-case assembly/variant run), and
+`test(integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle)` (final single-case
+retry passes). Their initial failing assertions were repaired rather than waived. Earlier
+native-local evidence used `just unit-native-capability-package pse-backend-native` with the
+same four package roots and `solver,klu,isolation,uno,petsc`; all nine selected controls passed.
+All commands use baseline zero and explicit Arrow force-validation.
+
+**Tested:** `just plan53a-reference`, in locked CPython 3.12.3 / NumPy 2.5.3 / SciPy 1.18.1,
+passes PFR 7/7, controller 19/19 and decay 25/25 checks. PFR and controller were refreshed after
+final authored input changes so their source hashes correspond. The isolated reference Python's
+`-m unittest scripts.tests.test_scientific_references -v` passes four controls. Focused Ruff and
+Pyrefly checks of the five new Python files passed. Four explicitly selected
+`scripts.tests.test_host_admission.HostAdmissionTests` cases pass after final main integration:
+`test_declared_store_slots_retain_each_memory_charge_and_original_timeout`,
+`test_unknown_store_owner_still_occupies_its_declared_slot`,
+`test_timing_store_retains_its_single_declared_slot`, and
+`test_store_slot_declarations_are_required_positive_integers`.
+
+**Tested — failed/inconclusive acceptance, baseline zero:**
+
+```bash
+scripts/pse-env --recipe-default-class compile -- just modeling-conformance \
+  --manifest packages/reference/conformance.toml --run seed \
+  --report-dir build/plan53a/reference-consumers-final \
+  --fixture f69eda83804949e8a35e9381e30c3fb9 \
+  --fixture 7b4665c39e1748cb91118b24f3638f64 \
+  --fixture ad7bac7b5fdd495a990a1bdcd920c35e
+```
+
+This selected native Python run reports 1,208 checks, three fixtures, `complete=False`,
+`coverage=selected`: integrated controller failed on `validation.invariant` (guard or numerical
+input absent from complete declared layout); simultaneous controller was inconclusive with
+`runtime.resource_limit` / `compiler.limit`; PFR was inconclusive with closure-layer
+`math.validity` refusals and a derivative check with 24 suspicious entries among 1,877
+comparisons (zero missing sparsity entries). The earlier four-consumer invocation passed decay fixture
+`f767847e54e547d396cf0190032aa9d4`; the unchanged decay consumer was not repeated.
+These results do not qualify the three remaining consumers, and generator reproduction does
+not erase them. Reports and diagnostic logs live under `build/plan53a/`; independent generation
+reports live under `build/plan53a-reference-results/`. They remain diagnostic producer artifacts.
+
+### Outcome and handoff — authorized slice
+
+**Implemented/Tested:** P00/A01/A02/A03 are complete within their named obligations. A04's
+reference-provenance repair is implemented and independently tested; A04 remains in progress
+because the selected production-consumer acceptance is not complete. Its next inquiry is to
+separate the declared-layout, compiler-resource and validity causes before selecting any
+runtime repair. The maintainer explicitly excludes whole-repository health repair from this
+integration request. No further scientific runtime changes, budget widening, tolerance relaxation
+or repeat campaign is inferred from these findings.
+
+Mistakes corrected include assuming every solved structural schedule has an outer Native
+outcome (native component reports precede original-space reconstruction), assuming selected row
+order is returned row order, querying undemanded path aliases, unordered durable-query comparison,
+and using loose-default root convergence for a known-point derivative comparison. The PR witness
+now uses its independently derived analytic root as a start while retaining actual runtime
+isolation, both identities, mixed lower-triangle assembly and caller coordinate permutations.
+The earlier arbitrary PFR reproduction precision was corrected to the maintainer-approved
+`1e-7 mol/m³` allowance; frozen values and tight cross-method agreement stay unchanged.
+
+Deliberate choices are the production lower-triangle convention, supported water-only new
+mixer/exchanger inputs with all original physical checks, exact source-record access for CSTR
+initial solvent density, and interior PFR temperature starts without fixing free states or
+widening validity. No compatibility helpers, shared tolerance framework, golden regeneration
+from production or alternate solver path was added. Replaced weak assertions and stale generator
+locator claims were deleted in their owning changes.
+
+The PR matrix witness does not qualify direct weighted-Hessian-action preparation or propagation
+of per-inner numerical requirements through Second-order provider preparation. Bounded inspection
+exposed limitations in those separate paths; neither was repaired or claimed as covered by this
+assembly witness. DTA-006 remains B02. Other Plan53 packages, all-model/platform/solver assurance,
+installed parity, benchmarks and whole-repository hygiene are **not_run / outside this request**.
+The parent and companion remain active; neither the review series nor the complete Plan53 target
+is declared finished. Main integration and owned-service shutdown do not change that boundary.
+
+The owned isolated service was quiesced and stopped with `stop --drained`; its final receipt
+reports `active=False`, `admission=quiesced`, `accepting_writes=False`. Existing main/Plan52
+services were untouched. Targeted reports are retained in the main checkout before removing
+the fully merged worktree. `just turn-end` passed ADR indexing and formatting; unrelated safe
+formatter changes were restored. This is process verification, not product qualification.
