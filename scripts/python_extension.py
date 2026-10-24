@@ -7,15 +7,145 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
+
+from scripts import arrow_validation
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
+    """Project supported PyO3 Maturin selections onto their Cargo library graph.
+
+    Maturin 1.15's configure_bin_lib_flags selects --lib for PyO3. A build
+    unit graph has the same dependency/feature closure as its cargo rustc call.
+    Packaging and interpreter options stay on the original installer command.
+    """
+    if command[1:2] not in (["develop"], ["build"]):
+        raise arrow_validation.ValidationError("expected Maturin develop or build")
+    config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["maturin"]
+    if config.get("bindings") != "pyo3":
+        raise arrow_validation.ValidationError("only the PyO3 library graph is supported")
+    manifest = config.get("manifest-path", "Cargo.toml")
+    if not isinstance(manifest, str):
+        raise arrow_validation.ValidationError("invalid Maturin manifest path")
+    cli_keys = {argument.split("=", 1)[0] for argument in command[2:]}
+    cargo = ["cargo", "build", "--lib"]
+    if not cli_keys & {"--manifest-path", "-m"}:
+        cargo.extend(["--manifest-path", manifest])
+    for key in ("features", "config", "unstable-flags"):
+        values = config.get(key, [])
+        if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+            raise arrow_validation.ValidationError(f"unsupported Maturin {key} selection")
+        for value in values:
+            cargo.extend([{"unstable-flags": "-Z"}.get(key, f"--{key}"), value])
+    for key in ("all-features", "no-default-features", "locked", "frozen"):
+        if config.get(key, False) and f"--{key}" not in cli_keys:
+            cargo.append(f"--{key}")
+    profile = config.get("profile", "release")
+    if command[1] == "develop":
+        profile = config.get("editable-profile", profile)
+    selected_profile = False
+    cargo_values = {
+        "--features", "-F", "--profile", "--target", "--target-dir",
+        "--manifest-path", "-m", "--config", "-Z", "--jobs", "-j",
+    }
+    cargo_flags = {
+        "--locked", "--frozen", "--offline", "--release", "-r",
+        "--all-features", "--no-default-features", "--quiet", "-q",
+        "--verbose", "-v", "-vv", "--future-incompat-report",
+    }
+    packaging_values = {
+        "--interpreter", "-i", "--out", "-o", "--compression-method",
+        "--compression-level",
+    }
+    packaging_flags = {
+        "--uv", "--skip-install", "--strip", "--compression-enable-large-file-support",
+    }
+    aliases = {"-m": "--manifest-path", "-r": "--release"}
+    index = 2
+    while index < len(command):
+        argument = command[index]
+        key, separator, value = argument.partition("=")
+        if key in cargo_values | packaging_values:
+            if not separator:
+                index += 1
+                if index == len(command):
+                    raise arrow_validation.ValidationError(f"missing value for {key}")
+                value = command[index]
+            if key in cargo_values:
+                if key in {"--manifest-path", "-m"} and (
+                    root / value
+                ).resolve() != (root / manifest).resolve():
+                    raise arrow_validation.ValidationError(
+                        "unsupported foreign Maturin project selection"
+                    )
+                cargo.extend([aliases.get(key, key), value])
+                selected_profile |= key == "--profile"
+        elif argument in cargo_flags:
+            cargo.append(aliases.get(argument, argument))
+            selected_profile |= argument in {"--release", "-r"}
+        elif argument not in packaging_flags:
+            raise arrow_validation.ValidationError(
+                f"unsupported Maturin scope option {argument}"
+            )
+        index += 1
+    if not selected_profile:
+        if not isinstance(profile, str):
+            raise arrow_validation.ValidationError("invalid Maturin profile")
+        cargo.extend(["--profile", profile])
+    return cargo
+
+
+def validated_maturin_command(
+    command: Sequence[str],
+    environment: Mapping[str, str],
+    *,
+    wrapper: Sequence[str] = (),
+) -> list[str]:
+    """Prove actual Arrow leaves before invoking the unchanged installer selection."""
+    cargo = maturin_cargo_command(command, ROOT)
+
+    def capture_graph(selected: Sequence[str]) -> bytes:
+        return capture_build_graph(selected, environment, wrapper=wrapper)
+
+    resolution = arrow_validation.resolve(cargo, run=capture_graph)
+    # resolve only appends opt-in features; keep Maturin's packaging options and
+    # selected interpreter, profile, manifest and features on the actual build.
+    return [*command, *resolution.command[len(cargo):]]
+
+
+def capture_build_graph(
+    command: Sequence[str],
+    environment: Mapping[str, str],
+    *,
+    wrapper: Sequence[str] = (),
+) -> bytes:
+    """Use the installer's checkout, environment and capability boundary for Cargo."""
+    selected = [*wrapper, *command]
+    response = subprocess.run(
+        selected, cwd=ROOT, env=environment, capture_output=True, check=False
+    )
+    if response.returncode:
+        raise arrow_validation.ValidationError(
+            f"{shlex.join(selected)} failed:\n{response.stderr.decode()}"
+        )
+    return response.stdout
+
+
+def maturin(command: Sequence[str]) -> int:
+    """Run an explicitly selected correctness installer through graph assurance."""
+    selected = validated_maturin_command(command, os.environ)
+    print("arrow-validation: " + shlex.join(selected), file=sys.stderr, flush=True)
+    return subprocess.call(selected, cwd=ROOT)
 
 
 def capture(
@@ -131,6 +261,16 @@ def sync(mode: str, profile: str = "dev") -> int:
         ],
     ]
     for command in commands:
+        if command[1:2] == ["develop"]:
+            command = validated_maturin_command(command, environment, wrapper=wrapper)
+        elif command[:2] == ["cargo", "run"]:
+            command[2:2] = ["--bin", "xtask"]
+            command = arrow_validation.resolve(
+                command,
+                run=lambda selected: capture_build_graph(
+                    selected, environment, wrapper=wrapper
+                ),
+            ).command
         result = subprocess.call([*wrapper, *command], cwd=ROOT, env=environment)
         if result:
             return result
@@ -214,6 +354,8 @@ def diagnostic_sync(mode: str = "dev") -> int:
         ],
     ]
     for command in commands:
+        if command[1:2] == ["build"]:
+            command = validated_maturin_command(command, environment)
         result = subprocess.call(command, cwd=ROOT, env=environment)
         if result:
             return result
@@ -241,6 +383,8 @@ def diagnostic_sync(mode: str = "dev") -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["maturin"]:
+        raise SystemExit(maturin(sys.argv[2:]))
     if len(sys.argv) == 3 and sys.argv[1] == "diagnostic-sync":
         raise SystemExit(diagnostic_sync(sys.argv[2]))
     if len(sys.argv) not in {3, 4} or sys.argv[1] != "sync":

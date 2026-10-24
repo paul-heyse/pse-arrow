@@ -491,8 +491,6 @@ codegen-units = 1
 
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
-# Passed to every test invocation by the justfile and CI; never a default feature.
-validate-features = ["pse-relations/force-validate"]
 unsafe-allowlist = [
   "xtask",              # ADR-0164: composition-owned worker deployment qualification.
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.

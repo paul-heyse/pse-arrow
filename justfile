@@ -370,49 +370,49 @@ register-lint:
 
 [group('local')]
 codegen-relations-check:
-    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
 
 [group('mutating')]
 [doc('Generate Rust contracts only, without physical fixtures or compiler workflows')]
 codegen-rust-contracts:
-    cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
 
 [group('local')]
 codegen-rust-contracts-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
 
 [group('mutating')]
 [doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen-physical:
-    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical
 
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen-physical-check:
-    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical --check
 
 [group('local')]
 codegen-python-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only python --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only python --check
 
 [group('local')]
 codegen-docs-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only docs --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs --check
 
 [group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
 codegen-surreal-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only surreal --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
 
 [group('local')]
 codegen-bindgen-check:
-    cargo run -p xtask --no-default-features --features native-abi --locked -- codegen --only bindgen --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features native-abi --locked -- codegen --only bindgen --check
 
 [group('local')]
 [doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
 codegen-schemas-check:
-    scripts/pse-env --native= -- cargo run -p xtask --no-default-features --features product-schemas,force-validate --locked -- codegen --only schemas --check
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features product-schemas,force-validate --locked -- codegen --only schemas --check
 
 [group('local')]
 [positional-arguments]
@@ -692,7 +692,7 @@ ci-fast:
 py-sync:
     uv sync --locked --no-install-project
     VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile dev --locked
-    cargo run -p xtask --no-default-features --locked -- python-stubs
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs
 
 [group('local')]
 [doc('Build the editable native solver workflow with its explicit linked library environment')]
@@ -700,7 +700,7 @@ py-sync:
 py-sync-native profile="dev":
     uv sync --locked --no-install-project
     VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features native-solvers
-    cargo run -p xtask --no-default-features --locked -- python-stubs
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs
 
 [group('local')]
 [doc('Build an explicitly force-validated Python extension for correctness; auto preserves the installed native/dev build selection')]
@@ -732,7 +732,7 @@ py-native-contracts:
 [doc('Generate or --check the actual compiled native Python API stub; run py-sync after Rust edits')]
 [positional-arguments]
 python-stubs *args:
-    scripts/pse-env --native -- cargo run -p xtask --no-default-features --locked -- python-stubs "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -908,7 +908,7 @@ parity *args:
     maturin="$(realpath "{{ bin / 'maturin' }}")"
     export UV_PROJECT_ENVIRONMENT=.venv-parity
     uv sync --locked --group parity --no-install-project --python 3.13
-    VIRTUAL_ENV="$PWD/.venv-parity" "$maturin" develop --uv --profile dev --locked --features force-validate,native-solvers
+    VIRTUAL_ENV="$PWD/.venv-parity" "{{ py }}" -m scripts.python_extension maturin "$maturin" develop --uv --profile dev --locked --features force-validate,native-solvers
     export PATH="$IPOPT_DIR/bin:$PATH"
     .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
 
@@ -1008,9 +1008,9 @@ fmt:
 codegen:
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
-    cargo run --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    cargo run --quiet -p xtask --no-default-features --locked -- codegen --only surreal
-    scripts/pse-env --native=compiler,solver -- cargo run --quiet -p xtask --features full-codegen,force-validate --locked -- codegen
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only surreal
+    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --features full-codegen,force-validate --locked -- codegen
 
 
 [group('mutating')]
@@ -1018,10 +1018,10 @@ codegen:
 [script]
 codegen-contracts:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    cargo run -p xtask --no-default-features --locked -- codegen --only python
-    cargo run -p xtask --no-default-features --locked -- codegen --only docs
-    cargo run -p xtask --no-default-features --locked -- codegen --only surreal
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only python
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
 
 [group('local')]
 [doc('Exercise pure candidate annotation checking and refusal of native codec execution')]
@@ -1232,7 +1232,7 @@ python-stubs-check:
         exit 125
     fi
     echo "python-stubs-check: compares python/pse/_native.pyi with the installed extension; rebuild it (just py-sync) if the Rust API changed since" >&2
-    exec scripts/pse-env --native -- cargo run -p xtask --no-default-features --locked -- python-stubs --check
+    exec scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs --check
 
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]
@@ -1244,7 +1244,7 @@ python-contracts-check:
 py-measure-force:
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
     cargo tree -p pse-py --locked --features force-validate -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/python-force-validation-features.txt"
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --skip-install --release --locked --features force-validate
+    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ py }}" -m scripts.python_extension maturin "{{ bin / 'maturin' }}" develop --skip-install --release --locked --features force-validate
 
 [group('local')]
 [doc('Build the production release Python extension without force validation in an isolated target')]

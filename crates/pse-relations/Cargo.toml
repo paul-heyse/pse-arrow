@@ -40,9 +40,8 @@ miette.workspace = true
 
 [features]
 # Arrow's full array validation, exposed so it can be switched on for tests and CI only
-# (blueprint §24.1 "Structural validity"). NEVER a default: every test invocation passes
-# `--features pse-relations/force-validate` explicitly, and
-# `[workspace.metadata.pse].validate-features` names it.
+# (blueprint §24.1 "Structural validity"). Never a default: correctness commands
+# resolve the selected Cargo closure and verify actual Arrow leaf activation.
 force-validate = [
   "arrow/force_validate",
   "arrow-array/force_validate",

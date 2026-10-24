@@ -10,12 +10,34 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import python_extension
+from scripts import arrow_validation, python_extension
+from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
+
+if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
 
 
 class PythonExtensionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(
+            patch.object(
+                python_extension,
+                "validated_maturin_command",
+                side_effect=lambda command, *_args, **_kwargs: list(command),
+            )
+        )
+        self.enterContext(
+            patch.object(
+                arrow_validation,
+                "resolve",
+                side_effect=lambda command, **_kwargs: SimpleNamespace(command=command),
+            )
+        )
+
     def test_diagnostic_wheel_preserves_large_full_debug_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -159,3 +181,166 @@ class PythonExtensionTests(unittest.TestCase):
         ) as run:
             self.assertEqual(python_extension.sync("dev"), 17)
         self.assertEqual(run.call_count, 2)
+
+
+class InstallerGraphTests(unittest.TestCase):
+    def cargo(self, *, validated: bool = True, host_validated: bool = True) -> Cargo:
+        return Cargo(
+            [
+                package("pse-py", "force-validate"),
+                package("arrow-array", "force_validate"),
+            ],
+            graph(
+                [
+                    unit("pse-py", [1, 2], target="_native"),
+                    unit("arrow-array", platform="target"),
+                    unit("arrow-array"),
+                ]
+            ),
+            graph(
+                [
+                    unit("pse-py", [1, 2], features=["force-validate"], target="_native"),
+                    unit(
+                        "arrow-array",
+                        features=["force_validate"] if validated else [],
+                        platform="target",
+                    ),
+                    unit(
+                        "arrow-array",
+                        features=["force_validate"] if host_validated else [],
+                    ),
+                ]
+            ),
+        )
+
+    def _graph_capture(self, cargo: Cargo) -> AbstractContextManager[object]:
+        return patch.object(
+            python_extension,
+            "capture_build_graph",
+            side_effect=lambda selected, *_args, **_kwargs: cargo(selected),
+        )
+
+    def test_installer_proves_target_and_host_leaves_and_preserves_selection(self) -> None:
+        for mode in ("dev", "native"):
+            with self.subTest(mode=mode):
+                command = python_extension.develop_command(
+                    python_extension.ROOT, mode, "producer"
+                )
+                cargo = self.cargo()
+                with self._graph_capture(cargo):
+                    actual = python_extension.validated_maturin_command(command, {})
+                self.assertEqual(actual, [*command, "--features", "pse-py/force-validate"])
+                selected = cargo.commands[1]
+                self.assertIn("--lib", selected)
+                self.assertEqual(
+                    selected[selected.index("--manifest-path") + 1],
+                    "crates/pse-py/Cargo.toml",
+                )
+                self.assertEqual(selected[selected.index("--profile") + 1], "producer")
+                self.assertEqual(selected.count("--locked"), 1)
+                self.assertEqual(
+                    selected[selected.index("--features") + 1],
+                    "force-validate,native-solvers" if mode == "native" else "force-validate",
+                )
+                self.assertFalse(any("pse-relations/" in argument for argument in actual))
+
+    def test_missing_target_or_host_validation_refuses_before_installation(self) -> None:
+        for target, host in ((False, True), (True, False)):
+            with self.subTest(target=target, host=host):
+                cargo = self.cargo(validated=target, host_validated=host)
+                with (
+                    self._graph_capture(cargo),
+                    patch.object(python_extension.subprocess, "call") as install,
+                    self.assertRaisesRegex(
+                        arrow_validation.ValidationError, "lacks force_validate"
+                    ),
+                ):
+                    python_extension.maturin(
+                        python_extension.develop_command(python_extension.ROOT, "dev", "dev")
+                    )
+                install.assert_not_called()
+
+    def test_uncovered_consumer_refuses_before_installation(self) -> None:
+        cargo = Cargo(
+            [package("pse-py"), package("arrow-array", "force_validate")],
+            graph([unit("pse-py", [1]), unit("arrow-array")]),
+        )
+        with (
+            self._graph_capture(cargo),
+            patch.object(python_extension.subprocess, "call") as install,
+            self.assertRaisesRegex(arrow_validation.ValidationError, "no explicit"),
+        ):
+            python_extension.maturin(["maturin", "develop", "--locked"])
+        install.assert_not_called()
+
+    def test_unknown_maturin_scope_refuses_before_graph_or_install(self) -> None:
+        for argument in ("--unknown-scope", "--manifest-path=other/Cargo.toml"):
+            with (
+                self.subTest(argument=argument),
+                patch.object(python_extension, "capture_build_graph") as capture,
+                patch.object(python_extension.subprocess, "call") as install,
+                self.assertRaises(arrow_validation.ValidationError),
+            ):
+                python_extension.maturin(["maturin", "develop", argument])
+            capture.assert_not_called()
+            install.assert_not_called()
+
+    def test_pure_installer_closure_adds_no_arrow_or_relation_target(self) -> None:
+        cargo = Cargo([package("pse-py")], graph([unit("pse-py", target="_native")]))
+        command = ["maturin", "develop", "--release", "--skip-install", "--locked"]
+        with self._graph_capture(cargo):
+            self.assertEqual(
+                python_extension.validated_maturin_command(command, {}), command
+            )
+        self.assertIn("--release", cargo.commands[1])
+        self.assertNotIn("--profile", cargo.commands[1])
+
+    def test_diagnostic_installer_keeps_profile_interpreter_and_packaging(self) -> None:
+        command = [
+            "maturin", "build", "--locked", "--profile", "diagnostic-taskdump",
+            "--interpreter", "selected/bin/python", "--features",
+            "force-validate,diagnostic-taskdump", "--compression-method", "stored",
+            "--compression-enable-large-file-support", "--out", "selected/wheels",
+        ]
+        cargo = self.cargo()
+        with self._graph_capture(cargo):
+            actual = python_extension.validated_maturin_command(command, {})
+        self.assertEqual(actual[:len(command)], command)
+        selected = cargo.commands[1]
+        self.assertEqual(selected[selected.index("--profile") + 1], "diagnostic-taskdump")
+        self.assertNotIn("--interpreter", selected)
+        self.assertNotIn("--compression-method", selected)
+
+    def test_graph_failure_stops_sync_before_build_and_stub_generation(self) -> None:
+        with (
+            patch.object(python_extension.subprocess, "call", return_value=0) as child,
+            patch.object(
+                python_extension,
+                "capture_build_graph",
+                side_effect=arrow_validation.ValidationError("uncovered"),
+            ),
+            self.assertRaisesRegex(arrow_validation.ValidationError, "uncovered"),
+        ):
+            python_extension.sync("dev")
+        self.assertEqual(child.call_count, 1)
+        self.assertEqual(child.call_args.args[0][-4:], [
+            "uv", "sync", "--locked", "--no-install-project"
+        ])
+
+    def test_graph_capture_uses_installers_checkout_environment_and_wrapper(self) -> None:
+        environment = {"PYO3_PYTHON": "selected interpreter"}
+        command = ["cargo", "build", "--lib"]
+        wrapper = ["scripts/pse-env", "--native=solver", "--"]
+        with patch.object(
+            python_extension.subprocess,
+            "run",
+            return_value=SimpleNamespace(returncode=0, stdout=b"graph"),
+        ) as run:
+            self.assertEqual(
+                python_extension.capture_build_graph(command, environment, wrapper=wrapper),
+                b"graph",
+            )
+        run.assert_called_once_with(
+            [*wrapper, *command], cwd=python_extension.ROOT, env=environment,
+            capture_output=True, check=False,
+        )

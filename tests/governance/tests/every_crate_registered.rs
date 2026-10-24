@@ -10,8 +10,7 @@
 
 //! Every crate directory is an actual Cargo workspace member; the declared members are
 //! exactly the packages Cargo resolves; every member inherits the workspace package
-//! metadata and lints; the feature that `[workspace.metadata.pse].validate-features` names
-//! actually exists.
+//! metadata and lints.
 //!
 //! Cargo owns workspace membership. A directory under `crates/` that Cargo does not build
 //! is a boundary nobody decided on (blueprint §24.1); adding or removing a crate is an ADR
@@ -157,53 +156,4 @@ fn every_member_inherits_workspace_metadata() {
         "manifest inheritance problems:\n  {}",
         problems.join("\n  ")
     );
-}
-
-#[test]
-fn validate_features_exist() {
-    let manifest = common::root_manifest();
-    let features = common::dig(
-        &manifest,
-        &["workspace", "metadata", "pse", "validate-features"],
-    )
-    .and_then(Value::as_array)
-    .expect("[workspace.metadata.pse] validate-features");
-    assert!(
-        !features.is_empty(),
-        "validate-features is empty: nothing would switch on Arrow's force_validate in CI \
-         (blueprint §24.1 \"Structural validity\")"
-    );
-
-    for entry in features {
-        let spec = entry
-            .as_str()
-            .expect("validate-features entries are strings");
-        let (package, feature) = spec
-            .split_once('/')
-            .unwrap_or_else(|| panic!("validate-features entry `{spec}` is not `package/feature`"));
-        let manifest_path = common::workspace_root()
-            .join("crates")
-            .join(package)
-            .join("Cargo.toml");
-        assert!(
-            manifest_path.is_file(),
-            "validate-features names `{package}`, which has no manifest at {}",
-            common::rel(&manifest_path)
-        );
-        let crate_manifest = common::parse_toml(&manifest_path);
-        let declared = common::dig(&crate_manifest, &["features", feature]).is_some();
-        assert!(
-            declared,
-            "{package}/Cargo.toml has no `[features] {feature}`, but \
-             [workspace.metadata.pse].validate-features names it"
-        );
-        let default = common::dig(&crate_manifest, &["features", "default"])
-            .and_then(Value::as_array)
-            .is_some_and(|d| d.iter().any(|v| v.as_str() == Some(feature)));
-        assert!(
-            !default,
-            "{package}/{feature} is a default feature. force_validate must be opt-in: every \
-             test invocation passes it explicitly so a release build never pays for it."
-        );
-    }
 }
