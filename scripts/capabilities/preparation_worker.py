@@ -29,7 +29,7 @@ def invoke(
     if operation == "stage":
         request = StageInvocation.model_validate_json(document)
         result = python_extension.run_stages(
-            request.stage, request.mode, request.profile, dict(os.environ),
+            request.stage, request.mode, request.profile, python_extension.bind_interpreter(os.environ),
             validated=request.validated, on_stage=on_stage,
         )
         return result.model_dump(mode="json")

@@ -380,7 +380,14 @@ def selected_environment(
     """Resolve the environment once through the existing checkout owner."""
     from scripts import pse_env  # noqa: PLC0415
 
-    result = pse_env.compose(ROOT, os.environ if environment is None else environment)
+    return bind_interpreter(pse_env.compose(ROOT, os.environ if environment is None else environment))
+
+
+def bind_interpreter(environment: Mapping[str, str]) -> dict[str, str]:
+    """Bind installer aliases in an already resolved checkout environment."""
+    from scripts import pse_env  # noqa: PLC0415
+
+    result = dict(environment)
     selected = pse_env.venv(ROOT, result).absolute()
     result.update(UV_PROJECT_ENVIRONMENT=str(selected), VIRTUAL_ENV=str(selected))
     return result

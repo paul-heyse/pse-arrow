@@ -91,7 +91,7 @@ class PreparationWorkerTests(unittest.TestCase):
             patch.object(python_extension, "run_stages", return_value=result) as stages,
             patch.object(python_extension, "launch") as launch,
             patch.object(python_extension, "selected_environment") as select,
-            patch.dict(os.environ, {"VIRTUAL_ENV": "/already/resolved"}),
+            patch.dict(os.environ, {"VIRTUAL_ENV": "/foreign", "UV_PROJECT_ENVIRONMENT": "/already/resolved"}),
         ):
             actual = preparation_worker.invoke("stage", preparation.StageInvocation(stage="prepare", mode="dev", profile="producer", validated=False).model_dump_json(), on_stage=callback)
         self.assertEqual(actual, result.model_dump(mode="json"))
@@ -100,6 +100,17 @@ class PreparationWorkerTests(unittest.TestCase):
         self.assertEqual(stages.call_args.args[3]["VIRTUAL_ENV"], "/already/resolved")
         self.assertIs(stages.call_args.kwargs["on_stage"], callback)
         launch.assert_not_called()
+        select.assert_not_called()
+
+    def test_stage_child_binds_missing_installer_alias_without_resolving_again(self) -> None:
+        with (
+            patch.dict(os.environ, {"UV_PROJECT_ENVIRONMENT": "/already/resolved"}, clear=True),
+            patch.object(python_extension, "run_stages", return_value=outcome("dev")) as stages,
+            patch.object(python_extension, "selected_environment") as select,
+        ):
+            preparation_worker.invoke("stage", preparation.StageInvocation(stage="prepare", mode="dev").model_dump_json())
+        self.assertEqual(stages.call_args.args[3]["VIRTUAL_ENV"], "/already/resolved")
+        self.assertEqual(stages.call_args.args[3]["UV_PROJECT_ENVIRONMENT"], "/already/resolved")
         select.assert_not_called()
 
     def test_worker_main_publishes_actual_stage_outcome_without_inventing_handle(self) -> None:
