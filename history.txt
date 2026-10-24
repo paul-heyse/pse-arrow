@@ -1,9 +1,4 @@
 #V2
-USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
-USE NS mx DB controls; CREATE ONLY mx_receipts:uncertain SET operation='fsync-control',value=44; CREATE ONLY mx_receipts:after_poison SET value=45;
-USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack); RETURN (SELECT operation,value FROM ONLY mx_receipts:uncertain);
-USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
-DEFINE NAMESPACE capacity; USE NS capacity; DEFINE DATABASE controls; USE DB controls; DEFINE TABLE payload SCHEMALESS; BEGIN TRANSACTION; FOR $i IN 0..128 { CREATE type::record('payload', $i) SET payload=string::repeat('a',262144) RETURN NONE; }; COMMIT TRANSACTION; RETURN count(SELECT id FROM payload);
 DEFINE NAMESPACE IF NOT EXISTS event_control; USE NS event_control DB event_control; DEFINE TABLE event_rows SCHEMALESS; DEFINE EVENT terminal_seed_immutable ON event_rows WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND $before.seed_manifest!=$after.seed_manifest THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; }; CREATE event_rows:a SET phase='terminal',seed_manifest='original',probe=0; CREATE event_rows:b SET phase='ingesting',probe=0;
 DEFINE NAMESPACE IF NOT EXISTS event_control; USE NS event_control DB event_control; UPDATE event_rows SET probe=1,seed_manifest='changed';
 DEFINE NAMESPACE IF NOT EXISTS event_control; USE NS event_control DB event_control; SELECT id,probe,seed_manifest FROM event_rows ORDER BY id;
@@ -99,3 +94,8 @@ USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
 USE NS mx DB controls; UPDATE ONLY mx_receipts:ack SET value=43; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
 USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
 DEFINE NAMESPACE capacity; USE NS capacity; DEFINE DATABASE controls; USE DB controls; DEFINE TABLE payload SCHEMALESS; BEGIN TRANSACTION; FOR $i IN 0..128 { CREATE type::record('payload', $i) SET payload=string::repeat('a',262144) RETURN NONE; }; COMMIT TRANSACTION; RETURN count(SELECT id FROM payload);
+RETURN true;
+DEFINE TABLE c1_overlap_problem SCHEMALESS; CREATE c1_overlap_problem:same_authored_name SET marker = "python:canonical_test_e1371feacda9414293ad7d76ba1a8f73";
+SELECT VALUE marker FROM c1_overlap_problem:same_authored_name;
+DEFINE TABLE c1_overlap_problem SCHEMALESS; CREATE c1_overlap_problem:same_authored_name SET marker = "python:canonical_test_6c8c0f2d03b346a48ae7b12b5beb8d24";
+SELECT VALUE marker FROM c1_overlap_problem:same_authored_name;

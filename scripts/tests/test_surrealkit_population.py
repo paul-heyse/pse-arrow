@@ -180,17 +180,19 @@ class PopulationTests(unittest.TestCase):
     def test_empty_mutation_acknowledgment_does_not_mark_drained(self) -> None:
         resource = tool.provision(self.state)
         original = self.sql
-        with patch.object(
-            resources,
-            "namespace_sql",
-            side_effect=lambda config, query, **kwargs: (
-                []
-                if query.startswith("BEGIN TRANSACTION")
-                else original(config, query, **kwargs)
+        with (
+            patch.object(
+                resources,
+                "namespace_sql",
+                side_effect=lambda config, query, **kwargs: (
+                    []
+                    if query.startswith("BEGIN TRANSACTION")
+                    else original(config, query, **kwargs)
+                ),
             ),
+            self.assertRaisesRegex(tool.ToolError, "acknowledgment unavailable"),
         ):
-            with self.assertRaisesRegex(tool.ToolError, "acknowledgment unavailable"):
-                tool.populate(resource)
+            tool.populate(resource)
         self.assertFalse(resources.resource_status(resource)["drained"])
 
     def test_failed_statement_preserves_private_complete_response_and_sql_identity(
@@ -203,19 +205,19 @@ class PopulationTests(unittest.TestCase):
             "Field revision: expected string",
             "The query was not executed",
         ]
-        with patch.object(
-            resources,
-            "namespace_sql",
-            side_effect=lambda config, query, **kwargs: (
-                response
-                if query.startswith("BEGIN TRANSACTION")
-                else original(config, query, **kwargs)
+        with (
+            patch.object(
+                resources,
+                "namespace_sql",
+                side_effect=lambda config, query, **kwargs: (
+                    response
+                    if query.startswith("BEGIN TRANSACTION")
+                    else original(config, query, **kwargs)
+                ),
             ),
+            self.assertRaisesRegex(tool.ToolError, "Field revision: expected string"),
         ):
-            with self.assertRaisesRegex(
-                tool.ToolError, "Field revision: expected string"
-            ):
-                tool.populate(resource)
+            tool.populate(resource)
         record = resources.resource_status(resource)
         artifacts = list(
             Path(str(record["directory"])).glob("population-response-*.json")
@@ -243,19 +245,21 @@ class PopulationTests(unittest.TestCase):
     ) -> None:
         resource = tool.provision(self.state)
         original = self.sql
-        with patch.object(
-            resources,
-            "namespace_sql",
-            side_effect=lambda config, query, **kwargs: (
-                [[{"key": "fixture_viewer_forbidden"}]]
-                if query.startswith(
-                    "SELECT * FROM canonical_projects:fixture_viewer_forbidden"
-                )
-                else original(config, query, **kwargs)
+        with (
+            patch.object(
+                resources,
+                "namespace_sql",
+                side_effect=lambda config, query, **kwargs: (
+                    [[{"key": "fixture_viewer_forbidden"}]]
+                    if query.startswith(
+                        "SELECT * FROM canonical_projects:fixture_viewer_forbidden"
+                    )
+                    else original(config, query, **kwargs)
+                ),
             ),
+            self.assertRaisesRegex(tool.ToolError, "write denial unproved"),
         ):
-            with self.assertRaisesRegex(tool.ToolError, "write denial unproved"):
-                tool.populate(resource)
+            tool.populate(resource)
         self.assertFalse(resources.resource_status(resource)["drained"])
 
     def test_empty_viewer_read_does_not_prove_read_permission(self) -> None:
@@ -269,17 +273,19 @@ class PopulationTests(unittest.TestCase):
     def test_wrong_ordered_index_answer_cannot_settle(self) -> None:
         resource = tool.provision(self.state)
         original = self.sql
-        with patch.object(
-            resources,
-            "namespace_sql",
-            side_effect=lambda config, query, **kwargs: (
-                [["12", "10", "6", "4"]]
-                if "WITH INDEX study_ready_candidates" in query
-                else original(config, query, **kwargs)
+        with (
+            patch.object(
+                resources,
+                "namespace_sql",
+                side_effect=lambda config, query, **kwargs: (
+                    [["12", "10", "6", "4"]]
+                    if "WITH INDEX study_ready_candidates" in query
+                    else original(config, query, **kwargs)
+                ),
             ),
+            self.assertRaisesRegex(tool.ToolError, "ordered answer differs"),
         ):
-            with self.assertRaisesRegex(tool.ToolError, "ordered answer differs"):
-                tool.populate(resource)
+            tool.populate(resource)
         self.assertFalse(resources.resource_status(resource)["drained"])
 
     def test_recovery_refuses_actual_service_or_secret_replacement_before_sql(
