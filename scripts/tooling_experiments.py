@@ -42,6 +42,9 @@ printf 'owned-output\\n' > /output/write-witness || exit 93
 printf 'namespace-established\\n' > /output/namespace-ready || exit 94
 exec /tool/surreal validate "$@"
 """
+LIBRARY_PARSER_LAUNCH = PARSER_LAUNCH.replace(
+    'exec /tool/surreal validate "$@"', 'exec /tool/parser surrealql-validate "$@"'
+)
 
 
 def capture(source: Path, target: Path, *, limit: int | None = None, check: Callable[[], None] | None = None) -> dict:
@@ -128,7 +131,7 @@ def dependencies(text: str, code: int) -> list[Path]:
 
 def namespace_command(
     bwrap: Path, tools: dict[str, Path], libraries: dict[Path, Path],
-    inputs: list[Path], witness: Path, output: Path,
+    inputs: list[Path], witness: Path, output: Path, *, library_parser: bool = False,
 ) -> list[str]:
     command = [
         str(bwrap), "--unshare-user", "--unshare-ipc", "--unshare-pid",
@@ -151,8 +154,40 @@ def namespace_command(
     command += ["--ro-bind", str(witness), "/inputs/readonly-witness"]
     return [
         *command, "--remount-ro", "/", "--chdir", "/output", "--",
-        "/tool/sh", "-c", PARSER_LAUNCH, "surrealql-validate", *selected,
+        "/tool/sh", "-c", LIBRARY_PARSER_LAUNCH if library_parser else PARSER_LAUNCH,
+        "surrealql-validate", *selected,
     ]
+
+
+def library_report(text: str, count: int, code: int) -> dict:
+    """Keep the selected binary's own metadata and per-file library errors."""
+    report = json.loads(text)
+    if not isinstance(report, dict) or report.get("schema") != "surrealql-validation-v1":
+        raise ValueError("selected parser did not return its structured validation report")
+    metadata = report.get("parser")
+    if not isinstance(metadata, dict) or (
+        metadata.get("library") != "surrealdb-syn"
+        or not isinstance(metadata.get("version"), str) or not metadata["version"]
+        or metadata.get("syntax_profile") != "all-features"
+        or metadata.get("scope") != "parse-only"
+    ):
+        raise ValueError("selected parser did not report the expected parse-only syntax profile")
+    files = report.get("files")
+    if not isinstance(files, list) or len(files) != count:
+        raise ValueError("selected parser file results do not match the captured input population")
+    for index, entry in enumerate(files):
+        if not isinstance(entry, dict) or entry.get("input") != f"/inputs/input-{index:03d}.surql" or not isinstance(entry.get("valid"), bool):
+            raise ValueError("selected parser file result has unknown correspondence")
+        error = entry.get("error")
+        if (entry["valid"] and error is not None) or (not entry["valid"] and (
+            not isinstance(error, dict) or error.get("kind") not in {"syntax", "input"}
+            or not isinstance(error.get("message"), str) or not error["message"]
+        )):
+            raise ValueError("selected parser did not preserve a per-file validation outcome")
+    valid = all(entry["valid"] for entry in files)
+    if report.get("valid") is not valid or code != int(not valid):
+        raise ValueError("selected parser terminal status contradicts its file outcomes")
+    return report
 
 
 def experiment(args: argparse.Namespace, result: dict, output: Path, work: Path, cancelled: list[int]) -> int:
@@ -168,15 +203,33 @@ def experiment(args: argparse.Namespace, result: dict, output: Path, work: Path,
             raise ValueError("original experiment deadline expired")
 
     check()
-    receipt_path, receipt = admitted_server(args.server_receipt)
-    result["server"] = {
-        "receipt": str(receipt_path), "receipt_sha256": surreal_source.digest(receipt_path),
-        "effective_key": receipt["effective_key"], "version": receipt["version"],
-        "binary_sha256": receipt["binary_sha256"],
-    }
-    captured_receipt = capture(receipt_path, output / "server-receipt.json", check=check)
-    if captured_receipt["sha256"] != result["server"]["receipt_sha256"] or json.loads((output / "server-receipt.json").read_text()) != receipt:
-        raise ValueError("admitted server receipt changed during capture")
+    expected_digest = None
+    if args.parser_binary is not None:
+        binary = args.parser_binary.resolve(strict=True)
+        if not binary.is_file() or not binary.stat().st_mode & 0o111:
+            raise ValueError("select an executable xtask built with surrealql-tools")
+        parser_tool = "parser"
+        result["parser"] = {
+            "selection": "library-parser", "binary": str(binary),
+            "syntax_profile": "all-features", "scope": "parse-only",
+        }
+    else:
+        receipt_path, receipt = admitted_server(args.server_receipt)
+        binary = Path(receipt["binary"])
+        expected_digest = receipt["binary_sha256"]
+        parser_tool = "surreal"
+        result["server"] = {
+            "receipt": str(receipt_path), "receipt_sha256": surreal_source.digest(receipt_path),
+            "effective_key": receipt["effective_key"], "version": receipt["version"],
+            "binary_sha256": expected_digest,
+        }
+        result["parser"] = {
+            "selection": "server-cli", "binary": str(binary), "scope": "parse-only",
+            "syntax_profile": "server-cli-experimental-grammar-disabled",
+        }
+        captured_receipt = capture(receipt_path, output / "server-receipt.json", check=check)
+        if captured_receipt["sha256"] != result["server"]["receipt_sha256"] or json.loads((output / "server-receipt.json").read_text()) != receipt:
+            raise ValueError("admitted server receipt changed during capture")
     bwrap_name = shutil.which("bwrap")
     if bwrap_name is None:
         raise ValueError("Bubblewrap 0.13.0 is unavailable; namespace probe refused")
@@ -210,13 +263,15 @@ def experiment(args: argparse.Namespace, result: dict, output: Path, work: Path,
         selected_inputs.append(target)
     tools = {}
     libraries = {}
-    for name, source in (("surreal", Path(receipt["binary"])), ("sh", Path("/bin/sh"))):
+    for name, source in ((parser_tool, binary), ("sh", Path("/bin/sh"))):
         source = source.resolve(strict=True)
         target = work / name
         observed = capture(source, target, check=check)
         target.chmod(0o500)
-        if name == "surreal" and observed["sha256"] != receipt["binary_sha256"]:
-            raise ValueError("admitted parser bytes changed during capture")
+        if name == parser_tool:
+            if expected_digest is not None and observed["sha256"] != expected_digest:
+                raise ValueError("admitted parser bytes changed during capture")
+            result["parser"]["binary_sha256"] = observed["sha256"]
         result["runtime"].append({"kind": name, **observed})
         tools[name] = target
         ldd = run(["/usr/bin/ldd", str(target)], f"{name}-runtime")
@@ -235,7 +290,7 @@ def experiment(args: argparse.Namespace, result: dict, output: Path, work: Path,
     witness.write_bytes(WITNESS)
     payload = output / "payload-output"
     payload.mkdir(mode=0o700)
-    observed = run(namespace_command(bwrap, tools, libraries, selected_inputs, witness, payload), "parser")
+    observed = run(namespace_command(bwrap, tools, libraries, selected_inputs, witness, payload, library_parser=args.parser_binary is not None), "parser")
     ready = payload / "namespace-ready"
     confined = ready.is_file() and ready.read_bytes() == b"namespace-established\n"
     result["confinement"] = {
@@ -250,6 +305,12 @@ def experiment(args: argparse.Namespace, result: dict, output: Path, work: Path,
     code = observed["exit_code"]
     if not isinstance(code, int) or not 0 <= code <= 255:
         raise ValueError("parser has no valid terminal exit status")
+    if args.parser_binary is not None:
+        if observed.get("truncated"):
+            raise ValueError("selected parser report exceeded the retained output bound")
+        report = library_report((output / "parser.stdout.txt").read_text(), len(selected_inputs), code)
+        result["parser"]["reported"] = report["parser"]
+        result["validation"] = report
     result["outcome"] = "valid" if code == 0 else "invalid"
     result["exit_code"] = code
     return code
@@ -260,7 +321,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("case", choices=("surrealql-validate",))
     parser.add_argument("--input", action="append", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--server-receipt", type=Path)
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--server-receipt", type=Path)
+    selection.add_argument("--parser-binary", type=Path, help="xtask built with surrealql-tools; select all optional grammar")
     parser.add_argument("--seconds", type=float, default=60)
     args = parser.parse_args(argv)
     if not math.isfinite(args.seconds) or not 0 < args.seconds <= 300 or len(args.input) > 32:
