@@ -309,12 +309,16 @@ def pytest_collection_modifyitems(
     return result
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_finish(session: pytest.Session) -> None:
     """Persist selected identities before execution when an assessment requests it.
 
     Args:
         session: The collected test session.
     """
+    # xdist's ordinary worker hook sends IDs immediately. Commit actual fixture
+    # requirements first so its controller can authenticate and seal that catalog
+    # before scheduling any test setup. Both paths use the original invocation.
     invocation_path = os.environ.get("PSE_TEST_INVOCATION")
     path = os.environ.get("PSE_TEST_ENUMERATION")
     if path:

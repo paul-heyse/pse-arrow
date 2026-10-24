@@ -512,13 +512,28 @@ def publish_python_requirements(
 ) -> None:
     """Actual fixture closure publishes demand before selected test execution."""
     record = read_invocation(path)
-    with storage().invocation_edit(record["nonce"]) as state:
+    store = storage()
+    if path.absolute() != store.path("invocations", record["nonce"]).absolute():
+        raise ResourceError(
+            "Python requirements invocation differs from its selected registry"
+        )
+    with store.invocation_edit(record["nonce"]) as state:
+        declaration = state["declaration"]
         if (
             state["phase"] != "open"
-            or state["declaration"] != record
-            or record["kind"] != "python"
+            or invocation_locator(declaration) != invocation_locator(record)
+            or declaration["kind"] != "python"
         ):
             raise ResourceError("Requirements require the open collected invocation")
+        # A controller can seal the catalogue after this worker authenticated
+        # its locator but before it acquired this exclusion. Use the current
+        # authoritative selection; late agreeing workers cannot enlarge it.
+        if state.get("collected") and not set(requirements).issubset(
+            item["name"] for item in declaration["selected"]
+        ):
+            raise ResourceError(
+                "Python requirements are outside the collected invocation"
+            )
         current = state.setdefault("requirements", {})
         for identity, requirement in requirements.items():
             if identity in current and current[identity] != requirement:
