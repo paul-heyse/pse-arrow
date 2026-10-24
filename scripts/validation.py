@@ -239,7 +239,7 @@ def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
         if scope is not None and path.is_symlink() and path.is_file():
             resolved = str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()
             result["resolved:" + name] = hashlib.sha256(resolved).hexdigest()
-    if scope is not None and includes_input(scope, "scripts"):
+    if scope is not None and includes_input(scope, ".envrc.local"):
         local = root / ".envrc.local"
         data = b"symlink:" + os.fsencode(local.readlink()) if local.is_symlink() else b"absent"
         if local.is_file():

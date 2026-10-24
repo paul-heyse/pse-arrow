@@ -693,19 +693,35 @@ ci-fast:
     python3 -m scripts.validation --group ci-fast
 
 [group('local')]
-[doc('Sync locked dependencies and rebuild the editable native extension with the dev profile')]
+[doc('Ensure dependencies, prepare the editable extension and stubs, then admit the actual import')]
 py-sync:
-    uv sync --locked --no-install-project
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile dev --locked
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs
+    "{{ py }}" -m scripts.python_extension sync dev dev --interactive
 
 [group('local')]
 [doc('Build the editable native solver workflow with its explicit linked library environment')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 py-sync-native profile="dev":
-    uv sync --locked --no-install-project
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features native-solvers
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs
+    "{{ py }}" -m scripts.python_extension sync native {{ quote(profile) }} --interactive
+
+[group('local')]
+[doc('Ensure locked dependencies in the selected Python environment without replacing its extension')]
+py-environment-ensure mode="dev":
+    "{{ py }}" -m scripts.python_extension environment {{ quote(mode) }}
+
+[group('local')]
+[doc('Prepare/install the selected correctness extension only when its supported inputs changed')]
+py-extension-prepare mode="auto" profile="dev":
+    "{{ py }}" -m scripts.python_extension prepare {{ quote(mode) }} {{ quote(profile) }}
+
+[group('local')]
+[doc('Prepare compiled API stubs independently of dependency sync and extension installation')]
+py-stubs-prepare mode="auto" profile="dev":
+    "{{ py }}" -m scripts.python_extension stubs {{ quote(mode) }} {{ quote(profile) }}
+
+[group('local')]
+[doc('Freshly admit the selected actual correctness import without preparing it')]
+py-extension-admit mode="auto":
+    "{{ py }}" -m scripts.python_extension admit {{ quote(mode) }}
 
 [group('local')]
 [doc('Build an explicitly force-validated Python extension for correctness; auto preserves the installed native/dev build selection')]

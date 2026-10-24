@@ -374,6 +374,24 @@ RUST_INPUTS = (
     "scripts",
 )
 INPUT_SCOPES = {
+    # Ordinary editable installation consumes Rust/package declarations, never
+    # arbitrary Python source bytes. Stub production has its own generator closure.
+    "python-extension": (
+        "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".python-version",
+        "pyproject.toml", "uv.lock", ".cargo", "crates", "vendor", "packages",
+        ".config/build.toml", ".config/sccache.toml",
+        "scripts/python_extension.py", "scripts/arrow_validation.py",
+        "scripts/pse_env.py", "scripts/build_environment.py",
+        "scripts/native_cache.py", "scripts/native_operation.py",
+    ),
+    "python-stubs": (
+        "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".python-version",
+        "pyproject.toml", "uv.lock", ".cargo", "crates", "xtask", "vendor",
+        ".config/build.toml", ".config/sccache.toml",
+        "scripts/python_extension.py", "scripts/arrow_validation.py",
+        "scripts/pse_env.py", "scripts/build_environment.py",
+        "scripts/native_cache.py", "scripts/native_operation.py",
+    ),
     "rust-product": RUST_INPUTS,
     "python-product": (
         *RUST_INPUTS,
@@ -510,7 +528,7 @@ INPUT_ENVIRONMENT = (
 def includes_input(scope: str | None, name: str) -> bool:
     """Select declared inputs before opening bytes; unknown scopes remain broad."""
     paths = INPUT_SCOPES.get(scope)
-    return paths is None or (name == ".envrc.local" and "scripts" in paths) or any(
+    return paths is None or (name == ".envrc.local" and any(prefix == "scripts" or prefix.startswith("scripts/") for prefix in paths)) or any(
         name == prefix
         or name.startswith(prefix + "/")
         or (prefix.startswith("scripts/") and name.startswith(prefix))

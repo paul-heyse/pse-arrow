@@ -241,7 +241,7 @@ def _families() -> tuple[_Family, ...]:
             "scripts/python_extension.py",
             "Select the actual development, correctness or linked native extension through the native build owner.",
             "Builds and installs an editable extension; correctness routes explicitly activate validation.",
-            recipes="py-sync py-sync-native py-sync-correctness py-sync-native-correctness",
+            recipes="py-sync py-sync-native py-sync-correctness py-sync-native-correctness py-environment-ensure py-extension-prepare py-stubs-prepare py-extension-admit",
             guides=("python", "environment"),
             route=("just", "py-sync"),
         ),

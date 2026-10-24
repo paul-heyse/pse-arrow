@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -96,6 +98,7 @@ class PythonExtensionTests(unittest.TestCase):
             report: dict[str, object] = {
                 "package": str(package / "__init__.py"),
                 "native": str(binary),
+                "prefix": str(root / ".venv"),
                 "features": ["force-validate"],
             }
             with (
@@ -150,37 +153,165 @@ class PythonExtensionTests(unittest.TestCase):
                 ):
                     python_extension.capture({})
 
-    def test_correctness_build_explicitly_selects_validation_and_profile(self) -> None:
-        for mode in ["dev", "native"]:
-            with (
-                self.subTest(mode=mode),
-                patch.object(
-                    python_extension.subprocess, "call", return_value=0
-                ) as run,
-            ):
-                self.assertEqual(python_extension.sync(mode, "producer"), 0)
-                commands = [call.args[0] for call in run.call_args_list]
-                self.assertEqual(len(commands), 3)
-                build = commands[1]
-                self.assertEqual(build[build.index("--profile") + 1], "producer")
-                self.assertEqual(
-                    build[build.index("--features") + 1],
-                    "force-validate,native-solvers"
-                    if mode == "native"
-                    else "force-validate",
-                )
-                self.assertEqual(
-                    any(argument.startswith("--native=") for argument in build),
-                    mode == "native",
-                )
-                self.assertEqual(commands[2][-1], "python-stubs")
+    def test_stage_composition_has_independent_operations_and_preserves_failures(self) -> None:
+        stages = ["environment_ensure", "extension_prepare", "stubs_prepare", "capture"]
+        for operation, expected in (("environment", ["environment_ensure"]), ("prepare", ["extension_prepare"]), ("stubs", ["stubs_prepare"]), ("stubs-check", ["stubs_prepare"]), ("admit", ["capture"]), ("sync", stages)):
+            events = []
+            with self.subTest(operation=operation):
+                for name in stages:
+                    self.enterContext(patch.object(python_extension, name, side_effect=lambda *_args, _name=name, **_kwargs: events.append(_name) or ({} if _name == "capture" else 0)))
+                self.assertEqual(python_extension.run_stages(operation, "dev", "producer", {}), 0)
+                self.assertEqual(events, expected)
+        with (
+            patch.object(python_extension, "environment_ensure", return_value=0),
+            patch.object(python_extension, "extension_prepare", return_value=17),
+            patch.object(python_extension, "stubs_prepare") as stubs,
+        ):
+            self.assertEqual(python_extension.run_stages("sync", "dev", "dev", {}), 17)
+            stubs.assert_not_called()
 
-    def test_failed_build_never_runs_following_steps(self) -> None:
-        with patch.object(
-            python_extension.subprocess, "call", side_effect=[0, 17]
-        ) as run:
-            self.assertEqual(python_extension.sync("dev"), 17)
-        self.assertEqual(run.call_count, 2)
+    def test_environment_check_preserves_the_separately_installed_project(self) -> None:
+        for statuses, count in (([0], 1), ([1, 0], 2), ([1, 17], 2)):
+            with patch.object(python_extension.subprocess, "call", side_effect=statuses) as run:
+                self.assertEqual(python_extension.environment_ensure({}), statuses[-1])
+            self.assertEqual(run.call_count, count)
+            for call in run.call_args_list:
+                self.assertIn("--inexact", call.args[0])
+                self.assertIn("--locked", call.args[0])
+                self.assertIn("--no-install-project", call.args[0])
+            self.assertIn("--check", run.call_args_list[0].args[0])
+
+    def test_selected_environment_is_shared_by_interpreter_maturin_and_launcher(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            selected = Path(directory) / "alternate"
+            environment = {"UV_PROJECT_ENVIRONMENT": str(selected), "VIRTUAL_ENV": str(selected)}
+            with (
+                patch("scripts.pse_env.compose", return_value=environment),
+                patch.object(python_extension.subprocess, "call", return_value=0) as run,
+            ):
+                self.assertEqual(python_extension.launch("sync", "native", "producer"), 0)
+            command = run.call_args.args[0]
+            self.assertIn(sys.executable, command)
+            self.assertFalse((selected / "bin/python").exists())
+            self.assertNotIn(str(selected / "bin/python"), command)
+            self.assertIn("--native=solver,klu,isolation,uno,petsc", command)
+            self.assertEqual(run.call_args.kwargs["env"], environment)
+            for validated in (True, False):
+                command = python_extension.develop_command(python_extension.ROOT, "native", "producer", environment=environment, validated=validated)
+                self.assertEqual(command[0], str(selected / "bin/maturin"))
+                self.assertEqual(command[command.index("--features") + 1], "force-validate,native-solvers" if validated else "native-solvers")
+
+
+class PreparationCurrencyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        import os
+        import sys
+        from scripts import native_tests
+
+        self.directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.root = Path(self.directory)
+        self.enterContext(patch.object(python_extension, "ROOT", self.root))
+        self.enterContext(patch.object(native_tests, "ROOT", self.root))
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / "pyproject.toml").write_text('[tool.maturin]\nbindings="pyo3"\nmanifest-path="crates/pse-py/Cargo.toml"\n')
+        for name, body in (("crates/pse-py/src/lib.rs", "module"), ("xtask/src/codegen/python_stubs.rs", "generator"), ("python/pse/module.py", "pure python")):
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body)
+        self.environment = {"UV_PROJECT_ENVIRONMENT": str(Path(sys.executable).parent.parent), "VIRTUAL_ENV": str(Path(sys.executable).parent.parent), "PATH": os.environ["PATH"]}
+        self.enterContext(patch.object(python_extension, "tool_identity", return_value={"tool": "selected"}))
+        self.enterContext(patch.object(python_extension, "capture", return_value={"binary": "/installed/native.so", "sha256": "installed-transformed-bytes", "features": ["force-validate"]}))
+        self.enterContext(patch.object(python_extension, "validated_maturin_command", side_effect=lambda command, *_args, **_kwargs: list(command)))
+        self.enterContext(patch.object(arrow_validation, "resolve", side_effect=lambda command, **_kwargs: SimpleNamespace(command=command)))
+
+    def inputs(self, stage="python-extension"):
+        return python_extension.preparation_inputs(stage, "dev", "dev", self.environment, validated=True)
+
+    def test_real_source_currency_separates_pure_python_stub_and_rust_inputs(self) -> None:
+        before = self.inputs()
+        stub_before = self.inputs("python-stubs")
+        (self.root / "python/pse/module.py").write_text("changed pure Python")
+        self.assertEqual(before, self.inputs())
+        self.assertEqual(stub_before, self.inputs("python-stubs"))
+        (self.root / "xtask/src/codegen/python_stubs.rs").write_text("changed generator")
+        self.assertEqual(before, self.inputs())
+        self.assertNotEqual(stub_before, self.inputs("python-stubs"))
+        (self.root / "crates/pse-py/src/lib.rs").write_text("changed Rust")
+        self.assertNotEqual(before, self.inputs())
+        previous = self.inputs()
+        added = self.root / "crates/pse-py/src/new.rs"
+        added.write_text("new member")
+        self.assertNotEqual(previous, self.inputs())
+        added.unlink()
+        self.assertEqual(previous, self.inputs())
+
+    def test_completed_install_receipt_skips_repeat_but_unknown_currency_prepares(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=0) as installer:
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(installer.call_count, 1)
+            (self.root / "python/pse/module.py").write_text("changed pure Python")
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(installer.call_count, 1)
+            (self.root / "crates/pse-py/src/lib.rs").write_text("changed Rust")
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(installer.call_count, 2)
+            with patch.object(python_extension, "preparation_inputs", return_value=None):
+                for _ in range(2):
+                    self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(installer.call_count, 4)
+
+    def test_configuration_tools_pyo3_and_installed_replacement_invalidate_currency(self) -> None:
+        before = self.inputs()
+        config = self.root / "pyo3.txt"
+        config.write_text("abi3=true")
+        self.environment["PYO3_CONFIG_FILE"] = str(config)
+        configured = self.inputs()
+        self.assertNotEqual(before, configured)
+        config.write_text("abi3=false")
+        self.assertNotEqual(configured, self.inputs())
+        with patch.object(python_extension, "tool_identity", return_value={"tool": "replaced"}):
+            self.assertNotEqual(before, self.inputs())
+        with patch.object(python_extension.subprocess, "call", return_value=0) as installer:
+            python_extension.extension_prepare("dev", "dev", self.environment)
+            with patch.object(python_extension, "capture", return_value={"binary": "/installed/native.so", "sha256": "replacement", "features": ["force-validate"]}):
+                python_extension.extension_prepare("dev", "dev", self.environment)
+            self.assertEqual(installer.call_count, 2)
+        self.environment["PYO3_CROSS_LIB_DIR"] = "/untracked/cross"
+        self.assertIsNone(self.inputs())
+
+    def test_native_currency_consumes_only_admitted_managed_generation_identities(self) -> None:
+        from scripts import native_operation
+        environment = dict(self.environment)
+        for name in ("IPOPT_DIR", "UNO_DIR", "PETSC_DIR", "PSE_ROOT_ISOLATION_DIR", "SUITESPARSE_LIBRARY_DIR"):
+            path = self.root / name
+            path.mkdir()
+            (path / ".complete.json").write_text('{"version":2}')
+            environment[name] = str(path / "lib" if name == "SUITESPARSE_LIBRARY_DIR" else path)
+        with patch.object(native_operation, "remembered", return_value={"managed": True, "identity": {"generation": "selected"}}):
+            first = python_extension.preparation_inputs("python-extension", "native", "dev", environment, validated=True)
+            self.assertIsNotNone(first)
+            (self.root / "IPOPT_DIR/.complete.json").write_text('{"version":2,"changed":true}')
+            self.assertNotEqual(first, python_extension.preparation_inputs("python-extension", "native", "dev", environment, validated=True))
+        with patch.object(native_operation, "remembered", return_value={"managed": False}):
+            self.assertIsNone(python_extension.preparation_inputs("python-extension", "native", "dev", environment, validated=True))
+
+    def test_stub_currency_binds_generator_binary_and_output_membership(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=0) as generator:
+            for _ in range(2):
+                self.assertEqual(python_extension.stubs_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(generator.call_count, 1)
+            (self.root / "xtask/src/codegen/python_stubs.rs").write_text("changed generator")
+            self.assertEqual(python_extension.stubs_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(generator.call_count, 2)
+            output = self.root / "docs/generated/source-relationships/native-stubs/extra.json"
+            output.parent.mkdir(parents=True)
+            output.write_text("extra")
+            self.assertEqual(python_extension.stubs_prepare("dev", "dev", self.environment), 0)
+            self.assertEqual(generator.call_count, 3)
+            self.assertEqual(python_extension.stubs_prepare("dev", "dev", self.environment, check=True), 0)
+            self.assertIn("--check", generator.call_args.args[0])
+
 
 
 class InstallerGraphTests(unittest.TestCase):
@@ -340,19 +471,15 @@ class InstallerGraphTests(unittest.TestCase):
     def test_graph_failure_stops_sync_before_build_and_stub_generation(self) -> None:
         with (
             patch.object(python_extension.subprocess, "call", return_value=0) as child,
-            patch.object(
-                python_extension,
-                "capture_build_graph",
-                side_effect=arrow_validation.ValidationError("uncovered"),
-            ),
+            patch.object(python_extension, "preparation_inputs", return_value=None),
+            patch.object(python_extension, "capture", side_effect=ValueError("absent")),
+            patch.object(python_extension, "capture_build_graph", side_effect=arrow_validation.ValidationError("uncovered")),
             self.assertRaisesRegex(arrow_validation.ValidationError, "uncovered"),
         ):
-            python_extension.sync("dev")
+            python_extension.run_stages("sync", "dev", "dev", {"VIRTUAL_ENV": str(python_extension.ROOT / ".venv")})
         self.assertEqual(child.call_count, 1)
-        self.assertEqual(
-            child.call_args.args[0][-4:],
-            ["uv", "sync", "--locked", "--no-install-project"],
-        )
+        self.assertEqual(child.call_args.args[0][:2], ["uv", "sync"])
+        self.assertIn("--check", child.call_args.args[0])
 
     def test_graph_capture_uses_installers_checkout_environment_and_wrapper(
         self,
