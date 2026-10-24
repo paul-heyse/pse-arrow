@@ -127,6 +127,11 @@ daemon environment, and nested recipes, language servers, installer contexts and
 measurements retain it. The resident daemon has an 8 GiB supervised memory allowance.
 Neither ceiling is a standing memory allocation; actual large transfers consume buffers.
 The 100 GiB disk budget and default compression remain unchanged.
+Raising the frame ceiling does not enlarge existing entries. Newly accepted large entries
+incur actual IPC and storage work on publication; later restoration can avoid compilation.
+Adoption follows the demonstrated publication/restoration repair, without an end-to-end
+speedup claim. A performance campaign is needed only to make that quantitative claim or
+settle an actual configuration tradeoff.
 
 The upstream default 8 MiB frame can silently reject large client-side publications
 and lose the associated statistics. A zero error/miss counter therefore does not prove

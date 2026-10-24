@@ -131,6 +131,14 @@ comparative timings without overlapping heavy owned work and describe unavoidabl
 competition. Existing admission/reference allocations govern timing isolation; do not add a
 second concurrency governor. Relative results within noise remain inconclusive, not gains.
 
+**Maintainer scope amendment — 2026-10-24:** skip the final comparative performance
+campaign. Its remaining purpose was speed quantification; no implementation/adoption decision
+depended on it. Existing real correctness, invalidation, publication/recovery and consumer
+controls remain required. Retain their evidence and the actual completed reference observations;
+do not substitute a small benchmark or claim an unmeasured end-to-end speedup. The configured
+50 GiB measurement guard remains unchanged, and original-checkout artifact cleanup is not
+authorized or needed for this amendment.
+
 Report complete wall time and preparation/build/install/execution costs relevant to each
 claim, with attributable eligible hits/misses, non-cacheable activity and cache errors.
 Cargo --timings unit durations show elapsed compiler-invocation intervals and critical-path
@@ -199,10 +207,27 @@ passed. The analyzer adapter's unsupported check.enable key was corrected to che
 its actual saved-document control now emits no flycheck while retaining compile-time deps.
 Analyzer stderr startup/cycle/slow-loop warnings remain explicitly outside a clean-editor claim.
 
-The first hygiene pass found 15 Python lint findings; repairs passed the affected 90 host
-controls and just lint-py. Remaining hygiene gates continue, including compiled generation,
-Clippy and rustdoc. Existing remaining doctests passed. Interactive/correctness Python,
-native/feature qualification, the final uncontended matched campaign and final publication
-remain active obligations. An initial docs attempt exhausted light admission; retry after
+The first hygiene pass found 15 Python lint findings and a stale generated capability
+reference. The lint repairs passed the affected 90 host controls and just lint-py; just codegen
+regenerated the reference and the full governance bundle passed. All other hygiene leaves,
+including Clippy and rustdoc, passed. Remaining real doctests and repaired native contract
+compilation passed. Interactive and correctness dev Python installation/stubs/import admission
+passed, but the subsequent full dev unit run failed: 218 passed and 31 failed against zero.
+Fourteen cases require linked native features; 17 concern separate mock-effect, protected
+diagnostic and parity-fixture contracts. Independent triage found no stale-extension evidence.
+The native correctness extension subsequently built, generated stubs and passed import
+admission with force-validate/native-solvers/solver-highs. Its full unit run had 232 passes
+and the same 17 separate contract/fixture failures; all 14 native-required cases passed.
+Neither full Python run is a zero-failure qualification. The managed native CMake launcher
+and exact selected-Clang resource argument now have explicit closed-context support and
+actual compiler-context capture passed; arbitrary external programs/flags still refuse.
+Feature qualification is running under the repaired context. The final analyzer reload,
+navigation and no-flycheck save controls passed with the declared frame environment.
+
+The maintainer skipped the final matched performance campaign: it would quantify speedup
+without deciding adoption. No smaller benchmark or original-checkout artifact cleanup will
+be substituted. The dry-run-only inventory identified 16.6 GiB of pse-py artifacts; these and
+the separately installed native extension remain intact. Final publication and completed
+feature qualification remain active obligations. An initial docs attempt exhausted light admission; retry after
 an authenticated idle superseded daemon stopped passed, publishing 654 chapters.
 No unrelated worktree, source, cache or running compiler was stopped.

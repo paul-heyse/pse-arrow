@@ -150,8 +150,8 @@ retain their original scope; CB08–CB10 are additions from this engagement.
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
 | I01 | closed | 54c C01 | 16 real controls establish supported reuse and correct misses; no remapping adoption; F01 remains externally limited |
-| I02 | open | 54c C03 | Attribution of cache errors/eviction and complete lookup/restore versus compile costs after fragmentation fixes |
-| I03 | open | 54c C04 | Expensive host/target/profile variants, incremental tradeoffs and binary-owned work; select a bounded improvement or retain current design |
+| I02 | closed | 54c C03 | Oversized client-side publication attributed and repaired; 100 GiB/default compression retained; maintainer skipped final speed quantification because adoption was already settled |
+| I03 | closed | 54c C04 | Direct compiler-producing entries now select compile placement before allocation; retain current xtask/features/incremental design, with isolated hotspot profiling triggered by repeated workflow dominance |
 | I04 | closed | 54c C05 | Retain managed disk/local execution and CLI boundaries; concrete storage, supervision and consumer revisit triggers in 54c |
 
 An inquiry closes with a supported choice, retained limitation or evidence-based no-change

@@ -194,8 +194,8 @@ checklist or inventing mandatory infrastructure to complete this package.
 |---|---|---|---|
 | C01 | complete | 54c | Supported relocation scope and discriminating safety/reuse decision |
 | C02 | complete (not adopted) | 54c | Qualified adoption, or explicit no-adoption/deferral preserving F01's limit |
-| C03 | in progress | 54c | Capacity/cost/error decision; selected local changes qualified in D02 |
-| C04 | in progress | 54c | Unit/critical-path/non-cacheable-work decision with bounded next work |
+| C03 | complete | 54c | Large-entry publication repaired and behaviorally compared; retain capacity/compression; end-to-end timing skipped by maintainer |
+| C04 | complete | 54c | Compile placement corrected; current xtask/features/incremental design retained with a concrete profiling trigger |
 | C05 | complete | 54c | Wider-capability disposition for the selected host without assumed deployment |
 
 Acceptance clauses above describe the planned controls; the checkpoint below records current execution. Inquiry outcomes update their coordinator owner;
@@ -225,8 +225,11 @@ confirmed failure and successful publication/hits with a larger bound. The maint
 authorized raising it; selected implementation is a declared 256 MiB frame, caller override,
 daemon generation identity and an 8 GiB resident-cache budget. This ceiling is per message,
 not a standing allocation. Integrated managed acceptance passed: actual daemon frame/budget, miss/publication/hit,
-linked full-payload correctness and a distinct override generation. Comparative benefit
-remains pending D02.
+linked full-payload correctness and a distinct override generation. The maintainer explicitly
+skipped the final performance campaign because no remaining adoption decision depended on
+quantifying its speedup. The decision rests on supported codec behavior, observed rejection
+at the old bound and correct publication/restoration at the new bound. This establishes the
+functional benefit, without an end-to-end timing claim.
 Capacity stays 100 GiB and compression stays default level 3 unless subsequent evidence
 shows eviction or material encoding/extraction cost; private campaign capacity was not pressured.
 C04 identified a second concrete avoidable cost: direct doctest, family-check and Python
@@ -235,5 +238,19 @@ doctest entered a four-CPU functional allocation before its inner compiler launc
 producer hints now apply before allocation, preserving caller overrides and scientific
 execution ownership. Forty-one environment precedence controls passed. The corrected
 expensive-work attribution does not treat lost statistics as proof that Symbolica was a hit.
-Existing xtask tool features remain selected; scope-end full-codegen and consumer checks
-are still running before final inquiry closure.
+Existing xtask targets, tool features and incremental policy remain selected. Its default
+feature set is empty; native ABI, physical admission, product schemas, canonical/evidence/
+project tools, scientific oracles and worker binaries are explicitly gated. Substantial
+generation implementation already lives in libraries. Completed warm publication used
+0.51/0.26/0.60-second Cargo invocation intervals; the governance full-codegen recheck took
+11.3 seconds overall with a 0.31-second Cargo invocation. These show warm artifact reuse,
+not extraction savings. The earlier 687-second check included artifact-lock contention and
+broad dependency rebuilding; the compiler reference contains no xtask unit. The interrupted
+profiling attempt and rejected timing-flag invocation establish no cost observation.
+
+No evidence identifies binary-owned xtask work as a material remaining critical path, so
+another extraction is not justified. Revisit if repeated normal tooling edits or artifact
+recovery show its compilation/linking dominating a relevant workflow after dependencies
+are fresh and the narrowest valid features are selected. Capture isolated complete wall/CPU
+and unit timings, identify the actual hotspot and compare a focused extraction with existing
+incremental reuse. Preserve full-codegen's required schema/physical/native execution scope.

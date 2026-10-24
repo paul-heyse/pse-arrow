@@ -173,8 +173,18 @@ remain readable with the default bound. See exact
 
 The original reference's absent Symbolica cache entry and near-8-MiB largest entries
 therefore require caution: its recovery is not an all-eligible-hit result, despite zero
-reported misses/errors. Final joined measurements must use the admitted larger frame
-configuration and inspect publication as well as aggregate statistics.
+reported misses/errors. Any future comparative campaign must use the admitted larger frame
+configuration and inspect publication as well as aggregate statistics. The maintainer
+skipped the final performance campaign: adoption was settled by the mechanism and real
+behavioral controls, so there is no measured end-to-end speedup claim.
+
+**Interface-checked:** the
+[tokio-util 0.7.18 decoder](https://docs.rs/tokio-util/0.7.18/src/tokio_util/codec/length_delimited.rs.html)
+checks the announced length against the ceiling and reserves the actual required frame
+length. Increasing the ceiling does not reserve that maximum or increase existing entry
+sizes. Newly accepted large transfers incur actual buffer and transfer/storage costs; this
+does not establish their workflow speedup. The selected bound repairs a demonstrated
+publication failure without requiring that quantitative speed claim.
 
 **Tested, integrated managed route:** the actual scripts/sccache wrapper admitted a daemon
 with frame 268435456 in both its descriptor and `/proc` environment, and systemd MemoryMax
