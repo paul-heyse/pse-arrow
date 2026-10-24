@@ -127,13 +127,20 @@ provided to manufacture those combinations.
 Canonical API tests run independently of the opt-in operator graph/query cases. The internal
 `scripts.tests.canonical_boundary_run operator DIRECTORY --executor EXECUTABLE` route selects
 both operator roles and captures the executor before another Cargo feature build can replace
-its alias. A selected missing prerequisite fails. Its `restart DIRECTORY --executor EXECUTABLE`
-route runs under `scripts/pse-env --native=solver`: the parent needs runtime libraries, while
-Rust preparation selects its native compiler environment locally. The external server must already be installed: setup reuses its package receipt independently
+its alias. A selected missing prerequisite fails. Its `restart DIRECTORY [--executor EXECUTABLE]`
+route runs under `scripts/pse-env --resource-class build --native=solver`: the parent needs runtime
+libraries and admits compilation before service creation. By default, the existing correctness-aware
+Cargo owner prepares the canonical-tools initializer and returns its actual executable artifact;
+missing cleaned build output therefore triggers preparation. An explicit executor must already
+exist and pass initializer validation, with no fallback to another artifact. The initializer is
+frozen before subsequent feature builds can replace a target alias. Rust preparation selects its
+native compiler environment locally. The external server must already be installed: setup reuses its package receipt independently
 of the parent's compiler or loader context and never implicitly compiles it. Restart owns a fresh nonresident service, observes a real
 outage and new server invocation, joins the distinct authentic Rust result, and drains/stops
 only its own service. The context-overlap driver likewise selects its actual pytest component
-peer and requires the cross-language role on each side. These controls share the existing
+peer and requires the cross-language role on each side. Prepare and execute that driver inside
+one admitted observer lifetime, preserving its captured environment; its Python peer uses fresh
+driver-owned pytest scratch. These controls share the existing
 invocation/resource/result registry; their mutable service or database isolation is not a
 second evidence authority.
 

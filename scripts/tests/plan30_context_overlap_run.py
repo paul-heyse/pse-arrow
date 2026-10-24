@@ -154,6 +154,8 @@ def main() -> int:
                 "-m",
                 "pytest",
                 str(ROOT / "scripts/tests/test_plan30_context_overlap.py"),
+                "--basetemp",
+                str(directory / "python-tmp"),
                 "-m",
                 "component",
                 "-n",

@@ -5,8 +5,8 @@ and DTA-001–DTA-048 from the holistic test-architecture review, including scop
 and withdrawn diagnoses. Its seven companions develop scientific assurance, helpers/inputs,
 invocation/outcomes, build/generation, resource/evidence lifetimes, scheduling and assembled
 qualification. The coordinator owns progress, authorizations, inquiries and accepted RC01/RC02;
-its execution checkpoints link the selected P00/A/B/C delivery, targeted acceptance and remaining
-series work. The [remaining-architecture amendments](53-test-architecture-target.md#remaining-architecture-amendment-integration--2026-10-24)
+its execution outcomes link implemented changes, targeted acceptance and remaining series work.
+The [remaining-architecture amendments](53-test-architecture-target.md#remaining-architecture-amendment-integration--2026-10-24)
 integrate PI01–PI10 from the 2026-10-24 improvement review into the existing owners, with completed
 52k as the execution baseline. [52f F03](52f-evidence-analysis-and-trace-correlation.md#F03)
 retains PI09 as separately selectable optional work; it does not block original Plan53 completion.

@@ -632,6 +632,17 @@ def _fixture_binary(
     return binary
 
 
+def canonical_tools_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
+    return _fixture_binary(
+        extra,
+        environment,
+        target="xtask",
+        variable="PSE_CANONICAL_TOOLS",
+        features="canonical-tools",
+        role="canonical initializer",
+    )
+
+
 def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
     return _fixture_binary(
         extra,
