@@ -1,6 +1,6 @@
 ---
 title: "Plan 52b: Local knowledge and research"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: [ADR-0222]
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -198,8 +198,9 @@ only when repeated consumers justify a shared process. Avoid duplicate model loa
 Compare real concept/code/prose questions with the lexical baseline, including misleading old
 material and exact-symbol queries. Selection requires useful retrieved evidence, correct source
 attribution, free local operation and a manageable lifecycle. No arbitrary numeric ranking gate
-or new paid evaluation API. If not worthwhile, record lexical-only delivery and revisit when a
-specific concept-retrieval miss persists. A positive selection includes actual B04 integration,
+or new paid evaluation API. If not worthwhile, retain source-backed structured access with
+lexical discovery; investigate domain/relationship/query coverage first when an answer is missing.
+A positive selection includes actual B04 integration,
 model/index identity, changed-source invalidation and unload/stop behavior; a running model alone
 is not a delivered retrieval workflow. Similarity or generated summaries never establish truth.
 
@@ -218,8 +219,8 @@ no query/index success qualifies scientific results or authorizes following hist
 ## Selected host execution and inquiry outcome
 
 **Implemented and Tested (2026-10-23):** B01 source-only lexical access, B02 activity-based
-resumable recall, B03 exact-version packets and B05's bounded decision are delivered. Native B04
-remains in integration at the coordinator.
+resumable recall, B03 exact-version packets and B05's bounded decision are delivered. At this initial host checkpoint, native B04 remained in integration;
+its final selected acceptance is recorded below.
 
 The selected host command
 `scripts/pse-env --resource-class light -- python -m unittest scripts.tests.test_workspace_sources scripts.tests.test_workspace_tasks scripts.tests.test_workspace_context scripts.tests.test_session_retrospective scripts.tests.test_knowledge_store scripts.tests.test_semantic_retrieval scripts.tests.test_semantic_navigation scripts.tests.test_semantic_edits scripts.tests.test_evidence_store scripts.tests.test_setup scripts.tests.test_docs`
@@ -267,7 +268,7 @@ implementation backlog. This outcome does not establish that those mechanisms la
 ### Structured pivot checkpoint
 
 The earlier host/lexical and model comparison evidence above retains its original population.
-It does not close the subsequent structured-query pivot. A01/A02/A05/B01/B04 are in progress for
+It does not close the subsequent structured-query pivot. At this pivot checkpoint, A01/A02/A05/B01/B04 were in progress for
 exact owner-native selectors, interpreted inherited metadata, typed concept/production projection
 and their actual consumers. The requested SurrealDB/tooling/SurrealKV capability review informs
 the physical realization before it is finalized. Source identity, atomic activation, exact replay
@@ -300,5 +301,72 @@ capabilities, not available through that selected adapter. No SurrealKV store or
 selected: temporal storage would still not replace owner source versions and exact corpus membership.
 The exact temporal API comparison uses the
 [SurrealKV1.0 transaction source](https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/transaction.rs).
-Runtime assertions, structured/empty/paginated queries and bound plans remain to be exercised on
-the custom server; this source review establishes no measured performance or native qualification.
+At this source-review boundary, runtime assertions, structured/empty/paginated queries and bound
+plans still required custom-server checks. The runtime outcome below settles those obligations;
+this source review alone establishes no measured performance or native qualification.
+
+## Structured execution outcome
+
+**Implemented and Tested (2026-10-23):** B01/B04 now deliver exact owner-native source adapters
+and the v2 Surreal projection, with lexical filtering secondary and no model/index pipeline.
+The earlier checkpoint and source-review statements above retain their pre-integration scope;
+the runtime obligations they identify are settled by the following selected checks.
+
+`scripts/pse-env --resource-class build --store -- python -m scripts.arrow_validation nextest run -p pse-operations --lib --features canonical-tests --locked -E 'test(knowledge_) | test(evidence_native_scoped_roles_complete_generation_and_cursor_fences)'`
+passed3 tests,353 skipped, against the zero-failure baseline. The route explicitly activated
+`pse-operations/force-validate`. The authenticated custom SurrealDB3.3.4/MX1.0 server fixture
+exercised closed kinds/roles, dangling/wrong-kind/cross-cut references, omitted/wrong physical
+aliases, source-attributed topics/excerpts, reader restrictions, staged invisibility, interruption,
+CAS, lost acknowledgements, exact active replay/corruption refusal, no rewind, cursor fences and
+knowledge reset preserving original files and the independent evidence pointer. It included the
+two-declarations/shared-generator counterexample and optional text within an exact subject population.
+
+The structured host command recorded in [52a's outcome](52a-context-navigation-and-semantic-editing.md#targeted-execution-outcome)
+passed145 tests. The explicit service-selection recovery change also passed
+`scripts/pse-env --resource-class light -- python -m unittest scripts.tests.test_evidence_store`
+(15 tests, zero failures). Source changes, missing files, exact later section ranges, policy drift,
+cross-document status owners, partial discovery, producer-row drift and source-only operation are
+covered. These are bounded host/native controls, not assembled Plan52 qualification.
+
+Actual CLI consumers imported ADR-0222 with an explicitly agent-attributed research question and
+an authentic `assessment-v5` doctor reference. The decision stayed proposed/Reference. An `answers`
+edge reached that original member; the old assessment remained historical evidence, not current
+installation proof or automatic qualification association. A zero-hit query retained all six
+source carriers, external references stayed unread, and a one-item page continued on its exact cut.
+Import replay did not inflate membership. A later exact FrozenInspectionRequest production cut
+contained six declared input/output records across four outputs; replaying the earlier corpus did
+not rewind the active pointer. Optional text filtering, knowledge-only reset, empty status, explicit
+reimport and §20.5 source-only access with an unavailable database path all passed.
+
+Actual EXPLAIN returned `knowledge_subject_selection` IndexScan for the generation/kind prefix
+with native-ID filtering, followed by finite page sorting over the selected population. Production
+plans were also captured. This establishes the observed access paths, not a measured speed or
+scaling benefit; a result LIMIT alone is not an examined-work guarantee.
+
+Full generation and the final Surreal-only regeneration passed. The refreshed native correctness
+Python extension imported successfully and generated its actual API stub provenance.
+`PSE_RESOURCE_CLASS=light just ready` passed with zero doctor findings, confirming the pinned
+FastMCP4.1.3/MCP2.3.0 environment and selected custom server. It separately deferred unrelated
+old unsupported-profile fixture cleanup; no unrelated resources were deleted.
+
+**Mistakes corrected:** the first native test attempt used an unsupported SDK `Value::from(i64)`
+conversion and did not execute; the test now uses the actual typed number API. Independent review
+found that optional record-link assertions could be skipped when omitted and that inner `$this`
+could obscure source attribution. Required-field assertions and explicitly captured outer keys,
+with genuine negative rows that cannot fail merely on uniqueness, corrected those issues. Native
+replay checks reconcile every normalized family, including already activated imports.
+
+The actual CLI initially refused a stale service selection and then missing tooling authentication.
+The existing preparation owner now has explicit `--replace-selection`, preserving credentials and
+the fixed database boundary without database mutation. Explicit `evidence init` installed the fresh
+tooling schema/users; reads never repaired or initialized them silently. Native authority was not
+weakened to make these checks pass.
+
+**Deliberate deviations:** controlled content uses native conceptual identities and exact
+relationships rather than semantic similarity or arbitrary tagging. The completed local-model
+trial is retained in Git, while its unused helper/configuration were deleted. SurrealKV temporal
+storage, additional services, Agent Memory and generic experiment/question lifecycles remain
+unselected. Enduring meaning is published through ADR-0222 and blueprint §24.1; the ADR remains
+proposed. 52h retains assembled journeys, scope-end hygiene/manual qualification and series closure.
+
+`PSE_RESOURCE_CLASS=light just turn-end` passed ADR indexing and formatting against the zero-failure baseline. The post-format selected host command passed145 tests; scope-end hygiene and assembled qualification remain with52h.

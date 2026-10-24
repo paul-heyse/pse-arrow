@@ -93,10 +93,15 @@ def document_scope(
     scope = collection["scope"]
     if relative.parts[0] == "adr" and re.match(r"\d{4}-", relative.name):
         scope = {
-            "accepted": "Current", "superseded": "History",
-            "deprecated": "History", "rejected": "History",
+            "accepted": "Current",
+            "superseded": "History",
+            "deprecated": "History",
+            "rejected": "History",
         }.get(status, "Reference")
-    if matches(relative, publication["current_work"]) or relative.as_posix() in publication["entrypoints"]:
+    if (
+        matches(relative, publication["current_work"])
+        or relative.as_posix() in publication["entrypoints"]
+    ):
         scope = "Current"
     for override in config.get("overrides", []):
         if matches(relative, override["patterns"]):

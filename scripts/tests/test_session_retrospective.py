@@ -105,7 +105,9 @@ class RetrospectiveTests(unittest.TestCase):
             self.assertTrue(result["discovery"]["complete"])
             self.assertTrue(result["read"]["complete"])
             self.assertFalse(result["truncated"])
-            self.assertEqual(result["recall_matches"][0]["originating_session_id"], "child")
+            self.assertEqual(
+                result["recall_matches"][0]["originating_session_id"], "child"
+            )
             self.assertNotIn("SECRET", json.dumps(result))
 
     def test_call_role_dedup_preserves_attempts_outputs_and_inherited_provenance(
@@ -319,22 +321,38 @@ class RetrospectiveTests(unittest.TestCase):
     def test_mid_scan_change_invalidates_observations_until_refresh(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            path = write(root / "one.jsonl", meta("one"), record("function_call", call_id="before", name="before_tool"))
+            path = write(
+                root / "one.jsonl",
+                meta("one"),
+                record("function_call", call_id="before", name="before_tool"),
+            )
             first = history.inspect(root, Path("/checkout"), now=NOW, max_records=1)
             self.assertIsNotNone(first["continuation"])
-            write(path, meta("one"), record("function_call", call_id="after", name="after_tool"))
-            changed = history.inspect(root, Path("/checkout"), now=NOW, continuation=first["continuation"])
+            write(
+                path,
+                meta("one"),
+                record("function_call", call_id="after", name="after_tool"),
+            )
+            changed = history.inspect(
+                root, Path("/checkout"), now=NOW, continuation=first["continuation"]
+            )
             self.assertTrue(changed["truncated"])
             self.assertIn("source_changed_during_scan", changed["discovery"]["gaps"])
             self.assertEqual(changed["tool_calls"], {})
-            refreshed = history.inspect(root, Path("/checkout"), now=NOW, continuation=changed["checkpoint"])
+            refreshed = history.inspect(
+                root, Path("/checkout"), now=NOW, continuation=changed["checkpoint"]
+            )
             self.assertEqual(refreshed["tool_calls"], {"after_tool": 1})
             self.assertFalse(refreshed["truncated"])
 
     def test_workspace_metadata_selects_explicit_root_without_cwd_match(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "sessions"
-            write(root / "one.jsonl", meta("one", "/other", runtime_workspace_roots=["/checkout"]), record("function_call", call_id="one", name="workspace_tool"))
+            write(
+                root / "one.jsonl",
+                meta("one", "/other", runtime_workspace_roots=["/checkout"]),
+                record("function_call", call_id="one", name="workspace_tool"),
+            )
             result = history.inspect(root, Path("/checkout"), now=NOW)
             self.assertEqual(result["tool_calls"], {"workspace_tool": 1})
             self.assertFalse(result["truncated"])

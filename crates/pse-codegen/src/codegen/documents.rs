@@ -193,7 +193,7 @@ pub fn generate_catalogue(
                 .push(super::provenance::SourceRelationship {
                     declaration_key: entry.name.clone(),
                     declaration_kind: "runtime_catalogue".into(),
-                source_path: Some(entry.registration_source.clone()),
+                    source_path: Some(entry.registration_source.clone()),
                     source_symbol: Some(entry.rust_type.clone()),
                     source_role: "catalogue_registration".into(),
                     source_identity: Some(fingerprint.to_prefixed()),
@@ -1560,8 +1560,11 @@ mod tests {
         assert!(tree.files.contains_key(&PathBuf::from(
             "docs/generated/schema/directional-probe.output.schema.json"
         )));
-        let records = tree.relationships.iter().filter(|record|
-            record.declaration_kind == "runtime_catalogue").collect::<Vec<_>>();
+        let records = tree
+            .relationships
+            .iter()
+            .filter(|record| record.declaration_kind == "runtime_catalogue")
+            .collect::<Vec<_>>();
         assert_eq!(records.len(), 6);
         for direction in ["input", "output"] {
             for output in [
@@ -1569,16 +1572,22 @@ mod tests {
                 "python/pse/contracts/documents/__init__.py".into(),
                 "crates/pse-py/src/generated/documents.rs".into(),
             ] {
-                assert!(records.iter().any(|record|
-                    record.declaration_key == "DirectionalProbe"
-                    && record.source_symbol.as_deref() == Some("example::DirectionalProbe")
-                    && record.source_role == "catalogue_registration"
-                    && record.direction.as_deref() == Some(direction)
-                    && record.output_path == output));
+                assert!(
+                    records
+                        .iter()
+                        .any(|record| record.declaration_key == "DirectionalProbe"
+                            && record.source_symbol.as_deref()
+                                == Some("example::DirectionalProbe")
+                            && record.source_role == "catalogue_registration"
+                            && record.direction.as_deref() == Some(direction)
+                            && record.output_path == output)
+                );
             }
         }
-        assert!(tree.relationships.iter().all(|record|
-            tree.files.contains_key(std::path::Path::new(&record.output_path))));
+        assert!(tree.relationships.iter().all(|record| {
+            tree.files
+                .contains_key(std::path::Path::new(&record.output_path))
+        }));
     }
 
     #[test]

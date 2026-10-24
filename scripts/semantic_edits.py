@@ -237,7 +237,12 @@ def replacements(
 
 
 def validate(selected: dict) -> Path:
-    if selected.get("schema") != 1 or not selected.get("files") or not isinstance(selected.get("basis"), dict) or not selected["basis"]:
+    if (
+        selected.get("schema") != 1
+        or not selected.get("files")
+        or not isinstance(selected.get("basis"), dict)
+        or not selected["basis"]
+    ):
         raise ValueError("invalid edit preview")
     root = Path(selected["root"])
     names = set()
@@ -280,8 +285,7 @@ def reconcile(selected: dict) -> dict:
         state = (
             "missing"
             if current is None
-            else
-            "applied"
+            else "applied"
             if current == file["after_sha256"]
             else "unchanged"
             if current == file["before_sha256"]
@@ -302,8 +306,20 @@ def reconcile(selected: dict) -> dict:
             continue
         path = owned_path(root, name, allow_missing=True)
         current = digest(path.read_bytes().decode("utf-8")) if path.is_file() else None
-        basis.append({"path": name, "state": "missing" if current is None else "unchanged" if current == expected else "diverged", "sha256": current})
-    complete = all(file["state"] == "applied" for file in files) and all(item["state"] == "unchanged" for item in basis)
+        basis.append(
+            {
+                "path": name,
+                "state": "missing"
+                if current is None
+                else "unchanged"
+                if current == expected
+                else "diverged",
+                "sha256": current,
+            }
+        )
+    complete = all(file["state"] == "applied" for file in files) and all(
+        item["state"] == "unchanged" for item in basis
+    )
     return {
         "complete": complete,
         "status": "complete" if complete else "incomplete",
@@ -340,8 +356,12 @@ def apply(selected: dict, receipt: Path) -> dict:
             != file["before"]
         ):
             raise ValueError("stale preview; rebuild and review before applying")
-    source_paths = {owned_path(root, file["path"]).resolve() for file in selected["files"]}
-    source_paths.update(owned_path(root, name).resolve() for name in selected.get("basis", {}))
+    source_paths = {
+        owned_path(root, file["path"]).resolve() for file in selected["files"]
+    }
+    source_paths.update(
+        owned_path(root, name).resolve() for name in selected.get("basis", {})
+    )
     if receipt.resolve() in source_paths:
         raise ValueError("receipt must not overwrite an edited source")
     if receipt.is_symlink():

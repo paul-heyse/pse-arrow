@@ -42,7 +42,8 @@ pub(super) fn relations<'a>(
                 target("in")?,
                 target("out")?,
                 if pse_schema::catalog::substrate::ENFORCED_RELATIONS.contains(&table)
-                    || pse_schema::catalog::knowledge::ENFORCED_RELATIONS.contains(&table) {
+                    || pse_schema::catalog::knowledge::ENFORCED_RELATIONS.contains(&table)
+                {
                     " ENFORCED"
                 } else {
                     ""
@@ -70,7 +71,9 @@ pub(super) fn relations<'a>(
                     })?;
                 let knowledge_assert = if table.starts_with("knowledge_") {
                     " AND record::exists($value) AND $value.generation=$this.generation"
-                } else { "" };
+                } else {
+                    ""
+                };
                 let _ = writeln!(
                     ddl,
                     "DEFINE FIELD OVERWRITE {endpoint} ON {table} TYPE record<{target}> ASSERT $value = type::record('{target}', $this.{name}){knowledge_assert};"
@@ -80,16 +83,42 @@ pub(super) fn relations<'a>(
             }
             // Only this disposable family opts into native reverse references and
             // existence/cut assertions. Canonical scalar-FK interpretation is unchanged.
-            if table.starts_with("knowledge_") && column.graph_endpoint().is_none()
-                && let Some(target) = column.fk().and_then(|fk| fk.relation.strip_prefix("runtime.")) {
+            if table.starts_with("knowledge_")
+                && column.graph_endpoint().is_none()
+                && let Some(target) = column
+                    .fk()
+                    .and_then(|fk| fk.relation.strip_prefix("runtime."))
+            {
                 let link_name = format!("{name}_record");
-                let record_type = if column.nullable() { format!("option<record<{target}>>") } else { format!("record<{target}>") };
+                let record_type = if column.nullable() {
+                    format!("option<record<{target}>>")
+                } else {
+                    format!("record<{target}>")
+                };
                 let kind_assert = if table == "knowledge_productions" {
-                    match name { "declaration_key" => " AND $value.kind='declaration'", "generator_key" => " AND $value.kind='generator'", "artifact_key" => " AND $value.kind='generated_artifact'", _ => "" }
-                } else { "" };
-                let assertion = format!("$value=type::record('{target}',$this.{name}) AND record::exists($value) AND $value.generation=$this.generation{kind_assert}");
-                let assertion = if column.nullable() { format!("($this.{name}=NONE AND $value=NONE) OR ($this.{name}!=NONE AND ({assertion}))") } else { assertion };
-                let _ = writeln!(ddl, "DEFINE FIELD {link_name} ON {table} TYPE {record_type} REFERENCE ON DELETE REJECT READONLY ASSERT {assertion};");
+                    match name {
+                        "declaration_key" => " AND $value.kind='declaration'",
+                        "generator_key" => " AND $value.kind='generator'",
+                        "artifact_key" => " AND $value.kind='generated_artifact'",
+                        _ => "",
+                    }
+                } else {
+                    ""
+                };
+                let assertion = format!(
+                    "$value=type::record('{target}',$this.{name}) AND record::exists($value) AND $value.generation=$this.generation{kind_assert}"
+                );
+                let assertion = if column.nullable() {
+                    format!(
+                        "($this.{name}=NONE AND $value=NONE) OR ($this.{name}!=NONE AND ({assertion}))"
+                    )
+                } else {
+                    assertion
+                };
+                let _ = writeln!(
+                    ddl,
+                    "DEFINE FIELD {link_name} ON {table} TYPE {record_type} REFERENCE ON DELETE REJECT READONLY ASSERT {assertion};"
+                );
                 if column.nullable() {
                     encoders.push(quote! { if let Some(key) = &row.#ident { object.insert(#link_name, crate::canonical_codec::record_link(#target, key)); } });
                     link_decoders.push(quote! { if let Some(key) = &row.#ident { crate::canonical_codec::check_record_link(&mut object, #link_name, #target, key)?; } else if !matches!(object.remove(#link_name), None | Some(surrealdb::types::Value::None)) { return Err(crate::canonical_codec::CodecError::Domain(#link_name)); } });
@@ -150,7 +179,9 @@ pub(super) fn relations<'a>(
                 ""
             };
             let readonly = if name == "key"
-                || (table.starts_with("knowledge_") && table != "knowledge_state" && name != "state")
+                || (table.starts_with("knowledge_")
+                    && table != "knowledge_state"
+                    && name != "state")
                 || matches!(
                     table,
                     "canonical_project_operations"
@@ -313,9 +344,24 @@ pub(super) fn relations<'a>(
 }
 
 pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<(), SchemaError> {
-    for relation in registry.relations().iter().filter(|relation| relation.key.name.starts_with("canonical_")) {
-        for output in ["crates/pse-operations/src/generated/surreal.rs", "crates/pse-operations/src/generated/surreal.surql"] {
-            tree.relationships.push(super::provenance::SourceRelationship::registry(registry, "relation", super::provenance::relation_key(relation), "crates/pse-codegen/src/codegen/surreal.rs", "append", output));
+    for relation in registry
+        .relations()
+        .iter()
+        .filter(|relation| relation.key.name.starts_with("canonical_"))
+    {
+        for output in [
+            "crates/pse-operations/src/generated/surreal.rs",
+            "crates/pse-operations/src/generated/surreal.surql",
+        ] {
+            tree.relationships
+                .push(super::provenance::SourceRelationship::registry(
+                    registry,
+                    "relation",
+                    super::provenance::relation_key(relation),
+                    "crates/pse-codegen/src/codegen/surreal.rs",
+                    "append",
+                    output,
+                ));
         }
     }
     let indexes = pse_schema::catalog::substrate::INDEXES

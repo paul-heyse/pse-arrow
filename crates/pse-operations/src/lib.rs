@@ -27,12 +27,12 @@ pub mod canonical_staging;
 pub mod canonical_studies;
 pub mod canonical_study_workbench;
 pub mod evidence;
-/// Disposable typed development-knowledge corpora on the existing tooling connection.
-pub mod knowledge;
 /// Supplied-only selected evidence questions using the native columnar engine.
 #[cfg(feature = "evidence-query")]
 pub mod evidence_query;
 mod ids;
+/// Disposable typed development-knowledge corpora on the existing tooling connection.
+pub mod knowledge;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;

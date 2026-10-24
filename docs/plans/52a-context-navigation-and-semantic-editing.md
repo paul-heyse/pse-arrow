@@ -1,6 +1,6 @@
 ---
 title: "Plan 52a: Context, navigation and semantic editing"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -163,7 +163,7 @@ canonical status-owner contributors and policy inputs. Changed inputs refuse sta
 
 The selected host command
 `scripts/pse-env --resource-class light -- python -m unittest scripts.tests.test_workspace_domains scripts.tests.test_workspace_sources scripts.tests.test_workspace_tasks scripts.tests.test_workspace_context scripts.tests.test_session_retrospective scripts.tests.test_knowledge_store scripts.tests.test_semantic_navigation scripts.tests.test_semantic_edits scripts.tests.test_evidence_store scripts.tests.test_setup scripts.tests.test_docs scripts.tests.test_document_lifecycle`
-passed144 tests against the zero-failure baseline. Actual CLI consumers resolved §20.5 through its
+passed145 tests against the zero-failure baseline. Actual CLI consumers resolved §20.5 through its
 section owner, retained ADR-0222 as proposed/Reference, and obtained A03 state through the actual
 coordinator row. The A02 task packet retained the dirty generator edit and unresolved dynamic
 consumers without a database or session read. Historical Git subjects remain rationale.
@@ -178,8 +178,8 @@ reader was corrected without changing the returned evidence.
 
 The independent review exposed mixed policy cuts and row/source rereads. Those were corrected
 through the existing policy/aggregate readers with captured-byte callbacks, rather than adding a
-second status parser. Persistent B04 and actual stub-production integration remain separate
-acceptance obligations; these host checks establish no assembled Plan52 or scientific qualification.
+second status parser. At that host checkpoint, B04 and actual stub production remained separate obligations;
+the completion account below settles them without implying assembled Plan52 or scientific qualification.
 
 **Implemented and Tested (2026-10-23):** A03/A04 use FastMCP4.1.3's Client/StdioTransport
 for connection, protocol negotiation, tool discovery and finite process lifetime, with MCP SDK2.3.0
@@ -203,3 +203,35 @@ The selected JSON-loader migration preserves comments, import aliases and local 
 Python3.14 template strings/type-parameter defaults parse and compile. Its actual owned consumer
 in `semantic_navigation.py` moved from text to bytes; incompatible `tomllib.loads` remains unchanged.
 A01/A02/A05 acceptance and the enclosing Plan52 scope remain at the coordinator.
+
+### Producer and native integration completion
+
+**Implemented and Tested (2026-10-23):** A02 now publishes independently owned registry Rust,
+Python, Markdown and Surreal relationships, runtime catalogue relationships and actual compiled
+stub relationships. Partial generation preserves other producers. Registry fingerprints,
+catalogue registrations and compiled API metadata retain their distinct identities and limits.
+The inaccurate universal catalogue-owner interpretation was removed.
+
+`PSE_RESOURCE_CLASS=build just unit-package pse-codegen 'test(provenance) | test(catalogue) | test(knowledge_schema)'`
+passed4 tests,34 skipped. The selected xtask command
+`scripts/pse-env --resource-class build --native=compiler,solver -- python -m scripts.arrow_validation nextest run -p xtask --bin xtask --features full-codegen --locked -E 'test(partial_generation_preserves_other_producer_relationships) | test(actual_stub_producer_is_distinct_from_catalogue_and_tracks_api_bytes)'`
+passed2 tests,84 skipped. Both used explicit force-validation routes; the baseline is zero failures.
+Full generation, final Surreal regeneration and `PSE_RESOURCE_CLASS=build just py-sync-native-correctness`
+passed, including actual compiled API stub generation.
+
+Actual exact consumers followed FrozenInspectionRequest from its catalogue registration through
+six input/output production assertions across four generated outputs. Source inspection followed
+the Rust definition, generated Rust/Python boundary, PyO3 diagnostic function and Python facade;
+`PSE_RESOURCE_CLASS=build just py-unit -n 0 --basetemp OWNED_TEMP python/pse/tests/test_review_workflows.py -k test_cli_passive_journey_uses_same_owner_after_relocation`
+passed1 test,12 deselected, exercising that recorded inspection journey through the rebuilt
+extension. The first attempt could not collect because the shared default pytest directory was
+not owned by this user. The retry used a freshly created private test directory; it did not alter
+that foreign directory. One test needs one Python worker; the sixteen compiler-job default remains.
+
+A registry-owned authored.fit_cases@4 query returned nine declared rows across its actual
+producers, retaining the unavailable declaration source location. The actual `_native.pyi` query
+now returns three productions from PyO3 module/metadata/exception sources through the stub
+producer, rather than assigning it to the runtime catalogue. Unknown dynamic/string edges remain
+unknown, and language-server references remain separately requested per language rather than a
+claim of complete cross-language impact. B04's selected native/CLI acceptance is recorded in
+[52b](52b-local-knowledge-and-research.md#structured-execution-outcome).

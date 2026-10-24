@@ -36,9 +36,12 @@ def configuration(
     if language == "rust":
         if fixture and (
             not (root / "rust-toolchain.toml").is_file()
-            or (root / "rust-toolchain.toml").read_bytes() != (ROOT / "rust-toolchain.toml").read_bytes()
+            or (root / "rust-toolchain.toml").read_bytes()
+            != (ROOT / "rust-toolchain.toml").read_bytes()
         ):
-            raise ValueError("Rust fixture must carry a source copy of this checkout's toolchain declaration")
+            raise ValueError(
+                "Rust fixture must carry a source copy of this checkout's toolchain declaration"
+            )
         settings = (
             {"cargo": {"targetDir": True}}
             if fixture
@@ -113,32 +116,64 @@ async def request(
                     deadline = asyncio.get_running_loop().time() + 45
                     while True:
                         try:
-                            response = await client.call_tool(call["name"], call.get("arguments", {}), raise_on_error=False)
+                            response = await client.call_tool(
+                                call["name"],
+                                call.get("arguments", {}),
+                                raise_on_error=False,
+                            )
                             break
                         except MCPError as error:
-                            detail = {"code": error.code, "message": error.message, "data": error.data}
-                            if error.code == -32051 and asyncio.get_running_loop().time() < deadline:
+                            detail = {
+                                "code": error.code,
+                                "message": error.message,
+                                "data": error.data,
+                            }
+                            if (
+                                error.code == -32051
+                                and asyncio.get_running_loop().time() < deadline
+                            ):
                                 readiness.append(detail)
                                 await asyncio.sleep(1)
                                 continue
-                            results.append({"name": call["name"], "isError": True, "result": {"error": detail}, "readiness": readiness})
+                            results.append(
+                                {
+                                    "name": call["name"],
+                                    "isError": True,
+                                    "result": {"error": detail},
+                                    "readiness": readiness,
+                                }
+                            )
                             response = None
                             break
                     if response is None:
                         continue
                     payload = response.structured_content
                     if payload is None:
-                        texts = [item.text for item in response.content if item.type == "text"]
+                        texts = [
+                            item.text
+                            for item in response.content
+                            if item.type == "text"
+                        ]
                         try:
                             payload = json.loads("\n".join(texts))
                         except json.JSONDecodeError:
                             payload = {"text": texts}
-                    results.append({"name": call["name"], "isError": response.is_error, "result": payload, "readiness": readiness})
+                    results.append(
+                        {
+                            "name": call["name"],
+                            "isError": response.is_error,
+                            "result": payload,
+                            "readiness": readiness,
+                        }
+                    )
                 return {
                     "language": language,
                     "root": str(root.resolve()),
                     "protocol": client.protocol_version,
-                    "tools": [{"name": tool.name, "inputSchema": tool.input_schema} for tool in catalogue],
+                    "tools": [
+                        {"name": tool.name, "inputSchema": tool.input_schema}
+                        for tool in catalogue
+                    ],
                     "results": results,
                 }
         finally:
@@ -263,7 +298,9 @@ def main() -> int:
         if args.action_index is not None:
             action = payload["actions"][args.action_index]
             if action.get("command"):
-                raise ValueError("command-based code actions cannot be represented as a complete source edit")
+                raise ValueError(
+                    "command-based code actions cannot be represented as a complete source edit"
+                )
             payload = action["edit"]
         print(
             json.dumps(

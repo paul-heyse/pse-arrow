@@ -124,7 +124,9 @@ def _observation(
         "role": role,
         "record_type": item.get("type"),
         "digest": hashlib.sha256(json.dumps(item, sort_keys=True).encode()).hexdigest(),
-        "content_digest": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
+        "content_digest": hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode()
+        ).hexdigest(),
     }
     if payload.get("role") in {"assistant", "user", "system", "developer", "tool"}:
         record["message_role"] = payload["role"]
@@ -347,7 +349,9 @@ def inspect(
         sources[:] = [
             source for source in sources if source["generation"] == state["generation"]
         ]
-    current_sources = [source for source in sources if source["generation"] == state["generation"]]
+    current_sources = [
+        source for source in sources if source["generation"] == state["generation"]
+    ]
     selected = _association(current_sources)
     # Population must be known before a foreign-cwd child can be ruled out.
     if state["discovery_complete"]:

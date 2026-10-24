@@ -391,7 +391,11 @@ pub(super) fn generate(
                 ));
         }
         // DocumentSpec values are outlined Rust constructors, not JSON-pool entries.
-        for document in reg.documents().iter().filter(|_| output.ends_with("standard_registry.rs")) {
+        for document in reg
+            .documents()
+            .iter()
+            .filter(|_| output.ends_with("standard_registry.rs"))
+        {
             crate::codegen::provenance::document(
                 tree,
                 reg,

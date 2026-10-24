@@ -80,7 +80,13 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
 /// The API identity hashes the actual formatted introspection result, rather than
 /// an absolute binary path or build-dependent native object bytes.
 fn provenance_tree(output: &[u8]) -> Result<GeneratedTree> {
-    let identity = format!("pyo3-stub-sha256:{}", Sha256::digest(output).iter().map(|byte| format!("{byte:02x}")).collect::<String>());
+    let identity = format!(
+        "pyo3-stub-sha256:{}",
+        Sha256::digest(output)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
     let mut records = Vec::new();
     for (kind, path, role) in [
         ("pyo3_metadata", None, "compiled_pyo3_metadata"),

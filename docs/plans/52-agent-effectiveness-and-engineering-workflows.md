@@ -140,10 +140,10 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
 | O01 | resolved | [A01](52a-context-navigation-and-semantic-editing.md#A01) | Source-linked task continuity and rationale |
-| O02 | scheduled | [A02](52a-context-navigation-and-semantic-editing.md#A02) | Declared cross-language/generator paths, with uncertain leads separate |
+| O02 | resolved | [A02](52a-context-navigation-and-semantic-editing.md#A02) | Declared cross-language/generator paths, with uncertain leads separate |
 | O03 | resolved | [A03](52a-context-navigation-and-semantic-editing.md#A03) | Qualified semantic edit preview and honest unsupported cases |
 | O04 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | Tested structural transforms and declaration-aware changes |
-| O05 | in-progress | [B01/B05](52b-local-knowledge-and-research.md#B01) | Structured native retrieval, lexical discovery and bounded local semantic decision |
+| O05 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Structured native retrieval, lexical discovery and bounded local semantic decision |
 | O06 | resolved | [B03](52b-local-knowledge-and-research.md#B03) | Exact-version research and evolution packets |
 | O07 | resolved | [A05](52a-context-navigation-and-semantic-editing.md#A05) | Consequences of actual design alternatives |
 | O08 | scheduled | [C01](52c-behavioral-and-scientific-verification.md#C01) | Source/coverage correspondence, missing behavior and exclusions |
@@ -162,7 +162,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O21 | scheduled | [E03](52e-reproducible-experiments-and-isolation.md#E03) | Owned regression search with exact/mixed/untestable outcomes |
 | O22 | scheduled | [E04](52e-reproducible-experiments-and-isolation.md#E04) | Optional rootless tooling environment with simpler fallback |
 | O23 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Paired comparisons preserving unmatched subjects and denominators |
-| O24 | scheduled | [B04](52b-local-knowledge-and-research.md#B04) | Derived development-knowledge/experiment links, separate from scientific research |
+| O24 | resolved | [B04](52b-local-knowledge-and-research.md#B04) | Derived development-knowledge/experiment links, separate from scientific research |
 | O25 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact finite trace continuity or explicit unsupported seam |
 | O26 | scheduled | [G01/G02](52g-agent-and-operator-workflows.md#G01) | Useful typed CLI interactions and justified thin transport |
 | O27 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Progressive instruction access and representative agent evaluations |
@@ -180,7 +180,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 |---|---|---|---|
 | I01 | resolved | [A03](52a-context-navigation-and-semantic-editing.md#A03) | FastMCP4.1.3/MCP2.3.0 through mcpls0.8.0: actual Rust cross-file rename and Pyrefly rename/extraction passed; formatting unsupported; full/partial/source-drift guards retained |
 | I02 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | ast-grep0.50.0 contextual shapes plus LibCST1.9.0 qualified imports/scopes support the selected Python3.14 migration and negative examples |
-| I03 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Source-fresh bounded lexical matching selected; exact Qwen/llama.cpp Blackwell batch compatible but mixed usefulness. No automatic model/vector index; persistent concept miss triggers revisit ([52b outcome](52b-local-knowledge-and-research.md#selected-host-execution-and-inquiry-outcome)) |
+| I03 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Exact native concepts selected with source-fresh lexical discovery. Qwen/llama.cpp Blackwell batch compatible but mixed usefulness; unused helper/config retired. Missing answers first trigger domain/relationship/query coverage investigation, not a semantic implementation backlog ([52b outcome](52b-local-knowledge-and-research.md#structured-execution-outcome)) |
 | I04 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Select bounded incremental stream adapter. Codex0.163 protocol listing inspected, but no isolated/live read-only App Server runtime qualified; no app-server startup/state repair required |
 | I05 | open | [C02](52c-behavioral-and-scientific-verification.md#C02) | Separate state-machine/Hypothesis addition versus existing Proptest sequences |
 | I06 | open | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual native instrumentation and modeled-schedule feasibility, separate outcomes |
@@ -201,14 +201,14 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 |---|---|---|---|
 | FND00 | in-progress | [Coordinator](#FND00) | Decision/declaration slices precede dependent changes |
 | A01 | done | [52a](52a-context-navigation-and-semantic-editing.md#A01) | Current task packet and historical rationale |
-| A02 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A02) | Actual generator/consumer paths |
+| A02 | done | [52a](52a-context-navigation-and-semantic-editing.md#A02) | Actual generator/consumer paths |
 | A03 | done | [52a](52a-context-navigation-and-semantic-editing.md#A03) | Real semantic-edit consumer and I01 |
 | A04 | done | [52a](52a-context-navigation-and-semantic-editing.md#A04) | Structural transforms and I02 |
 | A05 | done | [52a](52a-context-navigation-and-semantic-editing.md#A05) | Supported alternative-impact comparison |
-| B01 | in-progress | [52b](52b-local-knowledge-and-research.md#B01) | Exact source-fresh concepts, lexical discovery and first I03 decision |
+| B01 | done | [52b](52b-local-knowledge-and-research.md#B01) | Exact source-fresh concepts, lexical discovery and first I03 decision |
 | B02 | done | [52b](52b-local-knowledge-and-research.md#B02) | Activity discovery/logical history and I04 |
 | B03 | done | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
-| B04 | in-progress | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
+| B04 | done | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
 | B05 | done | [52b](52b-local-knowledge-and-research.md#B05) | Bounded local semantic decision and second I03 outcome |
 | C01 | planned | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
 | C02 | planned | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
@@ -281,23 +281,24 @@ and relevant manual checks. No numerical performance/productivity benefit is pro
 claim needs its actual baseline and conditions. Functional populations are representative, not
 production-scale parameter/lane counts. Documentation authoring needs no product compilation.
 
-Current checkpoint: authorized 52a/52b implementation is active. ADR-0222 precedes B04's
-separate derived family. A03/A04 have targeted host and actual Rust/Python fixture acceptance
-([52a outcome](52a-context-navigation-and-semantic-editing.md#targeted-execution-outcome));
-source/history/research context and alternative comparison have host acceptance
-([52b outcome](52b-local-knowledge-and-research.md#selected-host-execution-and-inquiry-outcome)).
-Producer relationships and native knowledge remain in integration. B05 retains lexical-only delivery
-after its actual local-model compatibility/usefulness comparison. FastMCP is the
-operator-selected framework for the MCP client; ordinary CLI/source-only operations remain usable.
-Other Plan52 scope, including assembled 52h qualification, is planned. No whole-series or
-productivity/performance claim follows from these targeted checks.
+Current checkpoint: authorized 52a/52b scope and its required FND00/G01 slices are delivered at
+their selected focused acceptance boundaries. [52a's outcome](52a-context-navigation-and-semantic-editing.md#targeted-execution-outcome)
+owns task/design composition, actual producer paths and Rust/Python edit consumers;
+[52b's outcome](52b-local-knowledge-and-research.md#structured-execution-outcome) owns source/history/library
+access and native structured knowledge. ADR-0222 preceded the new family; blueprint §24.1 now
+owns enduring meaning, while formal ADR status stays proposed. B05 selected structured access
+with lexical discovery and retired the unused model helper after its bounded comparison.
+FastMCP4.1.3/MCP2.3.0 are installed and exercised. Other FND00/G01 obligations and Plan52c–52h
+remain planned, including assembled qualification and scope-end hygiene/manual checks.
+No whole-series or productivity/performance claim follows from these targeted checks.
 
 ### Owner-selected structured-query pivot
 
 On 2026-10-23 the maintainer selected first-principles domain modeling and exact structured
-queries for generated/controlled content, with native topics as secondary aids. This reopens the
-affected A01/A02/A05/B01/B04 acceptance while retaining earlier checks' original scope.
+queries for generated/controlled content, with native topics as secondary aids. This reopened the
+affected A01/A02/A05/B01/B04 acceptance while retaining earlier checks' original scope; the
+subsequent structured host/native/CLI acceptance above closes that selected pivot.
 [52b's target](52b-local-knowledge-and-research.md#B04) owns concrete concepts, exact production
 correspondence, native authority/state distinctions and query behavior. The requested SurrealDB,
-tooling and SurrealKV source review informs the physical realization. Semantic models remain
+tooling and SurrealKV source review informed the physical realization. Semantic similarity remains
 unselected; no new database or authority is implicit. A03/A04/B02/B03's unaffected delivery remains.
