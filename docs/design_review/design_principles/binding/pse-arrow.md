@@ -116,6 +116,22 @@ their realization without a diagnostic audit prerequisite or required principle 
 The diagnostic design-review cadence below remains distinct. Selected opportunities enter the
 existing planning and decision routes; a review does not itself approve scope or implementation.
 
+## Plan improvement
+
+Use `plan-improvement-review` (source: `.codex/skills/plan-improvement-review/SKILL.md`) at
+requested or explicitly planned boundaries to assess the remaining change footprint of a plan
+or coordinated series. Include design-principle alignment and general enhancements to components
+substantially modified to accommodate the plan, even when their value extends beyond its
+functional target. Apply the selected core and process-simulator profile, preserving independent
+architectural and scientific/model-adequacy judgments. Judge recommendations for coherent
+integration and total burden. Publish a standalone
+[plan-improvement review](../../../plan_improvement_reviews/README.md) with proposals distinct
+from accepted scope and scheduled work. Plan revision from that document is separately
+instructed; no separate update skill is required.
+This workflow has no broad diagnostic-audit prerequisite, does not refresh an audit account and
+does not replace a formal design review due at the cadence below. Existing scope and decision
+routes govern adoption.
+
 ## Reviews in this repository
 
 - **Location:** `docs/design_review/reviews/design_review_{slug}_{YYYY-MM-DD}.md`; supporting

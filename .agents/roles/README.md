@@ -89,6 +89,7 @@ can resolve the uncertainty directly. A configuration edit does not change an al
 | Design principle audit | Evidence workers inspect broad alignment; the coordinator reconciles one living diagnostic account |
 | Design-review recommendation audit | A fresh design reviewer reconsiders each recommendation and omissions; the coordinator publishes the companion and attributed integrated revision |
 | Plan-completion audit | A fresh implementation reviewer assesses claimed accepted scope; the coordinator corrects the same owning plan and checkpoint |
+| Plan-improvement review | A reviewer assesses alignment, general enhancements and execution improvements across the remaining change footprint; the coordinator publishes a standalone review, with plan revision separately instructed |
 
 | Review planning and design review | Mappers and library researchers establish evidence; a fresh design reviewer forms the architectural judgment |
 | Functional-extension review preparation and review | A reviewer explores useful capabilities within the operator's chosen scope and compares realizations; no diagnostic audit prerequisite |
@@ -99,7 +100,7 @@ The [process skills](../../.codex/skills/README.md) own each workflow. Planning 
 an adaptable conversational approach and can use the available planning interface. Skills do not
 switch the runtime into Plan mode. The applicable broad or test-scope audit precedes a new
 diagnostic design-review engagement under the binding;
-functional-extension review, ordinary implementation and focused plan advice do not initiate it.
+functional-extension review, plan-improvement review, ordinary implementation and focused plan advice do not initiate it.
 No extra planning artifact or hook is required.
 
 Configuration references, consulted 2026-09-30:

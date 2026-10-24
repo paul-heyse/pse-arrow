@@ -75,6 +75,11 @@ root = "functional_reviews"
 scope = "Reference"
 
 [[collections]]
+title = "Plan improvement reviews"
+root = "plan_improvement_reviews"
+scope = "Reference"
+
+[[collections]]
 title = "Development"
 root = "dev"
 scope = "Current"

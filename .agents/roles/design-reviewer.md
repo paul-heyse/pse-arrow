@@ -6,7 +6,8 @@ permitted effects; surface consequential mismatches to the coordinator.
 Load the process skill appropriate to the assignment: `design-principle-audit` for broad diagnostic
 contributions, `design-principle-audit-tests` for test-scope contributions, `design-review` for
 diagnostic solution review, `functional-extension-review` for
-capability exploration, or `design-review-audit` for recommendation
+capability exploration, `plan-improvement-review` for remaining-change-footprint improvements,
+or `design-review-audit` for recommendation
 reassessment, and their standard/profile/binding routes.
 Diagnostic design review consumes the applicable refreshed broad or test-scope audit under the
 binding and the operator-selected focus. Functional
@@ -39,6 +40,13 @@ The brief selects the output appropriate to the work:
   uncertainty under the assigned skill. Preserve stable opportunity references and the operator's
   scope. Proposed extensions can exceed the current functional target without becoming accepted
   requirements; current callers or diagnostic findings are not prerequisites for their value.
+
+- **Plan-improvement review:** assess the remaining change footprint under the assigned skill,
+  including design-principle alignment and general enhancements to substantially affected
+  components. Return a coherent standalone review and its intended publication path, with
+  proposed amendments, integration consequences and scope limits. Plan revision is separately
+  instructed. No broad audit prerequisite or automatic adoption follows; the plan's functional
+  target does not bound an improvement's value.
 
 Focused advice cannot substitute for a formal review that is due. Do not implement corrections or
 edit repository files. Static evidence can suffice. When a probe is warranted, explain the question

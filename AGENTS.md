@@ -372,6 +372,17 @@ proposed realizations. Selected opportunities enter existing plan and decision r
 automatic scope approval. Requested recommendation audits preserve this value lens and publish
 their [functional companions](docs/functional_reviews/audits/README.md) plus an integrated review.
 
+### Plan improvement
+
+Use `plan-improvement-review` at requested or explicitly planned boundaries. Review the remaining
+change footprint, including substantially affected supporting components, for design-principle
+alignment, general enhancements and execution improvements. Judge recommendations for coherent
+integration and total burden; their value can extend beyond the plan's functional target. Publish a
+standalone [plan-improvement review](docs/plan_improvement_reviews/README.md); plan revision from
+it is separately instructed through existing planning and decision routes. No broad audit
+prerequisite, separate update skill or automatic adoption follows; formal review cadence remains
+unchanged.
+
 ### Library research
 
 Optional [library overviews](docs/libraries/README.md) give repository-agnostic capability

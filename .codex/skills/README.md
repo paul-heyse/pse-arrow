@@ -19,6 +19,7 @@ It never generates or overwrites native agent adapters.
 | [design-principle-audit-tests](design-principle-audit-tests/SKILL.md) | Audit test code and evidence in its separate living account; prerequisite for a test-focused diagnostic review |
 | [design-review-audit](design-review-audit/SKILL.md) | Reassess recommendations and omissions; publish a companion and integrated review |
 | [plan-completion-audit](plan-completion-audit/SKILL.md) | Assess claimed completion and correct the same owning plan |
+| [plan-improvement-review](plan-improvement-review/SKILL.md) | Review alignment, general enhancements and execution improvements across the remaining plan change footprint; publish an assessment for separately instructed plan revision |
 | [adr](adr/SKILL.md) | Record or supersede a decision and amend its architectural owner |
 | [plan-design-review](plan-design-review/SKILL.md) | Develop an approach to a requested review |
 | [design-review](design-review/SKILL.md) | Conduct a scoped review against the declared layered standard |
@@ -57,6 +58,15 @@ need no diagnostic finding or existing caller. Design principles shape their rea
 execution workflow. Recommendation auditing preserves their value lens and publishes a
 [functional companion](../../docs/functional_reviews/audits/README.md) plus the integrated review,
 without importing the diagnostic audit prerequisite.
+
+Use [plan-improvement-review](plan-improvement-review/SKILL.md) at requested or explicitly
+planned improvement boundaries. Review design-principle alignment, general enhancements and
+execution improvements across the remaining change footprint, including substantially modified
+supporting components. Value can extend beyond the functional target; coherent integration and
+total burden determine fit. Publish a standalone
+[assessment](../../docs/plan_improvement_reviews/README.md); plan revision is separately instructed
+through existing planning and decision routes. No broad audit prerequisite, separate update skill
+or automatic adoption follows; formal review cadence remains unchanged.
 
 ## Library orientation and active exception
 
