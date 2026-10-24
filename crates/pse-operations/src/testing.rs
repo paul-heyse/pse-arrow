@@ -239,6 +239,53 @@ fn selected_fixture_identity()
     Ok((test, executable))
 }
 
+fn fixture_setup_failure_payload(
+    stage: &str,
+    error: &crate::canonical::CanonicalError,
+    test: &str,
+    executable: &std::path::Path,
+) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
+    let code = miette::Diagnostic::code(error).ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration(
+            "fixture setup error omitted its diagnostic code".into(),
+        )
+    })?;
+    Ok(serde_json::json!({
+        "test": test,
+        "executable": executable,
+        "stage": stage,
+        "code": code.to_string(),
+        "kind": "infrastructure",
+        // A fixture helper may itself be a test subject after other assertions.
+        "assertion_reach": "unknown",
+    }))
+}
+
+fn fixture_setup_result<T>(
+    stage: &str,
+    result: Result<T, crate::canonical::CanonicalError>,
+) -> Result<T, crate::canonical::CanonicalError> {
+    result.inspect_err(|error| {
+        // Bare test executions retain their narrower resource association; they
+        // cannot publish an authenticated invocation observation.
+        if std::env::var_os("PSE_TEST_INVOCATION").is_some() {
+            let observation = selected_fixture_identity().and_then(|(test, executable)| {
+                let payload = fixture_setup_failure_payload(stage, error, &test, &executable)?;
+                resource_bridge("setup-failure", &payload).map(|_| ())
+            });
+            if let Err(observation_error) = observation {
+                use std::io::Write;
+                // Preserve the original typed error and make failed publication
+                // visible. Missing authenticated evidence remains unknown.
+                let _ = writeln!(
+                    std::io::stderr().lock(),
+                    "canonical fixture setup observation failed: {observation_error}"
+                );
+            }
+        }
+    })
+}
+
 fn registered_resource(
     payload: &serde_json::Value,
 ) -> Result<String, crate::canonical::CanonicalError> {
@@ -310,7 +357,8 @@ pub(crate) fn register_database(
 pub fn canonical_fixture_store()
 -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     let profile = std::env::var("PSE_TEST_EXECUTION_PROFILE").ok();
-    canonical_fixture_with_profile(&canonical_fixture_options()?, true, profile.as_deref())
+    let options = fixture_setup_result("canonical-options", canonical_fixture_options())?;
+    canonical_fixture_with_profile(&options, true, profile.as_deref())
 }
 
 /// Explicit managed fixture selection. The registry owns profile resources and
@@ -318,7 +366,8 @@ pub fn canonical_fixture_store()
 pub fn canonical_managed_fixture_store(
     execution_profile: &str,
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    canonical_fixture_with_profile(&canonical_fixture_options()?, true, Some(execution_profile))
+    let options = fixture_setup_result("canonical-options", canonical_fixture_options())?;
+    canonical_fixture_with_profile(&options, true, Some(execution_profile))
 }
 
 fn canonical_fixture_options()
@@ -352,47 +401,62 @@ fn canonical_fixture_with_profile(
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     use std::sync::OnceLock;
     static EXECUTOR: OnceLock<Result<tokio::runtime::Runtime, std::io::Error>> = OnceLock::new();
-    let executor = EXECUTOR
-        .get_or_init(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(2)
-                .enable_all()
-                .build()
-        })
-        .as_ref()
-        .map_err(|error| {
-            crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
-        })?;
-    let resource = register_database(options, execution_profile)?;
-    let mut selected = crate::canonical::CanonicalOptions::from_state_for_database(
-        options.state_path(),
-        Some(&options.database),
+    let executor = fixture_setup_result(
+        "canonical-executor",
+        EXECUTOR
+            .get_or_init(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .enable_all()
+                    .build()
+            })
+            .as_ref()
+            .map_err(|error| {
+                crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
+            }),
+    )?;
+    let resource = fixture_setup_result(
+        "canonical-register",
+        register_database(options, execution_profile),
+    )?;
+    let mut selected = fixture_setup_result(
+        "canonical-options",
+        crate::canonical::CanonicalOptions::from_state_for_database(
+            options.state_path(),
+            Some(&options.database),
+        ),
     )?;
     // Explicit test relay selection is separate from the registered DB allocation.
     selected.endpoint = options.endpoint.clone();
     let options = &selected;
-    let store = std::thread::scope(|scope| {
-        scope
-            .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(options)))
-            .join()
-            .map_err(|_| {
-                crate::canonical::CanonicalError::Configuration(
-                    "canonical fixture executor panicked".into(),
-                )
-            })?
-    })?
-    .own_fixture(executor, resource);
-    if initialize {
+    let store = fixture_setup_result(
+        "canonical-connect",
         std::thread::scope(|scope| {
             scope
-                .spawn(|| executor.block_on(store.create()))
+                .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(options)))
                 .join()
                 .map_err(|_| {
                     crate::canonical::CanonicalError::Configuration(
-                        "canonical fixture initialization executor panicked".into(),
+                        "canonical fixture executor panicked".into(),
                     )
                 })?
-        })?;
+        }),
+    )?
+    .own_fixture(executor, resource);
+    if initialize {
+        fixture_setup_result(
+            "canonical-create",
+            std::thread::scope(|scope| {
+                scope
+                    .spawn(|| executor.block_on(store.create()))
+                    .join()
+                    .map_err(|_| {
+                        crate::canonical::CanonicalError::Configuration(
+                            "canonical fixture initialization executor panicked".into(),
+                        )
+                    })?
+            }),
+        )?;
     }
     Ok(store)
 }
@@ -405,21 +469,58 @@ pub fn canonical_fixture_peer(
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     // Pin the complete fixture membership while the owner's admission is open,
     // before connection setup can race the final resource-drain decision.
-    let borrowed_owner = owner.independent_caller()?;
-    let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
-        crate::canonical::CanonicalError::Configuration(
-            "fixture peer requires registered owner".into(),
-        )
-    })?;
+    let borrowed_owner = fixture_setup_result("canonical-peer-borrow", owner.independent_caller())?;
+    let lifetime = fixture_setup_result(
+        "canonical-peer-owner",
+        borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
+            crate::canonical::CanonicalError::Configuration(
+                "fixture peer requires registered owner".into(),
+            )
+        }),
+    )?;
     if owner.database() != options.database || owner.deployment_state() != options.state_path() {
-        return Err(crate::canonical::CanonicalError::Configuration(
-            "fixture peer identity differs from registered owner".into(),
-        ));
+        return fixture_setup_result(
+            "canonical-peer-identity",
+            Err(crate::canonical::CanonicalError::Configuration(
+                "fixture peer identity differs from registered owner".into(),
+            )),
+        );
     }
-    let peer = lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
-    lifetime.execute(peer.open())?;
-    lifetime.retain_peer(peer.clone())?;
-    peer.borrow_fixture(&borrowed_owner)
+    let peer = fixture_setup_result(
+        "canonical-peer-connect",
+        lifetime.execute(crate::canonical::CanonicalStore::connect(options)),
+    )?;
+    fixture_setup_result("canonical-peer-open", lifetime.execute(peer.open()))?;
+    fixture_setup_result("canonical-peer-retain", lifetime.retain_peer(peer.clone()))?;
+    fixture_setup_result("canonical-peer-borrow", peer.borrow_fixture(&borrowed_owner))
+}
+
+#[cfg(test)]
+mod setup_observation_unit {
+    #[test]
+    fn setup_failure_payload_uses_declared_diagnostic_and_exact_identity() {
+        let error = crate::canonical::CanonicalError::Configuration(
+            "assertion failed: validation::invariant".into(),
+        );
+        let executable = std::path::Path::new("/selected/test-executable");
+        let payload = super::fixture_setup_failure_payload(
+            "canonical-register",
+            &error,
+            "module::selected_test",
+            executable,
+        );
+        assert_eq!(
+            payload.ok(),
+            Some(serde_json::json!({
+                "test": "module::selected_test",
+                "executable": executable,
+                "stage": "canonical-register",
+                "code": "runtime::infrastructure",
+                "kind": "infrastructure",
+                "assertion_reach": "unknown",
+            }))
+        );
+    }
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]

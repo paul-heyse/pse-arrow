@@ -151,44 +151,59 @@ def canonical_substrate(
     request: pytest.FixtureRequest,
 ) -> Generator[CanonicalFixture, None, None]:
     """Register an opaque per-test database before provisioning or opening it."""
+    stage = "canonical-state"
     selected = os.environ.get("PSE_SURREAL_STATE")
     if selected is None:
+        # Observe before pytest.fail, whose outcome exception is not Exception.
+        _observe_canonical_setup_failure(request, stage)
         pytest.fail(
             "Canonical workflows require an explicit supervised PSE_SURREAL_STATE.",
             pytrace=False,
         )
-    state = Path(selected).resolve(strict=True)
-    database = "canonical_test_" + uuid.uuid4().hex
-    resource = test_resources.register(
-        {"state": str(state), "database": database, "test": request.node.nodeid}
-    )
+    try:
+        state = Path(selected).resolve(strict=True)
+        database = "canonical_test_" + uuid.uuid4().hex
+        stage = "canonical-register"
+        resource = test_resources.register(
+            {"state": str(state), "database": database, "test": request.node.nodeid}
+        )
+    except Exception:
+        _observe_canonical_setup_failure(request, stage)
+        raise
     fixture = CanonicalFixture(str(state), database, resource)
     registered_context = False
     try:
-        profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
-        worker = os.environ.get("PSE_WORKER_BINARY")
-        if worker is None:
-            receiver = surreal_server.config_for(state).get("primary_receiver")
-            if isinstance(receiver, dict):
-                worker = str(receiver["worker_executable"])
-        surreal_server.register_context(
-            state, database, profile, Path(worker) if worker else None
-        )
-        registered_context = True
-        config = surreal_server.config_for(state)
-        if config.get("parked"):
-            surreal_server.unpark_service(state)
+        try:
+            stage = "canonical-context"
+            profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
+            worker = os.environ.get("PSE_WORKER_BINARY")
+            if worker is None:
+                receiver = surreal_server.config_for(state).get("primary_receiver")
+                if isinstance(receiver, dict):
+                    worker = str(receiver["worker_executable"])
+            surreal_server.register_context(
+                state, database, profile, Path(worker) if worker else None
+            )
+            registered_context = True
             config = surreal_server.config_for(state)
-        if not surreal_server.ready(state, config):
-            surreal_server.start(state, config)
-        settings = request.getfixturevalue(
-            "managed_observer_settings"
-            if request.node.get_closest_marker("managed_primary")
-            else "inspection_settings"
-        )
-        pse.Runtime.initialize_database(
-            settings, substrate=str(state), database=database
-        )
+            if config.get("parked"):
+                surreal_server.unpark_service(state)
+                config = surreal_server.config_for(state)
+            if not surreal_server.ready(state, config):
+                surreal_server.start(state, config)
+            stage = "canonical-settings"
+            settings = request.getfixturevalue(
+                "managed_observer_settings"
+                if request.node.get_closest_marker("managed_primary")
+                else "inspection_settings"
+            )
+            stage = "canonical-initialize"
+            pse.Runtime.initialize_database(
+                settings, substrate=str(state), database=database
+            )
+        except (Exception, pytest.fail.Exception):
+            _observe_canonical_setup_failure(request, stage)
+            raise
         yield fixture
     finally:
         fixture.drain()
@@ -196,6 +211,23 @@ def canonical_substrate(
             surreal_server.drain_context(state, database) if registered_context else []
         )
         test_resources.record_drain(resource, units=units)
+
+
+def _observe_canonical_setup_failure(
+    request: pytest.FixtureRequest, stage: str
+) -> None:
+    # Bare pytest has no authenticated invocation and keeps its narrower fixture
+    # association. Only the invocation owner may accept this observation.
+    if os.environ.get(test_resources.MARKER):
+        test_resources.observe_setup_failure(
+            {
+                "test": request.node.nodeid,
+                "stage": stage,
+                "code": "runtime::infrastructure",
+                "kind": "infrastructure",
+                "assertion_reach": "not-reached",
+            }
+        )
 
 
 @pytest.fixture(scope="session")
