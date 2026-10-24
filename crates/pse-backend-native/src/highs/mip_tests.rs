@@ -716,48 +716,87 @@ fn qp_regularization_within_gap_budget() {
 }
 
 #[derive(Debug)]
-struct LifetimeTap {cancel:pse_diagnostics::Cancellation,interrupt:bool,calls:std::sync::atomic::AtomicUsize}
+struct LifetimeTap {
+    cancel: pse_diagnostics::Cancellation,
+    interrupt: bool,
+    calls: std::sync::atomic::AtomicUsize,
+}
 impl ProgressTap for LifetimeTap {
-    fn observe(&self,event:&Event) {
-        if event.phase=="highs.callback" {
-            self.calls.fetch_add(1,Ordering::AcqRel);
-            if self.interrupt {self.cancel.cancel();}
+    fn observe(&self, event: &Event) {
+        if event.phase == "highs.callback" {
+            self.calls.fetch_add(1, Ordering::AcqRel);
+            if self.interrupt {
+                self.cancel.cancel();
+            }
         }
     }
 }
-fn lifecycle_problem()->CoefficientProblem {
-    let n=40;
-    problem(&(0..n).map(|j|-((j*17%31+1) as f64)).collect::<Vec<_>>(),&vec![(0.,1.,BINARY);n],&[((0..n).map(|j|(j,(j*13%23+1) as f64)).collect(),f64::NEG_INFINITY,137.5)])
+fn lifecycle_problem() -> CoefficientProblem {
+    let n = 40;
+    problem(
+        &(0..n)
+            .map(|j| -((j * 17 % 31 + 1) as f64))
+            .collect::<Vec<_>>(),
+        &vec![(0., 1., BINARY); n],
+        &[(
+            (0..n).map(|j| (j, (j * 13 % 23 + 1) as f64)).collect(),
+            f64::NEG_INFINITY,
+            137.5,
+        )],
+    )
 }
 /// Actual CallbackBinding, native callback dispatch, model reuse and final scheduler drain.
 #[test]
 fn callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_return() {
-    for interrupt in [false,true] {
-        let p=lifecycle_problem();
-        let controls=Controls::default();
-        let cancellation=pse_diagnostics::Cancellation::default();
-        let tap=Arc::new(LifetimeTap {cancel:cancellation.clone(),interrupt,calls:std::sync::atomic::AtomicUsize::new(0)});
-        let weak=Arc::downgrade(&tap);
-        let mut execution=Execution::new(cancellation,&controls);
-        execution.progress=Arc::new(Progress::tapped(0,tap.clone()));
-        let mut session=Session::new(&p,None,stamp(Backend::Highs),&execution).unwrap();
-        let ptr=session.model().unwrap().as_mut_ptr();
-        native!(ffi::Highs_setStringOptionValue(ptr,c"presolve".as_ptr(),c"off".as_ptr()),"lifecycle presolve").unwrap();
-        let binding=CallbackBinding::new(ptr,execution).unwrap();
+    for interrupt in [false, true] {
+        let p = lifecycle_problem();
+        let controls = Controls::default();
+        let cancellation = pse_diagnostics::Cancellation::default();
+        let tap = Arc::new(LifetimeTap {
+            cancel: cancellation.clone(),
+            interrupt,
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        });
+        let weak = Arc::downgrade(&tap);
+        let mut execution = Execution::new(cancellation, &controls);
+        execution.progress = Arc::new(Progress::tapped(0, tap.clone()));
+        let mut session = Session::new(&p, None, stamp(Backend::Highs), &execution).unwrap();
+        let ptr = session.model().unwrap().as_mut_ptr();
+        native!(
+            ffi::Highs_setStringOptionValue(ptr, c"presolve".as_ptr(), c"off".as_ptr()),
+            "lifecycle presolve"
+        )
+        .unwrap();
+        let binding = CallbackBinding::new(ptr, execution).unwrap();
         // SAFETY: session/model, binding and callback storage remain live through run.
-        let code=unsafe {ffi::Highs_run(ptr)};
-        assert!(code>=0);assert!(tap.calls.load(Ordering::Acquire)>0);
+        let code = unsafe { ffi::Highs_run(ptr) };
+        assert!(code >= 0);
+        assert!(tap.calls.load(Ordering::Acquire) > 0);
         assert!(!binding.context.panicked.load(Ordering::Acquire));
-        let status=unsafe {ffi::Highs_getModelStatus(ptr)};
-        assert_eq!(status,if interrupt {17}else{7});
-        drop(tap);assert!(weak.upgrade().is_some(),"callback binding still owns progress storage");
-        drop(binding);assert!(weak.upgrade().is_none(),"native return permits callback context release");
+        let status = unsafe { ffi::Highs_getModelStatus(ptr) };
+        assert_eq!(status, if interrupt { 17 } else { 7 });
+        drop(tap);
+        assert!(
+            weak.upgrade().is_some(),
+            "callback binding still owns progress storage"
+        );
+        drop(binding);
+        assert!(
+            weak.upgrade().is_none(),
+            "native return permits callback context release"
+        );
         // The retained native model must no longer reference the freed callback context.
-        assert!(unsafe {ffi::Highs_clearSolver(ptr)}>=0);
-        assert!(unsafe {ffi::Highs_run(ptr)}>=0);
-        assert_eq!(unsafe {ffi::Highs_getModelStatus(ptr)},7);
+        assert!(unsafe { ffi::Highs_clearSolver(ptr) } >= 0);
+        assert!(unsafe { ffi::Highs_run(ptr) } >= 0);
+        assert_eq!(unsafe { ffi::Highs_getModelStatus(ptr) }, 7);
         drop(session);
-        let fresh=Session::new(&p,None,stamp(Backend::Highs),&Execution::new(Default::default(),&controls)).unwrap();drop(fresh);
+        let fresh = Session::new(
+            &p,
+            None,
+            stamp(Backend::Highs),
+            &Execution::new(Default::default(), &controls),
+        )
+        .unwrap();
+        drop(fresh);
     }
 }
-

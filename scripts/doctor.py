@@ -322,13 +322,18 @@ def check_cargo_tools() -> Check:
     missing = [name for name in tools if name not in installed]
     with (ROOT / ".config/diagnostic-tools.toml").open("rb") as source:
         pinned_tools = tomllib.load(source)["cargo-tools"]
-    drift = [f"{name}={installed[name]} (want {wanted})" for name, wanted in pinned_tools.items()
-             if name in installed and installed[name] != wanted]
+    drift = [
+        f"{name}={installed[name]} (want {wanted})"
+        for name, wanted in pinned_tools.items()
+        if name in installed and installed[name] != wanted
+    ]
     problems = missing + drift
     return Check(
         "cargo-tools",
         not problems,
-        f"missing/drift: {', '.join(problems)}" if problems else f"{len(tools)} tools present at selected versions",
+        f"missing/drift: {', '.join(problems)}"
+        if problems
+        else f"{len(tools)} tools present at selected versions",
         "just bootstrap-rust-tools" if problems else "",
         blocking=True,
         extra={

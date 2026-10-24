@@ -307,40 +307,103 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
 
 #[tokio::test]
 async fn generated_edit_prepare_bind_evaluate_keeps_analytic_current_and_historical_values() {
-    use proptest::{prelude::*,strategy::ValueTree,test_runner::{Config,RngSeed,TestRunner}};
-    let mut runner=TestRunner::new(Config {cases:16,rng_seed:RngSeed::Fixed(52021),..Config::default()});
-    let strategy=proptest::collection::vec((1_u8..8,proptest::bool::ANY),1..5);
+    use proptest::{
+        prelude::*,
+        strategy::ValueTree,
+        test_runner::{Config, RngSeed, TestRunner},
+    };
+    let mut runner = TestRunner::new(Config {
+        cases: 16,
+        rng_seed: RngSeed::Fixed(52021),
+        ..Config::default()
+    });
+    let strategy = proptest::collection::vec((1_u8..8, proptest::bool::ANY), 1..5);
     for _ in 0..16 {
-        let edits=strategy.new_tree(&mut runner).unwrap().current();
-        let runtime=crate::workflow::tests::runtime();
-        let physical=crate::workflow::tests::physical();
-        let service=runtime.shared.math();
-        let original_rows=rows(2,1,false);
-        let root=original_rows.iter().find(|row|row.name=="Root").unwrap().declaration_id;
-        let original=runtime.modeling_package(original_rows,physical.clone()).await.unwrap();
-        let mut current=original.clone();
-        for (coefficient,nonlinear) in edits {
-            let declarations=rows(2,coefficient,nonlinear);
-            current=current.with_declarations(declarations.clone()).await.unwrap();
-            let cold=runtime.modeling_package(declarations,physical.clone()).await.unwrap();
-            for package in [&current,&cold,&original] {
-                let prepared=package.prepare(root,pse_modeling::specialize::root_instance(root),pse_modeling::specialize::Bindings {demand:vec!["x".into(),"k".into()],..Default::default()},Default::default(),&crate::CancelSource::new()).await.unwrap();
-                let compiled=prepared.compiled();
-                let x=compiled.model.paths["x"];
-                let mut values=compiled.case_values(&Default::default()).unwrap();
-                values.scalars.insert(x,3.);
-                let output=compiled.admitted.outputs.iter().find_map(|output|output.constraint().map(|(id,_)|id)).unwrap();
-                let executable=service.prepare_modeling_functions(package.pure_workspace().unwrap(),prepared,vec![output],vec![x],pse_kernels::DerivativeOrder::First,crate::workflow::tests::compiler_profile(),&crate::CancelSource::new()).await.unwrap();
-                let historical=std::ptr::eq(package,&original);
-                let expected=if historical {3.-1.} else if nonlinear {9.-f64::from(coefficient)} else {3.-f64::from(coefficient)};
-                let expected_derivative=if !historical && nonlinear {6.} else {1.};
-                let actual=service.with_worker(executable,BTreeMap::new(),&crate::CancelSource::new(),move |worker| {
-                    let residual=worker.constraints(&values)?.to_vec();
-                    let derivative=worker.jacobian(&values)?.val().to_vec();
-                    Ok((residual,derivative))
-                }).await.unwrap();
-                assert_eq!(actual.0,vec![expected]);
-                assert_eq!(actual.1,vec![expected_derivative]);
+        let edits = strategy.new_tree(&mut runner).unwrap().current();
+        let runtime = crate::workflow::tests::runtime();
+        let physical = crate::workflow::tests::physical();
+        let service = runtime.shared.math();
+        let original_rows = rows(2, 1, false);
+        let root = original_rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let original = runtime
+            .modeling_package(original_rows, physical.clone())
+            .await
+            .unwrap();
+        let mut current = original.clone();
+        for (coefficient, nonlinear) in edits {
+            let declarations = rows(2, coefficient, nonlinear);
+            current = current
+                .with_declarations(declarations.clone())
+                .await
+                .unwrap();
+            let cold = runtime
+                .modeling_package(declarations, physical.clone())
+                .await
+                .unwrap();
+            for package in [&current, &cold, &original] {
+                let prepared = package
+                    .prepare(
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        pse_modeling::specialize::Bindings {
+                            demand: vec!["x".into(), "k".into()],
+                            ..Default::default()
+                        },
+                        Default::default(),
+                        &crate::CancelSource::new(),
+                    )
+                    .await
+                    .unwrap();
+                let compiled = prepared.compiled();
+                let x = compiled.model.paths["x"];
+                let mut values = compiled.case_values(&Default::default()).unwrap();
+                values.scalars.insert(x, 3.);
+                let output = compiled
+                    .admitted
+                    .outputs
+                    .iter()
+                    .find_map(|output| output.constraint().map(|(id, _)| id))
+                    .unwrap();
+                let executable = service
+                    .prepare_modeling_functions(
+                        package.pure_workspace().unwrap(),
+                        prepared,
+                        vec![output],
+                        vec![x],
+                        pse_kernels::DerivativeOrder::First,
+                        crate::workflow::tests::compiler_profile(),
+                        &crate::CancelSource::new(),
+                    )
+                    .await
+                    .unwrap();
+                let historical = std::ptr::eq(package, &original);
+                let expected = if historical {
+                    3. - 1.
+                } else if nonlinear {
+                    9. - f64::from(coefficient)
+                } else {
+                    3. - f64::from(coefficient)
+                };
+                let expected_derivative = if !historical && nonlinear { 6. } else { 1. };
+                let actual = service
+                    .with_worker(
+                        executable,
+                        BTreeMap::new(),
+                        &crate::CancelSource::new(),
+                        move |worker| {
+                            let residual = worker.constraints(&values)?.to_vec();
+                            let derivative = worker.jacobian(&values)?.val().to_vec();
+                            Ok((residual, derivative))
+                        },
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(actual.0, vec![expected]);
+                assert_eq!(actual.1, vec![expected_derivative]);
             }
         }
     }

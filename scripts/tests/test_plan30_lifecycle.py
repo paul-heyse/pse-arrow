@@ -25,8 +25,12 @@ from unittest.mock import MagicMock, patch
 
 from scripts import host_admission, native_operation, test_resources
 from scripts import surreal_server as server
-from scripts.tests.server_receipt_fixture import ServerReceipt, fixture_build_context, fixture_receipt
 from scripts.tests import surreal_fixture_check
+from scripts.tests.server_receipt_fixture import (
+    ServerReceipt,
+    fixture_build_context,
+    fixture_receipt,
+)
 from scripts.tests.test_surrealism_module import fixture_module
 
 startup_clock = server._STARTUP  # noqa: SLF001 -- checks restoration of the actual private lifecycle clock

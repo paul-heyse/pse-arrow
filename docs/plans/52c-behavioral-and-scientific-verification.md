@@ -196,3 +196,94 @@ E03 executes selected experiments. Techniques have targeted checks and finite re
 populations. New Arrow-consuming closures explicitly force validation. 52h selects assembled
 Rust/Python/native journeys and scope-end checks after functional delivery; it does not turn
 all candidate techniques into broad campaigns or promote tool success into scientific usability.
+
+## Execution boundary — instrumentation
+
+The maintainer accepted stopping deliberate invalid-memory sensitivity work. A subsequent
+normal-only ASan task and the finite cargo-fuzz task were also rejected by automatic review
+as possible cybersecurity risks; the review exposed no exact blocked command. Both remaining
+owned compiler scopes were stopped and drained. This is an execution-policy limit, not evidence
+of unsupported toolchain semantics, a solver defect or a successful instrumented run.
+
+C07 continues through the existing ordinary GDB launch owner and actual normal/interrupted
+CallbackBinding test. ASan execution and injected-fault sensitivity remain **not_run**. C04
+uses ordinary bounded structured decoder controls for actual operation meaning, malformed,
+version and size cases. The harness/finite wrapper remain an explicitly unqualified optional
+route: no coverage-guided execution, feedback, finding minimization or sanitizer safety claim
+is made. Required assembled qualification stays with 52h and must preserve these exclusions.
+
+## Targeted execution Outcome — 2026-10-24
+
+**Implemented:** C01–C08 functionality is integrated with its actual owners and public consumers.
+C01/C02/C03/C05/C06/C08 meet their selected focused acceptance; C07 selects the ordinary GDB
+diagnostic route. C04's ordinary structured fallback is **Tested**, and its optional harnesses are
+**Interface-checked**, but coverage-guided acceptance remains blocked by the execution boundary
+above. This companion therefore remains in progress; neither implementation nor compilation
+silently closes the unexecuted campaign. No assembled Plan52 or performance/productivity claim
+is made. The simulation-diagnostics and qualification guides own enduring operation.
+
+| Package | Actual selected evidence against zero failures | Supported conclusion and limits |
+|---|---|---|
+| C01 | Actual `coverage_correspondence capture --branch` controls over `pse-ids/src/scientific_replay.rs`: changed rejection line43 had branch counts 0/0, then 1/1 in separately selected one-test captures. Source restoration and compiler-flag changes independently made correspondence stale; `affected --coverage` retained the same conservative selection. | **Tested** source-fresh selected-population/branch correspondence, not individual-test attribution from merged data, assertion strength or native coverage. |
+| C02 / I05 | Executor's focused Arrow-validating Cargo selection across math, quantity, runtime and native diagnostics: 11 passed; strengthened actual-provider shrinking control: one passed. Existing Proptest sequences use independent analytic expectations; seed5202 shrinks stale provider input association to `[(0,1)]`, with concrete expected `[1/3,2/3]` versus stale `[0,0]`. | **Tested** covariance scaling/permutation, quantity point/difference behavior, cold/reused implicit and edit→prepare→bind→evaluate paths. Select ordinary existing Proptest strategies; no extra state-machine/Hypothesis dependency without an uncovered Python-owned lifetime behavior. |
+| C03 | Actual pinned cargo-mutants `>`→`>=` mutation at the admitted maximum-source boundary: unchanged baselines passed; insufficient ordinary/oversize assertions MISSED it (tool exit2), independently legal exact-maximum counterexample CAUGHT it (exit0). `derivative_assertion_sensitivity_preserves_completeness_and_nonempty_evidence` also passed. | **Tested** revealing assertion sensitivity at those predicates. A missed mutant is retained evidence, not a tool/setup failure or a repository mutation score. Native mutation-copy integration remains unqualified. |
+| C04 | Final Rust selection below passed the authentic-operation decoder control, including exact counters above 2^53/u64 maximum, 20 truncations, malformed/version999 and 64MiB+1 size refusal. Ordinary `arrow_validation check -p xtask --locked --features xtask/fuzz-inspection --bin frozen-inspection-fuzz --bin inspection-fuzz-seeds` passed with explicit validation, zero warnings/errors. | **Tested** finite structured boundary cases; **Interface-checked** optional binaries. Coverage-guided execution/feedback/minimization **not_run** after task denial; no actual finding population or clean campaign claimed. |
+| C05 | Actual numerical consumer exported 85 dynamic and17 implicit samples; `scripts.tests.test_numerical_investigation`: three passed. Standalone SVG/PNG visually inspected. Cubic finite differences entered a roundoff regime (minimum error about3.96e-10 versus5.29 at the smallest step); deliberately wrong derivative retained error48. Domain central/inward/refused and partial implicit samples remain visible. | **Tested** the selected investigation consumer and independent analytic/100-digit Decimal controls, not physical-formula truth, certified conditioning or universal step selection. Existing legal steps/Decimal suffice; SciPy adaptive and mpmath additions remain unselected. |
+| C06 | Final selected native-environment Rust command below: five passed, including source-aware reduction, forged/unrelated premises, quoted-name expression spans, aggregate move-payload refusal, cancellation/expired clock, strict original reproduction and the C04 decoder control. Actual public Python reduction CLI plus existing strict-reproducer regression: two passed. | **Tested** actual shrinking while retaining the selected negative-log issue/expression/start and refusing parser, unrelated singularity and different-domain changes. Original reproduction truth is unchanged. First support is deliberately bounded to the documented scalar-call/start family. |
+| C07 / I06 native | `highs_lifecycle_diagnostic NEW_OUTPUT --mode gdb` used the actual linked HiGHS test executable and existing GDB launch owner: normal/interrupted CallbackBinding teardown test passed, inferior exited0, owned drain complete. Two driver qualification controls passed. | **Tested** the ordinary selected GDB/lifecycle route. ASan and fault-sensitivity execution **not_run**; no sanitizer, ThreadSanitizer or solver-fleet safety claim. A genuine supported instrumented route is a separate revisit, not an automatic retry of denied tasks. |
+| C08 / I06 schedule | Actual scheduler hooks forced cancellation before gate acquisition and after the read guard but before compute resume; ordinary controls passed ownership/drain and successful-resume assertions. | **Tested** those actual production transitions. Loom is not adopted: the existing std RwLock/Condvar/native-reset path cannot credibly be modeled by replacing synchronization alone. Revisit for a concrete pure atomic publication protocol; no systematic whole-runtime interleaving claim. |
+
+The final Rust command was:
+
+```bash
+scripts/pse-env --resource-class build --native=solver,klu -- python3 -m scripts.arrow_validation nextest run -p pse-runtime --lib --features pse-runtime/solver-kinsol --locked -E 'test(reduction::tests) | test(actual_text_numerical_domain_failure_reproduces_selected_typed_source_diagnostic) | test(structured_decoder_controls_keep_actual_operation_meaning_and_refuse_bad_boundaries)'
+```
+
+The actual Python command used the freshly installed linked force-validated extension:
+
+```bash
+scripts/pse-env --resource-class build --native -- .venv/bin/python -m scripts.python_tests --unit-only --maxfail=0 --continue-on-collection-errors python/pse/tests/test_diagnostics.py -k 'scientific_reduction_cli or reproducer_explicit_runner' --basetemp build/plan52cd-evidence-20261024/python-pytest-v5 -q
+```
+
+Its product invocation is `72ac8af0fc0943e4b9fd000fd08d117c`. `PSE_RESOURCE_CLASS=build just codegen`
+and `PSE_RESOURCE_CLASS=build just py-sync-native-correctness` passed; stubs derive from the
+actual compiled API. `PSE_RESOURCE_CLASS=light just ready` subsequently passed both checks,
+including all selected tool versions and the installed native extension. The runner separately
+deferred cleanup of three historical unsupported-profile resources;
+those remain preserved, not counted as repaired or silently deleted by this scope.
+Root integration unittests passed 37 coverage/sensitivity/context/campaign/watch/pressure controls and another25
+driver/numerical/pin/source-context controls (overlapping families, not a unique-test total).
+
+Selected actual artifacts are copied to `build/plan52cd-evidence-20261024/`: coverage/mutation
+protocols and raw results, numerical JSON/SVG/PNG, GDB result/identity/drain, stopped instrumented
+attempt diagnostics and the actual Python temporary workspace. These are retained historical
+controls at their original source/build conditions, not fresh reusable evidence for arbitrary
+later edits. Worktree compiler targets were not copied or relabeled as new builds.
+
+Mistakes corrected: the numerical diagnostic producer had discarded its typed cause/source
+attribution in a message-only envelope. It now projects the actual cause. Independent review
+then exposed unbound anchors, quadratic/eager search, substring-derived edit locations and
+unaccounted aggregate move text. Actual control attribution, admitted parser spans, indexed
+parents, bounded source/declarations/moves/text and evidence reservations repair those issues;
+the reviewer closed all findings. An initially incorrect dotted parser-field lookup was repaired.
+Python integration exposed the missing explicit RecordedDocument registration and fixture
+union/ID rendering errors; all were fixed before the passing consumer. Shared `/tmp/pytest-of-paul`
+was root-owned and stopped collection; a fresh private basetemp solved the selected invocation
+without changing that unrelated directory. Earlier failures remain in their native result owners.
+
+Deliberate limits: sensitivity fault injection was stopped at the maintainer's direction; normal
+ASan and fuzz followups were separately denied by automatic review and their remaining owned
+compiler scopes stopped/drained. This does not establish a toolchain incompatibility. C04's
+remaining obligation is a permitted actual finite coverage-guided campaign, with observed tool
+feedback/completion and minimization/promotion of any real findings. It remains open rather
+than being credited to the structured fallback. Full feature powerset, hygiene/manual checks
+and assembled scientific/native/Python journeys remain 52h's independent scope.
+
+All three executor branches are merged into main, their scoped conflicts resolved, selected
+artifacts retained, and their fully merged worktrees removed. Unrelated operator edits remain
+outside these commits. The ordinary build/diagnostic controls are drained; no service or shared
+compiler cache was stopped as part of worktree retirement.
+Root `PSE_RESOURCE_CLASS=light just turn-end` passed ADR indexing and formatting. Its safe
+format/import fixes were followed by the ten selected tooling unittest modules (56 passed,
+baseline zero). Turn-end separately deferred three historical unsupported-profile cleanups;
+those resources remain protected. This is not full hygiene or product qualification.

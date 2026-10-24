@@ -2599,7 +2599,13 @@ owner_column = 2
 path = "docs/plans/53-test-architecture-target.md"
 name = "finding-dispositions"
 heading = "Finding dispositions"
-headers = ["Finding reference", "Scenario reference", "Disposition", "Decision/work owner", "Evidence or revisit trigger"]
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or revisit trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(DTA-[0-9]+)\b'

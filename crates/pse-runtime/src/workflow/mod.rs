@@ -4,12 +4,16 @@
 mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
 mod diagnostic_request;
-mod reproducer;
 mod reduction;
-pub use reduction::{ReductionAnchor,ReductionAnchorRole,ReductionOperator,ReductionRequest,ReductionCommandRequest,ReductionDisposition,ReductionEdit,ReductionAttempt,ReductionCorrespondence,ReductionDocument};
+mod reproducer;
 pub use diagnostic_request::{
     DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
     DiagnosticRuntimeSettings,
+};
+pub use reduction::{
+    ReductionAnchor, ReductionAnchorRole, ReductionAttempt, ReductionCommandRequest,
+    ReductionCorrespondence, ReductionDisposition, ReductionDocument, ReductionEdit,
+    ReductionOperator, ReductionRequest,
 };
 pub use reproducer::{
     DiagnosticReproducer, ReproducerCommandRequest, ReproducerExtractionInput,

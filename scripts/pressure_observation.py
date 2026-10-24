@@ -19,10 +19,23 @@ import msgspec
 
 CGROUP = Path("/sys/fs/cgroup")
 PROC = Path("/proc")
-COUNTERS = ("cpu.stat", "cpu.stat.local", "io.stat", "memory.events", "memory.events.local")
+COUNTERS = (
+    "cpu.stat",
+    "cpu.stat.local",
+    "io.stat",
+    "memory.events",
+    "memory.events.local",
+)
 PLACEMENT = (
-    "cpu.max", "cpu.weight", "cpuset.cpus", "cpuset.cpus.effective",
-    "cpuset.mems.effective", "memory.max", "memory.high", "memory.swap.max", "io.max",
+    "cpu.max",
+    "cpu.weight",
+    "cpuset.cpus",
+    "cpuset.cpus.effective",
+    "cpuset.mems.effective",
+    "memory.max",
+    "memory.high",
+    "memory.swap.max",
+    "io.max",
 )
 PSI = ("cpu", "io", "memory")
 MAX_BYTES = 64 << 10
@@ -92,10 +105,17 @@ def parse(value: str, kind: str) -> dict[str, int | float | str]:
                 if name in values or number < 0 or not math.isfinite(number):
                     raise ValueError("invalid PSI counter")
                 values[name] = number
-            if any(parts[0] + "." + key not in values for key in ("avg10", "avg60", "avg300", "total")):
+            if any(
+                parts[0] + "." + key not in values
+                for key in ("avg10", "avg60", "avg300", "total")
+            ):
                 raise ValueError("incomplete PSI row")
         elif kind == "io.stat":
-            if not parts or len(parts[0].split(":")) != 2 or not all(v.isdecimal() for v in parts[0].split(":")):
+            if (
+                not parts
+                or len(parts[0].split(":")) != 2
+                or not all(v.isdecimal() for v in parts[0].split(":"))
+            ):
                 raise ValueError("invalid IO device")
             for pair in parts[1:]:
                 key, raw = pair.split("=", 1)
@@ -124,7 +144,9 @@ def identity(directory: Path, group: str | None, proc: Path) -> Identity:
     if not boot:
         raise ValueError("boot identity unavailable")
     stat = directory.stat() if group is not None else None
-    return Identity(boot, group, stat.st_dev if stat else None, stat.st_ino if stat else None)
+    return Identity(
+        boot, group, stat.st_dev if stat else None, stat.st_ino if stat else None
+    )
 
 
 def member_affinity(directory: Path, group: str, proc: Path) -> Reading:
@@ -137,25 +159,38 @@ def member_affinity(directory: Path, group: str, proc: Path) -> Reading:
     try:
         members = read(directory / "cgroup.procs").split()
         if len(members) > 128 or any(not pid.isdecimal() for pid in members):
-            raise ValueError("direct member affinity observation exceeds bound or is malformed")
+            raise ValueError(
+                "direct member affinity observation exceeds bound or is malformed"
+            )
         masks: dict[str, int | float | str] = {}
         for pid in members:
             selected = proc / pid
             before = read(selected / "stat").rsplit(")", 1)[1].split()[19]
             if read(selected / "cgroup") != "0::" + group:
                 raise ValueError("member cgroup changed")
-            values = [line.split(":", 1)[1].strip() for line in read(selected / "status").splitlines() if line.startswith("Cpus_allowed_list:")]
+            values = [
+                line.split(":", 1)[1].strip()
+                for line in read(selected / "status").splitlines()
+                if line.startswith("Cpus_allowed_list:")
+            ]
             if len(values) != 1 or not values[0]:
                 raise ValueError("member scheduler affinity unavailable")
-            if read(selected / "stat").rsplit(")", 1)[1].split()[19] != before or read(selected / "cgroup") != "0::" + group:
+            if (
+                read(selected / "stat").rsplit(")", 1)[1].split()[19] != before
+                or read(selected / "cgroup") != "0::" + group
+            ):
                 raise ValueError("member lifetime changed")
             masks[pid + ":" + before] = values[0]
-        return Reading("available", masks, "direct members only; child cgroups unobserved")
+        return Reading(
+            "available", masks, "direct members only; child cgroups unobserved"
+        )
     except (OSError, ValueError, IndexError) as error:
         return unavailable(f"{type(error).__name__}: {error}")
 
 
-def sample(group: str | None = None, *, cgroup: Path = CGROUP, proc: Path = PROC) -> Sample:
+def sample(
+    group: str | None = None, *, cgroup: Path = CGROUP, proc: Path = PROC
+) -> Sample:
     """None selects host PSI; a cgroup path selects that exact kernel population.
 
     Ancestors retain their own identities and restrictions. No finite quota or
@@ -165,16 +200,27 @@ def sample(group: str | None = None, *, cgroup: Path = CGROUP, proc: Path = PROC
     fields: dict[str, Reading] = {}
     ancestors: list[Restriction] = []
     try:
-        if group is not None and (not group.startswith("/") or ".." in Path(group).parts):
+        if group is not None and (
+            not group.startswith("/") or ".." in Path(group).parts
+        ):
             raise ValueError("expected an absolute cgroup without parent traversal")
-        directory = cgroup / group.lstrip("/") if group is not None else proc / "pressure"
+        directory = (
+            cgroup / group.lstrip("/") if group is not None else proc / "pressure"
+        )
         before = identity(directory, group, proc)
         for resource in PSI:
-            fields[resource + ".pressure"] = field(directory / (resource + ".pressure" if group is not None else resource), "psi")
+            fields[resource + ".pressure"] = field(
+                directory / (resource + ".pressure" if group is not None else resource),
+                "psi",
+            )
         if group is None:
             # Linux's host CPU 'full' PSI is undefined, even when exported as zero.
             cpu = fields["cpu.pressure"]
-            cpu.values = {key: value for key, value in cpu.values.items() if not key.startswith("full.")}
+            cpu.values = {
+                key: value
+                for key, value in cpu.values.items()
+                if not key.startswith("full.")
+            }
         else:
             for name in COUNTERS:
                 fields[name] = field(directory / name, name)
@@ -185,10 +231,14 @@ def sample(group: str | None = None, *, cgroup: Path = CGROUP, proc: Path = PROC
             while directory != cgroup and parent.is_relative_to(cgroup):
                 if len(ancestors) >= 256:
                     raise ValueError("ancestor observation exceeds bound")
-                relative = "/" + str(parent.relative_to(cgroup)) if parent != cgroup else "/"
+                relative = (
+                    "/" + str(parent.relative_to(cgroup)) if parent != cgroup else "/"
+                )
                 try:
                     original = identity(parent, relative, proc)
-                    limits = {name: field(parent / name, "placement") for name in PLACEMENT}
+                    limits = {
+                        name: field(parent / name, "placement") for name in PLACEMENT
+                    }
                     # Ancestor bandwidth counters can reveal ancestor throttling;
                     # they must never be attributed to just the selected child.
                     limits["cpu.stat"] = field(parent / "cpu.stat", "cpu.stat")
@@ -196,21 +246,55 @@ def sample(group: str | None = None, *, cgroup: Path = CGROUP, proc: Path = PROC
                         raise ValueError("ancestor lifetime changed")
                     ancestors.append(Restriction(original, relative, limits))
                 except OSError as error:
-                    ancestors.append(Restriction(None, relative, {"identity": unavailable(str(error))}))
+                    ancestors.append(
+                        Restriction(
+                            None, relative, {"identity": unavailable(str(error))}
+                        )
+                    )
                 if parent == cgroup:
                     break
                 parent = parent.parent
         if identity(directory, group, proc) != before:
             raise ValueError("scope incarnation changed during sample")
-        partial = any(v.status == "unavailable" for v in fields.values()) or any(v.status == "unavailable" for a in ancestors for v in a.fields.values())
-        return Sample("partial" if partial else "observed", before, started, time.monotonic_ns(), time.time_ns(), fields, ancestors)
+        partial = any(v.status == "unavailable" for v in fields.values()) or any(
+            v.status == "unavailable" for a in ancestors for v in a.fields.values()
+        )
+        return Sample(
+            "partial" if partial else "observed",
+            before,
+            started,
+            time.monotonic_ns(),
+            time.time_ns(),
+            fields,
+            ancestors,
+        )
     except (OSError, ValueError) as error:
         # Discard mixed-incarnation fields rather than retain invented continuity.
-        return Sample("unavailable", None, started, time.monotonic_ns(), time.time_ns(), {}, reason=f"{type(error).__name__}: {error}")
+        return Sample(
+            "unavailable",
+            None,
+            started,
+            time.monotonic_ns(),
+            time.time_ns(),
+            {},
+            reason=f"{type(error).__name__}: {error}",
+        )
 
 
 def capture(group: str | None) -> Capture:
-    selected = sample(group) if group is not None else Sample("unavailable", None, time.monotonic_ns(), time.monotonic_ns(), time.time_ns(), {}, reason="no selected cgroup")
+    selected = (
+        sample(group)
+        if group is not None
+        else Sample(
+            "unavailable",
+            None,
+            time.monotonic_ns(),
+            time.monotonic_ns(),
+            time.time_ns(),
+            {},
+            reason="no selected cgroup",
+        )
+    )
     return Capture(sample(), selected)
 
 
@@ -222,7 +306,9 @@ def delta(previous: Sample, current: Sample) -> dict:
     """
     interval = (current.finished_monotonic_ns - previous.finished_monotonic_ns) / 1e9
     result: dict = {
-        "status": "unavailable", "interval_seconds": interval, "fields": {},
+        "status": "unavailable",
+        "interval_seconds": interval,
+        "fields": {},
         "previous_identity": msgspec.to_builtins(previous.identity),
         "current_identity": msgspec.to_builtins(current.identity),
         "interval_start_monotonic_ns": previous.finished_monotonic_ns,
@@ -230,8 +316,14 @@ def delta(previous: Sample, current: Sample) -> dict:
         "units": "PSI total and *_usec: microseconds; IO *bytes: bytes; other counters: events; per_second retains those units",
         "limits": "cgroup quota counters are local; ancestor populations are separate; counters do not identify a particular operation's wait cause",
     }
-    if previous.identity is None or previous.identity != current.identity or interval <= 0:
-        result["reason"] = "scope incarnation changed, unavailable, or nonpositive interval"
+    if (
+        previous.identity is None
+        or previous.identity != current.identity
+        or interval <= 0
+    ):
+        result["reason"] = (
+            "scope incarnation changed, unavailable, or nonpositive interval"
+        )
         return result
     result["status"] = "available"
     for name in set(previous.fields) | set(current.fields):
@@ -240,17 +332,31 @@ def delta(previous: Sample, current: Sample) -> dict:
         old, new = previous.fields.get(name), current.fields.get(name)
         observed: dict = {}
         result["fields"][name] = observed
-        if old is None or new is None or old.status != "available" or new.status != "available":
-            observed.update(status="unavailable", reason="field unavailable at an interval endpoint")
+        if (
+            old is None
+            or new is None
+            or old.status != "available"
+            or new.status != "available"
+        ):
+            observed.update(
+                status="unavailable", reason="field unavailable at an interval endpoint"
+            )
             continue
         for key in set(old.values) | set(new.values):
             if name.endswith(".pressure") and not key.endswith(".total"):
                 continue
             first, last = old.values.get(key), new.values.get(key)
             if type(first) is not int or type(last) is not int:
-                observed[key] = {"status": "unavailable", "reason": "counter absent at an interval endpoint"}
+                observed[key] = {
+                    "status": "unavailable",
+                    "reason": "counter absent at an interval endpoint",
+                }
             elif last < first:
                 observed[key] = {"status": "reset", "previous": first, "current": last}
             else:
-                observed[key] = {"status": "available", "delta": last - first, "per_second": (last - first) / interval}
+                observed[key] = {
+                    "status": "available",
+                    "delta": last - first,
+                    "per_second": (last - first) / interval,
+                }
     return result

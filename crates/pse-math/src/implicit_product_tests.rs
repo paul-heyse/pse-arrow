@@ -2499,63 +2499,125 @@ proptest::proptest! {
 
 #[test]
 fn generated_wrong_coordinate_association_shrinks_to_concrete_regression() {
-    use proptest::{prelude::*,test_runner::{Config,RngSeed,TestError,TestRunner}};
+    use proptest::{
+        prelude::*,
+        test_runner::{Config, RngSeed, TestError, TestRunner},
+    };
     // Strategy identity: vec((0..8,0..8),1..7), ChaCha seed 5202.
     // Fault: retain the previous input while the caller edits parameter a.
-    let mut runner=TestRunner::new(Config {cases:64,rng_seed:RngSeed::Fixed(5202),failure_persistence:None,..Config::default()});
-    let strategy=proptest::collection::vec((0_i32..8,0_i32..8),1..7);
-    let result=runner.run(&strategy,|edits| {
-        let (factory,_,_)=coupled(2,64);
-        let mut provider=factory.create().unwrap();
-        let flag=factory.cancel.flag();
-        let context=EvaluationContext {cancelled:flag.as_ref(),max_result_bytes:1<<20};
-        let request=provider.prepare(ProviderRequest {outputs:vec![0,1],order:DerivativeOrder::Value,demand:ProviderDemand::CompleteJets}).unwrap();
-        let mut buffer=ProviderBuffer::new(&request);
-        let mut previous=[0.,0.];
-        for (a,b) in edits {
-            let current=[f64::from(a),f64::from(b)];
+    let mut runner = TestRunner::new(Config {
+        cases: 64,
+        rng_seed: RngSeed::Fixed(5202),
+        failure_persistence: None,
+        ..Config::default()
+    });
+    let strategy = proptest::collection::vec((0_i32..8, 0_i32..8), 1..7);
+    let result = runner.run(&strategy, |edits| {
+        let (factory, _, _) = coupled(2, 64);
+        let mut provider = factory.create().unwrap();
+        let flag = factory.cancel.flag();
+        let context = EvaluationContext {
+            cancelled: flag.as_ref(),
+            max_result_bytes: 1 << 20,
+        };
+        let request = provider
+            .prepare(ProviderRequest {
+                outputs: vec![0, 1],
+                order: DerivativeOrder::Value,
+                demand: ProviderDemand::CompleteJets,
+            })
+            .unwrap();
+        let mut buffer = ProviderBuffer::new(&request);
+        let mut previous = [0., 0.];
+        for (a, b) in edits {
+            let current = [f64::from(a), f64::from(b)];
             // Explicit association fault at the real provider boundary: evaluate
             // retained preparation with the stale prior inputs rather than the edit.
-            let wrong=buffer.fill(&mut provider,&previous,&request,Default::default(),&context).unwrap();
-            let expected=analytic(&current).values;
-            for (actual,expected) in wrong.values.iter().zip(expected) {
-                prop_assert!((actual-expected).abs()<1e-10);
+            let wrong = buffer
+                .fill(
+                    &mut provider,
+                    &previous,
+                    &request,
+                    Default::default(),
+                    &context,
+                )
+                .unwrap();
+            let expected = analytic(&current).values;
+            for (actual, expected) in wrong.values.iter().zip(expected) {
+                prop_assert!((actual - expected).abs() < 1e-10);
             }
-            previous=current;
+            previous = current;
         }
         Ok(())
     });
-    let Err(TestError::Fail(_,minimal))=result else {panic!("wrong stale association was not detected")};
-    assert_eq!(minimal,vec![(0,1)],"concrete minimized input is retained with the seed and strategy");
-    assert_eq!(analytic(&[0.,1.]).values,vec![1./3.,2./3.]);
-    assert_eq!(analytic(&[0.,0.]).values,vec![0.,0.]);
+    let Err(TestError::Fail(_, minimal)) = result else {
+        panic!("wrong stale association was not detected")
+    };
+    assert_eq!(
+        minimal,
+        vec![(0, 1)],
+        "concrete minimized input is retained with the seed and strategy"
+    );
+    assert_eq!(analytic(&[0., 1.]).values, vec![1. / 3., 2. / 3.]);
+    assert_eq!(analytic(&[0., 0.]).values, vec![0., 0.]);
 }
 
 #[test]
 fn implicit_product_legal_step_sweep_exports_actual_selected_values() {
-    let (factory,_,_)=coupled(2,64);
-    let mut provider=factory.create().unwrap();
-    let flag=factory.cancel.flag();
-    let context=EvaluationContext {cancelled:flag.as_ref(),max_result_bytes:1<<20};
-    let request=provider.prepare(ProviderRequest {outputs:vec![0],order:DerivativeOrder::First,demand:ProviderDemand::SelectedColumns {columns:vec![0]}}).unwrap();
-    let mut buffer=ProviderBuffer::new(&request);
-    let point=[1.5,0.25];
-    let derivative=buffer.fill(&mut provider,&point,&request,Default::default(),&context).unwrap().jacobian[0];
-    close(&[derivative],&[13./12.]);
-    let mut samples=Vec::new();
+    let (factory, _, _) = coupled(2, 64);
+    let mut provider = factory.create().unwrap();
+    let flag = factory.cancel.flag();
+    let context = EvaluationContext {
+        cancelled: flag.as_ref(),
+        max_result_bytes: 1 << 20,
+    };
+    let request = provider
+        .prepare(ProviderRequest {
+            outputs: vec![0],
+            order: DerivativeOrder::First,
+            demand: ProviderDemand::SelectedColumns { columns: vec![0] },
+        })
+        .unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    let point = [1.5, 0.25];
+    let derivative = buffer
+        .fill(
+            &mut provider,
+            &point,
+            &request,
+            Default::default(),
+            &context,
+        )
+        .unwrap()
+        .jacobian[0];
+    close(&[derivative], &[13. / 12.]);
+    let mut samples = Vec::new();
     for exponent in 1..=17 {
-        let step=10_f64.powi(-exponent);
-        let mut values=Vec::new();let mut failure=None;
-        for parameter in [point[0]-step,point[0]+step] {
-            match buffer.fill(&mut provider,&[parameter,point[1]],&request,Default::default(),&context) {
-                Ok(result)=>values.push(result.values[0]),
-                Err(error)=>{failure=Some(error.to_string());break;}
+        let step = 10_f64.powi(-exponent);
+        let mut values = Vec::new();
+        let mut failure = None;
+        for parameter in [point[0] - step, point[0] + step] {
+            match buffer.fill(
+                &mut provider,
+                &[parameter, point[1]],
+                &request,
+                Default::default(),
+                &context,
+            ) {
+                Ok(result) => values.push(result.values[0]),
+                Err(error) => {
+                    failure = Some(error.to_string());
+                    break;
+                }
             }
         }
-        let complete=failure.is_none() && values.len()==2 && point[0]+step!=point[0] && point[0]-step!=point[0];
+        let complete = failure.is_none()
+            && values.len() == 2
+            && point[0] + step != point[0]
+            && point[0] - step != point[0];
         samples.push(serde_json::json!({"case":"implicit-coupled","point":point,"coordinate":"p0","coordinate_unit":"dimensionless","output_unit":"dimensionless","coordinate_scale":1.,"step":step,"central":true,"complete":complete,"failure":failure,"analytic":derivative,"numeric":complete.then(||(values[1]-values[0])/(2.*step)),"reference":"13/12","values":values}));
     }
-    if let Some(path)=std::env::var_os("PSE_IMPLICIT_NUMERICAL_OUTPUT") {
+    if let Some(path) = std::env::var_os("PSE_IMPLICIT_NUMERICAL_OUTPUT") {
         std::fs::write(path,serde_json::to_vec_pretty(&serde_json::json!({"schema":"implicit-product-step-sweep-v1","oracle":"A=[[1,1],[2,-1]], rhs=[a*a+b,a*b]; independent derivative at a=1.5,b=.25 is 13/12","samples":samples})).unwrap()).unwrap();
     }
 }

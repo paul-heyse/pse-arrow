@@ -147,13 +147,13 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O05 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Structured native retrieval, lexical discovery and bounded local semantic decision |
 | O06 | resolved | [B03](52b-local-knowledge-and-research.md#B03) | Exact-version research and evolution packets |
 | O07 | resolved | [A05](52a-context-navigation-and-semantic-editing.md#A05) | Consequences of actual design alternatives |
-| O08 | scheduled | [C01](52c-behavioral-and-scientific-verification.md#C01) | Source/coverage correspondence, missing behavior and exclusions |
-| O09 | scheduled | [C02](52c-behavioral-and-scientific-verification.md#C02) | Independent semantic properties and shrinking action sequences |
-| O10 | scheduled | [C03](52c-behavioral-and-scientific-verification.md#C03) | Selected plausible-wrong implementation challenges |
-| O11 | scheduled | [C04](52c-behavioral-and-scientific-verification.md#C04) | Finite pure-boundary fuzzing and reduced regressions |
-| O12 | scheduled | [C05](52c-behavioral-and-scientific-verification.md#C05) | Legal-step numerical/derivative reference workbench |
-| O13 | scheduled | [C06](52c-behavioral-and-scientific-verification.md#C06) | Source-aware reduction with separate preserved-property claim |
-| O14 | scheduled | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Focused lifetime instrumentation and controlled schedule inquiry |
+| O08 | resolved | [C01](52c-behavioral-and-scientific-verification.md#C01) | Source/coverage correspondence, missing behavior and exclusions |
+| O09 | resolved | [C02](52c-behavioral-and-scientific-verification.md#C02) | Independent semantic properties and shrinking action sequences |
+| O10 | resolved | [C03](52c-behavioral-and-scientific-verification.md#C03) | Selected plausible-wrong implementation challenges |
+| O11 | in-progress | [C04](52c-behavioral-and-scientific-verification.md#C04) | Finite pure-boundary fuzzing and reduced regressions |
+| O12 | resolved | [C05](52c-behavioral-and-scientific-verification.md#C05) | Legal-step numerical/derivative reference workbench |
+| O13 | resolved | [C06](52c-behavioral-and-scientific-verification.md#C06) | Source-aware reduction with separate preserved-property claim |
+| O14 | resolved | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Focused lifetime instrumentation and controlled schedule inquiry |
 | O15 | resolved | [D01](52d-execution-and-qualification-efficiency.md#D01) | Resumable observation of actual owned transitions |
 | O16 | resolved | [D02](52d-execution-and-qualification-efficiency.md#D02) | Exact feature enumeration and safe per-combination reuse |
 | O17 | resolved | [D03](52d-execution-and-qualification-efficiency.md#D03) | Safe effective-build equivalence or conservative explained fallback |
@@ -183,8 +183,8 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I02 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | ast-grep0.50.0 contextual shapes plus LibCST1.9.0 qualified imports/scopes support the selected Python3.14 migration and negative examples |
 | I03 | resolved | [B01/B05](52b-local-knowledge-and-research.md#B01) | Exact native concepts selected with source-fresh lexical discovery. Qwen/llama.cpp Blackwell batch compatible but mixed usefulness; unused helper/config retired. Missing answers first trigger domain/relationship/query coverage investigation, not a semantic implementation backlog ([52b outcome](52b-local-knowledge-and-research.md#structured-execution-outcome)) |
 | I04 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Select bounded incremental stream adapter. Codex0.163 protocol listing inspected, but no isolated/live read-only App Server runtime qualified; no app-server startup/state repair required |
-| I05 | open | [C02](52c-behavioral-and-scientific-verification.md#C02) | Separate state-machine/Hypothesis addition versus existing Proptest sequences |
-| I06 | open | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual native instrumentation and modeled-schedule feasibility, separate outcomes |
+| I05 | resolved | [C02](52c-behavioral-and-scientific-verification.md#C02) | Existing Proptest action sequences selected and actual stale-provider counterexample shrunk; add another framework only for an uncovered owner-specific behavior |
+| I06 | resolved | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual GDB lifecycle and deterministic production schedules selected; ASan unqualified after task denial; Loom not adopted for std/native path, with a pure-protocol revisit trigger |
 | I07 | resolved | [D03](52d-execution-and-qualification-efficiency.md#targeted-execution-outcome--2026-10-24) | Parsed TOML equivalence selected inside complete context; actual cold build/reuse passed; unsupported context and unknown targets refuse |
 | I08 | open | [E01](52e-reproducible-experiments-and-isolation.md#E01) | Pure archive replay then native closure; unsupported native replay stays explicit |
 | I09 | open | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Deterministic population/logical restore; physical copy only if separately justified |
@@ -211,14 +211,14 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | B03 | done | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
 | B04 | done | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
 | B05 | done | [52b](52b-local-knowledge-and-research.md#B05) | Bounded local semantic decision and second I03 outcome |
-| C01 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
-| C02 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
-| C03 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
-| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C04) | Pure-boundary fuzz/reduced regression |
-| C05 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
-| C06 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
-| C07 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
-| C08 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C08) | Controlled schedules; modeled I06 outcome |
+| C01 | done | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
+| C02 | done | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
+| C03 | done | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
+| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#execution-boundary--instrumentation) | Ordinary structured controls passed and harnesses compile; actual coverage-guided acceptance blocked by automatic task review |
+| C05 | done | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
+| C06 | done | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
+| C07 | done | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
+| C08 | done | [52c](52c-behavioral-and-scientific-verification.md#C08) | Controlled schedules; modeled I06 outcome |
 | D01 | done | [52d](52d-execution-and-qualification-efficiency.md#D01) | Cursor watch/reconciliation and real terminal |
 | D02 | done | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
 | D03 | done | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
@@ -289,8 +289,8 @@ owns task/design composition, actual producer paths and Rust/Python edit consume
 access and native structured knowledge. ADR-0222 preceded the new family; blueprint §24.1 now
 owns enduring meaning, while formal ADR status stays proposed. B05 selected structured access
 with lexical discovery and retired the unused model helper after its bounded comparison.
-FastMCP4.1.3/MCP2.3.0 are installed and exercised. Other FND00/G01 obligations and Plan52c–52h
-remain planned, including assembled qualification and scope-end hygiene/manual checks.
+FastMCP4.1.3/MCP2.3.0 are installed and exercised. The subsequent 52c/52d checkpoint below owns their delivery and execution limit. Other FND00/G01
+obligations and Plan52e–52h remain planned, including assembled qualification and scope-end hygiene/manual checks.
 No whole-series or productivity/performance claim follows from these targeted checks.
 
 ### Owner-selected structured-query pivot
@@ -305,17 +305,28 @@ tooling and SurrealKV source review informed the physical realization. Semantic 
 unselected; no new database or authority is implicit. A03/A04/B02/B03's unaffected delivery remains.
 
 
-### 52c/52d execution checkpoint — 2026-10-23
+### 52c/52d execution checkpoint — 2026-10-24
 
-All twelve packages are authorized. Execution uses current Test Assessment1.2 without reopening
-settled reviews. ADR-0223 declares a separate scientific reduction document family; original
-reproduction remains exact. RC03's combination reuse unit is published at blueprint §24.1.
-D01/D04 are integrated: exact detached cursor watch and shared identity-aware kernel pressure
-observations passed 45 focused tests and two actual build/test/watch/quota controls in the isolated
-executor checkout. Their report boundaries are retained in 52d. Remaining C/D implementation and
-actual-consumer acceptance are in progress; no assembled Plan52 qualification is claimed.
+All twelve packages were authorized and their functional implementations are integrated.
+[52c's Outcome](52c-behavioral-and-scientific-verification.md#targeted-execution-outcome--2026-10-24)
+owns the scientific properties, actual coverage/mutation controls, numerical workbench, separate
+source reduction and actual GDB/schedule consumers. C01/C02/C03/C05/C06/C07/C08 meet their selected
+focused boundaries. C04's structured controls passed and optional harnesses compile, but its
+actual coverage-guided campaign remains unexecuted after automatic task review denied it;
+C04 and 52c remain in progress for that obligation. Normal ASan and fault-sensitivity execution
+are also unqualified; the native inquiry selected the narrower tested GDB route. No automatic
+retry or toolchain-incompatibility claim is implied.
 
-I05 selects ordinary existing Proptest action sequences, not another state-machine dependency.
-I06's actual native instrumentation and deterministic schedule branches remain separately tested.
-For I07 the maintainer selected safe reuse, including one actual complete-context server build;
-explanation-only fallback is reserved for unsupported contexts, not the primary target.
+[52d's Outcome](52d-execution-and-qualification-efficiency.md#targeted-execution-outcome--2026-10-24)
+closes D01–D04: detached owner watches, pressure/placement facts, actual combination interruption/
+resume/source-repair invalidation, and a genuine fresh complete-context main server build followed
+by actual safe configuration-equivalence reuse. Unknown/moved/shared targets and unsupported
+contexts refuse; no active service was restarted. Effective PATH remains conservatively bound.
+
+ADR-0223 preceded the separate reduction family, generated contracts and Rust/public Python CLI;
+original reproduction remains exact. RC03's narrower reuse unit is published at blueprint §24.1.
+Test Assessment1.2 guided execution without reopening settled reviews. I05 selects existing
+Proptest sequences. I06 records actual native/schedule outcomes independently. I07 selects parsed
+TOML equivalence only inside the closed context. Their details and revisit triggers live at their
+companion owners. Other FND00/G01 obligations and 52e–52h stay planned; full powerset, hygiene/manual
+checks, assembled qualification and any performance/productivity benefit remain unestablished.

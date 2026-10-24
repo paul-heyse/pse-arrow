@@ -120,7 +120,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="structured preview with the same selection and exclusions",
     )
-    parser.add_argument("--coverage", type=Path, help="optional source-fresh coverage capture; never narrows dependency selection")
+    parser.add_argument(
+        "--coverage",
+        type=Path,
+        help="optional source-fresh coverage capture; never narrows dependency selection",
+    )
     parser.add_argument("--features", default="", help="extra cargo features")
     parser.add_argument("nextest", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
@@ -195,11 +199,20 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.coverage is not None:
         from scripts.coverage_correspondence import inspect
+
         try:
             result["coverage"] = inspect(args.coverage, args.base)
-        except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError) as error:
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            IndexError,
+            subprocess.SubprocessError,
+        ) as error:
             result["coverage"] = {
-                "status": "unavailable", "error": str(error),
+                "status": "unavailable",
+                "error": str(error),
                 "selection": "conservative dependency reach remains authoritative; coverage never omits tests",
             }
     if args.json:

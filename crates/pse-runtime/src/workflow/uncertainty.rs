@@ -858,5 +858,4 @@ mod projection_tests {
             proptest::prop_assert!(propagate_for_test(Ok(&covariance),Ok(&invalid)).is_err());
         }
     }
-
 }

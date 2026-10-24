@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Exact protocol-sensitive Cargo tool selections, shared by setup and consumers."""
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +42,9 @@ def selected_identity(name: str) -> dict[str, str]:
     if executable is None:
         raise ValueError(f"{name} unavailable; run just bootstrap-rust-tools")
     path = Path(executable).resolve()
-    output = subprocess.check_output([str(path), name.removeprefix("cargo-"), "--version"], text=True).strip()
+    output = subprocess.check_output(
+        [str(path), name.removeprefix("cargo-"), "--version"], text=True
+    ).strip()
     if not re.search(rf"(?<![\d.]){re.escape(expected)}(?![\d.])", output):
         raise ValueError(f"{name} version differs from {expected}: {output}")
     with path.open("rb") as stream:

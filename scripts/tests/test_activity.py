@@ -369,23 +369,83 @@ class ActivityTests(unittest.TestCase):
 
     def test_pressure_selection_retains_unavailable_without_hiding_unit(self) -> None:
         pressure = activity.pressure_observation
-        host = pressure.Sample("observed", pressure.Identity("boot", None, None, None), 1, 2, 3, {})
-        missing = pressure.Sample("unavailable", None, 1, 2, 3, {}, reason="permission denied")
+        host = pressure.Sample(
+            "observed", pressure.Identity("boot", None, None, None), 1, 2, 3, {}
+        )
+        missing = pressure.Sample(
+            "unavailable", None, 1, 2, 3, {}, reason="permission denied"
+        )
         output = io.StringIO()
-        with patch.object(activity, "units", return_value=([{"unit": "pse-selected.scope", "ControlGroup": "/selected", "InvocationID": "abc"}], [])), patch.object(activity.native_operation, "unit_observation", return_value={"LoadState": "loaded", "ControlGroup": "/selected", "InvocationID": "abc"}), patch.object(pressure, "sample", side_effect=[host, missing]), patch.object(activity, "build_processes", return_value=[]), patch.object(activity.pse_env, "limits", return_value=[]), contextlib.redirect_stdout(output):
-            code = activity.main(["--json", "--pressure", "--unit", "pse-selected.scope"])
+        with (
+            patch.object(
+                activity,
+                "units",
+                return_value=(
+                    [
+                        {
+                            "unit": "pse-selected.scope",
+                            "ControlGroup": "/selected",
+                            "InvocationID": "abc",
+                        }
+                    ],
+                    [],
+                ),
+            ),
+            patch.object(
+                activity.native_operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ControlGroup": "/selected",
+                    "InvocationID": "abc",
+                },
+            ),
+            patch.object(pressure, "sample", side_effect=[host, missing]),
+            patch.object(activity, "build_processes", return_value=[]),
+            patch.object(activity.pse_env, "limits", return_value=[]),
+            contextlib.redirect_stdout(output),
+        ):
+            code = activity.main(
+                ["--json", "--pressure", "--unit", "pse-selected.scope"]
+            )
         result = json.loads(output.getvalue())
         self.assertEqual(code, 1)
         self.assertTrue(result["units_available"])
         self.assertEqual(result["pressure"]["host"]["status"], "observed")
-        self.assertEqual(result["pressure"]["selected"]["/selected"]["reason"], "permission denied")
+        self.assertEqual(
+            result["pressure"]["selected"]["/selected"]["reason"], "permission denied"
+        )
         self.assertTrue(result["observation_errors"])
 
     def test_changed_unit_does_not_link_new_incarnation_pressure(self) -> None:
         pressure = activity.pressure_observation
-        sample = pressure.Sample("observed", pressure.Identity("boot", "/selected", 1, 10), 1, 2, 3, {"cpu.stat": pressure.Reading("available", {"usage_usec": 1})})
-        with patch.object(pressure, "sample", return_value=sample), patch.object(activity.native_operation, "unit_observation", return_value={"LoadState": "loaded", "ControlGroup": "/selected", "InvocationID": "new"}):
-            observed = activity.unit_pressure({"unit": "pse-selected.scope", "ControlGroup": "/selected", "InvocationID": "old"})
+        sample = pressure.Sample(
+            "observed",
+            pressure.Identity("boot", "/selected", 1, 10),
+            1,
+            2,
+            3,
+            {"cpu.stat": pressure.Reading("available", {"usage_usec": 1})},
+        )
+        with (
+            patch.object(pressure, "sample", return_value=sample),
+            patch.object(
+                activity.native_operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ControlGroup": "/selected",
+                    "InvocationID": "new",
+                },
+            ),
+        ):
+            observed = activity.unit_pressure(
+                {
+                    "unit": "pse-selected.scope",
+                    "ControlGroup": "/selected",
+                    "InvocationID": "old",
+                }
+            )
         self.assertEqual(observed.status, "unavailable")
         self.assertIsNone(observed.identity)
         self.assertEqual(observed.fields, {})

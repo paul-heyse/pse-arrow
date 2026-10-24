@@ -13,11 +13,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
-
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests import canonical_recovery_science as science
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
 

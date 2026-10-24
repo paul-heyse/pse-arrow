@@ -330,6 +330,50 @@ records its selected fixture corrections and evidence limits.
 
 These tooling tests establish runner behaviour, not product or scientific acceptance.
 
+### Selected behavioral investigations
+
+The protocol-sensitive Cargo tools are pinned once in `.config/diagnostic-tools.toml`;
+bootstrap, doctor and their consumers use that declaration. These are opt-in investigations:
+
+```bash
+scripts/pse-env --resource-class build -- .venv/bin/python -m scripts.coverage_correspondence capture --branch -- -p pse-ids --lib -E 'test(scientific_replay)'
+scripts/pse-env --resource-class light -- .venv/bin/python -m scripts.coverage_correspondence report --capture build/assessment/CAPTURE --base HEAD --json
+just affected --coverage build/assessment/CAPTURE --json
+just mutants-file crates/pse-ids/src/scientific_replay.rs '' --lib
+scripts/pse-env --resource-class build -- .venv/bin/python -m scripts.boundary_fuzz --seconds 60
+```
+
+Coverage captures bind source/build/instrumentation inputs and retain the actual nextest JUnit
+population. Changed-source views refuse stale correspondence and leave dependency selection
+conservative. Branch coverage uses the pinned nightly's unstable instrumentation; merged
+coverage identifies a selected population, not an individual covering test or assertion strength.
+Native C/C++ remains opaque. `coverage` and `mutants-file` choose fresh output directories by
+default; explicitly named existing directories are refused.
+
+Mutation retains an unchanged baseline in the actual tool copy before interpreting caught,
+missed, unviable, timeout and setup outcomes. Native use selects the direct
+`scripts.assertion_sensitivity --native` route under the appropriate `pse-env --native` context;
+pure-boundary acceptance does not qualify every native mutation-copy configuration. Fuzzing
+targets only the frozen inspection decoder/member validator, starts from authentic and malformed
+seeds, and owns a finite corpus/artifact directory. `--replay PATH` and `--minimize PATH` inspect
+concrete findings; any genuine reduced regression belongs with the ordinary boundary tests.
+Neither successful tool completion nor a finite clean campaign establishes exhaustive correctness.
+For this delivery, automatic review denied the instrumented fuzz execution task before the
+campaign ran. The ordinary `structured_decoder_controls_keep_actual_operation_meaning_and_refuse_bad_boundaries`
+test exercises actual operation meaning, exact large counters, truncations, malformed input,
+unsupported versions and the 64 MiB size guard. Coverage-guided execution/minimization remain
+unqualified; the owning Plan52c records the execution boundary.
+
+`just features-combinations` and `just features-no-default` now use the assessment owner's
+combination campaign. The pinned cargo-hack enumerates literal argv through the Cargo adapter;
+its displayed command text is never shell-evaluated. Set `PSE_FEATURE_RESUME_FROM` to a prior
+assessment path to reuse only completed successful combinations with unchanged full applicable
+source/compiler/config/environment inputs. Interrupted and failed attempts remain recorded;
+a real Rust repair invalidates the applicable campaign. Reused origins are explicit, and a
+missing/failed combination prevents `required_checks_covered`. One driver owns overlapping
+graphs in a checkout. A small matrix qualifies this mechanism; the full required feature
+campaign remains an independently selected scope-end assessment.
+
 ## Case measurements
 
 The host owner records the admitted lane, actual process placement, competing

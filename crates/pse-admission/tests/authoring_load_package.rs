@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 mod support;
 
 fn fixture(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
         .join("../../tests/fixtures/packages")
         .join(name)
 }

@@ -10,9 +10,9 @@ cargo-hack still owns enumeration, ordering, and keep-going failure accounting.
 
 from __future__ import annotations
 
-import os
-import json
 import hashlib
+import json
+import os
 import re
 import shlex
 import shutil
@@ -169,8 +169,11 @@ def main() -> int:
         def validation_capture(scope: list[str]) -> bytes:
             selected = [cargo, *scope[1:]]
             data = capture(selected, env=environment)
-            graphs.append({"argv": selected, "sha256": hashlib.sha256(data).hexdigest()})
+            graphs.append(
+                {"argv": selected, "sha256": hashlib.sha256(data).hexdigest()}
+            )
             return data
+
         if arguments[:1] == ["check"]:
             command = compose(
                 command,
@@ -182,10 +185,33 @@ def main() -> int:
                 flush=True,
             )
         command[0] = cargo
-        if arguments[:1] == ["check"] and (attempt := os.environ.get("PSE_FEATURE_ATTEMPT")):
+        if arguments[:1] == ["check"] and (
+            attempt := os.environ.get("PSE_FEATURE_ATTEMPT")
+        ):
             path = Path(attempt)
             temporary = path.with_suffix(".pending")
-            temporary.write_text(json.dumps({"schema": "cargo-feature-execution-v1", "literal_argv": literal, "qualified_argv": arguments, "actual_argv": command, "correctness": "arrow-unit-graph-force-validation-v1", "validation_graphs": graphs, "effective_environment": {key: hashlib.sha256(value.encode()).hexdigest() for key, value in sorted((os.environ if environment is None else environment).items())}}, sort_keys=True) + "\n")
+            temporary.write_text(
+                json.dumps(
+                    {
+                        "schema": "cargo-feature-execution-v1",
+                        "literal_argv": literal,
+                        "qualified_argv": arguments,
+                        "actual_argv": command,
+                        "correctness": "arrow-unit-graph-force-validation-v1",
+                        "validation_graphs": graphs,
+                        "effective_environment": {
+                            key: hashlib.sha256(value.encode()).hexdigest()
+                            for key, value in sorted(
+                                (
+                                    os.environ if environment is None else environment
+                                ).items()
+                            )
+                        },
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
             temporary.replace(path)
         if environment is None:
             code = subprocess.run(command, check=False).returncode
