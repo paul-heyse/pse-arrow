@@ -2580,3 +2580,146 @@ kind = "depends-on"
 from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H04"
 to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H03"
 kind = "depends-on"
+
+# Plan53 coordinator owns package, original DTA disposition and bounded inquiry state.
+# Drafting and rule acceptance do not establish implementation or qualification.
+[[scope_tables]]
+path = "docs/plans/53-test-architecture-target.md"
+name = "package-state"
+heading = "Package state and execution route"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^((?:P|A|B|C|D|E|F|G)[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/53-test-architecture-target.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = ["Finding reference", "Scenario reference", "Disposition", "Decision/work owner", "Evidence or revisit trigger"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(DTA-[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/53-test-architecture-target.md"
+name = "inquiry-outcomes"
+heading = "Inquiry outcomes and remaining questions"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C01"
+to = "docs/plans/53-test-architecture-target.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C02"
+to = "docs/plans/53-test-architecture-target.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C02"
+to = "docs/plans/53-test-architecture-target.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C03"
+to = "docs/plans/53-test-architecture-target.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C04"
+to = "docs/plans/53-test-architecture-target.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C04"
+to = "docs/plans/53-test-architecture-target.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C04"
+to = "docs/plans/53-test-architecture-target.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::C05"
+to = "docs/plans/53-test-architecture-target.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D02"
+to = "docs/plans/53-test-architecture-target.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D02"
+to = "docs/plans/53-test-architecture-target.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D02"
+to = "docs/plans/53-test-architecture-target.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D02"
+to = "docs/plans/53-test-architecture-target.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D03"
+to = "docs/plans/53-test-architecture-target.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::E01"
+to = "docs/plans/53-test-architecture-target.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::E01"
+to = "docs/plans/53-test-architecture-target.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F01"
+to = "docs/plans/53-test-architecture-target.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F01"
+to = "docs/plans/53-test-architecture-target.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F01"
+to = "docs/plans/53-test-architecture-target.md::package-state::B05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F02"
+to = "docs/plans/53-test-architecture-target.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F02"
+to = "docs/plans/53-test-architecture-target.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::G02"
+to = "docs/plans/53-test-architecture-target.md::package-state::G01"
+kind = "depends-on"

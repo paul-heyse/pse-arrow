@@ -1,5 +1,13 @@
 # Current work and plans
 
+[Plan53: Test architecture target](53-test-architecture-target.md) schedules all R01–R08
+and DTA-001–DTA-048 from the holistic test-architecture review, including scoped no-change
+and withdrawn diagnoses. Its seven companions develop scientific assurance, helpers/inputs,
+invocation/outcomes, build/generation, resource/evidence lifetimes, scheduling and assembled
+qualification. The coordinator owns progress, inquiries and accepted RC01/RC02; the series
+is drafted for execution authorization. Authoring and rule acceptance establish no implementation
+or product qualification. Plan52 retains its separate capability scope and delivered foundations.
+
 [Plan52: Agent effectiveness and engineering workflows](52-agent-effectiveness-and-engineering-workflows.md)
 captures all O01–O30 and operator-confirmed RC01–RC09 from the agent-effectiveness review.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;

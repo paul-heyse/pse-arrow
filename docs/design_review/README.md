@@ -35,8 +35,9 @@ The [test architecture target review](reviews/design_review_test-architecture-ta
 develops a coherent target and corrective changes from the holistic test audit. It accounts
 for all 48 DTA identities, including retained guarantees and withdrawn diagnoses, and connects
 scientific assurance, shared preparation, execution requirements, evidence lifetimes and
-scheduling. Its recommendations and rule impacts are proposals for plan creation, not
-implementation or qualification evidence.
+scheduling. [Plan53](../plans/53-test-architecture-target.md) now owns scheduled dispositions and
+implementation packages, including the operator-accepted RC01/RC02. Its draft plans and
+rule acceptance establish no implementation or qualification evidence.
 
 The [execution-performance recommendations audit](reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md)
 independently reconciles both external performance reviews against current source and the
