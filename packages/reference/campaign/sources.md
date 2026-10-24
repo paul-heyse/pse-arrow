@@ -34,6 +34,11 @@ at zero duty for 40 residence times and compares the terminal state with the ste
 solve of the same definition, whose IDAES 2.13 `test_cstr` comparison is the seed
 fixture `cstr_saponification`.
 
+The committed `scripts/cstr_controller_reference.py` reproduces the four-state
+controller samples. The locked environment, method premises and ignored full-precision
+output locators are documented in
+[`seed-data/sources.md`](../seed-data/sources.md#independent-numerical-reference-reproduction).
+
 `models/pfr-studies.pse` holds the saponification PFR at the IDAES 2.13 `test_pfr`
 TestInitializers specification (1 m³/s, 100 mol/m³ of each reactant, no inlet products,
 303.15 K, 0.5 m by 0.1 m², adiabatic and isobaric). `pfr_initializers_oracle` compares

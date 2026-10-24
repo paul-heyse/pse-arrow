@@ -49,9 +49,9 @@
 // References computed in this repository with pinned software.
 @id("01a0ef5f693f74888be5966494d7e432") entity provenance.computation plan14_thermo_reference { title = "Plan 14 thermodynamic reference: homogeneous PC-SAFT states and a two-phase flash, and Decimal DIPPR100 enthalpy integrals", tools = {teqp_0_23_1, scipy_1_18_1}, locator = "packages/reference/data/oracles/teqp-0.23.1/data" }
 @id("01a0ef5f693f74888be5966542709387") entity provenance.computation pr_stability_reference { title = "Peng-Robinson two-phase reference for an equimolar benzene/toluene feed at 368 K and 101325 Pa", tools = {teqp_0_23_1}, locator = "tests/fixtures/pr-stability-reference.json" }
-@id("01a0ef5f693f74888be596669b250c2b") entity provenance.computation pfr_reference { title = "Independent reduced adiabatic PFR ODE, integrated with DOP853 and Radau at rtol = atol = 1e-12", tools = {scipy_1_18_1} }
-@id("01a0ef5f693f74888be59667d5d0e6a4") entity provenance.computation cstr_controller_reference { title = "Independent reduced incompressible CSTR and controller ODE, integrated with DOP853 and Radau at rtol = 1e-11 and atol = 1e-12", tools = {scipy_1_18_1} }
-@id("01a0ef5f693f74888be59668c7775758") entity provenance.computation decay_fit_reference { title = "Bounded multistart least squares of y = a exp(-k t) through five synthetic observations at t = 0..4", tools = {scipy_1_18_1} }
+@id("01a0ef5f693f74888be596669b250c2b") entity provenance.computation pfr_reference { title = "Independent reduced adiabatic PFR ODE, integrated with DOP853 and Radau at rtol = atol = 1e-12", tools = {scipy_1_18_1}, locator = "scripts/pfr_reference.py" }
+@id("01a0ef5f693f74888be59667d5d0e6a4") entity provenance.computation cstr_controller_reference { title = "Independent reduced incompressible CSTR and controller ODE, integrated with DOP853 and Radau at rtol = 1e-11 and atol = 1e-12", tools = {scipy_1_18_1}, locator = "scripts/cstr_controller_reference.py" }
+@id("01a0ef5f693f74888be59668c7775758") entity provenance.computation decay_fit_reference { title = "Bounded multistart least squares of y = a exp(-k t) through five synthetic observations at t = 0..4", tools = {scipy_1_18_1}, locator = "scripts/decay_fit_reference.py" }
 
 // Analytic derivations and synthetic inputs of the seed itself.
 @id("01a0ef5f693f74888be5966a1a5695dc") entity provenance.source analytic_identities { title = "Calculus and thermodynamic identities of the parsed forms: primitive derivatives, reference subtraction and definite integrals" }

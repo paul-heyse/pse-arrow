@@ -71,6 +71,9 @@ local concentration and temperature. The independent continuum reference integra
 `pfr_reference` computation agrees at V=0.05 m³, q=1 m³/s, cin=100 mol/m³ and
 Tin=303.15 K: c=61.74340062 mol/m³ and T=303.599299658 K.
 This reference is distinct from IDAES's 20-element backward-difference comparison.
+The committed `scripts/pfr_reference.py` reproduces this continuum claim. See
+[`seed-data/sources.md`](../seed-data/sources.md#independent-numerical-reference-reproduction)
+for the locked environment, comparison premises and full-precision output locator.
 
 SSLW heat-exchanger purchase costing represents one exchanger; indexed costing children
 compose multiple purchases through the capital accumulator. The seed's coefficient
@@ -115,6 +118,8 @@ The initial state is the zero-duty steady CSTR fixture; controller target is 305
 heat is 10000 W times normalized output and the filter starts at `Td (T(0)-300 K)/(1 K)`.
 Frozen comparisons at 0, 1, 5 and 20 seconds live in the authored fixture. Simultaneous
 checks compare only matching mesh coordinates; they do not assert an interpolation oracle.
+The committed `scripts/cstr_controller_reference.py` retains that independent reduction;
+its reproduction environment and output locator share the seed-data source route above.
 The selected integrated and simultaneous CSTR and both PID realizations pass their comparisons.
 The simultaneous CSTR uses a 12-element, order-three Radau mesh. Integration tolerances are tighter than the
 comparison tolerances so the original algebraic residual checks also meet their budgets.

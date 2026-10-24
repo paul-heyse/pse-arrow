@@ -1254,6 +1254,14 @@ bench-production:
     CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="$(realpath -m "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}")/production" cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
 
 
+[group('local')]
+[doc('Reproduce the three independent process/fit references without importing the product')]
+plan53a-reference:
+    UV_PROJECT_ENVIRONMENT=build/plan53a-reference uv sync --locked --python 3.12 --no-default-groups --group test --no-install-project
+    build/plan53a-reference/bin/python -m scripts.pfr_reference
+    build/plan53a-reference/bin/python -m scripts.cstr_controller_reference
+    build/plan53a-reference/bin/python -m scripts.decay_fit_reference
+
 [group('mutating')]
 [doc('Regenerate independent PC-SAFT and Peng-Robinson references in an isolated locked Python 3.12 environment')]
 plan14-reference:

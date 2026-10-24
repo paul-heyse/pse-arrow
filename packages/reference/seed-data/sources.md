@@ -149,3 +149,59 @@ fixture runs under an optimization intent.
 first-order lag `lag·dx/dt = u − x` from rest, with a bounded or an on/off input tracking a
 target over 2 s. Their expected values are closed-form optima of that analytic model (the
 input stays at its bound until the target is reached, then holds it), not external data.
+
+## Independent numerical reference reproduction
+
+The committed `scripts/pfr_reference.py`, `scripts/cstr_controller_reference.py` and
+`scripts/decay_fit_reference.py` retain reduced equations and explicit inputs independently
+of the production implementation. They import neither `pse` nor IDAES. The saponification
+parameters above and the CODATA gas constant 8.31446261815324 J/(mol K) determine the
+Arrhenius rate. The PFR's equal-reactant conservation reduction and constant solvent
+calorics determine concentration and adiabatic temperature. The CSTR independently
+integrates reactant concentration, temperature, controller integral and derivative-filter
+state; its `Td=0.1 s` action, smooth limits (`eps=1e-6`) and back-calculation remain active.
+The source equations and normalized signal conventions are described in
+[`process/sources.md`](../process/sources.md). The CSTR initial state is supplied data,
+not recomputed by the reference generator.
+
+Reproduce in the exact locked test-group environment from the checkout root:
+
+```bash
+scripts/pse-env -- env UV_PROJECT_ENVIRONMENT=build/plan53a-reference uv sync --locked --python 3.12 --no-default-groups --group test --no-install-project
+scripts/pse-env -- build/plan53a-reference/bin/python -m scripts.pfr_reference
+scripts/pse-env -- build/plan53a-reference/bin/python -m scripts.cstr_controller_reference
+scripts/pse-env -- build/plan53a-reference/bin/python -m scripts.decay_fit_reference
+scripts/pse-env -- build/plan53a-reference/bin/python -m unittest scripts.tests.test_scientific_references
+```
+
+The generators require CPython 3.12, SciPy 1.18.1 and NumPy 2.5.3. Each records the
+actual interpreter version, installed distributions, platform, lockfile and upstream API
+source hashes. Full binary64 outputs, exact inputs, equations, methods, solver status,
+source-file hashes and comparisons are written to ignored
+`build/plan53a-reference-results/{pfr_reference,cstr_controller_reference,decay_fit_reference}.json`.
+These are reproduction diagnostics; the authored fixture values remain the single frozen
+comparison store. A failed comparison returns a nonzero exit code and retains diagnostics.
+No generator writes an authored fixture.
+
+The PFR uses DOP853 and Radau at `rtol=atol=1e-12`. Both independently reproduce the
+`unit-fixtures.pse::pfr_radau` outlet. The CSTR uses both algorithms at `rtol=1e-11`,
+`atol=1e-12` and samples 0, 1, 5 and 20 s, corresponding to
+`campaign/models/cstr-dynamics.pse::ControlledCSTR`'s integrated and matching simultaneous
+mesh checks. Reproduction compares with half a last printed digit plus an explicit
+numerical allowance: 1e-7 mol/m³ for PFR concentration, 5e-10 K for PFR temperature
+and 1e-8 for CSTR sampled concentration/temperature. The PFR concentration differs
+from its frozen literal by approximately 3e-9 mol/m³, an immaterial last-digit difference;
+the frozen literal and the much larger process acceptance allowance are retained.
+Separate cross-method absolute checks use 1e-9 and 1e-8,
+respectively. These are numerical reproduction premises, not revised process acceptance
+policy, certified integration error bounds, or evidence for untested mesh coordinates.
+
+The decay generator minimizes `sum((a exp(-k t)-y)^2)` for `t=[0,1,2,3,4]` and
+`y=[2.02,1.19,0.75,0.43,0.28]` with bounds `a=[0.1,10]`, `k=[0.01,5]`. It uses SciPy's
+bounded trust-region reflective least squares with an analytic residual Jacobian,
+`ftol=xtol=gtol=1e-14`, `max_nfev=10000`, unit parameter scale and linear loss.
+Explicit seeds `(1,1)`, `(0.1,0.01)`, `(0.1,5)`, `(10,0.01)`, `(10,5)` and `(2,0.5)`
+must reproduce `regression-fixtures.pse::first_order_decay_certified`'s rounded `a,k`
+within half a last printed digit, agree within 1e-8, and have an interior SSE-gradient
+infinity norm at most 1e-8. Multistart agreement and stationarity support this selected
+numerical solution; they do not establish global optimality or the product's certification.

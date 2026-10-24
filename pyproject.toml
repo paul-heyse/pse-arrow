@@ -401,6 +401,23 @@ replace-imports-with-any = ["idaes.*", "pyomo.*"]
 matches = "scripts/thermodynamic_feeds.py"
 replace-imports-with-any = ["scipy", "scipy.*"]
 
+# Independent process/fit references use the exact isolated SciPy environment.
+[[tool.pyrefly.sub-config]]
+matches = "scripts/pfr_reference.py"
+replace-imports-with-any = ["scipy", "scipy.*"]
+
+[[tool.pyrefly.sub-config]]
+matches = "scripts/cstr_controller_reference.py"
+replace-imports-with-any = ["scipy", "scipy.*"]
+
+[[tool.pyrefly.sub-config]]
+matches = "scripts/decay_fit_reference.py"
+replace-imports-with-any = ["scipy", "scipy.*"]
+
+[[tool.pyrefly.sub-config]]
+matches = "scripts/scientific_reference.py"
+replace-imports-with-any = ["scipy", "scipy.*"]
+
 [tool.importlinter]
 root_packages = ["pse"]
 include_external_packages = true
