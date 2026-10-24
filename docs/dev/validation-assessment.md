@@ -115,6 +115,28 @@ Exposure and reveal do not authorize effects, and transport success does not qua
 Retained native drivers are implementation controls; they do not establish host attachment
 or progressive-reveal qualification.
 
+Boundary coverage executes through the installed correctness extension. The disabled
+`pse-py` cdylib Rust harness is not evidence. Active Python tests exercise generated settings,
+named configuration diagnostics and an actual native route refusal through its public
+`DiagnosticReport` and generated envelope. Schema unknown-reference diagnostics and the
+synthetic NativeReuse/source/physical/missing/WorkflowPanic combination have no corresponding
+public producer in this scope; lower schema, runtime taxonomy and document codec tests remain
+separate coverage, not an equivalent Python journey. No production test-only constructor is
+provided to manufacture those combinations.
+
+Canonical API tests run independently of the opt-in operator graph/query cases. The internal
+`scripts.tests.canonical_boundary_run operator DIRECTORY --executor EXECUTABLE` route selects
+both operator roles and captures the executor before another Cargo feature build can replace
+its alias. A selected missing prerequisite fails. Its `restart DIRECTORY --executor EXECUTABLE`
+route runs under `scripts/pse-env --native=solver`: the parent needs runtime libraries, while
+Rust preparation selects its native compiler environment locally. Source-server installation
+uses the parent's build context. Restart owns a fresh nonresident service, observes a real
+outage and new server invocation, joins the distinct authentic Rust result, and drains/stops
+only its own service. The context-overlap driver likewise selects its actual pytest component
+peer and requires the cross-language role on each side. These controls share the existing
+invocation/resource/result registry; their mutable service or database isolation is not a
+second evidence authority.
+
 `just activity` exposes current build/wait/admission observations without workload setup.
 Actual Cargo records identify compile/link/cache freshness; quiet CPU does not identify
 the owner of an artifact lock. `just context QUERY --json` projects declared commands and
