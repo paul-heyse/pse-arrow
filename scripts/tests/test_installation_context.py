@@ -89,13 +89,13 @@ class InstallationContextTests(unittest.TestCase):
             selected = root / ".cargo/config.toml"
             original = (
                 '[build]\njobs=16\nfingerprint="content"\n'
-                '[unstable]\nchecksum-freshness=true\n'
+                "[unstable]\nchecksum-freshness=true\n"
             )
             selected.write_text(original)
             env = {"HOME": temporary, "CARGO_HOME": str(Path(temporary) / "cargo-home")}
             before, raw, _ = context.configuration(root, env)
             selected.write_text(
-                '# same declarations\n[unstable]\nchecksum-freshness = true\n'
+                "# same declarations\n[unstable]\nchecksum-freshness = true\n"
                 '[build]\nfingerprint = "content"\njobs = 16\n'
             )
             equivalent, reformatted, _ = context.configuration(root, env)
@@ -108,7 +108,9 @@ class InstallationContextTests(unittest.TestCase):
                 with self.subTest(configuration=changed):
                     selected.write_text(changed)
                     after, _, _ = context.configuration(root, env)
-                    self.assertNotEqual(context.identity(before), context.identity(after))
+                    self.assertNotEqual(
+                        context.identity(before), context.identity(after)
+                    )
             for unknown in (
                 original.replace("fingerprint=", "future-fingerprint="),
                 original.replace("checksum-freshness=", "future-checksum-freshness="),
@@ -131,11 +133,18 @@ class InstallationContextTests(unittest.TestCase):
                 "PATH": "/usr/bin",
                 "PRIVATE_TOKEN": "never-published",
                 "CC": "clang",
+                "SCCACHE_MAX_FRAME_LENGTH": "134217728",
             },
         ):
             selected = context.controlled_environment(root, {})
         self.assertEqual(
-            selected, {"HOME": "/home/test", "PATH": "/usr/bin", "CC": "clang"}
+            selected,
+            {
+                "HOME": "/home/test",
+                "PATH": "/usr/bin",
+                "CC": "clang",
+                "SCCACHE_MAX_FRAME_LENGTH": "134217728",
+            },
         )
         for variable in ("CARGO_UNDERSTOOD_IN_FUTURE", "CARGO_BUILD_FINGERPRINT"):
             with (

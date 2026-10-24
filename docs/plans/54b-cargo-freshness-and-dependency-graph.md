@@ -1,6 +1,6 @@
 ---
 title: "Plan 54b: Cargo freshness and dependency graph"
-status: draft
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md, docs/functional_reviews/rust-build-reuse-tooling-2026-10-24.md]
@@ -154,11 +154,27 @@ strict shear command at B02/B03 completion; D02 supplies the broader scope-end h
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | planned | 54b | Both freshness keys consumed consistently and real positive/negative invalidation controls |
-| B02 | planned | 54b | Hygienic macro, inspected graph/target cleanup and preserved validation/source behavior |
-| B03 | planned | 54b | Strict pinned shear, truthful group exits and retired obsolete routine detectors |
+| B01 | complete | 54b | Both freshness keys consumed consistently and real positive/negative invalidation controls |
+| B02 | in progress | 54b | Hygienic macro, inspected graph/target cleanup and preserved validation/source behavior |
+| B03 | complete | 54b | Strict pinned shear, truthful group exits and retired obsolete routine detectors |
 
 B01 is independent of B02. B03 consumes A01's selected shear and B02's clean basis. Do not
 infer a speedup from declaration count or sum individually measured empty doctest timings.
 **Proposed:** performance benefit is measured in 54d after the combined behavior is available;
 all commands above describe future acceptance, not tests run during plan authoring.
+
+## Execution checkpoint
+
+B01's real pinned-Cargo fixture passed 12 scenarios; seven changed-result cases matched
+clean recomputation. Same-length preserved-mtime edits to source, includes and a local
+dependency invalidated correctly. Identical source touches/restores launched no rustc.
+A declared build-input touch reran its script and compiled the consumer despite generated
+write-if-changed, preserving the explicit mtime limitation.
+
+B02 and B03 are integrated. Inspected cleanup removes 44 direct lock edges without moving
+package versions, including eight unnecessary validation forwarders. Per-edge and final
+unit-graph/Arrow proofs pass; strict shear reports zero findings. The external no-direct-miette
+consumer passes three actual behavioral tests. Joined default/native/optional consumer
+compilation and scope-end qualification remain in D02. The original external fixture's
+related-diagnostic assertion was corrected: forwarding a simple leaf does not invent a
+miette related iterator; the product implementation did not need changing.

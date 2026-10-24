@@ -331,7 +331,14 @@ def validate_target(
     validate_target_path(source, target, env)
     metadata = json.loads(
         subprocess.check_output(
-            [*cargo, "metadata", "--no-deps", "--format-version=1", "--locked", "--offline"],
+            [
+                *cargo,
+                "metadata",
+                "--no-deps",
+                "--format-version=1",
+                "--locked",
+                "--offline",
+            ],
             cwd=source,
             env=env,
             text=True,
@@ -340,7 +347,9 @@ def validate_target(
     if Path(metadata["target_directory"]) != target:
         raise ValueError("effective Cargo target escapes the selected snapshot target")
     if metadata.get("build_directory") != str(target):
-        raise ValueError("effective Cargo build directory differs from the selected snapshot target")
+        raise ValueError(
+            "effective Cargo build directory differs from the selected snapshot target"
+        )
 
 
 def recover_target(
@@ -357,13 +366,17 @@ def recover_target(
         directory_identity(source) != source_identity
         or directory_identity(target) != target_identity
     ):
-        raise ValueError("measurement snapshot or target identity changed before recovery")
+        raise ValueError(
+            "measurement snapshot or target identity changed before recovery"
+        )
     validate_target(source, target, cargo, env)
     if (
         directory_identity(source) != source_identity
         or directory_identity(target) != target_identity
     ):
-        raise ValueError("measurement snapshot or target identity changed during recovery")
+        raise ValueError(
+            "measurement snapshot or target identity changed during recovery"
+        )
     shutil.rmtree(target)
 
 
@@ -511,6 +524,7 @@ def _measure_build(
                     "RUSTUP_TOOLCHAIN",
                     "SCCACHE_DIR",
                     "SCCACHE_CACHE_SIZE",
+                    "SCCACHE_MAX_FRAME_LENGTH",
                     "SCCACHE_SERVER_UDS",
                     "IPOPT_DIR",
                     "SUITESPARSE_LIBRARY_DIR",
@@ -748,7 +762,10 @@ def private_edit(source: Path) -> tuple[Path, str, str]:
     return (
         private,
         original,
-        original.replace(marker, marker.replace("text.capacity()", "std::hint::black_box(text).capacity()")),
+        original.replace(
+            marker,
+            marker.replace("text.capacity()", "std::hint::black_box(text).capacity()"),
+        ),
     )
 
 
@@ -975,6 +992,7 @@ def prepare_inputs(
                 "RUSTC_WRAPPER",
                 "SCCACHE_DIR",
                 "SCCACHE_CACHE_SIZE",
+                "SCCACHE_MAX_FRAME_LENGTH",
                 "IPOPT_DIR",
                 "SUITESPARSE_LIBRARY_DIR",
                 "PSE_ROOT_ISOLATION_DIR",
@@ -1396,7 +1414,9 @@ def main() -> None:
         },
     )
     receipts = {}
-    target_selections = [{"source_directory": str(source), "target_directory": str(target)}]
+    target_selections = [
+        {"source_directory": str(source), "target_directory": str(target)}
+    ]
     selection_validated = False
     target_identity = None
 
@@ -1492,7 +1512,10 @@ def main() -> None:
             recovery_server = start_cache_server(recovery_env, preflight_output)
         try:
             recover_target(
-                source, target, cargo, recovery_env,
+                source,
+                target,
+                cargo,
+                recovery_env,
                 source_identity=source_identity,
                 target_identity=target_identity,
             )
@@ -1529,13 +1552,21 @@ def main() -> None:
         target = snapshot_target(source, second)
         source_identity = directory_identity(source)
         selection_validated = False
-        target_selections.append({"source_directory": str(source), "target_directory": str(target)})
+        target_selections.append(
+            {"source_directory": str(source), "target_directory": str(target)}
+        )
         sample("second-worktree")
     source_unchanged = validation.sources(root) == json.loads(
         (output / "original-source.json").read_text()
     )
     statistics_by_kind = {}
-    for kind in ("warm", "identical-touch", "private-edit", "public-edit", "unrelated-edit"):
+    for kind in (
+        "warm",
+        "identical-touch",
+        "private-edit",
+        "public-edit",
+        "unrelated-edit",
+    ):
         values = [
             receipt["wall_seconds"]
             for name, receipt in receipts.items()

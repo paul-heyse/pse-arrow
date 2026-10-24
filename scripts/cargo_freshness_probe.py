@@ -50,23 +50,23 @@ def probe(output: Path) -> dict:
         'mod ordinary;\ninclude!("../generated.rs");\n'
         'include!(concat!(env!("OUT_DIR"), "/generated.rs"));\n'
         'fn main() { println!("{}:{}:{}:{}:{}", ordinary::VALUE, INCLUDED, '
-        'BUILD_FILE, BUILD_ENV, local_value::VALUE); }\n'
+        "BUILD_FILE, BUILD_ENV, local_value::VALUE); }\n"
     )
     (source / "build.rs").write_text(
-        'use std::{env, fs, io::Write, path::PathBuf};\n'
-        'fn main() {\n'
+        "use std::{env, fs, io::Write, path::PathBuf};\n"
+        "fn main() {\n"
         ' println!("cargo::rerun-if-changed=input.txt");\n'
         ' println!("cargo::rerun-if-env-changed=PSE_FRESHNESS_VALUE");\n'
-        ' let mut log = fs::OpenOptions::new().create(true).append(true)'
+        " let mut log = fs::OpenOptions::new().create(true).append(true)"
         '.open(env::var("PSE_FRESHNESS_RUNS").unwrap()).unwrap();\n'
         ' writeln!(log, "ran").unwrap();\n'
         ' let input = fs::read_to_string("input.txt").unwrap();\n'
         ' let value = env::var("PSE_FRESHNESS_VALUE").unwrap();\n'
         ' let bytes = format!("const BUILD_FILE: u32 = {};\\nconst BUILD_ENV: u32 = {};\\n", '
-        'input.trim(), value);\n'
+        "input.trim(), value);\n"
         ' let dest = PathBuf::from(env::var("OUT_DIR").unwrap()).join("generated.rs");\n'
-        ' if fs::read_to_string(&dest).ok().as_deref() != Some(bytes.as_str()) { '
-        'fs::write(dest, bytes).unwrap(); }\n}\n'
+        " if fs::read_to_string(&dest).ok().as_deref() != Some(bytes.as_str()) { "
+        "fs::write(dest, bytes).unwrap(); }\n}\n"
     )
     wrapper = output / "rustc-wrapper"
     wrapper.write_text(
@@ -83,10 +83,17 @@ def probe(output: Path) -> dict:
     build_log = output / "build-script.txt"
     env = dict(os.environ)
     for key in (
-        "CARGO_TARGET_DIR", "PSE_CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR",
-        "CARGO_BUILD_BUILD_DIR", "CARGO_BUILD_FINGERPRINT", "RUSTC_WORKSPACE_WRAPPER",
-        "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTDOCFLAGS",
-        "CARGO_ENCODED_RUSTDOCFLAGS", "CARGO_INCREMENTAL",
+        "CARGO_TARGET_DIR",
+        "PSE_CARGO_TARGET_DIR",
+        "CARGO_BUILD_TARGET_DIR",
+        "CARGO_BUILD_BUILD_DIR",
+        "CARGO_BUILD_FINGERPRINT",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "RUSTDOCFLAGS",
+        "CARGO_ENCODED_RUSTDOCFLAGS",
+        "CARGO_INCREMENTAL",
     ):
         env.pop(key, None)
     env.update(
@@ -101,8 +108,14 @@ def probe(output: Path) -> dict:
         result = subprocess.run(
             command, cwd=source, env=env, text=True, capture_output=True, check=False
         )
-        commands.append({"argv": command, "exit": result.returncode,
-                         "stdout": result.stdout, "stderr": result.stderr})
+        commands.append(
+            {
+                "argv": command,
+                "exit": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+        )
         (output / "commands.json").write_text(json.dumps(commands, indent=2) + "\n")
         result.check_returncode()
         return result
@@ -111,31 +124,60 @@ def probe(output: Path) -> dict:
         return path.read_text().splitlines() if path.exists() else []
 
     run(["cargo", "generate-lockfile", "--offline"])
-    metadata = json.loads(run(["cargo", "metadata", "--offline", "--locked",
-                               "--no-deps", "--format-version=1"]).stdout)
+    metadata = json.loads(
+        run(
+            [
+                "cargo",
+                "metadata",
+                "--offline",
+                "--locked",
+                "--no-deps",
+                "--format-version=1",
+            ]
+        ).stdout
+    )
     target = source / "target"
     if Path(metadata["target_directory"]).resolve() != target:
         raise ValueError("Cargo target escaped the private fixture")
     cases = []
 
-    def build(name: str, expected: str, *, recompile: bool | None,
-              script: bool, clean_compare: bool = False) -> None:
+    def build(
+        name: str,
+        expected: str,
+        *,
+        recompile: bool | None,
+        script: bool,
+        clean_compare: bool = False,
+    ) -> None:
         rustc_before, script_before = len(lines(rustc_log)), len(lines(build_log))
-        result = run(["cargo", "build", "--offline", "--locked", "--message-format=json"])
+        result = run(
+            ["cargo", "build", "--offline", "--locked", "--message-format=json"]
+        )
         launches = [json.loads(row) for row in lines(rustc_log)[rustc_before:]]
         script_runs = len(lines(build_log)) - script_before
         observed = run([str(target / "debug/pse-freshness-probe")]).stdout.strip()
-        artifacts = [item for line in result.stdout.splitlines()
-                     if (item := json.loads(line)).get("reason") == "compiler-artifact"]
-        case = {"name": name, "rustc_crates": [args[args.index("--crate-name") + 1]
-                 for args in launches], "build_script_runs": script_runs,
-                "output": observed, "fresh": [{"name": item["target"]["name"],
-                "fresh": item["fresh"]} for item in artifacts]}
+        artifacts = [
+            item
+            for line in result.stdout.splitlines()
+            if (item := json.loads(line)).get("reason") == "compiler-artifact"
+        ]
+        case = {
+            "name": name,
+            "rustc_crates": [args[args.index("--crate-name") + 1] for args in launches],
+            "build_script_runs": script_runs,
+            "output": observed,
+            "fresh": [
+                {"name": item["target"]["name"], "fresh": item["fresh"]}
+                for item in artifacts
+            ],
+        }
         cases.append(case)
         if observed != expected:
             raise AssertionError(f"{name}: output {observed!r} != {expected!r}")
         if recompile is not None and bool(launches) != recompile:
-            raise AssertionError(f"{name}: unexpected rustc launches {case['rustc_crates']}")
+            raise AssertionError(
+                f"{name}: unexpected rustc launches {case['rustc_crates']}"
+            )
         if bool(script_runs) != script:
             raise AssertionError(f"{name}: unexpected build script runs {script_runs}")
         if clean_compare:
@@ -151,7 +193,9 @@ def probe(output: Path) -> dict:
         time.sleep(0.05)
         os.utime(path, None)
 
-    def replace(path: Path, before: str, after: str, *, preserve_mtime: bool = False) -> None:
+    def replace(
+        path: Path, before: str, after: str, *, preserve_mtime: bool = False
+    ) -> None:
         original_stat = path.stat()
         original = path.read_text()
         if before not in original:
@@ -169,35 +213,79 @@ def probe(output: Path) -> dict:
     touch(included)
     build("included-identical-touch", "11:21:41:31:51", recompile=False, script=False)
     replace(ordinary, "= 11", "= 12", preserve_mtime=True)
-    build("ordinary-same-length-preserved-mtime-edit", "12:21:41:31:51", recompile=True,
-          script=False, clean_compare=True)
+    build(
+        "ordinary-same-length-preserved-mtime-edit",
+        "12:21:41:31:51",
+        recompile=True,
+        script=False,
+        clean_compare=True,
+    )
     replace(ordinary, "= 12", "= 123")
-    build("ordinary-real-edit", "123:21:41:31:51", recompile=True,
-          script=False, clean_compare=True)
+    build(
+        "ordinary-real-edit",
+        "123:21:41:31:51",
+        recompile=True,
+        script=False,
+        clean_compare=True,
+    )
     replace(included, "= 21", "= 22", preserve_mtime=True)
-    build("included-same-length-preserved-mtime-edit", "123:22:41:31:51", recompile=True,
-          script=False, clean_compare=True)
+    build(
+        "included-same-length-preserved-mtime-edit",
+        "123:22:41:31:51",
+        recompile=True,
+        script=False,
+        clean_compare=True,
+    )
     replace(dependency, "= 51", "= 52", preserve_mtime=True)
-    build("dependency-same-length-preserved-mtime-edit", "123:22:41:31:52", recompile=True,
-          script=False, clean_compare=True)
+    build(
+        "dependency-same-length-preserved-mtime-edit",
+        "123:22:41:31:52",
+        recompile=True,
+        script=False,
+        clean_compare=True,
+    )
     touch(declared)
-    build("declared-input-identical-touch-mtime-exception", "123:22:41:31:52",
-          recompile=None, script=True, clean_compare=True)
+    build(
+        "declared-input-identical-touch-mtime-exception",
+        "123:22:41:31:52",
+        recompile=None,
+        script=True,
+        clean_compare=True,
+    )
     replace(declared, "41", "42")
-    build("declared-input-same-length-edit", "123:22:42:31:52",
-          recompile=True, script=True, clean_compare=True)
+    build(
+        "declared-input-same-length-edit",
+        "123:22:42:31:52",
+        recompile=True,
+        script=True,
+        clean_compare=True,
+    )
     env["PSE_FRESHNESS_VALUE"] = "32"
-    build("declared-environment-edit", "123:22:42:32:52", recompile=True,
-          script=True, clean_compare=True)
-    return {"status": "passed", "source": str(source), "target": str(target),
-            "compiler": run(["rustc", "-vV"]).stdout,
-            "cargo": run(["cargo", "-vV"]).stdout, "cases": cases}
+    build(
+        "declared-environment-edit",
+        "123:22:42:32:52",
+        recompile=True,
+        script=True,
+        clean_compare=True,
+    )
+    return {
+        "status": "passed",
+        "source": str(source),
+        "target": str(target),
+        "compiler": run(["rustc", "-vV"]).stdout,
+        "cargo": run(["cargo", "-vV"]).stdout,
+        "cases": cases,
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True,
-                        help="New directory for private source/target and retained evidence")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="New directory for private source/target and retained evidence",
+    )
     args = parser.parse_args()
     result = probe(args.output)
     (args.output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")

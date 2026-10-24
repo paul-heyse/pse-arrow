@@ -29,8 +29,8 @@ from scripts import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from unittest.mock import MagicMock
     from typing import TextIO
+    from unittest.mock import MagicMock
 
 
 def drain_fixture(complete: bool) -> native_operation.DrainObservation:
@@ -520,16 +520,24 @@ class BuildMeasurementTests(unittest.TestCase):
             actual = build_environment.configure(source, environment, cache="off")
             self.assertNotIn("CARGO_TARGET_DIR", actual)
             self.assertNotIn("PSE_CARGO_TARGET_DIR", actual)
-            self.assertEqual(actual["CARGO_ENCODED_RUSTFLAGS"], "-Zthreads=2\x1f-Cdebuginfo=1")
+            self.assertEqual(
+                actual["CARGO_ENCODED_RUSTFLAGS"], "-Zthreads=2\x1f-Cdebuginfo=1"
+            )
             self.assertEqual(actual["UV_PROJECT_ENVIRONMENT"], str(source / ".venv"))
             self.assertNotIn("VIRTUAL_ENV", actual)
 
-    def test_snapshot_environment_removes_targets_after_frontend_composition(self) -> None:
+    def test_snapshot_environment_removes_targets_after_frontend_composition(
+        self,
+    ) -> None:
         root = Path(__file__).resolve().parents[2]
         composed = build_environment.configure(
             root,
-            {"PSE_CARGO_TARGET_DIR": "/caller-target", "CARGO_ENCODED_RUSTFLAGS": "-Cdebuginfo=1"},
-            cache="off", frontend=2,
+            {
+                "PSE_CARGO_TARGET_DIR": "/caller-target",
+                "CARGO_ENCODED_RUSTFLAGS": "-Cdebuginfo=1",
+            },
+            cache="off",
+            frontend=2,
         )
         actual = build_measurements.snapshot_environment(composed)
         self.assertNotIn("CARGO_TARGET_DIR", actual)
@@ -543,7 +551,10 @@ class BuildMeasurementTests(unittest.TestCase):
             for selected in (output, output / "second"):
                 source = selected / "source"
                 source.mkdir(parents=True)
-                self.assertEqual(build_measurements.snapshot_target(source, selected), source / "target")
+                self.assertEqual(
+                    build_measurements.snapshot_target(source, selected),
+                    source / "target",
+                )
             with self.assertRaisesRegex(ValueError, "selected snapshot"):
                 build_measurements.snapshot_target(output / "source", output / "second")
 
@@ -553,16 +564,38 @@ class BuildMeasurementTests(unittest.TestCase):
             source.mkdir()
             target = source / "target"
             for effective in (target, Path(directory) / "external", source / "other"):
-                with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(effective), "build_directory": str(target)})) as query:
+                with patch.object(
+                    build_measurements.subprocess,
+                    "check_output",
+                    return_value=json.dumps(
+                        {
+                            "target_directory": str(effective),
+                            "build_directory": str(target),
+                        }
+                    ),
+                ) as query:
                     if effective == target:
-                        build_measurements.validate_target(source, target, ["cargo"], {})
+                        build_measurements.validate_target(
+                            source, target, ["cargo"], {}
+                        )
                     else:
-                        with self.assertRaisesRegex(ValueError, "effective Cargo target"):
-                            build_measurements.validate_target(source, target, ["cargo"], {})
+                        with self.assertRaisesRegex(
+                            ValueError, "effective Cargo target"
+                        ):
+                            build_measurements.validate_target(
+                                source, target, ["cargo"], {}
+                            )
                     self.assertEqual(query.call_args.kwargs["cwd"], source)
             for key in ("CARGO_TARGET_DIR", "PSE_CARGO_TARGET_DIR"):
-                with patch.object(build_measurements.subprocess, "check_output") as query, self.assertRaisesRegex(ValueError, "default Cargo target"):
-                    build_measurements.validate_target(source, target, ["cargo"], {key: str(target)})
+                with (
+                    patch.object(
+                        build_measurements.subprocess, "check_output"
+                    ) as query,
+                    self.assertRaisesRegex(ValueError, "default Cargo target"),
+                ):
+                    build_measurements.validate_target(
+                        source, target, ["cargo"], {key: str(target)}
+                    )
                 query.assert_not_called()
 
     def test_actual_intermediate_build_directory_escape_refuses_recovery(self) -> None:
@@ -571,27 +604,50 @@ class BuildMeasurementTests(unittest.TestCase):
             source = base / "source"
             (source / "src").mkdir(parents=True)
             (source / "src/lib.rs").write_text("pub fn value() -> u32 { 1 }\n")
-            (source / "Cargo.toml").write_text('[package]\nname="placement-fixture"\nversion="0.0.0"\nedition="2024"\n[workspace]\n')
-            (source / "Cargo.lock").write_text('version=4\n[[package]]\nname="placement-fixture"\nversion="0.0.0"\n')
+            (source / "Cargo.toml").write_text(
+                '[package]\nname="placement-fixture"\nversion="0.0.0"\nedition="2024"\n[workspace]\n'
+            )
+            (source / "Cargo.lock").write_text(
+                'version=4\n[[package]]\nname="placement-fixture"\nversion="0.0.0"\n'
+            )
             target = source / "target"
             target.mkdir()
             artifact = target / "owned-artifact"
             artifact.write_text("retain")
-            cargo = [subprocess.check_output(["rustup", "which", "cargo"], cwd=Path(build_measurements.__file__).resolve().parents[1], text=True).strip()]
+            cargo = [
+                subprocess.check_output(
+                    ["rustup", "which", "cargo"],
+                    cwd=Path(build_measurements.__file__).resolve().parents[1],
+                    text=True,
+                ).strip()
+            ]
             env = build_measurements.snapshot_environment(dict(os.environ))
             env.update(RUSTC_WRAPPER="", CARGO_HOME=str(base / "cargo-home"))
             env.pop("CARGO_BUILD_BUILD_DIR", None)
             build_measurements.validate_target(source, target, cargo, env)
-            identities = {"source_identity": build_measurements.directory_identity(source), "target_identity": build_measurements.directory_identity(target)}
+            identities = {
+                "source_identity": build_measurements.directory_identity(source),
+                "target_identity": build_measurements.directory_identity(target),
+            }
             external = base / "external-build"
             with self.assertRaisesRegex(ValueError, "build directory"):
-                build_measurements.recover_target(source, target, cargo, {**env, "CARGO_BUILD_BUILD_DIR": str(external)}, **identities)
+                build_measurements.recover_target(
+                    source,
+                    target,
+                    cargo,
+                    {**env, "CARGO_BUILD_BUILD_DIR": str(external)},
+                    **identities,
+                )
             self.assertEqual(artifact.read_text(), "retain")
             config = base / ".cargo"
             config.mkdir()
-            (config / "config.toml").write_text(f'[build]\nbuild-dir={json.dumps(str(external))}\n')
+            (config / "config.toml").write_text(
+                f"[build]\nbuild-dir={json.dumps(str(external))}\n"
+            )
             with self.assertRaisesRegex(ValueError, "build directory"):
-                build_measurements.recover_target(source, target, cargo, env, **identities)
+                build_measurements.recover_target(
+                    source, target, cargo, env, **identities
+                )
             self.assertEqual(artifact.read_text(), "retain")
 
     def test_recovery_refuses_unowned_symlinked_and_replaced_targets(self) -> None:
@@ -607,20 +663,43 @@ class BuildMeasurementTests(unittest.TestCase):
                 if not wrong.exists():
                     wrong.mkdir()
                 with self.assertRaisesRegex(ValueError, "default Cargo target"):
-                    build_measurements.recover_target(source, wrong, ["cargo"], {}, source_identity=source_identity, target_identity=build_measurements.directory_identity(wrong))
+                    build_measurements.recover_target(
+                        source,
+                        wrong,
+                        ["cargo"],
+                        {},
+                        source_identity=source_identity,
+                        target_identity=build_measurements.directory_identity(wrong),
+                    )
                 self.assertTrue(wrong.exists())
             original = source / "old-target"
             target.rename(original)
             target.mkdir()
             with self.assertRaisesRegex(ValueError, "identity changed"):
-                build_measurements.recover_target(source, target, ["cargo"], {}, source_identity=source_identity, target_identity=identity)
+                build_measurements.recover_target(
+                    source,
+                    target,
+                    ["cargo"],
+                    {},
+                    source_identity=source_identity,
+                    target_identity=identity,
+                )
             target.rmdir()
             target.symlink_to(original, target_is_directory=True)
             with self.assertRaisesRegex(ValueError, "symlinked"):
-                build_measurements.recover_target(source, target, ["cargo"], {}, source_identity=source_identity, target_identity=identity)
+                build_measurements.recover_target(
+                    source,
+                    target,
+                    ["cargo"],
+                    {},
+                    source_identity=source_identity,
+                    target_identity=identity,
+                )
             self.assertTrue(original.exists())
 
-    def test_recovery_rechecks_identity_after_cargo_and_removes_only_artifacts(self) -> None:
+    def test_recovery_rechecks_identity_after_cargo_and_removes_only_artifacts(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source"
             source.mkdir()
@@ -629,19 +708,43 @@ class BuildMeasurementTests(unittest.TestCase):
             (target / "artifact").write_text("compiled")
             retained = source / "authored.rs"
             retained.write_text("source")
-            identities = {"source_identity": build_measurements.directory_identity(source), "target_identity": build_measurements.directory_identity(target)}
-            with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(target), "build_directory": str(target)})):
-                build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
+            identities = {
+                "source_identity": build_measurements.directory_identity(source),
+                "target_identity": build_measurements.directory_identity(target),
+            }
+            with patch.object(
+                build_measurements.subprocess,
+                "check_output",
+                return_value=json.dumps(
+                    {"target_directory": str(target), "build_directory": str(target)}
+                ),
+            ):
+                build_measurements.recover_target(
+                    source, target, ["cargo"], {}, **identities
+                )
             self.assertFalse(target.exists())
             self.assertEqual(retained.read_text(), "source")
             target.mkdir()
-            identities["target_identity"] = build_measurements.directory_identity(target)
+            identities["target_identity"] = build_measurements.directory_identity(
+                target
+            )
+
             def replace(*_args: object, **_kwargs: object) -> str:
                 target.rename(source / "previous-target")
                 target.mkdir()
-                return json.dumps({"target_directory": str(target), "build_directory": str(target)})
-            with patch.object(build_measurements.subprocess, "check_output", side_effect=replace), self.assertRaisesRegex(ValueError, "during recovery"):
-                build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
+                return json.dumps(
+                    {"target_directory": str(target), "build_directory": str(target)}
+                )
+
+            with (
+                patch.object(
+                    build_measurements.subprocess, "check_output", side_effect=replace
+                ),
+                self.assertRaisesRegex(ValueError, "during recovery"),
+            ):
+                build_measurements.recover_target(
+                    source, target, ["cargo"], {}, **identities
+                )
             self.assertTrue(target.exists())
 
     @staticmethod
@@ -716,7 +819,9 @@ class BuildMeasurementTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             self.build_source_fixture(source)
-            (source / "crates/pse-compiler/src/workspace.rs").write_text("// owner moved\n")
+            (source / "crates/pse-compiler/src/workspace.rs").write_text(
+                "// owner moved\n"
+            )
             samples = []
             with self.assertRaisesRegex(ValueError, "exact body-edit anchor"):
                 build_measurements.build_phases(source, 3, samples.append, screen=False)
@@ -1029,11 +1134,23 @@ class BuildMeasurementTests(unittest.TestCase):
             self.assertEqual(summary["builds"]["second-worktree"]["wall_seconds"], 7)
             self.assertEqual(summary["target_operation"]["wall_seconds"], 50)
             self.assertFalse(summary["target_operation"]["setup_inclusive"])
-            self.assertEqual(summary["snapshots"], [
-                {"source_directory": str(source), "target_directory": str(source / "target")},
-                {"source_directory": str(second_source), "target_directory": str(second_source / "target")},
-            ])
-            self.assertEqual([call.kwargs["validate_selection"] for call in cargo.call_args_list], [True, False, False, False, True])
+            self.assertEqual(
+                summary["snapshots"],
+                [
+                    {
+                        "source_directory": str(source),
+                        "target_directory": str(source / "target"),
+                    },
+                    {
+                        "source_directory": str(second_source),
+                        "target_directory": str(second_source / "target"),
+                    },
+                ],
+            )
+            self.assertEqual(
+                [call.kwargs["validate_selection"] for call in cargo.call_args_list],
+                [True, False, False, False, True],
+            )
             self.assertEqual(cargo.call_args_list[0].args[1], source / "target")
             self.assertEqual(cargo.call_args_list[-1].args[1], second_source / "target")
 
@@ -1480,7 +1597,9 @@ class BuildMeasurementTests(unittest.TestCase):
         ) -> list[str]:
             events.append("resolve")
             self.assertEqual(env["RUSTC_WRAPPER"], "/installed/sccache")
-            self.assertEqual(_args, ["build", "--tests", "-p", "pse-compiler", "--locked"])
+            self.assertEqual(
+                _args, ["build", "--tests", "-p", "pse-compiler", "--locked"]
+            )
             raise ValueError("metadata refused")
 
         with tempfile.TemporaryDirectory() as directory:
@@ -1501,12 +1620,20 @@ class BuildMeasurementTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "metadata refused"),
             ):
                 build_measurements.measure(
-                    output, output / "target", output, "sample", ["cargo"], original, owned_cache=True
+                    output,
+                    output / "target",
+                    output,
+                    "sample",
+                    ["cargo"],
+                    original,
+                    owned_cache=True,
                 )
         self.assertEqual(events, ["start", "resolve", "stop"])
         self.assertEqual(original["RUSTC_WRAPPER"], "/checkout/scripts/sccache")
 
-    def test_measurement_keeps_validation_features_and_copies_explicit_target_timing(self) -> None:
+    def test_measurement_keeps_validation_features_and_copies_explicit_target_timing(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             source = output / "source"
@@ -1514,30 +1641,87 @@ class BuildMeasurementTests(unittest.TestCase):
             timings = target / "cargo-timings"
             timings.mkdir(parents=True)
             (timings / "cargo-timing.html").write_text("owned target timing")
-            resolved = ["cargo", "build", "--tests", "-p", "pse-compiler", "--locked", "--features", "pse-compiler/force-validate"]
-            def spawn(command: list[str], *, stdout: TextIO, **_options: object) -> SimpleNamespace:
-                self.assertEqual(command, [*resolved, "--timings", "--message-format=json-render-diagnostics"])
-                stdout.write(json.dumps({"reason": "compiler-artifact", "package_id": "compiler", "target": {"name": "compiler"}, "profile": {}, "features": ["force-validate"], "fresh": False}) + "\n")
-                stdout.write(json.dumps({"reason": "build-finished", "success": True}) + "\n")
+            resolved = [
+                "cargo",
+                "build",
+                "--tests",
+                "-p",
+                "pse-compiler",
+                "--locked",
+                "--features",
+                "pse-compiler/force-validate",
+            ]
+
+            def spawn(
+                command: list[str], *, stdout: TextIO, **_options: object
+            ) -> SimpleNamespace:
+                self.assertEqual(
+                    command,
+                    [
+                        *resolved,
+                        "--timings",
+                        "--message-format=json-render-diagnostics",
+                    ],
+                )
+                stdout.write(
+                    json.dumps(
+                        {
+                            "reason": "compiler-artifact",
+                            "package_id": "compiler",
+                            "target": {"name": "compiler"},
+                            "profile": {},
+                            "features": ["force-validate"],
+                            "fresh": False,
+                        }
+                    )
+                    + "\n"
+                )
+                stdout.write(
+                    json.dumps({"reason": "build-finished", "success": True}) + "\n"
+                )
                 return SimpleNamespace(pid=os.getpid(), wait=lambda: 0, returncode=0)
+
             with (
                 patch.object(build_measurements, "validate_target"),
-                patch.object(build_measurements, "correctness_command", return_value=resolved.copy()) as resolve,
+                patch.object(
+                    build_measurements,
+                    "correctness_command",
+                    return_value=resolved.copy(),
+                ) as resolve,
                 patch.object(build_measurements.validation, "sources", return_value={}),
                 patch.object(build_measurements.subprocess, "Popen", side_effect=spawn),
                 patch.object(build_measurements.subprocess, "run") as tree,
                 patch.object(build_measurements, "process_tree_rss", return_value=0),
             ):
-                receipt = build_measurements.measure(source, target, output, "sample", ["cargo"], {})
-            self.assertEqual(resolve.call_args.args[2], ["build", "--tests", "-p", "pse-compiler", "--locked"])
+                receipt = build_measurements.measure(
+                    source,
+                    target,
+                    output,
+                    "sample",
+                    ["cargo"],
+                    {"SCCACHE_MAX_FRAME_LENGTH": "134217728"},
+                )
+            self.assertEqual(
+                resolve.call_args.args[2],
+                ["build", "--tests", "-p", "pse-compiler", "--locked"],
+            )
             self.assertIn("pse-compiler/force-validate", tree.call_args.args[0])
             self.assertEqual(receipt["target_directory"], str(target))
-            self.assertTrue(receipt["target_selection_preflight"]["cargo_selection_queried"])
-            self.assertFalse(receipt["target_selection_preflight"]["included_in_build_wall_seconds"])
-            self.assertEqual((output / "sample/cargo-timing.html").read_text(), "owned target timing")
+            self.assertTrue(
+                receipt["target_selection_preflight"]["cargo_selection_queried"]
+            )
+            self.assertFalse(
+                receipt["target_selection_preflight"]["included_in_build_wall_seconds"]
+            )
+            self.assertEqual(
+                (output / "sample/cargo-timing.html").read_text(), "owned target timing"
+            )
             command = json.loads((output / "sample/command.json").read_text())
             self.assertEqual(command["source_directory"], str(source))
             self.assertEqual(command["target_directory"], str(target))
+            self.assertEqual(
+                command["environment"]["SCCACHE_MAX_FRAME_LENGTH"], "134217728"
+            )
 
     def test_owned_execution_resolves_cargo_after_cache_readiness(self) -> None:
         events: list[str] = []

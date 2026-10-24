@@ -76,4 +76,10 @@ serde_json.workspace = true
 # Shared tests/support/{plan14,workflow_runtime}.rs supplies these actual uses.
 # cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
 [package.metadata.cargo-shear]
-ignored = ["pse-admission", "pse-engine", "pse-operations", "pse-schema", "tempfile"]
+ignored = [
+  "pse-admission",
+  "pse-engine",
+  "pse-operations",
+  "pse-schema",
+  "tempfile",
+]

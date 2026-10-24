@@ -77,6 +77,7 @@ ENVIRONMENT = frozenset(
         "PSE_SCCACHE_BINARY",
         "SCCACHE_DIR",
         "SCCACHE_CACHE_SIZE",
+        "SCCACHE_MAX_FRAME_LENGTH",
         "SCCACHE_CONF",
         "SCCACHE_SERVER_UDS",
         "SCCACHE_CLIENT_SIDE",

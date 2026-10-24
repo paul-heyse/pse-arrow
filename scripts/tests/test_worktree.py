@@ -21,18 +21,31 @@ class WorktreeEnvironmentTests(unittest.TestCase):
             "OTHER": "retained",
         }
         with patch.dict(os.environ, caller, clear=True):
-            self.assertEqual(worktree.command_environment(worktree.ROOT), caller)
+            assert worktree.command_environment(worktree.ROOT) == caller
             child = worktree.command_environment(Path("/new/checkout"))
-            self.assertNotIn("RUSTC_WRAPPER", child)
-            self.assertNotIn("PSE_NATIVE_COMPILER_CACHE", child)
-            self.assertEqual(child["PSE_SCCACHE_BINARY"], caller["PSE_SCCACHE_BINARY"])
-            self.assertEqual(dict(os.environ), caller)
+            assert "RUSTC_WRAPPER" not in child
+            assert "PSE_NATIVE_COMPILER_CACHE" not in child
+            assert child["PSE_SCCACHE_BINARY"] == caller["PSE_SCCACHE_BINARY"]
+            assert dict(os.environ) == caller
         for wrapper in ("", "/custom/wrapper", "/explicit/sccache"):
-            with self.subTest(wrapper=wrapper), patch.dict(os.environ, {"RUSTC_WRAPPER": wrapper}, clear=True):
-                self.assertEqual(worktree.command_environment(Path("/new/checkout"))["RUSTC_WRAPPER"], wrapper)
+            with (
+                self.subTest(wrapper=wrapper),
+                patch.dict(os.environ, {"RUSTC_WRAPPER": wrapper}, clear=True),
+            ):
+                assert (
+                    worktree.command_environment(Path("/new/checkout"))["RUSTC_WRAPPER"]
+                    == wrapper
+                )
 
     def test_child_commands_receive_recomposed_environment(self) -> None:
-        with patch.dict(os.environ, {"RUSTC_WRAPPER": str(worktree.ROOT / "scripts/sccache")}, clear=True), patch.object(worktree.subprocess, "run") as launch:
+        with (
+            patch.dict(
+                os.environ,
+                {"RUSTC_WRAPPER": str(worktree.ROOT / "scripts/sccache")},
+                clear=True,
+            ),
+            patch.object(worktree.subprocess, "run") as launch,
+        ):
             worktree.run(["just", "skills-sync"], Path("/new/checkout"))
-        self.assertEqual(launch.call_args.kwargs["env"], {})
-        self.assertTrue(launch.call_args.kwargs["check"])
+        assert launch.call_args.kwargs["env"] == {}
+        assert launch.call_args.kwargs["check"]

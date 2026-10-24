@@ -90,7 +90,8 @@ def classify(check: dict, output: Path) -> None:
             check["report_errors"].append(str(error))
     tool = output / f"{check['gate']}-tool.json"
     if check.get("role") == "advisory" or check["gate"] in {
-        "audit-shear", "unsafe-surface",
+        "audit-shear",
+        "unsafe-surface",
     }:
         if not tool.is_file():
             check["status"] = "failed"

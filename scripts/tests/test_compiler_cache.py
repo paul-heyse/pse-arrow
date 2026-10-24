@@ -155,6 +155,7 @@ class CompilerCacheTests(unittest.TestCase):
         record = {
             "cache": "/cache",
             "cache_size": "100G",
+            "cache_max_frame_length": "134217728",
             "configuration": "/config",
             "socket": "/socket",
         }
@@ -173,6 +174,7 @@ class CompilerCacheTests(unittest.TestCase):
         assert selected["SCCACHE_IDLE_TIMEOUT"] == "0"
         assert selected["SCCACHE_NO_DAEMON"] == "1"
         assert selected["SCCACHE_CLIENT_SIDE"] == "0"
+        assert selected["SCCACHE_MAX_FRAME_LENGTH"] == "134217728"
         for key in (
             "PSE_HOST_ALLOCATION",
             "PSE_NATIVE_OPERATION",
@@ -275,6 +277,7 @@ class CompilerCacheTests(unittest.TestCase):
             {"SCCACHE_LOG": "debug"},
             {"SCCACHE_ERROR_LOG": ""},
             {"SCCACHE_CONF": str(scheduler)},
+            {"SCCACHE_MAX_FRAME_LENGTH": "invalid"},
         ):
             environment = {**self.env, **extra}
             with (
@@ -291,7 +294,10 @@ class CompilerCacheTests(unittest.TestCase):
             with (
                 patch.object(cache, "same", return_value=True),
                 patch.object(cache.subprocess, "Popen") as launch,
-                pytest.raises(cache.CacheError, match="supervised client compilation"),
+                pytest.raises(
+                    cache.CacheError,
+                    match=r"supervised client compilation|SCCACHE_MAX_FRAME_LENGTH",
+                ),
             ):
                 cache.supervised_compile(["compiler"], environment, self.service(owner))
             launch.assert_not_called()
@@ -344,6 +350,9 @@ class CompilerCacheTests(unittest.TestCase):
                     cache.digest(binary),
                     cache.digest(self.configuration),
                     "100G",
+                    cache.build_environment.cache_max_frame_length(
+                        cache.ROOT, self.env
+                    ),
                 ]
             ).encode()
         ).hexdigest()[:16]
@@ -384,6 +393,16 @@ class CompilerCacheTests(unittest.TestCase):
         metadata.assert_not_called()
         acquire.assert_not_called()
 
+    def test_invalid_frame_refuses_before_metadata_or_host_effects(self) -> None:
+        with (
+            patch.object(cache, "private") as private,
+            patch.object(cache.host, "acquire") as acquire,
+            pytest.raises(ValueError, match="SCCACHE_MAX_FRAME_LENGTH"),
+        ):
+            cache.ensure({**self.env, "SCCACHE_MAX_FRAME_LENGTH": "4294967296"})
+        private.assert_not_called()
+        acquire.assert_not_called()
+
     def test_changed_startup_inputs_refuse_manual_restart_before_handoff(self) -> None:
         binary = Path(sys.executable).resolve()
         path = self.root / "service.json"
@@ -409,7 +428,7 @@ class CompilerCacheTests(unittest.TestCase):
     def test_service_publication_keeps_metadata_lock_outside_host_and_manager_ipc(
         self,
     ) -> None:
-        profile = Mock(memory=2 * 1024**3, cores=(8,))
+        profile = Mock(memory=8 * 1024**3, cores=(8,))
         allocation = Mock(profile=profile, nonce="a" * 32)
         allocation.environment.return_value = {
             cache.host.MARKER: "/allocations/" + "a" * 32
@@ -420,9 +439,10 @@ class CompilerCacheTests(unittest.TestCase):
             nonlocal callbacks
             callbacks += 1
             locks = list((self.root / "state/pse-arrow/compiler-cache").glob("*/.lock"))
-            assert len(locks) == 1
-            with locks[0].open("r") as lock:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            assert locks
+            for path in locks:
+                with path.open("r") as lock:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
         def manager(*arguments: object) -> subprocess.CompletedProcess[str]:
             unlocked(*arguments)
@@ -445,16 +465,33 @@ class CompilerCacheTests(unittest.TestCase):
         ):
             original_deadline = time.monotonic() + 30
             service = cache.ensure(self.env, deadline=original_deadline)
+            default = cache.build_environment.cache_max_frame_length(
+                cache.ROOT, self.env
+            )
+            repeated = cache.ensure(
+                {**self.env, "SCCACHE_MAX_FRAME_LENGTH": default},
+                deadline=original_deadline,
+            )
+            assert repeated.descriptor == service.descriptor
+            assert acquire.call_count == 1
+            changed = cache.ensure(
+                {**self.env, "SCCACHE_MAX_FRAME_LENGTH": "134217728"},
+                deadline=original_deadline,
+            )
+            assert changed.descriptor["generation"] != service.descriptor["generation"]
+            assert changed.descriptor["cache_max_frame_length"] == "134217728"
+            assert acquire.call_count == 2
         assert callbacks >= 5
         assert acquire.call_args.kwargs["deadline"] == original_deadline
         assert service.endpoint != self.env.get("SCCACHE_SERVER_UDS")
         assert service.endpoint.endswith(".sock")
-        allocation.register.assert_called_once()
+        assert service.descriptor["cache_max_frame_length"] == default
+        assert allocation.register.call_count == 2
         units = list((self.root / "config/systemd/user").glob("*.service"))
-        assert len(units) == 1
+        assert len(units) == 2
         unit = units[0].read_text()
         assert "Type=exec\nRestart=no" in unit
-        assert "MemoryMax=2147483648" in unit
+        assert "MemoryMax=8589934592" in unit
         assert "CPUAffinity=8 24" in unit
         assert "PIDFile" not in unit
 

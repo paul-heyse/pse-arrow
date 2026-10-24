@@ -175,10 +175,34 @@ their enduring owners and remaining readers are reconciled. Other plans remain i
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | in progress | 54d | Snapshot-local default targets, explicit report paths and guarded artifact recovery |
-| D02 | planned | 54d | Joined selected-consumer acceptance, zero-target scope-end checks and honest comparisons |
-| D03 | planned | 54d | Actual supported behavior published and series dispositions reconciled |
+| D01 | complete | 54d | Snapshot-local default targets, explicit report paths and guarded artifact recovery |
+| D02 | in progress | 54d | Joined selected-consumer acceptance, zero-target scope-end checks and honest comparisons |
+| D03 | in progress | 54d | Actual supported behavior published and series dispositions reconciled |
 
 D01 can begin early and supplies trustworthy measurements to 54c. D02 consumes completed
 selected functional changes and inquiry dispositions; D03 follows actual acceptance. No
 performance campaign or product qualification was executed while authoring this plan series.
+
+## Execution checkpoint
+
+D01 passed focused routing/recovery controls, including real pinned-Cargo refusal of
+external intermediate build directories before artifact deletion. The corrected 0.19
+reference campaign completed cold, three warm/edit/touch repetitions, same-path recovery
+and a second source snapshot with original-source inventory unchanged. Each used its own
+default target. Its cache statistics proved incomplete for oversized publications; it is
+retained as the actual pre-change reference, not relabeled as full eligible-hit recovery.
+
+Joined qualification is running. Default workspace, selected native runtime and optional
+xtask canonical/native compilation passed; external macro behavior, content invalidation,
+managed large-entry publication/recovery and real analyzer reload/navigation/save controls
+passed. The analyzer adapter's unsupported check.enable key was corrected to checkOnSave;
+its actual saved-document control now emits no flycheck while retaining compile-time deps.
+Analyzer stderr startup/cycle/slow-loop warnings remain explicitly outside a clean-editor claim.
+
+The first hygiene pass found 15 Python lint findings; repairs passed the affected 90 host
+controls and just lint-py. Remaining hygiene gates continue, including compiled generation,
+Clippy and rustdoc. Existing remaining doctests passed. Interactive/correctness Python,
+native/feature qualification, the final uncontended matched campaign and final publication
+remain active obligations. An initial docs attempt exhausted light admission; retry after
+an authenticated idle superseded daemon stopped passed, publishing 654 chapters.
+No unrelated worktree, source, cache or running compiler was stopped.
