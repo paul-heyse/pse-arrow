@@ -42,6 +42,24 @@ class PreviewLifecycleTests(unittest.TestCase):
             self.root, self.cut, {"sample.py": f"x={value}\n"}, producer="test"
         )
 
+    def test_invalid_utf8_current_bytes_are_classified_before_release(self) -> None:
+        (self.root / "basis.py").write_text("basis=1\n")
+        owner = specialists.Specialists(self.root)
+        cut = semantic_edits.capture(self.root, ["sample.py", "basis.py"])
+        preview = semantic_edits.replacements(self.root, cut, {"sample.py": "x=2\n"}, producer="test")
+        handle = owner.retain_preview(preview)["preview_sha256"]
+        with patch.object(semantic_edits, "_write", side_effect=OSError("interrupted")):
+            with self.assertRaises(OSError):
+                owner.apply_preview(handle, "receipt.json")
+        (self.root / "sample.py").write_bytes(b"\xffedited")
+        (self.root / "basis.py").write_bytes(b"\xfebasis")
+        result = owner.reconcile_preview(handle)
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["files"][0]["state"], "diverged")
+        self.assertEqual(result["basis"][0]["state"], "diverged")
+        self.assertFalse(availability(owner, handle).reconciliation_required)
+        self.assertEqual(owner.release_preview(handle).status, "released")
+
     def test_small_count_capacity_release_reclaims_without_eviction_or_sibling_loss(self) -> None:
         owner = specialists.Specialists(self.root, preview_capacity=2)
         first, sibling, replacement = (self.preview(value) for value in (2, 3, 4))

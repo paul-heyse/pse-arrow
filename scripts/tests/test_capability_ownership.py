@@ -9,6 +9,8 @@ from unittest.mock import patch
 from scripts.capabilities import entrypoints, server
 from scripts.capabilities.coherence import Sources, Interface
 from scripts.capabilities.source_modules import module_sources
+from fastmcp import Client, FastMCP
+from unittest.mock import AsyncMock
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -62,3 +64,26 @@ class OwnershipTests(unittest.TestCase):
             self.assertFalse(interface.status('workspace_inventory')['restart_required'])
             self.assertTrue(interface.status('native_diagnostic_inspect')['restart_required'])
             self.assertTrue(interface.status('coverage_correspondence_read')['restart_required'])
+
+
+class RecipeFenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_actual_recipe_edit_refuses_before_fixed_worker_launch(self) -> None:
+        from scripts.capabilities import process
+        from scripts.capabilities.coherence import install
+        runtime = server.build(ROOT)
+        cut = Sources(ROOT, runtime.interface.sources.sources)
+        endpoint = FastMCP("actual-recipe-fence")
+        endpoint.add_tool(runtime.catalogue.tools["compilation_check"])
+        interface = install(endpoint, cut, runtime.catalogue)
+        self.assertIn("justfile", interface.operations["compilation_check"])
+        self.assertNotIn("justfile", interface.operations["native_contract_schema"])
+        original = cut._read_optional
+        def changed(path: str) -> bytes | None:
+            raw = original(path)
+            return (raw or b"") + b"\n# changed recipe interpretation\n" if path == "justfile" else raw
+        with patch.object(cut, "_read_optional", side_effect=changed), patch.object(process, "run_worker", new_callable=AsyncMock) as launch:
+            async with Client(endpoint) as client:
+                result = await client.call_tool("compilation_check", {"request": {"output": "build/never-issued"}}, raise_on_error=False)
+            self.assertTrue(result.is_error)
+            self.assertIn("restart_required", str(result.content))
+            launch.assert_not_awaited()

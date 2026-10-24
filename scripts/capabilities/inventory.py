@@ -699,7 +699,7 @@ def inventory(
             step("execute", "Run the selected native checks at the authorized qualification boundary and retain authentic results.",
                  "compilation_check", "rust_test_run", "assessment_run", default=False),
             step("evidence", "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope.",
-                 "product_run_read", "assessment_read", "coverage_correspondence_read", default=False),
+                 "product_run_read", "rust_test_reference_read", "assessment_read", "coverage_correspondence_read", default=False),
         ),
         "investigate-evidence": (
             step("source", "Read attributed original source evidence with explicit completeness.",

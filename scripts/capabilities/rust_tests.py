@@ -21,7 +21,7 @@ from scripts import (
 from scripts.capabilities.model import Contract
 from scripts.capabilities.worker_progress import ProgressReporter, OwnerReference
 
-from scripts.capabilities.rust_test_contracts import RustTestRequest, INVOCATION
+from scripts.capabilities.rust_test_contracts import RustTestRequest, INVOCATION, InvocationReference
 
 def execute(root: Path, request: RustTestRequest, *, progress: ProgressReporter | None = None) -> dict[str, object]:
     command, normalized = request.prepared()
@@ -41,14 +41,11 @@ def execute(root: Path, request: RustTestRequest, *, progress: ProgressReporter 
         invocation = path
         validation.write_json(
             output / "invocation-reference.json",
-            {
-                "invocation": str(path),
-                "registry": str(test_resources.registry()),
-                "ownership": "borrowed" if inherited is not None else "owned",
-                "terminal_owner": "original outer owner"
-                if inherited is not None
-                else "native runner",
-            },
+            InvocationReference(
+                invocation=str(path), registry=str(test_resources.registry()),
+                ownership="borrowed" if inherited is not None else "owned",
+                terminal_owner="original outer owner" if inherited is not None else "native runner",
+            ).model_dump(mode="json"),
         )
         if progress is not None:
             progress.publish("execution", "started", reference=OwnerReference(

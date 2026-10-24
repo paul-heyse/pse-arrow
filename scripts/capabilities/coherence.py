@@ -83,7 +83,7 @@ class Sources:
                 continue
             path = self.root / relative
             raw = self._read_optional(relative)
-            dependencies = local_imports(raw) if raw is not None else ()
+            dependencies = local_imports(raw) if raw is not None and path.suffix == ".py" else ()
             self.sources[relative] = Source(
                 hashlib.sha256(raw).hexdigest() if raw is not None else None, dependencies
             )
@@ -179,6 +179,7 @@ class Interface:
             # interpret the loaded contract and must share its restart fence.
             for call in spec.worker_calls:
                 paths.append(call.declaration.module.replace(".", "/") + ".py")
+                paths.extend(call.declaration.sources)
             # Custom Tool implementations have an owner class rather than fn.
             paths.append(type(tool).__module__.replace(".", "/") + ".py")
             self.operations[name] = sources.closure(paths)
@@ -233,5 +234,6 @@ LOADED = Sources(
     (
         *COMMON,
         *(worker.module.replace(".", "/") + ".py" for worker in WORKERS.values()),
+        *(path for worker in WORKERS.values() for path in worker.sources),
     ),
 )

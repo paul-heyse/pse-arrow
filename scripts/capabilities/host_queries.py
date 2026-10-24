@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from fastmcp.tools import Tool
 from scripts.capabilities.model import Capability
-from scripts.capabilities import environment_queries, knowledge_queries, document_queries, workload_queries, coverage_queries
+from scripts.capabilities import rust_references, environment_queries, knowledge_queries, document_queries, workload_queries, coverage_queries
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     specs = []
     tools: dict[str, Tool] = {}
-    for factory in (environment_queries.bindings, knowledge_queries.bindings, document_queries.bindings, workload_queries.bindings, coverage_queries.bindings):
+    for factory in (environment_queries.bindings, knowledge_queries.bindings, document_queries.bindings, workload_queries.bindings, coverage_queries.bindings, rust_references.bindings):
         declared, bound = factory(root)
         specs.extend(declared)
         tools.update(bound)

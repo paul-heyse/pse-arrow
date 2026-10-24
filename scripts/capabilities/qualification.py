@@ -103,7 +103,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return project(rust_tests.describe(request), "rust_test_describe")
 
     async def rust_test_run(request: RustTestRequest) -> HostResult:
-        """Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. Protocol success never means the tests passed."""
+        """Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. If notifications are unavailable, rust_test_reference_read(output) exposes the original issued handle while this action remains attached. Protocol success never means the tests passed."""
         return project(
             await process.run_worker(root, QUALIFICATION_CALLS["rust_test_run"], request),
             "rust_test_run",

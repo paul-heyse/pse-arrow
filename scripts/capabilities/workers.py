@@ -28,6 +28,7 @@ class Worker:
     module: str
     operations: frozenset[str]
     environment: tuple[str, ...] = ()
+    sources: tuple[str, ...] = ()
 
 
 WORKERS = {
@@ -56,6 +57,7 @@ WORKERS = {
                 "documentation",
             }
         ),
+        sources=("justfile",),
     ),
     "rust-tests": Worker(
         "scripts.capabilities.qualification_worker",

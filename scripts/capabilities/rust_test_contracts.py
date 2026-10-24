@@ -77,6 +77,13 @@ class RustTestRequest(RustTestSelection):
     output: str = Field(min_length=1)
 
 
+class InvocationReference(Contract):
+    invocation: str = Field(min_length=1, max_length=4096)
+    registry: str = Field(min_length=1, max_length=4096)
+    ownership: Literal["owned", "borrowed"]
+    terminal_owner: Literal["native runner", "original outer owner"]
+
+
 def describe(request: RustTestSelection) -> dict[str, object]:
     command, invocation = request.prepared()
     return {

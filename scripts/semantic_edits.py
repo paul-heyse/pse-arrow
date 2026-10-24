@@ -289,7 +289,7 @@ def reconcile(selected: dict) -> dict:
     files = []
     for file in selected["files"]:
         path = owned_path(root, file["path"], allow_missing=True)
-        current = digest(path.read_bytes().decode("utf-8")) if path.is_file() else None
+        current = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
         state = (
             "missing"
             if current is None
@@ -313,7 +313,7 @@ def reconcile(selected: dict) -> dict:
         if name in edited_names:
             continue
         path = owned_path(root, name, allow_missing=True)
-        current = digest(path.read_bytes().decode("utf-8")) if path.is_file() else None
+        current = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
         basis.append(
             {
                 "path": name,
