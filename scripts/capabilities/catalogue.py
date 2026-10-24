@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 class Selection:
     capabilities: tuple[str, ...]
     guides: tuple[str, ...]
+    steps: tuple[str, ...] = ()
 
 
 class Catalogue:
@@ -40,7 +41,26 @@ class Catalogue:
         self.domains = self._index(domains)
         self.workflows = self._index(workflows)
         self.guides = self._index(guides)
+        # Workflow steps are the sole authored membership. Capability metadata,
+        # browse indices and tool tags are projections of those declarations.
+        memberships: dict[str, set[str]] = {}
+        for workflow in workflows:
+            step_ids: set[str] = set()
+            for step in workflow.steps:
+                if step.id in step_ids:
+                    raise ValueError(f"duplicate workflow step: {workflow.id}: {step.id}")
+                step_ids.add(step.id)
+                if len(set(step.capabilities)) != len(step.capabilities):
+                    raise ValueError(f"duplicate workflow step capability: {workflow.id}: {step.id}")
+                for identity in step.capabilities:
+                    memberships.setdefault(identity, set()).add(workflow.id)
+        capabilities = tuple(
+            item.model_copy(update={"workflows": tuple(sorted(memberships.get(item.id, ())))})
+            for item in capabilities
+        )
         self.capabilities = self._index(capabilities)
+        if memberships.keys() - self.capabilities.keys():
+            raise ValueError("unknown workflow step capability")
         self.tools = dict(tools)
         for item in capabilities:
             if item.domain not in self.domains:
@@ -52,11 +72,6 @@ class Catalogue:
                 or self.capabilities[item.family].exposure == "tool"
             ):
                 raise ValueError(f"invalid capability family: {item.id}: {item.family}")
-            if len(set(item.workflows)) != len(item.workflows):
-                raise ValueError(f"duplicate workflow membership: {item.id}")
-            for workflow in item.workflows:
-                if workflow not in self.workflows:
-                    raise ValueError(f"unknown workflow: {item.id}: {workflow}")
             if (item.exposure == "tool") != (item.id in tools):
                 raise ValueError(f"callable declaration/binding mismatch: {item.id}")
             if item.exposure == "deferred" and (not item.reason or not item.work_owner):
@@ -66,10 +81,10 @@ class Catalogue:
             if item.id in tools and tools[item.id].name != item.id:
                 raise ValueError(f"tool identity mismatch: {item.id}")
             if item.id in tools:
-                tools[item.id].tags.update(item.tags)
+                tools[item.id].tags = {tag for tag in tools[item.id].tags if not tag.startswith("workflow:")} | item.tags
         if set(tools) - set(self.capabilities):
             raise ValueError("undeclared callable tools")
-        for item in (*domains, *workflows, *capabilities):
+        for item in (*domains, *workflows, *capabilities, *(step for workflow in workflows for step in workflow.steps)):
             for guide in item.guides:
                 if guide not in self.guides:
                     raise ValueError(f"unknown guidance: {item.id}: {guide}")
@@ -171,7 +186,8 @@ class Catalogue:
         return JSON_OBJECT.validate_python(result)
 
     def select(
-        self, domains: list[str], workflows: list[str], capabilities: list[str]
+        self, domains: list[str], workflows: list[str], capabilities: list[str],
+        workflow_steps: dict[str, list[str]] | None = None,
     ) -> Selection:
         chosen = set(capabilities)
         guides = {"root"} if "root" in self.guides else set()
@@ -180,17 +196,29 @@ class Catalogue:
                 raise ValueError(f"unknown domain: {identity}")
             chosen.update(self._by_domain[identity])
             guides.update(self.domains[identity].guides)
-        for identity in workflows:
+        effective_steps: set[str] = set()
+        for identity in dict.fromkeys([*workflows, *(workflow_steps or {})]):
             if identity not in self.workflows:
                 raise ValueError(f"unknown workflow: {identity}")
-            chosen.update(self._by_workflow[identity])
-            guides.update(self.workflows[identity].guides)
+            workflow = self.workflows[identity]
+            explicit = set((workflow_steps or {}).get(identity, ()))
+            if explicit - {step.id for step in workflow.steps}:
+                raise ValueError(f"unknown workflow step: {identity}")
+            for step in workflow.steps:
+                if step.default or step.id in explicit:
+                    chosen.update(step.capabilities)
+                    guides.update(step.guides)
+                    effective_steps.add(identity + "/" + step.id)
+            guides.update(workflow.guides)
         unknown = chosen - set(self.capabilities)
         if unknown:
             raise ValueError("unknown capabilities: " + ", ".join(sorted(unknown)))
-        chosen.update(
-            member for identity in tuple(chosen) for member in self._by_family[identity]
-        )
+        # Explicit domains and families keep their full useful reveal. A workflow
+        # step names exact operations and does not implicitly expand a family.
+        expanded = set(capabilities)
+        for identity in domains:
+            expanded.update(self._by_domain[identity])
+        chosen.update(member for identity in expanded for member in self._by_family[identity])
         for identity in chosen:
             guides.update(self.capabilities[identity].guides)
-        return Selection(tuple(sorted(chosen)), tuple(sorted(guides)))
+        return Selection(tuple(sorted(chosen)), tuple(sorted(guides)), tuple(sorted(effective_steps)))

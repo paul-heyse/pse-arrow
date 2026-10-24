@@ -25,7 +25,7 @@ from pydantic import ValidationError
 
 from scripts.capabilities import server
 from scripts.capabilities.catalogue import Catalogue
-from scripts.capabilities.model import Capability, Domain, Guide, Workflow
+from scripts.capabilities.model import Capability, Domain, Guide, Workflow, WorkflowStep
 from scripts.capabilities.responses import bounded
 from scripts.capabilities.server import build
 
@@ -94,7 +94,7 @@ def fixture(
     )
     return (
         (Domain(id="source", title="Source", description="Source owners"),),
-        (Workflow(id="inspect", title="Inspect", description="Inspect"),),
+        (Workflow(id="inspect", title="Inspect", description="Inspect", steps=(WorkflowStep(id="read", capabilities=("owned_read",), purpose="Inspect source"),)),),
         (Guide(id="root", title="Root", path="AGENTS.md"),),
         spec,
         tool,
@@ -152,7 +152,6 @@ class CatalogueTests(unittest.TestCase):
         for bad_specs in (
             (spec, spec),
             (spec.model_copy(update={"domain": "missing"}),),
-            (spec.model_copy(update={"workflows": ("missing",)}),),
             (spec.model_copy(update={"guides": ("missing",)}),),
         ):
             with self.subTest(specs=bad_specs), self.assertRaises(ValueError):
@@ -161,6 +160,24 @@ class CatalogueTests(unittest.TestCase):
             Catalogue(domains, workflows, guides, (spec,), {})
         with self.assertRaises(ValidationError):
             Capability.model_validate({**spec.model_dump(), "unknown": "not metadata"})
+
+    def test_workflow_steps_are_the_single_membership_and_tag_source(self) -> None:
+        domains, workflows, guides, spec, tool = fixture()
+        authored = spec.model_copy(update={"workflows": ()})
+        catalogue = Catalogue(domains, workflows, guides, (authored,), {spec.id: tool})
+        self.assertEqual(catalogue.capabilities[spec.id].workflows, ("inspect",))
+        self.assertIn("workflow:inspect", tool.tags)
+        self.assertEqual(catalogue.browse("workflow", "inspect", 0, 10)["total"], 1)
+        for steps in (
+            (WorkflowStep(id="missing", capabilities=("unknown",), purpose="Missing owner"),),
+            (WorkflowStep(id="same", capabilities=(spec.id,), purpose="First"),
+             WorkflowStep(id="same", capabilities=(spec.id,), purpose="Repeated")),
+            (WorkflowStep(id="duplicate", capabilities=(spec.id, spec.id), purpose="Repeated capability"),),
+            (WorkflowStep(id="guide", capabilities=(spec.id,), purpose="Unknown guide", guides=("unknown",)),),
+        ):
+            with self.subTest(steps=steps), self.assertRaises(ValueError):
+                Catalogue(domains, (workflows[0].model_copy(update={"steps": steps}),),
+                          guides, (spec,), {spec.id: tool})
 
     def test_native_and_deferred_are_not_fake_callables(self) -> None:
         domains, workflows, guides, spec, _ = fixture(exposure="native")
@@ -271,7 +288,7 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.assertEqual(selected["callable_tools"], ["workspace_task_context"])
-        self.assertTrue(selected["instructions"])
+        self.assertTrue(selected["instruction_resources"])
         actual = host_content(
             await self.client.call_tool(
                 "workspace_task_context",
@@ -373,7 +390,7 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
                     "capabilities_select", {"workflows": ["plan-functional-review"]}
                 )
             )
-        guides = {item["id"] for item in selected["instructions"]}
+        guides = {item["id"] for item in selected["instruction_resources"]}
         self.assertIn("skill-plan-functional-extension-review", guides)
         self.assertNotIn("skill-functional-extension-review", guides)
         self.assertNotIn("skill-execute-plan", guides)
@@ -500,6 +517,70 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
         self.assertEqual(await self.listed(), BOOTSTRAP | {"workspace_task_context"})
+
+    async def test_compact_workflow_receipt_exact_defaults_and_deliberate_full_guidance(self) -> None:
+        from mcp.types import ResourceLink
+        from scripts.capabilities.presentation import SelectionReceipt
+
+        result = await self.client.call_tool("capabilities_select", {"workflows": ["inspect-plan"]})
+        receipt = content(result)
+        SelectionReceipt.model_validate(receipt)
+        tools = {tool.name: tool for tool in await self.client.list_tools(cache_mode="refresh")}
+        self.assertEqual(set(receipt["callable_tools"]), {"workspace_task_context", "document_scope_query"})
+        self.assertEqual(receipt["workflow_steps"], ["inspect-plan/scope"])
+        self.assertFalse(receipt["instructions_embedded"])
+        self.assertTrue(receipt["instructions_complete"])
+        self.assertNotIn("instructions", receipt)
+        self.assertTrue(all("content" not in item for item in receipt["instruction_resources"]))
+        self.assertEqual({str(item.uri) for item in result.content if isinstance(item, ResourceLink)},
+                         {item["uri"] for item in receipt["instruction_resources"]})
+        Draft202012Validator(tools["capabilities_select"].output_schema).validate(receipt)
+        for reference in receipt["instruction_resources"]:
+            resource = await self.client.read_resource(reference["uri"])
+            full = json.loads(resource[0].text)
+            self.assertEqual(full["digest"], reference["digest"])
+            self.assertEqual(full["content"], (ROOT / reference["path"]).read_text())
+        repeated = content(await self.client.call_tool("capabilities_select", {"workflows": ["inspect-plan"]}))
+        self.assertFalse(repeated["changed"])
+        self.assertEqual(repeated["instruction_resources"], receipt["instruction_resources"])
+        generated = content(await self.client.call_tool("capabilities_select", {"workflows": ["change-generated-contract"]}))
+        self.assertEqual(set(generated["callable_tools"]),
+                         {"workspace_task_context", "workspace_producer_relationships", "native_contract_schema"})
+        self.assertNotIn("contracts_generate", generated["capabilities"])
+        family = content(await self.client.call_tool("capabilities_select", {"capabilities": ["generated-contracts"]}))
+        self.assertIn("contracts_generate", family["callable_tools"])
+
+    async def test_optional_named_steps_are_explicit_and_unknown_step_is_atomic(self) -> None:
+        selected = content(await self.client.call_tool("capabilities_select", {
+            "workflow_steps": {"inspect-plan": ["native-route"]}}))
+        self.assertEqual(set(selected["callable_tools"]),
+                         {"workspace_task_context", "document_scope_query", "workspace_recipe_describe"})
+        before = await self.listed()
+        self.assertTrue(await self.refused("capabilities_select", {
+            "workflow_steps": {"inspect-plan": ["invented"]}}))
+        self.assertEqual(await self.listed(), before)
+        self.assertTrue(await self.refused("capabilities_select", {
+            "workflow_steps": {"invented": ["scope"]}}))
+        self.assertEqual(await self.listed(), before)
+
+    async def test_owned_skill_manifest_support_and_projection_retain_visibility(self) -> None:
+        selected = content(await self.client.call_tool("capabilities_select", {
+            "capabilities": ["skill-create-plan"]}))
+        reference = next(item for item in selected["instruction_resources"] if item["id"] == "skill-create-plan")
+        manifest_result = await self.client.read_resource(reference["supporting_manifest"])
+        manifest = json.loads(manifest_result[0].text)
+        self.assertEqual(manifest["package_digest"], reference["package_digest"])
+        support = next(item for item in manifest["files"] if item["path"] == "references/plan-structure.md")
+        native = await self.client.read_resource(support["uri"])
+        self.assertEqual(native[0].text, (ROOT / ".codex/skills/create-plan/references/plan-structure.md").read_text())
+        projected = await self.client.call_tool("read_resource", {"uri": support["uri"]})
+        self.assertFalse(projected.is_error)
+        self.assertEqual(native[0].meta["digest"], support["digest"])
+        await self.client.call_tool("capabilities_reset", {})
+        with self.assertRaises(MCPError):
+            await self.client.read_resource(support["uri"])
+        projected = await self.client.call_tool("read_resource", {"uri": support["uri"]}, raise_on_error=False)
+        self.assertTrue(projected.is_error)
 
     async def test_owner_input_refusal_keeps_structured_cause(self) -> None:
         await self.client.call_tool(

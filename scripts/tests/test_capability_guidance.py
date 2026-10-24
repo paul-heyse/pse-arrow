@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from typing import IO, Literal
 
+    from scripts.capabilities.guidance import _Identity, _Snapshot
+
 
 class GuidanceTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -194,6 +196,117 @@ class GuidanceTests(unittest.TestCase):
         self.assertIn("plan-execution", str(result["content"]))
         self.assertIn("execute-plan", str(result["content"]))
         self.assertTrue(result["complete"])
+
+
+class SkillPackageTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.directory = self.root / ".codex/skills/owned"
+        self.directory.mkdir(parents=True)
+        (self.directory / "SKILL.md").write_text("# Owned\nRead [support](examples/support.md).\n")
+        (self.directory / "examples").mkdir()
+        self.support = self.directory / "examples/support.md"
+        self.support.write_text("# Complete supporting instructions\n")
+        self.guide = Guide(id="owned", title="Owned", path=".codex/skills/owned/SKILL.md", kind="skill")
+
+    def test_lazy_manifest_and_deliberate_support_share_one_package_digest(self) -> None:
+        with patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("startup must stay lazy")):
+            guidance = Guidance(self.root, [self.guide])
+        reference = guidance.references(["owned"])[0]
+        self.assertNotIn("content", reference)
+        manifest = guidance.manifest("owned")
+        self.assertEqual(reference["package_digest"], manifest["package_digest"])
+        self.assertEqual(reference["digest"], manifest["guide_digest"])
+        self.assertEqual({row["path"] for row in manifest["files"]}, {"SKILL.md", "examples/support.md"})
+        supporting = next(row for row in manifest["files"] if row["path"] == "examples/support.md")
+        result = guidance.read_support("owned", supporting["id"])
+        self.assertEqual(result.contents[0].content, self.support.read_text())
+        self.assertEqual(result.contents[0].mime_type, "text/markdown")
+        self.assertEqual(result.meta["digest"], sha256(self.support.read_bytes()).hexdigest())
+        self.assertEqual(result.meta["package_digest"], manifest["package_digest"])
+        with self.assertRaises(GuidanceError):
+            guidance.read_support("owned", "../SKILL.md")
+
+    def test_binary_support_is_bounded_and_served_with_its_exact_digest(self) -> None:
+        data = b"\x89PNG\r\n\x1a\n\x00\xff"
+        (self.directory / "diagram.png").write_bytes(data)
+        guidance = Guidance(self.root, [self.guide])
+        manifest = guidance.manifest("owned")
+        support = next(row for row in manifest["files"] if row["path"] == "diagram.png")
+        result = guidance.read_support("owned", support["id"])
+        self.assertEqual(result.contents[0].content, data)
+        self.assertEqual(result.contents[0].mime_type, "image/png")
+        self.assertEqual(result.meta["digest"], sha256(data).hexdigest())
+
+    def test_support_changes_before_capture_refuse_new_main_and_manifest(self) -> None:
+        for mutation in ("change", "missing", "added"):
+            with self.subTest(mutation=mutation):
+                self.support.write_text("# Original\n")
+                extra = self.directory / "added.md"
+                extra.unlink(missing_ok=True)
+                guidance = Guidance(self.root, [self.guide])
+                if mutation == "change":
+                    self.support.write_text("# Changed\n")
+                elif mutation == "missing":
+                    self.support.unlink()
+                else:
+                    extra.write_text("new package member")
+                main = guidance.read("owned")
+                self.assertTrue(main["restart_required"])
+                self.assertFalse(main["complete"])
+                with self.assertRaises(GuidanceError) as caught:
+                    guidance.manifest("owned")
+                self.assertEqual(caught.exception.details["code"], "restart_required")
+
+    def test_captured_main_is_retained_but_changed_support_reads_refuse(self) -> None:
+        guidance = Guidance(self.root, [self.guide])
+        main = guidance.read("owned")
+        manifest = guidance.manifest("owned")
+        supporting = next(row for row in manifest["files"] if row["path"] == "examples/support.md")
+        self.support.unlink()
+        captured = guidance.read("owned")
+        self.assertEqual(captured["content"], main["content"])
+        self.assertEqual(captured["package_digest"], main["package_digest"])
+        self.assertTrue(captured["restart_required"])
+        with self.assertRaises(GuidanceError) as caught:
+            guidance.read_support("owned", supporting["id"])
+        self.assertEqual(caught.exception.details["code"], "restart_required")
+
+    def test_package_size_count_and_symlink_refusals(self) -> None:
+        cases = ((1, MAX_GUIDE_BYTES + 1, "oversized_source"),
+                 (64, 1, "oversized_package"), (8, MAX_GUIDE_BYTES, "oversized_package"))
+        for count, size, expected in cases:
+            with self.subTest(count=count, size=size):
+                for path in self.directory.glob("bound-*"):
+                    path.unlink()
+                for index in range(count):
+                    (self.directory / ("bound-" + str(index))).write_text("x" * size)
+                guidance = Guidance(self.root, [self.guide])
+                with self.assertRaises(GuidanceError) as caught:
+                    guidance.read("owned")
+                self.assertEqual(caught.exception.details["code"], expected)
+        for path in self.directory.glob("bound-*"):
+            path.unlink()
+        (self.directory / "alias.md").symlink_to(self.support)
+        with self.assertRaises(GuidanceError) as caught:
+            Guidance(self.root, [self.guide]).read("owned")
+        self.assertEqual(caught.exception.details["code"], "package_symlink")
+
+    def test_change_during_package_capture_publishes_no_partial_snapshot(self) -> None:
+        guidance = Guidance(self.root, [self.guide])
+        capture = guidance._capture
+        def mutate(guide: Guide, baseline: _Identity) -> _Snapshot | None:
+            result = capture(guide, baseline)
+            if guide.path.endswith("SKILL.md"):
+                self.support.write_text("changed while capturing main")
+            return result
+        with patch.object(guidance, "_capture", side_effect=mutate):
+            result = guidance.read("owned")
+        self.assertFalse(result["complete"])
+        self.assertTrue(result["restart_required"])
+        self.assertEqual(guidance._package_snapshots, {})
 
 
 class GuidanceResourceTests(unittest.IsolatedAsyncioTestCase):

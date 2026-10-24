@@ -24,7 +24,7 @@ from mcp_types import TextContent, TextResourceContents
 from scripts.capabilities import presentation
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.guidance import Guidance, register_guides
-from scripts.capabilities.model import Capability, Domain, Guide, Workflow
+from scripts.capabilities.model import Capability, Domain, Guide, Workflow, WorkflowStep
 
 if TYPE_CHECKING:
     from fastmcp.client.client import CallToolResult
@@ -116,6 +116,7 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
             title="Inspect a plan",
             description="Plan the investigation without authorizing implementation.",
             guides=("planning",),
+            steps=(WorkflowStep(id="source", capabilities=("owned_read",), purpose="Inspect the selected source"),),
         )
         self.catalogue = Catalogue(
             (Domain(id="source", title="Source", description="Source reads"),),
@@ -129,7 +130,7 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         self.observed = ObservedContent()
         self.server.add_middleware(self.observed)
         self.guide_keys = register_guides(self.server, self.guidance)
-        self.server.disable(keys={self.guide_keys["planning"]})
+        self.server.disable(keys={value for key, value in self.guide_keys.items() if key.split("/", 1)[0] == "planning"})
         self.server.add_tool(self.tool)
         self.server.disable(keys={self.tool.key})
         with patch.object(
