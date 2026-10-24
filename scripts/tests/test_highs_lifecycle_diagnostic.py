@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Sanitizer adoption requires both positive lifecycle and relevant sensitivity."""
+# ruff: noqa: PT009, PT027
 import unittest
 from scripts.highs_lifecycle_diagnostic import qualify_asan
 
