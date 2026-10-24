@@ -209,6 +209,18 @@ identities and digests; re-sealing cannot downgrade evidence. Incomplete, failed
 manifest-less historical attempts remain protected, including authored diff/tar snapshots.
 New lifecycle activation waits for affected old producers and reclaimers to drain.
 
+Collected invocation declarations and requirements are immutable digest-bound objects;
+coordination records contain mutable membership and their references. Uncollected Python
+staging is distinct from a collected empty selection. Current effect admission requires the
+collected requirements policy; conversion preserves old terminal identities and original
+metadata without inventing current qualification. Registry-format conversion is explicit,
+quiescent and resumable behind a refusal fence; it does not reset canonical payloads.
+Service discovery uses covered service cohorts bound to the actual registry and service.
+An empty unrelated registry, unresolved original receiver association or an access marker
+alone cannot establish service quiet. Disposable scratch candidates have their own rotating
+access path; every candidate still requires authoritative eligibility, reader and drain checks.
+
+
 Display resolves a latest pointer once and borrows that exact report plus referenced origins.
 It creates no persistent consumer reference or checkpoint. New retained-reference reuse requires a sealed origin
 and unchanged receipt identity; unregistered or manifest-less historical reports remain
@@ -248,7 +260,19 @@ Each run directory holds:
 - `host.json`, copies of the manifests, lockfiles and nextest configuration, and
   `cargo-metadata.json`;
 - `scope.json`, one `<gate>.log` per gate and a JUnit copy for each gate that produces one;
-- `checks.json` (version 5), `failures.json`, `test-findings.json` and `summary.md`.
+- `checks.json` (version 6), protected immutable `details/` objects, `failures.json`,
+  `test-findings.json` and `summary.md`.
+
+The version-6 root publishes compact gate outcomes and references immutable source and gate
+detail. Detail is durable before atomic root publication. Ordinary inspection reads the root;
+a selected gate or failure view opens only its requested gate detail. Source detail and a
+faithful full export are explicit reader options (`--source-detail`, `--full-export`). Missing,
+changed or unavailable detail refuses the requested view rather than supplying an empty or
+passing population. Known sealed artifacts authenticate the exact bytes read against their
+retained identity and digest; root custody alone does not authenticate every detail object.
+Whole-archive inspection explicitly verifies the complete manifest. Historical version-5
+receipts remain available through explicit original inspection and cannot supply automatic
+unchanged-input reuse under the current policy.
 
 The assessment lists the focused default-feature selection once. The linked Rust wrapper
 owns its one explicit nextest listing and persists the raw JSON beside binary/link

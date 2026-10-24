@@ -639,6 +639,49 @@ own implementation; this is neither a universal exact-test manifest nor permissi
 canonical concurrency. The [Plan53 coordinator](../../plans/53-test-architecture-target.md)
 owns current package and finding state.
 
+**Preparation and retained test evidence — Plan53 D/E/F.** Source capture selects its
+conservative declared scope before opening or hashing bytes; membership, absence, modes and
+symlink targets remain inputs where consumed. A whole-source provenance request retains its
+whole-source cut. Ordinary selected Rust execution consumes its retained actual build and
+catalogue, including original tool/configuration inputs; generation aggregates invoke shared
+owners once while their independent comparison routes remain available. Python environment,
+editable extension, stubs and fresh import admission have independent responsibilities and
+supported currency premises. Reusable preparation never removes worker-side loaded-byte
+admission or fresh numerical-state checks.
+
+Collected invocation selection and semantic requirements are immutable, digest-bound owner
+data. Compact coordination retains mutable membership and references to that data and frozen
+terminal detail. Uncollected staging is not an empty collected selection. Format conversion
+excludes affected old writers/readers, preserves authenticated original metadata and terminal
+identity, and publishes activation last behind a resumable refusal fence. Historical policy
+does not acquire current effect permission merely through conversion.
+
+Covered service and scratch access paths are derived discovery projections. Their membership
+is protected before entry becomes authoritative; departure becomes authoritative before its
+marker is removed. Actual service/registry binding and complete writer coverage are prerequisites
+to an absence claim. Unresolved original associations remain protective unknowns. Scratch
+candidate discovery is independent of retained evidence discovery and cannot itself authorize
+release. Every effect, maintenance action and cleanup rechecks its actual authority and lifetime.
+Physical fixture settlement shares one original outer deadline across Rust/Python and receiver
+bridges, attempts independent siblings, and retains each error and incomplete reader/owner;
+logical close or terminal pass alone cannot establish physical drain.
+
+Assessment version 6 atomically publishes a compact root after its immutable source and gate
+detail is durable. Selected gate/failure readers open only requested detail; source detail and
+faithful full export are explicit. Known sealed root/detail reads authenticate the exact bytes
+and file identity under owner protection; full-archive inspection verifies the entire manifest.
+Missing or corrupt requested detail is unavailable/refused, never empty or passing. Historical
+original inspection grants no current automatic reuse. Evidence questions compute semantic
+populations and comparability before independently bounded optional section pages, retaining
+section completeness, continuation and original source-generation context.
+
+Selected requirements also derive scheduling and pre-effect admission. Positive case namespaces
+and fixture roles replace duplicate broad exclusion rules. Database-local assertions retain
+database isolation; real service maintenance retains lifecycle exclusion and covered borrowers
+across invocations. Timing/native/thread constraints remain where actually demanded. These
+mechanisms establish no measured speedup or general permission to widen canonical capacity.
+Current implementation, qualification and scientific limits remain at the Plan53 coordinator.
+
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
 (default feature graph), `just native-test` (full linked native feature graph),

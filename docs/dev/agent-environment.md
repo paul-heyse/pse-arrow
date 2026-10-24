@@ -289,6 +289,15 @@ create cold build copies merely to parallelize a matrix when storage/cold cost d
 Cargo-hack's native partitions are disjoint command groups, but their dependencies still share
 units in one target, so partitioning alone does not remove this limitation.
 
+Ordinary editable Python correctness preparation has independent dependency-environment,
+extension-installation, generated-stub and fresh-import admission stages. Compatible completed
+stage receipts avoid repeating mutation or generation; actual installed/imported extension
+bytes and current supported source, tool, feature and native inputs determine currency.
+Unknown build-affecting selections refuse the unsupported shortcut. Stub currency also binds
+its generator declarations and outputs. Fresh import admission remains mandatory even when
+preparation is reusable, including inside the actual worker. These receipts do not revive a
+portable producer reconstruction campaign or establish scientific result validity.
+
 ## Worktrees
 
 ```bash
@@ -306,14 +315,15 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
 
 ## Choosing tests
 
-**Accepted target, implementation pending (Plan53 RC02).** Managed routes will consume
-one corresponding interpretation of actual selected fixture/effect/resource requirements.
-Nextest/pytest continue to select tests; requirements must follow actual catalog members and
-be checked before effect creation. Pure controls can shed demonstrated accidental barriers,
-while native/thread/timing, service-wide and remaining canonical protection retain their
-actual scopes. Existing route/group behavior remains in place until Plan53 C02/F01/F02
-migrates it; per-run exclusivity never establishes cross-run service quiet. See blueprint
-§24.1 and the [Plan53 coordinator](../plans/53-test-architecture-target.md).
+Managed routes interpret actual selected fixture, effect and exclusion requirements through
+one requirements owner. Nextest and pytest still select tests; undeclared acquisition refuses
+before effects. The native runner derives its per-run scheduling policy from that selected
+catalogue rather than a second regular-expression policy. Placement width is separate from
+semantic exclusion. Pure controls and local inspection settings need no unrelated canonical
+or solver context; native/thread/timing and actual canonical demands retain their guards.
+Per-run exclusivity never establishes cross-run service quiet. Actual service maintenance
+uses the service's covered registry cohort and lifecycle admission; database-local assertions
+retain database isolation. See blueprint §24.1 and the [Plan53 coordinator](../plans/53-test-architecture-target.md).
 
 - `just unit-package <pkg> <filter> [args]` — a bare test-path word means `test(word)`; any
   other filterset passes through. The selection is intersected with `package(...)` over the

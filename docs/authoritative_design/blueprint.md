@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 260
-date: 2026-10-23
+revision: 261
+date: 2026-10-24
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 261 | 2026-10-24 | Publish Plan53 preparation, immutable invocation/detail, selective discovery/custody and effect-scoped scheduling contracts (§24.1). | Maintainer-authorized D/E/F/G execution; .design-edit authorizes publication within existing decisions. Implemented mechanisms have targeted controls; registry activation, assembled acceptance and scientific limits remain at the coordinator. |
 | 260 | 2026-10-23 | Publish operator-accepted Plan53 RC01/RC02 target: complete-Pass managed exit and corresponding selected effect requirements (§24.1). | Maintainer-authorized P00 execution; .design-edit authorizes publication. Behavior remains planned in C02/C04/F01/F02; no implementation or qualification claimed. |
 | 259 | 2026-10-23 | ADR-0223: separate source-aware scientific reduction from exact original reproduction; specify existing validation-owner combination reuse (§24.1). | Maintainer-authorized Plan52c/52d execution; .design-edit authorizes publication. ADR remains proposed; qualification stays with owning plans. |
 | 258 | 2026-10-23 | ADR-0222: owner-native development concepts, exact producer correspondence, attributed source cuts and disposable tooling projection (§24.1). | Maintainer-authorized Plan52a/52b implementation; PSE_DESIGN_EDIT=1. ADR remains proposed; selected checks do not establish assembled Plan52 qualification. |

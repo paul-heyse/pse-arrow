@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 and C01–C05 on main**. Plan52 retains canonical interface ownership. The 2026-10-24 amendment authoring integrates the remaining-architecture review; it does not authorize D–G implementation or alter completed P00/A/B/C evidence. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 and C01–C05 on main**. Plan52 retains canonical interface ownership. The 2026-10-24 amendment authoring integrates the remaining-architecture review; it did not itself authorize D–G implementation or alter completed P00/A/B/C evidence. The subsequent execution authorization is recorded below. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -154,20 +154,20 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | C03 | done | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
 | C04 | done | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
 | C05 | done | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
-| D01 | planned | [53d](53d-build-discovery-and-generation.md#d01) | Nextest authenticated by existing owner; consumed generation package inputs complete |
-| D02 | planned | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
-| D03 | planned | [53d](53d-build-discovery-and-generation.md#d03) | I06 resolved; Python ensure/install/stubs/admission split with full known validity inputs |
-| D04 | planned | [53d](53d-build-discovery-and-generation.md#d04) | Overlap generated once; scope chosen before byte reads with full required provenance |
-| E01 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected identities/requirements, compact membership and safe stored-state/reader cutover |
-| E02 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e02) | Independent sibling cleanup/drain crosses Rust/Python bridges within one original deadline/cancellation |
-| E03 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e03) | Selective service/generation access with established coverage and protective membership-transition writes |
-| E04 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e04) | Custody retained; separate nonempty scratch discovery avoids full active scans and ineligible-prefix starvation |
-| E05 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e05) | I09 resolved; selective summary/gate/source/full-export readers preserve detail, section completeness and reuse custody |
-| F01 | planned | [53f](53f-effect-scoped-scheduling.md#f01) | Shared exclusion/requirement meanings remove pure/residual local Python barriers; real protection retained |
-| F02 | planned | [53f](53f-effect-scoped-scheduling.md#f02) | I08 resolved; actual chosen service/database scope survives two separate runs |
-| F03 | planned | [53f](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient bounded local settings and role premises; canonical barrier retained |
-| G01 | planned | [53g](53g-qualification-and-publication.md#g01) | Functional scope/deletions complete, joined S01–S09 and selected scope-end qualification |
-| G02 | planned | [53g](53g-qualification-and-publication.md#g02) | Enduring owners/outcomes/current-work/retirement reconciled without other-plan closure |
+| D01 | in-progress | [53d](53d-build-discovery-and-generation.md#d01) | Nextest authenticated by existing owner; consumed generation package inputs complete |
+| D02 | in-progress | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
+| D03 | in-progress | [53d](53d-build-discovery-and-generation.md#d03) | I06 resolved; Python ensure/install/stubs/admission split with full known validity inputs |
+| D04 | in-progress | [53d](53d-build-discovery-and-generation.md#d04) | Overlap generated once; scope chosen before byte reads with full required provenance |
+| E01 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected identities/requirements, compact membership and safe stored-state/reader cutover |
+| E02 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e02) | Independent sibling cleanup/drain crosses Rust/Python bridges within one original deadline/cancellation |
+| E03 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e03) | Selective service/generation access with established coverage and protective membership-transition writes |
+| E04 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e04) | Custody retained; separate nonempty scratch discovery avoids full active scans and ineligible-prefix starvation |
+| E05 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e05) | I09 resolved; selective summary/gate/source/full-export readers preserve detail, section completeness and reuse custody |
+| F01 | in-progress | [53f](53f-effect-scoped-scheduling.md#f01) | Shared exclusion/requirement meanings remove pure/residual local Python barriers; real protection retained |
+| F02 | in-progress | [53f](53f-effect-scoped-scheduling.md#f02) | I08 resolved; actual chosen service/database scope survives two separate runs |
+| F03 | in-progress | [53f](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient bounded local settings and role premises; canonical barrier retained |
+| G01 | in-progress | [53g](53g-qualification-and-publication.md#g01) | Functional scope/deletions complete, joined S01–S09 and selected scope-end qualification |
+| G02 | in-progress | [53g](53g-qualification-and-publication.md#g02) | Enduring owners/outcomes/current-work/retirement reconciled without other-plan closure |
 
 The remaining route starts from delivered P00/A01–A03/B/C and completed 52k. Resolve shaping
 contracts/inquiries early: I06 preparation domain; I09 reader/custody transition; E01/F01/F02
@@ -197,7 +197,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I03 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Existing counters establish no new semantic-body admissions, not exact Salsa memo hits. Other query claims use one private observer with positive cold/invalidation and missing/truncated refusal controls; independent fresh results remain. |
 | I04 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned reasons fit §23.2; migrated constructors/forwarders preserve ValidationInvariant, ModelingContract, declaration and real source location. Codec/changed-prose controls pass; untouched contracts explicitly remain Unclassified. |
 | I05 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared families use real bounded package/P0/parser closure, exact data/source bytes, directory membership/absence and explicit synthetic substitutions. Drift refuses publication; unknown affected edges broaden. Full sufficient closures adopted without a minimality claim. |
-| I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Define independent environment/extension/stub/admission currency for ordinary editable dev/native correctness, including interpreter/PyO3/config/native inputs, membership/absence, installed RPATH-transformed bytes and parent/worker replacement. Unknown/missing inputs prepare conservatively; no strict producer campaign or all-Python/whole-host precision claim. |
+| I06 | resolved | [D03](53d-build-discovery-and-generation.md#d03) | Independent ordinary editable environment/extension/stub/admission stages bind actual installed bytes, supported source/tool/config/native inputs and worker admission. Actual separate native sync/repeat passed; repeat skipped installer/stub generation while fresh import retained the same digest. Named session/direnv bookkeeping is excluded only from preparation, unknown inputs remain conservative and scientific provenance is unchanged. No strict producer campaign or whole-host precision claim. |
 | I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; actual peer acceptance is recorded in C05's Outcome. |
 | I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Inventory actual assertions before choosing service-wide versus database-local scope; bind actual generation at invocation ownership, use covered E03 protection and demonstrate two separately started runs. No index-absence shortcut or blanket capacity relaxation. |
 | I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Inventory immutable selected/requirement and report producers/readers/reuse/export/measurement/custody consumers in E01/E05. Select authenticated bounded conversion or explicit automatic-reuse refusal with protected original inspection and one production layout. Preserve full native semantics, old-origin protection, selected views and section completeness; no missing record becomes empty/pass. |
@@ -477,3 +477,159 @@ inputs and remove only aggregate physical/Rust-contract duplication. Existing fu
 independent generation routes remain. Real tool/version and unsupported-shape controls exercise
 the existing nextest owner. D02/D03 and E/F work remain in progress; no aggregate qualification,
 numeric speed claim or storage activation is established by these initial controls.
+
+
+### Integration checkpoint — retained-format and installed-boundary acceptance
+
+D01/D02/D04 and the bounded compiler-layout/PFR corrections are committed. The installed native
+correctness extension and actual API stubs have been rebuilt. E02 independent settlement and
+E05 explicitly bounded native evidence questions have targeted passing controls; the latter is
+committed separately. The compact assessment owner and selected/full/historical consumers,
+immutable invocation objects, covered service/candidate projections, current requirements and
+assertion-shaped scheduling are implemented and undergoing joined acceptance. Restore/backup
+integration now establishes fresh destination registry coverage and verifies it before existing
+recovery/backup mutations; 262 focused supervisor controls pass.
+
+The first actual native repeat exposed an admission lookup mismatch and session-bookkeeping
+identity drift. Both were corrected. I06 is resolved by focused controls and two subsequent actual
+separate native sync calls: the second skipped Maturin installation and stub generation, with fresh
+import admission of the same installed binary. The actual shared registry is still version 2.
+Its cutover preserves original metadata and terminal identities but waits for old-reader cohort
+coordination and the final converter preflight. No isolated result registry substitutes for actual
+canonical acceptance. The metadata-only suites use the existing light allocation; heavier launch
+attempts blocked by current host memory pressure establish no test result. No whole-repository
+health campaign, measured speed claim, registry reset, unrelated service shutdown or enclosing
+Plan52 qualification is inferred.
+
+
+### Verification of implemented mechanisms — partial acceptance
+
+**Implemented:** D/E/F production changes and the bounded A04 corrections are committed in
+coherent slices. Replaced duplicate scheduling expressions, mutable full invocation payloads,
+full-before-selected assessment reads and routine whole-active cleanup discovery are removed.
+Native preparation uses authenticated scoped or unscoped operation admission consistently;
+allocation/drain authority still requires its actual scope. Three integration omissions found by
+independent review were corrected: preterminal known-empty selection, current assessment codec
+attribution, and selected reused-artifact inode/no-follow custody. Restore coverage is established
+for a fresh destination and verified before existing recovery/backup mutation.
+
+**Tested:** these focused commands completed against a zero failure baseline. Overlapping test
+populations are not additive and establish only the named contracts.
+
+| Command and mode | Actual result and boundary |
+|---|---|
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_run_inspection scripts.tests.test_evidence_projection scripts.tests.test_resource_store scripts.tests.test_test_resources` | 113 passed, 0 failed: current immutable/compact metadata, selective readers, projections and lifetime controls |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_surreal_server.SurrealSupervisorTests` | 262 passed, 0 failed: supervisor/restore registry coverage and retained existing lifecycle controls; synthetic services, not canonical product qualification |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_resource_conversion` | 21 passed, 0 failed: explicit v2 conversion, originals, refusal fencing, interrupted recovery, supported reader/process cohort controls; actual shared registry not activated |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_test_requirements scripts.tests.test_native_tests scripts.tests.test_fixture_settlement scripts.tests.test_python_extension scripts.tests.test_assessment_store scripts.tests.test_validation_result scripts.tests.test_capability_qualification scripts.tests.test_test_archives scripts.tests.test_surrealkit` | 157 passed, 0 failed at the recorded mechanism baseline; later native-currency-specific suite separately passed 22 |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest -f scripts.tests.test_test_run scripts.tests.test_efficiency_applicability scripts.tests.test_resource_conversion scripts.tests.test_evidence_sources` | 47 passed, 0 failed after compact-state test consumer migration; original terminal, reuse and projection meanings preserved |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_validation.ValidationTests.test_reuse_and_transfer_preserve_original_observation scripts.tests.test_evidence_sources scripts.tests.test_assessment_store` | 23 passed, 0 failed: sealed selected artifact replacement/symlink refusal, source codec and compact detail custody |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_python_extension` | 22 passed, 0 failed: independent currency, actual authenticated owner reuse, session metadata classification, unknown-input invalidation and installed identity |
+| `scripts/pse-env -- just py-sync-native-correctness` (two separate calls after final currency correction) | Both exited 0; first installation/stub publication and second preparation reuse with fresh imported-byte admission. Same extension SHA-256 `85d7ccedef9efe5db08e20d901041903f0e5a167f575cb3d7f37ae146d2cc7fb`; force-validate/native-solvers/solver-highs. The second invoked neither Maturin installation nor xtask stub generation. Existing cached provider preparation remains. |
+| `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation test --locked -p pse-runtime --lib workflow::local_caller_tests::fixture_snapshot_refuses_open_or_active_callers_and_allows_closed_empty -- --exact` | 1 passed, 0 failed, 953 unselected, actual Arrow-consuming force-validation: open/active caller refusal and closed snapshot |
+
+The committed native evidence-query, physical lifetime/setup and adapter ownership controls
+retain their recorded selected counts and conditions. Existing feature-specific dead-code
+warnings remain visible; these checks are not described as warning-free whole-repo health.
+
+An expanded `scripts.tests.test_native_operation` run entered broader real host/cancellation
+journeys, showed three failures and four errors, and was interrupted (exit 130) while awaiting a
+selected composer. It is **not** a passing or complete suite. Inspection identified compact-state
+consumer assumptions; their three terminal readers and the shared `test_test_run` reader are
+migrated without weakening assertions. Selected reruns determine their specific acceptance;
+no unverified environment explanation or whole-module pass is inferred. Earlier supervisor and
+surrealkit fixture failures were corrected and their selected suites now pass. Startup admission
+refusals (125) and the deliberately bounded 600-second controller inquiry establish no scientific
+result. No broader repository-health repair is selected.
+
+**Not_run / pending:** shared-registry activation and joined canonical Rust/Python fixture,
+retained-reader, two-invocation/restart, same-cut evidence and selected PFR/controller acceptance.
+The exact old endpoint cohort requires coordination before cutover; original metadata, existing
+reports and canonical payloads remain intact. G01/G02 and dependent package acceptance remain
+in progress. Source/consumer structure establishes removed repeated work; no measured speedup,
+whole-product/solver qualification, current scientific Pass or plan-series retirement is claimed.
+
+
+### Bounded scientific consumer investigation
+
+**Implemented and Tested:** the ignored-formal implicit layout now preserves the complete
+input arity. `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation test --locked -p
+pse-compiler --lib nested_implicit_keeps_complete_layout_for_an_ignored_function_argument --
+--exact workspace::modeling::tests::nested_implicit_keeps_complete_layout_for_an_ignored_function_argument`
+passed 1/1. Envelope rejection is associated with the bound original source and member;
+the exact runtime control `workflow::modeling::conformance::tests::envelope_rejection_matches_bound_original_source_and_member`
+passed 1/1 through the corresponding force-validated runtime lib route. The PFR derivative
+sampling declaration uses a resolvable normalized central step of `1e-4`; the backend control
+`derivative_diagnostics::tests::declared_step_resolves_offset_cancellation_without_hiding_wrong_derivatives`
+passed 1/1. Independent wrong-derivative controls still reject a one-percent error at both
+`5e-5` and `1e-4`. Reference values, physical inputs and acceptance tolerances are unchanged.
+
+**Investigated, not established:** a compiler-only simultaneous-controller census was bounded
+at 600 seconds and stopped/drained before it produced the required frontier size. No typed byte
+requirement, retained-memory fix or solver result follows from process RSS. Temporary
+instrumentation was removed; no retention budget increase, generic workspace rotation or broad
+solver/formulation change was adopted. The selected native conformance consumers still require
+actual fresh acceptance; reproduced generators and these local discriminators alone cannot
+close A04 or I10. The owning inquiry retains that boundary.
+
+
+### Scope-end integration and remaining activation boundary
+
+**Tested:** the six actual composer/signal controls below passed (6/6, zero failures/errors)
+with ordinary build admission for the outer test driver and each fixture's original 512 MiB
+light allocation. An outer-light attempt first exhausted the independently acquired fixture
+slots and timed out before composer publication; changing the outer role did not enlarge or
+bypass fixture admission. The separate actual nested-assessment cancellation/retained-storage
+control passed 1/1. The old unresolved allocation encountered during diagnosis predates this run
+(2026-10-22); its original v2 registry and unacknowledged guard were preserved, not manually
+released or converted as part of this work.
+
+```bash
+env -u PSE_MEMORY_MAX PSE_RESOURCE_CLASS=build scripts/pse-env -- .venv/bin/python -m unittest -v -f \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_uninterrupted_selected_composer_owns_one_durable_terminal \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_unacknowledged_composer_is_killed_without_fabricated_terminal \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_selected_terminal_survives_native_scope_signal_and_opaque_child_drain \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_selected_terminal_survives_outer_native_owner_signal \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_selected_terminal_survives_outer_pse_env_entry_signal \
+  scripts.tests.test_native_operation.NativeOperationTests.test_real_entry_cancellation_without_inherited_manager_environment
+```
+
+**Tested after owned formatting:** `scripts/pse-env -- just check-package pse-py` passed the
+force-validated all-target check with zero errors. The 193-control selected Python run reached
+192 passes and one subprocess fixture-registry error; the corrected exact
+`ValidationTests.test_assessment_recipe_preserves_reason_and_output_arguments` then passed 1/1.
+The unit subprocess now explicitly selects its temporary fixture registry; actual product
+acceptance still uses the canonical registry. The subsequent
+`scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_resource_store scripts.tests.test_resource_conversion scripts.tests.test_python_extension`
+passed 68/68, zero failures. No all-193 single-run pass is claimed.
+
+**Process/static boundary:** `scripts/pse-env -- just turn-end` exited 1 before any gate: report
+registration correctly refused the still-v2 shared registry. Owned Rust/Python files received
+scope-end formatting and safe Ruff fixes directly; no unrelated file was formatted. A scoped
+Ruff check over the 57 owned Python files reported 153 diagnostics against zero before three
+bounded cleanup corrections; it is not a clean lint result. Per the maintainer's explicit waiver,
+whole-repository hygiene/health repair was not selected. Full hygiene, native/powerset matrices,
+docs/governance bundles and the turn-end gates are not represented as passed. Formatting changed
+supported Rust preparation inputs; the installed native extension/stubs were then rebuilt
+successfully from the final source. A separate repeat again skipped installation and stub
+generation while freshly admitting the same binary. Prior currency evidence retains its original
+source condition.
+
+**Remaining:** the supported old capability readers must exit before shared-registry conversion.
+The current two endpoints are not authenticated to this execution session, so retirement awaits
+the pending operator decision rather than signalling a potentially concurrent owner. Activation,
+joined canonical/scientific acceptance, final publication evidence and dependent finding closure
+remain in progress; the implemented format and existing service payloads are preserved meanwhile.
+
+
+**Final current-source preparation check:** after commit `99a65868d` and scope-end formatting,
+`scripts/pse-env -- just py-sync-native-correctness` completed installation and actual API stub
+generation (exit 0). A separate identical call exited 0 with no Maturin installation and no
+xtask/stub generation. Both freshly observed SHA-256
+`78830ff5c2388c4c094d492aebfa1c1397e11a71c7926277e008f3319c01f784`, with force-validate,
+native-solvers and solver-highs. Generated stubs remain unchanged after the refresh.
+The actual read-only shared-registry preflight refused live endpoint pid 2236276/start22796106;
+activation bytes remained identical and no pending transition file was created. Endpoint
+2817395/start22495502 was separately observed in the same supported cohort. No process belonging
+to an ambiguous or concurrent session was signalled. Both endpoint retirement and the subsequent
+controlled activation/joined acceptance remain pending the operator's coordination decision.
