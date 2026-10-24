@@ -5,6 +5,8 @@ mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
 mod diagnostic_request;
 mod reproducer;
+mod reduction;
+pub use reduction::{ReductionAnchor,ReductionAnchorRole,ReductionOperator,ReductionRequest,ReductionCommandRequest,ReductionDisposition,ReductionEdit,ReductionAttempt,ReductionCorrespondence,ReductionDocument};
 pub use diagnostic_request::{
     DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
     DiagnosticRuntimeSettings,

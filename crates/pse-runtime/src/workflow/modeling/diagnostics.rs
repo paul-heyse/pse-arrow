@@ -1223,15 +1223,10 @@ impl ModelingPackage {
             }
             Err(error) => {
                 report.complete = false;
-                let mut f = BoundaryDiagnostic::new(
-                    BoundaryClass::TrialRejected,
-                    pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
-                    [],
-                    pse_diagnostics::DiagnosticRule::CandidateEvaluationFailed,
-                );
-                f.observations
-                    .insert("reason".into(), Observation::Text(error.to_string()));
-                report.push(f, maximum, product);
+                use pse_model::diagnostic::DiagnosticProjection;
+                // Preserve the producer's typed numerical cause and original occurrence roles.
+                // A message-only envelope cannot support source-aware investigation/reduction.
+                report.push(error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingDiagnostics), maximum, product);
             }
         }
         let terms = product

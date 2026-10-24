@@ -3,7 +3,7 @@
 //! Immutable occurrence contracts and canonical dependency-scoped execution.
 #[cfg(feature = "canonical-tests")]
 use super::durable_tests::durable_runtime;
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt", feature = "solver-kinsol"))]
 use super::tests::sources;
 use super::*;
 use pse_model::study::*;

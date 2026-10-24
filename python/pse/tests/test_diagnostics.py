@@ -1225,3 +1225,70 @@ def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_compariso
     assert completed.returncode == 0, completed.stderr.decode()
     result = codec.decode_json(completed.stdout, documents.ReproductionDocumentOutput)
     assert result.status == "original_failure_reproduced"
+
+
+@pytest.mark.unit
+def test_scientific_reduction_cli_preserves_selected_domain_issue(
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+) -> None:
+    """Exercise generated request/result codecs and the actual native CLI consumer."""
+    recorded = _reproducer_text_request(inspection_settings)
+    assert isinstance(recorded.input, documents.ReproducerExtractionInputBodyOriginalText)
+    case = SemanticId.from_hex("4d" * 16)
+    text = (
+        "package reduction_text {def Root {"
+        "var x:Scalar;eq e:log(x)==0;annotation start x(-1);"
+        "var spare:Scalar;eq spare_eq:spare==2;annotation start spare(2);"
+        f'}} @id("{case.to_hex()}") case run {{child root:Root=Root();}}}}'
+    )
+    operation = msgspec.structs.replace(
+        recorded.input.request,
+        physical_documents=physical_documents(),
+        model_documents=(package_documents(text),),
+        case_id=case,
+        settings=msgspec.structs.replace(pse.SolveSettings(), intent=NativeSolveIntent.ROOT),
+        allowance=ClosedDuration(secs=60, nanos=0),
+    )
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        original = runtime.diagnose_documents(operation)
+        (tmp_path / "original.json").write_bytes(codec.encode_json(original))
+        assert original.failure is None, codec.encode_json(original.failure).decode()
+        issue = next(
+            finding for finding in original.findings
+            if finding.code in ("math.domain", "math.evaluation", "candidate.evaluation_failed")
+        )
+        assert issue.sources, "the producer must retain actual typed source attribution"
+    finally:
+        runtime.close()
+    anchors = []
+    for needle, role in (
+        ("log(x)", "failure_expression"),
+        ("annotation start x(-1);", "initial_point"),
+    ):
+        start = text.index(needle)
+        anchors.append({"package": 0, "document": "models/fixed.pse", "start": start,
+                        "end": start + len(needle), "role": role})
+    command = codec.decode_json(
+        codec.encode_json({"version": 1, "runtime": recorded.runtime, "reduction": {
+            "version": 1, "original": operation, "issue": issue, "anchors": anchors,
+            "operators": ["declaration_deletion", "binary_subexpression"],
+            "maximum_candidates": 48, "allowance": {"secs": 60, "nanos": 0},
+        }}), documents.ReductionCommandRequest,
+    )
+    source = tmp_path / "reduction.json"
+    source.write_bytes(codec.encode_json(command))
+    completed = subprocess.run(
+        [sys.executable, "-m", "pse.diagnostics", "reduce", "--request", str(source), "--json"],
+        check=False, capture_output=True, timeout=90,
+    )
+    assert completed.returncode == 0, completed.stderr.decode()
+    result = codec.decode_json(completed.stdout, documents.ReductionDocumentOutput)
+    reduced = result.reduced.model_documents[0]["models/fixed.pse"]
+    assert len(reduced) < len(text)
+    assert "spare_eq" not in reduced
+    assert "log(x)" in reduced and "annotation start x(-1);" in reduced
+    assert result.attempts[0].disposition == "preserved"
+    for mapping in result.correspondence:
+        assert text[mapping.original.start:mapping.original.end] == reduced[mapping.reduced.start:mapping.reduced.end]

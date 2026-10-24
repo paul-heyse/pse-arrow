@@ -1891,6 +1891,14 @@ impl NativeRuntime {
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
+    fn reduce_diagnostic(
+        &self, py: Python<'_>,
+        request: documents::RecordedInput<native::ReductionRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ReductionDocument>> {
+        let cancel=CancelSource::new();
+        blocking(py,&self.owner,self.inner.reduce_diagnostic(request.0,&cancel),||cancel.cancel())
+            .map(documents::DocumentValue)
+    }
     fn run_reproducer(
         &self,
         py: Python<'_>,

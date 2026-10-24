@@ -103,6 +103,12 @@ RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "R
 
 RecordAvailability = Literal["not_requested", "running", "interrupted", "unavailable", "not_supplied", "refused"]
 
+ReductionAnchorRole = Literal["failure_expression", "initial_point"]
+
+ReductionDisposition = Literal["preserved", "different", "refused", "incomplete", "inconclusive"]
+
+ReductionOperator = Literal["declaration_deletion", "binary_subexpression"]
+
 ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
 
 ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
@@ -19588,6 +19594,218 @@ class RecycleRestartRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fiel
         return (type(self), (v.scalar_key(self.iterations), v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.starts),))
 
 
+class ReductionAnchor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An exact source premise that must survive every accepted edit."""
+
+    #: Original local document name.
+    document: str
+    #: UTF-8 exclusive ending byte offset.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Index of the explicitly supplied authored package.
+    package: Annotated[int, msgspec.Meta(ge=0)]
+    #: Scientific responsibility of the protected bytes.
+    role: ReductionAnchorRole
+    #: UTF-8 starting byte offset.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document), v.scalar_key(self.end), v.scalar_key(self.package), v.scalar_key(self.role), v.scalar_key(self.start),))
+
+
+class ReductionAttempt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded attempt retains actual typed evidence and its source transformation."""
+
+    #: Selected matching issue or actual refusal/different diagnostic.
+    diagnostic: BoundaryDiagnosticBody | None = None
+    #: Scientific property outcome.
+    disposition: ReductionDisposition
+    #: Literal source transformations; empty for the unchanged control.
+    edits: tuple[ReductionEdit, ...]
+    #: Actual new diagnostic operation, absent if construction itself refused.
+    operation: OperationIdBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.disposition), v.sequence_key(v.record_key)(self.edits), v.optional_key(v.record_key)(self.operation),))
+
+
+class ReductionAttemptOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded attempt retains actual typed evidence and its source transformation."""
+
+    #: Selected matching issue or actual refusal/different diagnostic.
+    diagnostic: BoundaryDiagnosticBodyOutput | None
+    #: Scientific property outcome.
+    disposition: ReductionDisposition
+    #: Literal source transformations; empty for the unchanged control.
+    edits: tuple[ReductionEdit, ...]
+    #: Actual new diagnostic operation, absent if construction itself refused.
+    operation: OperationIdBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.disposition), v.sequence_key(v.record_key)(self.edits), v.optional_key(v.record_key)(self.operation),))
+
+
+class ReductionCommandRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """CLI composition over the existing runtime deployment."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: Separate scientific reduction request.
+    reduction: ReductionRequest
+    #: Existing deployment settings.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.reduction), v.record_key(self.runtime),))
+
+
+class ReductionCommandRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """CLI composition over the existing runtime deployment."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: Separate scientific reduction request.
+    reduction: ReductionRequestOutput
+    #: Existing deployment settings.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.reduction), v.record_key(self.runtime),))
+
+
+class ReductionCorrespondence(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original-to-reduced mapping of an unchanged scientific source premise."""
+
+    #: Original supplied location.
+    original: ReductionAnchor
+    #: Actual reduced location, containing identical bytes.
+    reduced: ReductionAnchor
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.original), v.record_key(self.reduced),))
+
+
+class ReductionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source-aware local search outcome. Does not claim exact original reproduction."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: Ordered candidate evidence, including the unchanged control.
+    attempts: tuple[ReductionAttempt, ...]
+    #: Original/reduced protected source bytes correspondence.
+    correspondence: tuple[ReductionCorrespondence, ...]
+    #: No further accepted deletion/subexpression move was found in the completed search.
+    locally_irreducible: bool
+    #: Actual reduction operation, distinct from original reproduction and candidates.
+    operation: OperationIdBody
+    #: Actual stop or unsupported-premise reason.
+    reason: str
+    #: Smallest accepted input found under the actual moves and bounds.
+    reduced: DiagnosticExecutionRequest
+    #: Original complete input and preserved issue.
+    request: ReductionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.attempts), v.sequence_key(v.record_key)(self.correspondence), v.scalar_key(self.locally_irreducible), v.record_key(self.operation), v.scalar_key(self.reason), v.record_key(self.reduced), v.record_key(self.request),))
+
+
+class ReductionDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source-aware local search outcome. Does not claim exact original reproduction."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: Ordered candidate evidence, including the unchanged control.
+    attempts: tuple[ReductionAttemptOutput, ...]
+    #: Original/reduced protected source bytes correspondence.
+    correspondence: tuple[ReductionCorrespondence, ...]
+    #: No further accepted deletion/subexpression move was found in the completed search.
+    locally_irreducible: bool
+    #: Actual reduction operation, distinct from original reproduction and candidates.
+    operation: OperationIdBody
+    #: Actual stop or unsupported-premise reason.
+    reason: str
+    #: Smallest accepted input found under the actual moves and bounds.
+    reduced: DiagnosticExecutionRequestOutput
+    #: Original complete input and preserved issue.
+    request: ReductionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.attempts), v.sequence_key(v.record_key)(self.correspondence), v.scalar_key(self.locally_irreducible), v.record_key(self.operation), v.scalar_key(self.reason), v.record_key(self.reduced), v.record_key(self.request),))
+
+
+class ReductionEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Literal source edit in one attempted candidate's current coordinates."""
+
+    #: Local source document.
+    document: str
+    #: Exclusive ending UTF-8 offset.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Source package index.
+    package: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact replacement bytes as text.
+    replacement: str
+    #: Starting UTF-8 offset.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document), v.scalar_key(self.end), v.scalar_key(self.package), v.scalar_key(self.replacement), v.scalar_key(self.start),))
+
+
+class ReductionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Separate selected reduction predicate, never an original-reproduction result."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: One total clock, including preparation and candidate drain.
+    allowance: ClosedDuration
+    #: Exactly one scalar call and its explicit start, verified against actual parser attribution.
+    anchors: tuple[ReductionAnchor, ...]
+    #: Selected original typed issue. Code/stage/rule/sources/validity/conditions must match.
+    issue: BoundaryDiagnosticBody
+    #: Maximum new candidate executions including the unchanged control, from 1 to 256.
+    maximum_candidates: Annotated[int, msgspec.Meta(ge=0)]
+    #: Nonempty permitted transformations; protected bytes and the predicate still apply.
+    operators: tuple[ReductionOperator, ...]
+    #: Complete explicit original authored diagnostic input.
+    original: DiagnosticExecutionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.sequence_key(v.record_key)(self.anchors), v.record_key(self.issue), v.scalar_key(self.maximum_candidates), v.sequence_key(v.scalar_key)(self.operators), v.record_key(self.original),))
+
+
+class ReductionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Separate selected reduction predicate, never an original-reproduction result."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Codec.
+    version: Literal[1] = 1
+    #: One total clock, including preparation and candidate drain.
+    allowance: ClosedDuration
+    #: Exactly one scalar call and its explicit start, verified against actual parser attribution.
+    anchors: tuple[ReductionAnchor, ...]
+    #: Selected original typed issue. Code/stage/rule/sources/validity/conditions must match.
+    issue: BoundaryDiagnosticBodyOutput
+    #: Maximum new candidate executions including the unchanged control, from 1 to 256.
+    maximum_candidates: Annotated[int, msgspec.Meta(ge=0)]
+    #: Nonempty permitted transformations; protected bytes and the predicate still apply.
+    operators: tuple[ReductionOperator, ...]
+    #: Complete explicit original authored diagnostic input.
+    original: DiagnosticExecutionRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.sequence_key(v.record_key)(self.anchors), v.record_key(self.issue), v.scalar_key(self.maximum_candidates), v.sequence_key(v.scalar_key)(self.operators), v.record_key(self.original),))
+
+
 class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit consumer allowance for one point or one realized action product.
     Proof cells are shared across its rounds; the original task clock is unchanged.
@@ -29640,6 +29858,20 @@ __all__ = [
     "RecycleRequestOutput",
     "RecycleRestartRequest",
     "RecycleRestartRequestBody",
+    "ReductionAnchor",
+    "ReductionAnchorRole",
+    "ReductionAttempt",
+    "ReductionAttemptOutput",
+    "ReductionCommandRequest",
+    "ReductionCommandRequestOutput",
+    "ReductionCorrespondence",
+    "ReductionDisposition",
+    "ReductionDocument",
+    "ReductionDocumentOutput",
+    "ReductionEdit",
+    "ReductionOperator",
+    "ReductionRequest",
+    "ReductionRequestOutput",
     "RefinementLimits",
     "Refusal",
     "RefusalDependencyUnusable",
@@ -30139,4 +30371,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:4c7cb912ab6cb3094f43f6281ba348b998a9344daec578e7eb51e2865335ac35"
+SCHEMA_SET_FINGERPRINT = "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"

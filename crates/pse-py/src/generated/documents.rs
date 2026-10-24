@@ -1038,6 +1038,76 @@ impl crate::documents::DocumentType for pse_runtime::workflow::RecycleRestartReq
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionAnchor {
+    const INPUT_NAME: &'static str = "ReductionAnchor";
+    const OUTPUT_NAME: &'static str = "ReductionAnchor";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionAnchorRole {
+    const INPUT_NAME: &'static str = "ReductionAnchorRole";
+    const OUTPUT_NAME: &'static str = "ReductionAnchorRole";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionAttempt {
+    const INPUT_NAME: &'static str = "ReductionAttempt";
+    const OUTPUT_NAME: &'static str = "ReductionAttemptOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionCommandRequest {
+    const INPUT_NAME: &'static str = "ReductionCommandRequest";
+    const OUTPUT_NAME: &'static str = "ReductionCommandRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionCorrespondence {
+    const INPUT_NAME: &'static str = "ReductionCorrespondence";
+    const OUTPUT_NAME: &'static str = "ReductionCorrespondence";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionDisposition {
+    const INPUT_NAME: &'static str = "ReductionDisposition";
+    const OUTPUT_NAME: &'static str = "ReductionDisposition";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionDocument {
+    const INPUT_NAME: &'static str = "ReductionDocument";
+    const OUTPUT_NAME: &'static str = "ReductionDocumentOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionEdit {
+    const INPUT_NAME: &'static str = "ReductionEdit";
+    const OUTPUT_NAME: &'static str = "ReductionEdit";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionOperator {
+    const INPUT_NAME: &'static str = "ReductionOperator";
+    const OUTPUT_NAME: &'static str = "ReductionOperator";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ReductionRequest {
+    const INPUT_NAME: &'static str = "ReductionRequest";
+    const OUTPUT_NAME: &'static str = "ReductionRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::ReplayDocument {
     const INPUT_NAME: &'static str = "ReplayDocument";
     const OUTPUT_NAME: &'static str = "ReplayDocument";

@@ -780,6 +780,7 @@ _REVIEW_COMMANDS = {
     "diagnose",
     "extract-reproducer",
     "reproduce",
+    "reduce",
 }
 
 
@@ -937,6 +938,9 @@ def _add_review_commands(commands: argparse._SubParsersAction) -> None:
         help="Extracted ReproducerCommandRequest JSON",
     )
     reproducing.add_argument("--json", action="store_true")
+    reducing = commands.add_parser("reduce", help="NEW WORK: reduce a separately selected scientific issue")
+    reducing.add_argument("--request", required=True, type=Path, help="ReductionCommandRequest JSON")
+    reducing.add_argument("--json", action="store_true")
     diagnosing = commands.add_parser(
         "diagnose",
         help=(
@@ -1176,6 +1180,16 @@ def _review_command(args: argparse.Namespace) -> int:
             "related_diagnostic_reproduced",
         )
         return 0 if reproduced else 1
+    elif args.command == "reduce":
+        from pse.contracts.documents import ReductionCommandRequest
+        command = _read_review_request(args.request, ReductionCommandRequest)
+        runtime = _diagnostic_runtime(command.runtime)
+        try:
+            result = runtime.reduce_diagnostic(command.reduction)
+        finally:
+            runtime.close()
+        print(codec.encode_json(result).decode())
+        return 0 if result.attempts and result.attempts[0].disposition == "preserved" else 1
     elif args.command == "diagnose":
         command = _read_review_request(args.request, DiagnosticCommandRequest)
         runtime = _diagnostic_runtime(command.runtime)

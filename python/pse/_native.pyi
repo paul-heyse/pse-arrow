@@ -152,6 +152,9 @@ from pse.contracts.documents import (
     ProjectSelection,
     ProjectSelectRequest,
     ProjectSourceDetailOutput,
+    ReductionDocumentOutput,
+    ReductionRequest,
+    ReductionRequestOutput,
     ReplayDocument,
     ReproducerCommandRequestOutput,
     ReproducerExtractionRequest,
@@ -1388,6 +1391,9 @@ class NativeRuntime:
     def recover_artifact_intent(
         self, /, intent: ArtifactIntent
     ) -> NativeArtifactSettlement: ...
+    def reduce_diagnostic(
+        self, /, request: ReductionRequest | ReductionRequestOutput
+    ) -> ReductionDocumentOutput: ...
     def release_history(self, /, owner: bytes) -> None: ...
     def release_history_obligation(self, /, obligation: bytes) -> None: ...
     def research_dataset_create(

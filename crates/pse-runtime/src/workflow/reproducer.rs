@@ -50,7 +50,7 @@ impl ReproductionPredicate {
             conditions: original.observations.clone(),
         }
     }
-    fn matches(&self, diagnostic: &BoundaryDiagnostic) -> bool {
+    pub(super) fn matches(&self, diagnostic: &BoundaryDiagnostic) -> bool {
         fn exact<T: Serialize>(left: &T, right: &T) -> bool {
             match (serde_json::to_vec(left), serde_json::to_vec(right)) {
                 (Ok(left), Ok(right)) => left == right,
@@ -883,7 +883,7 @@ pub(in crate::workflow) mod tests {
                 .is_err()
         );
     }
-    fn numerical_command(body: &str) -> DiagnosticCommandRequest {
+    pub(in crate::workflow) fn numerical_command(body: &str) -> DiagnosticCommandRequest {
         let mut command = text_command();
         command.operation.physical_documents = BTreeMap::from([
             ("package.toml".into(),include_str!("../../../../tests/fixtures/packages/physical-primitives/package.toml").into()),

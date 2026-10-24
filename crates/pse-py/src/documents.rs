@@ -329,6 +329,7 @@ impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingAcknowle
 impl RecordedDocument for pse_runtime::tooling::review_pack::PackExportRequest {}
 
 impl RecordedDocument for pse_runtime::workflow::DiagnosticExecutionRequest {}
+impl RecordedDocument for pse_runtime::workflow::ReductionRequest {}
 impl RecordedDocument for pse_runtime::workflow::DiagnosticReproducer {}
 impl RecordedDocument for pse_runtime::workflow::ReproducerExtractionRequest {}
 
