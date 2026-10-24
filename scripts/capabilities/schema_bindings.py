@@ -37,7 +37,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         description=native_contract_schema.__doc__ or "Read generated schema",
         domain="generation",
         family="generated-contracts",
-        workflows=("change-generated-contract",),
         guides=("root", "tooling"),
         owner="crates/pse-codegen/src/codegen/documents.rs",
         source="scripts/capabilities/schema_bindings.py",

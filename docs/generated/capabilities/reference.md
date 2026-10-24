@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8fbe617ffeaaa6`.
+Catalogue content revision: `6052f11074b7e8c95e67bef7b109b1567de9613015c6f372cf8c50c3beb22d7a`.
 
 ## Domains
 
@@ -208,6 +208,42 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "python"
   ],
   "id": "change-generated-contract",
+  "steps": [
+    {
+      "capabilities": [
+        "workspace_task_context",
+        "workspace_producer_relationships",
+        "native_contract_schema"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "declaration",
+      "purpose": "Read task context, locate authored producers and inspect the exact generated native schema before editing."
+    },
+    {
+      "capabilities": [
+        "navigation_rename_preview",
+        "navigation_action_preview",
+        "edit_preview_read",
+        "edit_preview_apply",
+        "edit_preview_reconcile"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "edit",
+      "purpose": "Preview and deliberately apply an authored source change; reconcile any interrupted apply."
+    },
+    {
+      "capabilities": [
+        "contracts_generate",
+        "contracts_check"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "regenerate",
+      "purpose": "Run the original generator after editing its declaration, then compare generated contracts."
+    }
+  ],
   "title": "Change a generated contract"
 }
 ```
@@ -221,6 +257,39 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "diagnostics"
   ],
   "id": "diagnose-run",
+  "steps": [
+    {
+      "capabilities": [
+        "product_run_read",
+        "workload_watch"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "original-result",
+      "purpose": "Read the authentic invocation and separate workload, assurance and drain outcomes before choosing diagnostics."
+    },
+    {
+      "capabilities": [
+        "native_invocation_read",
+        "native_evidence_inspect",
+        "native_diagnostic_inspect"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "scientific-detail",
+      "purpose": "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment."
+    },
+    {
+      "capabilities": [
+        "diagnostic_action",
+        "diagnostic_action_read"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "active-experiment",
+      "purpose": "Perform only a deliberately selected diagnostic experiment and read its retained original record."
+    }
+  ],
   "title": "Diagnose a run"
 }
 ```
@@ -235,6 +304,38 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "decisions"
   ],
   "id": "inspect-plan",
+  "steps": [
+    {
+      "capabilities": [
+        "workspace_task_context",
+        "document_scope_query"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "scope",
+      "purpose": "Read the exact task owner and page its current native scope without authorizing execution."
+    },
+    {
+      "capabilities": [
+        "navigation_definition",
+        "navigation_references",
+        "knowledge_source_corpus"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "source-navigation",
+      "purpose": "Follow a selected source symbol or original source evidence when scope needs clarification."
+    },
+    {
+      "capabilities": [
+        "workspace_recipe_describe"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "native-route",
+      "purpose": "Inspect an exact native recipe when the plan names a command."
+    }
+  ],
   "title": "Inspect a plan"
 }
 ```
@@ -248,6 +349,46 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "qualification"
   ],
   "id": "investigate-evidence",
+  "steps": [
+    {
+      "capabilities": [
+        "knowledge_source_corpus"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "source",
+      "purpose": "Read attributed original source evidence with explicit completeness."
+    },
+    {
+      "capabilities": [
+        "product_run_read",
+        "diagnostic_action_read"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "retained-run",
+      "purpose": "Follow an authentic run or diagnostic action record without rerunning its subject."
+    },
+    {
+      "capabilities": [
+        "native_evidence_inspect",
+        "native_invocation_read"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "native-evidence",
+      "purpose": "Inspect exact native scientific evidence in the selected existing environment."
+    },
+    {
+      "capabilities": [
+        "experiment_inspect"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "archive",
+      "purpose": "Inspect original historical archive bytes without treating them as current-source qualification."
+    }
+  ],
   "title": "Investigate evidence"
 }
 ```
@@ -261,6 +402,50 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "storage"
   ],
   "id": "manage-project",
+  "steps": [
+    {
+      "capabilities": [
+        "native_project_metadata",
+        "native_revision_source"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "context",
+      "purpose": "Inspect exact project metadata and revision source in an already prepared native environment."
+    },
+    {
+      "capabilities": [
+        "native_project_select"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "select",
+      "purpose": "Deliberately select an existing project through its native owner."
+    },
+    {
+      "capabilities": [
+        "native_preparation_discover",
+        "native_revision_preparation_discover",
+        "native_source_admit"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "source-admission",
+      "purpose": "Discover exact preparation requirements and explicitly admit authored source through its native validator."
+    },
+    {
+      "capabilities": [
+        "native_project_bundle_inspect",
+        "native_result_read",
+        "native_result_inspect",
+        "native_research_read"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "results",
+      "purpose": "Inspect selected original project/result/research artifacts without asserting a solve outcome."
+    }
+  ],
   "title": "Manage a project"
 }
 ```
@@ -274,6 +459,30 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "root"
   ],
   "id": "plan-functional-review",
+  "steps": [
+    {
+      "capabilities": [
+        "skill-plan-functional-extension-review",
+        "workspace_concepts_query"
+      ],
+      "default": true,
+      "guides": [
+        "skill-plan-functional-extension-review"
+      ],
+      "id": "prepare",
+      "purpose": "Retrieve the planning skill and original capability context; preserve the inquiry and planning phase boundary."
+    },
+    {
+      "capabilities": [
+        "library_source_packet",
+        "document_scope_query"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "library-sources",
+      "purpose": "Inspect exact library/source evidence relevant to the selected functional inquiry."
+    }
+  ],
   "title": "Plan a functional review"
 }
 ```
@@ -287,6 +496,40 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "qualification"
   ],
   "id": "qualify-change",
+  "steps": [
+    {
+      "capabilities": [
+        "assessment_select",
+        "rust_test_describe"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "select",
+      "purpose": "Describe the relevant assessment and test closure before choosing correctness scope."
+    },
+    {
+      "capabilities": [
+        "compilation_check",
+        "rust_test_run",
+        "assessment_run"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "execute",
+      "purpose": "Run the selected native checks at the authorized qualification boundary and retain authentic results."
+    },
+    {
+      "capabilities": [
+        "product_run_read",
+        "assessment_read",
+        "coverage_correspondence_read"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "evidence",
+      "purpose": "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope."
+    }
+  ],
   "title": "Qualify a change"
 }
 ```
@@ -301,6 +544,35 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
     "qualification"
   ],
   "id": "run-experiment",
+  "steps": [
+    {
+      "capabilities": [
+        "experiment_archive"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "archive",
+      "purpose": "Create an explicitly selected pure-test archive with original isolation and recovery ownership."
+    },
+    {
+      "capabilities": [
+        "experiment_inspect"
+      ],
+      "default": true,
+      "guides": [],
+      "id": "inspect",
+      "purpose": "Verify exact retained archive bytes before interpreting or replaying historical results."
+    },
+    {
+      "capabilities": [
+        "experiment_replay"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "replay",
+      "purpose": "Deliberately replay historical executables into fresh output; replay does not qualify current source."
+    }
+  ],
   "title": "Run an experiment"
 }
 ```
@@ -315,11 +587,7 @@ Catalogue content revision: `25bddfd57db35a17f10720170a51445f00722249371b4b229e8
 
 - `environment` — Environment and workload ownership: [docs/dev/agent-environment.md](../../../docs/dev/agent-environment.md); resource `pse://guidance/environment`.
 
-- `execute-plan` — Execute authorized plan scope: [.codex/skills/execute-plan/SKILL.md](../../../.codex/skills/execute-plan/SKILL.md); resource `pse://guidance/execute-plan`.
-
 - `generated` — Generated-file ownership: [.claude/rules/generated.md](../../../.claude/rules/generated.md); resource `pse://guidance/generated`.
-
-- `plan-review` — Prepare a design review: [.codex/skills/plan-design-review/SKILL.md](../../../.codex/skills/plan-design-review/SKILL.md); resource `pse://guidance/plan-review`.
 
 - `python` — Python scope rules: [.claude/rules/python.md](../../../.claude/rules/python.md); resource `pse://guidance/python`.
 
@@ -613,7 +881,7 @@ Exact component key: `tool:capabilities_select@`.
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Replace this attachment's view with exact selected domains/workflows/capabilities. No operation executes; checkout/service/permission context is unchanged.",
+  "description": "Replace this attachment's view using exact IDs and default workflow steps; workflow_steps adds optional named groups. Read complete instructions deliberately through returned resources. No operation executes; checkout/service/permission context is unchanged.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -647,6 +915,25 @@ Exact component key: `tool:capabilities_select@`.
         ],
         "default": null
       },
+      "workflow_steps": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
       "workflows": {
         "anyOf": [
           {
@@ -668,11 +955,211 @@ Exact component key: `tool:capabilities_select@`.
   "name": "capabilities_select",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
+      "InstructionReference": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Omissions",
+            "type": "array"
+          },
+          "package_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Package Digest"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "supporting_manifest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Supporting Manifest"
+          },
+          "uri": {
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "uri",
+          "path",
+          "digest",
+          "complete",
+          "restart_required",
+          "omissions"
+        ],
+        "title": "InstructionReference",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "SelectionContext": {
+        "additionalProperties": false,
+        "properties": {
+          "checkout": {
+            "title": "Checkout",
+            "type": "string"
+          },
+          "effects": {
+            "default": "presentation only",
+            "title": "Effects",
+            "type": "string"
+          },
+          "service_selection": {
+            "default": "unchanged",
+            "title": "Service Selection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkout"
+        ],
+        "title": "SelectionContext",
+        "type": "object"
+      }
     },
-    "additionalProperties": {
-      "$ref": "#/$defs/JsonValue"
+    "additionalProperties": false,
+    "properties": {
+      "action_invocation": {
+        "default": "capabilities_invoke_action",
+        "title": "Action Invocation",
+        "type": "string"
+      },
+      "callable_tools": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Callable Tools",
+        "type": "array"
+      },
+      "capabilities": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Capabilities",
+        "type": "array"
+      },
+      "changed": {
+        "title": "Changed",
+        "type": "boolean"
+      },
+      "compatibility_invocation": {
+        "default": "capabilities_invoke_read",
+        "title": "Compatibility Invocation",
+        "type": "string"
+      },
+      "context": {
+        "$ref": "#/$defs/SelectionContext"
+      },
+      "instruction_access": {
+        "default": "Read each complete guide resource and, when relevant, its captured supporting-file manifest. Retrieval does not activate a skill or authorize work.",
+        "title": "Instruction Access",
+        "type": "string"
+      },
+      "instruction_resources": {
+        "items": {
+          "$ref": "#/$defs/InstructionReference"
+        },
+        "title": "Instruction Resources",
+        "type": "array"
+      },
+      "instructions_complete": {
+        "title": "Instructions Complete",
+        "type": "boolean"
+      },
+      "instructions_embedded": {
+        "default": false,
+        "title": "Instructions Embedded",
+        "type": "boolean"
+      },
+      "interface": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "title": "Interface",
+        "type": "object"
+      },
+      "non_callable": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Non Callable",
+        "type": "array"
+      },
+      "notification_omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Notification Omissions",
+        "type": "array"
+      },
+      "revision": {
+        "title": "Revision",
+        "type": "string"
+      },
+      "workflow_steps": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Workflow Steps",
+        "type": "array"
+      }
     },
+    "required": [
+      "revision",
+      "interface",
+      "changed",
+      "capabilities",
+      "callable_tools",
+      "non_callable",
+      "workflow_steps",
+      "instruction_resources",
+      "instructions_complete",
+      "notification_omissions",
+      "context"
+    ],
+    "title": "SelectionReceipt",
     "type": "object"
   },
   "title": "Capabilities Select"
@@ -948,6 +1435,7 @@ Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source
     "The selected profiler/debugger and its native process permissions must be available."
   ],
   "reason": "Canonical typed actions/readers share capture kernels and helper drain; installation, taskdump builds and specialized trace commands retain native preparation.",
+  "requirements": [],
   "route": [
     "just",
     "diagnostics",
@@ -958,9 +1446,7 @@ Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source
   "title": "Active process diagnostics and optional profilers",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "diagnose-run"
-  ]
+  "workflows": []
 }
 ```
 
@@ -982,12 +1468,15 @@ Exposure: **tool**. Owner: `scripts/validation_result.py`. Declaration source: [
   "owner": "scripts/validation_result.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/validation_result.py",
   "title": "assessment read",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "qualify-change"
+  ]
 }
 ```
 
@@ -1000,7 +1489,8 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
       "tags": [
         "capability:assessment_read",
         "domain:validation",
-        "family:qualification-assessment"
+        "family:qualification-assessment",
+        "workflow:qualify-change"
       ]
     }
   },
@@ -1412,6 +1902,26 @@ Exposure: **tool**. Owner: `scripts/validation.py`. Declaration source: [scripts
   "owner": "scripts/validation.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/validation.py",
   "title": "assessment run",
@@ -1628,6 +2138,7 @@ Exposure: **tool**. Owner: `scripts/validation_scope.py`. Declaration source: [s
   "owner": "scripts/validation_scope.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/validation_scope.py",
   "title": "assessment select",
@@ -1798,6 +2309,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
   "owner": "scripts/build_environment.py",
   "prerequisites": [],
   "reason": "Canonical scoped compilation uses the check owner; cache experiments, uncached builds and compiler observers retain distinct populations and native artifacts.",
+  "requirements": [],
   "route": [
     "just",
     "check-package"
@@ -1806,9 +2318,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
   "title": "Compilation and compiler-cache diagnosis",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -1831,6 +2341,7 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
   "owner": "scripts/build_storage.py",
   "prerequisites": [],
   "reason": "Canonical metadata inspection grants no disposal; recursive measurement and authenticated reclamation retain distinct native lifetime/effect ownership.",
+  "requirements": [],
   "route": [
     "just",
     "build-storage",
@@ -1863,6 +2374,26 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "justfile",
   "title": "compilation check",
@@ -2028,6 +2559,26 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "justfile",
   "title": "contracts check",
@@ -2038,7 +2589,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "worker": "qualification"
   },
   "workflows": [
-    "qualify-change"
+    "change-generated-contract"
   ]
 }
 ```
@@ -2053,7 +2604,7 @@ Exact callable component key: `tool:contracts_check@`. The following is the regi
         "capability:contracts_check",
         "domain:generation",
         "family:generated-contracts",
-        "workflow:qualify-change"
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -2149,6 +2700,26 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "justfile",
   "title": "contracts generate",
@@ -2159,7 +2730,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "worker": "qualification"
   },
   "workflows": [
-    "qualify-change"
+    "change-generated-contract"
   ]
 }
 ```
@@ -2174,7 +2745,7 @@ Exact callable component key: `tool:contracts_generate@`. The following is the r
         "capability:contracts_generate",
         "domain:generation",
         "family:generated-contracts",
-        "workflow:qualify-change"
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -2271,6 +2842,7 @@ Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [s
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "Canonical preview/apply/reconcile preserves source cuts and protection; native structural migrations and explicit edit probes remain independently useful.",
+  "requirements": [],
   "route": [
     ".venv/bin/python",
     "-m",
@@ -2281,9 +2853,7 @@ Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [s
   "title": "Protected edits and structural migrations",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "change-generated-contract"
-  ]
+  "workflows": []
 }
 ```
 
@@ -2305,12 +2875,15 @@ Exposure: **tool**. Owner: `scripts/coverage_correspondence.py`. Declaration sou
   "owner": "scripts/coverage_correspondence.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/coverage_correspondence.py",
   "title": "coverage correspondence read",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "qualify-change"
+  ]
 }
 ```
 
@@ -2323,7 +2896,8 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
       "tags": [
         "capability:coverage_correspondence_read",
         "domain:validation",
-        "family:verification-techniques"
+        "family:verification-techniques",
+        "workflow:qualify-change"
       ]
     }
   },
@@ -2608,6 +3182,7 @@ Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [s
   "owner": "scripts/surreal_server.py",
   "prerequisites": [],
   "reason": "Canonical toolkit adapters preserve VIEWER credentials/generation fences; lifecycle, schema/module publication and administrative maintenance retain native admission.",
+  "requirements": [],
   "route": [
     "just",
     "surreal",
@@ -2617,10 +3192,7 @@ Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [s
   "title": "Canonical database and specialist tooling",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "manage-project",
-    "diagnose-run"
-  ]
+  "workflows": []
 }
 ```
 
@@ -2643,6 +3215,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "database_select"
+      ],
+      "provider": "surreal-selected",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Info",
@@ -2775,6 +3359,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "database_select"
+      ],
+      "provider": "surreal-selected",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Database List",
@@ -2947,6 +3543,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "database_select"
+      ],
+      "provider": "surreal-selected",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Query",
@@ -3089,6 +3697,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "database_select"
+      ],
+      "provider": "surreal-selected",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Database Select",
@@ -3179,6 +3799,7 @@ Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.
   "owner": "scripts/adr.py",
   "prerequisites": [],
   "reason": "Canonical concept/scope reads inspect decision status; allocation/supersession and due register-authored checks retain native authoring/execution meaning.",
+  "requirements": [],
   "route": [
     "just",
     "adr-new"
@@ -3187,9 +3808,7 @@ Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.
   "title": "Decisions, ADRs and deferred triggers",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan"
-  ]
+  "workflows": []
 }
 ```
 
@@ -3213,6 +3832,7 @@ Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](http
   "owner": "Cargo.toml",
   "prerequisites": [],
   "reason": "Canonical assessments consume advisory reports; named upgrades, lock resolution and family maintenance remain explicit native manifest/Git operations.",
+  "requirements": [],
   "route": [
     "just",
     "deps-report"
@@ -3246,6 +3866,18 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
     "Checkout environment and operation-specific native tools/identity admission"
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/active_diagnostics.py",
   "title": "Run an explicit diagnostic action",
@@ -3600,6 +4232,7 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
   "owner": "scripts/active_diagnostics.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/active_diagnostics.py",
   "title": "Read retained diagnostic output",
@@ -3741,12 +4374,16 @@ Exposure: **tool**. Owner: `scripts/document_lifecycle.py`. Declaration source: 
   "owner": "scripts/document_lifecycle.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/document_lifecycle.py",
   "title": "document scope query",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "inspect-plan",
+    "plan-functional-review"
+  ]
 }
 ```
 
@@ -3759,7 +4396,9 @@ Exact callable component key: `tool:document_scope_query@`. The following is the
       "tags": [
         "capability:document_scope_query",
         "domain:governance",
-        "family:documentation-lifecycle"
+        "family:documentation-lifecycle",
+        "workflow:inspect-plan",
+        "workflow:plan-functional-review"
       ]
     }
   },
@@ -4110,6 +4749,7 @@ Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source
   "owner": "scripts/document_lifecycle.py",
   "prerequisites": [],
   "reason": "Canonical scope/build shares metadata/publication owners; retirement remains native preflight, and authoring remains protected repository editing.",
+  "requirements": [],
   "route": [
     "just",
     "docs"
@@ -4118,10 +4758,7 @@ Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source
   "title": "Documentation and native lifecycle",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan",
-    "plan-functional-review"
-  ]
+  "workflows": []
 }
 ```
 
@@ -4144,6 +4781,26 @@ Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.
   "owner": "scripts/docs.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/docs.py",
   "title": "documentation build",
@@ -4153,9 +4810,7 @@ Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.
     "operation": "documentation",
     "worker": "qualification"
   },
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -4168,8 +4823,7 @@ Exact callable component key: `tool:documentation_build@`. The following is the 
       "tags": [
         "capability:documentation_build",
         "domain:governance",
-        "family:documentation-lifecycle",
-        "workflow:qualify-change"
+        "family:documentation-lifecycle"
       ]
     }
   },
@@ -4252,7 +4906,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
 
 ```json
 {
-  "description": "Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire when the endpoint closes. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority.",
+  "description": "Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire on explicit release or endpoint close. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority.",
   "domain": "editing",
   "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
   "exposure": "tool",
@@ -4265,12 +4919,15 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/semantic_edits.py",
   "title": "Edit Preview Apply",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "change-generated-contract"
+  ]
 }
 ```
 
@@ -4283,7 +4940,8 @@ Exact callable component key: `tool:edit_preview_apply@`. The following is the r
       "tags": [
         "capability:edit_preview_apply",
         "domain:editing",
-        "family:controlled-edits"
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -4293,7 +4951,7 @@ Exact callable component key: `tool:edit_preview_apply@`. The following is the r
     "openWorldHint": false,
     "readOnlyHint": false
   },
-  "description": "Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire when the endpoint closes. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority.",
+  "description": "Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire on explicit release or endpoint close. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -4355,7 +5013,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
 
 ```json
 {
-  "description": "Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire when it closes; no source read, edit, server acquisition or handle renewal occurs.",
+  "description": "Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire on explicit release or close; no source read, edit, server acquisition or handle renewal occurs.",
   "domain": "editing",
   "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
   "exposure": "tool",
@@ -4368,12 +5026,15 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Edit Preview Read",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "change-generated-contract"
+  ]
 }
 ```
 
@@ -4386,7 +5047,8 @@ Exact callable component key: `tool:edit_preview_read@`. The following is the re
       "tags": [
         "capability:edit_preview_read",
         "domain:editing",
-        "family:controlled-edits"
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -4396,7 +5058,7 @@ Exact callable component key: `tool:edit_preview_read@`. The following is the re
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire when it closes; no source read, edit, server acquisition or handle renewal occurs.",
+  "description": "Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire on explicit release or close; no source read, edit, server acquisition or handle renewal occurs.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -4485,7 +5147,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
 
 ```json
 {
-  "description": "Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire when the endpoint closes. Never writes source or reacquires a server.",
+  "description": "Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire on explicit release or endpoint close. Never writes source or reacquires a server.",
   "domain": "editing",
   "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
   "exposure": "tool",
@@ -4498,12 +5160,15 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/semantic_edits.py",
   "title": "Edit Preview Reconcile",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "change-generated-contract"
+  ]
 }
 ```
 
@@ -4516,7 +5181,8 @@ Exact callable component key: `tool:edit_preview_reconcile@`. The following is t
       "tags": [
         "capability:edit_preview_reconcile",
         "domain:editing",
-        "family:controlled-edits"
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -4526,7 +5192,7 @@ Exact callable component key: `tool:edit_preview_reconcile@`. The following is t
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire when the endpoint closes. Never writes source or reacquires a server.",
+  "description": "Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire on explicit release or endpoint close. Never writes source or reacquires a server.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -4578,6 +5244,257 @@ Exact callable component key: `tool:edit_preview_reconcile@`. The following is t
 }
 ```
 
+### `edit_preview_release` — Edit Preview Release
+
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
+
+```json
+{
+  "description": "Explicitly release this endpoint's exact retained handle and reclaim its capacity. Unknown, foreign and already released digests are unavailable. Refuse admitted work or required reconciliation. Never applies, rolls back or declares an edit complete; siblings are preserved.",
+  "domain": "editing",
+  "effects": "Release only this endpoint's selected retained preview bytes; refuses admitted work and unresolved reconciliation; no source edit or rollback.",
+  "exposure": "tool",
+  "family": "controlled-edits",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "edit_preview_release",
+  "owner": "scripts/capabilities/specialists.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/specialists.py",
+  "title": "Edit Preview Release",
+  "work_owner": null,
+  "worker": null,
+  "workflows": []
+}
+```
+
+Exact callable component key: `tool:edit_preview_release@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:edit_preview_release",
+        "domain:editing",
+        "family:controlled-edits"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Explicitly release this endpoint's exact retained handle and reclaim its capacity. Unknown, foreign and already released digests are unavailable. Refuse admitted work or required reconciliation. Never applies, rolls back or declares an edit complete; siblings are preserved.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "preview_sha256": {
+        "pattern": "^[a-f0-9]{64}$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "preview_sha256"
+    ],
+    "type": "object"
+  },
+  "name": "edit_preview_release",
+  "outputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "byte_capacity": {
+        "minimum": 1,
+        "type": "integer"
+      },
+      "count_capacity": {
+        "minimum": 1,
+        "type": "integer"
+      },
+      "preview_sha256": {
+        "pattern": "^[a-f0-9]{64}$",
+        "type": "string"
+      },
+      "retained_bytes": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "retained_count": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "status": {
+        "enum": [
+          "released",
+          "unavailable"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "retained_count",
+      "retained_bytes",
+      "count_capacity",
+      "byte_capacity",
+      "preview_sha256",
+      "status"
+    ],
+    "type": "object"
+  },
+  "title": "Edit Preview Release"
+}
+```
+
+### `edit_preview_status` — Edit Preview Status
+
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
+
+```json
+{
+  "description": "Inspect this endpoint's retained count/bytes and capacities, optionally one exact handle's availability and release blockers. No source bodies, source reads, edits, server acquisition or handle renewal.",
+  "domain": "editing",
+  "effects": "Read only endpoint-local preview retention metadata; no source read, edits or provider acquisition.",
+  "exposure": "tool",
+  "family": "controlled-edits",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "edit_preview_status",
+  "owner": "scripts/capabilities/specialists.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/specialists.py",
+  "title": "Edit Preview Status",
+  "work_owner": null,
+  "worker": null,
+  "workflows": []
+}
+```
+
+Exact callable component key: `tool:edit_preview_status@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:edit_preview_status",
+        "domain:editing",
+        "family:controlled-edits"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Inspect this endpoint's retained count/bytes and capacities, optionally one exact handle's availability and release blockers. No source bodies, source reads, edits, server acquisition or handle renewal.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "preview_sha256": {
+        "anyOf": [
+          {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "type": "object"
+  },
+  "name": "edit_preview_status",
+  "outputSchema": {
+    "$defs": {
+      "PreviewAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "admitted": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "preview_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "reconciliation_required": {
+            "type": "boolean"
+          },
+          "releasable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preview_sha256",
+          "available",
+          "admitted",
+          "reconciliation_required",
+          "releasable"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "byte_capacity": {
+        "minimum": 1,
+        "type": "integer"
+      },
+      "count_capacity": {
+        "minimum": 1,
+        "type": "integer"
+      },
+      "retained_bytes": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "retained_count": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "selected": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PreviewAvailability"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "retained_count",
+      "retained_bytes",
+      "count_capacity",
+      "byte_capacity",
+      "selected"
+    ],
+    "type": "object"
+  },
+  "title": "Edit Preview Status"
+}
+```
+
 ### `environment-preparation` — Environment explanation and preparation
 
 Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/pse_env.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/pse_env.py).
@@ -4596,6 +5513,7 @@ Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/
   "owner": "scripts/pse_env.py",
   "prerequisites": [],
   "reason": "Canonical environment explanation is effect-free and selected assessments run readiness; installers, image builds and provider preparation retain native ownership.",
+  "requirements": [],
   "route": [
     "scripts/pse-env",
     "--explain",
@@ -4627,6 +5545,7 @@ Exposure: **tool**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/ps
   "owner": "scripts/pse_env.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/pse_env.py",
   "title": "environment explain",
@@ -4999,6 +5918,7 @@ Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: 
   "owner": "xtask/src/evidence_tools.rs",
   "prerequisites": [],
   "reason": "Canonical protected/frozen reads preserve codecs; import/query/export and rebuildable knowledge projections retain native custody/effect admission.",
+  "requirements": [],
   "route": [
     "just",
     "evidence",
@@ -5008,9 +5928,7 @@ Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: 
   "title": "Original evidence and derived tooling indexes",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "investigate-evidence"
-  ]
+  "workflows": []
 }
 ```
 
@@ -5035,6 +5953,18 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
     "Checkout environment and operation-specific native tools/identity admission"
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/test_archives.py",
   "title": "Archive selected historical tests",
@@ -5194,14 +6124,15 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
   "owner": "scripts/test_archives.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/test_archives.py",
   "title": "Inspect a retained test archive",
   "work_owner": null,
   "worker": null,
   "workflows": [
-    "run-experiment",
-    "investigate-evidence"
+    "investigate-evidence",
+    "run-experiment"
   ]
 }
 ```
@@ -5338,6 +6269,18 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
     "Checkout environment and operation-specific native tools/identity admission"
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/test_archives.py",
   "title": "Replay retained historical tests",
@@ -5464,6 +6407,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
   "owner": "scripts/experiments.py",
   "prerequisites": [],
   "reason": "Canonical archive/inspect/replay shares kernels/historical identity; bisect, comparison, database populations and recovery retain distinct native owners.",
+  "requirements": [],
   "route": [
     "just",
     "experiment",
@@ -5473,9 +6417,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
   "title": "Experiments, isolation and recovery",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "run-experiment"
-  ]
+  "workflows": []
 }
 ```
 
@@ -5499,6 +6441,7 @@ Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/
   "owner": "xtask/src/codegen.rs",
   "prerequisites": [],
   "reason": "Canonical contract generation/check shares recipes; full/physical/bindgen generation and compiled-stub publication remain native producer operations.",
+  "requirements": [],
   "route": [
     "just",
     "codegen"
@@ -5507,9 +6450,7 @@ Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/
   "title": "Schemas, registry generation and compiled stubs",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "change-generated-contract"
-  ]
+  "workflows": []
 }
 ```
 
@@ -5532,6 +6473,7 @@ Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts
   "owner": "scripts/worktree.py",
   "prerequisites": [],
   "reason": "Native Git and isolated worktrees remain useful access; generic closeout automation is separately owned by Plan52g G04.",
+  "requirements": [],
   "route": [
     "just",
     "worktree"
@@ -5540,9 +6482,7 @@ Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts
   "title": "Git, isolation and repository integration",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -5565,6 +6505,7 @@ Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: 
   "owner": "scripts/host_admission.py",
   "prerequisites": [],
   "reason": "These helpers support public owners; exposing arbitrary internal dispatch would create a second command surface.",
+  "requirements": [],
   "route": [],
   "source": "scripts/host_admission.py",
   "title": "Internal host boundary implementations",
@@ -5592,6 +6533,7 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
   "owner": "scripts/knowledge_store.py",
   "prerequisites": [],
   "reason": "Canonical exact source corpus preserves attribution; explicit session scans and derived-store import/rebuild retain bounded native owners.",
+  "requirements": [],
   "route": [
     "just",
     "knowledge",
@@ -5601,10 +6543,7 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
   "title": "Attributed knowledge and history",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan",
-    "investigate-evidence"
-  ]
+  "workflows": []
 }
 ```
 
@@ -5626,12 +6565,16 @@ Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [sc
   "owner": "scripts/knowledge_store.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/knowledge_store.py",
   "title": "knowledge source corpus",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "inspect-plan",
+    "investigate-evidence"
+  ]
 }
 ```
 
@@ -5644,7 +6587,9 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
       "tags": [
         "capability:knowledge_source_corpus",
         "domain:knowledge",
-        "family:knowledge-recall"
+        "family:knowledge-recall",
+        "workflow:inspect-plan",
+        "workflow:investigate-evidence"
       ]
     }
   },
@@ -6074,6 +7019,7 @@ Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration sourc
   "owner": "scripts/semantic_navigation.py",
   "prerequisites": [],
   "reason": "Canonical closed navigation uses the owned bridge; finite native request/serve commands remain useful for independent diagnosis.",
+  "requirements": [],
   "route": [
     ".venv/bin/python",
     "-m",
@@ -6084,9 +7030,7 @@ Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration sourc
   "title": "Language symbols and source navigation",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan"
-  ]
+  "workflows": []
 }
 ```
 
@@ -6108,6 +7052,7 @@ Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [s
   "owner": "scripts/library_skills.py",
   "prerequisites": [],
   "reason": "Canonical library packets expose pins and supplied evidence; outline, source fetching and skill-link synchronization retain their explicit native effects.",
+  "requirements": [],
   "route": [
     "just",
     "context",
@@ -6117,9 +7062,7 @@ Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [s
   "title": "Library sources and capability guidance",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "plan-functional-review"
-  ]
+  "workflows": []
 }
 ```
 
@@ -6141,12 +7084,15 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
   "owner": "scripts/workspace_sources.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/workspace_sources.py",
   "title": "library source packet",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "plan-functional-review"
+  ]
 }
 ```
 
@@ -6159,7 +7105,8 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
       "tags": [
         "capability:library_source_packet",
         "domain:knowledge",
-        "family:library-research"
+        "family:library-research",
+        "workflow:plan-functional-review"
       ]
     }
   },
@@ -6560,6 +7507,7 @@ Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declar
   "owner": "crates/pse-codegen/src/codegen/documents.rs",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/capabilities/schema_bindings.py",
   "title": "Read exact native schema or authoring guidance",
@@ -6692,6 +7640,18 @@ Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration sou
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect published diagnostic checkpoint",
@@ -7028,6 +7988,18 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Dec
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect supplied frozen evidence",
@@ -7038,7 +8010,8 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Dec
     "worker": "native"
   },
   "workflows": [
-    "diagnose-run"
+    "diagnose-run",
+    "investigate-evidence"
   ]
 }
 ```
@@ -7053,7 +8026,8 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "capability:native_evidence_inspect",
         "domain:diagnostics",
         "family:scientific-diagnostics",
-        "workflow:diagnose-run"
+        "workflow:diagnose-run",
+        "workflow:investigate-evidence"
       ]
     },
     "pse.native": {
@@ -7454,6 +8428,18 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Read original native invocation evidence",
@@ -7464,7 +8450,8 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source
     "worker": "native"
   },
   "workflows": [
-    "diagnose-run"
+    "diagnose-run",
+    "investigate-evidence"
   ]
 }
 ```
@@ -7479,7 +8466,8 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         "capability:native_invocation_read",
         "domain:diagnostics",
         "family:scientific-diagnostics",
-        "workflow:diagnose-run"
+        "workflow:diagnose-run",
+        "workflow:investigate-evidence"
       ]
     },
     "pse.native": {
@@ -7593,6 +8581,18 @@ Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declarat
     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect preparation availability",
@@ -8471,6 +9471,18 @@ Exposure: **tool**. Owner: `pse.ProjectBundle.manifest + digest`. Declaration so
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect supplied project pack offline",
@@ -8617,6 +9629,29 @@ Exposure: **tool**. Owner: `pse.Runtime.project_metadata`. Declaration source: [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Read project metadata page",
@@ -8889,6 +9924,29 @@ Exposure: **tool**. Owner: `pse.Runtime.project_select`. Declaration source: [sc
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Select exact project source",
@@ -9215,6 +10273,29 @@ Exposure: **tool**. Owner: `pse.Runtime.research_read`. Declaration source: [scr
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Read original scientific research metadata",
@@ -9516,6 +10597,29 @@ Exposure: **tool**. Owner: `pse.Runtime.inspect_result`. Declaration source: [sc
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect protected scientific result shape or readable selected values",
@@ -10573,6 +11677,29 @@ Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/c
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Read exact stored scientific result window",
@@ -10771,6 +11898,29 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.prep
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect retained revision preparations",
@@ -11648,6 +12798,29 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.proj
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [
+        "just",
+        "surreal-start"
+      ],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Inspect exact retained source revision",
@@ -11887,6 +13060,18 @@ Exposure: **tool**. Owner: `pse.Runtime.physical_from_documents + modeling_from_
     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
   ],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/native.py",
   "title": "Admit original authored source",
@@ -12101,7 +13286,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
 
 ```json
 {
-  "description": "Retain one complete code-action preview and return its endpoint-lifetime digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings.",
+  "description": "Retain one complete code-action preview and return its endpoint-owned digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings.",
   "domain": "editing",
   "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
   "exposure": "tool",
@@ -12114,12 +13299,26 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Action Preview",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "change-generated-contract"
+  ]
 }
 ```
 
@@ -12132,7 +13331,8 @@ Exact callable component key: `tool:navigation_action_preview@`. The following i
       "tags": [
         "capability:navigation_action_preview",
         "domain:editing",
-        "family:controlled-edits"
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -12142,7 +13342,7 @@ Exact callable component key: `tool:navigation_action_preview@`. The following i
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Retain one complete code-action preview and return its endpoint-lifetime digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings.",
+  "description": "Retain one complete code-action preview and return its endpoint-owned digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -12292,6 +13492,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Call Hierarchy",
@@ -12422,6 +13634,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Code Actions",
@@ -12586,6 +13810,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Completions",
@@ -12727,6 +13963,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Declaration",
@@ -12857,12 +14105,26 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Definition",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "inspect-plan"
+  ]
 }
 ```
 
@@ -12875,7 +14137,8 @@ Exact callable component key: `tool:navigation_definition@`. The following is th
       "tags": [
         "capability:navigation_definition",
         "domain:editing",
-        "family:language-navigation"
+        "family:language-navigation",
+        "workflow:inspect-plan"
       ]
     }
   },
@@ -12987,6 +14250,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Diagnostics",
@@ -13105,6 +14380,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Hover",
@@ -13235,6 +14522,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Implementations",
@@ -13365,6 +14664,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Incoming Calls",
@@ -13559,6 +14870,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Outgoing Calls",
@@ -13753,12 +15076,26 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation References",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "inspect-plan"
+  ]
 }
 ```
 
@@ -13771,7 +15108,8 @@ Exact callable component key: `tool:navigation_references@`. The following is th
       "tags": [
         "capability:navigation_references",
         "domain:editing",
-        "family:language-navigation"
+        "family:language-navigation",
+        "workflow:inspect-plan"
       ]
     }
   },
@@ -13874,7 +15212,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
 
 ```json
 {
-  "description": "Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live only until this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage.",
+  "description": "Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live until explicit release or this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage.",
   "domain": "editing",
   "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
   "exposure": "tool",
@@ -13887,12 +15225,26 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Rename Preview",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "change-generated-contract"
+  ]
 }
 ```
 
@@ -13905,7 +15257,8 @@ Exact callable component key: `tool:navigation_rename_preview@`. The following i
       "tags": [
         "capability:navigation_rename_preview",
         "domain:editing",
-        "family:controlled-edits"
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
       ]
     }
   },
@@ -13915,7 +15268,7 @@ Exact callable component key: `tool:navigation_rename_preview@`. The following i
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live only until this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage.",
+  "description": "Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live until explicit release or this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -14030,6 +15383,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Signature",
@@ -14160,6 +15525,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Symbols",
@@ -14278,6 +15655,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Tool Support",
@@ -14384,6 +15773,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Type Definition",
@@ -14514,6 +15915,18 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "language-provider",
+      "mode": null,
+      "owner": "scripts/semantic_navigation.py",
+      "preparation": [
+        "navigation_tool_support"
+      ],
+      "provider": null,
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/capabilities/specialists.py",
   "title": "Navigation Workspace Symbols",
@@ -14625,6 +16038,7 @@ Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration sourc
   "owner": "scripts/producer_deployment.py",
   "prerequisites": [],
   "reason": "Assessments consume deployment qualification; producer capture and supervised workers remain native infrastructure with original leases/cancellation/admission.",
+  "requirements": [],
   "route": [
     "just",
     "producer-deployment",
@@ -14634,9 +16048,7 @@ Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration sourc
   "title": "Producer deployment and worker integration",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "run-experiment"
-  ]
+  "workflows": []
 }
 ```
 
@@ -14658,12 +16070,17 @@ Exposure: **tool**. Owner: `scripts/run_inspection.py`. Declaration source: [scr
   "owner": "scripts/run_inspection.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/run_inspection.py",
   "title": "product run read",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "diagnose-run",
+    "investigate-evidence",
+    "qualify-change"
+  ]
 }
 ```
 
@@ -14676,7 +16093,10 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
       "tags": [
         "capability:product_run_read",
         "domain:execution",
-        "family:workload-observation"
+        "family:workload-observation",
+        "workflow:diagnose-run",
+        "workflow:investigate-evidence",
+        "workflow:qualify-change"
       ]
     }
   },
@@ -15195,6 +16615,7 @@ Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [
   "owner": "xtask/src/project_tools.rs",
   "prerequisites": [],
   "reason": "Canonical coarse project/revision/research/result bindings retain codecs and immutable identities; portable exchange, studies and full project APIs retain native resource ownership.",
+  "requirements": [],
   "route": [
     "just",
     "project",
@@ -15204,9 +16625,7 @@ Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [
   "title": "Projects, revisions and scientific data",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "manage-project"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15229,6 +16648,7 @@ Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: 
   "owner": "scripts/python_extension.py",
   "prerequisites": [],
   "reason": "Interactive extension preparation owns Maturin, installation and stubs; assessment profiles consume it without making endpoint startup an installer.",
+  "requirements": [],
   "route": [
     "just",
     "py-sync"
@@ -15260,6 +16680,7 @@ Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: 
   "owner": "scripts/validation_scope.py",
   "prerequisites": [],
   "reason": "Canonical selection/run and protected reads share Gate expansion/result composition; recipes remain independently useful native gate executors.",
+  "requirements": [],
   "route": [
     "just",
     "assessment-list"
@@ -15268,9 +16689,7 @@ Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: 
   "title": "Qualification groups and static checks",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15293,6 +16712,7 @@ Exposure: **tool**. Owner: `scripts/select.py`. Declaration source: [scripts/sel
   "owner": "scripts/select.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/select.py",
   "title": "rust test describe",
@@ -15485,6 +16905,26 @@ Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/t
   "owner": "scripts/test_run.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [
+        "environment_explain"
+      ],
+      "provider": null,
+      "validated": null
+    },
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": "just",
+      "validated": null
+    }
+  ],
   "route": [],
   "source": "scripts/test_run.py",
   "title": "rust test run",
@@ -15685,6 +17125,7 @@ Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [p
   "owner": "python/pse/diagnostics.py",
   "prerequisites": [],
   "reason": "Canonical checkpoint/frozen/invocation reads retain offline native codecs; richer scientific diagnostic/execution interfaces remain native.",
+  "requirements": [],
   "route": [
     "just",
     "diagnostics",
@@ -15694,10 +17135,7 @@ Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [p
   "title": "Scientific diagnostics and offline inspection",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "diagnose-run",
-    "investigate-evidence"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15720,6 +17158,7 @@ Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source:
   "owner": "scripts/scientific_inputs.py",
   "prerequisites": [],
   "reason": "Scientific-input capture/admission and source-bound fixture preparation retain native producers; canonical source admission does not replace them.",
+  "requirements": [],
   "route": [
     ".venv/bin/python",
     "-m",
@@ -15730,10 +17169,7 @@ Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source:
   "title": "Captured scientific inputs and dependency reach",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change",
-    "investigate-evidence"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15756,6 +17192,7 @@ Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [pyth
   "owner": "python/pse/__init__.py",
   "prerequisites": [],
   "reason": "Retain the useful native Python API; any MCP scientific binding must preserve generated schemas and actual native admission in ADP04.",
+  "requirements": [],
   "route": [
     "python/pse/__init__.py"
   ],
@@ -15763,10 +17200,7 @@ Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [pyth
   "title": "Native scientific Python boundary",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "manage-project",
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15788,6 +17222,7 @@ Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration sour
   "owner": "scripts/scientific_reference.py",
   "prerequisites": [],
   "reason": "Named reference/measurement producers retain isolated environments and fresh-run meaning; historical replay is not current scientific qualification.",
+  "requirements": [],
   "route": [
     "just",
     "case-measure"
@@ -15796,10 +17231,7 @@ Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration sour
   "title": "Scientific references and performance campaigns",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "run-experiment",
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -15822,6 +17254,7 @@ Exposure: **native**. Owner: `scripts/codex_session.py`. Declaration source: [sc
   "owner": "scripts/codex_session.py",
   "prerequisites": [],
   "reason": "Selected sessions attach only the canonical endpoint; native explanation/configuration keeps prepared, attached and exercised distinct.",
+  "requirements": [],
   "route": [
     "just",
     "codex-session",
@@ -15853,6 +17286,7 @@ Exposure: **native**. Owner: `.codex/skills/adr/SKILL.md`. Declaration source: [
   "owner": ".codex/skills/adr/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/adr/SKILL.md"
   ],
@@ -15882,6 +17316,7 @@ Exposure: **native**. Owner: `.codex/skills/create-plan/SKILL.md`. Declaration s
   "owner": ".codex/skills/create-plan/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/create-plan/SKILL.md"
   ],
@@ -15911,6 +17346,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit/SKILL.md`. De
   "owner": ".codex/skills/design-principle-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/design-principle-audit/SKILL.md"
   ],
@@ -15940,6 +17376,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit-tests/SKILL.m
   "owner": ".codex/skills/design-principle-audit-tests/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/design-principle-audit-tests/SKILL.md"
   ],
@@ -15969,6 +17406,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review/SKILL.md`. Declaration
   "owner": ".codex/skills/design-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/design-review/SKILL.md"
   ],
@@ -15998,6 +17436,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-audit/SKILL.md`. Decla
   "owner": ".codex/skills/design-review-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/design-review-audit/SKILL.md"
   ],
@@ -16027,6 +17466,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-process-simulator/SKIL
   "owner": ".codex/skills/design-review-process-simulator/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/design-review-process-simulator/SKILL.md"
   ],
@@ -16056,6 +17496,7 @@ Exposure: **native**. Owner: `.codex/skills/execute-plan/SKILL.md`. Declaration 
   "owner": ".codex/skills/execute-plan/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/execute-plan/SKILL.md"
   ],
@@ -16085,6 +17526,7 @@ Exposure: **native**. Owner: `.codex/skills/functional-extension-review/SKILL.md
   "owner": ".codex/skills/functional-extension-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/functional-extension-review/SKILL.md"
   ],
@@ -16112,6 +17554,7 @@ Exposure: **native**. Owner: `.codex/skills/native-solver-libraries/SKILL.md`. D
   "owner": ".codex/skills/native-solver-libraries/SKILL.md",
   "prerequisites": [],
   "reason": "Retained native guidance outside checkout; the native agent skill loader owns access. No checkout guidance resource is registered.",
+  "requirements": [],
   "route": [
     ".codex/skills/native-solver-libraries/SKILL.md"
   ],
@@ -16141,6 +17584,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-completion-audit/SKILL.md`. Dec
   "owner": ".codex/skills/plan-completion-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-completion-audit/SKILL.md"
   ],
@@ -16170,6 +17614,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-creation/SKILL.md`. Declaration
   "owner": ".codex/skills/plan-creation/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-creation/SKILL.md"
   ],
@@ -16199,6 +17644,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-design-review/SKILL.md`. Declar
   "owner": ".codex/skills/plan-design-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-design-review/SKILL.md"
   ],
@@ -16228,6 +17674,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-execution/SKILL.md`. Declaratio
   "owner": ".codex/skills/plan-execution/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-execution/SKILL.md"
   ],
@@ -16257,6 +17704,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-functional-extension-review/SKI
   "owner": ".codex/skills/plan-functional-extension-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-functional-extension-review/SKILL.md"
   ],
@@ -16288,6 +17736,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-improvement-review/SKILL.md`. D
   "owner": ".codex/skills/plan-improvement-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
   "route": [
     ".codex/skills/plan-improvement-review/SKILL.md"
   ],
@@ -16317,6 +17766,7 @@ Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [
   "owner": "scripts/workspace_tasks.py",
   "prerequisites": [],
   "reason": "Canonical task/concept/producer reads coexist with native affected previews and literal source inspection; unresolved dynamic reach stays explicit.",
+  "requirements": [],
   "route": [
     "just",
     "context"
@@ -16325,10 +17775,7 @@ Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [
   "title": "Source context and declared ownership",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan",
-    "change-generated-contract"
-  ]
+  "workflows": []
 }
 ```
 
@@ -16350,6 +17797,7 @@ Exposure: **tool**. Owner: `scripts/build_storage.py`. Declaration source: [scri
   "owner": "scripts/build_storage.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/build_storage.py",
   "title": "storage observe",
@@ -16671,6 +18119,7 @@ Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/s
   "owner": "scripts/select.py",
   "prerequisites": [],
   "reason": "Canonical selected Rust invocations and assessments use actual normalized selection/assurance/result owners; Python/parity campaigns retain native scope.",
+  "requirements": [],
   "route": [
     "just",
     "assessment-list"
@@ -16679,9 +18128,7 @@ Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/s
   "title": "Selected correctness and scientific validation",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -16703,6 +18150,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
   "owner": "scripts/assertion_sensitivity.py",
   "prerequisites": [],
   "reason": "Canonical coverage inspection verifies retained source/population digests; capture, mutation and fuzz retain actual populations and original native execution limits.",
+  "requirements": [],
   "route": [
     "just",
     "coverage"
@@ -16711,9 +18159,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
   "title": "Coverage, mutation and boundary fuzzing",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -16736,6 +18182,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
   "owner": "scripts/activity.py",
   "prerequisites": [],
   "reason": "Canonical detached watch/results consume authentic owners; reference-run setup/drain and direct live observers remain distinct native operations.",
+  "requirements": [],
   "route": [
     "just",
     "activity"
@@ -16744,10 +18191,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
   "title": "Workload observation and retained results",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "diagnose-run",
-    "qualify-change"
-  ]
+  "workflows": []
 }
 ```
 
@@ -16769,12 +18213,15 @@ Exposure: **tool**. Owner: `scripts/activity_watch.py`. Declaration source: [scr
   "owner": "scripts/activity_watch.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/activity_watch.py",
   "title": "workload watch",
   "work_owner": null,
   "worker": null,
-  "workflows": []
+  "workflows": [
+    "diagnose-run"
+  ]
 }
 ```
 
@@ -16787,7 +18234,8 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
       "tags": [
         "capability:workload_watch",
         "domain:execution",
-        "family:workload-observation"
+        "family:workload-observation",
+        "workflow:diagnose-run"
       ]
     }
   },
@@ -17457,13 +18905,13 @@ Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [
   "owner": "scripts/workspace_domains.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/workspace_domains.py",
   "title": "Exact native concepts",
   "work_owner": null,
   "worker": null,
   "workflows": [
-    "inspect-plan",
     "plan-functional-review"
   ]
 }
@@ -17479,7 +18927,6 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
         "capability:workspace_concepts_query",
         "domain:workspace",
         "family:source-context",
-        "workflow:inspect-plan",
         "workflow:plan-functional-review"
       ]
     }
@@ -19023,14 +20470,13 @@ Exposure: **tool**. Owner: `scripts/capabilities/entrypoints.py`. Declaration so
   "owner": "scripts/capabilities/entrypoints.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/capabilities/entrypoints.py",
   "title": "Current entry-point inventory",
   "work_owner": null,
   "worker": null,
-  "workflows": [
-    "inspect-plan"
-  ]
+  "workflows": []
 }
 ```
 
@@ -19043,8 +20489,7 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
       "tags": [
         "capability:workspace_inventory",
         "domain:workspace",
-        "family:source-context",
-        "workflow:inspect-plan"
+        "family:source-context"
       ]
     }
   },
@@ -19366,6 +20811,7 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
   "owner": "scripts/workspace_sources.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/workspace_sources.py",
   "title": "Declared producer relationships",
@@ -19763,6 +21209,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "justfile",
   "title": "Exact native recipe",
@@ -20099,12 +21546,14 @@ Exposure: **tool**. Owner: `scripts/workspace_tasks.py`. Declaration source: [sc
   "owner": "scripts/workspace_tasks.py",
   "prerequisites": [],
   "reason": "",
+  "requirements": [],
   "route": [],
   "source": "scripts/workspace_tasks.py",
   "title": "Task context",
   "work_owner": null,
   "worker": null,
   "workflows": [
+    "change-generated-contract",
     "inspect-plan"
   ]
 }
@@ -20120,6 +21569,7 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
         "capability:workspace_task_context",
         "domain:workspace",
         "family:source-context",
+        "workflow:change-generated-contract",
         "workflow:inspect-plan"
       ]
     }
@@ -20799,25 +22249,6 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
-### `resource:pse://guidance/execute-plan@`
-
-```json
-{
-  "_meta": {
-    "fastmcp": {
-      "tags": [
-        "guide:execute-plan"
-      ]
-    }
-  },
-  "description": "Owned Markdown instructions; retrieval performs no workflow effects.",
-  "mimeType": "application/json",
-  "name": "execute-plan",
-  "title": "Execute authorized plan scope",
-  "uri": "pse://guidance/execute-plan"
-}
-```
-
 ### `resource:pse://guidance/generated@`
 
 ```json
@@ -20834,25 +22265,6 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "generated",
   "title": "Generated-file ownership",
   "uri": "pse://guidance/generated"
-}
-```
-
-### `resource:pse://guidance/plan-review@`
-
-```json
-{
-  "_meta": {
-    "fastmcp": {
-      "tags": [
-        "guide:plan-review"
-      ]
-    }
-  },
-  "description": "Owned Markdown instructions; retrieval performs no workflow effects.",
-  "mimeType": "application/json",
-  "name": "plan-review",
-  "title": "Prepare a design review",
-  "uri": "pse://guidance/plan-review"
 }
 ```
 
@@ -20932,6 +22344,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-adr/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-adr"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-adr-manifest",
+  "uri": "pse://guidance/skill-adr/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-adr@`
 
 ```json
@@ -20948,6 +22378,42 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-adr",
   "title": "adr",
   "uri": "pse://guidance/skill-adr"
+}
+```
+
+### `resource:pse://guidance/skill-create-plan/files/55101756894892d64a275be6b5074f1f718cf9dd2f2a894611492a9b5716f6a8@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-create-plan"
+      ]
+    }
+  },
+  "description": "Read one complete captured owned supporting file; no trust, activation or execution.",
+  "mimeType": "text/markdown",
+  "name": "skill-create-plan-55101756894892d64a275be6b5074f1f718cf9dd2f2a894611492a9b5716f6a8",
+  "uri": "pse://guidance/skill-create-plan/files/55101756894892d64a275be6b5074f1f718cf9dd2f2a894611492a9b5716f6a8"
+}
+```
+
+### `resource:pse://guidance/skill-create-plan/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-create-plan"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-create-plan-manifest",
+  "uri": "pse://guidance/skill-create-plan/manifest"
 }
 ```
 
@@ -20970,6 +22436,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-design-principle-audit-tests/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-principle-audit-tests"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-design-principle-audit-tests-manifest",
+  "uri": "pse://guidance/skill-design-principle-audit-tests/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-design-principle-audit-tests@`
 
 ```json
@@ -20986,6 +22470,42 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-design-principle-audit-tests",
   "title": "design-principle-audit-tests",
   "uri": "pse://guidance/skill-design-principle-audit-tests"
+}
+```
+
+### `resource:pse://guidance/skill-design-principle-audit/files/1a68ea2e65ebb5a15baba9b433b14510dd6c351a5e45ffd0703450f9458552b4@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-principle-audit"
+      ]
+    }
+  },
+  "description": "Read one complete captured owned supporting file; no trust, activation or execution.",
+  "mimeType": "text/markdown",
+  "name": "skill-design-principle-audit-1a68ea2e65ebb5a15baba9b433b14510dd6c351a5e45ffd0703450f9458552b4",
+  "uri": "pse://guidance/skill-design-principle-audit/files/1a68ea2e65ebb5a15baba9b433b14510dd6c351a5e45ffd0703450f9458552b4"
+}
+```
+
+### `resource:pse://guidance/skill-design-principle-audit/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-principle-audit"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-design-principle-audit-manifest",
+  "uri": "pse://guidance/skill-design-principle-audit/manifest"
 }
 ```
 
@@ -21008,6 +22528,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-design-review-audit/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-review-audit"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-design-review-audit-manifest",
+  "uri": "pse://guidance/skill-design-review-audit/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-design-review-audit@`
 
 ```json
@@ -21024,6 +22562,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-design-review-audit",
   "title": "design-review-audit",
   "uri": "pse://guidance/skill-design-review-audit"
+}
+```
+
+### `resource:pse://guidance/skill-design-review-process-simulator/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-review-process-simulator"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-design-review-process-simulator-manifest",
+  "uri": "pse://guidance/skill-design-review-process-simulator/manifest"
 }
 ```
 
@@ -21046,6 +22602,42 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-design-review/files/4c009575a3bcd8fa9fffb2ba1fea2c940c17a7a73d73513ef7cee6425a75aa40@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-review"
+      ]
+    }
+  },
+  "description": "Read one complete captured owned supporting file; no trust, activation or execution.",
+  "mimeType": "text/markdown",
+  "name": "skill-design-review-4c009575a3bcd8fa9fffb2ba1fea2c940c17a7a73d73513ef7cee6425a75aa40",
+  "uri": "pse://guidance/skill-design-review/files/4c009575a3bcd8fa9fffb2ba1fea2c940c17a7a73d73513ef7cee6425a75aa40"
+}
+```
+
+### `resource:pse://guidance/skill-design-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-design-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-design-review-manifest",
+  "uri": "pse://guidance/skill-design-review/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-design-review@`
 
 ```json
@@ -21062,6 +22654,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-design-review",
   "title": "design-review",
   "uri": "pse://guidance/skill-design-review"
+}
+```
+
+### `resource:pse://guidance/skill-execute-plan/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-execute-plan"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-execute-plan-manifest",
+  "uri": "pse://guidance/skill-execute-plan/manifest"
 }
 ```
 
@@ -21084,6 +22694,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-functional-extension-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-functional-extension-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-functional-extension-review-manifest",
+  "uri": "pse://guidance/skill-functional-extension-review/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-functional-extension-review@`
 
 ```json
@@ -21100,6 +22728,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-functional-extension-review",
   "title": "functional-extension-review",
   "uri": "pse://guidance/skill-functional-extension-review"
+}
+```
+
+### `resource:pse://guidance/skill-plan-completion-audit/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-completion-audit"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-completion-audit-manifest",
+  "uri": "pse://guidance/skill-plan-completion-audit/manifest"
 }
 ```
 
@@ -21122,6 +22768,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-plan-creation/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-creation"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-creation-manifest",
+  "uri": "pse://guidance/skill-plan-creation/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-plan-creation@`
 
 ```json
@@ -21138,6 +22802,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-plan-creation",
   "title": "plan-creation",
   "uri": "pse://guidance/skill-plan-creation"
+}
+```
+
+### `resource:pse://guidance/skill-plan-design-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-design-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-design-review-manifest",
+  "uri": "pse://guidance/skill-plan-design-review/manifest"
 }
 ```
 
@@ -21160,6 +22842,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-plan-execution/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-execution"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-execution-manifest",
+  "uri": "pse://guidance/skill-plan-execution/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-plan-execution@`
 
 ```json
@@ -21179,6 +22879,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
 }
 ```
 
+### `resource:pse://guidance/skill-plan-functional-extension-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-functional-extension-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-functional-extension-review-manifest",
+  "uri": "pse://guidance/skill-plan-functional-extension-review/manifest"
+}
+```
+
 ### `resource:pse://guidance/skill-plan-functional-extension-review@`
 
 ```json
@@ -21195,6 +22913,24 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-plan-functional-extension-review",
   "title": "plan-functional-extension-review",
   "uri": "pse://guidance/skill-plan-functional-extension-review"
+}
+```
+
+### `resource:pse://guidance/skill-plan-improvement-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-plan-improvement-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-plan-improvement-review-manifest",
+  "uri": "pse://guidance/skill-plan-improvement-review/manifest"
 }
 ```
 

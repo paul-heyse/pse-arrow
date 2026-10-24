@@ -12,7 +12,7 @@ from pydantic import ConfigDict, Field, TypeAdapter, model_validator
 
 from scripts.capabilities import process
 from scripts.capabilities.responses import HostResult, project
-from scripts.capabilities.model import Capability, Contract
+from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.rust_test_contracts import (  # noqa: TC001 -- FastMCP resolves request annotations.
     RustTestRequest,
     RustTestSelection,
@@ -167,12 +167,14 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=tool.description or "",
             domain=domain,
             family=family,
-            workflows=("qualify-change",),
             guides=("root", "qualification"),
             owner=source,
             source=source,
             exposure="tool",
             worker=QUALIFICATION_CALLS.get(tool.name),
+            requirements=() if readonly else (Prerequisite(
+                kind="checkout-environment", owner="scripts/pse_env.py", preparation=("environment_explain",),
+            ), Prerequisite(kind="executable", owner="scripts/pse_env.py", provider="just")),
             effects="Read declared selection only; no workload or prerequisites executed."
             if readonly
             else "Run the selected existing recipe/assessment with native admission and explicit retained output. Generation and documentation actions change their native output owners. No rollback, commit, push or scientific qualification follows from protocol success.",

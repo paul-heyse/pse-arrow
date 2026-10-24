@@ -17,7 +17,7 @@ from scripts.active_diagnostics import (
     ActionRequest,  # noqa: TC001 -- FastMCP resolves request annotations.
 )
 from scripts.capabilities import process
-from scripts.capabilities.model import Capability, Contract
+from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.responses import HostResult, project, failure
 from scripts.capabilities.workers import WorkerCall
 from scripts.test_archives import (  # noqa: TC001 -- FastMCP resolves request annotations.
@@ -117,7 +117,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             "Archive selected historical tests",
             "scripts/test_archives.py",
             "experiments",
-            ("run-experiment",),
             False,
         ),
         (
@@ -125,7 +124,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             "Inspect a retained test archive",
             "scripts/test_archives.py",
             "experiments",
-            ("run-experiment", "investigate-evidence"),
             True,
         ),
         (
@@ -133,7 +131,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             "Replay retained historical tests",
             "scripts/test_archives.py",
             "experiments",
-            ("run-experiment",),
             False,
         ),
         (
@@ -141,7 +138,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             "Run an explicit diagnostic action",
             "scripts/active_diagnostics.py",
             "diagnostics",
-            ("diagnose-run",),
             False,
         ),
         (
@@ -149,13 +145,12 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             "Read retained diagnostic output",
             "scripts/active_diagnostics.py",
             "diagnostics",
-            ("diagnose-run", "investigate-evidence"),
             True,
         ),
     )
     specs = []
     tools: dict[str, Tool] = {}
-    for function, title, source, domain, workflows, readonly in rows:
+    for function, title, source, domain, readonly in rows:
         tool = Tool.from_function(
             function,
             annotations=ToolAnnotations(
@@ -170,7 +165,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             title=title,
             description=tool.description or title,
             domain=domain,
-            workflows=workflows,
             guides=("root", "tooling"),
             family="experiments-recovery"
             if domain == "experiments"
@@ -187,6 +181,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 "Checkout environment and operation-specific native tools/identity admission",
             ),
             worker=HOST_CALLS.get(tool.name),
+            requirements=() if readonly else (Prerequisite(
+                kind="checkout-environment", owner="scripts/pse_env.py", preparation=("environment_explain",),
+            ),),
         )
         tool.tags.update(spec.tags)
         specs.append(spec)

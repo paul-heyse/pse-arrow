@@ -50,12 +50,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                     workspace_concepts_query,
                     "Exact native concepts",
                     "scripts/workspace_domains.py",
-                    ("inspect-plan", "plan-functional-review"),
                 ),
     )
     specs = []
     tools: dict[str, Tool] = {}
-    for function, title, source, workflows in rows:
+    for function, title, source in rows:
         tool = Tool.from_function(
             function,
             annotations=ToolAnnotations(
@@ -71,7 +70,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=tool.description or title,
             domain="workspace",
             family="source-context",
-            workflows=workflows,
             guides=("root", "tooling"),
             owner=source,
             source=source,

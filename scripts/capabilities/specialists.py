@@ -31,7 +31,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue
 
 from scripts import pse_env, semantic_edits, semantic_navigation, surreal_server
-from scripts.capabilities.model import Capability, Contract
+from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
@@ -1398,6 +1398,13 @@ def bindings(
             owner=source,
             source=source,
             exposure="tool",
+            requirements=(Prerequisite(
+                kind="selected-service", owner="scripts/surreal_server.py", provider="surreal-selected",
+                preparation=("database_select",),
+            ),) if domain == "integration" else (Prerequisite(
+                kind="language-provider", owner="scripts/semantic_navigation.py",
+                preparation=("navigation_tool_support",),
+            ),) if function not in (edit_preview_read, edit_preview_status, edit_preview_release, edit_preview_apply, edit_preview_reconcile) else (),
             effects=(
                 "Release only this endpoint's selected retained preview bytes; refuses admitted work and unresolved reconciliation; no source edit or rollback."
                 if function is edit_preview_release

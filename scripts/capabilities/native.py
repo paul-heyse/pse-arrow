@@ -238,6 +238,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             exposure="tool",
             effects=binding.effects,
             worker=binding.worker,
+            requirements=binding.requirements,
             prerequisites=(
                 (
                     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",
@@ -246,11 +247,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 else (
                     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers.",
                 )
-            ),
-            workflows=(
-                ("diagnose-run",)
-                if binding.domain == "diagnostics"
-                else ("manage-project",)
             ),
             guides=("root", "tooling"),
         )

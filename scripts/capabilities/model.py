@@ -52,6 +52,15 @@ class Workflow(Contract):
     steps: tuple[WorkflowStep, ...] = ()
 
 
+class Prerequisite(Contract):
+    kind: Literal["python-extension", "selected-service", "language-provider", "executable", "checkout-environment"]
+    owner: str
+    preparation: tuple[str, ...] = ()
+    provider: str | None = None
+    mode: Literal["dev", "native"] | None = None
+    validated: bool | None = None
+
+
 class Capability(Contract):
     id: Identifier
     title: str
@@ -69,6 +78,7 @@ class Capability(Contract):
     reason: str = ""
     work_owner: str | None = None
     worker: WorkerCall | None = None
+    requirements: tuple[Prerequisite, ...] = ()
 
     @property
     def tags(self) -> set[str]:

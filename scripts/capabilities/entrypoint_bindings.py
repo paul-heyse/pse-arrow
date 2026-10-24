@@ -54,18 +54,16 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                     workspace_recipe_describe,
                     "Exact native recipe",
                     "justfile",
-                    ("inspect-plan",),
                 ),
         (
                     workspace_inventory,
                     "Current entry-point inventory",
                     "scripts/capabilities/entrypoints.py",
-                    ("inspect-plan",),
                 ),
     )
     specs = []
     tools: dict[str, Tool] = {}
-    for function, title, source, workflows in rows:
+    for function, title, source in rows:
         tool = Tool.from_function(
             function,
             annotations=ToolAnnotations(
@@ -81,7 +79,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=tool.description or title,
             domain="workspace",
             family="source-context",
-            workflows=workflows,
             guides=("root", "tooling"),
             owner=source,
             source=source,
