@@ -740,6 +740,13 @@ record visibility. Unsupported SDK queue/drop counters remain unavailable. A res
 read invalidates attribution to the previous process. The local diagnostic readers described in
 the [diagnostic guide](simulation-diagnostics.md) remain available when telemetry fails.
 
+`just telemetry lookup-trace --trace-id ID --start-us START --end-us END` reads one exact
+nonzero trace ID in an explicit microsecond interval with a finite row limit. It requires a
+current verified backend before acquiring credentials or making a request, and discards
+responses if backend process, ownership or configuration changes during the read. An empty
+selection does not establish nonexecution, loss, sampling or expiry. The read is live and
+bounded, without an atomic population or continuation guarantee.
+
 The ordinary environment boundary and fixed scientific worker launcher share passive native
 host selection. The private settings carrier contains secrets and is excluded from shell
 exports and environment explanations. Embedded Python/Rust SDKs share the actual process

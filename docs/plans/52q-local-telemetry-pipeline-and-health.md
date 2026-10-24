@@ -337,6 +337,21 @@ This rechecked actual credential rejection, stopped ingress, explicit retry exha
 query visibility and authenticated cleanup. It did not rerun the earlier retention/overflow/storage
 cases or establish native scientific outcome preservation.
 
+An independent implementation review found that the credentialed trace reader checked sealed
+configuration but did not require a current owned backend before using its loopback endpoint.
+The reader now refuses before credential acquisition or HTTP access when ownership/process
+evidence is missing, and discards the response if process, ownership or configuration changes
+during the read. This closes the stopped/unowned-listener case; these observations are not an
+atomic process-to-network-peer authentication protocol.
+
+**Tested:** the combined `test_build_mode`, `test_host_admission` and `test_telemetry_reads`
+unittest selection passed ninety tests, zero failures against zero, including new credential-
+refusal and restart-during-read regressions. The actual-service driver with `--output
+/tmp/pse-plan52pq-final-owned-lookup-20261024-k620 --timeout 90 --case signals_recovery_retention`
+then passed its selected three-signal/recovery/retention case, zero failures against zero.
+All temporary services, authenticated units and successful state were removed. Independent
+read-only reassessment confirmed the original triggering case is addressed.
+
 **Interface-checked, TQ05:** the selected Collector file exporter cannot replace the finite
 capture contract. Its alpha interchange/default truncation and optional rotation do not supply
 this application's selected-service activation/restoration, exact child drain, sealed publication
