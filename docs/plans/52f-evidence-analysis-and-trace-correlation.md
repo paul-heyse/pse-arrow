@@ -120,6 +120,13 @@ do not advertise the complete native schema for a payload changed by a generic w
 <a id="F02"></a>
 ### F02 — Finite application-to-server trace seam
 
+**2026-10-24 pause context:** [52o's telemetry baseline](52o-conditional-composition-and-protocol-tasks.md#telemetry-baseline--separate-review-no-deployment)
+records existing Rust tracing/capture, absent Rust OTel export and a bounded actual FastMCP SDK probe.
+It does not close this package or establish Rust/SDK/database continuity. The maintainer is preparing
+OTel documentation for a separate thorough, holistic deployment/design review before implementation.
+Assess information-access/monitoring improvements alongside native service integration, without
+turning spans into another queue, terminal or retry authority. No deployment is selected by that probe.
+
 Resolve I11 against the exact custom server and pinned SDK/transport. Begin with the existing
 operation/invocation identities and finite `surreal_server.py` trace capture. Inspect supported
 context propagation, request metadata/header and reconnect behavior at the actual SDK bridge;

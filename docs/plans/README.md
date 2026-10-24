@@ -62,7 +62,13 @@ CON01–CON04, bounded native/Python/fresh-Codex acceptance and the authorized e
 corrections. The [52m/52n checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52m52n-execution-checkpoint--2026-10-24)
 records completed compact reveal/source ownership, supporting resources, selected readiness/preparation,
 foreground progress and preview release, with actual native/STDIO/Codex acceptance and explicit host
-rendering limits. 52o and broader F/G/H qualification retain their own remaining scope.
+rendering limits. The
+[52o pause checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52o-pause-checkpoint--2026-10-24)
+records bounded real-Monty composition, task/native-owner and STDIO-loss inquiries, plus an OTel SDK
+baseline probe. OPT01/OPT02 remain in progress: actual host/final integration and adoption decisions
+are uncompleted. No production CodeMode, task queue or telemetry deployment is enabled. A separate
+thorough telemetry review awaits the maintainer's documentation; broader F/G/H qualification retains
+its own remaining scope.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

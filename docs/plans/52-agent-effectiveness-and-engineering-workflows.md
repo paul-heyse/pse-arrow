@@ -417,8 +417,8 @@ authoring and favorable feasibility evidence do not independently authorize eith
 | Decision | Disposition | Work owner | Accepted consequence and route |
 |---|---|---|---|
 | RC01 | implemented | [FND00](#FND00), [52l](52l-typed-requests-results-and-diagnostics.md), [52m](52m-progressive-guidance-and-operation-availability.md) | Accepted for planning on 2026-10-24: evolve request/result/error/instruction contracts with actual callers and derived reference. Preserve Rust scientific authority. Internal tooling uses ordinary changes; actual protected public boundary/diagnostic changes use the existing ADR/design route before dependent implementation. 52l/52m Outcomes record delivered contracts and actual consumers; broader protected changes retain their original decision route. |
-| RC02 | deferred | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Investigation selected on 2026-10-24; model-authored execution adoption is not accepted. Present the exact execution-eligibility/effect policy if a real read-composition consumer warrants it. Until then retain fixed typed calls and their native authority. |
-| RC03 | deferred | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Investigation selected on 2026-10-24; task lifecycle adoption is not accepted. Present actual outer dispatch, native ownership, negotiated host/loss/reconnect semantics if foreground/native observation is inadequate. Existing foreground behavior remains the baseline. |
+| RC02 | deferred | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Investigation selected; real Monty/public CodeMode and three-way reader comparison passed. Exact execution/provenance policy, fresh-host acceptance and selection remain; model-authored production execution is not enabled. See the 52o pause handoff. |
+| RC03 | deferred | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Investigation selected; consumer now includes Codex and serving-process restart recovery. Public native-backed task projection works in bounded STDIO fixtures without Docket; native lifecycle integration, actual host acceptance and selection remain. No worker/queue or production task lifecycle is enabled. |
 
 ## Usability opportunity dispositions
 
@@ -443,8 +443,8 @@ supported alternatives or conditional non-adoption; they cannot erase required o
 | O12 | scheduled | [G01](52g-agent-and-operator-workflows.md#G01) | Meaningful recurring typed compositions using F01/native kernels; G02 actual workflow consumer. F03 remains separately selectable. |
 | O13 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Coherent supporting skill resources and U02 exact completion/provider decision for a real consumer, with visibility and lazy source contracts. |
 | O14 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Independent schema/example/error/completeness tests and representative actual-agent evaluation; H02 owns assembled host/native qualification. |
-| O15 | scheduled | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded read-only composition inquiry; RC02 still required for production adoption. Compare typed/small reads first. |
-| O16 | scheduled | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 detach/reconnect inquiry after LIFE02; RC03 still required for infrastructure adoption. No second scheduler/outcome truth. |
+| O15 | scheduled | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded real-Monty/canonical-dispatch inquiry delivered; actual host/final policy remain at the pause handoff. RC02 still required for production adoption. |
+| O16 | scheduled | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 library/native-owner and real STDIO fixture evidence delivered; restart recovery and integrated native service design remain. RC03 still required; no second scheduler/outcome truth. |
 | O17 | scheduled | [G05](52g-agent-and-operator-workflows.md#G05) | Extend I13 to typed headless resources versus prompts/elicitation/Apps for a concrete operator decision, retaining ordinary access and native interpretation. |
 
 ## Usability inquiries
@@ -457,8 +457,8 @@ after its actual selection; non-adoption must identify the supported route and o
 |---|---|---|---|
 | U01 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Selected bounded native schema/physical-value inspection alongside exact IPC under proposed ADR-0224, published before implementation. Real registered nineteen-column storage/read/IPC/lifetime assertions passed; schema inquiry does not itself validate stored IPC or scientific eligibility. |
 | U02 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Captured bounded explicit skill resources delivered and exercised by actual Codex. Retain the lazy coherent owner; no eager/live Skills provider or unused completion for argument-free prompts. Revisit native Skills for an actual negotiation consumer compatible with capture, or completion for a useful parameter and real consuming host. See the 52m Outcome. |
-| U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Compare ad hoc immutable-read composition with typed/small reads; test exact discovery versus actual execution eligibility and full lifecycle limits. No CodeMode adoption before RC02 selection and actual host/native acceptance. |
-| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Determine an unmet detach/reconnect consumer after foreground progress/native handles; if present, settle outer wrapper dispatch, negotiation, native loss/cancellation/drain mapping before RC03 selection. No backend infrastructure is selected by this inquiry. |
+| U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Three-way comparison, exact discovery, direct/indirect dispatch guards, real Monty and full callback deadline passed. Retained provenance increased bytes in the tested CodeMode answer; typed recurring composition was smaller. Fresh Codex, production policy/source/concurrency acceptance and RC02 selection remain. |
+| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Restart consumer established. Memory task loss and retained native uncertainty tested; public native-backed task projection works across fresh STDIO processes. Prefer holistic native service integration; actual Codex, queued/running recovery, cancellation/drain, retention and RC03 selection remain. Telemetry baseline is recorded; its separate review/deployment is unstarted. |
 
 ## Package state and execution route
 
@@ -532,8 +532,8 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE01 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
 | LIFE02 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
-| OPT01 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded CodeMode comparison/disposition; production delivery only if separately selected |
-| OPT02 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 task-protocol need/disposition; infrastructure/delivery only if separately selected |
+| OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
+| OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
 
 <a id="FND00"></a>
 ### FND00 — Decision and declaration readiness
@@ -779,3 +779,66 @@ changed. No native solver-fleet or feature-powerset campaign was selected for th
 reference. Worker changes were integrated in coherent commits; unrelated concurrent audit edits
 were preserved. Completed companions remain while this coordinator and G/H consumers need them.
 I14, application/database tracing, remaining Plan53 and independent Plans28/32/40 keep their owners.
+
+### 52o pause checkpoint — 2026-10-24
+
+The maintainer requested closeout of current items and a stop before any OpenTelemetry deployment.
+The [52o pause handoff](52o-conditional-composition-and-protocol-tasks.md#execution-checkpoint--pause-handoff-2026-10-24)
+owns the delivered inquiries, proposed integrated directions, corrected assumptions and remaining
+OPT01/OPT02 acceptance. Neither package is complete and neither RC02 nor RC03 is accepted for production.
+
+**Implemented/Tested:** three retained manual drivers exercise actual Monty/public CodeMode through
+canonical dispatch, standard tasks and a public native-backed protocol projection over actual STDIO,
+and FastMCP OTel SDK activation/export-loss behavior. Frozen native-format controls preserve original
+invocation identity and distinguish pass, failure, unreported evidence and unresolved endpoint loss.
+These controls do not establish live scientific recovery, actual-Codex task support, native physical
+drain, persistent-backend recovery, full task conformance or assembled H02 qualification.
+
+**Proposed:** improve existing native lifecycle owners and diagnostic integration before adding
+another scheduler or per-subsystem MCP reporting. Scientific Studies already own durable claims,
+leases and cancellation; development actions need separate process/terminal-owner assessment.
+The public native task-projection experiment is positive, so stale companion serializer commentary
+does not justify rejecting that route. Standard Docket remains an alternative with explicit
+redelivery/retention/native-effect obligations. CodeMode has useful flexible composition behavior;
+the tested full-provenance envelope increased serialized bytes, so no context/latency benefit is inferred.
+
+OpenTelemetry has a promising information-access role: existing Rust spans lack an OTel exporter,
+while SDK activation supplies real FastMCP spans and parentage. That is not a durable job/result owner.
+The maintainer is preparing documentation for a **separate thorough review**; no deployment or Rust
+instrumentation work began. F02/I11 retains the application/database seam and is not closed here.
+
+The current changes are integrated directly on main, with unrelated concurrent review edits preserved.
+No worktree remains. The fresh-Codex journey was not started before this pause; resume only from the
+owning remaining obligations when instructed.
+
+**Tested, baseline zero:** final `scripts/pse-env -- .venv/bin/python -m
+scripts.tests.capability_composition_inquiry --output build/capabilities-52o/composition-final`,
+the corresponding `capability_tasks_inquiry --output build/capabilities-52o/tasks-final` and
+`capability_telemetry_inquiry --output build/capabilities-52o/telemetry-final` all passed. The task
+driver took 6.85 seconds and telemetry 3.35 seconds in this run; these are test durations, not
+performance comparisons. Their result JSONs and captured stdout/stderr remain in that parent.
+The composition driver records ten named scenario groups and its independent three-way comparison.
+
+**Tested, baseline zero:** `scripts/pse-env -- .venv/bin/python -m unittest
+scripts.tests.test_capabilities scripts.tests.test_capability_coherence
+scripts.tests.test_capability_observation scripts.tests.test_capability_read_contracts
+scripts.tests.test_capability_rust_references` passed 55 tests in 10.45 seconds. This covers current
+endpoint visibility/validation, source coherence, observation, typed readers and original references;
+it does not execute a scientific or Rust product suite.
+
+**Tested, baseline zero:** final `scripts/pse-env -- just lint-py` passed repository-wide Ruff;
+`just typecheck` passed full Pyrefly including warnings with zero diagnostics and three unchanged
+configured suppressions. Scoped probe checks also passed without added type suppressions.
+`scripts/pse-env -- just codegen-capabilities-check` passed; no production declarations or generated
+files changed. `just turn-end` passed ADR indexing and formatting. Dependency readiness passed
+`just ready`; the final dependency/group update also preserves the installed native extension and
+does not build it. No Clippy, full hygiene, integrated product campaign or actual-Codex probe was
+selected for this pause closeout of Python inquiry drivers/documentation.
+
+**Failed, baseline zero:** `just docs` failed because concurrent
+`docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md` links
+`functional_reviews/probes/rust-build-reuse-sccache-key-shim-2026-10-24.py` without selecting that
+attachment for publication. Both were already unrelated concurrent work; this closeout leaves them
+and their indexes untouched rather than changing another owner's publication scope. Documentation
+publication is therefore not qualified by this checkpoint. Source changes, static checks and the
+targeted functional results above retain their independent passing scope.

@@ -54,6 +54,26 @@ This fixed read/control launch intentionally does not enter workload admission, 
 prepare a compiler, start a store or import the native extension. It does not accept an arbitrary
 executable. Explicit actions enter their existing environment/admission owner when invoked.
 
+### Conditional composition, tasks and telemetry
+
+Ordinary serving does not register CodeMode, the task extension or an OpenTelemetry SDK/exporter.
+Their packages are available to retained manual acceptance drivers through development dependencies;
+installation is not activation. [Plan52o's pause handoff](../plans/52o-conditional-composition-and-protocol-tasks.md#execution-checkpoint--pause-handoff-2026-10-24)
+records current feasibility evidence and remaining acceptance. Its drivers under `scripts/tests/`
+are `capability_composition_inquiry`, `capability_tasks_inquiry` and `capability_telemetry_inquiry`.
+Run one explicitly with the checkout interpreter using `-m scripts.tests.<module> --output <fresh-directory>`
+through `scripts/pse-env --`; they are not part of automatic unittest discovery.
+
+The tested task projection uses authentic retained native fixture records and needs no Docket queue,
+but it is not production task support or evidence of continued native execution after a crash.
+Current native references/readers remain the supported recovery route. Existing interface metadata
+preserves active trace/span IDs when supplied while treating export and end-to-end continuity as
+unverified. Native result/admission/drain never follows from a successful span or task response.
+A separate thorough OTel review will precede deployment; the in-memory SDK probe starts no Collector
+and establishes no Rust or database propagation.
+
+### Selected native overrides
+
 `just codex-session` configures this attachment for the selected checkout and disables inherited
 standalone Rust, Python and database attachments that actually exist in inherited configuration.
 It never creates disabled transportless placeholder entries. Its `--require-*` options check local preparation;
