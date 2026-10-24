@@ -178,10 +178,12 @@ def check_uv() -> Check:
 
 
 def check_env_synced() -> Check:
-    """`uv sync --check` is the authority on whether .venv matches uv.lock.
+    """`uv sync --check --inexact` verifies required dependencies against uv.lock.
 
-    Every dependency is checked exactly. A difference in the project's own package is
-    left to ``check_extension``: a native build is installed by maturin
+    Required dependency versions remain exact. Optional groups installed by their
+    consumers are preserved, as with python_extension.ensure_environment; this
+    base check does not qualify those additional packages. A difference in the
+    project's own package is left to ``check_extension``: a native build is installed by maturin
     (``just py-sync-native``), and uv would replace it with a build without the
     solvers. uv's JSON plan (a preview schema) names the packages; if it cannot be read,
     the exit status decides, which can only over-report.
@@ -195,6 +197,7 @@ def check_env_synced() -> Check:
         "sync",
         "--check",
         "--locked",
+        "--inexact",
         "--offline",
         "--output-format",
         "json",
@@ -206,7 +209,7 @@ def check_env_synced() -> Check:
     except (OSError, subprocess.SubprocessError) as exc:
         return Check("env", False, str(exc)[:80], "just py-sync")
     if proc.returncode == 0:
-        return Check("env", True, ".venv matches uv.lock")
+        return Check("env", True, "required dependencies match uv.lock")
     project = pyproject()["project"]["name"]
     try:
         changed = {
@@ -216,7 +219,9 @@ def check_env_synced() -> Check:
         changed = set()
     if changed == {project}:
         return Check(
-            "env", True, f".venv matches uv.lock ({project} is the extension check's)"
+            "env",
+            True,
+            f"required dependencies match uv.lock ({project} is the extension check's)",
         )
     out = (proc.stderr or proc.stdout).strip()
     last = out.splitlines()[-1] if out else "out of date"

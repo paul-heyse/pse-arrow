@@ -501,10 +501,14 @@ class ConfigurationTests(unittest.TestCase):
         for proc, ok in cases:
             with (
                 patch.object(Path, "exists", return_value=True),
-                patch.object(doctor.subprocess, "run", return_value=proc),
+                patch.object(doctor.subprocess, "run", return_value=proc) as run,
             ):
                 check = doctor.check_env_synced()
             self.assertEqual(check.ok, ok, proc.stdout)
+            command = run.call_args.args[0]
+            self.assertIn("--check", command)
+            self.assertIn("--locked", command)
+            self.assertIn("--inexact", command)
 
     def test_doctor_imports_the_extension_through_the_prepared_solver_libraries(
         self,
