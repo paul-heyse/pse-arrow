@@ -2081,11 +2081,9 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
                 let constraints = worker.constraints(&base)?.to_vec();
                 let mut jacobian = [[0.; 2]; 2];
                 let actual = worker.jacobian(&base)?;
-                for column in 0..2 {
-                    for (row, value) in actual.row_idx_of_col(column).zip(actual.val_of_col(column))
-                    {
-                        jacobian[row][column] = *value;
-                    }
+                assert_eq!((actual.nrows(), actual.ncols()), (2, 2));
+                for entry in actual.triplet_iter() {
+                    jacobian[entry.row][entry.col] = *entry.val;
                 }
                 let weights = actual_row_order.map(|row| [2., -3.][row]);
                 let actual = worker.hessian(&base, 0., &weights)?;

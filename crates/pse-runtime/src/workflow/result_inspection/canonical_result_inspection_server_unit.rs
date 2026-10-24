@@ -11,6 +11,10 @@ use pse_operations::canonical_execution::{
 use pse_relations::generated::{enums::DualQualification, runtime::solve_variables};
 use std::time::Duration;
 
+#[allow(
+    clippy::unwrap_used,
+    reason = "isolated registered result setup fails the test on unexpected admission or publication errors"
+)]
 async fn wide_fixture() -> (Runtime, AttemptFence, RecordBatch) {
     // This fixture exercises canonical storage and protected reads, not a native
     // scientific execution receiver. Keep its isolated store and attestation real.

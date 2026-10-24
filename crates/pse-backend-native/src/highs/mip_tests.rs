@@ -773,6 +773,7 @@ fn callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_r
         assert!(code >= 0);
         assert!(tap.calls.load(Ordering::Acquire) > 0);
         assert!(!binding.context.panicked.load(Ordering::Acquire));
+        // SAFETY: session still owns this live model; the synchronous run has returned.
         let status = unsafe { ffi::Highs_getModelStatus(ptr) };
         assert_eq!(status, if interrupt { 17 } else { 7 });
         drop(tap);
@@ -786,8 +787,11 @@ fn callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_r
             "native return permits callback context release"
         );
         // The retained native model must no longer reference the freed callback context.
+        // SAFETY: session retains the live model; dropping binding unregistered its callbacks.
         assert!(unsafe { ffi::Highs_clearSolver(ptr) } >= 0);
+        // SAFETY: the same exclusively owned model remains live through this synchronous run.
         assert!(unsafe { ffi::Highs_run(ptr) } >= 0);
+        // SAFETY: session still owns the model, and its second run has returned.
         assert_eq!(unsafe { ffi::Highs_getModelStatus(ptr) }, 7);
         drop(session);
         let fresh = Session::new(

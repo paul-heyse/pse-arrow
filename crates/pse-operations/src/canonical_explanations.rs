@@ -1245,6 +1245,10 @@ pub(crate) async fn qualify_graph_seek_pages(
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod server_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "isolated graph fixtures and assertions fail the test on unexpected setup or query results"
+    )]
     use super::*;
     use crate::canonical::CanonicalOptions;
     use crate::canonical_analyses::{AnalysisEdge, AnalysisNode, seal_analysis_request};
