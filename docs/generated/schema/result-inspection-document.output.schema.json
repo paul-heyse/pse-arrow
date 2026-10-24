@@ -402,7 +402,7 @@
     },
     "ResultInspectionField": {
       "additionalProperties": false,
-      "description": "Actual original Arrow field, including nested datatype/field metadata.",
+      "description": "Admitted registry Arrow field, including nested datatype/field metadata.\nSchema-only discovery does not independently validate the stored file schema.",
       "properties": {
         "datatype_json": {
           "description": "Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.",
@@ -512,7 +512,7 @@
   "oneOf": [
     {
       "additionalProperties": false,
-      "description": "A page of the complete original field inventory, without reading Arrow rows.",
+      "description": "A page of the admitted registry field inventory, without validating stored Arrow rows.",
       "properties": {
         "document_version": {
           "const": 1,
@@ -621,7 +621,7 @@
           ]
         },
         "readable_complete": {
-          "description": "Every selected and context cell was representable, independent of scientific usability.",
+          "description": "Every returned selected and context cell was representable, independent of population/scientific usability.",
           "type": "boolean"
         },
         "recorded_rows": {

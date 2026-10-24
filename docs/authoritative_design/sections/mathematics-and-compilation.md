@@ -734,6 +734,14 @@ exports compiler-issued body requests, not Salsa handles; completion consumes th
 frontier. Complete immutable prepared products expose every currently portable primary and
 original description independently of memo execution. Existing bounded retention, flights
 and allocation owners retain those products and reusable encoded description material.
+Owned completion checks prospective resident-plus-frontier bytes and total retained entries,
+including mandatory receiving inventory, separately from live-query LRU capacity. If the
+incoming frontier fits the unchanged policy, this handle-free route may rebuild one receiving
+generation to discard reconstructible query history and recheck the full prospective extent.
+Oversize incoming work refuses before rotation; materialized work that still exceeds the
+receiving policy refuses without a second rotation. Original cancellation and typed refusal
+remain authoritative. Escaped products and attached pure-body retention survive this rebuild;
+generic admission with generation-local handles cannot use this retry.
 Each local consumer checks complete owned dependencies and binds fresh lineage and
 numerical values. Actual persisted acquisition/publication additionally checks current
 selection and explicitly settles its canonical effects. Exact already-rooted acknowledgment

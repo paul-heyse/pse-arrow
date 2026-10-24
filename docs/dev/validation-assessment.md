@@ -274,6 +274,15 @@ Whole-archive inspection explicitly verifies the complete manifest. Historical v
 receipts remain available through explicit original inspection and cannot supply automatic
 unchanged-input reuse under the current policy.
 
+The typed `assessment_read` capability uses this same protected reader. Its answer completeness
+describes the requested read, independently of a gate's workload outcome: a complete selected
+answer can faithfully report a failed gate. Summary-only reads retain exact detail/source
+references and explicitly omit bodies. Selecting one gate acquires its detail before typed
+presentation without opening unrelated gate bodies or the source map. An oversized explicitly
+selected answer refuses rather than truncating native facts; the native full export remains
+available. Reused gates retain their original evidence attribution, with origin protection
+established before consumer publication and held while reading.
+
 The assessment lists the focused default-feature selection once. The linked Rust wrapper
 owns its one explicit nextest listing and persists the raw JSON beside binary/link
 provenance; assessment consumes that artifact. Pytest records selected node IDs during
