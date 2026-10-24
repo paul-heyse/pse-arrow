@@ -600,6 +600,10 @@ class RestartPeerTests(unittest.TestCase):
         )
         self.assertEqual(command[command.index("-m", 3) + 1], "component")
         self.assertEqual(command[command.index("-n") + 1], "0")
+        self.assertEqual(
+            command[command.index("--basetemp") + 1],
+            str(self.directory / "python-tmp"),
+        )
 
     def test_database_driver_runs_api_and_operator_as_separate_selections(self) -> None:
         tool = self.directory / "xtask"
