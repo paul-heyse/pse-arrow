@@ -8,6 +8,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 from fastmcp.tools import Tool
 from pydantic import JsonValue, TypeAdapter
@@ -15,6 +16,7 @@ from pydantic import JsonValue, TypeAdapter
 from scripts.capabilities.model import Capability, Domain, Guide, Workflow
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
+T = TypeVar("T", Domain, Workflow, Guide, Capability)
 
 
 @dataclass(frozen=True)
@@ -84,7 +86,7 @@ class Catalogue:
         ).hexdigest()
 
     @staticmethod
-    def _index[T: Domain | Workflow | Guide | Capability](items: tuple[T, ...]) -> dict[str, T]:
+    def _index(items: tuple[T, ...]) -> dict[str, T]:
         result = {}
         for item in items:
             if item.id in result:

@@ -210,7 +210,7 @@ def _families() -> tuple[_Family, ...]:
         _family("session-specialists", "Explicit session and specialist attachment", "integration", "scripts/codex_session.py",
             "Launch selected Rust/Python/database specialists with checkout identity and native lazy lifetimes; configuration alone is not a verified attachment.",
             "Explicit launch starts selected specialist processes and a session; inventory never attaches or probes them.",
-            recipes="codex-session agent-config-sync", sources="scripts/agent-config.py .codex/config.toml .claude/settings.json",
+            recipes="capabilities codex-session agent-config-sync", sources="scripts/agent-config.py .codex/config.toml .claude/settings.json",
             guides=("environment", "root"), route=("just", "codex-session", "--help"), work_owner=MCP01),
         _family("git-integration", "Git, isolation and repository integration", "integration", "scripts/worktree.py",
             "Retain native Git and owned worktree setup, dirty-hunk ownership and explicit integration/closeout decisions.",

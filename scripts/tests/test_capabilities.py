@@ -25,7 +25,7 @@ from scripts.capabilities.operations import bounded
 from scripts.capabilities.server import build
 
 ROOT = Path(__file__).resolve().parents[2]
-BOOTSTRAP = {"capabilities_domains", "capabilities_workflows", "capabilities_describe", "capabilities_select", "capabilities_reset"}
+BOOTSTRAP = {"capabilities_domains", "capabilities_workflows", "capabilities_describe", "capabilities_select", "capabilities_reset", "capabilities_invoke_read"}
 
 
 def fixture(*, exposure="tool", guides=("root",), workflows=("inspect",)):
@@ -113,6 +113,38 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("pse._native", sys.modules)
         self.assertTrue(await self.refused("workspace_task_context", {"task": 12}))
         self.assertTrue(await self.refused("workspace_task_context", {"unknown": "field"}))
+
+    async def test_exact_compatibility_invocation_preserves_visibility_and_strict_contract(self) -> None:
+        arguments = {"paths": ["python/pse/_native.pyi"], "limit": 3}
+        self.assertTrue(await self.refused("capabilities_invoke_read", {"capability": "workspace_producer_relationships", "arguments": arguments}))
+        await self.client.call_tool("capabilities_select", {"capabilities": ["workspace_producer_relationships"]})
+        direct = (await self.client.call_tool("workspace_producer_relationships", arguments)).structured_content
+        compatible = (await self.client.call_tool("capabilities_invoke_read", {"capability": "workspace_producer_relationships", "arguments": arguments})).structured_content
+        self.assertEqual(compatible, direct)
+        self.assertTrue(await self.refused("capabilities_invoke_read", {"capability": "workspace_producer_relationships", "arguments": {"paths": ["python/pse/_native.pyi"], "limit": "3"}}))
+        self.assertTrue(await self.refused("capabilities_invoke_read", {"capability": "capabilities_reset", "arguments": {}}))
+        self.assertTrue(await self.refused("capabilities_invoke_read", {"capability": "sh", "arguments": {"command": "anything"}}))
+        await self.client.call_tool("capabilities_reset", {})
+        self.assertTrue(await self.refused("capabilities_invoke_read", {"capability": "workspace_producer_relationships", "arguments": arguments}))
+
+    async def test_presentation_controls_are_read_only_to_the_external_world(self) -> None:
+        tools = {tool.name: tool for tool in await self.client.list_tools(cache_mode="refresh")}
+        for name in ("capabilities_select", "capabilities_reset"):
+            self.assertTrue(tools[name].annotations.read_only_hint)
+            self.assertFalse(tools[name].annotations.destructive_hint)
+            self.assertFalse(tools[name].annotations.open_world_hint)
+
+    async def test_unfamiliar_native_tool_has_real_owner_description_not_fake_handler(self) -> None:
+        integration = (await self.client.call_tool("capabilities_domains", {"domain": "integration"})).structured_content
+        self.assertIn("git-integration", {item["id"] for item in integration["items"]})
+        described = (await self.client.call_tool("capabilities_describe", {"capability": "git-integration", "include_schema": True})).structured_content
+        self.assertFalse(described["callable"])
+        self.assertIsNone(described["input_schema"])
+        await self.client.call_tool("capabilities_select", {"capabilities": ["workspace_recipe_describe"]})
+        actual = (await self.client.call_tool("workspace_recipe_describe", {"recipe": "labels-sync"})).structured_content
+        self.assertEqual(actual["payload"]["definition_route"], ["just", "--show", "labels-sync"])
+        self.assertFalse(actual["payload"]["leaf_schema_complete"])
+        self.assertTrue(actual["payload"]["leaf_contracts"])
 
     async def test_selection_replaces_resets_and_unknown_is_atomic(self) -> None:
         await self.client.call_tool("capabilities_select", {"capabilities": ["workspace_task_context"]})

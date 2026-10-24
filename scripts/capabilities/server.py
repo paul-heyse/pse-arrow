@@ -13,6 +13,7 @@ from typing import Annotated
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import ToolResult
 from fastmcp.server.transforms.visibility import get_visibility_rules, save_visibility_rules
 from pydantic import Field, JsonValue
 
@@ -33,6 +34,9 @@ retained native routes and planned adaptations. Obtain relevant instructions thr
 guidance or resources; retrieving a planning skill does not authorize or execute implementation.
 Native owners retain source/status, admission and outcome truth. Catalogue availability is not a
 live service-readiness claim. Use exact IDs; no semantic or ranked discovery is provided.
+If this host keeps its initial callable inventory, use capabilities_invoke_read with the exact
+selected capability and its described input schema. It delegates to that same registered tool,
+including visibility, strict validation and middleware; it accepts no arbitrary command.
 """
 
 
@@ -110,7 +114,7 @@ def build(root: Path = ROOT) -> Runtime:
                 return True, ["selection committed; list-change notification unavailable: " + type(error).__name__]
         return True, []
 
-    @server.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True})
+    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     async def capabilities_select(
         ctx: Context,
         domains: Ids | None = None,
@@ -146,13 +150,24 @@ def build(root: Path = ROOT) -> Runtime:
             "guides": [{"id": key, "uri": catalogue.guides[key].uri} for key in selected.guides],
             "instructions": instructions,
             "notification_omissions": notifications,
+            "compatibility_invocation": "capabilities_invoke_read",
             "context": {"checkout": str(root), "service_selection": "unchanged", "effects": "presentation only"},
         })
 
-    @server.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True})
+    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
     async def capabilities_reset(ctx: Context) -> dict[str, JsonValue]:
         """Restore bootstrap for this attachment. Native work is neither cancelled nor replayed; source/project/service context remains unchanged."""
         changed, notifications = await replace(ctx, set())
         return {"revision": catalogue.revision, "changed": changed, "capabilities": [], "notification_omissions": notifications}
+
+    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
+    async def capabilities_invoke_read(capability: str, arguments: dict[str, JsonValue]) -> ToolResult:
+        """Invoke one exact selected read-only canonical tool when the host keeps a static tool list. First describe its real schema and select it. No shell/SQL/argv or bootstrap dispatch is accepted."""
+        tool = tools.get(capability)
+        if tool is None or tool.annotations is None or tool.annotations.read_only_hint is not True:
+            raise ToolError("pse.capabilities.read_binding_required: select an actual read-only canonical tool")
+        # Public FastMCP dispatch retains visibility, context, strict FunctionTool
+        # input validation, middleware, original result and future native admission.
+        return await server.call_tool(capability, arguments)
 
     return Runtime(server, catalogue, guidance)

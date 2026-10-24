@@ -1348,6 +1348,12 @@ activity *args:
     exec python3 scripts/activity.py "$@"
 
 [group('discovery')]
+[doc('Serve the canonical source-only capability interface over STDIO; no startup setup or workload admission')]
+[script("bash", "-euo", "pipefail")]
+capabilities:
+    exec "{{ justfile_directory() }}/.venv/bin/python" -m scripts.capabilities
+
+[group('discovery')]
 [doc('Launch a selected-store Codex session; optional database/Rust capabilities, literal args after --')]
 [positional-arguments]
 [script("bash", "-euo", "pipefail")]
