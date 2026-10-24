@@ -50,6 +50,8 @@ def declared(name: str) -> Gate:
             "check",
             "clippy-default",
             "clippy-no-default",
+            "features-combinations",
+            "features-no-default",
             "producer-fixture",
         }
         else "python-product"
