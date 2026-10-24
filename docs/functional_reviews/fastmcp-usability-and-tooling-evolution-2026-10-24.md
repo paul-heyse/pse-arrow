@@ -42,9 +42,12 @@ owners, including `scripts/native_tests.py`, `scripts/validation.py`,
 `scripts/validation_scope.py`, `scripts/coverage_correspondence.py` and
 `scripts/surreal_server.py`, plus associated Rust/Python consumers. Those edits were preserved
 and were not audited or qualified here. Static conclusions about interface composition refer to
-the unchanged capability implementation at the initial commit; changing supporting owners and
-interrupted live probes retain their narrower evidence. The publication commit is not the
-inspected implementation baseline.
+the capability implementation at the initial commit; changing supporting owners and interrupted
+live probes retain their narrower evidence. Commits `7e33c1954` and `8f6418dcc` appeared during
+review. Near closeout, an uncommitted inventory change also registered new explicit Python
+preparation recipes, consistent with O08's existing owner direction. These later changes were
+not qualified here; planning must reconcile current delivery before selecting remaining work.
+The publication commit is not the inspected implementation baseline.
 
 The assessment standard is Core 3.4, Efficient Architecture Heuristics 1.0 and the pse-arrow
 binding selected by `standard.toml`. Process Simulator 1.5 applies where scientific result
