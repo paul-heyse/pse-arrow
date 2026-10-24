@@ -72,6 +72,7 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 [dependency-groups]
 # Optional active allocation diagnostics; installed explicitly into a separate environment.
 diagnostics = ["memray==1.20.0; sys_platform == 'linux'"]
+numerical-investigation = ["matplotlib==3.11.2"]
 docs = [
   "ruamel.yaml==0.19.1",
   "markdown-it-py==4.2.0",

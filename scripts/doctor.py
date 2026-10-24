@@ -320,11 +320,15 @@ def check_cargo_tools() -> Check:
     installed = dict(re.findall(r"^([a-z0-9-]+) v([0-9.]+)", out, re.MULTILINE))
     tools = cargo_tool_names()
     missing = [name for name in tools if name not in installed]
+    from scripts.cargo_tools import versions
+    drift = [f"{name}={installed[name]} (want {wanted})" for name, wanted in versions().items()
+             if name in installed and installed[name] != wanted]
+    problems = missing + drift
     return Check(
         "cargo-tools",
-        not missing,
-        f"missing: {', '.join(missing)}" if missing else f"{len(tools)} tools present",
-        "just bootstrap-rust-tools" if missing else "",
+        not problems,
+        f"missing/drift: {', '.join(problems)}" if problems else f"{len(tools)} tools present at selected versions",
+        "just bootstrap-rust-tools" if problems else "",
         blocking=True,
         extra={
             "installed": {name: installed[name] for name in tools if name in installed}

@@ -8,7 +8,7 @@
 # Stages are separable because some are slow or network-bound:
 #   --venv-only      interpreter + Python dependencies + the editable extension (uv sync)
 #   --quality-only   the quality tools from [dependency-groups].quality (as uv.lock resolved them)
-#   --rust-only      cargo development tools (cargo-binstall, current releases)
+#   --rust-only      cargo development tools (protocol-sensitive versions pinned)
 #   --linters-only   repository linters that are plain binaries (actionlint, ast-grep, ...)
 set -euo pipefail
 
@@ -23,14 +23,12 @@ PY="${VENV}/bin/python"  # used by doctor below on Windows
 [[ "${OS:-}" == Windows_NT ]] && PY="${VENV}/Scripts/python.exe"
 export PY
 
-# The tool set, not its versions: cargo-binstall fetches the current release of each,
-# CI installs the same names through .github/actions/setup-rust, and `just doctor`
-# reports which are missing. No release is asserted anywhere.
+# Names live here; protocol-sensitive versions come from diagnostic-tools.toml.
 CARGO_TOOLS=(
   "cargo-nextest" "cargo-deny"   "cargo-audit"
   "cargo-shear"   "cargo-machete" "cargo-llvm-cov"
   "cargo-insta"   "cargo-hack"   "cargo-msrv"
-  "cargo-mutants" "cargo-geiger" "cargo-udeps"
+  "cargo-mutants" "cargo-fuzz" "cargo-geiger" "cargo-udeps"
   "cargo-semver-checks" "git-cliff"
 )
 
@@ -72,7 +70,8 @@ stage_rust() {
     cargo install cargo-binstall --locked
   fi
   say "Installing cargo development tools"
-  cargo binstall --no-confirm "${CARGO_TOOLS[@]}"
+  mapfile -t tool_specs < <(python3 -m scripts.cargo_tools "${CARGO_TOOLS[@]}")
+  cargo binstall --no-confirm "${tool_specs[@]}"
   (cd "$ROOT" && python3 -m scripts.docs install)
 }
 
