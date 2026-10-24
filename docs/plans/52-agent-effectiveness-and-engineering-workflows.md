@@ -975,19 +975,23 @@ absent. Native join/reap/deadline contracts are unchanged. The bounded finite ca
 its distinct preservation contract; broader database continuity and retrieval/custody work retain
 their owners above.
 
-Committed main through `00bab8d45` has been integrated, including dependency pruning and build
+Committed main through `4e2297917` has been integrated, including dependency pruning and build
 tooling. Shared telemetry implementation is committed as `db8baeaaf`; the linked force-validated
-extension, generated actual-API stubs and 65 focused Python checks passed. A fresh actual pipeline
+extension, generated actual-API stubs, all four actual Python/PyO3 acceptance modes and 65 focused
+Python checks passed. The [52p outcome](52p-shared-telemetry-and-native-propagation.md#targeted-execution-outcome--2026-10-24)
+records their exact boundaries and the full-workstation policy acceptance. A fresh actual pipeline
 case also rechecked signal delivery, restart recovery and controlled retention after the final
-Python HTTP-client fixes. Linked native boundary/child acceptance and scope-end checks remain
+Python HTTP-client fixes. Private-child telemetry acceptance and scope-end checks remain
 in progress; these focused passes do not close those obligations. The maintainer additionally
 selected full workstation CPU use: `dbd959332` removes ordinary four-core allocations, defaults
 Cargo to 32 logical jobs, supplies 16 physical runner lanes and uses all 32 SMT CPUs in quota/
 affinity. The live native-compiler launch and 430 combined capacity/environment/supervisor tests
 passed. Native numerical demand weights and exclusions retain their separate meanings. Initial
 native acceptance compilation was deliberately interrupted to replace its accidental four-core
-placement; no scientific test failure is inferred. Final heavy native qualification awaits disk
-space; the existing compilation artifacts are preserved. Permanent
+placement; no scientific test failure is inferred. The maintainer freed disk space and final
+native qualification resumed with the existing compilation artifacts preserved. The original
+child numerical/reservation/reap assertions passed all four modes; the enabled telemetry fixture's
+unsigned-PID wire decoder was corrected and its export assertions are being rerun. Permanent
 service activation, merge to main and worktree removal remain deferred to the maintainer's Plan54
 completion/cutover signal. No telemetry service from isolated acceptance remains active.
 

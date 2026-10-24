@@ -289,3 +289,66 @@ bounded configuration/carrier limits before dependent integration. Reopen only t
 if its tested closure cannot honor lifecycle or propagation; no alternative production path is
 created by leaving a local detail open. Enduring §23.1/environment/capability meanings move through
 the coordinator's authorized design route when adopted, with native owners retained.
+
+## Targeted execution outcome — 2026-10-24
+
+**Implemented:** process-host Python/Rust provider composition, bounded W3C propagation across
+fixed helpers and PyO3/native owners, coarse owner stages and correlated structured lifecycle
+diagnostics. Importing libraries or constructing Runtime instances does not install providers.
+Python and embedded Rust identify their actual shared PID/incarnation while retaining separate
+SDK scopes. Ordinary export excludes rendered native event payloads; finite capture retains its
+separate bounded evidence contract. Secrets are resolved once, excluded from inspection, and
+isolated from ambient SDK transport configuration. SDK diagnostics are sanitized before existing
+handlers render them; application diagnostic records keep their original meaning.
+
+**Tested:** `scripts/pse-env -- just check-package pse-runtime -p pse-py -p xtask --features
+xtask/package-fixtures` passed with zero errors/warnings against zero. `scripts/pse-env -- just
+py-sync-native-correctness` rebuilt the linked, explicitly force-validated extension, regenerated
+the actual API and admitted a fresh import. The same extension was reused by the four actual
+Python/PyO3 acceptance cases below; cases do not each rebuild it.
+
+**Tested:** `scripts/pse-env --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m
+scripts.tests.telemetry_native_acceptance --output /tmp/pse-plan52pq-native-20261024-g237`
+passed enabled, disabled, refused-exporter and delayed-exporter cases, zero failures against zero.
+Enabled export contained sixteen native spans and thirty native logs, with independently selected
+A/B parents, integer process PID and shared Python/Rust process incarnation. Actual model editing,
+unchanged-revision reuse, preparation, repeated execution, table pull and close remained usable.
+Missing/invalid context produced a fresh root rather than leaking a previous parent. Disabled
+export produced no records. HTTP503 and delayed transport preserved native outcomes; their export
+delivery remains unestablished. These are real PyO3 boundaries, not an assembled Python→private
+child or Rust→database→Surrealism journey, and their elapsed times establish no speedup.
+
+**Tested:** `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_diagnostic_trace
+scripts.tests.test_telemetry_config scripts.tests.test_telemetry_process
+scripts.tests.test_telemetry_launch scripts.tests.test_telemetry_reads
+scripts.tests.test_telemetry_service scripts.tests.test_capability_progress` passed sixty-five
+focused tests, zero failures against zero. Coverage includes fresh STDIO attachment, helper
+propagation, real HTTP/protobuf export, independent parentage, configuration/header isolation,
+early/late diagnostic redaction, refusal/slow transport, passive health deadlines and service
+restart/foreign-listener attribution. The actual service recovery/retention/failure cases are
+recorded in [52q's outcome](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24).
+
+**Implemented and tested:** the maintainer's full-workstation policy removes ordinary four-core
+allocations and supplies 32 logical Cargo jobs, 16 physical test lanes, all 32 SMT CPUs in quota
+and affinity, and no OS memory ceiling in selected unbounded mode. A real supervised native-Python
+launch read back those exact selections. The combined `test_surreal_server`, `test_host_admission`,
+`test_pse_env`, `test_build_environment`, `test_build_mode`, `test_highs_provider_candidate` and
+`test_plan30_native_prefix` unittest selection passed 430 tests against zero failures. Scientific
+per-job demands, nested numerical threading and ownership exclusions retain their distinct
+contracts. Already running canonical services retain their frozen launch policy until readmission;
+the branch's shared defaults have not yet been merged into main. Both checkouts' local Cargo
+selection is 32. No throughput or performance improvement is inferred from configuration alone.
+
+Mistakes corrected include a stale URL import after main's dependency pruning, unsigned tracing
+PID decoding in the child acceptance fixture, and scope-end Python typing/lint findings. Initial
+native acceptance compilation was intentionally interrupted to replace its accidental four-core
+allocation; this was not a scientific assertion failure. The initial cold build also emitted
+upstream native-compiler warnings; a subsequent warm build does not erase that observation.
+
+The deliberate private one-shot deviation is no synchronous export drain on process exit, because
+that path is inside the scientific reap/deadline contract. Some or all short-child records can be
+lost; unobserved edges remain unestablished. Long-lived workers and embedded hosts still shut down
+after native settlement. Actual child acceptance, current Rust unit execution and remaining
+scope-end qualification are being finalized at the coordinator. Permanent service activation,
+main merge and worktree retirement await the maintainer's Plan54 cutover signal. F02/I11,
+TEL09–TEL17, broader 52h qualification and measured benefits retain their existing owners.
