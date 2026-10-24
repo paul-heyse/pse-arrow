@@ -1894,6 +1894,10 @@ fn independent_pr_coordinate_jet(z: f64) -> ([f64; 2], [[f64; 2]; 2]) {
 /// permutations make root swaps, wrong bindings and omitted mixed terms observable.
 #[tokio::test]
 async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() -> TestResult<()> {
+    // Start at the closed-form roots ((27-sqrt(281))/120 and 1/2) so the
+    // independent Second oracle is evaluated at its declared reference point.
+    // This witness tests assembly, rather than loose-default root convergence;
+    // the actual runtime isolation still certifies each selected root neighborhood.
     let source = "package pr_curvature {
         def Root {
             var v: Scalar; var u: Scalar;
@@ -1901,7 +1905,7 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
             let covolume: Scalar = 0.05 - 0.1*u + 0.7*v + 0.2*u*u;
             implicit liquid select minimum(z,1e-10) {
                 var z: Scalar;
-                annotation bounds z(0.06,0.12); annotation start z(0.085);
+                annotation bounds z(0.06,0.12); annotation start z(0.08530787821466491);
                 regime selected eligible(z<0.2) {
                     eq root: z*z*z-(1-covolume)*z*z+(attraction-3*covolume*covolume-2*covolume)*z-attraction*covolume+covolume*covolume+covolume*covolume*covolume == 0;
                 }
