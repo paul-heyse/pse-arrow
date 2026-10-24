@@ -296,6 +296,31 @@ class PreparationCurrencyTests(unittest.TestCase):
         with patch.object(native_operation, "remembered", return_value={"managed": False}):
             self.assertIsNone(python_extension.preparation_inputs("python-extension", "native", "dev", environment, validated=True))
 
+    def test_native_install_receipt_reuses_authenticated_unscoped_admission_across_operations(self) -> None:
+        from scripts import native_cache, native_operation
+
+        environment = dict(self.environment)
+        prefixes = []
+        for name in ("IPOPT_DIR", "UNO_DIR", "PETSC_DIR", "PSE_ROOT_ISOLATION_DIR", "SUITESPARSE_LIBRARY_DIR"):
+            prefix = self.root / name
+            prefix.mkdir()
+            (prefix / ".complete.json").write_text('{"version":2,"identity":{"generation":"sealed"}}')
+            prefixes.append(prefix)
+            environment[name] = str(prefix / "lib" if name == "SUITESPARSE_LIBRARY_DIR" else prefix)
+        with (
+            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(native_cache, "installation_files", side_effect=AssertionError("already admitted prefix rescanned")),
+            patch.object(python_extension.subprocess, "call", return_value=0) as installer,
+        ):
+            for _ in range(2):
+                with native_operation.Operation(self.root / "native-cache"):
+                    for prefix in prefixes:
+                        native_operation.admit("prefix:" + str(prefix), {"managed": True, "identity": {"generation": "sealed"}})
+                    self.assertIsNone(native_operation.current())
+                    self.assertEqual(python_extension.extension_prepare("native", "dev", environment), 0)
+                    self.assertTrue(python_extension.stage_receipt("extension", environment).is_file())
+        self.assertEqual(installer.call_count, 1)
+
     def test_stub_currency_binds_generator_binary_and_output_membership(self) -> None:
         with patch.object(python_extension.subprocess, "call", return_value=0) as generator:
             for _ in range(2):
@@ -439,6 +464,18 @@ class InstallerGraphTests(unittest.TestCase):
             )
         self.assertIn("--release", cargo.commands[1])
         self.assertNotIn("--profile", cargo.commands[1])
+
+    def test_unknown_configuration_and_multiphase_selection_refuse_graph_assurance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "pyproject.toml").write_text('[tool.maturin]\nbindings="pyo3"\ntarget="unsupported-target"\n')
+            with self.assertRaisesRegex(arrow_validation.ValidationError, "unsupported Maturin configuration"):
+                python_extension.validated_maturin_command(["maturin", "develop"], {}, root=root)
+            (root / "pyproject.toml").write_text('[tool.maturin]\nbindings="pyo3"\ncompatibility="linux"\nskip-auditwheel=true\n[tool.maturin.sbom]\nrust=false\n')
+            command = python_extension.maturin_cargo_command(["maturin", "develop"], root)
+            self.assertIn("--lib", command)
+        with self.assertRaisesRegex(arrow_validation.ValidationError, "multiphase"):
+            python_extension.validated_maturin_command(["maturin", "develop"], {"MATURIN_PGO": "1"})
 
     def test_diagnostic_installer_keeps_profile_interpreter_and_packaging(self) -> None:
         command = [

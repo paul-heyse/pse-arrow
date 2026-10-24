@@ -3840,7 +3840,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 self.assertEqual(terminal["process"]["forwarded_signal"], signal.SIGINT)
                 self.assertEqual(terminal["process"]["child_status"], -signal.SIGKILL)
 
-    def test_handcrafted_marker_and_incomplete_capability_cannot_grant_admission(
+    def test_handcrafted_marker_refuses_and_authenticated_owners_reuse_admission(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -3878,8 +3878,43 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             ):
                 self.assertIsNotNone(operation.owner_record())
                 self.assertIsNone(operation.current())
-                operation.admit("observation:forged-fast-hit", {"value": True})
-                self.assertIsNone(operation.remembered("observation:forged-fast-hit"))
+                operation.admit("observation:authenticated-input", {"value": True})
+                self.assertEqual(
+                    operation.remembered("observation:authenticated-input"), {"value": True}
+                )
+
+    def test_unscoped_admission_reaches_real_descendant_but_not_foreign_or_ended_owner(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+            operation.Operation(Path(directory)) as active,
+        ):
+            operation.admit("prefix:selected", {"managed": True, "identity": {"generation": "sealed"}})
+            self.assertIsNone(operation.current())
+            result = subprocess.run(
+                [sys.executable, "-c", "from scripts import native_operation as n; import json; print(json.dumps({'admission':n.remembered('prefix:selected'),'scoped':n.current() is not None}))"],
+                cwd=cache.ROOT, env=dict(os.environ), capture_output=True, text=True,
+                timeout=10, check=True,
+            )
+            self.assertEqual(json.loads(result.stdout), {
+                "admission": {"managed": True, "identity": {"generation": "sealed"}},
+                "scoped": False,
+            })
+            original = operation._record(active.path)  # noqa: SLF001 -- mutate the exact owner protocol to exercise identity refusal
+            changed = {**original, "start": "different-process-start"}
+            operation.write_json(active.path, changed)
+            self.assertIsNone(operation.remembered("prefix:selected"))
+            foreign = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+            try:
+                changed.update(pid=foreign.pid, start=operation.start_identity(foreign.pid))
+                operation.write_json(active.path, changed)
+                self.assertIsNone(operation.owner_record(), "a live sibling is not this process's admission owner")
+                self.assertIsNone(operation.remembered("prefix:selected"))
+            finally:
+                foreign.terminate()
+                foreign.wait(timeout=10)
+            self.assertIsNone(operation.remembered("prefix:selected"), "an ended owner cannot grant admission")
+            operation.write_json(active.path, original)
 
     def test_native_entry_rejects_forged_marker_and_preserves_arguments(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

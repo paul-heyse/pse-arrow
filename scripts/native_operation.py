@@ -540,7 +540,10 @@ def record_lock(
 
 
 def remembered(key: str) -> Admission | None:
-    path = current()
+    # Preparation can belong to an authenticated parent process before a native
+    # execution scope exists. Use the same live owner as admit(); current() keeps
+    # its narrower meaning for scope allocation and physical drain authority.
+    path = owner_record()
     if path is None:
         return None
     with record_lock(path):

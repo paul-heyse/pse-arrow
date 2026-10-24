@@ -33,6 +33,20 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
     if command[1:2] not in (["develop"], ["build"]):
         raise arrow_validation.ValidationError("expected Maturin develop or build")
     config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["maturin"]
+    supported = {
+        "bindings", "manifest-path", "module-name", "python-source", "python-packages",
+        "locked", "frozen", "sdist-generator", "profile", "editable-profile", "strip",
+        "auditwheel", "include", "exclude", "features", "config", "unstable-flags",
+        "all-features", "no-default-features",
+        # Maturin 1.15 ToolMaturin packaging/metadata settings do not select
+        # another Cargo root or conditional feature closure for this direct route.
+        "compatibility", "manylinux", "skip-auditwheel", "data", "sbom",
+        "include-import-lib", "generate-ci", "pgo-command", "use-base-python",
+    }
+    if unknown := set(config) - supported:
+        raise arrow_validation.ValidationError(
+            "unsupported Maturin configuration: " + ", ".join(sorted(unknown))
+        )
     if config.get("bindings") != "pyo3":
         raise arrow_validation.ValidationError(
             "only the PyO3 library graph is supported"
@@ -146,6 +160,8 @@ def validated_maturin_command(
 ) -> list[str]:
     """Prove actual Arrow leaves before invoking the unchanged installer selection."""
     root = ROOT if root is None else root
+    if environment.get("MATURIN_PGO"):
+        raise arrow_validation.ValidationError("unsupported multiphase Maturin PGO selection")
     cargo = maturin_cargo_command(command, root)
 
     def capture_graph(selected: Sequence[str]) -> bytes:
