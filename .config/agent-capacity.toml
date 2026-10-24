@@ -23,6 +23,7 @@ slots = 4
 [compile]
 memory_gib = 24
 [functional]
+slots = 16
 slot_gib = 40
 store_gib = 8
 # Allow main, a campaign and an isolated worktree to retain separate services.

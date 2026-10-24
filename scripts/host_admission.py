@@ -138,6 +138,10 @@ def policy() -> HostPolicy:
             valid = type(value) is int
         if not valid:
             raise AdmissionError(f"Invalid capacity declaration {key}")
+    functional = declared.get("functional")
+    slots = functional.get("slots") if isinstance(functional, dict) else None
+    if type(slots) is not int or slots <= 0:
+        raise AdmissionError("Invalid capacity declaration functional.slots")
     for lane in ("functional", "timing"):
         selected = declared.get(lane)
         slots = selected.get("store_slots") if isinstance(selected, dict) else None
@@ -1246,6 +1250,8 @@ def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
         if profile.lane == "build"
         else settings(profile.lane.removeprefix("store-"))["store_slots"]
         if profile.lane in {"store-functional", "store-timing"}
+        else settings("functional")["slots"]
+        if profile.lane == "functional"
         else 1
         if profile.lane == "timing"
         else 2
@@ -1711,23 +1717,25 @@ def acquire(
                     reason = "original admission clock expired"
                 if reason is None:
                     nonce = uuid.uuid4().hex
-                    # Second normal slot owns the other four physical cores.
-                    occupied = {
-                        core
-                        for value in state["owners"].values()
-                        if value["lane"] == "functional"
-                        for core in value["cores"]
-                    }
+                    # Balance ordinary owners across their existing CPU groups.
+                    # A concurrency limit can exceed the number of disjoint groups;
+                    # shared placement must not exhaust a next-free-group iterator.
                     if profile.lane == "functional" and profile.slots == 1:
-                        cores = tuple(core for core in policy()["functional_cores"])
-                        profile = replace(
-                            profile,
-                            cores=next(
-                                part
-                                for part in (cores[:4], cores[4:])
-                                if not occupied.intersection(part)
-                            ),
-                        )
+                        cores = tuple(policy()["functional_cores"])
+                        width = len(profile.cores)
+                        parts = [
+                            cores[index : index + width]
+                            for index in range(0, len(cores), width)
+                        ]
+
+                        def load(part: tuple[int, ...]) -> int:
+                            return sum(
+                                len(set(part).intersection(owner["cores"]))
+                                for owner in state["owners"].values()
+                                if owner["lane"] == "functional"
+                            )
+
+                        profile = replace(profile, cores=min(parts, key=load))
                     state["owners"][nonce] = {
                         "boot": boot(),
                         "pid": os.getpid(),

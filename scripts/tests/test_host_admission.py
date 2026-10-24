@@ -2081,23 +2081,47 @@ class HostAdmissionTests(unittest.TestCase):
             with self.assertRaises(host.AdmissionError):
                 host.select("functional", value)
 
-    def test_two_independent_callers_share_slots_and_original_timeout(self) -> None:
-        first = host.acquire(host.select("functional"), directory=self.directory)
-        second = host.acquire(host.select("functional"), directory=self.directory)
-        self.assertFalse(set(first.profile.cores).intersection(second.profile.cores))
+    def test_sixteen_independent_functional_callers_share_cpu_groups_and_bound_capacity(
+        self,
+    ) -> None:
+        self.assertEqual(host.settings("functional")["slots"], 16)
+        owners = [
+            host.acquire(host.select("functional"), directory=self.directory)
+            for _ in range(16)
+        ]
+        self.assertFalse(
+            set(owners[0].profile.cores).intersection(owners[1].profile.cores)
+        )
+        self.assertEqual(owners[0].profile.cores, owners[2].profile.cores)
+        self.assertEqual(len({owner.nonce for owner in owners}), 16)
         begun = time.monotonic()
-        with self.assertRaisesRegex(host.AdmissionError, "slots occupied"):
+        with self.assertRaisesRegex(host.AdmissionError, "functional slots occupied"):
             host.acquire(
                 host.select("functional"),
                 directory=self.directory,
                 deadline=begun + 0.03,
             )
         self.assertLess(time.monotonic() - begun, 0.2)
-        self.assertTrue(first.release())
-        third = host.acquire(host.select("functional"), directory=self.directory)
-        self.assertFalse(set(second.profile.cores).intersection(third.profile.cores))
-        self.assertTrue(second.release())
-        self.assertTrue(third.release())
+        self.assertTrue(owners[0].release())
+        replacement = host.acquire(host.select("functional"), directory=self.directory)
+        self.assertEqual(replacement.profile.cores, owners[0].profile.cores)
+        for owner in [*owners[1:], replacement]:
+            self.assertTrue(owner.release())
+
+    def test_functional_slot_declaration_is_a_required_positive_integer(self) -> None:
+        text = (host.ROOT / ".config/agent-capacity.toml").read_text()
+        for replacement in ("", "slots = 0", "slots = -1", "slots = true"):
+            changed = text.replace(
+                "[functional]\nslots = 16", "[functional]\n" + replacement, 1
+            )
+            with (
+                self.subTest(replacement=replacement),
+                patch.object(Path, "read_text", return_value=changed),
+                self.assertRaisesRegex(
+                    host.AdmissionError, "Invalid capacity declaration"
+                ),
+            ):
+                host.policy()
 
     def test_declared_store_slots_retain_each_memory_charge_and_original_timeout(
         self,

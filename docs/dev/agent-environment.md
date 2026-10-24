@@ -162,8 +162,8 @@ receiver/worker roles retain their finite role limits; an actual narrower scient
 child cap is never widened by the ordinary build policy.
 
 Light commands use a 2 GiB slot, compilation a 24 GiB slot, ordinary functional work
-one 40 GiB slot, and wide work both functional slots. Native scientific selections
-with a 64 GiB observer pool use the named exclusive-observer partition. Pure Python
+one of sixteen 40 GiB functional slots, and wide work two of those slots. Native scientific selections
+with a 64 GiB observer pool use the named exclusive-observer partition. Functional concurrency is declared by `[functional].slots` (maintainer-selected 16); owners share the least occupied existing CPU group once the disjoint groups are occupied. Per-task/aggregate memory limits, resident-store counts and exclusive/timing rules are separate controls. Pure Python
 unit selections bypass that observer. Reference preserves its original 160 GiB
 partition, 128 GiB pool and sixteen lanes. The runner builds and enumerates native
 artifacts before entering its selected observer; the observer executes admitted binaries.
