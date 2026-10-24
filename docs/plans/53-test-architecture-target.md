@@ -143,7 +143,7 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | A01 | done | [53a](53a-scientific-assurance-and-references.md#a01) | Tested: independent status inventory and all three local comparison controls; nine selected native-local tests pass |
 | A02 | done | [53a](53a-scientific-assurance-and-references.md#a02) | Tested: nine-feed regime journey and wrong-regime controls; solved countercurrent and unequal-pressure mixer; current PID consumer qualification remains A04 |
 | A03 | done | [53a](53a-scientific-assurance-and-references.md#a03) | Tested: independent integrated PR root/layout/mixed Hessian and two-point exact/approximate nonlinear publication/readback |
-| A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent generators pass; PFR/controller assembled consumers retain failed/inconclusive acceptance below |
+| A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; generators and fresh PFR/integrated-controller consumers pass; simultaneous-controller run left active for later review at the maintainer's request |
 | B01 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 resolved; bound-source helper, stable body-admission counters and complete private query observer; targeted math/compiler controls pass |
 | B02 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b02) | I04 resolved; source-owned typed reasons retain diagnostic identity/location; valid and single-change origin controls pass |
 | B03 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; seven support-enabled Rust and five support-absent Python/local controls pass with complete reconciled reports |
@@ -166,8 +166,8 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | F01 | done | [53f](53f-effect-scoped-scheduling.md#f01) | Actual three pure backend cases retain local requirements and pass without canonical/native reservations; local Python cases and requirement/refusal controls pass, real protection retained |
 | F02 | done | [53f](53f-effect-scoped-scheduling.md#f02) | I08 resolved: justified database-local assertions pass actual separate-invocation overlap; authenticated owned restart and foreign borrower guards preserve genuine maintenance scope |
 | F03 | done | [53f](53f-effect-scoped-scheduling.md#f03) | Explicit local settings reach passing installed consumers; owned pytest scratch preserves global ownership guards, role ceilings and canonical protection |
-| G01 | in-progress | [53g](53g-qualification-and-publication.md#g01) | Functional scope/deletions complete, joined S01–S09 and selected scope-end qualification |
-| G02 | in-progress | [53g](53g-qualification-and-publication.md#g02) | Enduring owners/outcomes/current-work/retirement reconciled without other-plan closure |
+| G01 | in-progress | [53g](53g-qualification-and-publication.md#g01) | D–F joined acceptance and two selected scientific consumers pass; final simultaneous-controller acceptance remains pending, with whole-repository health checks outside the maintainer-selected scope |
+| G02 | in-progress | [53g](53g-qualification-and-publication.md#g02) | Enduring contracts and workflow guides published; final scientific disposition and retirement remain pending without closing other-plan consumers |
 
 The remaining route starts from delivered P00/A01–A03/B/C and completed 52k. Resolve shaping
 contracts/inquiries early: I06 preparation domain; I09 reader/custody transition; E01/F01/F02
@@ -201,7 +201,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; actual peer acceptance is recorded in C05's Outcome. |
 | I08 | resolved | [F02](53f-effect-scoped-scheduling.md#f02) | Assertion inventory justifies database-local scope for the migrated cases. Actual independent Rust/Python invocations use distinct databases and finish complete Pass with removed resources; the owned restart passes under genuine maintenance exclusion. Real FileStore/process controls reject foreign creation, retained readers and changed bindings before maintenance; no index-absence shortcut or blanket capacity relaxation. |
 | I09 | resolved | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected objects and compact assessment v6 have one current production layout, selected/full/original readers and custody. Actual v2-to-v3 conversion completed with all original hashes and terminal content verified; historical policy/codec grants no current automatic reuse. MCP presence is not a conversion condition. Selected unit and actual assessment/Python consumers pass; enclosing joined acceptance remains G01. |
-| I10 | open | [A04](53a-scientific-assurance-and-references.md#a04-consumer-integration) | Classify and bound selected controller layout/live-root retention and PFR derivative/domain failures; repair the selected consumer boundary or identify a separately selected broader remedy. Preserve independent references and fresh original-space/numerical checks; generator reproduction alone does not close A04. |
+| I10 | open | [A04](53a-scientific-assurance-and-references.md#a04-consumer-integration) | Complete-layout and bounded receiving corrections pass discriminating controls; fresh PFR/integrated consumers pass with unchanged references/tolerances. Simultaneous consumer remains active for later review; do not infer its result from compiler controls or elapsed preparation. Broader remedies remain separately selectable. |
 
 ## Recommendation and scenario correspondence
 
@@ -818,6 +818,63 @@ The actual pending-run typed read reported partial/unknown rather than Pass; the
 assessment read controls also passed against the current generated contracts. No full-repository
 qualification or numeric speed/capacity claim follows from these focused results.
 
-**Remaining:** three bounded scientific consumers and
-enclosing G01/G02 publication/qualification. A04/I10 remains incomplete pending those actual
-scientific outcomes; independent reference reproduction and compiler controls are separate evidence.
+#### Scientific follow-through and maintainer-directed handoff
+
+**Tested, baseline zero:** the actual PFR and integrated-controller selection completed with
+`passed=True`, `complete=True`, selected coverage and exactly two passed fixtures, run
+`01a16e57202375e8aa71d7d2dccf23c7`. The six original Arrow reports at
+`build/plan53a/reference-consumers-after-receiving-fix/seed*.arrow` contain **1,768 passed checks,
+two explicitly not-applicable rows and zero findings**. The latter rows represent the selected
+package-coverage boundary and the integrated fixture's lack of explicit `expect` statements;
+its authored reference annotations are exercised and pass at all four sample times.
+PFR's 1,877 derivative comparisons and each integrated sample's 689 comparisons have no suspicious
+or missing entries. PFR's three frozen expectations and the eight integrated reference annotation
+checks pass. Physical inputs, reference values and acceptance tolerances remain unchanged.
+
+```bash
+scripts/pse-env --recipe-default-class compile -- just modeling-conformance \
+  --manifest packages/reference/conformance.toml --run seed \
+  --report-dir build/plan53a/reference-consumers-after-receiving-fix \
+  --fixture f69eda83804949e8a35e9381e30c3fb9 \
+  --fixture 7b4665c39e1748cb91118b24f3638f64
+```
+
+**Pending, not a scientific result:** the maintainer explicitly requested leaving the simultaneous
+controller run active and finishing normal closeout instead of waiting. No process was cancelled
+and no limit was raised. The unchanged manifest/default contracts provide separate finite
+600-second preparation and solve budgets; elapsed preparation is not a solver verdict.
+
+```bash
+scripts/pse-env --recipe-default-class compile -- just modeling-conformance \
+  --manifest packages/reference/conformance.toml --run seed \
+  --report-dir build/plan53a/controller-after-receiving-fix \
+  --fixture ad7bac7b5fdd495a990a1bdcd920c35e
+```
+
+The ongoing run's handoff is execution session **37066**, outer PID **1421026**/start **24092361**,
+consumer PID **1483275**/start **24093777**, native operation
+`/home/paul/.cache/pse-arrow/native/.operations/6868b9c131b84a5eb7fd7c46b48feac4.json`, allocation
+`f597a4e8c11b468cbe000511b54d7c57` and scope
+`pse-cmd-50dddcf695ac435780ff96fa89e740ed.scope`. The captured scientific input is
+`build/scientific-inputs/1792852721970270378.json`; the selected installed extension is SHA-256
+`6121eabddc78a3055748db66c461fadcd751d03f4376da05889f6d4456646426`.
+On return, observe the existing operation/session and its original exit/output, then read the
+six `seed*.arrow` reports in that directory. Verify exact fixture identity, completeness and
+original typed findings before changing A04/I10/G01. Do not launch a duplicate run or treat a
+missing report, elapsed time or process exit alone as scientific acceptance.
+
+**Tested — closeout, baseline zero:** `scripts/pse-env -- just turn-end` exited 0 with ADR indexing
+and formatting qualified at `build/assessment/20261024T144542.328384Z-turn-end-3764334-b72ea9`.
+Only owned formatting was retained; 34 formatter-only collateral files were restored and unrelated
+`history.txt` changes preserved. Four deferred cleanup diagnostics concern historical unsupported
+server profiles; their evidence was retained. After owned formatting, the light unittest selection
+`scripts.tests.test_native_tests scripts.tests.test_canonical_boundary_run scripts.tests.test_assessment_boundary`
+passed **64/64**, zero failures/errors. Full hygiene, whole-repository health, feature/powerset and
+solver-fleet qualification were not selected or claimed. The numerical runs retain their captured
+pre-format native source/binary conditions; Rust formatting changes require normal native currency
+preparation before any later claim of current-source installed acceptance.
+
+**Remaining:** review the already-running simultaneous consumer and reconcile its actual outcome,
+then the constrained A04/I10 and final G01/G02 dispositions. The active plan and source reviews
+remain: scientific acceptance is unfinished and other Plan52 consumers retain their own references.
+No plan-series retirement, whole-product qualification or measured speedup is claimed.

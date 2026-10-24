@@ -781,7 +781,9 @@ impl ModelingBodyRetention for RefuseFrontierLookupOnce {
     ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
         if self
             .0
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| remaining.checked_sub(1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| {
+                remaining.checked_sub(1)
+            })
             == Ok(1)
         {
             Err(MathError::Contract("transient pure lookup refusal".into()))
@@ -1359,7 +1361,11 @@ fn owned_frontier_completion_refuses_new_mandatory_entries_without_second_rotati
     workspace.limits.query_values = 1;
     workspace.limits.retained_entries = mandatory.entries + incoming_count;
     let residue = workspace.observe_retention();
-    assert!(residue.entries > workspace.limits.retained_entries, "residue={residue:?}, limit={}", workspace.limits.retained_entries);
+    assert!(
+        residue.entries > workspace.limits.retained_entries,
+        "residue={residue:?}, limit={}",
+        workspace.limits.retained_entries
+    );
     let generation = workspace.generation();
     assert!(matches!(
         workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
@@ -1397,7 +1403,11 @@ fn owned_frontier_completion_preserves_typed_refusal_after_receiving_rotation() 
     assert!(error.to_string().contains("transient pure lookup refusal"));
     assert_eq!(workspace.generation(), generation + 1);
     let residue = workspace.observe_retention();
-    assert!(residue.entries > workspace.limits.retained_entries, "residue={residue:?}, limit={}", workspace.limits.retained_entries);
+    assert!(
+        residue.entries > workspace.limits.retained_entries,
+        "residue={residue:?}, limit={}",
+        workspace.limits.retained_entries
+    );
 }
 
 #[derive(Debug)]
@@ -1500,7 +1510,11 @@ fn owned_frontier_completion_retries_only_once_and_preserves_wrong_environment_r
     let error = workspace
         .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
         .unwrap_err();
-    assert!(error.to_string().contains("different immutable compiler inventory"));
+    assert!(
+        error
+            .to_string()
+            .contains("different immutable compiler inventory")
+    );
     assert_eq!(workspace.generation(), generation);
     workspace
         .inventory

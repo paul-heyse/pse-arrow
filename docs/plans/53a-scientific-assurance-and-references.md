@@ -119,7 +119,7 @@ per maintainer guidance standalone reproduction allows `1e-7 mol/m³`, far below
 `1 mol/m³` acceptance, with separate tight DOP853/Radau agreement. No frozen golden changed.
 I02 is resolved; reproduction is numerical evidence, not a certified global error bound.
 
-**Tested — acceptance incomplete:** decay's actual native reference consumer passed. The final
+**Tested — original acceptance incomplete:** decay's actual native reference consumer passed. The earlier
 selected PFR and integrated/simultaneous controller run reports 1,208 checks, one failed fixture,
 two inconclusive fixtures and `complete=False`. Integrated controller reports a missing-layout
 invariant; simultaneous controller reaches a compiler resource limit; PFR retains closure-validity
@@ -129,6 +129,15 @@ same frozen source record through the declared interface; neither PID equations 
 The scientific runtime paths behind these remaining failures were not expanded into a
 repository-health repair effort. A04 remains in progress until its selected consumer acceptance is settled;
 provenance repair and independent reference reproduction are already established separately.
+
+**Tested — subsequent selected follow-through:** after the complete-layout, derivative-sampling
+and bounded receiving corrections, fresh PFR and integrated-controller consumers pass with
+complete selected coverage and unchanged frozen expectations/tolerances. Their original Arrow
+reports and acceptance conditions are recorded in the
+[coordinator outcome](53-test-architecture-target.md#scientific-follow-through-and-maintainer-directed-handoff).
+The simultaneous-controller consumer is left running at the maintainer's request; that same owner
+records its process/operation and output handoff. Its scientific acceptance is pending, and these
+two passing consumers do not close A04 or I10 on its behalf.
 
 The maintainer-authorized permanent three functional store slots retain full memory charging,
 unknown-owner protection, the original admission timeout and one timing slot. Four focused controls

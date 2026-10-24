@@ -406,7 +406,9 @@ class RestartPeerTests(unittest.TestCase):
                 deadline = time.monotonic() + (-1 if expired else 5)
                 with (
                     self.subTest(expired=expired),
-                    patch.object(boundary.test_resources, "storage", return_value=store),
+                    patch.object(
+                        boundary.test_resources, "storage", return_value=store
+                    ),
                     patch.object(
                         boundary.server,
                         "lifecycle_deadline",
@@ -422,16 +424,24 @@ class RestartPeerTests(unittest.TestCase):
                     if expired:
                         with self.assertRaises(boundary.server.DeadlineExpiredError):
                             boundary.restart_cohort(
-                                self.state, self.control, self.process, deadline,
-                                self.database, **self.options,
+                                self.state,
+                                self.control,
+                                self.process,
+                                deadline,
+                                self.database,
+                                **self.options,
                             )
                         snapshot_read.assert_not_called()
                         query.assert_not_called()
                         self.assertEqual(remaining.call_count, 1)
                     else:
                         boundary.restart_cohort(
-                            self.state, self.control, self.process, deadline,
-                            self.database, **self.options,
+                            self.state,
+                            self.control,
+                            self.process,
+                            deadline,
+                            self.database,
+                            **self.options,
                         )
                         self.assertEqual(
                             [call.args for call in snapshot_read.call_args_list],
@@ -440,7 +450,10 @@ class RestartPeerTests(unittest.TestCase):
                         query.assert_called_once_with(self.state, deadline=deadline)
                         self.assertEqual(remaining.call_count, 4)
                     self.assertTrue(
-                        all(call.args == (deadline,) for call in remaining.call_args_list)
+                        all(
+                            call.args == (deadline,)
+                            for call in remaining.call_args_list
+                        )
                     )
 
     def test_foreign_creation_retained_reader_and_changed_binding_refuse_before_stop(

@@ -866,7 +866,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.assertEqual(actual, self.worker)
         build.assert_not_called()
 
-    def test_canonical_initializer_uses_actual_artifact_and_selected_profile(self) -> None:
+    def test_canonical_initializer_uses_actual_artifact_and_selected_profile(
+        self,
+    ) -> None:
         environment = {"CALLER_INPUT": "preserved"}
         original = environment.copy()
         response = subprocess.CompletedProcess(

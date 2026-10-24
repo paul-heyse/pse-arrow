@@ -362,7 +362,9 @@ class ValidationTests(unittest.TestCase):
             validation.input_identity("rust-product", local, {})["files"],
         )
 
-    def test_generation_applicability_tracks_declared_package_absence_and_recreation(self) -> None:
+    def test_generation_applicability_tracks_declared_package_absence_and_recreation(
+        self,
+    ) -> None:
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         relative = "packages/reference/fixture-projection.toml"
         projection = self.root / relative
@@ -371,12 +373,18 @@ class ValidationTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.root), "add", relative], check=True)
 
         def applicability() -> dict:
-            return validation.input_identity("generation", validation.sources(self.root, scope="generation"), {})
+            return validation.input_identity(
+                "generation", validation.sources(self.root, scope="generation"), {}
+            )
 
         present = applicability()
         projection.unlink()
         absent = applicability()
-        self.assertIn(relative, absent["files"], "a tracked missing input retains its absence identity")
+        self.assertIn(
+            relative,
+            absent["files"],
+            "a tracked missing input retains its absence identity",
+        )
         self.assertNotEqual(present, absent)
         projection.write_text("selected = ['retained']")
         self.assertEqual(present, applicability())
