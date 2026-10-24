@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import native_tests, scientific_inputs, surreal_server, test_run
+from scripts import native_tests, scientific_inputs, surreal_server, test_requirements, test_run
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -279,7 +279,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         def compose(
             command: list[str], environment: dict[str, str]
         ) -> native_tests.arrow_validation.Resolution:
-            self.assertEqual(environment["PSE_WORKER_BINARY"], str(self.worker))
+            self.assertNotIn("PSE_WORKER_BINARY", environment)
             return self.resolution(
                 [*command, "--features", "pse-runtime/force-validate"]
             )
@@ -855,7 +855,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
     def select_fixture_consumer(self, variable: str, *, selected: bool = True) -> None:
         inventory = json.loads(self.inventory)
         inventory["rust-suites"]["runtime"]["testcases"][
-            native_tests.RUST_FIXTURE_TESTS[variable]
+            test_requirements.RUST_FIXTURES[variable][1]
         ] = {"filter-match": {"status": "matches" if selected else "mismatch"}}
         self.inventory = json.dumps(inventory)
 
@@ -1450,7 +1450,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                     command,
                     ["pse-runtime"],
                     native_tests.arrow_validation.Graph(1, [], []),
-                    b'{"workspace_root": "/checkout"}',
+                    b'{"workspace_root": "/checkout", "packages": []}',
                     b'{"version": 1, "units": [], "roots": []}',
                 )
             ),

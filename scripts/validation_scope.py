@@ -20,6 +20,7 @@ class Gate:
     mode: str = ""
     profile: str = ""
     input_scope: str = "unknown"
+    required_roles: tuple[str, ...] = ()
 
 
 # Explicit classifications cover direct recipes as well as aggregate expansion.
@@ -541,6 +542,7 @@ def native_gate(name: str = "native-test", selection: str | None = None) -> Gate
         mode="native-force-validate",
         profile="local",
         input_scope="rust-product",
+        required_roles=("PSE_NATIVE_LANE_EXECUTABLE", "PSE_PRODUCER_FIXTURE_RECEIPT") if name == "native-test" and selection is None else (),
     )
 
 
@@ -551,6 +553,7 @@ FUNCTIONAL_SCOPES = {
     "managed-primary": replace(
         native_gate("managed-native"),
         args=("--profile", "local", "--managed-primary-route"),
+        required_roles=("managed-primary",),
     ),
     "process": native_gate(
         "functional-process",

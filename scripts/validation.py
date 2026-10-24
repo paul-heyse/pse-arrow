@@ -838,6 +838,8 @@ def run_gates(
                 )
             elif recipe == "native-python":
                 command.append("--terminal-owner=assessment")
+        if gate.required_roles:
+            gate_env["PSE_TEST_REQUIRED_ROLES"] = ",".join(gate.required_roles)
         if gate.report and f"nextest/{gate.profile}/junit.xml" in gate.report:
             config = native_report_config(root, output, gate.name, gate.profile)
             command.extend(("--config-file", str(config)))
@@ -907,6 +909,12 @@ def run_gates(
             try:
                 record["selected"] = validation_receipts.enumeration_selection(
                     output, listing
+                )
+                from scripts import test_requirements
+
+                record["requirements"] = test_requirements.rust_catalog(
+                    validation_receipts.native_inventory((output / listing["log"]).read_text()),
+                    required_roles=gate.required_roles, validate_declarations=False,
                 )
             except (ValueError, KeyError, TypeError) as error:
                 record["status"] = (

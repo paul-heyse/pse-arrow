@@ -175,6 +175,7 @@ def canonical_substrate(
     try:
         try:
             stage = "canonical-context"
+            test_resources.require_effect({"test": request.node.nodeid}, effect="native")
             profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
             worker = os.environ.get("PSE_WORKER_BINARY")
             if worker is None:

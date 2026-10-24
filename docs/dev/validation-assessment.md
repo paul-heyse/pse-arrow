@@ -74,14 +74,46 @@ unreported test or interrupted producer cannot become a pass through a JUnit fil
 Captured producer/composer identities are association facts; current liveness and owned
 drain remain unobserved unless their owner supplies them.
 
-**Accepted target, implementation pending (Plan53 RC01).** Managed correctness commands
-will expose complete reconciled Pass through exit zero, retaining raw child status,
-cancellation and independent cleanup detail. The current child-status-preserving composer
-has not yet been migrated; do not infer complete assurance from its exit alone. Plan53 C04
-owns that behavior and its callers. This does not change result-reader exit zero, which means
-only that a selected record was read, or the environment wrapper's command/signal forwarding.
-The current target and implementation boundary live in blueprint §24.1 and the
-[Plan53 coordinator](../plans/53-test-architecture-target.md).
+Managed correctness commands return zero only after complete reconciled Pass. Raw child
+status, cancellation, immutable assurance and independent cleanup remain separate facts.
+A zero-exit child with missing, skipped or inconsistent selected evidence fails the managed
+command. A projection/reconciliation failure also returns nonzero without rewriting an
+already frozen scientific assurance result. Result-reader exit zero still means only that
+the selected record was read; environment forwarding preserves its command/signal contract.
+Blueprint §24.1 owns the contract; the [Plan53 coordinator](../plans/53-test-architecture-target.md)
+records the implementation and its qualification boundary.
+
+Managed nextest routes interpret supported Cargo/nextest options once, including effective
+profile aliases/environment, repository and lower-priority tool configurations, and opaque
+arguments after `--`. The actual pinned-tool catalogue owns selection. Report copies edit
+only the selected profile's JUnit path. A known empty catalogue is retained as `empty-selection`
+and `not-run`, with no child workload exit; it is not uncollected scope or passing correctness.
+Python adapters likewise share supported selection/report interpretation and retain pytest's
+actual collection authority. Unsupported scope options refuse before preparation.
+
+The requirement owner attaches effects, fixture inputs, capacity and campaign roles to actual
+catalogue members. Rust uses declared owner defaults and bounded fixture/peer exceptions;
+pytest uses actual fixture closure plus explicit `test_requirements` control declarations;
+setup tests use actual unittest selection and class-local declarations. Required role coverage
+is checked even for nonempty selections. Canonical registration, native fixture preparation
+and scientific context admission check demand before effects. These are managed fixture
+contracts, not a hook around every direct in-process solver call. Low-level/unmanaged commands
+retain their narrower automatic association and cleanup support. Existing timing/isolation
+scheduling policy remains separate; Plan53f consumes the delivered requirement facts.
+
+Source fixture owners record authenticated typed infrastructure failures before panic/error
+projection. Python fixture setup aborts report assertion reach `not-reached`; a Rust helper
+returning an error reports `unknown`, since its caller may handle that error or have already
+asserted something. Passed negative controls remain passed. Failing setup observations are
+kept distinct from test assertions and make regression isolation inconclusive rather than a
+bad-revision predicate. Missing observations never establish assertion reach. Observer or
+cleanup failure does not mutate frozen assurance. Restart peers join authentic frozen child
+invocation identities in the same registry and report driver cleanup separately.
+
+The canonical FastMCP surface consumes these operation/result owners through Plan52i–52k.
+Exposure and reveal do not authorize effects, and transport success does not qualify tests.
+Retained native drivers are implementation controls; they do not establish host attachment
+or progressive-reveal qualification.
 
 `just activity` exposes current build/wait/admission observations without workload setup.
 Actual Cargo records identify compile/link/cache freshness; quiet CPU does not identify

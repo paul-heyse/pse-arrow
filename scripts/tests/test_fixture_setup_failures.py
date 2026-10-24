@@ -68,6 +68,7 @@ class CanonicalSetupProducers(unittest.TestCase):
         )
         environment.start()
         self.addCleanup(environment.stop)
+        self.mock(test_resources, "require_effect")
         self.observe = self.mock(test_resources, "observe_setup_failure", create=True)
         self.register = self.mock(test_resources, "register", return_value="resource")
         self.record_drain = self.mock(test_resources, "record_drain")

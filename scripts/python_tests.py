@@ -16,12 +16,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     extra = sys.argv[1:]
-    scientific_inputs.prepare_python(extra, os.environ)
-    managed = "--managed-primary-route" in extra
-    child = "--managed-primary-child" in extra
-    functional_child = "--functional-observer-child" in extra
+    from scripts import test_invocation
+
+    request = test_invocation.python(extra)
+    controls = {item.name for item in request.options}
+    managed = "--managed-primary-route" in controls
+    child = "--managed-primary-child" in controls
+    functional_child = "--functional-observer-child" in controls
     if child and not managed:
         raise ValueError("managed primary child requires its declared route")
+    if managed and not child and not os.environ.get("PSE_SURREAL_STATE"):
+        raise ValueError("managed primary route requires PSE_SURREAL_STATE")
+    scientific_inputs.prepare_python(extra, os.environ)
     if managed and not child:
         state = os.environ.get("PSE_SURREAL_STATE")
         if not state:
@@ -33,8 +39,7 @@ def main() -> int:
                 sys.executable,
                 "-m",
                 "scripts.python_tests",
-                *extra,
-                "--managed-primary-child",
+                *test_invocation.append_options(extra, ["--managed-primary-child"]),
             ]
             status = python_observer(
                 command,
@@ -52,7 +57,7 @@ def main() -> int:
     elif (
         not managed
         and not functional_child
-        and "--unit-only" not in extra
+        and "--unit-only" not in controls
         and os.environ.get("PSE_NATIVE_OPERATION")
     ):
         state = Path(os.environ["PSE_SURREAL_STATE"])
@@ -60,8 +65,7 @@ def main() -> int:
             sys.executable,
             "-m",
             "scripts.python_tests",
-            *extra,
-            "--functional-observer-child",
+            *test_invocation.append_options(extra, ["--functional-observer-child"]),
         ]
         status = python_observer(
             command,
@@ -77,24 +81,14 @@ def main() -> int:
             artifact=python_extension.capture(os.environ),
         )
     else:
-        extra = [
-            argument
-            for argument in extra
-            if argument
-            not in {
-                "--managed-primary-route",
-                "--managed-primary-child",
-                "--functional-observer-child",
-            }
-        ]
+        extra = request.arguments(omit=frozenset({"--managed-primary-route", "--managed-primary-child", "--functional-observer-child", "--unit-only"}))
         # The existing selection owner consumes the last user marker expression,
         # then intersects it with this process's mandatory resource partition.
         selected = (
             "unit or component or integration" if managed else "unit or component"
         )
-        if "--unit-only" in extra:
+        if "--unit-only" in controls:
             selected = "unit"
-            extra.remove("--unit-only")
         command = native_tests.python_command(["-m", selected, *extra], managed=managed)
 
         artifact = python_extension.capture(os.environ)

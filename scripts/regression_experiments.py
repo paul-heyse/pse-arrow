@@ -77,6 +77,8 @@ def classify_product(result: dict) -> int:
     row = rows[0]
     if row.get("status") == "passed" and result.get("workload_exit") == 0:
         return 0
+    if result.get("setup_failures") or row.get("failure_kind") == "infrastructure":
+        return 128  # Setup failure is not evidence that this revision is bad.
     if (
         row.get("status") == "failure"
         and result.get("workload_exit") in {1, 100}

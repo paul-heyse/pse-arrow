@@ -47,7 +47,7 @@ class TerminalComposerTests(unittest.TestCase):
         self.path = resources.invocation("python", [{"name": "control.py::test_case"}])
         self.report = self.path.with_suffix(".xml")
 
-    def test_actual_child_status_survives_missing_report_reconciliation(self) -> None:
+    def test_managed_status_refuses_missing_report_and_retains_child_status(self) -> None:
         for status in (0, 7):
             with self.subTest(status=status):
                 path = resources.invocation(
@@ -61,7 +61,7 @@ class TerminalComposerTests(unittest.TestCase):
                         path.with_suffix(".xml"),
                         selected=[{"nodeid": "control.py::test_case"}],
                     )
-                self.assertEqual(code, status)
+                self.assertEqual(code, status or 1)
                 final.assert_called_once()
                 evidence = files.read(path.with_suffix(".terminal.json"))
                 self.assertEqual(evidence["exit_code"], status)
@@ -420,7 +420,7 @@ class TerminalComposerTests(unittest.TestCase):
         if phase != "original-clock":
             cancellation.assert_called_once()
             self.assertEqual(cancellation.call_args.args, (signal.SIGTERM, 110.0))
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 0 if phase == "before-ack" else 1)
         state = files.read(store.path("invocation-state", path.stem))
         self.assertTrue(state["terminal"]["complete"])
         self.assertEqual(state["terminal"]["evidence"]["workload_exit"], 0)
@@ -589,6 +589,7 @@ class TerminalComposerTests(unittest.TestCase):
                 parent.communicate(timeout=3)
 
 
+@patch("scripts.cargo_tools.selected_identity", new=lambda name: {"name": name, "version": "0.9.146", "path": "/owned/cargo-nextest", "sha256": "selected"})
 class OrdinaryRustScientificInputTests(unittest.TestCase):
     """Exercise ordinary execution independently of native observer preparation."""
 
@@ -730,6 +731,7 @@ class OrdinaryRustScientificInputTests(unittest.TestCase):
                     side_effect=AssertionError("unselected capture"),
                 ) as captured,
                 patch.object(test_run, "execute_selected", return_value=0) as execute,
+                patch.object(test_run, "empty_selection") as empty,
             ):
                 self.assertEqual(
                     test_run.run_rust(
@@ -737,11 +739,15 @@ class OrdinaryRustScientificInputTests(unittest.TestCase):
                         env=self.environment,
                         effects="native-local",
                     ),
-                    0,
+                    0 if test_run.rust_selected(inventory) else 2,
                 )
             captured.assert_not_called()
-            self.assertNotIn(scientific_inputs.ROLE, execute.call_args.args[2])
-            self.assertIsNone(execute.call_args.kwargs["details"])
+            if test_run.rust_selected(inventory):
+                self.assertNotIn(scientific_inputs.ROLE, execute.call_args.args[2])
+                self.assertIsNone(execute.call_args.kwargs["details"])
+            else:
+                empty.assert_called_once_with(inventory)
+                execute.assert_not_called()
 
     def test_retained_inventory_uses_prepared_input_without_listing_or_recapture(
         self,

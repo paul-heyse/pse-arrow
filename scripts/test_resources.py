@@ -296,6 +296,7 @@ def invocation(
     selected: Sequence[Mapping[str, object]],
     *,
     terminal_owner: str = "runner",
+    requirements: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Path:
     host.protected(registry())
     directory = registry() / "invocations"
@@ -334,6 +335,13 @@ def invocation(
                 }
     with storage().invocation_edit(nonce) as state:
         state["producer"] = producer
+        from scripts import test_requirements
+
+        state["requirements"] = dict(requirements) if requirements is not None else {
+            (str(item["binary_id"]) + "::" + str(item["name"]) if kind == "rust" else str(item["name"])):
+            (test_requirements.rust(str(item["binary_id"]), str(item["name"])) if kind == "rust" else test_requirements.LOCAL).document()
+            for item in selected
+        }
     resource_store.publish(path, declaration)
     return path
 
@@ -377,8 +385,29 @@ def publish_selection(path: Path, selected: Sequence[Mapping[str, str]]) -> None
         if current["selected"] and current["selected"] != list(selected):
             raise ResourceError("Runner inventory differs from selected invocation")
         declaration["selected"] = [dict(item) for item in selected]
+        if declaration["kind"] == "rust":
+            from scripts import test_requirements
+
+            state["requirements"] = {
+                item["binary_id"] + "::" + item["name"]:
+                test_requirements.rust(item["binary_id"], item["name"]).document()
+                for item in selected
+            }
         resource_store.publish(path, declaration)
         state["declaration"] = dict(declaration)
+
+
+def publish_python_requirements(path: Path, requirements: Mapping[str, Mapping[str, object]]) -> None:
+    """Actual fixture closure publishes demand before selected test execution."""
+    record = read_invocation(path)
+    with storage().invocation_edit(record["nonce"]) as state:
+        if state["phase"] != "open" or state["declaration"] != record or record["kind"] != "python":
+            raise ResourceError("Requirements require the open collected invocation")
+        current = state.setdefault("requirements", {})
+        for identity, requirement in requirements.items():
+            if identity in current and current[identity] != requirement:
+                raise ResourceError("Python collectors disagree about selected requirements")
+            current[identity] = dict(requirement)
 
 
 def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
@@ -392,6 +421,15 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
         selected = [{"name": identity} for identity in identities]
         if len(set(identities)) != len(identities):
             raise ResourceError("Python collection contains duplicate identities")
+        requirements = state.get("requirements", {})
+        if any(identity not in requirements for identity in identities):
+            raise ResourceError("Python collection lacks actual requirement declarations")
+        from scripts import test_requirements
+
+        try:
+            test_requirements.validate_roles({identity: requirements[identity] for identity in identities}, test_requirements.required_roles(os.environ))
+        except ValueError as error:
+            raise ResourceError(str(error)) from error
         collector = {
             "pid": os.getpid(),
             "start": operation.start_identity(os.getpid()),
@@ -456,6 +494,93 @@ def selected_test(
     return record["nonce"], test
 
 
+def require_effect(payload: Mapping[str, object], *, effect: str = "canonical") -> None:
+    """Guard selected demand before a fixture or lifecycle owner performs effects."""
+    marker = os.environ.get(MARKER)
+    if not marker:
+        return  # Bare native routes retain their documented narrower association.
+    declaration = read_invocation(Path(marker))
+    nonce, test = selected_test(payload, declaration=declaration)
+    image = storage().invocation_snapshot(str(nonce))
+    if image["phase"] != "open" or image["declaration"] != declaration:
+        raise ResourceError("Invocation membership is closed; effects refused")
+    from scripts import test_requirements
+
+    try:
+        test_requirements.guard(image.get("requirements", {}), str(test), effect)
+    except ValueError as error:
+        raise ResourceError(str(error)) from error
+
+
+def observe_setup_failure(payload: Mapping[str, object]) -> None:
+    """Retain source-typed setup facts under authenticated selected membership."""
+    marker = os.environ.get(MARKER)
+    if not marker:
+        raise ResourceError("Setup observation requires its managed invocation")
+    declaration = read_invocation(Path(marker))
+    nonce, test = selected_test(payload, declaration=declaration)
+    stage, code = payload.get("stage"), payload.get("code")
+    reach = payload.get("assertion_reach")
+    if (payload.get("kind") != "infrastructure" or not isinstance(stage, str)
+        or not re.fullmatch(r"[a-z0-9-]{1,128}", stage)
+        or code != "runtime::infrastructure" or reach not in {"unknown", "not-reached"}):
+        raise ResourceError("Invalid source-typed setup failure")
+    producer = os.getppid() if payload.get("executable") else os.getpid()
+    observation = {
+        "kind": "infrastructure", "stage": stage, "code": code,
+        "assertion_reach": reach,
+        "producer": {"pid": producer, "start": operation.start_identity(producer), "boot": host.boot()},
+    }
+    with storage().invocation_edit(str(nonce)) as state:
+        if state["phase"] != "open" or state["declaration"] != declaration:
+            raise ResourceError("Frozen invocation cannot change setup observations")
+        state.setdefault("setup_failures", {})[str(test)] = observation
+
+
+def observe_peer(payload: Mapping[str, object], child: Path, *, role: str) -> None:
+    """Join an actual frozen peer through this registry's immutable identity."""
+    from scripts import run_inspection, test_requirements
+
+    marker = os.environ.get(MARKER)
+    if not marker:
+        raise ResourceError("Peer observation requires its parent invocation")
+    parent = read_invocation(Path(marker))
+    nonce, test = selected_test(payload, declaration=parent)
+    root, declaration, image = run_inspection.resolve(str(child))
+    if root != registry() or declaration["nonce"] == nonce or image["phase"] != "frozen":
+        raise ResourceError("Peer requires a distinct frozen invocation in the same registry")
+    terminal = image["terminal"]
+    if terminal.get("complete") is not True or terminal.get("evidence", {}).get("assurance") != "pass":
+        raise ResourceError("Peer has no complete reconciled Pass")
+    if declaration["kind"] == "rust":
+        observed = {value for item in declaration["selected"] for value in test_requirements.rust(item["binary_id"], item["name"]).roles}
+        if role not in observed:
+            raise ResourceError("Peer selected catalog lacks its required role")
+    with storage().invocation_edit(str(nonce)) as state:
+        if state["phase"] != "open" or state["declaration"] != parent:
+            raise ResourceError("Frozen parent cannot acquire a peer observation")
+        state.setdefault("peer_invocations", {})[str(test)] = {
+            "invocation": declaration["nonce"], "terminal_identity": image["terminal_identity"], "role": role,
+        }
+
+
+def observe_cleanup(payload: Mapping[str, object], failures: Sequence[str]) -> None:
+    """Keep driver cleanup separate from the test's frozen assurance."""
+    marker = os.environ.get(MARKER)
+    if not marker:
+        raise ResourceError("Cleanup observation requires its parent invocation")
+    declaration = read_invocation(Path(marker))
+    nonce, test = selected_test(payload, declaration=declaration)
+    if any(not re.fullmatch(r"[a-z0-9-]{1,128}", value) for value in failures):
+        raise ResourceError("Unknown cleanup failure code")
+    with storage().invocation_edit(str(nonce)) as state:
+        if state["phase"] != "open" or state["declaration"] != declaration:
+            raise ResourceError("Frozen invocation cannot change cleanup observation")
+        state.setdefault("cleanup_observations", {})[str(test)] = {
+            "status": "failed" if failures else "complete", "failures": list(failures),
+        }
+
+
 def register(payload: Mapping[str, object], *, deadline: float | None = None) -> str:
     deadline = resource_store.clock(deadline)
     if os.environ.get("PSE_TEST_EXECUTION_EFFECTS") == "native-local":
@@ -469,6 +594,15 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
                 "Invocation membership is closed; fixture registration refused before effects"
             )
     nonce, test = selected_test(payload, declaration=declaration)
+    if nonce is not None and test is not None:
+        from scripts import test_requirements
+
+        try:
+            test_requirements.guard(image.get("requirements", {}), test, "canonical")
+            if payload.get("execution_profile") is not None:
+                test_requirements.guard(image.get("requirements", {}), test, "native")
+        except ValueError as error:
+            raise ResourceError(str(error)) from error
     state = Path(str(payload["state"])).resolve(strict=True)
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
@@ -1666,6 +1800,7 @@ def main() -> int:
         "action",
         choices=(
             "register",
+            "setup-failure",
             "drain",
             "list",
             "status",
@@ -1724,10 +1859,13 @@ def main() -> int:
                 )
             )
         )
-    elif args.action in {"register", "drain"}:
+    elif args.action in {"register", "drain", "setup-failure"}:
         payload = json.load(sys.stdin)
         if args.action == "register":
             print(json.dumps({"resource": register(payload)}))
+        elif args.action == "setup-failure":
+            observe_setup_failure(payload)
+            print(json.dumps({"observed": True}))
         else:
             resource = str(payload["resource"])
             record = resource_status(resource)

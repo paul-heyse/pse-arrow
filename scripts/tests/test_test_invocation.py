@@ -15,6 +15,15 @@ from scripts import native_tests, test_invocation, test_run
 
 
 class InvocationTests(unittest.TestCase):
+    def test_python_aliases_and_opaque_selection_share_the_interpreter(self) -> None:
+        for option in (["-m", "component"], ["--markexpr=component"], ["-mcomponent"]):
+            request = test_invocation.python([*option, "-k", "selected", "--", "-m", "opaque.py"])
+            self.assertEqual(request.marker, "component")
+            self.assertEqual(request.forwarded, ("-k", "selected"))
+            self.assertEqual(request.opaque, ("--", "-m", "opaque.py"))
+        with self.assertRaisesRegex(ValueError, "unsupported pytest scope"):
+            test_invocation.python(["--unknown-selection"])
+
     def test_profile_aliases_and_environment_have_one_effective_identity(self) -> None:
         expected = native_tests.rust_selection_identity(["--profile", "local", "-E", "test(real)"])
         for arguments, environment in (

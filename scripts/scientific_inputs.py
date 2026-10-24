@@ -123,12 +123,10 @@ def prepare_python(
     arguments: Sequence[str], environment: MutableMapping[str, str]
 ) -> None:
     """Prepare in the pytest controller before workers start, including bare pytest."""
-    paths = [
-        Path(arg.split("::", 1)[0]).resolve()
-        for arg in arguments
-        if not arg.startswith("-")
-        and ("/" in arg or ".py" in arg or "::" in arg or Path(arg).is_dir())
-    ]
+    from scripts import test_invocation
+
+    request = test_invocation.python(arguments)
+    paths = [Path(arg.split("::", 1)[0]).resolve() for arg in request.targets]
     consumers = [
         ROOT / "python/pse/parity",
         *(

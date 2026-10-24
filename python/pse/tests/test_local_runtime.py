@@ -262,7 +262,8 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
     runtime.close()
 
 
-@pytest.mark.unit
+@pytest.mark.component
+@pytest.mark.test_requirements(native=True)
 def test_native_reuse_refusal_keeps_public_code_and_envelope(
     inspection_settings: pse.EngineSettings,
 ) -> None:

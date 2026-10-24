@@ -1652,6 +1652,9 @@ class ValidationTests(unittest.TestCase):
                 environment = _args[1]
                 self.assertIsInstance(environment, dict)
                 assert isinstance(environment, dict)
+                test_resources.publish_python_requirements(
+                    Path(environment[test_resources.MARKER]), {"node": {"effects": [], "fixtures": [], "capacity": "local", "roles": []}}
+                )
                 test_resources.publish_python_collection(
                     Path(environment[test_resources.MARKER]), ["node"]
                 )
@@ -1691,7 +1694,7 @@ class ValidationTests(unittest.TestCase):
                 patch("scripts.native_operation.scope_owner", return_value=None),
                 patch("scripts.native_operation.run", side_effect=run),
             ):
-                self.assertEqual(native_tests.main(), 0)
+                self.assertEqual(native_tests.main(), expected)
                 terminal = json.loads(path.with_suffix(".terminal.json").read_text())
                 self.assertEqual(terminal["exit_code"], 0)
                 self.assertEqual(terminal["status"], "failed" if expected else "passed")

@@ -93,6 +93,7 @@ def native_provenance(
         "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS",
         "PSE_NATIVE_PROVIDER_RECEIPT",
         scientific_inputs.ROLE,
+        "PSE_CANONICAL_TOOLS",
     ):
         selected = native_environment.get(name)
         if selected:
@@ -117,27 +118,12 @@ def native_provenance(
 
 def native_root_features(selection: list[str], *, managed: bool) -> str:
     """Select declared native opt-ins only on the actual requested workspace roots."""
-    arguments = selection[: selection.index("--")] if "--" in selection else selection
-    requested: list[str] = []
-    excluded: list[str] = []
-    index = 0
-    while index < len(arguments):
-        argument = arguments[index]
-        if argument in {"-p", "--package", "--exclude"}:
-            index += 1
-            if index == len(arguments):
-                raise ValueError(f"missing package value for {argument}")
-            (excluded if argument == "--exclude" else requested).append(
-                arguments[index]
-            )
-        elif argument.startswith("--package="):
-            requested.append(argument.split("=", 1)[1])
-        elif argument.startswith("--exclude="):
-            excluded.append(argument.split("=", 1)[1])
-        elif argument.startswith("-p") and not argument.startswith("--"):
-            requested.append(argument[2:])
-        index += 1
-    workspace = "--workspace" in arguments or (not requested and not managed)
+    from scripts import test_invocation
+
+    request = test_invocation.rust(selection)
+    requested = list(request.values("--package"))
+    excluded = list(request.values("--exclude"))
+    workspace = any(item.name in {"--workspace", "--all"} for item in request.options) or (not requested and not managed)
     if not requested and not workspace:
         requested = ["pse-runtime"]
     declaration = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]
@@ -246,21 +232,13 @@ def rust_configuration_paths(
         )
     )
     paths.update(str(cargo_home / name) for name in ("config", "config.toml"))
-    index = 0
-    while index < len(arguments):
-        argument = arguments[index]
-        if argument == "--":
-            break
-        name, separator, value = argument.partition("=")
-        if name in {"--config", "--manifest-path"}:
-            if not separator:
-                index += 1
-                if index == len(arguments):
-                    raise ValueError(f"{name} requires a value")
-                value = arguments[index]
+    from scripts import test_invocation
+
+    request = test_invocation.rust(arguments, environment)
+    for name in ("--config", "--manifest-path"):
+        for value in request.values(name):
             if name == "--manifest-path" or "=" not in value:
                 paths.add(str((ROOT / value).absolute()))
-        index += 1
     return sorted(paths)
 
 
@@ -373,6 +351,7 @@ def prepared_rust_inventory(
         raise ValueError("Unknown Rust preparation identity")
     required = {
         "source",
+        "nextest",
         "environment",
         "selection",
         "configuration",
@@ -393,6 +372,10 @@ def prepared_rust_inventory(
         list(prepared["configuration"])
     ):
         raise ValueError("Rust Cargo configuration changed after preparation")
+    from scripts import cargo_tools
+
+    if prepared["nextest"] != cargo_tools.selected_identity("cargo-nextest"):
+        raise ValueError("Prepared nextest tool identity changed before execution")
     actual_environment = rust_environment_identity(environment)
     if prepared["environment"] != actual_environment:
         names = sorted(
@@ -431,7 +414,7 @@ def prepared_rust_inventory(
     if inventory is not None and inventory != retained:
         raise ValueError("Rust inventory differs from prepared invocation")
     fixtures = rust_fixture_bindings(Path(provenance), environment)
-    if set(fixtures) != selected_rust_fixtures(retained):
+    if set(fixtures) - {"PSE_DIAGNOSTIC_EVIDENCE"} != selected_rust_fixtures(retained):
         raise ValueError("Rust selected fixtures differ from preparation")
     binaries = json.loads(Path(prepared["binaries_metadata"]).read_text()).get(
         "rust-binaries"
@@ -531,23 +514,10 @@ PYTHON_DEFAULT_SELECTION = ("-o", "testpaths=python/pse/tests")
 
 def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
     """Keep user selection within one process's declared runtime budget."""
-    selected = "unit or component or integration"
-    forwarded: list[str] = []
-    index = 0
-    while index < len(extra):
-        argument = extra[index]
-        if argument in {"-m", "--markexpr"}:
-            index += 1
-            if index == len(extra):
-                raise ValueError("pytest marker selection requires an expression")
-            selected = extra[index]
-        elif argument.startswith("--markexpr="):
-            selected = argument.split("=", 1)[1]
-        elif argument.startswith("-m") and len(argument) > 2:
-            selected = argument[2:]
-        else:
-            forwarded.append(argument)
-        index += 1
+    from scripts import test_invocation
+
+    request = test_invocation.python(extra)
+    selected, forwarded = request.marker, list(request.forwarded)
     partition = "managed_primary" if managed else "not managed_primary"
     return [
         sys.executable,
@@ -570,6 +540,7 @@ def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
         "-m",
         f"({selected}) and {partition}",
         *(["-n", "0"] if managed else []),
+        *request.opaque,
     ]
 
 
@@ -672,23 +643,12 @@ def native_lane_binary(extra: list[str], environment: Mapping[str, str]) -> Path
     )
 
 
-RUST_FIXTURE_TESTS = {
-    "PSE_NATIVE_LANE_EXECUTABLE": "math::native_child::tests::actual_portable_native_root_child_reconstructs_and_parent_screens",
-    "PSE_PRODUCER_FIXTURE_RECEIPT": "math::portable::canonical_portable_body_tests::canonical_portable_body_reconnect_reuses_ordinary_scalar_solve_with_actual_tool_fixture_receipt",
-}
-
-
 def selected_rust_fixtures(inventory: dict) -> set[str]:
-    """Only the actual selected consumer can request its fixture preparation."""
-    selected = {
-        variable
-        for suite in inventory["rust-suites"].values()
-        if suite.get("binary-id", "").split("::", 1)[0] == "pse-runtime"
-        for variable, name in RUST_FIXTURE_TESTS.items()
-        if suite["testcases"].get(name, {}).get("filter-match", {}).get("status")
-        == "matches"
-    }
+    """Preparation consumes the same requirements as actual effect admission."""
+    from scripts import test_requirements
 
+    catalog = test_requirements.rust_catalog(inventory, validate_declarations=False)
+    selected = {fixture for requirement in catalog.values() for fixture in requirement["fixtures"]}
     if scientific_inputs.selected_consumers(inventory):
         selected.add(scientific_inputs.ROLE)
     return selected
@@ -702,7 +662,19 @@ def prepare_rust_fixtures(
 ) -> dict[str, str]:
     """Prepare selected artifacts within the original source/configuration capture."""
     selected = selected_rust_fixtures(inventory)
+    from scripts import test_requirements
+
+    requirements = test_requirements.rust_catalog(inventory, validate_declarations=False)
+    if "PSE_NATIVE_LANE_EXECUTABLE" in selected:
+        test_requirements.fixture_guard(requirements, "PSE_NATIVE_LANE_EXECUTABLE", "native")
     bindings = {}
+    if "PSE_CANONICAL_TOOLS" in selected:
+        tool = environment.get("PSE_CANONICAL_TOOLS")
+        evidence = environment.get("PSE_DIAGNOSTIC_EVIDENCE")
+        if not tool or not Path(tool).is_absolute() or not os.access(tool, os.X_OK) or not evidence:
+            raise ValueError("Selected operator evidence requires explicit executable and evidence destination")
+        bindings["PSE_CANONICAL_TOOLS"] = tool
+        bindings["PSE_DIAGNOSTIC_EVIDENCE"] = evidence
     if "PSE_NATIVE_LANE_EXECUTABLE" in selected:
         bindings["PSE_NATIVE_LANE_EXECUTABLE"] = str(
             native_lane_binary(extra, environment)
@@ -739,13 +711,15 @@ def rust_fixture_bindings(
     provenance: Path, environment: Mapping[str, str]
 ) -> dict[str, str]:
     """Forward only exact source-bound fixture roles in the prepared artifact set."""
+    from scripts import test_requirements
+
     native = json.loads(provenance.read_text())
     prepared = native.get("rust_invocation", {})
     if not isinstance(prepared, dict):
         raise TypeError("Unknown Rust preparation identity")
     bindings = prepared.get("fixtures", {})
     if not isinstance(bindings, dict) or set(bindings) - (
-        RUST_FIXTURE_TESTS.keys() | {scientific_inputs.ROLE}
+        test_requirements.RUST_FIXTURES.keys() | {scientific_inputs.ROLE, "PSE_CANONICAL_TOOLS", "PSE_DIAGNOSTIC_EVIDENCE"}
     ):
         raise ValueError("Unknown prepared Rust fixture roles")
     files = native.get("files", {})
@@ -757,6 +731,8 @@ def rust_fixture_bindings(
             raise ValueError(f"Rust fixture binding differs from preparation: {name}")
         if recorded.get(name) != hashlib.sha256(value.encode()).hexdigest():
             raise ValueError("Rust fixture role differs from prepared environment")
+        if name == "PSE_DIAGNOSTIC_EVIDENCE":
+            continue  # Authenticated output selection, not an immutable input file.
         if (
             value not in files
             or validation_receipts.digest(Path(value)) != files[value]
@@ -877,11 +853,7 @@ def _rust_capture(
     # Managed controls live in the runtime unit binary, so their binary-name is
     # not "worker". They still require the actual qualified receiver artifact.
     profile = managed_cargo_profile(scoped)
-    worker = (
-        worker_binary(["--cargo-profile", profile], environment) if canonical else None
-    )
-    if worker is not None:
-        environment["PSE_WORKER_BINARY"] = str(worker)
+    worker = None
     build_arguments = [
         "--list-type",
         "binaries-only",
@@ -966,14 +938,40 @@ def _rust_capture(
         raise ValueError(
             f"managed Rust inventory failed with exit {inventory.returncode}"
         )
-    validation_receipts.native_selection(inventory.stdout)
-    data = json.loads(inventory.stdout)
-    fixtures = prepare_rust_fixtures(
-        data,
-        ["--cargo-profile", profile],
-        selected.with_name(selected.stem + "-producer-fixture.json"),
-        environment,
+    data = validation_receipts.native_inventory(inventory.stdout)
+    from scripts import test_requirements
+
+    packages = {item["id"]: item["name"] for item in json.loads(resolution.metadata)["packages"]}
+    active_features = {
+        packages[resolution.graph.units[index].pkg_id]: resolution.graph.units[index].features
+        for index in resolution.graph.roots
+    }
+    requirements = test_requirements.rust_catalog(
+        data, required_roles=test_requirements.required_roles(environment), active_features=active_features
     )
+    if not requirements:
+        from scripts import test_run
+
+        result = test_run.empty_selection(data, selected)
+        raise ValueError(f"Known empty test selection; no execution: {result}")
+    try:
+        worker = (
+            worker_binary(["--cargo-profile", profile], environment) if canonical else None
+        )
+        if worker is not None:
+            environment["PSE_WORKER_BINARY"] = str(worker)
+        fixtures = prepare_rust_fixtures(
+            data,
+            ["--cargo-profile", profile],
+            selected.with_name(selected.stem + "-producer-fixture.json"),
+            environment,
+        )
+    except Exception as error:
+        from scripts import test_run
+
+        failed = test_run.preparation_failure(data, "fixture-preparation")
+        error.add_note(f"Selected invocation: {failed}")
+        raise
     binaries = [
         suite["binary-path"]
         for suite in data["rust-suites"].values()
@@ -1017,6 +1015,7 @@ def _rust_capture(
         "schema": "prepared-rust-v1",
         "nextest": nextest_identity,
         "fixtures": fixtures,
+        "requirements": requirements,
         "source": source,
         "configuration": configuration,
         "environment": rust_environment_identity(environment),
@@ -1151,10 +1150,14 @@ def main() -> int:
     kind, *extra = sys.argv[1:]
     path = os.environ.get("PSE_NATIVE_PROVENANCE")
     if kind == "python":
+        from scripts import test_invocation
+
+        request = test_invocation.python(extra)
+        controls = {item.name for item in request.options}
         from scripts import test_run  # noqa: PLC0415 -- observer composer
 
-        managed = "--managed-primary-route" in extra
-        child = "--managed-primary-child" in extra
+        managed = "--managed-primary-route" in controls
+        child = "--managed-primary-child" in controls
         if child and not managed:
             raise ValueError("managed primary child requires its declared route")
         if managed and not child:
@@ -1169,8 +1172,7 @@ def main() -> int:
                     "-m",
                     "scripts.native_tests",
                     "python",
-                    *extra,
-                    "--managed-primary-child",
+                    *test_invocation.append_options(extra, ["--managed-primary-child"]),
                 ]
                 return test_run.python_observer(
                     command,
@@ -1182,14 +1184,13 @@ def main() -> int:
                         observation=observation,
                     ),
                 )
-        if not managed and "--functional-observer-child" not in extra:
+        if not managed and "--functional-observer-child" not in controls:
             command = [
                 sys.executable,
                 "-m",
                 "scripts.native_tests",
                 "python",
-                *extra,
-                "--functional-observer-child",
+                *test_invocation.append_options(extra, ["--functional-observer-child"]),
             ]
             return test_run.python_observer(
                 command,
@@ -1201,33 +1202,17 @@ def main() -> int:
                     observation=observation,
                 ),
             )
-        extra = [
-            arg
-            for arg in extra
-            if arg
-            not in {
-                "--managed-primary-route",
-                "--managed-primary-child",
-                "--functional-observer-child",
-            }
-        ]
-        owners = [
-            arg.split("=", 1)[1] for arg in extra if arg.startswith("--terminal-owner=")
-        ]
+        owners = request.values("--terminal-owner")
         if len(owners) > 1 or (
             owners and owners[0] not in {"assessment", "standalone"}
         ):
             raise ValueError("invalid terminal owner")
         owner = owners[0] if owners else "standalone"
-        extra = [arg for arg in extra if not arg.startswith("--terminal-owner=")]
-        report = next(
-            (
-                Path(arg.split("=", 1)[1])
-                for arg in extra
-                if arg.startswith("--junitxml=")
-            ),
-            None,
-        )
+        extra = request.arguments(omit=frozenset({"--terminal-owner", "--managed-primary-route", "--managed-primary-child", "--functional-observer-child"}))
+        reports = request.values("--junitxml")
+        if len(reports) > 1:
+            raise ValueError("native Python execution requires one JUnit destination")
+        report = Path(reports[0]) if reports else None
         if report is None:
             raise ValueError("native Python execution requires a JUnit destination")
         report.parent.mkdir(parents=True, exist_ok=True)

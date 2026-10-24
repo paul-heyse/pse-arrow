@@ -59,7 +59,8 @@ class TestResourceTests(unittest.TestCase):
         config.start()
         self.addCleanup(config.stop)
         self.invocation = resources.invocation(
-            "python", [{"name": "test_module.py::test_assert_after_exit"}]
+            "python", [{"name": "test_module.py::test_assert_after_exit"}],
+            requirements={"test_module.py::test_assert_after_exit": {"effects": ["canonical", "native"], "fixtures": [], "capacity": "canonical", "roles": []}}
         )
         environment = patch.dict("os.environ", {resources.MARKER: str(self.invocation)})
         environment.start()
@@ -421,7 +422,7 @@ class TestResourceTests(unittest.TestCase):
             self.assertFalse(
                 resources.publish_python_collection(self.invocation, names)
             )
-            with self.assertRaisesRegex(resources.ResourceError, "outside"):
+            with self.assertRaisesRegex(resources.ResourceError, "outside|requirement declarations"):
                 resources.publish_python_collection(
                     self.invocation, ["unselected::child"]
                 )
@@ -762,6 +763,7 @@ class TestResourceTests(unittest.TestCase):
         path = resources.invocation(
             "python",
             [{"name": f"projection.py::point_{index}"} for index in range(count)],
+            requirements={f"projection.py::point_{index}": {"effects": ["canonical"], "fixtures": [], "capacity": "canonical", "roles": []} for index in range(count)},
         )
         with patch.dict(os.environ, {resources.MARKER: str(path)}):
             members = [
@@ -1014,6 +1016,7 @@ class TestResourceTests(unittest.TestCase):
             deadline: float | None = None,
             on_frozen: Callable[[], None] | None = None,
         ) -> list[str]:
+            resources.publish_python_requirements(path, {"collected.py::test_case": {"effects": [], "fixtures": [], "capacity": "local", "roles": []}})
             resources.publish_python_collection(path, ["collected.py::test_case"])
             return freeze(
                 store,
