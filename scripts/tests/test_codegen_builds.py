@@ -38,6 +38,7 @@ class CodegenBuildTests(unittest.TestCase):
             "codegen-surreal-check": [("surreal", None)],
             "codegen-bindgen-check": [("bindgen", "native-abi")],
             "codegen-schemas-check": [("schemas", "product-schemas,force-validate")],
+            "codegen-all-check": [(None, "full-codegen,force-validate")],
             "codegen": [
                 ("rust-contracts", None),
                 ("surreal", None),
@@ -67,7 +68,15 @@ class CodegenBuildTests(unittest.TestCase):
                 scripts = root / "scripts"
                 scripts.mkdir()
                 (scripts / "__init__.py").write_text("")
+                capabilities = scripts / "capabilities"
+                capabilities.mkdir()
+                (capabilities / "__init__.py").write_text("")
+                (capabilities / "reference.py").write_text(
+                    "from pathlib import Path\n"
+                    "Path('reference-published').write_text('published')\n"
+                )
                 (scripts / "pse-env").write_text(
+                    'printf "%s\\n" "$@" >> environment-arguments.txt\n'
                     'while [[ "$1" != -- ]]; do shift; done\nshift\nexec "$@"\n'
                 )
                 (scripts / "pse-env").chmod(0o700)
@@ -86,6 +95,22 @@ class CodegenBuildTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(child.returncode, 0, child.stderr)
+                self.assertEqual(
+                    (root / "reference-published").exists(),
+                    recipe in {"codegen", "codegen-contracts"},
+                )
+                if recipe == "codegen-all-check":
+                    environment_arguments = (
+                        (root / "environment-arguments.txt").read_text().splitlines()
+                    )
+                    self.assertEqual(
+                        environment_arguments[:3],
+                        [
+                            "--recipe-default-class",
+                            "compile",
+                            "--native=compiler,solver",
+                        ],
+                    )
                 commands = [
                     json.loads(line)
                     for line in (root / "commands.jsonl").read_text().splitlines()
@@ -103,7 +128,13 @@ class CodegenBuildTests(unittest.TestCase):
                     elif generator is not None:
                         self.assertEqual(args[:3], ["codegen", "--only", generator])
                     else:
-                        self.assertEqual(args, ["codegen"])
+                        self.assertEqual(
+                            args,
+                            [
+                                "codegen",
+                                *(["--check"] if recipe.endswith("-check") else []),
+                            ],
+                        )
                     if features is None:
                         self.assertNotIn("--features", command)
                     else:

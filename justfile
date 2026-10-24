@@ -677,6 +677,12 @@ codegen-check:
     python3 -m scripts.validation --group codegen-check
 
 [group('local')]
+[doc('Compare every Rust-owned generated target in one full-codegen invocation; report independent failures')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=compiler,solver", "--", "bash", "-euo", "pipefail")]
+codegen-all-check:
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --features full-codegen,force-validate --locked -- codegen --check
+
+[group('local')]
 [doc('One resolved version per family, equal to the pins; shared packages match the evidence lockfiles')]
 family-check:
     cargo run -p xtask --no-default-features --locked -- family-check

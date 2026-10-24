@@ -105,15 +105,10 @@ GROUPS = {
     ),
     "adr-lint": ("adr-frontmatter-check", "adr-index-check", "register-lint"),
     "codegen-check": (
-        "codegen-relations-check",
-        "codegen-python-check",
+        "codegen-all-check",
         "python-contracts-check",
         "python-stubs-check",
-        "codegen-docs-check",
         "codegen-capabilities-check",
-        "codegen-surreal-check",
-        "codegen-bindgen-check",
-        "codegen-schemas-check",
     ),
     "codegen-contracts-check": (
         "codegen-rust-contracts-check",

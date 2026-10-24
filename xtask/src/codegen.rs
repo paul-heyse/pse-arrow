@@ -47,28 +47,14 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Schemas | Target::Physical) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
+    if check {
+        return check_generators(root, &languages, only);
+    }
     let source_registry = pse_schema::catalog::assemble()?;
     let registry = &source_registry;
     let mut trees = Vec::new();
     for language in languages {
-        let mut tree = pse_codegen::codegen::generate(registry, language)?;
-        if tree.roots != language.roots() {
-            bail!(
-                "{} generator changed its declared output roots",
-                language.as_str()
-            );
-        }
-        if language == Language::Python {
-            add_python_manifest(&mut tree, Path::new(PYTHON_ROOT))?;
-        }
-        if language == Language::Rust {
-            if only == Some(Target::RustContracts) {
-                contract_roots(&mut tree);
-            } else {
-                append_physical(root, registry, &mut tree)?;
-            }
-        }
-        validate_tree(&tree)?;
+        let tree = language_tree(root, registry, language, only)?;
         if language == Language::Python {
             check_python_candidate(root, &tree, None)?;
         }
@@ -89,7 +75,17 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         let mut tree = document_schemas(registry)?;
         add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
         validate_tree(&tree)?;
-        check_python_candidate(root, &tree, Some("--documents"))?;
+        let standalone_contracts = if only == Some(Target::Schemas) {
+            Some(language_tree(root, registry, Language::Python, only)?)
+        } else {
+            None
+        };
+        let contracts = trees
+            .iter()
+            .find(|candidate| candidate.roots == Language::Python.roots())
+            .or(standalone_contracts.as_ref())
+            .context("document candidate requires generated Python contracts")?;
+        check_python_candidate(root, &tree, Some(contracts))?;
         trees.push(provenance::sidecar(
             "runtime-catalogue",
             &tree.relationships,
@@ -97,14 +93,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.push(tree);
     }
     for tree in &trees {
-        if check {
-            let scratch = tempfile::tempdir().context("creating codegen comparison directory")?;
-            write_tree(scratch.path(), tree)?;
-            compare_tree(root, scratch.path(), tree)?;
-            untracked_check(root, &tree.roots)?;
-        } else {
-            write_tree(root, tree)?;
-        }
+        write_tree(root, tree)?;
     }
     if only.is_none() {
         native_abi(root, check)?;
@@ -118,6 +107,187 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     Ok(())
 }
 
+fn language_tree(
+    root: &Path,
+    registry: &pse_schema::Registry,
+    language: Language,
+    only: Option<Target>,
+) -> Result<GeneratedTree> {
+    let mut tree = pse_codegen::codegen::generate(registry, language)?;
+    if tree.roots != language.roots() {
+        bail!(
+            "{} generator changed its declared output roots",
+            language.as_str()
+        );
+    }
+    if language == Language::Python {
+        add_python_manifest(&mut tree, Path::new(PYTHON_ROOT))?;
+    }
+    if language == Language::Rust {
+        if only == Some(Target::RustContracts) {
+            contract_roots(&mut tree);
+        } else {
+            append_physical(root, registry, &mut tree)?;
+        }
+    }
+    validate_tree(&tree)?;
+    Ok(tree)
+}
+
+/// Keep independent check failures visible without publishing any candidate.
+fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -> Result<()> {
+    let mut failures = Vec::new();
+    let mut trees = Vec::new();
+    if let Some(registry) = check_result(
+        &mut failures,
+        "registry assembly",
+        pse_schema::catalog::assemble().map_err(anyhow::Error::from),
+    ) {
+        for &language in languages {
+            let label = format!("registry-{}", language.as_str());
+            if let Some(tree) = check_result(
+                &mut failures,
+                &format!("{label} generation"),
+                language_tree(root, &registry, language, only),
+            ) {
+                if language == Language::Python {
+                    check_result(
+                        &mut failures,
+                        &format!("{label} candidate validation"),
+                        check_python_candidate(root, &tree, None),
+                    );
+                }
+                if let Some(sidecar) = check_result(
+                    &mut failures,
+                    &format!("{label} provenance generation"),
+                    provenance::sidecar(&label, &tree.relationships).map_err(anyhow::Error::from),
+                ) {
+                    trees.push((format!("{label} provenance"), sidecar));
+                }
+                trees.push((label, tree));
+            }
+        }
+        if only == Some(Target::Physical) {
+            let tree = (|| {
+                let mut tree =
+                    GeneratedTree::empty(vec![PathBuf::from("crates/pse-quantity/src/generated")]);
+                append_physical(root, &registry, &mut tree)?;
+                validate_tree(&tree)?;
+                Ok(tree)
+            })();
+            if let Some(tree) = check_result(&mut failures, "physical generation", tree) {
+                trees.push(("physical".to_owned(), tree));
+            }
+        }
+        if matches!(only, None | Some(Target::Schemas)) {
+            let tree = (|| {
+                let mut tree = document_schemas(&registry)?;
+                add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
+                validate_tree(&tree)?;
+                Ok(tree)
+            })();
+            if let Some(tree) = check_result(&mut failures, "document schemas generation", tree) {
+                // The standalone schema route needs the same dependency once;
+                // aggregate generation already owns its actual Python tree.
+                let standalone_contracts = if only == Some(Target::Schemas) {
+                    check_result(
+                        &mut failures,
+                        "document Python dependency generation",
+                        language_tree(root, &registry, Language::Python, only),
+                    )
+                } else {
+                    None
+                };
+                if let Some(contracts) = trees
+                    .iter()
+                    .find(|(_, candidate)| candidate.roots == Language::Python.roots())
+                    .map(|(_, candidate)| candidate)
+                    .or(standalone_contracts.as_ref())
+                {
+                    check_result(
+                        &mut failures,
+                        "document schemas candidate validation",
+                        check_python_candidate(root, &tree, Some(contracts)),
+                    );
+                } else {
+                    failures.push(
+                        "document schemas candidate validation: blocked by Python dependency generation failure"
+                            .to_owned(),
+                    );
+                }
+                if let Some(sidecar) = check_result(
+                    &mut failures,
+                    "document schemas provenance generation",
+                    provenance::sidecar("runtime-catalogue", &tree.relationships)
+                        .map_err(anyhow::Error::from),
+                ) {
+                    trees.push(("document schemas provenance".to_owned(), sidecar));
+                }
+                trees.push(("document schemas".to_owned(), tree));
+            }
+        }
+    } else {
+        for language in languages {
+            failures.push(format!(
+                "registry-{} generation: blocked by registry assembly failure",
+                language.as_str()
+            ));
+        }
+        if only == Some(Target::Physical) {
+            failures.push("physical generation: blocked by registry assembly failure".to_owned());
+        }
+        if matches!(only, None | Some(Target::Schemas)) {
+            failures.push(
+                "document schemas generation: blocked by registry assembly failure".to_owned(),
+            );
+        }
+    }
+    for (label, tree) in &trees {
+        check_result(&mut failures, label, check_tree(root, tree));
+    }
+    if only.is_none() {
+        check_result(&mut failures, "native ABI", native_abi(root, true));
+    }
+    finish_checks(failures)?;
+    println!("codegen --check: OK ({} schema target(s))", trees.len());
+    Ok(())
+}
+
+fn check_result<T>(failures: &mut Vec<String>, label: &str, result: Result<T>) -> Option<T> {
+    match result {
+        Ok(value) => Some(value),
+        Err(error) => {
+            failures.push(format!("{label}: {error:#}"));
+            None
+        }
+    }
+}
+
+fn finish_checks(failures: Vec<String>) -> Result<()> {
+    if !failures.is_empty() {
+        bail!("codegen --check failed:\n{}", failures.join("\n"));
+    }
+    Ok(())
+}
+
+/// Comparison and Git tracking are independent even when candidate bytes differ.
+fn check_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
+    validate_tree(tree)?;
+    let mut failures = Vec::new();
+    let comparison = (|| {
+        let scratch = tempfile::tempdir().context("creating codegen comparison directory")?;
+        write_tree(scratch.path(), tree)?;
+        compare_tree(root, scratch.path(), tree)
+    })();
+    check_result(&mut failures, "comparison", comparison);
+    check_result(
+        &mut failures,
+        "tracking",
+        untracked_check(root, &tree.roots),
+    );
+    finish_checks(failures)
+}
+
 #[cfg(feature = "native-abi")]
 fn native_abi(root: &Path, check: bool) -> Result<()> {
     ipopt::run(root, check)
@@ -129,14 +299,16 @@ fn native_abi(_: &Path, _: bool) -> Result<()> {
 }
 
 /// Validate the actual candidate Python bytes before comparison or publication.
-fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>) -> Result<()> {
+fn check_python_candidate(
+    root: &Path,
+    tree: &GeneratedTree,
+    contracts: Option<&GeneratedTree>,
+) -> Result<()> {
     let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
-    if mode == Some("--documents") {
+    if let Some(contracts) = contracts {
         // Document enums must come from the same registry generation, even before
         // publication or when only document schemas are being regenerated.
-        let source_registry = pse_schema::catalog::assemble()?;
-        let contracts = pse_codegen::codegen::generate(&source_registry, Language::Python)?;
-        write_tree(candidate.path(), &contracts)?;
+        write_tree(candidate.path(), contracts)?;
     }
     write_tree(candidate.path(), tree)?;
     let python = root.join(if cfg!(windows) {
@@ -148,7 +320,7 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
         .arg(root.join("scripts/check_python_contracts.py"))
         .arg("--root")
         .arg(candidate.path())
-        .args(mode)
+        .args(contracts.map(|_| "--documents"))
         .current_dir(root)
         .status()
         .context("checking candidate Python contract annotations")?;
@@ -446,6 +618,102 @@ fn untracked_check(root: &Path, paths: &[PathBuf]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn candidate_failure_still_compares_and_checks_tracking_without_publication() {
+        let checkout = tempfile::tempdir().unwrap();
+        assert!(
+            Command::new("git")
+                .arg("-C")
+                .arg(checkout.path())
+                .args(["init", "-q"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let existing = checkout.path().join(PYTHON_ROOT).join("unexpected.py");
+        fs::create_dir_all(existing.parent().unwrap()).unwrap();
+        fs::write(&existing, b"retained untracked source\n").unwrap();
+        let before = inventory(
+            checkout.path(),
+            &GeneratedTree::empty(Language::Python.roots()),
+        )
+        .unwrap();
+        // The isolated checkout has no interpreter. Candidate validation must
+        // fail independently of comparison and untracked-file diagnostics.
+        let error = check_generators(checkout.path(), &[Language::Python], Some(Target::Python))
+            .unwrap_err()
+            .to_string();
+        for label in [
+            "registry-python candidate validation:",
+            "comparison:",
+            "tracking:",
+            "missing from checkout",
+            "stale in checkout",
+            "generated files must be tracked",
+        ] {
+            assert!(error.contains(label), "missing {label}: {error}");
+        }
+        assert_eq!(fs::read(existing).unwrap(), b"retained untracked source\n");
+        assert_eq!(
+            inventory(
+                checkout.path(),
+                &GeneratedTree::empty(Language::Python.roots()),
+            )
+            .unwrap(),
+            before
+        );
+        assert!(!checkout.path().join(provenance::ROOT).exists());
+    }
+
+    #[test]
+    fn differing_tree_still_reports_untracked_files_and_later_tree_failures() {
+        let checkout = tempfile::tempdir().unwrap();
+        assert!(
+            Command::new("git")
+                .arg("-C")
+                .arg(checkout.path())
+                .args(["init", "-q"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let first = tree();
+        write_tree(checkout.path(), &first).unwrap();
+        let path = checkout.path().join("generated/a.txt");
+        fs::write(&path, b"changed untracked bytes").unwrap();
+        let mut second = GeneratedTree::empty(vec![PathBuf::from("another-generated")]);
+        second.files.insert(
+            PathBuf::from("another-generated/absent.txt"),
+            b"required".to_vec(),
+        );
+        let mut failures = Vec::new();
+        check_result(&mut failures, "first", check_tree(checkout.path(), &first));
+        check_result(
+            &mut failures,
+            "second",
+            check_tree(checkout.path(), &second),
+        );
+        check_result::<()>(
+            &mut failures,
+            "native ABI",
+            Err(anyhow::anyhow!("selected headers unavailable")),
+        );
+        let error = finish_checks(failures).unwrap_err().to_string();
+        for label in [
+            "first:",
+            "bytes differ",
+            "tracking:",
+            "generated files must be tracked",
+            "second:",
+            "another-generated/absent.txt: missing from checkout",
+            "native ABI: selected headers unavailable",
+        ] {
+            assert!(error.contains(label), "missing {label}: {error}");
+        }
+        assert_eq!(fs::read(path).unwrap(), b"changed untracked bytes");
+        assert!(!checkout.path().join("another-generated").exists());
+    }
 
     #[test]
     fn unchanged_generation_preserves_the_source_timestamp() {

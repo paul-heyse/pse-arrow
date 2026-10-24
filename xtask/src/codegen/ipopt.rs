@@ -32,12 +32,23 @@ pub(super) fn run(root: &Path, check: bool) -> Result<()> {
     let text = generate(&headers)?;
     let output = root.join(super::BINDINGS);
     if check {
-        if fs::read_to_string(&output).context("reading committed Ipopt bindings")? != text {
-            bail!(
-                "Ipopt bindings differ from actual regenerated headers; run just codegen --only bindgen"
-            );
-        }
-        super::untracked_check(root, &[PathBuf::from(super::BINDINGS)])?;
+        let mut failures = Vec::new();
+        let comparison = (|| {
+            super::reject_symlinks(root, Path::new(super::BINDINGS))?;
+            if fs::read_to_string(&output).context("reading committed Ipopt bindings")? != text {
+                bail!(
+                    "Ipopt bindings differ from actual regenerated headers; run just codegen --only bindgen"
+                );
+            }
+            Ok(())
+        })();
+        super::check_result(&mut failures, "comparison", comparison);
+        super::check_result(
+            &mut failures,
+            "tracking",
+            super::untracked_check(root, &[PathBuf::from(super::BINDINGS)]),
+        );
+        super::finish_checks(failures)?;
     } else if !matches!(fs::read_to_string(&output), Ok(previous) if previous == text) {
         fs::write(output, text).context("writing generated Ipopt bindings")?;
     }
