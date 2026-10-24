@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents and subsequently authorized execution of **P00 and A01–A04 only**, in a separate worktree with main integration pending explicit go-ahead. RC01/RC02 were separately explicitly accepted on 2026-10-23. No production/test/tool changes or product qualification are claimed by this publication.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents and subsequently authorized execution of **P00 and A01–A04 only**, in a separate worktree with main integration pending explicit go-ahead. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -89,12 +89,12 @@ B02's typed refusal direction fits the existing §23.2 source-owned typed-cause 
 
 ## Package state and execution route
 
-This is the **single package progress owner**. P00 and A01–A04 are authorized; all other packages remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. All package acceptance is **Proposed / not_run** at authoring.
+This is the **single package progress owner**. P00 and A01–A04 are authorized; all other packages remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | P00 | done | [Coordinator](#p00) | Accepted target published in blueprint §24.1, revision 260 and validation/environment guides; C02/C04/F behavior remains planned |
-| A01 | in-progress | [53a](53a-scientific-assurance-and-references.md#a01) | Independent status inventory and finite/extent/wrong-result controls |
+| A01 | done | [53a](53a-scientific-assurance-and-references.md#a01) | Tested: independent status inventory and all three local comparison controls; nine selected native-local tests pass |
 | A02 | in-progress | [53a](53a-scientific-assurance-and-references.md#a02) | I01 resolved; regime/countercurrent/mixer witnesses, retained PID/nested-vapor evidence |
 | A03 | in-progress | [53a](53a-scientific-assurance-and-references.md#a03) | Integrated root/layout/curvature and exact/approximate nonlinear publication/readback |
 | A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent reference generators reproducible |
@@ -131,8 +131,8 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| I01 | open | [A02](53a-scientific-assurance-and-references.md#a02) | Compute independent positive slack and propagated feasibility envelope for selected phase fixture; adopt concrete regime bound or choose a better away-transition case. Blocks that regime assertion, not historical policy or other cases. |
-| I02 | open | [A04](53a-scientific-assurance-and-references.md#a04) | Locate/recover verifiable three generators or specify independent reduced equations/method/environment; reproduce references or explain reviewed discrepancy before golden migration. No production-output regeneration. |
+| I01 | resolved — implementation awaiting native acceptance | [A02](53a-scientific-assurance-and-references.md#a02) | Compute independent positive slack and propagated feasibility envelope for selected phase fixture; adopt concrete regime bound or choose a better away-transition case. Blocks that regime assertion, not historical policy or other cases. |
+| I02 | resolved | [A04](53a-scientific-assurance-and-references.md#a04) | Locate/recover verifiable three generators or specify independent reduced equations/method/environment; reproduce references or explain reviewed discrepancy before golden migration. No production-output regeneration. |
 | I03 | open | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Determine whether existing semantic-body counters observe the asserted reuse invariant; select them or one private complete observer with cold/invalidation controls. Blocks observer migration only. |
 | I04 | open | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Enumerate consumed reasons/constructors/codec projections against §23.2; preserve code/declaration/location. Existing typed-source direction selected; any genuine incompatible promise needs a specific decision before incompatible migration. |
 | I05 | open | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Derive sufficient authentic/synthetic source/data/import closures and membership/absence facts for actual families. Adopt complete sufficient closures; minimality is not required. Unknown edges stay broad. |
@@ -165,10 +165,10 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-001](../design_review/test-audit/oracles-and-acceptance.md#dta-001) | S01 | disproved — examined reuse indictment | [A01](53a-scientific-assurance-and-references.md#a01) | Retain independent resolver/conversion/direct export and parity scale cancellation; no change in examined scope. Revisit only a concrete escaped policy/projection fault, not unexamined breadth. |
 | [DTA-002](../design_review/test-audit/oracles-and-acceptance.md#dta-002) | S01 | scheduled | [A02](53a-scientific-assurance-and-references.md#a02) | I01 justified phase/slack/feasibility bound plus wrong interior-regime control; historical policy and nested-vapor witness retained. |
 | [DTA-003](../design_review/test-audit/oracles-and-acceptance.md#dta-003) | S01 | scheduled | [A04](53a-scientific-assurance-and-references.md#a04) | All three committed independent generators reproduce declared consumed reference claims; discrepancies explained before updates. |
-| [DTA-004](../design_review/test-audit/oracles-and-acceptance.md#dta-004) | S05 | scheduled | [A01](53a-scientific-assurance-and-references.md#a01) | Independent declared code/name/category/assurance inventory including limits/unknown; missing or misclassified declared arm fails. |
+| [DTA-004](../design_review/test-audit/oracles-and-acceptance.md#dta-004) | S05 | resolved | [A01](53a-scientific-assurance-and-references.md#a01) | Independent declared code/name/category/assurance inventory including limits/unknown; missing or misclassified declared arm fails. |
 | [DTA-005](../design_review/test-audit/oracles-and-acceptance.md#dta-005) | S01 | scheduled | [A03](53a-scientific-assurance-and-references.md#a03) | Integrated root/key/binding/mixed-second-order discriminator; retain independent primitive Hessians. |
 | [DTA-006](../design_review/test-audit/oracles-and-acceptance.md#dta-006) | S01 | scheduled | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Admitted valid origin-sensitive control then intended single-change typed refusal/declaration; unrelated missing-ID/context refusal fails. |
-| [DTA-007](../design_review/test-audit/oracles-and-acceptance.md#dta-007) | S01 | scheduled | [A01](53a-scientific-assurance-and-references.md#a01) | Finite/extent/sample-time and meaningful wrong-result controls in all three helpers; distinct tolerance semantics retained. |
+| [DTA-007](../design_review/test-audit/oracles-and-acceptance.md#dta-007) | S01 | resolved | [A01](53a-scientific-assurance-and-references.md#a01) | Finite/extent/sample-time and meaningful wrong-result controls in all three helpers; distinct tolerance semantics retained. |
 | [DTA-008](../design_review/test-audit/doubles-and-coupling.md#dta-008) | S01 | superseded — withdrawn diagnosis | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Retain complementary static Ready and contextual readiness; no repair or blanket wrapper replacement. |
 | [DTA-009](../design_review/test-audit/doubles-and-coupling.md#dta-009) | S04 | scheduled | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 stable applicable counters or centralized complete private observer; cold/invalidation and missing-trace controls; fresh comparison retained. |
 | [DTA-010](../design_review/test-audit/doubles-and-coupling.md#dta-010) | S04 | scheduled | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Narrow bound-source operation and real consumer migration; attribution/cancel/residual differences explicit; copies deleted. |
@@ -231,3 +231,29 @@ P00 publishes the accepted target through blueprint §24.1/revision 260 and the 
 guides. Existing managed exits and scheduling remain unchanged. A01–A04 implement their owner-local
 controls and independent references. Committed main changes will be merged at coherent checkpoints;
 return integration into main awaits maintainer go-ahead. Other Plan53 packages remain planned.
+
+
+### Current acceptance boundary
+
+**Implemented:** A01–A04 changes are committed in the isolated worktree. A01 replaces the
+obsolete fallback-only guard and weak comparator premises; A02 adds regime and solved-variant
+witnesses; A03 adds integrated PR and nonlinear sensitivity/covariance witnesses; A04 restores
+independent reduced-equation reference entrypoints without changing frozen goldens. Committed
+main was imported through `50789ad66` at the first integration checkpoint, preserving Plan52 work.
+
+**Tested:** `just unit-native-capability-package pse-backend-native
+'pse-backend-native/highs,pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance'
+solver,klu,isolation,uno,petsc 'test(full_status_mapping_preserves_limits_and_ambiguity) | test(finite_bound_at_highs_infinity_threshold_is_rejected) | test(comparison_rejects_nonfinite) | test(row_comparison_rejects_missing) | test(trajectory_comparison_rejects_nonfinite) | test(projection_exact_rows_match_evaluator) | test(sdirk_matches_bdf_on_vessel)'
+-p pse-math -p pse-runtime -p pse-tests-conformance` ran nine selected native-local tests with
+zero failures against baseline zero. `just plan53a-reference` passed PFR 7/7, controller 19/19
+and decay 25/25 reproduction checks; the isolated reference environment's
+`python -m unittest scripts.tests.test_scientific_references -v` passed four tests, baseline zero.
+The companion records exact conditions and the remaining assembled consumer acceptance.
+
+**Not_run / blocked prerequisite:** native A02/A03 durable journeys have compiled, but the
+canonical observer refused the copied main service receipt before assertions. Its admitted
+Cargo configuration belongs to main, not this worktree. No scientific assertion result is
+inferred from that incomplete invocation. A separate worktree-context service is being prepared;
+the main service is unchanged. A first preparation also correctly refused concurrent source
+mutation; subsequent preparation uses a frozen committed tree. Whole-repository checks,
+benchmark campaigns, installed parity and other Plan53 packages are outside this execution.
