@@ -16,6 +16,234 @@ from scripts import installation_context as context
 
 
 class InstallationContextTests(unittest.TestCase):
+    def launcher_capture(self, root: Path, env: dict[str, str]) -> dict:
+        """Exercise capture with real input hashes and bounded tool/system fixtures."""
+        executable = root / "compiler"
+        executable.write_bytes(b"controlled compiler executable")
+
+        def output(command: list[str], **_kwargs: object) -> str:
+            if command[:2] == ["rustup", "which"]:
+                return str(executable) + "\n"
+            if command[1:] == ["--print", "sysroot"]:
+                return str(root / "sysroot") + "\n"
+            if command[1:] == ["-print-resource-dir"]:
+                self.assertEqual(
+                    command[0], str(Path(env.get("CLANG_PATH", executable)).resolve())
+                )
+                return str(root / "clang-resource") + "\n"
+            return "controlled tool version\n"
+
+        actual_tree = context.tree
+        launcher = root / ".config/native-cache.cmake"
+        with (
+            patch.object(context, "configuration", return_value=([], [], [])),
+            patch.object(context.subprocess, "check_output", side_effect=output),
+            patch.object(
+                context.subprocess,
+                "run",
+                return_value=context.subprocess.CompletedProcess([], 0, "", ""),
+            ),
+            patch.object(context.shutil, "which", return_value=str(executable)),
+            patch.object(
+                context,
+                "tree",
+                side_effect=lambda path: (
+                    actual_tree(path)
+                    if path in {launcher, root / "clang-resource"}
+                    else {"path": str(path), "controlled_system_input": True}
+                ),
+            ),
+        ):
+            captured, _provenance = context.capture(root, env)
+        return captured
+
+    def test_selected_clang_resource_headers_are_captured(self) -> None:
+        repository = Path(context.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "rust-toolchain.toml").write_bytes(
+                (repository / "rust-toolchain.toml").read_bytes()
+            )
+            clang = root / "selected-clang"
+            clang.write_bytes(b"controlled selected Clang")
+            resource = root / "clang-resource"
+            include = resource / "include"
+            include.mkdir(parents=True)
+            header = include / "stddef.h"
+            header.write_bytes(b"controlled resource header")
+            env = {
+                "CLANG_PATH": str(clang),
+                "BINDGEN_EXTRA_CLANG_ARGS": f"-resource-dir={resource}",
+            }
+            before = self.launcher_capture(root, env)
+            self.assertIn(context.tree(resource), before["native"])
+            repeated = self.launcher_capture(root, env)
+            self.assertEqual(context.identity(before), context.identity(repeated))
+            header.write_bytes(b"changed resource header")
+            changed = self.launcher_capture(root, env)
+            self.assertNotEqual(context.identity(before), context.identity(changed))
+            (include / "float.h").write_bytes(b"another resource header")
+            added = self.launcher_capture(root, env)
+            self.assertNotEqual(context.identity(changed), context.identity(added))
+
+    def test_bindgen_refuses_alternate_flags_paths_and_missing_selected_headers(
+        self,
+    ) -> None:
+        repository = Path(context.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "rust-toolchain.toml").write_bytes(
+                (repository / "rust-toolchain.toml").read_bytes()
+            )
+            resource = root / "clang-resource"
+            include = resource / "include"
+            include.mkdir(parents=True)
+            header = include / "stddef.h"
+            header.write_bytes(b"controlled resource header")
+            alternate = root / "other-resource"
+            (alternate / "include").mkdir(parents=True)
+            (alternate / "include/stddef.h").write_bytes(b"other header")
+            alias = root / "resource-alias"
+            alias.symlink_to(resource, target_is_directory=True)
+            exact = f"-resource-dir={resource}"
+            for flags in (
+                "-I/external/include",
+                "-resource-dir=",
+                "-resource-dir=relative",
+                f" {exact}",
+                f"{exact} -DOTHER=1",
+                f"-resource-dir {resource}",
+                f'"{exact}"',
+                f'-resource-dir="{resource}"',
+                f"-resource-dir={resource}/.",
+                f"-resource-dir={alternate}",
+                f"-resource-dir={alias}",
+                "-resource-dir='unclosed",
+            ):
+                with (
+                    self.subTest(flags=flags),
+                    self.assertRaisesRegex(
+                        context.ContextError, "BINDGEN_EXTRA_CLANG_ARGS"
+                    ),
+                ):
+                    self.launcher_capture(root, {"BINDGEN_EXTRA_CLANG_ARGS": flags})
+            header.unlink()
+            with self.assertRaisesRegex(
+                context.ContextError, "BINDGEN_EXTRA_CLANG_ARGS"
+            ):
+                self.launcher_capture(root, {"BINDGEN_EXTRA_CLANG_ARGS": exact})
+            for selected in ("relative", str(root / "absent-resource"), ""):
+                with (
+                    self.subTest(clang_output=selected),
+                    patch.object(
+                        context.subprocess, "check_output", return_value=selected
+                    ),
+                    self.assertRaisesRegex(
+                        context.ContextError, "BINDGEN_EXTRA_CLANG_ARGS"
+                    ),
+                ):
+                    context.bindgen_resource(
+                        root,
+                        {"BINDGEN_EXTRA_CLANG_ARGS": f"-resource-dir={selected}"},
+                        "clang",
+                    )
+
+    def test_repository_cache_toolchain_and_launcher_bytes_are_captured(self) -> None:
+        repository = Path(context.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".config").mkdir()
+            launcher = root / ".config/native-cache.cmake"
+            launcher.write_bytes(
+                (repository / ".config/native-cache.cmake").read_bytes()
+            )
+            (root / "rust-toolchain.toml").write_bytes(
+                (repository / "rust-toolchain.toml").read_bytes()
+            )
+            wrapper = root / "cache-wrapper"
+            wrapper.write_bytes(b"controlled cache wrapper")
+            binary = root / "sccache"
+            binary.write_bytes(b"controlled cache executable")
+            env = {
+                "HOME": temporary,
+                "CMAKE_TOOLCHAIN_FILE": str(launcher),
+                "PSE_NATIVE_COMPILER_CACHE": str(wrapper),
+                "PSE_SCCACHE_BINARY": str(binary),
+            }
+            before = self.launcher_capture(root, env)
+            self.assertIn(context.tree(launcher), before["native"])
+            self.assertEqual(
+                before["tools"]["PSE_NATIVE_COMPILER_CACHE"]["sha256"],
+                context.sha(wrapper),
+            )
+            self.assertEqual(
+                before["tools"]["PSE_SCCACHE_BINARY"]["sha256"], context.sha(binary)
+            )
+            repeated = self.launcher_capture(root, env)
+            self.assertEqual(context.identity(before), context.identity(repeated))
+            launcher.write_bytes(launcher.read_bytes() + b"\n# changed source\n")
+            changed_source = self.launcher_capture(root, env)
+            self.assertNotEqual(
+                context.identity(before), context.identity(changed_source)
+            )
+            wrapper.write_bytes(b"changed cache wrapper")
+            changed_wrapper = self.launcher_capture(root, env)
+            self.assertNotEqual(
+                context.identity(changed_source), context.identity(changed_wrapper)
+            )
+            binary.write_bytes(b"changed cache executable")
+            changed_binary = self.launcher_capture(root, env)
+            self.assertNotEqual(
+                context.identity(changed_wrapper), context.identity(changed_binary)
+            )
+            relative = self.launcher_capture(
+                root, {**env, "CMAKE_TOOLCHAIN_FILE": ".config/native-cache.cmake"}
+            )
+            self.assertIn(context.tree(launcher), relative["native"])
+
+    def test_unknown_external_and_symlink_toolchain_programs_refuse(self) -> None:
+        repository = Path(context.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "workspace"
+            config = root / ".config"
+            config.mkdir(parents=True)
+            expected = config / "native-cache.cmake"
+            contents = (repository / ".config/native-cache.cmake").read_bytes()
+            expected.write_bytes(contents)
+            unknown = config / "unknown.cmake"
+            unknown.write_bytes(contents)
+            external = Path(temporary) / "external"
+            external.mkdir()
+            external_program = external / "native-cache.cmake"
+            external_program.write_bytes(contents)
+            alias = config / "alias.cmake"
+            alias.symlink_to(expected)
+
+            def refuses(selected: Path) -> None:
+                with (
+                    patch.object(context.subprocess, "check_output") as tool_probe,
+                    self.assertRaisesRegex(context.ContextError, "CMake toolchain"),
+                ):
+                    context.capture(root, {"CMAKE_TOOLCHAIN_FILE": str(selected)})
+                tool_probe.assert_not_called()
+
+            for selected in (unknown, external_program, alias):
+                with self.subTest(selected=selected):
+                    refuses(selected)
+            expected.unlink()
+            expected.symlink_to(external_program)
+            refuses(expected)
+            expected.unlink()
+            refuses(expected)
+            expected.mkdir()
+            refuses(expected)
+            expected.rmdir()
+            alias.unlink()
+            unknown.unlink()
+            config.rmdir()
+            config.symlink_to(external, target_is_directory=True)
+            refuses(expected)
+
     def test_comments_formatting_and_key_order_preserve_typed_toml(self) -> None:
         before = 'a=1\nb=true\nflags=["-C", "one", "two"]\n[nested]\nx="v"\ny=2.0\n'
         after = '# comment\nb = true\nflags = [ "-C", "one", "two", ]\na = 1\n[nested]\ny=2.0\nx="v"\n'
