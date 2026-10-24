@@ -56,7 +56,9 @@ class TerminalComposerTests(unittest.TestCase):
                 native_tests, "ordinary_rust_capture", return_value=(execution, None)
             ),
             patch.object(native_tests, "rust_fixture_bindings", return_value={}),
-            patch.object(test_run.validation_receipts, "verify_native") as verify,
+            patch.object(
+                test_run.validation_receipts, "verify_native_profile"
+            ) as verify,
             patch.object(test_run, "run_rust", return_value=7) as run,
             patch("scripts.surreal_server.observer") as observer,
         ):

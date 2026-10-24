@@ -1307,7 +1307,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
             patch.object(
                 native_tests, "ordinary_rust_capture", return_value=(execution, None)
             ),
-            patch.object(test_run.validation_receipts, "verify_native"),
+            patch.object(test_run.validation_receipts, "verify_native_profile"),
             patch.object(test_run, "run_rust", return_value=7) as run,
         ):
             self.assertEqual(

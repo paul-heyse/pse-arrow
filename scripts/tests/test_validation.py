@@ -1670,6 +1670,36 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validation_receipts.verify_native(native)
 
+    def test_native_profile_check_preserves_threads_without_reading_artifacts(
+        self,
+    ) -> None:
+        native = {
+            "schema": "native-profile-v1",
+            "files": {"/absent/checked-at-execution.so": "retained-digest"},
+            "threads": dict.fromkeys(
+                ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"
+            ),
+        }
+        with patch.object(
+            Path, "open", side_effect=AssertionError("duplicate byte read")
+        ):
+            validation_receipts.verify_native_profile(native)
+            for changed in (
+                {**native, "threads": {}},
+                {**native, "threads": {**native["threads"], "OMP_NUM_THREADS": "2"}},
+            ):
+                with (
+                    self.subTest(profile=changed),
+                    self.assertRaisesRegex(ValueError, "thread budget differs"),
+                ):
+                    validation_receipts.verify_native_profile(changed)
+            for changed in ({**native, "schema": "unknown"}, {**native, "files": {}}):
+                with (
+                    self.subTest(profile=changed),
+                    self.assertRaisesRegex(ValueError, "missing native identity"),
+                ):
+                    validation_receipts.verify_native_profile(changed)
+
     def test_csv_samples_use_units_and_iterations(self) -> None:
         source = self.output / "raw.csv"
         header = "sample_measured_value,unit,iteration_count\n"

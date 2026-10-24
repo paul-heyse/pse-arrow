@@ -828,7 +828,9 @@ def observer_rust(
         and requirements
         and not any(item["effects"] for item in requirements.values())
     ):
-        validation_receipts.verify_native(json.loads(provenance.read_text()))
+        # run_rust authenticates every retained artifact at its execution boundary.
+        # Keep the distinct profile/thread invariant without hashing those files twice.
+        validation_receipts.verify_native_profile(json.loads(provenance.read_text()))
         return run_rust(
             ["cargo", "nextest", "run", *execution],
             env={

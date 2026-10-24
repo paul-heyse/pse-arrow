@@ -44,18 +44,23 @@ def qualified(check: dict) -> bool:
     )
 
 
-def verify_native(native: dict) -> None:
-    """Revalidate the actual binary and linked library bytes, including retained evidence."""
+def verify_native_profile(native: dict) -> None:
+    """Validate profile/thread claims independently of artifact byte authentication."""
     if native.get("schema") != "native-profile-v1" or not native.get("files"):
         raise ValueError("missing native identity")
-    for name, expected in native["files"].items():
-        with Path(name).open("rb") as stream:
-            if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
-                raise ValueError("native binary or linked library changed")
     if native.get("threads") != dict.fromkeys(
         ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"
     ):
         raise ValueError("native thread budget differs")
+
+
+def verify_native(native: dict) -> None:
+    """Revalidate the actual binary and linked library bytes, including retained evidence."""
+    verify_native_profile(native)
+    for name, expected in native["files"].items():
+        with Path(name).open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
+                raise ValueError("native binary or linked library changed")
 
 
 def classify(check: dict, output: Path) -> None:
