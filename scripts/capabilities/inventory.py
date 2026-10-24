@@ -49,6 +49,39 @@ class _Family:
     sources: tuple[str, ...]
 
 
+# Native routes are independent operations; actual MCP members derive from each
+# binding's family rather than a copied command grammar or migration ledger.
+RETENTION = {
+    "source-context": "Canonical task/concept/producer reads coexist with native affected previews and literal source inspection; unresolved dynamic reach stays explicit.",
+    "language-navigation": "Canonical closed navigation uses the owned bridge; finite native request/serve commands remain useful for independent diagnosis.",
+    "controlled-edits": "Canonical preview/apply/reconcile preserves source cuts and protection; native structural migrations and explicit edit probes remain independently useful.",
+    "knowledge-recall": "Canonical exact source corpus preserves attribution; explicit session scans and derived-store import/rebuild retain bounded native owners.",
+    "library-research": "Canonical library packets expose pins and supplied evidence; outline, source fetching and skill-link synchronization retain their explicit native effects.",
+    "environment-preparation": "Canonical environment explanation is effect-free and selected assessments run readiness; installers, image builds and provider preparation retain native ownership.",
+    "build-cache": "Canonical scoped compilation uses the check owner; cache experiments, uncached builds and compiler observers retain distinct populations and native artifacts.",
+    "dependency-maintenance": "Canonical assessments consume advisory reports; named upgrades, lock resolution and family maintenance remain explicit native manifest/Git operations.",
+    "python-extension": "Interactive extension preparation owns Maturin, installation and stubs; assessment profiles consume it without making endpoint startup an installer.",
+    "validation-selection": "Canonical selected Rust invocations and assessments use actual normalized selection/assurance/result owners; Python/parity campaigns retain native scope.",
+    "qualification-assessment": "Canonical selection/run and protected reads share Gate expansion/result composition; recipes remain independently useful native gate executors.",
+    "verification-techniques": "Canonical coverage inspection verifies retained source/population digests; capture, mutation and fuzz retain actual populations and original native execution limits.",
+    "workload-observation": "Canonical detached watch/results consume authentic owners; reference-run setup/drain and direct live observers remain distinct native operations.",
+    "scientific-diagnostics": "Canonical checkpoint/frozen/invocation reads retain offline native codecs; richer scientific diagnostic/execution interfaces remain native.",
+    "active-diagnostics": "Canonical typed actions/readers share capture kernels and helper drain; installation, taskdump builds and specialized trace commands retain native preparation.",
+    "database-tooling": "Canonical toolkit adapters preserve VIEWER credentials/generation fences; lifecycle, schema/module publication and administrative maintenance retain native admission.",
+    "build-storage": "Canonical metadata inspection grants no disposal; recursive measurement and authenticated reclamation retain distinct native lifetime/effect ownership.",
+    "projects-revisions": "Canonical coarse project/revision/research/result bindings retain codecs and immutable identities; portable exchange, studies and full project APIs retain native resource ownership.",
+    "scientific-inputs": "Scientific-input capture/admission and source-bound fixture preparation retain native producers; canonical source admission does not replace them.",
+    "evidence-inspection": "Canonical protected/frozen reads preserve codecs; import/query/export and rebuildable knowledge projections retain native custody/effect admission.",
+    "experiments-recovery": "Canonical archive/inspect/replay shares kernels/historical identity; bisect, comparison, database populations and recovery retain distinct native owners.",
+    "scientific-references": "Named reference/measurement producers retain isolated environments and fresh-run meaning; historical replay is not current scientific qualification.",
+    "generated-contracts": "Canonical contract generation/check shares recipes; full/physical/bindgen generation and compiled-stub publication remain native producer operations.",
+    "documentation-lifecycle": "Canonical scope/build shares metadata/publication owners; retirement remains native preflight, and authoring remains protected repository editing.",
+    "decisions-register": "Canonical concept/scope reads inspect decision status; allocation/supersession and due register-authored checks retain native authoring/execution meaning.",
+    "session-specialists": "Selected sessions attach only the canonical endpoint; native explanation/configuration keeps prepared, attached and exercised distinct.",
+    "producer-workers": "Assessments consume deployment qualification; producer capture and supervised workers remain native infrastructure with original leases/cancellation/admission.",
+}
+
+
 def _family(
     identity: str,
     title: str,
@@ -66,9 +99,9 @@ def _family(
     prerequisites: tuple[str, ...] = (),
     exposure: Literal[
         "tool", "native", "deferred", "internal", "unsupported"
-    ] = "deferred",
+    ] = "native",
     work_owner: str = ADP05,
-    reason: str = "The native route remains usable; typed operation adaptation and caller migration belong to ADP05.",
+    reason: str | None = None,
 ) -> _Family:
     return _Family(
         Capability(
@@ -84,8 +117,8 @@ def _family(
             route=route,
             prerequisites=prerequisites,
             exposure=exposure,
-            reason=reason,
-            work_owner=work_owner,
+            reason=reason if reason is not None else RETENTION[identity],
+            work_owner=work_owner if exposure == "deferred" else None,
         ),
         tuple(recipes.split()),
         tuple(prefixes.split()),
@@ -221,7 +254,7 @@ def _families() -> tuple[_Family, ...]:
             "Selected checks compile/run workloads; native/store fixtures may start only on explicit execution.",
             recipes="test test-package test-release doctest doctest-release parity modeling-conformance seed-conformance functional-test-target feature-absence native-test native-python py-test py-unit py-native-contracts list-native-contracts scientific-replay-miri native-setup-unit",
             prefixes="unit- feature-absence",
-            sources="scripts/arrow_validation.py scripts/validation.py scripts/validation_scope.py scripts/case_audit.py scripts/test_resources.py scripts/validation_feature_campaign.py scripts/native_tests.py scripts/python_tests.py python/pse/conformance.py",
+            sources="scripts/arrow_validation.py scripts/test_invocation.py scripts/test_requirements.py scripts/validation.py scripts/validation_scope.py scripts/case_audit.py scripts/test_resources.py scripts/validation_feature_campaign.py scripts/native_tests.py scripts/python_tests.py python/pse/conformance.py",
             guides=("qualification", "rust", "python"),
             workflows=("qualify-change",),
             route=("just", "assessment-list"),

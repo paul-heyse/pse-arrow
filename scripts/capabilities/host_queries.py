@@ -82,6 +82,19 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             build_storage.stores(root,pse_env.base_environment(root,os.environ)),metadata_only=True),
             "reclamation_authorized":False})
 
+    def library_source_packet(package: str, references: Annotated[list[str],Field(max_length=32)] = [],
+        features: Annotated[list[str],Field(max_length=128)] = [], target: str | None = None,
+        cargo_metadata: str | None = None, rustdoc: str | None = None) -> ReadResult:
+        """Read an exact dependency pin/lock and selected source/API evidence. Supplied build metadata keeps its provenance and unknowns; this never resolves packages, downloads, compiles or infers missing library capability."""
+        from scripts import workspace_sources
+        return owner_read("library_source_packet",lambda:workspace_sources.library_packet(package,root=root,
+            references=tuple(references),features=tuple(features),target=target,cargo_metadata=cargo_metadata,rustdoc=rustdoc))
+
+    def coverage_correspondence_read(directory: str, base: str) -> ReadResult:
+        """Inspect a retained coverage capture against an exact Git base. Verify captured report/population digests and retain source freshness, uncovered regions and correspondence limits; coverage is not behavioral adequacy."""
+        from scripts import coverage_correspondence
+        return owner_read("coverage_correspondence_read",lambda:coverage_correspondence.inspect(root/ directory,base))
+
     entries = (
         (environment_explain,"environment","environment-preparation","scripts/pse_env.py",("environment",)),
         (knowledge_source_corpus,"knowledge","knowledge-recall","scripts/knowledge_store.py",("root",)),
@@ -90,6 +103,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         (assessment_read,"validation","qualification-assessment","scripts/validation_result.py",("qualification",)),
         (workload_watch,"execution","workload-observation","scripts/activity_watch.py",("environment",)),
         (storage_observe,"environment","build-storage","scripts/build_storage.py",("environment",)),
+        (library_source_packet,"knowledge","library-research","scripts/workspace_sources.py",("root",)),
+        (coverage_correspondence_read,"validation","verification-techniques","scripts/coverage_correspondence.py",("qualification",)),
     )
     tools = {}; specs = []
     for function,domain,family,source,guides in entries:

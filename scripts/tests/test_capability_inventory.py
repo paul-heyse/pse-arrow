@@ -118,16 +118,16 @@ class InventoryTests(unittest.TestCase):
             row = capabilities[identity]
             self.assertEqual((row.domain, row.owner), (domain, owner))
             self.assertTrue(row.route)
-            self.assertEqual(row.exposure, "deferred")
+            self.assertEqual(row.exposure, "native")
+            self.assertTrue(row.reason)
         self.assertEqual(capabilities["host-implementation"].exposure, "internal")
         self.assertEqual(capabilities["git-integration"].exposure, "native")
         self.assertEqual(capabilities["scientific-python-api"].exposure, "native")
         self.assertIn(
             "Rust reader/parser/P0", capabilities["scientific-inputs"].description
         )
-        scientific_work_owner = capabilities["scientific-inputs"].work_owner
-        assert scientific_work_owner is not None
-        self.assertIn("ADP04", scientific_work_owner)
+        self.assertIsNone(capabilities["scientific-inputs"].work_owner)
+        self.assertTrue(capabilities["scientific-inputs"].reason)
         self.assertIn(
             "Instruction retrieval only",
             capabilities["skill-plan-functional-extension-review"].effects,

@@ -60,6 +60,16 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(item["reclaimable_bytes"])
             self.assertIn(item["status"],{"metadata-only","unavailable","alias"})
 
+    async def test_library_packet_uses_actual_exact_pin_without_building(self) -> None:
+        with patch("subprocess.run",side_effect=AssertionError("library packet must not build or resolve")):
+            result=await self.call("library_source_packet",{"package":"fastmcp"})
+        self.assertIn("4.1.3",json.dumps(result))
+        self.assertIn("pyproject.toml",json.dumps(result))
+
+    async def test_coverage_capture_requires_actual_structured_owner_evidence(self) -> None:
+        with self.assertRaises(ToolError):
+            await self.call("coverage_correspondence_read",{"directory":"docs/dev","base":"HEAD"})
+
 
 if __name__ == "__main__":
     unittest.main()
