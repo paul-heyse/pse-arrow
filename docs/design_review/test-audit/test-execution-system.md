@@ -1,215 +1,80 @@
 # Test execution system architecture
 
-Findings about the test execution machinery as software: its module structure, its
-composition roots, where test requirements are declared, and how it depends on the test tools
-it drives. Baseline and limits are in the [collection README](README.md). Citations are
-`path:line` at source commit `cbda2efc6`. All findings on this page come from the second,
-principle-directed pass on 2026-10-23.
+Current source baseline `05e6a2b8a`, 2026-10-23. The holistic follow-up
+revalidates each primary finding below; diagnoses are *Interface-checked*, not new test results.
+See the [integrated architectural account](architecture-and-assurance.md),
+[baseline and revalidation outcomes](README.md#revalidation-outcomes), and the
+[test-assessment companion](../design_principles/core/test-assessment.md).
 
-## <a id="dta-022"></a>DTA-022 — The runner re-derives nextest's resolved state from command lines and TOML text, and each site covers a different subset
+## <a id="dta-022"></a>DTA-022 — Runner consumers independently interpret selection, profiles and fixture identity
 
-**Principles:** DP-13, DP-14, DP-01, AP-05, DP-21; companion §6, §8.
+**Principles:** AP-02, AP-03, AP-04, DP-01, DP-14; companion §6.
 
-**Claim at risk.** Section 24.1 claims that "one terminal composer reconciles actual selection,
-failure, cancellation and missing evidence". The tooling rule says recipes stay thin and leave
-selection to nextest.
+**Follow-up disposition:** Confirmed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
 
-**Diagnosis.** No stage takes the resolved profile, options or test identity from nextest. Each
-stage re-parses what it needs, in four places.
+`test_run.rust_report_command` recognizes long profile options while the Arrow composer accepts
+`-P`; the report overlay can target a different profile from execution. `validation.native_report_config`
+also rewrites TOML with different behavior. Managed selection and composer accepted-option
+tables recognize different filter forms. Fixture identity is reconstructed in Rust
+`testing::selected_fixture_identity` and Python `test_resources.selected_test`.
 
-*Profile.*
-- `rust_report_command` (`scripts/test_run.py:587-594`) recognizes only `--profile` and
-  `--profile=`.
-- nextest also accepts `-P` and the `NEXTEST_PROFILE` environment variable, and
-  `scripts/arrow_validation.py:143` accepts `-P`.
-- With `-P local`, the runner rewrites the default profile's JUnit path while nextest writes
-  `target/nextest/local/junit.xml`. The invocation's report then never appears, every selected
-  test becomes `not_run` and every fixture stays pinned. Because of
-  [DTA-012](evidence-routes-and-execution.md#dta-012), the command still exits 0.
+The composed requirement is stronger than each parser accepting its local inputs: actual
+selection, overlay and report must describe the same execution. This mismatch is source-visible;
+no fresh CLI probe was run. Executable authentication and explicit refusal of unknown scope are
+important safeguards. Replacing them with unauthenticated environment labels would lose assurance.
 
-*Configuration rewriting.* Two regular-expression TOML rewriters do the same job differently
-(`test_run.py:587-621`; `scripts/validation.py:451-467`). One appends a table when the pattern
-misses; the other raises unless it matches exactly once.
+## <a id="dta-023"></a>DTA-023 — Preparation and qualification selections require name-keyed maintenance
 
-*Option grammars.* Several independent grammars disagree:
-- `arrow_validation.py:94-178` lacks `--filterset`, nextest's primary long name.
-- `scripts/native_tests.py:923-950` and `:858-907` accept different option sets.
-- `native_tests.py:910-920` accepts `-r`, which composition refuses.
+**Principles:** AP-01, AP-05, DP-24; companion §6, §8.
 
-So valid nextest syntax is accepted at one stage and refused at another.
+**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
 
-*Test identity.*
-- The Rust fixture reads its own process arguments for `--exact`
-  (`crates/pse-operations/src/testing.rs:221-240`).
-- The registry reads `/proc/<ppid>/cmdline` and `/proc/<ppid>/exe`
-  (`scripts/test_resources.py:423-456`).
-- nextest exports `NEXTEST_TEST_NAME`, `NEXTEST_BINARY_ID` and `NEXTEST_RUN_ID` to every test
-  process. None is used in the repository.
+`RUST_FIXTURE_TESTS`, nextest requirements and `validation_scope.comprehensive` maintain test-name
+knowledge outside the bodies. The dead python-runner recipe selects removed tests. Renaming a
+Clarabel absence control can drop it from a selected qualification union without making the
+remaining selection empty. This creates cross-owner maintenance for an ordinary test change.
 
-**Consequence.**
-- Missing evidence and pinned resources are hidden in the profile case.
-- Valid nextest syntax behaves differently by route.
-- A nextest upgrade can change one parsed surface and not the others ([DTA-024](#dta-024)).
+**Corrected composition.** Supervised unit-package does prepare the special fixtures:
+select → run_rust → observer_rust → ordinary_rust_capture → _rust_capture →
+prepare_rust_fixtures, with rust_fixture_bindings forwarding them. The earlier claim that this
+route always fails those tests was false. The absence gate is also not the control's only possible
+route: a suitable ordinary non-Pardiso selection can run it. Keep the name-dependent campaign
+correspondence issue, rather than treating all manual controls as routeless.
 
-**Counterevidence.**
-- Composition fails closed on unknown options.
-- nextest's per-test JSON output is experimental, so isolating a JUnit path per invocation needs
-  a configuration overlay.
-- The `/proc` check binds the executable path, which environment variables alone do not.
+## <a id="dta-024"></a>DTA-024 — Reuse identities omit consequential generator inputs and test-tool identity
 
-**Probe.** Run `just unit-package pse-ids <word> -P local`, then inspect the terminal file and the
-exit status.
+**Principles:** AP-02, DP-09, DP-15, DP-22; companion §6, §8.
 
-## <a id="dta-023"></a>DTA-023 — Test execution requirements and qualification selections live in name-keyed runner tables away from the tests, and drift is caught inconsistently
+**Follow-up disposition:** Confirmed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
 
-**Principles:** DP-01, DP-16, DP-22, DP-24, AP-05; companion §6; the binding's
-delete-replaced-code rule.
+`bootstrap.sh` installs current cargo-tool releases; no required nextest version is declared,
+although integration code depends on tool behavior. Per-gate `validation_scope.input_identity`
+and retained artifact checks do not capture a test-tool identity. This is a compatibility/reuse
+premise gap, not evidence that the installed tools presently misbehave.
 
-**Claim at risk.**
-- Section 24.1: "Test selection belongs to nextest and pytest; no exact-name acceptance manifest
-  exists."
-- DP-24: the extension path for a new test is discoverable.
+The generator omission is concrete: generation scope excludes packages, while
+`xtask/src/codegen/physical.rs::load` reads `packages/reference/fixture-projection.toml` and its
+selected package inputs. Explicit unchanged-input reuse can therefore miss a consumed edit.
+Whole-run source capture still records it. The earlier statement that current provenance captures
+rustc -Vv was not established and is removed; source, host and Cargo metadata are distinct facts.
+No current tool version or historical run was requalified here.
 
-**Diagnosis.** A test's needs are declared in runner tables keyed by exact names, substrings or
-module lists, with no check against the actual test inventory. Those needs include its feature
-gate, exclusivity, prepared fixture, qualification gate and focused recipe.
+## <a id="dta-026"></a>DTA-026 — Reciprocal lifecycle dependencies and several roots obstruct local test-system reasoning
 
-*Dead recipe.*
-- `python-runner-unit-test` (`justfile:227-231`) selects `test(python_selection_)` in xtask.
-- No such test exists at baseline; it was removed with `xtask/src/python_tests.rs` in
-  `ff5a4aa2f` (2026-10-11).
-- The recipe now exits with nextest's no-tests status, while its description still advertises
-  "Focused explicit Python target selection controls".
+**Principles:** AP-01, AP-03, AP-06, DP-17; companion §6, §8.
 
-*A qualification control can be lost silently.*
-- The `feature-absence` gate (`scripts/validation_scope.py:278-297`) selects
-  `test(feature_absence::) | test(clarabel_tests::clarabel_mkl_pardiso_refused_without_profile)`.
-- That control only compiles without `clarabel-pardiso`
-  (`crates/pse-backend-native/src/clarabel_tests.rs:577-579`), so this gate is its only route.
-- If the control is renamed, the union still matches other tests, nothing errors, and the
-  control quietly disappears from qualification.
+**Follow-up disposition:** Reframed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
 
-*Fixture preparation by exact name.* `scripts/native_tests.py:678-693` ties two prepared-fixture
-variables to two exact test paths. A rename fails loudly, but bare and `unit-package` runs always
-fail those two tests.
+Reciprocal imports connect test_run/native_tests/validation, validation_receipts/test_resources,
+and test_resources/surreal_server. The server supervisor interprets registry lifecycle fields;
+registration and removal call service readiness/admission owners. Explaining one composed test
+run requires following these dependencies, and multiple entry roots deliver the concrete
+guarantee differences in DTA-015 and option/report mismatch in DTA-022.
 
-*Exact-name gates.* Gates at `validation_scope.py:228` and `:244` fail loudly on rename, but they
-contradict the §24.1 claim.
-
-*No map for new tests.* Nothing tells an author which place a new test's requirement belongs
-in. The choices are:
-- `canonical-tests` cfg plus `*_server_unit` naming;
-- the exclusive list;
-- `RUST_FIXTURE_TESTS`;
-- a `validation_scope` gate;
-- a recipe filter.
-
-**Consequence.**
-- A lost qualification control can go unnoticed.
-- A misleading command remains advertised.
-- Maintenance grows with the number of tests.
-
-[DTA-016](evidence-routes-and-execution.md#dta-016) is the scheduling manifestation of this
-cause and keeps its own identity.
-
-**Suspected.** Two Ipopt- and POUNCE-backed sensitivity tests sit outside the `scientific`
-override's module list (`crates/pse-backend-native/src/kkt/sensitivity/tests.rs:794-799,912-916`).
-Whether their solver pools matter was not established.
-
-**Counterevidence.**
-- Python declares requirements at the test, through markers and fixture-driven `xdist_group`,
-  which survives renames.
-- Most tables fail loudly.
-- Every other recipe filter and hand-listed module matched a current test at baseline.
-
-## <a id="dta-024"></a>DTA-024 — Cargo test tools float while runner code depends on their version-specific behavior, and evidence reuse does not key on tool versions
-
-**Principles:** DP-15, DP-09, DP-01; companion §6, §8.
-
-**Diagnosis.**
-- `scripts/bootstrap.sh:26-35` installs the current release of each cargo tool ("the tool set,
-  not its versions").
-- At baseline:
-  - the installed `cargo-nextest` is 0.9.146, while `docker/solvers/Dockerfile:190` names
-    0.9.143;
-  - `.config/nextest.toml` sets no `nextest-version` requirement;
-  - `cargo-insta` 1.48.0 is installed against `insta = "=1.49.0"`.
-- `scripts/cargo_feature_check.py:5-8` depends on "cargo-hack 0.6.45 selects
-  CARGO_HACK_CARGO_SRC before CARGO", a source-level behavior the cargo-hack README does not
-  document.
-- The runner parses nextest's list JSON and option grammar ([DTA-022](#dta-022)).
-- The evidence-reuse key covers files, the environment and `rustc -Vv`, but no test-tool
-  version (`scripts/validation_scope.py:463-500`; `scripts/validation.py:66-103`).
-
-**Consequence.**
-- A tool upgrade can silently change selection, report or feature-check behavior.
-- An "unchanged-input" reuse can carry an observation across that upgrade.
-- If cargo-hack stopped honoring the variable, the feature-powerset check would quietly lose its
-  adapter (suspected).
-
-**Counterevidence.**
-- The Python test tools are pinned exactly.
-- `doctor` records tool versions.
-- Reuse must be requested explicitly.
-- The float is deliberate per the bootstrap comment.
-- nextest supports `nextest-version = { required = … }`, so a minimum is expressible.
-
-**Uncertainty.** Whether cargo tools count as "toolchain" under the repository's pin policy is
-unresolved. The finding is the gap between version-specific dependence and an unbound version,
-not the policy itself.
-
-**Third-pass extension (DP-09; H13).** The same reuse mechanism also omits generator inputs.
-- `declared()` maps `codegen-*` gates to the "generation" scope (`scripts/validation_scope.py:36-42`).
-  That scope excludes `packages/`, `tests/` and `vendor/` (`:435-450`).
-- The relations and physical generators read `packages/reference/fixture-projection.toml` and the
-  physical and fixture packages (`xtask/src/codegen/physical.rs:44-56`).
-- So an explicit unchanged-input reuse of `codegen-physical-check` or `codegen-relations-check` can
-  carry a pass across an edit to the sources of `crates/pse-quantity/src/generated`.
-- The per-gate mid-run check uses the same scope. The run-level change record does still note the
-  edit.
-
-## <a id="dta-026"></a>DTA-026 — The runner, receipt, resource and server modules form one cyclic component with several composition roots for Rust test runs
-
-**Principles:** AP-01, AP-03, AP-05, DP-17; companion §6, §8.
-
-**Claim at risk.** A test run's selection, resource association, verdict and exit status each have
-an identifiable owner that can change on its own.
-
-**Diagnosis.** The runner and resource modules are one strongly connected import component. It is
-held together by about 75 function-local imports annotated as owner, reciprocal-owner or service
-cycles. The edges include:
-- `test_run` ↔ `native_tests` (`scripts/test_run.py:527,553,632,750`; `scripts/native_tests.py:1283,1297,1399`);
-- `test_run` ↔ `validation`;
-- `native_tests` ↔ `validation`;
-- `validation_receipts` ↔ `test_resources`;
-- `surreal_server` ↔ `test_resources`:
-  - the server supervisor imports the test registry at module top
-    (`scripts/surreal_server.py:53-61`);
-  - its stop/drain path reads untyped registry records;
-  - `test_resources` imports `surreal_server` locally seven times.
-- `host_admission` ↔ `native_operation` ↔ `pse_env`.
-
-The component spans about 23,800 lines. Product tests depend on it: Python product tests import
-it (`python/pse/tests/conftest.py:23`), and Rust fixtures run `scripts.test_resources` as a
-subprocess. Rust runs have at least four composition roots:
-- `arrow_validation.main`, used by raw recipes and the `cargo t` alias;
-- `test_run.run_rust`, used by `select.py` and `native_tests`;
-- `affected.py`;
-- the `validation.py` groups.
-
-**Consequence (change amplification; obstructs diagnosis).**
-- Correcting [DTA-012](evidence-routes-and-execution.md#dta-012) touches `execute_selected`,
-  every pass-through route and cleanup semantics owned by `test_resources`.
-- A registry record change reaches the server supervisor.
-- The route-dependent guarantees in [DTA-015](evidence-routes-and-execution.md#dta-015) follow
-  from the multiple roots.
-
-**Counterevidence.** Each cycle edge carries an owner rationale. Several reciprocal dependencies
-reflect a genuinely shared lifecycle: the server must not stop while a fixture borrows it. About
-20,000 lines of tests cover these scripts.
-
-**Uncertainty.** How much of the component is test-specific versus general workload machinery is
-not established.
-
-**Related.** [DA-019](../audit/boundaries-and-composition.md#da-019) concerns Python tooling restating
-Rust contracts, a different cause. It was not reexamined.
+**Corrected footprint.** Registry ResourceRecord is a TypedDict, not an untyped record. Host
+admission, native process drain and environment ownership serve general workloads; their whole
+code/test volume cannot be charged to test-only support. Pass-through callers already return an
+integer, so fixing return/verdict policy does not demonstrably require editing all of them.
+Multiple roots or cycles alone do not prove a violation: lifecycle safety genuinely needs
+coordination, and extensive actual-process tests challenge it. Retain demonstrated local-reasoning
+and composed-contract issues, without prescribing file splitting or a new runner framework.
