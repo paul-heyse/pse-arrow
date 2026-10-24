@@ -565,8 +565,11 @@ deliberately with `just --yes <recipe>`.
 workload admission or startup preparation. Each attachment owns a process. Follow the
 [capability interface guide](capability-interface.md) for connection configuration, exact
 browse/describe/select/reset, progressive instructions and same-endpoint read/action invocation
-for hosts retaining a static callable inventory. `just codex-session` configures this one attachment
-and demand-driven internal language/database resources. Native tool routes remain available;
+for hosts retaining a static callable inventory. Trusted-project Codex startup loads the checked-in
+`.codex/config.toml` attachment through `just --quiet capabilities`, including from checkout
+subdirectories; restart the client/MCP connection after configuration changes and inspect `/mcp`.
+`just codex-session` supplies explicit selected-service/language overrides to the same attachment
+and demand-driven internal resources. Native tool routes remain available;
 effectful operation admission, source protection and terminal/drain truth retain their native owners.
 Scientific reads require an explicitly prepared compatible extension/import environment, as the
 interface guide describes; browsing performs no such preparation. Restart for relevant

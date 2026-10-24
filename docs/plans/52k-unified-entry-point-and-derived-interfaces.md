@@ -375,3 +375,39 @@ through its complete owned resource and the journey passed. C04's separately den
 and independent Plan28/32/40/53 work are unchanged. Enduring workflows live in the
 [capability interface guide](../dev/capability-interface.md). This completed companion remains
 retained for the active coordinator and H01–H04 consumers rather than retiring their evidence.
+
+### Post-delivery attachment and hands-on assessment — 2026-10-24
+
+**Implemented:** the maintainer's request to use the interface in an ordinary Codex session
+exposed an attachment gap: the explicit `codex-session` launcher supplied the endpoint, but
+ordinary project startup did not. The project config now registers the existing fixed
+`just --quiet capabilities` recipe with finite startup/tool timeouts and disables the inherited
+standalone Rust transport. This changes neither approval policy nor native operation admission.
+No new launcher, global registration or hard-coded checkout path was introduced.
+
+**Tested:** `codex mcp get pse-capabilities --json` through the checkout environment resolved
+the enabled required attachment from both root and `docs/plans`. A direct persistent FastMCP
+client launched that exact configured transport from `docs/plans`, received eleven bootstrap
+tools, and exercised twenty read/presentation calls. The agent used discovery, descriptions,
+selection, actual plan/package context, recipe inspection, exact concept querying, the original
+frozen test result reader, workflow prompt and reset. It independently obtained the current
+MCP03 complete state and original invocation `1b7e8e57c5d5410c8a79e7341f6772b8` with one pass,
+assurance pass and complete drain. Two concept requests refused (one unsupported-vocabulary
+control and one identity-grammar recovery); the corrected exact identity succeeded. A hidden
+read after reset refused as intended, but its client-facing error was generic. Raw request/
+response evidence remains at `build/capabilities-52k/usability-assessment/`.
+
+This is hands-on protocol evidence, not proof that the already-running parent Codex session
+has reloaded native tools. That session exposed no canonical tools at inspection; a fresh/reloaded
+attachment is required for the maintainer-requested direct native-tool assessment. The prior fresh
+Codex action journey retains its separate accepted evidence.
+
+**Proposed improvement opportunities from actual use:** expose the supported concept vocabulary
+and identity examples in the callable schema, and return actionable visibility/selection errors
+instead of a generic invoker failure. Correct recipe-owner metadata still pointing to the removed
+`scripts/capabilities.py`. Reduce routine context transfer through instruction-resource references
+and selected detail sections: selecting two read tools returned about 48 KB, and `inspect-plan`
+revealed 24 operations with about 80 KB of response content. The exact single-package query was
+about 12 KB. These are observed response sizes, not measured productivity claims. CAP/ADP's
+existing definition owners and G03's remaining task-effectiveness work are the appropriate routes;
+this assessment does not authorize or claim those additional implementation changes.

@@ -16,6 +16,21 @@ enabled = true
 default_subagent_model = "gpt-6.1-sol"
 default_subagent_reasoning_effort = "high"
 
-# `just codex-session` selects this checkout's canonical attachment and disables
-# actual inherited specialist transports. Do not declare empty disabled servers:
-# Codex validates their transport even when enabled=false.
+# Ordinary Codex startup discovers this checkout's existing fixed STDIO recipe.
+# Just finds the nearest justfile even when Codex starts in a checkout subdirectory;
+# the recipe selects that checkout's absolute .venv interpreter and repository cwd.
+[mcp_servers.pse-capabilities]
+command = "just"
+args = ["--quiet", "capabilities"]
+enabled = true
+required = true
+startup_timeout_sec = 30
+# Explicit native actions can include cold compilation; native owners retain drain.
+tool_timeout_sec = 1800
+
+# This workstation inherits a standalone Rust attachment. Keep it disabled here:
+# the canonical endpoint owns lazy language access. A complete fallback transport
+# avoids an invalid transportless entry on a host without that inherited setting.
+[mcp_servers.rust-analyzer]
+command = "rust-analyzer-mcp"
+enabled = false

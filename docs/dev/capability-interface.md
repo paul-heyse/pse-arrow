@@ -33,6 +33,23 @@ uses the same command/args/cwd under `mcp_servers.pse-capabilities`; see the
 is not evidence of attachment or exercised behavior. Language and selected database operations use
 owned lazy connections inside this endpoint, retaining their native identity and admission owners.
 
+Ordinary Codex startup in this trusted project now reads the checked-in `.codex/config.toml`
+attachment: `just --quiet capabilities`. Just finds the checkout's recipe from nested directories
+and that recipe chooses its own absolute interpreter and repository working directory. No fixed
+machine path or global server registration is needed. Startup has a 30-second timeout; explicit
+tools have a 1,800-second host timeout to accommodate native preparation. Native timeouts,
+cancellation and drain remain operation-owned; a host timeout does not prove settlement.
+The inherited standalone Rust attachment is disabled for this project with a complete disabled
+transport declaration, so hosts without that inherited entry also have valid configuration.
+Other global tools and approval policy remain inherited.
+
+After changing attachment configuration, restart the Codex client/extension or its MCP connection
+and inspect `/mcp`. `codex mcp get pse-capabilities --json` verifies the resolved configuration;
+seeing the eleven bootstrap tools and calling `capabilities_workflows` verifies actual access.
+An already-running session may retain its old server inventory. `just codex-session` remains the
+explicit route for selected database/language overrides; it is no longer required just to attach
+the canonical endpoint during ordinary checkout use.
+
 This fixed read/control launch intentionally does not enter workload admission, synchronize packages,
 prepare a compiler, start a store or import the native extension. It does not accept an arbitrary
 executable. Explicit actions enter their existing environment/admission owner when invoked.
