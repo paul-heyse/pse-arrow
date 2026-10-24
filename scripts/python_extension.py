@@ -110,12 +110,14 @@ def validated_maturin_command(
     environment: Mapping[str, str],
     *,
     wrapper: Sequence[str] = (),
+    root: Path | None = None,
 ) -> list[str]:
     """Prove actual Arrow leaves before invoking the unchanged installer selection."""
-    cargo = maturin_cargo_command(command, ROOT)
+    root = ROOT if root is None else root
+    cargo = maturin_cargo_command(command, root)
 
     def capture_graph(selected: Sequence[str]) -> bytes:
-        return capture_build_graph(selected, environment, wrapper=wrapper)
+        return capture_build_graph(selected, environment, wrapper=wrapper, root=root)
 
     resolution = arrow_validation.resolve(cargo, run=capture_graph)
     # resolve only appends opt-in features; keep Maturin's packaging options and
@@ -128,11 +130,16 @@ def capture_build_graph(
     environment: Mapping[str, str],
     *,
     wrapper: Sequence[str] = (),
+    root: Path | None = None,
 ) -> bytes:
     """Use the installer's checkout, environment and capability boundary for Cargo."""
     selected = [*wrapper, *command]
     response = subprocess.run(
-        selected, cwd=ROOT, env=environment, capture_output=True, check=False
+        selected,
+        cwd=ROOT if root is None else root,
+        env=environment,
+        capture_output=True,
+        check=False,
     )
     if response.returncode:
         raise arrow_validation.ValidationError(

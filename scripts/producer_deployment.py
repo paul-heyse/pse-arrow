@@ -725,12 +725,19 @@ def capture(
                 if name == "python":
                     # Maturin selects the only Python realization. Its actual Cargo
                     # child is observed and sealed before packaging can continue.
-                    installer_env = producer_cargo.configure(
-                        root, output, command[2:], role_env
-                    )
-                    installer_env["VIRTUAL_ENV"] = str(root / ".venv")
-                    result = subprocess.run(
+                    installer_env = {**role_env, "VIRTUAL_ENV": str(root / ".venv")}
+                    installer_command = python_extension.validated_maturin_command(
                         python_extension.develop_command(root, "native", "producer"),
+                        installer_env,
+                        root=root,
+                    )
+                    # Graph discovery must precede installing the single-use Cargo
+                    # observer: it neither consumes nor substitutes its actual child.
+                    installer_env = producer_cargo.configure(
+                        root, output, command[2:], installer_env
+                    )
+                    result = subprocess.run(
+                        installer_command,
                         cwd=root,
                         env=installer_env,
                         stdout=log,

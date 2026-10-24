@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import producer_deployment as deployment
+from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,6 +30,14 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.output = self.root / "evidence"
         self.environment = {}
+        self.actual_graph_proof = deployment.python_extension.validated_maturin_command
+        self.graph_proof = self.enterContext(
+            patch.object(
+                deployment.python_extension,
+                "validated_maturin_command",
+                side_effect=lambda command, *_args, **_kwargs: list(command),
+            )
+        )
         cargo = patch.object(
             deployment.producer_cargo,
             "cargo_executable",
@@ -365,6 +374,111 @@ class ProducerDeploymentTests(unittest.TestCase):
             set(self.verified_receipts()),
             {"runtime", "worker", "python"},
         )
+
+    def test_python_graph_proof_precedes_single_use_observer_without_changing_child(
+        self,
+    ) -> None:
+        (self.root / "pyproject.toml").write_text(
+            '[tool.maturin]\nbindings = "pyo3"\n'
+            'manifest-path = "crates/pse-py/Cargo.toml"\nlocked = true\n'
+        )
+        cargo = Cargo(
+            [
+                package("pse-py", "force-validate"),
+                package("arrow-array", "force_validate"),
+            ],
+            graph(
+                [
+                    unit("pse-py", [1], features=["force-validate"], target="_native"),
+                    unit("arrow-array", features=["force_validate"]),
+                ]
+            ),
+        )
+
+        def capture_graph(
+            command: list[str], environment: dict[str, str], *,
+            wrapper: tuple[str, ...], root: Path,
+        ) -> bytes:
+            self.assertEqual(root, self.root)
+            self.assertEqual(wrapper, ())
+            self.assertEqual(environment["VIRTUAL_ENV"], str(self.root / ".venv"))
+            self.assertNotIn(deployment.producer_cargo.CAPTURE, environment)
+            self.assertFalse((self.output / "python-installer-cargo.json").exists())
+            return cargo(command)
+
+        with (
+            patch.object(
+                deployment.python_extension, "validated_maturin_command",
+                side_effect=self.actual_graph_proof,
+            ),
+            patch.object(
+                deployment.python_extension, "capture_build_graph",
+                side_effect=capture_graph,
+            ),
+            patch.object(
+                deployment.subprocess, "run", side_effect=self.actual_capture()
+            ) as run,
+        ):
+            deployment.capture(self.root, self.output, self.environment)
+        self.assertEqual(len(cargo.commands), 2)
+        selected = cargo.commands[1]
+        self.assertEqual(selected[selected.index("--profile") + 1], "producer")
+        self.assertEqual(
+            selected[selected.index("--features") + 1], "force-validate,native-solvers"
+        )
+        installer = next(
+            call for call in run.call_args_list
+            if Path(call.args[0][0]).name == "maturin"
+        )
+        self.assertEqual(
+            installer.args[0],
+            deployment.python_extension.develop_command(self.root, "native", "producer"),
+        )
+        self.assertEqual(
+            installer.kwargs["env"]["CARGO"], str(self.root / "scripts/producer-cargo")
+        )
+        self.assertTrue((self.output / "python-installer-cargo.status.json").is_file())
+        self.assertTrue((self.output / "observed-artifacts.json").is_file())
+
+    def test_python_missing_host_leaf_refuses_before_observer_or_installer(self) -> None:
+        (self.root / "pyproject.toml").write_text(
+            '[tool.maturin]\nbindings = "pyo3"\n'
+            'manifest-path = "crates/pse-py/Cargo.toml"\nlocked = true\n'
+        )
+        cargo = Cargo(
+            [
+                package("pse-py", "force-validate"),
+                package("arrow-array", "force_validate"),
+            ],
+            graph(
+                [
+                    unit("pse-py", [1, 2], features=["force-validate"], target="_native"),
+                    unit("arrow-array", features=["force_validate"], platform="target"),
+                    unit("arrow-array"),
+                ]
+            ),
+        )
+        with (
+            patch.object(
+                deployment.python_extension, "validated_maturin_command",
+                side_effect=self.actual_graph_proof,
+            ),
+            patch.object(
+                deployment.python_extension, "capture_build_graph",
+                side_effect=lambda command, *_args, **_kwargs: cargo(command),
+            ),
+            patch.object(
+                deployment.subprocess, "run", side_effect=self.actual_capture()
+            ) as run,
+            self.assertRaisesRegex(ValueError, "host build unit"),
+        ):
+            deployment.capture(self.root, self.output, self.environment)
+        self.assertFalse((self.output / "python-installer-cargo.json").exists())
+        self.assertFalse(
+            any(Path(call.args[0][0]).name == "maturin" for call in run.call_args_list)
+        )
+        self.assertTrue((self.output / "preparation/FAILED").is_file())
+        self.assertTrue((self.output / "deployment-error.log").is_file())
 
     def test_python_native_inputs_can_use_common_reviewed_list(self) -> None:
         self.environment.pop("PSE_PYTHON_PRODUCER_INPUTS")
