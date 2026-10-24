@@ -206,7 +206,14 @@ SOURCE_PATHS = (
 )
 
 
-def sources(root: Path) -> dict[str, str]:
+def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
+    """Capture sufficient declared inputs without opening unrelated source files.
+
+    The default retains the whole provenance/archive domain. Resolved symlink
+    content belongs to scoped consumed-input observations, separately from the
+    link identity retained by whole-source archives.
+    """
+    from scripts.validation_scope import includes_input  # noqa: PLC0415
     names = git(
         root,
         "ls-files",
@@ -219,6 +226,8 @@ def sources(root: Path) -> dict[str, str]:
     )
     result = {}
     for name in sorted(set(names.decode().split("\0")) - {""}):
+        if not includes_input(scope, name):
+            continue
         path = root / name
         if path.is_symlink():
             data = b"symlink:" + os.fsencode(path.readlink())
@@ -227,6 +236,15 @@ def sources(root: Path) -> dict[str, str]:
         else:
             data = b"absent"
         result[name] = hashlib.sha256(data).hexdigest()
+        if scope is not None and path.is_symlink() and path.is_file():
+            resolved = str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()
+            result["resolved:" + name] = hashlib.sha256(resolved).hexdigest()
+    if scope is not None and includes_input(scope, "scripts"):
+        local = root / ".envrc.local"
+        data = b"symlink:" + os.fsencode(local.readlink()) if local.is_symlink() else b"absent"
+        if local.is_file():
+            data += str(local.stat().st_mode & 0o777).encode() + b":" + local.read_bytes()
+        result[".envrc.local"] = hashlib.sha256(data).hexdigest()
     return result
 
 

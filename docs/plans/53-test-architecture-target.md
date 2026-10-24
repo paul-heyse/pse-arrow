@@ -135,7 +135,7 @@ B02's typed refusal direction fits the existing §23.2 source-owned typed-cause 
 
 ## Package state and execution route
 
-This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01–C05 are authorized; D–G remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
+This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01–C05 are authorized; D01–D04, E01–E05 and F01–F03 plus applicable G01/G02 integration/publication are now authorized on main by the operator on 2026-10-24. A04/I10 includes bounded investigation and corrections within existing scientific contracts; broader solver/formulation redesign remains separately selected. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
@@ -461,3 +461,19 @@ Plan52i–52k retain FastMCP exposure, adaptation and host qualification. No sec
 result authority, broad repository-health check or measured speed claim is introduced. A04 and
 D–G retain their separate scope. The three clean implementation worktrees and their branches
 were removed after verifying every patch was integrated into main.
+
+## Remaining-architecture execution checkpoint — 2026-10-24
+
+The operator authorized the conversational execution approach on main after Plan52k delivery.
+The selected scope is all D/E/F, bounded A04 investigation and repair, and applicable joined
+qualification/publication. PI09/52f F03, endpoint inquiry I14, 52c/C04 and unrelated Plan52 work
+remain unselected. Root owns shared format/custody/contracts, integration, plans and commits.
+Preparation, complete fixture settlement and selected scientific corrections have bounded owners;
+shared Cargo preparation is serialized and stored-state activation waits for its combined
+converter/readers and authenticated writer preflight.
+
+D01/D04's first delivered corrections select source scope before bytes, include generation package
+inputs and remove only aggregate physical/Rust-contract duplication. Existing full provenance and
+independent generation routes remain. Real tool/version and unsupported-shape controls exercise
+the existing nextest owner. D02/D03 and E/F work remain in progress; no aggregate qualification,
+numeric speed claim or storage activation is established by these initial controls.

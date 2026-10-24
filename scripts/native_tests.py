@@ -204,19 +204,7 @@ def correctness_resolution(
 
 def rust_source_identity() -> dict:
     """Use the existing complete Rust input owner, including missing tracked files."""
-    from scripts.validation_scope import input_identity  # noqa: PLC0415
-
-    files = input_identity("rust-product", validation.sources(ROOT), {})["files"]
-    # Local configuration is intentionally untracked, but still an actual input.
-    local = ROOT / ".envrc.local"
-    files[".envrc.local"] = hashlib.sha256(
-        b"file:" + local.read_bytes() if local.is_file() else b"absent"
-    ).hexdigest()
-    for name in list(files):
-        path = ROOT / name
-        if path.is_symlink() and path.is_file():
-            files["resolved:" + name] = validation_receipts.digest(path)
-    return files
+    return validation.sources(ROOT, scope="rust-product")
 
 
 def rust_configuration_paths(

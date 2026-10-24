@@ -134,7 +134,7 @@ def run(
     receipt_path = output / "feature-campaign.json"
     if receipt_path.exists():
         raise ValueError("new attempt output must not overwrite a campaign receipt")
-    snapshot = validation.sources(root)
+    snapshot = validation.sources(root, scope="rust-product")
     commands, enumeration = enumerate_commands(root, output, SELECTIONS[mode], env)
     frozen = {
         "mode": mode,
@@ -245,7 +245,7 @@ def run(
     # A repair invalidates the entire applicable Rust closure, including passes
     # reached before the repair. Retained origin receipts stay unchanged.
     after = input_identity(
-        "rust-product", validation.sources(root), validation.relevant_environment(env)
+        "rust-product", validation.sources(root, scope="rust-product"), validation.relevant_environment(env)
     )
     after_context = compiler_context(root, env)
     receipt["source_unchanged"] = (

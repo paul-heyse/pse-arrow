@@ -106,8 +106,6 @@ GROUPS = {
     "adr-lint": ("adr-frontmatter-check", "adr-index-check", "register-lint"),
     "codegen-check": (
         "codegen-relations-check",
-        "codegen-physical-check",
-        "codegen-rust-contracts-check",
         "codegen-python-check",
         "python-contracts-check",
         "python-stubs-check",
@@ -353,7 +351,7 @@ EXCLUSIONS = {
 
 # Versioned, conservative subsystem declarations project the one captured map.
 # A missing declaration deliberately retains every contextual input.
-INPUT_SCOPE_VERSION = 3
+INPUT_SCOPE_VERSION = 4
 RUST_INPUTS = (
     "Cargo.toml",
     "Cargo.lock",
@@ -438,6 +436,7 @@ INPUT_SCOPES = {
         "README.md",
     ),
     "generation": (
+        "packages",
         "crates",
         "xtask",
         "scripts",
@@ -508,6 +507,17 @@ INPUT_ENVIRONMENT = (
 )
 
 
+def includes_input(scope: str | None, name: str) -> bool:
+    """Select declared inputs before opening bytes; unknown scopes remain broad."""
+    paths = INPUT_SCOPES.get(scope)
+    return paths is None or (name == ".envrc.local" and "scripts" in paths) or any(
+        name == prefix
+        or name.startswith(prefix + "/")
+        or (prefix.startswith("scripts/") and name.startswith(prefix))
+        for prefix in paths
+    )
+
+
 def input_identity(scope: str, snapshot: dict, environment: dict) -> dict:
     """Project captured identities; preserve absent paths, modes and symlink hashes."""
     paths = INPUT_SCOPES.get(scope)
@@ -518,12 +528,8 @@ def input_identity(scope: str, snapshot: dict, environment: dict) -> dict:
         "files": {
             name: value
             for name, value in snapshot.items()
-            if paths is None
-            or any(
-                name == prefix
-                or name.startswith(prefix + "/")
-                or (prefix.startswith("scripts/") and name.startswith(prefix))
-                for prefix in paths
+            if includes_input(scope, name) or (
+                name.startswith("resolved:") and includes_input(scope, name[9:])
             )
         },
         "environment": {

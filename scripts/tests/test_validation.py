@@ -299,6 +299,64 @@ class ValidationTests(unittest.TestCase):
             self.assertNotEqual(removed["source.rs"], executable["source.rs"])
             self.assertNotEqual(removed["alias"], executable["alias"])
 
+    def test_scoped_capture_selects_before_reads_and_tracks_package_membership(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        package = self.root / "packages/reference/fixture-projection.toml"
+        package.parent.mkdir(parents=True)
+        package.write_text("selected = []")
+        unrelated = self.root / "docs/private-fixture.bin"
+        unrelated.parent.mkdir()
+        unrelated.write_bytes(b"unrelated")
+        original = Path.read_bytes
+
+        def read(path: Path) -> bytes:
+            self.assertNotEqual(path, unrelated, "unrelated bytes opened")
+            return original(path)
+
+        with patch.object(Path, "read_bytes", read):
+            before = validation.sources(self.root, scope="generation")
+            package.write_text("selected = ['changed']")
+            changed = validation.sources(self.root, scope="generation")
+            self.assertNotEqual(before, changed)
+            added = package.with_name("new.toml")
+            added.write_text("new = true")
+            after = validation.sources(self.root, scope="generation")
+            self.assertIn(str(added.relative_to(self.root)), after)
+            added.unlink()
+            self.assertEqual(changed, validation.sources(self.root, scope="generation"))
+        self.assertNotIn("docs/private-fixture.bin", before)
+        self.assertIn("docs/private-fixture.bin", validation.sources(self.root, scope="unknown"))
+
+    def test_scoped_capture_binds_symlink_target_modes_and_local_configuration(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        source = self.root / "crates/alias.rs"
+        source.parent.mkdir()
+        target = self.root / "target-input"
+        target.write_text("first")
+        source.symlink_to(target)
+        before = validation.sources(self.root, scope="rust-product")
+        target.write_text("second")
+        after = validation.sources(self.root, scope="rust-product")
+        self.assertEqual(before["crates/alias.rs"], after["crates/alias.rs"])
+        self.assertNotEqual(before["resolved:crates/alias.rs"], after["resolved:crates/alias.rs"])
+        target.chmod(0o755)
+        mode = validation.sources(self.root, scope="rust-product")
+        self.assertNotEqual(after, mode)
+        (self.root / ".envrc.local").symlink_to(target)
+        local = validation.sources(self.root, scope="rust-product")
+        self.assertNotEqual(mode[".envrc.local"], local[".envrc.local"])
+        self.assertIn(".envrc.local", validation.input_identity("rust-product", local, {})["files"])
+
+    def test_aggregate_generation_uses_relations_once_and_keeps_independent_guards(self) -> None:
+        names = [gate.name for gate in expand(("codegen-check",))]
+        self.assertEqual(names.count("codegen-relations-check"), 1)
+        self.assertNotIn("codegen-physical-check", names)
+        self.assertNotIn("codegen-rust-contracts-check", names)
+        for guard in ("python-contracts-check", "python-stubs-check", "codegen-bindgen-check", "codegen-schemas-check"):
+            self.assertIn(guard, names)
+        for independent in ("codegen-physical-check", "codegen-rust-contracts-check"):
+            self.assertEqual(expand((independent,))[0].name, independent)
+
     def test_evidence_requires_ignored_contained_paths_and_rejects_symlink_escape(
         self,
     ) -> None:

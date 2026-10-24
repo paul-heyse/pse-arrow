@@ -23,7 +23,7 @@ EXCLUSIONS = r"(generated/|xtask/|benches/|tests/)"
 def context(arguments: list[str], branch: bool) -> dict:
     return {
         "inputs": validation_scope.input_identity(
-            "rust-product", validation.sources(ROOT), validation.relevant_environment()
+            "rust-product", validation.sources(ROOT, scope="rust-product"), validation.relevant_environment()
         ),
         "compiler": subprocess.check_output(["rustc", "-Vv"], text=True),
         "tool": cargo_tools.selected_identity("cargo-llvm-cov"),

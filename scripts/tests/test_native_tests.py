@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts.cargo_tools import selected_identity as authenticated_tool_identity
+
 from scripts import (
     native_tests,
     scientific_inputs,
@@ -671,6 +673,43 @@ class ManagedRustSelectionTests(unittest.TestCase):
         cargo.write_text("[build]\njobs = 3\n")
         with self.assertRaisesRegex(ValueError, "Cargo configuration changed"):
             native_tests.prepared_rust_inventory(execution, environment)
+
+    def test_real_nextest_executable_bytes_and_version_invalidate_prepared_reuse(self) -> None:
+        executable = self.root / "cargo-nextest"
+        executable.write_text("#!/bin/sh\necho 'cargo-nextest 0.9.146'\n")
+        executable.chmod(0o700)
+        execution, _, _ = self.capture([])
+        with (
+            patch("scripts.cargo_tools.selected_identity", new=authenticated_tool_identity),
+            patch("scripts.cargo_tools.shutil.which", return_value=str(executable)),
+        ):
+            native = json.loads(self.provenance.read_text())
+            native["rust_invocation"]["nextest"] = authenticated_tool_identity("cargo-nextest")
+            self.provenance.write_text(json.dumps(native))
+            environment = self.prepared_environment()
+            native_tests.prepared_rust_inventory(execution, environment)
+            executable.write_text("#!/bin/sh\n# replaced executable\necho 'cargo-nextest 0.9.146'\n")
+            with self.assertRaisesRegex(ValueError, "tool identity changed"):
+                native_tests.prepared_rust_inventory(execution, environment)
+            executable.write_text("#!/bin/sh\necho 'cargo-nextest 0.9.145'\n")
+            with self.assertRaisesRegex(ValueError, "version differs"):
+                native_tests.prepared_rust_inventory(execution, environment)
+
+    def test_prepared_inventory_refuses_unsupported_machine_metadata_shapes(self) -> None:
+        execution, _, _ = self.capture([])
+        original = json.loads(self.provenance.read_text())
+        for path, value in ((Path(execution[1]), {"rust-binaries": []}), (Path(execution[3]), {"packages": {}})):
+            previous = path.read_bytes()
+            try:
+                path.write_text(json.dumps(value))
+                native = json.loads(json.dumps(original))
+                native["files"][str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+                self.provenance.write_text(json.dumps(native))
+                with self.assertRaisesRegex(TypeError, "metadata shape"):
+                    native_tests.prepared_rust_inventory(execution, self.prepared_environment())
+            finally:
+                path.write_bytes(previous)
+                self.provenance.write_text(json.dumps(original))
 
     def test_prepared_inventory_requires_exact_validated_target_association(
         self,
