@@ -281,9 +281,11 @@ source revision `1ac2b1dba7cd177621a4cf5d507caebeb2414395` and tagged upstream A
 Selected implementation uses SCHEMAFULL/closed vocabulary/assertions, ordinary ENFORCED
 provenanced relations, exact Production assertions and compound indexes around real selectors.
 Typed record references need explicit existence and same-generation constraints; REFERENCE alone
-tracks references and deletion policy, not existence. Physical aliases, if used, are mechanically
+tracks references and deletion policy, not existence
+([record-reference existence](https://surrealdb.com/docs/reference/query-language/language-primitives/record-references#requiring-the-referenced-record-to-exist)). Physical aliases, if used, are mechanically
 derived and strictly reconciled; they must not create independently mutable relationship meanings.
-Bound queries select a cut once and check every statement result. Native EXPLAIN qualifies actual
+Bound queries select a cut once and check every statement result
+([Rust query results](https://surrealdb.com/docs/reference/rust/methods/query)). Native EXPLAIN qualifies actual
 lookup/traversal paths; LIMIT alone proves no bound on examined work.
 
 LIGHTWEIGHT relations cannot carry this schema/provenance/index meaning and are unselected.
@@ -296,5 +298,7 @@ The selected custom MX adapter uses serializable snapshot isolation and rejects 
 and versioned reads. SurrealKV1.0 get-at/history/checkpoint/retention APIs are separate backend
 capabilities, not available through that selected adapter. No SurrealKV store or backend change is
 selected: temporal storage would still not replace owner source versions and exact corpus membership.
+The exact temporal API comparison uses the
+[SurrealKV1.0 transaction source](https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/transaction.rs).
 Runtime assertions, structured/empty/paginated queries and bound plans remain to be exercised on
 the custom server; this source review establishes no measured performance or native qualification.

@@ -169,6 +169,17 @@ doc_topics = ["architecture"]
         self.assertEqual(sources.relationships(root=self.root, exact_paths=('a.r',))['items'], [])
         self.assertIn('unverified', selected['producer_freshness'])
 
+    def test_site_policy_change_during_scope_interpretation_refuses_mixed_cut(self) -> None:
+        self.write('docs/selected.md','---\nstatus: proposed\n---\n# Selected\n')
+        original = sources.docs.document_scope
+        def changing_scope(path, status, site):
+            target=self.root/'docs/site.toml'
+            target.write_text(target.read_text()+'\n# changed during selection\n')
+            return original(path,status,site)
+        with patch.object(sources.docs,'document_scope',side_effect=changing_scope):
+            with self.assertRaisesRegex(ValueError,'metadata interpretation changed'):
+                sources.source('docs/selected.md',root=self.root)
+
     def test_research_packet_reconstructs_exact_pin_patch_api_and_unknown_lifetime(self) -> None:
         self.cargo()
         packet=sources.library_packet("sample",root=self.root,references=("vendor/sample/src/lib.rs","patches/sample.patch"),features=("fast",))

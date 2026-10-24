@@ -144,6 +144,7 @@ def _document_context(root: Path, policy_stamp: tuple, site_stamp: tuple) -> tup
 
 
 def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max_bytes: int = 4 << 20, expected_digest: str | None = None) -> dict:
+    selected_stamp = _stamp(selected_path(root, relative))
     raw = _read(root, relative, max_bytes)
     digest = hashlib.sha256(raw).hexdigest()
     if expected_digest and digest != expected_digest:
@@ -152,12 +153,20 @@ def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max
     role, scope, owner = "source", "Current", relative
     metadata, metadata_inputs, topics = {}, [], []
     scope_basis = "current source bytes; no document authority inferred"
+    interpretation_stamps = {}
     if Path(relative).suffix == ".md":
         document = document_metadata.read(raw, relative, identity=relative, root=root)
         metadata = dict(document.metadata)
+        site = None
         if (root / 'docs/lifecycle.toml').is_file() and (root / 'docs/site.toml').is_file():
-            policy, site, metadata_inputs = _document_context(root, _stamp(root / 'docs/lifecycle.toml'), _stamp(root / 'docs/site.toml'))
+            interpretation_stamps = {path:_stamp(root/path) for path in ('docs/lifecycle.toml','docs/site.toml')}
+            policy, site, metadata_inputs = _document_context(root, interpretation_stamps['docs/lifecycle.toml'], interpretation_stamps['docs/site.toml'])
             metadata.update(document_metadata.interpreted(root, root / relative, document, policy, site))
+        elif (root / 'docs/site.toml').is_file():
+            interpretation_stamps = {'docs/site.toml':_stamp(root/'docs/site.toml')}
+            site_bytes = _read(root, 'docs/site.toml', 4 << 20)
+            site = tomllib.loads(site_bytes.decode('utf-8'))
+            metadata_inputs = [{'path':'docs/site.toml','digest':hashlib.sha256(site_bytes).hexdigest(),'role':'metadata-interpretation'}]
         role = str(metadata.get("doc_role", "reference"))
         owner = str(metadata.get("doc_owner", relative))
         topics = list(metadata.get('doc_topics', []))
@@ -165,10 +174,12 @@ def source(relative: str, *, root: Path = ROOT, revision: str | None = None, max
         if not isinstance(status, str):
             raise ValueError("document status must be a string")
         scope = None
-        if relative.startswith("docs/") and (root / "docs/site.toml").is_file():
-            scope = docs.document_scope(Path(relative).relative_to("docs"), status, docs.configuration(root))
+        if relative.startswith("docs/") and site is not None:
+            scope = docs.document_scope(Path(relative).relative_to("docs"), status, site)
         scope_basis = "native publication scope" if scope else "unpublished or unclassified document; authority unresolved"
         scope = scope or "Reference"
+    if _stamp(root/relative) != selected_stamp or any(_stamp(root/path) != stamp for path,stamp in interpretation_stamps.items()):
+        raise ValueError('source or metadata interpretation changed during selection')
     return {"id": relative, "path": relative, "digest": digest, "revision": revision, "revision_basis": "HEAD context only; content digest identifies dirty and clean bytes", "role": role, "scope": scope, "scope_basis": scope_basis, "owner": owner, "topics":topics, "native_id":metadata.get('id', relative), "native_status":metadata.get('status'), "metadata":metadata, "metadata_inputs":metadata_inputs, "text": text, "bytes": len(raw), "basis": "exact selected file content"}
 
 
