@@ -50,8 +50,8 @@ classifiers = [
 dependencies = [
   "pyarrow==25.0.1",
   "attrs==26.1.0",
-  "cattrs==26.2.0",
-  "msgspec==0.21.1",
+  "cattrs==26.2.1",
+  "msgspec==0.22.0",
 ]
 
 [project.optional-dependencies]
