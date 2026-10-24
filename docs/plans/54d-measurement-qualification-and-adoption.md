@@ -224,6 +224,15 @@ actual compiler-context capture passed; arbitrary external programs/flags still 
 Feature qualification is running under the repaired context. The final analyzer reload,
 navigation and no-flycheck save controls passed with the declared frame environment.
 
+The feature matrix was restarted with explicit CARGO_INCREMENTAL=0 to avoid retaining
+incremental query caches for one-off qualification variants; ordinary workspace build
+policy is unchanged. The earlier interrupted run's 173 passes are not promoted to complete
+matrix evidence or reused across the changed compiler context. Stopping the authenticated
+campaign controller drained its component and preserved the interrupted receipt. An initial
+signal to the outer launcher alone did not cascade to that separately grouped controller;
+the existing generic launcher forwarding limitation is outside the direct compiler-caller
+interruption control and is not claimed qualified here.
+
 The maintainer skipped the final matched performance campaign: it would quantify speedup
 without deciding adoption. No smaller benchmark or original-checkout artifact cleanup will
 be substituted. The dry-run-only inventory identified 16.6 GiB of pse-py artifacts; these and
@@ -231,3 +240,28 @@ the separately installed native extension remain intact. Final publication and c
 feature qualification remain active obligations. An initial docs attempt exhausted light admission; retry after
 an authenticated idle superseded daemon stopped passed, publishing 654 chapters.
 No unrelated worktree, source, cache or running compiler was stopped.
+
+The maintainer subsequently authorized purging historical build cohorts before October 19
+and investigating obsolete caches across this checkout. Cleanup reclaimed 68.246 GiB by
+unique-inode allocation accounting: 1,619 historical build cohorts and three dormant nested
+Cargo targets. The deletion/accounting receipt is
+`/tmp/pse-historical-artifact-cleanup-20261024.json`; the conservative cutoff was
+2026-10-19T00:00:00Z. Current qualification outputs, the root target, installed extension, shared
+compiler/native caches and canonical state were retained. This storage accounting does not
+establish a build-time speedup or authorize recurring automatic eviction.
+
+### Background campaign handoff — 2026-10-24
+
+The maintainer requested end-of-turn updates and an end to active work, explicitly leaving
+the feature campaign running. The active invocation is `CARGO_INCREMENTAL=0 just features-powerset`,
+with log `/tmp/pse-plan54-features-nonincremental.log` and aggregate output
+`build/assessment/20261024T215756.070343Z-features-powerset-84389-9a511f`. Its
+`features-combinations/feature-campaign.json` owns individual results; the aggregate proceeds
+to `features-no-default` afterward. The combinations receipt remains incomplete, with no
+failed combinations observed at handoff. Partial passes do not establish matrix acceptance.
+
+Leave the campaign and its owned processes running. On the maintainer's next review request,
+inspect the aggregate and both component results, final source/compiler-context equivalence
+and exit statuses before updating D02/D03. The 17 separate Python contract/fixture failures
+remain recorded above; final publication and series acceptance remain pending. No further
+benchmark, implementation or investigation is started by this handoff.

@@ -135,13 +135,13 @@ retain their original scope; CB08–CB10 are additions from this engagement.
 | F01 | S07 | deferred | 54c C01/C02 | Literal paths/extern inputs remain meaningful; no safe selected relocation mechanism; revisit capability and behavioral controls in 54c |
 | F02 | S03 | resolved | 54a A03 | Both defaults removed; refreshed terminal/Codex inputs match and actual eligible reuse observed; 54a Outcome |
 | F03 | S01 | resolved | 54a A01 | Verified managed 0.19.0 default selected; explicit overrides diagnosed; 54a Outcome |
-| F04 | S05 | scheduled | 54b B02 | Inspected removals, selected compilations and unchanged validation closure |
-| F05 | S05 | scheduled | 54b B03 | Strict shear, retired duplicate routine routes and preserved security checks |
-| F06 | S04 | scheduled | 54b B01 | No rebuild for identical bytes and required rebuild for changed consumed inputs |
+| F04 | S05 | resolved | 54b B02 | Corrected net 42 removed edges; selected default/native compilation and per-edge/final validation proofs pass |
+| F05 | S05 | resolved | 54b B03 | Strict shear passes at zero findings; duplicate routine routes retired and security checks retained |
+| F06 | S04 | resolved | 54b B01 | Twelve real freshness scenarios and seven clean recomputations pass; build-script mtime exception remains explicit |
 | F07 | S06/S07 | scheduled | 54d D03 | Published guide matches demonstrated reuse and remaining limits |
-| CB08 | S06 | scheduled | 54d D01 | Snapshot-local default targets, no campaign target env and guarded recovery |
+| CB08 | S06 | resolved | 54d D01 | Snapshot-local default targets, real Cargo escape refusal and authenticated recovery controls pass |
 | CB09 | S02 | resolved | 54a A02 | Presence handled at both boundaries; real caller ownership/interruption controls; 54a Outcome |
-| CB10 | S05 | scheduled | 54b B03 | Warning diagnostics fail the strict hygiene route |
+| CB10 | S05 | resolved | 54b B03 | Warning-only diagnostics fail strict hygiene; actual shear reports zero warnings/errors |
 | CB11 | S08 | resolved | 54c C03 | Actual large-entry publication/recovery with declared 256 MiB frame and daemon generation override; 54c evidence |
 | CB12 | S08/S09 | resolved | 54c C04 / 54d D02 | Producer entries carry the existing compile hint; precedence controls pass; actual consumer journeys remain joined acceptance |
 
@@ -195,7 +195,8 @@ remaining obligations. Remote/distributed deployment and a new CI platform are n
 ## Verification and completion
 
 **Proposed:** each companion names targeted checks; D02 owns assembled selected-workflow
-qualification and comparative benefit evidence. The failure baseline is zero. Follow the
+qualification and comparative benefit evidence, subject to the maintainer's decision in
+54d to skip the final speed-quantification campaign. The failure baseline is zero. Follow the
 repository rhythm: targeted compile/unit controls while implementing, ready after tool
 selection changes, and the selected integration/static/manual bundle once functional scope
 is complete. A cache canary cannot qualify product workflows; a source-only investigation
@@ -208,3 +209,12 @@ a limitation. Record implementation, qualification and measured benefit separate
 meaning moves to the existing build/environment/dependency guides and, only where a contract
 changes, through the existing architecture route. The 54a Outcome establishes its bounded
 implementation and controls; it does not establish joined qualification or workflow benefit.
+
+## Maintainer handoff — 2026-10-24
+
+54b and 54c record completed implementation and bounded inquiry decisions. 54d retains
+joined qualification and final publication: its checkpoint records the running feature
+campaign, separate Python contract failures and canceled performance comparison. The
+maintainer requested end-of-turn closeout and explicitly left that campaign running in the
+background. Stop further work after closeout; review its final receipts when the maintainer
+asks. Neither this handoff nor a partial matrix establishes series completion.

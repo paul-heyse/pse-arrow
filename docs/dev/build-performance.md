@@ -137,7 +137,7 @@ The upstream default 8 MiB frame can silently reject large client-side publicati
 and lose the associated statistics. A zero error/miss counter therefore does not prove
 complete accounting. Inspect actual publication/recovery for important large artifacts;
 `compile_requests` also remains zero in healthy 0.19 client-side mode. The increased
-frame admits the tested current artifacts without weakening cache keys. Entries above
+frame admits the tested large artifacts without weakening cache keys. Entries above
 the selected frame still require a deliberate larger bound or an upstream transport fix.
 Storage lookup durations exclude key preparation and output extraction: Rust hits still
 run dep-info/output discovery and hash inputs, and proc macros, linking and incremental

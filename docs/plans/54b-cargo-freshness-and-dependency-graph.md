@@ -1,6 +1,6 @@
 ---
 title: "Plan 54b: Cargo freshness and dependency graph"
-status: in-progress
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md, docs/functional_reviews/rust-build-reuse-tooling-2026-10-24.md]
@@ -182,3 +182,34 @@ compilation caught two incorrect serde removals: the conformance and benchmark c
 load a shared scientific-input fixture outside their target directories. Those declarations
 and precise issue-589 exceptions are restored; native contract compilation and strict shear
 now pass. The initial 44-edge count is superseded by the corrected net 42.
+
+## Verification and Outcome — 2026-10-24
+
+**Implemented:** content freshness at the shared Cargo boundary; hygienic diagnostic macro
+ownership; corrected net 42 direct dependency-edge removals, including eight unnecessary
+validation forwarders; conventional buildinfo module ownership; removal of the empty orphan;
+22 empty doctest and four empty library harness selections disabled; strict pinned shear
+replaces the retired routine machete/udeps routes. Security/policy checks remain separate.
+Enduring usage and limits live in the build-performance, dependency and environment guides.
+
+**Tested:** on the pinned local nightly, the real `scripts.cargo_freshness_probe` fixture
+passed 12 scenarios with zero failures; seven changed-result cases matched clean
+recomputation. Identical ordinary/include touches avoided Rust compilation; real changes
+invalidated; declared build-script touches retained their mtime exception. The actual external
+macro consumer without direct miette passed three behavior controls. Per-edge and final
+unit-graph proofs retained explicit Arrow validation in the selected normal/build/dev and
+host/target contexts.
+
+**Tested:** `just check`, selected force-validated conformance compilation, native runtime
+and xtask canonical/project/native compilation, and the corrected `just lint-solver-contracts`
+passed against zero errors. `just unit-package pse-diagnostics 'all()'` passed 89 tests;
+`just unit-package pse-buildinfo 'all()'` passed 26. `just doctest` passed the remaining real
+documentation tests. Strict `just audit-shear` reported zero errors and warnings. Focused
+detector controls exercised warning/error/process failures and strict versus advisory exits.
+D02 owns the additional assembled feature matrix and full-series qualification boundaries.
+
+Two serde declarations were incorrectly removed because their shared native fixture lies
+outside the target directories; native compilation exposed this and both are restored with
+precise exceptions. A fixture assertion about related diagnostics was also corrected without
+changing the product behavior. No dependency versions moved, no detector escape was widened
+to hide a failure, and no build-time speedup is inferred from edge or harness counts.

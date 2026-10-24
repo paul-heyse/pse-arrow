@@ -10,8 +10,12 @@ differences and strict shear warnings. The coordinator owns finding/inquiry disp
 companions own package state. The
 [54a Outcome](54a-compiler-cache-and-environment.md#verification-and-outcome--2026-10-24)
 records the authorized compiler-cache/environment implementation and bounded real-binary and
-fresh-caller acceptance. The remaining companions retain their planned scope; other plans
-retain their independent scope and remaining obligations.
+fresh-caller acceptance. 54b and 54c record the integrated freshness/dependency changes and
+bounded inquiry decisions; 54d owns joined qualification and final publication, including
+the maintainer's decision to skip final speed quantification. Its
+[background campaign handoff](54d-measurement-qualification-and-adoption.md#background-campaign-handoff--2026-10-24)
+records the feature run left active at the maintainer's request, pending later review.
+Other plans retain their independent scope and remaining obligations.
 
 [Plan53: Test architecture target](53-test-architecture-target.md) schedules all R01–R08
 and DTA-001–DTA-048 from the holistic test-architecture review, including scoped no-change
