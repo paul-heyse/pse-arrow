@@ -3,7 +3,7 @@ title: "Plan 52c: Behavioral and scientific verification"
 status: in-progress
 date: 2026-10-23
 adrs: [ADR-0223]
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, design, validation, numerical-execution, diagnostics]
@@ -22,6 +22,23 @@ Existing `affected.py`, cargo-llvm-cov/nextest, Proptest1.11, independent refere
 `derivative_diagnostics.rs`, strict `workflow/reproducer.rs` and the pure-ID Miri recipe remain
 foundations. Test Assessment1.2 shapes expected-result independence and plausible-bad controls.
 A generator, a sanitizer, a high-precision result and a round trip establish different claims.
+
+## Unified-interface integration — 2026-10-24
+
+Adapt coverage, mutation, numerical-reference, reduction and diagnostic operations through ADP
+contracts with their genuine scope, instrumentation, native outcomes and preparation requirements.
+CAP descriptions must distinguish implemented mechanisms from executed/qualified campaigns.
+C04's actual coverage-guided execution remains at its recorded automatic-denial boundary;
+interface migration neither retries it nor upgrades its evidence. H qualifies assembled consumers.
+
+This is new interface integration scope owned by
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md), with progress at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md). Existing package statuses and
+historical Outcomes retain their recorded boundaries; this addition does not silently reopen or
+claim delivery of the canonical endpoint. Targeted tests accompany migrated consumers, while
+52h owns expanded assembled qualification and publication.
 
 ## Work packages
 

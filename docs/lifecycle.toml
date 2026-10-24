@@ -2512,7 +2512,7 @@ heading = "Package state and execution route"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
-id_pattern = '^((?:FND|A|B|C|D|E|F|G|H)[0-9]+)\b'
+id_pattern = '^((?:FND|CAP|ADP|MCP|A|B|C|D|E|F|G|H)[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
 owner_column = 2
@@ -2542,6 +2542,53 @@ headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+# The unified review reuses source O/RC IDs; table identity preserves their source scope.
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "unified-interface-rules"
+heading = "Unified-interface rule decisions"
+headers = [
+  "Decision",
+  "Disposition",
+  "Work owner",
+  "Accepted consequence and route",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(RC[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "unified-interface-opportunities"
+heading = "Unified-interface opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required behavior or disposition",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "unified-interface-inquiries"
+heading = "Unified-interface inquiries"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(Q[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
@@ -2579,6 +2626,31 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H04"
 to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP03"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP04"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CAP01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::G02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::MCP02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::H01"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::ADP05"
 kind = "depends-on"
 
 # Plan53 coordinator owns package, original DTA disposition and bounded inquiry state.

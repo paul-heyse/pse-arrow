@@ -15,6 +15,8 @@ current_work = [
   "plans/53*.md",
 ]
 assets = [
+  "functional_reviews/probes/agent-tool-discovery-2026-10-24.py",
+  "functional_reviews/probes/unified-fastmcp-reveal-2026-10-24.py",
   "capability-maps/evidence/identity-vectors-adr0050.json",
   "design_review/design_principles/standard.toml",
   "design_review/evidence/execution-performance-recommendations-audit-2026-10-20/retained-observations.json",

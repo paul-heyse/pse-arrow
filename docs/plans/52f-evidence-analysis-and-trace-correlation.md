@@ -3,7 +3,7 @@ title: "Plan 52f: Evidence analysis and trace correlation"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, diagnostics, performance, storage]
@@ -29,6 +29,20 @@ scientific hashes. Extend correlation at its application/SDK seam; do not rebuil
 history. The [substrate guide](../dev/surreal-substrate.md) establishes server executor→Surrealism
 parentage, not application-originating Rust trace continuity. Plan40e's broader assembled
 profile/locality campaign stays there.
+
+## Canonical interface integration
+
+The unified-interface review's O07/O10 adds consumers, not another evidence authority. F01 owns
+pairing/analysis semantics; ADP01/ADP04 expose native schemas/decoders/readers and ADP02 preserves
+host outcomes/handles. CAP registers exact comparison/diagnostic operations and relevant guidance.
+MCP05 connects interface/provider/request references to authentic native evidence. Do not duplicate
+F01 in middleware or turn a FastMCP result into another stored outcome. Existing native/offline
+consumers remain usable while these canonical consumers migrate.
+
+Interface correlation can identify where an interaction stopped without proving a continuous
+application→SDK→server span chain. F02 still owns that finite inquiry and I11. No tool label, shared
+request ID or timestamp substitutes for an actual propagation edge; no extra telemetry database
+or mandatory exporter is selected. Native invocation/source/result identities remain unchanged.
 
 ## Work packages
 
@@ -58,8 +72,9 @@ a declared analysis when useful, not an automatic statistical verdict.
 Acceptance: authentic sources include failure→pass, persistent failure, unexecuted subject,
 renamed/ambiguous subject, changed selection and mismatched measurement context. Independently
 specify expected pairs/denominators and show an inconclusive noisy cohort. Offline server-down
-analysis and indexed same-cut results agree; duplicate import does not double outcomes. G05's
-operator view consumes this contract. Delete replaced heuristic comparison parsers once their
+analysis and indexed same-cut results agree; duplicate import does not double outcomes. G05's operator view and the canonical FastMCP comparison consumer consume this contract.
+Qualify one real canonical request/result read with the same independent expected pairs and
+source cut as the native/offline reader, preserving bounded details and unsupported association. Delete replaced heuristic comparison parsers once their
 callers move; historical source results remain unchanged.
 
 <a id="F02"></a>
@@ -75,7 +90,8 @@ permission. Prefer a narrow bridge integration to a new proxy/telemetry service.
 A positive adoption supplies actual application→SDK/transport→server→Surrealism continuity for
 one selected operation, with query planning/queue/network/module interpretation retaining its
 observational limits. A lost/unsupported link is explicit, not synthesized from timestamps.
-Use `storage_health` selected metrics with engine/service/cgroup identity and completeness.
+MCP05 may attach interface request/provider references to that authentic evidence; qualify the
+edge actually supplied without promoting association to causal continuity. Use `storage_health` selected metrics with engine/service/cgroup identity and completeness.
 Capture, target workload, restoration and cleanup have independent outcomes. Span/payload limits,
 credential exclusion and optional scientific detail remain under existing capture policy.
 

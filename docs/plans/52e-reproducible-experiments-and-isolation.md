@@ -3,7 +3,7 @@ title: "Plan 52e: Reproducible experiments and isolation"
 status: complete
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, validation, diagnostics, performance, storage]
@@ -24,6 +24,23 @@ that is not cross-run archival. `surrealkit.provision/fixture` owns private name
 credentials and drain, while `validate_input` explicitly refuses seed directories pending
 settlement qualification. `build_measurements` already supplies isolated source snapshots and
 `case_measure` actual numerical populations. Preserve those contracts.
+
+## Unified-interface integration — 2026-10-24
+
+Adapt archive/replay, database fixtures, regression experiments and selected isolation operations
+through ADP03/ADP04, preserving exact resource types, source attribution, native refusal and owned
+drain/settlement/cleanup. A Git worktree, archive and database namespace remain different objects.
+MCP01 lazily acquires only required services; offline evidence reads do not implicitly build or
+start a database. Selected canonical adapters replace parser reconstruction with typed boundaries.
+
+This is new interface integration scope owned by
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md), with progress at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md). Existing package statuses and
+historical Outcomes retain their recorded boundaries; this addition does not silently reopen or
+claim delivery of the canonical endpoint. Targeted tests accompany migrated consumers, while
+52h owns expanded assembled qualification and publication.
 
 ## Work packages
 

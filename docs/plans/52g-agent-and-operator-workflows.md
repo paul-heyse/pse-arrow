@@ -3,7 +3,7 @@ title: "Plan 52g: Agent and operator workflows"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, design, diagnostics, documentation]
@@ -16,7 +16,13 @@ doc_topics: [current-work, environment, design, diagnostics, documentation]
 **Proposed:** compose the underlying capabilities into a usable Codex/operator journey without
 another dispatcher, policy ledger or mandatory UI. Owns O26/O27/O29/O30;
 [the coordinator](52-agent-effectiveness-and-engineering-workflows.md) owns I12/I13, RC07/RC08
-and current state. Native commands, architecture and plans keep their authority.
+and current state. Source IDs in this paragraph belong to the original review. The subsequent
+[unified-interface review](../functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md)
+selects one canonical FastMCP entry point. [52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md) own its exposure, adaptation and runtime
+implementation. This companion owns useful composed workflows and actual agent evaluation; it
+does not duplicate those implementations. Native commands, architecture and plans keep authority.
 
 The actual journey is: describe task/environment → inspect changes/owners and selected history →
 select a targeted command → obtain its exact handle → watch/read its native outcome → compare
@@ -34,13 +40,18 @@ real tasks need it. Existing Codex access and local tools suffice; no paid evalu
 
 Define shared interaction meanings alongside the actual owner commands: source basis, selected
 context, effects, exact handle, completion/omission, continuation and next meaningful read/action.
-This is not a demand for one envelope type or a universal action enum. Use CLI JSON and readable
-text over literal argv; read and execute remain distinct. Existing environment/ownership/correctness
+This is not a demand for one envelope type or a universal action enum. Preserve independently
+useful native JSON/readable results and exact argv at genuine process boundaries; expose typed
+operations through the canonical FastMCP bindings rather than parsing formatted output. Read and
+execute remain distinct. Existing environment/ownership/correctness
 routes apply to action execution. Observation does not acquire science/cancel permission.
 
 The early slice accompanies A01/D01/current result reads and settles only what those consumers
 need. Later slices compose F01 comparison and E03 investigations. Extend existing discovery
-metadata; do not maintain a second editable catalogue of CLI grammar/defaults. If a command's
+metadata through CAP01/CAP02; do not maintain a second editable catalogue of CLI grammar/defaults.
+A01/D01/current result early slices remain delivered at their recorded scope; they do not establish
+the rest of G01 or the canonical endpoint. ADP02 implements operation contracts/handles while
+G01 verifies that composed consumers retain the shared meanings. If a command's
 structured interface changes, migrate its actual callers in the same package. Host-only outputs
 stay with host owners; public Rust/Python documents use the existing catalogue/generators.
 
@@ -52,30 +63,34 @@ The workflow is usable before knowledge models or operator UI. Remove replaced a
 parsing once consumers use real structured results.
 
 <a id="G02"></a>
-### G02 — Conditional agent transport and packaging
+### G02 — Unified agent workflow integration
 
-Resolve I12 after a useful direct G01 workflow exists. A thin MCP facade may expose selected
-context/watch/result/comparison actions when typed discovery or reduced interaction friction
-benefits the actual agent. It delegates to the existing owners and handles, retaining bounds,
-effects and failures; it does not reimplement scheduling, result interpretation or credentials.
-The native SurrealDB MCP is a database query transport, not project-specific operation semantics
-or Agent Memory.
+I12's former optional transport choice is superseded by the maintainer's selected single FastMCP
+surface. Compose actual CAP/ADP/MCP deliveries into useful workflows: exact domain/workflow browse
+→ relevant guidance → canonical operation → native handle → watch/read/compare → next action.
+Use the qualified MCP02 host route; one attachment internally integrates language/database services
+as needed. The SurrealDB MCP remains an internal specialist transport, not project admission or
+agent memory. No developer-only endpoint, independent Typer tree or generic shell forwarding.
 
-An optional Codex plugin may package existing skills/MCP wiring if the exact installed client
-supports it. Reuse the session launcher/selected-store configuration rather than create another
-installer. Official [plugin concepts](https://developers.openai.com/plugins/concepts/plugins)
-are a lead; exact local support must be qualified. No new model/hosted-service dependency.
+Migrate existing session instructions and actual agent consumers alongside their usable operations.
+CAP/ADP/MCP packages own component registration, parser extraction, lifetimes, revision consistency
+and derived documentation/conditional CLI. G02 owns their composed usability and semantic preservation.
+A native command remains legitimate for its native purpose; do not preserve a replaced agent
+parser/discovery path solely as compatibility. Keep browse/read distinct from execution and setup.
 
-Acceptance: compare one real multi-step task using direct commands and the selected thin
-transport, preserving the same owner outcomes and unavailable cases. If no meaningful benefit,
-record direct-CLI selection and revisit on a concrete recurring discovery/interaction problem.
-Positive adoption includes actual fresh-session use, cancellation/lifetime behavior and setup
-instructions; an exposed tool list alone is not integration. Do not wrap every command by quota.
+Acceptance: an actual fresh Codex attachment completes context→targeted operation→handle→watch/read
+and an evidence investigation, including missing dependency, incomplete/native refusal, detached
+observation and unrelated dirty state. Check native outcomes independently of the adapter's output;
+an exposed list alone does not qualify integration. Source-only use survives unavailable native
+services. Two attachments retain independent reveal/context, and reconnect never replays effects.
+A selected CLI consumer, if any, uses MCP04's faithful derivative rather than another interface.
+No measured productivity claim is required; behavioral observations and support limits are required.
 
 <a id="G03"></a>
 ### G03 — Progressive instructions and representative agent evaluation
 
-Improve native AGENTS/rules/skills entrypoints with concise routing to actual environment,
+Consume CAP04's progressive instruction resources and MCP02's actual-host presentation, and
+improve native AGENTS/rules/skills entrypoints with concise routing to actual environment,
 source/generator, review/planning and qualification owners. Fix repeated discoverability gaps
 at their existing owner rather than adding another general policy page. Keep shared library
 skills repository-agnostic. Preserve planning-only boundaries and the distinction between a
@@ -96,8 +111,9 @@ Acceptance: these bounded tasks reveal correct owner selection, meaningful verif
 truthful partial outcomes without unauthorized implementation in the planning task. Retain
 useful local fixtures/evaluation prompts and rationale; do not create another incident ledger,
 paid scoring API or permanent evaluation service. Instruction/skill changes follow their existing
-authority route; improve presentation without silently changing governance. G01 discovery and
-B02 attributed history can supply evidence but neither is a universal prerequisite.
+authority route; improve presentation without silently changing governance. CAP/G01 discovery and B02 attributed history can supply evidence. Keep CAP04 instruction
+serving separate from this package's actual-agent evaluation. Actual Codex access is required for
+behavior claims; preserve bounded prompts/observations when an evaluation is incomplete.
 
 <a id="G04"></a>
 ### G04 — Ownership-aware integration and closeout assistance
@@ -115,7 +131,8 @@ commits remain the execution rhythm, not a new approval gate or requirement for 
 
 Acceptance: overlapping task edits plus a generated consumer and unrelated dirty file produce
 an explicit owned/unknown exclusion, correct generator/regeneration route, targeted test scope
-and reviewable commit selection. The read does not stage, merge, delete, certify completion or
+and reviewable commit selection. Expose this read through its canonical CAP/ADP binding, retaining explicit ownership inputs.
+The read does not stage, merge, delete, certify completion or
 retire anything. A later authorized action uses normal ownership checks. Keep requested independent
 completion audits separate; this is routine integration assistance. Migrate duplicated manual
 closeout readers only when the native view actually replaces them.
@@ -144,7 +161,9 @@ and source freshness, not only a screenshot or a running local server.
 ## Verification and integration
 
 **Proposed:** G01 is a continuing integration responsibility with an early small slice, not an
-all-capabilities prerequisite. G02/G05 are conditional consumer decisions. G03 uses actual task
+all-capabilities prerequisite. G02 implements the selected canonical workflow integration; only G05 retains its optional
+operator-view decision. CAP/ADP/MCP own underlying interface mechanisms, and any CLI remains
+conditional under MCP04. G03 uses actual task
 observations; G04 consumes declared ownership and source relationships. Targeted command/parser/
 composition fixtures accompany changed behavior, while 52h owns assembled agent/operator journeys
 and scope-end checks. No tool transport or dashboard changes native terminal, scientific, scope

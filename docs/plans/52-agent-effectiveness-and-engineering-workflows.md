@@ -3,7 +3,7 @@ title: "Plan 52: Agent effectiveness and engineering workflows"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 scenario_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -18,7 +18,10 @@ doc_topics: [current-work, design, environment, validation, diagnostics, librari
 verifying and investigating this system. Compose the implemented Plans50–51 foundations into
 useful workflows and add the capabilities identified by the
 [source review](../functional_reviews/agent-effectiveness-opportunities-2026-10-23.md).
-All O01–O30, RC01–RC09, meaningful alternatives and investigations have routes below.
+The original O01–O30/RC01–RC09 and the subsequent unified-interface review's O01–O10/
+Q01–Q06/RC01–RC05 have separate source-qualified routes below. The latter review supersedes
+the earlier discovery review's optional developer-server/Typer/CLI-first framing; it does not
+create another backlog from that earlier review. Meaningful alternatives retain explicit dispositions.
 A scheduled opportunity is not a defect finding, and authoring is not implementation acceptance.
 
 The operator authorized this plan series and explicitly accepted RC01–RC09 on 2026-10-23,
@@ -28,7 +31,10 @@ Companions own detailed designs and acceptance, linking here for current state. 
 and ADRs retain contract/rationale authority. The maintainer subsequently authorized detailed execution of all 52a/52b on 2026-10-23,
 including their required FND00 and small G01 prerequisite slices. On 2026-10-23 the maintainer also
 authorized all C01–C08/D01–D04 and their necessary prerequisite slices. The maintainer
-subsequently authorized E01–E04 and their necessary integration fixes. Other packages remain planned.
+subsequently authorized E01–E04 and their necessary integration fixes. Other production
+packages remain planned. On 2026-10-24 the maintainer authorized authoring
+52i–52k and reconciling this series to the selected unified FastMCP target. That instruction
+does not authorize implementing the new interface.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -45,8 +51,13 @@ foundation assessment. It is not a broad diagnostic audit or a new formal review
   memory/concurrency governor. Overlapping Cargo graphs in one target remain unsafe.
 - Generated data and derived indexes can be regenerated. Preserve artifacts only for selected
   investigations/current references; no blanket historical archival or compatibility migration.
-- CLI and readable/JSON results are first-class. Services, MCP, local models, containers and
-  interactive UI are conditional mechanisms, not prerequisites for the base workflows.
+- One FastMCP entry point is selected for agent capabilities, with exact domain/workflow
+  navigation, progressive reveal and useful instructions. No separate developer endpoint or
+  semantic/ranked capability search. Existing literal/regex source search and LSP symbol
+  navigation retain their native meaning. Ordinary shell/Git and native execution owners remain.
+- Any additional agent CLI is a conditional Cyclopts derivative of canonical FastMCP definitions,
+  never an independent Typer tree. Readable/JSON native results remain useful; local models,
+  containers and interactive UI retain their existing conditional selection boundaries.
 - Scientific authority, native result truth, source owners, cancellation/drain, independent
   expectations and Arrow force-validation remain intact. No new solver, model authority,
   generic scheduler, writable handoff ledger or second outcome store is selected.
@@ -75,6 +86,42 @@ reviewable edits, selects revealing tests, watches owned work, and compares actu
 Selected research and experiments remain navigable through derived links. Default reads do not
 start services, compile extensions, execute science, reopen threads or reconcile mutable owners.
 
+### Unified-interface foundation assessment — 2026-10-24
+
+The authoring baseline is `9f899dcc0c52a693ec05929ec6c1deabdf6b005a` plus inspected current
+owners. Concurrent Plan53 source/environment edits are outside this authoring scope. The
+[unified review](../functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md)
+already assessed the relevant native/Pydantic/schema/provider boundaries; focused source reads
+confirm that `workspace_context` composes native scope/recipe facts while `codex_session`
+currently attaches separate Rust/Python/database connections. These are foundations to adapt,
+not evidence of an implemented unified endpoint. No living diagnostic audit is refreshed.
+
+Reuse existing source readers, native decoders, scientific/diagnostic outcomes, workload admission,
+selected-service fences and result handles. Change their exposure and parser boundaries where
+useful. FastMCP owns one component/exposure declaration; Rust registries/catalogues own native
+schemas; Pydantic owns host-tool requests/results; Markdown owners supply instructions. Generated
+help/CLI derives from components, not a parallel schema. One STDIO process per attachment is the
+initial deployment. Browse/read bootstrap is outside ordinary workload admission; effectful
+operations retain their native environment/admission. Services are acquired only when needed.
+
+AP-01–AP-07 and the review's execution-fit reasoning shape this combined target: domain metadata
+must govern real selection/dispatch, native validation must precede effects, and compact discovery
+must avoid repeated global reconstruction. Core3.4, Heuristics1.0, Test Assessment1.2 and Process
+Simulator1.5 apply to this extension. No endpoint-lifetime native allocation, scientific mirror,
+new scheduler, duplicate evidence store or JSON-per-scalar scientific inner loop is selected.
+Use coarse native operations and their selected readers. No performance benefit is established.
+
+Keep PyO3 plus Rust-authoritative JSON Schema. gRPC is unselected because schema fidelity is
+already available without an additional service/ProtoJSON translation/lifetime. Revisit only
+for a concrete process-isolation/deployment need or meaningful complete replacement; no equivalent
+parallel production route. Buf descriptor-to-JSON-Schema remains an unqualified alternative,
+not scheduled infrastructure. OpenAPI/FastAPI providers, dynamic schema conversion and custom
+core-schema hooks are conditional on a real existing representation/API and fidelity checks.
+Tasks/Docket, CodeMode, sampling, MCP Apps, experimental Skills and custom extensions have no
+selected need. Ordinary resources/prompts/skill providers fit the target. OTel, response bounds,
+selective preparation and proxy providers have concrete owned routes in 52i–52k. The library
+mechanism decisions remain explained there and in the source review rather than another register.
+
 ### Shared meanings and physical composition
 
 | Meaning | Owner and consumed behavior |
@@ -92,10 +139,14 @@ start services, compile extensions, execute science, reopen threads or reconcile
 Parse selected sources once per operation, project compact facts, and hydrate raw detail only
 when requested. B04 uses the existing separate tooling database/generation lifecycle for a
 rebuildable knowledge projection; no second store of accepted facts. O02 paths can work in
-memory before persistence. B01 lexical search must serve an actual task before models are added.
+memory before persistence. B01's structured native queries and literal/lexical source discovery retain their separate
+meanings; capability access adds no ranked retrieval or model requirement.
 Avoid one LSP request, database query, subprocess or full-history scan per returned row.
 
 ## Rule decisions
+
+Unqualified RC IDs in the following original table belong to the 2026-10-23 review only.
+The later review has a separate [accepted rule table](#unified-interface-rule-decisions).
 
 All rows were **accepted by the operator on 2026-10-23** as conditional target directions.
 They do not accept an ADR or establish a probe result. FND00 publishes each required contract
@@ -124,7 +175,10 @@ slice through its actual route before dependent implementation; routine tooling 
 | [52e](52e-reproducible-experiments-and-isolation.md) | Historical replay, database fixtures, regression experiments and optional isolation |
 | [52f](52f-evidence-analysis-and-trace-correlation.md) | Explicit outcome comparisons and finite end-to-end trace investigation |
 | [52g](52g-agent-and-operator-workflows.md) | Agent-facing composition, skill discovery/evaluation, integration and optional operator UI |
-| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation, assembled acceptance, scope-end checks and publication |
+| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation across 52a–52k, assembled acceptance, scope-end checks and publication |
+| [52i](52i-canonical-capabilities-and-progressive-reveal.md) | Canonical exposure model, exact navigation, deterministic reveal and progressive instructions |
+| [52j](52j-native-contracts-and-tool-adaptation.md) | Native schema/admission fidelity, host contracts, whole-repository tool adaptation and retirement |
+| [52k](52k-unified-entry-point-and-derived-interfaces.md) | One attachment, lazy integration, loaded revisions, derived consumers and interface observation |
 
 Plans50–51 remain completed foundations. Their qualified interfaces are reusable; their counts
 are not Plan52 acceptance. Plan32 retains document/artifact lifecycle ownership. Plan40a–d's
@@ -135,8 +189,10 @@ representative native case is used here. Do not edit/retire those plans as part 
 
 ## Opportunity dispositions
 
-Rows retain their native package owners; selected implementation and inquiry outcomes are recorded below. Source IDs refer only
-to this review, not identically numbered opportunities in prior reviews. Conditional work needs
+Rows retain their native package owners; selected implementation and inquiry outcomes are recorded
+below. These source IDs refer only to the original
+[2026-10-23 review](../functional_reviews/agent-effectiveness-opportunities-2026-10-23.md), not
+identically numbered opportunities in either 2026-10-24 review. Conditional work needs
 an explicit supported decision and fallback, not silence under a completed-series label.
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
@@ -166,7 +222,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O23 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Paired comparisons preserving unmatched subjects and denominators |
 | O24 | resolved | [B04](52b-local-knowledge-and-research.md#B04) | Derived development-knowledge/experiment links, separate from scientific research |
 | O25 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact finite trace continuity or explicit unsupported seam |
-| O26 | scheduled | [G01/G02](52g-agent-and-operator-workflows.md#G01) | Useful typed CLI interactions and justified thin transport |
+| O26 | scheduled | [G01/G02](52g-agent-and-operator-workflows.md#G01) | Shared outcomes and selected unified FastMCP workflows; implementation in CAP/ADP/MCP packages |
 | O27 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Progressive instruction access and representative agent evaluations |
 | O28 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Activity-based session discovery, attribution and logical deduplication |
 | O29 | scheduled | [G04](52g-agent-and-operator-workflows.md#G04) | Ownership-aware integration and reviewable commit selection |
@@ -191,8 +247,64 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I09 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Deterministic regeneration adopted and actually qualified; logical restore/physical copy unselected. Revisit only for a concrete fixture question whose state cannot reasonably be regenerated |
 | I10 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Private directories default; optional Bubblewrap for a concrete permission-isolation consumer. Podman unselected until a different-userspace/dependency requirement recurs |
 | I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK/transport context propagation; no fake continuity |
-| I12 | open | [G02](52g-agent-and-operator-workflows.md#G02) | Thin MCP consumer benefit versus direct CLI; no second dispatcher |
+| I12 | resolved | [G02](52g-agent-and-operator-workflows.md#G02) | Operator selected one canonical FastMCP endpoint on 2026-10-24; optional direct-versus-MCP adoption inquiry superseded. Actual host, schema and lifecycle questions remain Q01–Q06 below; no delivery claim |
 | I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
+
+## Unified-interface rule decisions
+
+These RC identities belong exclusively to the
+[2026-10-24 unified-interface review](../functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md#correspondence-migration-and-rule-impacts).
+RC01/RC03/RC04 are accepted through the maintainer's explicit single-surface, native-schema and
+tool-refactoring selections. The maintainer explicitly accepted RC02/RC05 together on 2026-10-24.
+All decisions below are recorded as accepted target directions on 2026-10-24. They do not change
+formal ADR status or establish implementation. FND00 schedules each actual rule slice before
+its dependent code; ordinary tooling/dependency edits do not require a placeholder ADR.
+
+| Decision | Disposition | Work owner | Accepted consequence and route |
+|---|---|---|---|
+| RC01 | resolved | [MCP01/G02](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | One canonical endpoint; specialists internal/lazy. Migrate session/config/environment and concise agent instructions with actual attachment; no mandatory tool use. |
+| RC02 | resolved | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Clarify Python rule for Pydantic host contracts; Rust-generated scientific contracts remain authoritative. Declare exact direct dependency when used; actual public Python-boundary changes take existing ADR/design route first. |
+| RC03 | resolved | [CAP01/MCP04](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Distinct exposure/native-schema authorities; derived help/CLI and owner metadata. Update declaration/generation guidance with consumers; never edit generated output. |
+| RC04 | resolved | [ADP03/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Refactor difficult tools and retire replaced parsers/scrapers/callers after proven migration. Preserve native truth, validation, source protection, admission and lifetime; amend actual affected contracts through their existing route. |
+| RC05 | resolved | [MCP01/MCP03](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap read/control launch outside workload admission; effectful native admission retained; relevant serving edits require restart/reload. Update tooling/environment/session guidance with implementation. |
+
+## Unified-interface opportunity dispositions
+
+These O IDs belong to the unified-interface review, not the original 2026-10-23 O table.
+Scheduled means selected design/implementation work; it does not mean delivered functionality.
+O08's CLI portion remains conditional on a concrete consumer and fidelity, while derived reference
+is required. Package completion does not automatically resolve an opportunity's other consumers.
+
+| Opportunity | Disposition | Work owner | Required behavior or disposition |
+|---|---|---|---|
+| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | One exact domain/workflow/component model covering all agent-tool families; metadata derives actual reveal/dispatch/help. |
+| O02 | scheduled | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Deterministic process-scoped reveal/reset plus actual Codex refresh or faithful same-endpoint exact adaptation. |
+| O03 | scheduled | [CAP04/G03](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Root→workflow→operation guidance from native owners; actual planning-only and editing task evaluation. |
+| O04 | scheduled | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Pydantic host types and Rust-derived native schemas with mandatory native validation/admission before effects. |
+| O05 | scheduled | [ADP03/ADP04/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Refactor/adapt difficult operations across repository, preserve behavior, migrate callers and delete replacements. |
+| O06 | scheduled | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Reachable cheap bootstrap, lazy service acquisition, explicit identities and independent admission/lifetime. |
+| O07 | scheduled | [ADP02/G01/G02](52j-native-contracts-and-tool-adaptation.md#ADP02) | Independent outcomes, bounded nested content, exact handles, observation versus work cancellation/drain. |
+| O08 | scheduled | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference; conditional complete/fresh-reveal Cyclopts CLI preserves absent/null/empty semantics or records supported non-adoption. |
+| O09 | scheduled | [MCP03/CAP02/CAP04](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Coherent loaded schema/handler/instructions, relevant restart, native source freshness separate, no global per-read reconstruction. |
+| O10 | scheduled | [MCP05/F01/F02](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Existing evidence/trace correlation and actual interface failures; no duplicate store or fabricated end-to-end continuity. |
+
+## Unified-interface inquiries
+
+The single-surface direction and a high-functioning Codex integration are settled design premises.
+On 2026-10-24 the maintainer confirmed prior successful MCP attachment through environment JSON.
+Q01 selects and verifies the best current configuration/presentation; it is not a feasibility gate
+or a reason to defer the architecture. These implementation questions still need actual evidence;
+the source review's library-client probes do not establish Codex attachment, full native fidelity
+or product integration. Preserve failed/inconclusive evidence and update dependent packages here.
+
+| Inquiry | State | Owner | Decision / completion evidence |
+|---|---|---|---|
+| Q01 | open | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Configure the canonical endpoint using the working environment-JSON attachment approach; verify actual Codex list-change refresh/resources/prompts and select the best supported presentation. If useful select exact schema/invocation adaptation within the same endpoint delegating canonical validation/middleware/effects/results. |
+| Q02 | open | [ADP01](52j-native-contracts-and-tool-adaptation.md#ADP01) | Bind representative native schema variants and decoders; authoring versus hydrated, local refs, recursion, enums and contextual refusal before effects. |
+| Q03 | open | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Lazy proxy acquisition, selected-service identity, thread/lifetime/cancellation/teardown with actual specialist consumers. |
+| Q04 | open | [ADP03](52j-native-contracts-and-tool-adaptation.md#ADP03) | Choose typed extraction versus faithful process adapter for archive/diagnostic examples, then apply per-family; no arbitrary shell wrapper. |
+| Q05 | open | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Concrete CLI consumer decision; complete generation, exact activation on fresh connection and absent/null/empty forwarding. Non-adoption needs reason/revisit trigger. |
+| Q06 | open | [MCP03](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded guidance/schema/handler coherence, relevant restart/reload, source-only availability and actual catalogue preparation work; no blanket repo hash. |
 
 ## Package state and execution route
 
@@ -231,7 +343,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired evidence comparisons |
 | F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Finite trace seam and I11 |
 | G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
-| G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Conditional transport I12 |
+| G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
 | G03 | planned | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
 | G04 | planned | [52g](52g-agent-and-operator-workflows.md#G04) | Safe integration/closeout proposal |
 | G05 | planned | [52g](52g-agent-and-operator-workflows.md#G05) | Operator investigation and I13 |
@@ -239,6 +351,21 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | H02 | planned | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
 | H03 | planned | [52h](52h-qualification-and-publication.md#H03) | Scope-end static/manual checks |
 | H04 | planned | [52h](52h-qualification-and-publication.md#H04) | Enduring contracts, actual Outcome and retirement readiness |
+| CAP01 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical exposure and first operation |
+| CAP02 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP02) | Exact catalogue and bounded preparation |
+| CAP03 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Deterministic reveal/reset |
+| CAP04 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Progressive owner guidance |
+| CAP05 | planned | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Whole-repository classification/exposure |
+| ADP01 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Native schema/decoder fidelity and Q02 |
+| ADP02 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Typed host requests, independent outcomes and handles |
+| ADP03 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Parser-bound extraction/adaptation and Q04 |
+| ADP04 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Native/language/database integrations and Q03 |
+| ADP05 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | All-family migration and replacement retirement |
+| MCP01 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap attachment and lazy resources/Q03 |
+| MCP02 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex reveal/presentation/Q01 |
+| MCP03 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded revision coherence and Q06 |
+| MCP04 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference and conditional faithful CLI/Q05 |
+| MCP05 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Interface observation and evidence integration |
 
 <a id="FND00"></a>
 ### FND00 — Decision and declaration readiness
@@ -253,7 +380,8 @@ within contracts need neither. Do not create placeholder ADRs for every RC row.
 Publish changed architecture only through the explicit design-edit route and revision row.
 Record which prerequisite is merely designed versus declared, integrated and exercised. This
 package is incremental: B04's schema does not block A01's source-only task packet or D01's watch.
-If a new rule impact appears beyond accepted RC01–RC09, present that exact consequence before
+The original and unified-interface accepted rule tables are distinct sources. If a new rule
+impact appears beyond them, present that exact consequence before
 fixing the dependent target. Acceptance is the required decision/declaration in place and its
 actual consumer consuming it, not completion of a generic paperwork milestone.
 
@@ -266,8 +394,21 @@ B01 precedes B05. B04 consumes B01/B02/B03/A02's source facts and existing evide
 it does not block in-memory paths. A05 consumes A01/A02 and selected B03 research, then gains
 optional B04 retrieval. E03 can use existing reproducers before C06 reduction or E01 archives.
 F02 consumes exact capture/transport ownership, not completion of Plan40e. G04 follows actual
-source/consumer changes; G02/G05 follow useful direct consumers. H01–H04 close assembled scope
+source/consumer changes; G02 consumes real canonical operations and G05 useful comparison results.
+H01–H04 close assembled scope
 once selected functionality and inquiry outcomes are ready.
+
+For the unified extension, start CAP01's metadata contract, ADP02's minimal source-only operation
+and MCP01's cheap bootstrap together: discovery→guidance→real read→native result is the first
+useful slice. CAP02/CAP03/CAP04 then compose exact catalogue/reveal/instructions with MCP02's
+actual host test. Start Q02 native schema/decoder work and Q03 specialist lifetime inquiry early;
+only affected native/specialist operations wait for those actual integrations. MCP03's loaded
+revision behavior accompanies serving code/guidance changes. ADP03 adapts coherent difficult
+families with their callers, CAP05 classifies remaining inventory and ADP05 verifies actual
+migration/deletion. G02/G03 evaluate real workflows, F01/F02 and MCP05 integrate evidence, MCP04
+derives references and any selected CLI. H01 reconciles all required and conditional scope before
+H02–H04. These are contract/evidence dependencies, not whole-document serial barriers. Preserve
+C04's separately recorded denied execution boundary; interface work does not authorize retry.
 
 Shared source files are a separate coordination concern from logical dependencies. Give one
 writer the registry/manifest changes, another the current tooling owner only when editing can
@@ -346,3 +487,16 @@ interrupted publication/drain recovery, full-schema transport, explicit database
 fixture identities. The Outcome retains original failures and corrected acceptance separately.
 E01–E04 and I08–I10 are complete at their selected focused boundaries. Other FND00/G01
 obligations, C04's separately recorded denial boundary and Plan52f–52h retain their scope.
+
+
+### Unified-interface authoring checkpoint — 2026-10-24
+
+52i–52k and the affected 52a–52h integration boundaries now express the selected single-surface
+architecture. Unified O01–O10/Q01–Q06/RC01–RC05 have explicit owners above. Original delivered
+Outcomes and package states remain unchanged; I12 is resolved only as a target selection.
+The new CAP/ADP/MCP packages are planned. No canonical production endpoint, actual Codex refresh,
+full native schema bridge, whole-inventory migration or faithful generated CLI is delivered by
+this authoring. Rule directions are accepted; actual instruction/boundary changes follow FND00.
+The next implementation authorization can start the first slice described above. H01–H04 remain
+the assembled qualification/publication owner for expanded 52a–52k, while C04 and independent
+Plan28/32/40/53 obligations retain their current owners and evidence limits.

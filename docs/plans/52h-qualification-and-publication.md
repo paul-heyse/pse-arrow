@@ -3,7 +3,7 @@ title: "Plan 52h: Qualification and publication"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, documentation, design]
@@ -20,7 +20,7 @@ inquiry status owner. Authoring and document checks establish none of the produc
 
 Required capabilities cannot disappear behind a tool non-adoption. A conditional candidate may
 close with its supported alternative, reason and observable revisit condition; positive adoption
-requires real integration before closure. I03 has lexical and semantic decisions; I06 has native
+requires real integration before closure. I03 selected structured queries with lexical source discovery and retired the unused semantic helper; I06 has native
 and modeled branches. Preserve those separate conclusions. No unresolved support claim becomes
 implemented because an adapter/configuration file exists.
 
@@ -47,7 +47,13 @@ not production lane/parameter counts or a full Cartesian product of tools/config
 | Selected experiment | Pure historical replay has distinct producer attribution; deterministic bisect includes untestable revisions; noisy/incompatible measurements stay inconclusive; owned disposal leaves unrelated state intact. |
 | Database/tool isolation | Two deterministic representative fixtures have fresh credentials and read-back settlement; interrupted setup/cleanup remains truthful; any selected sandbox proves its narrow environment scope. |
 | Diagnosis | Host pressure/placement facts retain identities/intervals; finite trace capture shows supported continuity and explicit missing links with independent workload/restoration/cleanup outcomes. |
-| Agent/operator integration | Describe→command→watch→read→compare→closeout works with bounded structured results, an environment failure and unrelated dirty edits. Optional transport/model/UI is exercised only if adopted. |
+| Agent/operator integration | Describe→command→watch→read→compare→closeout works with bounded structured results, an environment failure and unrelated dirty edits. The selected canonical FastMCP route is required; optional CLI/model/UI only if adopted. |
+| Exact capability discovery | Find and invoke a useful tool outside the originally named plans by declared domain/workflow, with authentic signature, prerequisites and instructions; no semantic similarity. |
+| Reveal and guidance | Actual Codex bootstrap→selection→changed callable inventory or qualified exact same-endpoint route→reset, two independent STDIO attachments, concurrent selection and planning-only instruction retrieval. |
+| Native and host contracts | Correct native authoring/hydrated schema plus native admission, local refs/enums/recursion, strict host input, independent absent/null/empty expectations and nested output completeness. |
+| Lazy service failure | Compiler/admission/store unavailable leaves source/offline reads reachable; selected specialist acquisition retains identity, cancellation and owned shutdown without eager launch. |
+| Loaded interface edit | Relevant handler/schema/guide edit requires coherent snapshot/restart, unrelated source edits remain independently inspectable, restart supplies matching new definitions. |
+| Derived consumers | Reference signatures match canonical components; any adopted Cyclopts CLI includes hidden families, activates exact target on fresh connection and preserves null/empty/default/refusal semantics. |
 
 Actual Rust/Python/public CLI paths matter where delivered behavior crosses them. A host-only
 composition does not need native solver compilation; a claim about native callback lifetime or
@@ -59,7 +65,11 @@ their instrumentation/observation bounds. Full solver-fleet qualification is not
 <a id="H01"></a>
 ### H01 — Reconcile actual scope, consumers and inquiry outcomes
 
-Inspect delivered producers/consumers against 52a–g, source O01–O30 and accepted RC01–RC09.
+Inspect delivered producers/consumers against 52a–52k. Reconcile the original review's O01–O30/
+RC01–RC09 and the unified-interface review's O01–O10/Q01–Q06/RC01–RC05 at their distinct coordinator
+tables. Preserve resolved I12 as direction selection, not host delivery. Required derived reference
+and conditional CLI decisions differ. Actual CAP05 classification plus ADP05 caller migration
+must cover all current agent-tool families; a few representative wrappers do not close that scope.
 Confirm that every required capability is implemented, each conditional inquiry is settled with
 its supported path, and replacements are deleted. Reconcile early contract slices with their
 final consumers; interface agreement is not consumer migration. Check generated/schema ownership,
@@ -75,6 +85,10 @@ merely to make completion green.
 ### H02 — Assembled functional qualification
 
 Run the relevant journeys above after all selected functional packages/targeted checks are ready.
+MCP02's actual Codex support cannot be replaced with an in-process client probe. Use independent
+native expected outcomes for adapter checks, actual specialist lifetime consumers and Q06 relevant
+restart evidence. Cross-family representative assembled journeys supplement exhaustive migration
+reconciliation; they are not a Cartesian campaign over every operation/configuration.
 Choose current recipes and [qualification guidance](../dev/validation-assessment.md) for actual
 Rust/default/native/Python/host/offline contexts. Reuse applicable valid evidence only through
 its existing source-bound contract; historical replay is not current-source qualification.
@@ -112,6 +126,10 @@ substrate guides; architecture §19.4/§23.1/§24.1/§24.2 where meanings change
 and typed API documentation. Architecture edits use explicit design-edit authorization and a
 revision row; accepted ADRs are immutable. Accepted RC directions are not accepted ADR statuses.
 Publish real supported/unsupported model, bridge, replay, instrumentation and trace boundaries.
+Include the one-endpoint attachment/reveal procedure, native versus host schema ownership,
+loaded-revision/restart policy, cheap read/effectful admission split and actual CLI adoption/fidelity.
+Remove replaced session attachments, parsers and instructions only after their consumers migrate;
+retain useful native interfaces and source owners. Do not maintain a duplicate developer interface.
 
 Write the coordinator's implementation Outcome only from actual work: what was built with evidence
 labels; a mistake made and corrected; deliberate deviations and their required decision route.
@@ -124,7 +142,10 @@ series was authored or because another plan's number is lower.
 ## Current verification boundary
 
 **Interface-checked:** source owners and prior Outcomes establish the baseline and feasible
-integration seams described in this series. **Proposed:** all production packages, inquiry
-results and acceptance above. Documentation validation/publication establishes plan usability
+integration seams described in this series. **Proposed:** remaining production packages, inquiry results and acceptance
+above, including
+all CAP/ADP/MCP packages. Recorded 52a–52e focused deliveries retain their separate Outcomes;
+this expanded qualification does not revoke or broaden them. Documentation validation/publication
+establishes plan usability
 only. No product tests, model/service probes, compiler campaign or scientific qualification was
 run to author these documents; actual authoring checks are reported in the handoff.

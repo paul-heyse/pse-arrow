@@ -9,10 +9,15 @@ is drafted for execution authorization. Authoring and rule acceptance establish 
 or product qualification. Plan52 retains its separate capability scope and delivered foundations.
 
 [Plan52: Agent effectiveness and engineering workflows](52-agent-effectiveness-and-engineering-workflows.md)
-captures all O01–O30 and operator-confirmed RC01–RC09 from the agent-effectiveness review.
+captures the original O01–O30/RC01–RC09 and the unified-interface review's separately scoped
+O01–O10/Q01–Q06/RC01–RC05, with accepted target directions and planned interface delivery.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
-companions 52a–52h develop context/editing, knowledge, verification, execution, experiments,
-evidence/tracing, agent/operator workflows and assembled qualification. The authorized 52a/52b scope
+companions 52a–52k develop context/editing, knowledge, verification, execution, experiments,
+evidence/tracing, agent/operator workflows, canonical capabilities/reveal, native contracts/tool
+adaptation and one FastMCP attachment with derived consumers. The coordinator links the new
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md) scope and expanded 52h qualification. The authorized 52a/52b scope
 and its prerequisite slices are delivered at the selected host/native/actual-consumer boundaries;
 the coordinator links their outcomes and remaining series scope. Its
 [52c/52d checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52c52d-execution-checkpoint--2026-10-24)

@@ -3,7 +3,7 @@ title: "Plan 52a: Context, navigation and semantic editing"
 status: complete
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, design, environment, preparation]
@@ -29,6 +29,23 @@ Generated ownership has several real chains: runtime boundary schemas and
 xtask schema generators; and `_native.pyi` from actual PyO3 metadata through
 `xtask/src/codegen/python_stubs.rs`. A text match in generated output cannot assign all these
 to `boundary_documents.rs`. Exact producer relationships belong with the producer.
+
+## Unified-interface integration — 2026-10-24
+
+Expose the delivered task/source/generator and controlled-edit operations through canonical
+registrations in CAP01/CAP02/CAP04 and actual ADP02/ADP04 bindings. Language services move behind
+MCP01's lazy internal integration, preserving source versions, preview/apply protections and
+full/partial/unsupported results. Literal/regex source search and LSP symbol semantics remain
+native capabilities; the structured discovery target adds no semantic similarity search.
+
+This is new interface integration scope owned by
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md), with progress at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md). Existing package statuses and
+historical Outcomes retain their recorded boundaries; this addition does not silently reopen or
+claim delivery of the canonical endpoint. Targeted tests accompany migrated consumers, while
+52h owns expanded assembled qualification and publication.
 
 ## Design and work packages
 

@@ -3,7 +3,7 @@ title: "Plan 52d: Execution and qualification efficiency"
 status: complete
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, validation, performance, diagnostics]
@@ -23,6 +23,23 @@ Use `activity.py`, `build_observation.py`, `run_inspection.py`, `validation.py`,
 `host_admission.py` and `storage_health.py`. Gate-level reuse and stable native result readers
 already exist. Current storage-health cgroup fields are predominantly memory observations;
 PSI/CPU/I/O/placement interpretation is an addition, not another name for delivered detail.
+
+## Unified-interface integration — 2026-10-24
+
+Connect work observation, result reads, feature resumption and environment/build diagnosis to
+canonical operations. Preserve observer detach versus work cancel, exact reuse/source context,
+unknown pressure/placement and workload admission at effectful owners. ADP03 removes printed-handle
+scraping where needed; MCP01's cheap read/control endpoint does not inherit workload admission
+for its lifetime. No new global resource governor or overlapping Cargo-driver permission follows.
+
+This is new interface integration scope owned by
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md), with progress at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md). Existing package statuses and
+historical Outcomes retain their recorded boundaries; this addition does not silently reopen or
+claim delivery of the canonical endpoint. Targeted tests accompany migrated consumers, while
+52h owns expanded assembled qualification and publication.
 
 ## Work packages
 

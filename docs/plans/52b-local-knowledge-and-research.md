@@ -3,7 +3,7 @@ title: "Plan 52b: Local knowledge and research"
 status: complete
 date: 2026-10-23
 adrs: [ADR-0222]
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, design, libraries, storage, environment]
@@ -57,6 +57,22 @@ indexing moves while Surreal retains graph projection, and preserve one exact so
 cut across them. It cannot satisfy unchanged Surreal lexical/query-plan acceptance by substitution.
 Do not build equivalent lexical indexes in parallel. Source-only search remains the fallback
 for unavailable persistent access, not completion of B04's persistent delivery.
+
+## Unified-interface integration — 2026-10-24
+
+Register exact knowledge/history/library operations and their source/guidance references through
+CAP and ADP bindings. Preserve structured native concepts, source freshness, historical attribution
+and the selected no-semantic-search pivot. Offline/source-only access stays reachable through
+MCP01 when the tooling database is unavailable; this does not turn derived knowledge into authority.
+
+This is new interface integration scope owned by
+[52i](52i-canonical-capabilities-and-progressive-reveal.md),
+[52j](52j-native-contracts-and-tool-adaptation.md) and
+[52k](52k-unified-entry-point-and-derived-interfaces.md), with progress at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md). Existing package statuses and
+historical Outcomes retain their recorded boundaries; this addition does not silently reopen or
+claim delivery of the canonical endpoint. Targeted tests accompany migrated consumers, while
+52h owns expanded assembled qualification and publication.
 
 ## Work packages
 
