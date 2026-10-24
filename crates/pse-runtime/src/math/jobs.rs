@@ -1100,6 +1100,7 @@ impl MathService {
         .await
         .map(|(value, _)| value)
     }
+    #[tracing::instrument(name = "pse.compiler.admission.wait", skip_all)]
     async fn compiler_authority(
         workspace: super::Workspace,
         cancel: &Cancellation,
@@ -1385,7 +1386,7 @@ impl MathService {
                     let result = async {
                 let (lease, active) = {
                     let _waiting = pse_diagnostics::observation::phase("math.admission.wait");
-                    service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at).await?
+                    tracing::Instrument::instrument(service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at), tracing::info_span!("pse.math.admission.wait")).await?
                 };
                 if cancel.flag().load(Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
@@ -1436,6 +1437,7 @@ impl MathService {
                         let _dispatch = tracing::dispatcher::set_default(&dispatch);
                         let _span = span.enter();
                         let _phase = pse_diagnostics::observation::phase("native.worker");
+                        let _native_span = tracing::info_span!("pse.native.worker.execute").entered();
                         #[cfg(feature = "solver-kinsol")]
                         pse_backend_native::implicit::budget_sessions(sessions);
                         #[cfg(not(feature = "solver-kinsol"))]
@@ -1445,6 +1447,7 @@ impl MathService {
                             Box::new(native_compute),
                             || pse_math::construction::scoped(construction, || work(flag, storage)),
                         );
+                        if let Err(error) = &result { crate::tooling::telemetry::diagnostic(error, "native.worker.execute"); }
                         interval.finish(match &result {
                             Ok(_) => crate::invocation::InvocationOutcome::Completed,
                             Err(MathRuntimeError::Cancelled) => crate::invocation::InvocationOutcome::Cancelled,
@@ -1462,6 +1465,7 @@ impl MathService {
                         biased;
                         () = cancel.cancelled() => {
                             if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.stop_requested", true); }
+                            tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native cancellation requested; retaining ownership through join");
                             let _ = joining.await;
                             Err(MathRuntimeError::Cancelled)
                         },
@@ -1483,6 +1487,7 @@ impl MathService {
                         .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                 };
                 drop(joining_phase);
+                tracing::info!(target: "pse.telemetry.diagnostic", code = "native.join.settled", native.failed = result.is_err(), "native worker and foreign destructors joined");
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.boolean("native.joined", true);
                     context.boolean("native.return.failed", result.is_err());

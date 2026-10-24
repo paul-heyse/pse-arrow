@@ -1414,6 +1414,7 @@ impl NativeSession {
         let waiting = observation
             .as_ref()
             .map(|context| context.phase("native.session.admission.wait"));
+        let admission_span = tracing::info_span!("pse.native.session.admission.wait");
         if cores == 0 || cores > self.service.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1533,11 +1534,13 @@ impl NativeSession {
             work: Some(Box::new(move |retained| {
                 let _invocation = invocation.enter();
                 drop(waiting);
+                drop(admission_span);
                 let _entered = observation.as_ref().map(|context| context.enter());
                 let _execution = crate::observation::native_execution_scope();
                 let _trace_dispatch = tracing::dispatcher::set_default(&trace_dispatch);
                 let _trace_span = trace_span.enter();
                 let phase = pse_diagnostics::observation::phase("native.session.work");
+                let _work_span = tracing::info_span!("pse.native.session.execute").entered();
                 let mut context = OperationContext {
                     #[cfg(any(test, feature = "solver-kinsol"))]
                     lane,
@@ -1574,6 +1577,7 @@ impl NativeSession {
                     }
                     Err(error) => Err(error.into()),
                 });
+                if let Err(error) = &outcome { crate::tooling::telemetry::diagnostic(error, "native.session.execute"); }
                 drop(context);
                 drop(_dispatch);
                 if let Some(context) = &observation {
@@ -1606,14 +1610,19 @@ impl NativeSession {
             .0
             .as_ref()
             .ok_or_else(|| MathRuntimeError::Infrastructure("native stop owner absent".into()))?;
+        let mut drain_span = None;
         let outcome = cancel
             .join_native(native, result, || {
+                drain_span = Some(tracing::info_span!("pse.native.session.drain.wait"));
+                tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native session cancellation requested; retaining owner through drain");
                 if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
                     context.boolean("native.session.stop_requested", true);
                 }
                 pse_diagnostics::observation::phase("native.session.drain.wait")
             })
             .await;
+        drop(drain_span);
+        tracing::info!(target: "pse.telemetry.diagnostic", code = "native.session.response", native.response_received = outcome.is_ok(), "native session response wait returned; session teardown remains separately owned");
         stop.0 = None;
         outcome.map_err(|_| MathRuntimeError::Infrastructure("lost native session step".into()))?
     }
@@ -1933,6 +1942,7 @@ impl NativeSession {
         Ok(())
     }
     /// Close the session and wait until its thread has joined.
+    #[tracing::instrument(name = "pse.native.session.join.wait", skip_all)]
     pub(crate) async fn close(mut self) {
         let observation = pse_diagnostics::observation::current();
         let phase = observation

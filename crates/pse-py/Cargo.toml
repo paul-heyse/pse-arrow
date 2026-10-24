@@ -52,6 +52,7 @@ force-validate = [
 ]
 
 [dependencies]
+tracing.workspace = true
 pse-admission.workspace = true
 pse-diagnostics.workspace = true
 pse-modeling.workspace = true

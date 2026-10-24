@@ -1,0 +1,371 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Executable-owned SDK composition and W3C propagation, never scientific state."""
+
+from __future__ import annotations
+
+import importlib
+import json
+import logging
+import os
+import re
+import sys
+import threading
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
+
+from scripts.telemetry_config import ResolvedSettings, resolve_process
+
+if TYPE_CHECKING:
+    from requests import PreparedRequest, Request, Session
+
+CARRIER_ENV = "PSE_TELEMETRY_CARRIER"
+_STATEKEY = re.compile(r"(?:[a-z][a-z0-9_*/-]{0,255}|[a-z0-9][a-z0-9_*/-]{0,240}@[a-z][a-z0-9_*/-]{0,13})\Z")
+_TRACEPARENT = re.compile(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}\Z")
+_LOCK = threading.Lock()
+_ACTIVE: ProcessLifetime | None = None
+
+
+class Provider(Protocol):
+    def shutdown(self) -> None: ...
+
+
+class NativeProvider(Provider, Protocol):
+    activation: dict[str, str | None]
+
+
+def _diagnostic(code: str) -> None:
+    # Never render settings, exception messages, endpoints or HTTP credentials.
+    print("pse-telemetry: " + code, file=sys.stderr)
+
+
+def validated_carrier(value: object) -> dict[str, str]:
+    """Copy only bounded W3C fields; no baggage or arbitrary environment data."""
+    if not isinstance(value, dict) or not value or set(value) - {"traceparent", "tracestate"}:
+        return {}
+    parent = value.get("traceparent")
+    if not isinstance(parent, str) or not _TRACEPARENT.fullmatch(parent):
+        return {}
+    if parent[3:35] == "0" * 32 or parent[36:52] == "0" * 16:
+        return {}
+    result = {"traceparent": parent}
+    state = value.get("tracestate")
+    if state is not None:
+        if not isinstance(state, str) or len(state) > 512 or not state.isascii() or any(ord(c) < 32 or ord(c) > 126 for c in state):
+            return {}
+        members = [item.strip() for item in state.split(",")]
+        keys = set()
+        if not state or len(members) > 32:
+            return {}
+        for member in members:
+            key, separator, content = member.partition("=")
+            if not separator or not _STATEKEY.fullmatch(key) or key in keys or not content or content[-1] == " " or any(c in content for c in ",="):
+                return {}
+            keys.add(key)
+        from opentelemetry.trace import TraceState  # noqa: PLC0415
+
+        parsed = TraceState.from_header([state])
+        if state and not parsed:
+            return {}
+        result["tracestate"] = parsed.to_header()
+    return result
+
+
+def current_carrier() -> dict[str, str]:
+    """Read the current API context on every native ingress, never a cached span."""
+    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator  # noqa: PLC0415
+
+    carrier: dict[str, str] = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    return validated_carrier(carrier)
+
+
+def helper_environment(environment: Mapping[str, str] | None = None) -> dict[str, str]:
+    result = dict(os.environ if environment is None else environment)
+    result.pop(CARRIER_ENV, None)
+    carrier = current_carrier()
+    if carrier:
+        result[CARRIER_ENV] = json.dumps(carrier, separators=(",", ":"))
+    return result
+
+
+@contextmanager
+def inherited_context(environment: Mapping[str, str] | None = None) -> Iterator[None]:
+    """Attach only for owned child work and always restore the prior context."""
+    env = os.environ if environment is None else environment
+    source = env.get(CARRIER_ENV)
+    if not source:
+        yield
+        return
+    carrier = {}
+    if len(source) <= 1024:
+        try:
+            carrier = validated_carrier(json.loads(source))
+        except (ValueError, TypeError):
+            pass
+    if not carrier:
+        _diagnostic("carrier_refused")
+        yield
+        return
+    from opentelemetry import context  # noqa: PLC0415
+    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator  # noqa: PLC0415
+
+    token = context.attach(TraceContextTextMapPropagator().extract(carrier, context=context.Context()))
+    try:
+        yield
+    finally:
+        context.detach(token)
+
+
+_INTERNAL_LOG_NAMES = ("opentelemetry", "urllib3", "requests", "httpx", "httpcore", "grpc")
+
+
+def _internal_log(name: str) -> bool:
+    return any(name == prefix or name.startswith(prefix + ".") for prefix in _INTERNAL_LOG_NAMES)
+
+
+class _SafeTelemetryDiagnostics(logging.Filter):
+    """Replace selected internal records before any handler can render payloads."""
+
+    def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
+        if not _internal_log(record.name):
+            return True
+        try:
+            message = record.getMessage().lower()
+        except Exception:
+            message = ""
+        # These are safe classifications, never acknowledgements or delivery facts.
+        if "connection refused" in message:
+            classification = "Connection refused"
+        elif "timeout" in message or "timed out" in message:
+            classification = "Export timed out"
+        elif record.levelno >= logging.ERROR:
+            classification = "Failed to export"
+        else:
+            classification = "SDK diagnostic"
+        component = "exporter" if record.name.startswith("opentelemetry.exporter.") else "sdk" if record.name.startswith("opentelemetry") else "transport"
+        # Construct from an allowlist: no original args, traceback, stack, body,
+        # headers, URL, source path or arbitrary extra fields survive.
+        safe = logging.LogRecord("pse.telemetry.diagnostic", record.levelno, "", 0, "pse-telemetry: " + classification + "; component=" + component + "; details=redacted", (), None)
+        safe.created = record.created
+        return safe
+
+
+def _protect_diagnostic_logging() -> None:
+    """Process-host routes; application logger/handler/provider identities stay put.
+
+    Origin filters protect already configured handlers before their first render.
+    Namespace routes also protect later SDK module loggers before root handlers.
+    The guards deliberately remain through process exit: a batch worker can log
+    after its bounded shutdown join, and SDK globals themselves are one-shot.
+    """
+    guard = _SafeTelemetryDiagnostics()
+    # Snapshot before adding our own handlers, preserving every caller handler.
+    selected = [item for item in logging.Logger.manager.loggerDict.values() if isinstance(item, logging.Logger) and _internal_log(item.name)]
+    for logger in selected:
+        logger.addFilter(guard)
+        for handler in logger.handlers:
+            handler.addFilter(guard)
+    for name in _INTERNAL_LOG_NAMES:
+        logger = logging.getLogger(name)
+        if logger not in selected:
+            logger.addFilter(guard)
+            for handler in logger.handlers:
+                handler.addFilter(guard)
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setLevel(logging.WARNING)
+        handler.addFilter(guard)
+        logger.addHandler(handler)
+        logger.propagate = False
+
+
+class _ApplicationLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # SDK/exporter/transport failure logging must remain stderr-only.
+        return not _internal_log(record.name) and record.name != "pse.telemetry.diagnostic"
+
+
+@dataclass
+class ProcessLifetime:
+    settings: ResolvedSettings | None
+    status: str
+    pid: int = field(default_factory=os.getpid)
+    providers: list[Provider] = field(default_factory=list)
+    handler: logging.Handler | None = None
+    native: NativeProvider | None = None
+    closed: bool = False
+
+    def shutdown(self) -> None:
+        """Called after native work settles. Flush completion is not delivery proof."""
+        if self.closed or self.pid != os.getpid():
+            return
+        self.closed = True
+        if self.native is not None:
+            try:
+                self.native.shutdown()
+            except Exception:
+                _diagnostic("native_shutdown_failed")
+        if self.handler is not None:
+            logging.getLogger().removeHandler(self.handler)
+            self.handler.close()
+        for provider in reversed(self.providers):
+            try:
+                provider.shutdown()
+            except Exception:
+                _diagnostic("provider_shutdown_failed")
+
+    def __enter__(self) -> ProcessLifetime:
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self.shutdown()
+
+
+def _protocol_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    selected = {name.lower(): value for name, value in headers.items()}
+    selected["content-type"] = "application/x-protobuf"
+    return selected
+
+
+def _export_session(headers: Mapping[str, str]) -> Session:
+    """Use the public SDK Session seam to preserve resolved wire headers exactly.
+
+    SDK 1.45.1 unconditionally overlays ambient OTEL headers before invoking its
+    session. Requests prepares the request normally; this owned session then
+    applies the resolved selection before send. No process environment changes.
+    The SDK transport closes its supplied session during provider shutdown.
+    """
+    from requests import Session  # noqa: PLC0415 -- only the selected executable host loads its transport.
+
+    selected = _protocol_headers(headers)
+
+    class ResolvedSession(Session):
+        def prepare_request(self, request: Request) -> PreparedRequest:
+            prepared = super().prepare_request(request)
+            prepared.headers.clear()
+            prepared.headers.update(selected)
+            prepared.prepare_content_length(prepared.body)
+            return prepared
+
+    session = ResolvedSession()
+    session.trust_env = False
+    return session
+
+
+def _compose(owner: ProcessLifetime) -> None:
+    from opentelemetry import _logs, metrics, trace  # noqa: PLC0415
+    from opentelemetry.sdk.resources import Resource  # noqa: PLC0415
+
+    settings = owner.settings
+    if settings is None:
+        return
+    # Public setters are one-shot. Never replace another application's providers.
+    if (settings.traces.enabled and not isinstance(trace.get_tracer_provider(), trace.ProxyTracerProvider)) or (settings.metrics.enabled and not isinstance(metrics.get_meter_provider(), metrics.NoOpMeterProvider) and type(metrics.get_meter_provider()).__name__ != "_ProxyMeterProvider") or (settings.logs.enabled and type(_logs.get_logger_provider()).__name__ != "ProxyLoggerProvider"):
+        owner.status = "initialization_refused"
+        _diagnostic("existing_provider_preserved")
+        return
+    _protect_diagnostic_logging()
+    from opentelemetry.exporter.otlp.proto.http import Compression  # noqa: PLC0415
+
+    resource = Resource.create({**dict(settings.resource), "process.pid": os.getpid()})
+    if settings.traces.enabled:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
+        from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+        from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased, TraceIdRatioBased  # noqa: PLC0415
+
+        sampler = ALWAYS_OFF if settings.sampler.endswith("always_off") else TraceIdRatioBased(settings.sampler_argument) if "traceidratio" in settings.sampler else ALWAYS_ON
+        if settings.sampler.startswith("parentbased"):
+            sampler = ParentBased(sampler)
+        provider = TracerProvider(resource=resource, sampler=sampler, shutdown_on_exit=False)
+        owner.providers.append(provider)
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.traces.endpoint, headers=_protocol_headers(dict(settings.traces.headers)), timeout=settings.traces.timeout_ms / 1000, compression=Compression.NoCompression, session=_export_session(dict(settings.traces.headers))), max_queue_size=settings.max_queue_size, max_export_batch_size=settings.max_export_batch_size, schedule_delay_millis=settings.schedule_delay_ms, export_timeout_millis=settings.export_timeout_ms))
+        trace.set_tracer_provider(provider)
+    if settings.logs.enabled:
+        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # noqa: PLC0415
+        from opentelemetry.instrumentation.logging.handler import LoggingHandler  # noqa: PLC0415
+        from opentelemetry.sdk._logs import LoggerProvider  # noqa: PLC0415
+        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor  # noqa: PLC0415
+
+        logger_provider = LoggerProvider(resource=resource, shutdown_on_exit=False)
+        owner.providers.append(logger_provider)
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(OTLPLogExporter(endpoint=settings.logs.endpoint, headers=_protocol_headers(dict(settings.logs.headers)), timeout=settings.logs.timeout_ms / 1000, compression=Compression.NoCompression, session=_export_session(dict(settings.logs.headers))), max_queue_size=settings.max_queue_size, max_export_batch_size=settings.max_export_batch_size, schedule_delay_millis=settings.schedule_delay_ms, export_timeout_millis=settings.export_timeout_ms))
+        _logs.set_logger_provider(logger_provider)
+        handler = LoggingHandler(logger_provider=logger_provider)
+        handler.addFilter(_ApplicationLogs())
+        # Retain an actual stderr fallback when there are no application handlers.
+        if not logging.getLogger().handlers:
+            logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
+        logging.getLogger().addHandler(handler)
+        owner.handler = handler
+    if settings.metrics.enabled:
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter  # noqa: PLC0415
+        from opentelemetry.sdk.metrics import MeterProvider  # noqa: PLC0415
+        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader  # noqa: PLC0415
+
+        reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=settings.metrics.endpoint, headers=_protocol_headers(dict(settings.metrics.headers)), timeout=settings.metrics.timeout_ms / 1000, compression=Compression.NoCompression, session=_export_session(dict(settings.metrics.headers))), export_interval_millis=settings.metric_export_interval_ms, export_timeout_millis=settings.metrics.timeout_ms)
+        meter_provider = MeterProvider(resource=resource, metric_readers=[reader], shutdown_on_exit=False)
+        owner.providers.append(meter_provider)
+        metrics.set_meter_provider(meter_provider)
+    owner.status = "initialized"
+
+
+def bootstrap(service_name: str, *, root: Path | None = None, environment: Mapping[str, str] | None = None, native: bool = False) -> ProcessLifetime:
+    """An executable opts in once; library Runtime construction never calls this."""
+    global _ACTIVE
+    with _LOCK:
+        if _ACTIVE is not None and _ACTIVE.pid == os.getpid():
+            return ProcessLifetime(_ACTIVE.settings, "already_initialized" if not _ACTIVE.closed else "initialization_refused")
+        try:
+            settings = resolve_process(service_name, root=root, environment=environment)
+        except (ValueError, OSError, TypeError):
+            _diagnostic("configuration_refused")
+            _ACTIVE = ProcessLifetime(None, "configuration_refused")
+            return _ACTIVE
+        owner = ProcessLifetime(settings, "disabled")
+        if settings.disabled:
+            _ACTIVE = owner
+            return owner
+        try:
+            _compose(owner)
+            if native and owner.status == "initialized":
+                facade = importlib.import_module("pse._telemetry")
+                owner.native = facade.initialize(settings.native_settings(), current_carrier)
+                if owner.native.activation.get("status") not in {"initialized", "already_initialized", "disabled"}:
+                    _diagnostic("native_initialization_refused")
+        except Exception:
+            # Telemetry is observational and cannot change a native operation outcome.
+            _diagnostic("initialization_unavailable")
+            owner.status = "initialization_unavailable"
+        _ACTIVE = owner
+        return owner
+
+
+def run_helper(service_name: str, main: Callable[[], int], *, native: bool = False) -> int:
+    """Fixed executable shell, outside the helper's native cancellation/drain owner."""
+    from opentelemetry import trace  # noqa: PLC0415
+
+    with bootstrap(service_name, native=native), inherited_context(), ExitStack() as stack:
+        stack.enter_context(trace.get_tracer(__name__, "1").start_as_current_span("pse.helper", attributes={"pse.helper.service": service_name}, record_exception=False, set_status_on_exception=False))
+        return main()
+
+
+def local_status() -> dict[str, object]:
+    """Passive current-process state; configured endpoints never imply delivery."""
+    owner = _ACTIVE
+    if owner is None or owner.pid != os.getpid():
+        return {
+            "status": "not_initialized", "lifecycle_owner": "process host",
+            "export_attempts": {"status": "unavailable", "reason": "SDK counters not owned by this read"},
+            "delivery": "not_observed", "queue_occupancy": "unavailable", "dropped_records": "unavailable",
+        }
+    return {
+        "status": owner.status, "lifecycle_owner": "process host", "closed": owner.closed,
+        "native": owner.native.activation if owner.native is not None else None,
+        "configuration": owner.settings.effective() if owner.settings is not None else None,
+        "export_attempts": {"status": "unavailable", "reason": "SDK counters not owned by this read"},
+        "delivery": "not_observed", "queue_occupancy": "unavailable", "dropped_records": "unavailable",
+    }

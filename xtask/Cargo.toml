@@ -86,6 +86,7 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas"]
 
 [dependencies]
+tracing.workspace = true
 surrealdb-syn = { workspace = true, optional = true }
 libfuzzer-sys = { workspace = true, optional = true }
 pse-admission = { workspace = true, optional = true }

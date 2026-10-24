@@ -770,7 +770,7 @@ pub(crate) fn scope<F: Future>(
     context: Option<ObservationContext>,
     future: F,
 ) -> impl Future<Output = F::Output> {
-    pse_diagnostics::observation::scope(context, future)
+    crate::tooling::telemetry::inherit(pse_diagnostics::observation::scope(context, future))
 }
 /// Capture context before spawning, independently of scientific continuation ownership.
 pub(crate) fn inherit<F: Future>(future: F) -> impl Future<Output = F::Output> {
@@ -782,6 +782,8 @@ pub(crate) fn child<F: Future>(kind: &'static str, future: F) -> impl Future<Out
     let operation = pse_diagnostics::observation::current()
         .map(|context| context.child(kind, pse_diagnostics::observation::Relationship::Nested));
     let context = operation.as_ref().map(|operation| operation.context());
+    let span = tracing::info_span!("pse.native.producer", owner = kind, native.operation = ?context.as_ref().map(ObservationContext::id));
+    let future = tracing::Instrument::instrument(future, span);
     let future = futures_util::FutureExt::inspect(future, move |_| {
         // Completed describes this observed scope, not scientific permission of its output.
         if let Some(operation) = operation {

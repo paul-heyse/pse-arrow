@@ -12,3 +12,4 @@ pub mod review_launch;
 pub mod review_pack;
 pub mod review_query;
 pub mod taskdump;
+pub mod telemetry;

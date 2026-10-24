@@ -25,6 +25,7 @@ mod diagnostics;
 mod documents;
 mod enums;
 mod identities;
+mod telemetry;
 mod inspection;
 mod workflow;
 
@@ -115,6 +116,7 @@ mod _native {
             registry_table,
         },
         registry_fingerprint,
+        telemetry::{_telemetry_initialize, _telemetry_shutdown},
         workflow::{
             ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeArtifactSettlement,
             NativeAttempt, NativeFrozenStudyCohort, NativeLiveSimulationCursor,

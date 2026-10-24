@@ -485,6 +485,10 @@ fn main() -> ExitCode {
         eprintln!("error: {error}");
         return ExitCode::FAILURE;
     }
+    let _telemetry_host = match pse_runtime::tooling::telemetry::Host::from_environment("pse-worker") {
+        Ok(host) => host,
+        Err(_) => { eprintln!("pse-telemetry: native-host-initialization-refused"); None }
+    };
     let cli = Cli::parse();
     let executor = match tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

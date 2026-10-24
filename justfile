@@ -126,6 +126,13 @@ surrealkit *args:
     "{{ py }}" -m scripts.surrealkit "$@"
 
 [group('diagnostics')]
+[doc('Explicit native telemetry service actions and passive configuration/health reads')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+telemetry *args:
+    exec "{{ py }}" -m scripts.telemetry "$@"
+
+[group('diagnostics')]
 [doc('Explicit archive/replay, regression/comparison and optional tooling experiments')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]

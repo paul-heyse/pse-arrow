@@ -357,6 +357,7 @@ impl MathService {
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let product =
                         service.with_modeling_compiler(authority, &revision, |compiler| {
+                            let _stage = tracing::info_span!("pse.model.specialization").entered();
                             Ok(compiler.plan_modeling_cancellable(
                                 root,
                                 instance,
@@ -381,6 +382,7 @@ impl MathService {
             generation,
         })
     }
+    #[tracing::instrument(name = "pse.preparation.frontier.acquire", skip_all)]
     pub(crate) async fn plan_frontier_keyed(
         self: &Arc<Self>,
         key: Arc<BasisKey>,
@@ -405,10 +407,11 @@ impl MathService {
         let generation = self.modeling_cache.generation();
         let population = super::PopulationScope::capture();
         let producer_deadline = service.preparation_producer_deadline();
+        let telemetry = crate::tooling::telemetry::ProducerContext::capture();
         let operation = self
             .frontier_flights
             .load_owned(key.clone(), move |control| {
-                population.run(async move {
+                telemetry.run("model.specialization.producer", population.run(async move {
                     let producer_deadline = producer_deadline?;
                     if let Some(frontier) = service.modeling_cache.frontier(&key) {
                         return Ok(frontier);
@@ -433,7 +436,7 @@ impl MathService {
                         .modeling_cache
                         .retain_frontier(generation, key, frontier.clone());
                     Ok(frontier)
-                })
+                }))
             });
         tokio::pin!(operation);
         tokio::select! {
@@ -490,6 +493,7 @@ impl MathService {
                     effects
                         .completions
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let _stage = tracing::info_span!("pse.compiler.materialization").entered();
                     let product = compiler
                         .complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
                     let bytes = product.retained_bytes();
@@ -510,6 +514,7 @@ impl MathService {
             _owner: owner,
         })
     }
+    #[tracing::instrument(name = "pse.preparation.basis.acquire", skip_all)]
     pub(crate) async fn complete_frontier_keyed(
         self: &Arc<Self>,
         key: Arc<BasisKey>,
@@ -543,10 +548,11 @@ impl MathService {
         let generation = frontier.generation;
         let population = super::PopulationScope::capture();
         let producer_deadline = service.preparation_producer_deadline();
+        let telemetry = crate::tooling::telemetry::ProducerContext::capture();
         let operation =
             self.basis_flights
                 .load_owned((key.clone(), source_premises.clone()), move |control| {
-                    population.run(async move {
+                    telemetry.run("compiler.materialization.producer", population.run(async move {
                         let producer_deadline = producer_deadline?;
                         if let Some(basis) = service.modeling_cache.basis(&key)
                             && basis.source_premises == source_premises
@@ -569,7 +575,7 @@ impl MathService {
                             .modeling_cache
                             .retain_basis(generation, key, basis.clone());
                         Ok(basis)
-                    })
+                    }))
                 });
         tokio::pin!(operation);
         tokio::select! {

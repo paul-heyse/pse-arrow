@@ -1888,6 +1888,9 @@ def worker_environment(
     state: Path, slot: int, allocation: dict[str, object], handoff: Path | None = None
 ) -> dict[str, str]:
     environment = systemd_environment()
+    from scripts import telemetry_launch  # noqa: PLC0415 -- shared passive process selection
+
+    telemetry_launch.configure(SCRIPT.parents[1], environment)
     # Never inherit the ordinary ad hoc workload's optional/off/default cap policy.
     environment.pop("PSE_MEMORY_MAX", None)
     environment.pop("PSE_NATIVE_OPERATION", None)
@@ -1954,6 +1957,7 @@ def primary_environment(
                 "PSE_SOLVER_IMAGE",
                 "PSE_NATIVE_PROVIDER_RECEIPT",
                 "SYMBOLICA_LICENSE",
+                "PSE_NATIVE_TELEMETRY_SETTINGS",
                 "LD_LIBRARY_PATH",
                 "PSE_LLVM_PREFIX",
                 "LIBCLANG_PATH",

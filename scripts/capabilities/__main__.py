@@ -1,8 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Fixed STDIO server entry point; no arbitrary command or launch-time setup."""
+"""Fixed STDIO entry; telemetry belongs to the executable process host."""
 
-from scripts.capabilities.server import build
+import os
+
+from scripts.telemetry_process import bootstrap
 
 if __name__ == "__main__":
-    build().server.run(transport="stdio", show_banner=False)
+    os.environ["FASTMCP_TELEMETRY_MODE"] = "native"
+    with bootstrap("pse-capabilities"):
+        from scripts.capabilities.server import build
+
+        build().server.run(transport="stdio", show_banner=False)

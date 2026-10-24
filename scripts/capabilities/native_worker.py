@@ -639,4 +639,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from scripts.telemetry_process import run_helper
+
+    raise SystemExit(run_helper("pse-native-worker", main, native=True))

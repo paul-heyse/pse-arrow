@@ -6679,6 +6679,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -10468,6 +10469,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml",
+ "tracing",
  "url",
 ]
 

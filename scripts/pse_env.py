@@ -152,6 +152,9 @@ def base_environment(
         env["PKG_CONFIG_PATH"] = prepend(
             str(SOLVER_STACK / "lib/pkgconfig"), env.get("PKG_CONFIG_PATH")
         )
+    from scripts import telemetry_launch  # noqa: PLC0415 -- pure optional launch selection
+
+    telemetry_launch.configure(root, env)
     return env
 
 

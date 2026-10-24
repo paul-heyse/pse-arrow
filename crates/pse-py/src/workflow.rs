@@ -477,11 +477,16 @@ pub(crate) fn blocking_native_call<T: Send>(
     cancel: impl Fn(),
 ) -> PyResult<T> {
     py.check_signals()?;
+    let telemetry = crate::telemetry::ingress(py, "python.native_pull");
+    let telemetry_dispatch = tracing::dispatcher::get_default(Clone::clone);
     std::thread::scope(|scope| {
+        let native_telemetry = telemetry.clone();
         let (sender, mut receiver) = std::sync::mpsc::sync_channel(1);
         let worker = std::thread::Builder::new()
             .name("pse-python-pull".into())
             .spawn_scoped(scope, move || {
+                let _dispatch = tracing::dispatcher::set_default(&telemetry_dispatch);
+                let _telemetry = native_telemetry.entered();
                 let _ = sender.send(work());
             })
             .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
@@ -497,11 +502,13 @@ pub(crate) fn blocking_native_call<T: Send>(
             if signal.is_none()
                 && let Err(error) = py.check_signals()
             {
+                pse_runtime::tooling::telemetry::lifecycle(&telemetry, "native.cancel.requested", "python.native_pull");
                 cancel();
                 signal = Some(error);
             }
         };
         let joined = py.detach(|| worker.join());
+        pse_runtime::tooling::telemetry::lifecycle(&telemetry, "native.drain.settled", "python.native_pull");
         if signal.is_none()
             && let Err(error) = py.check_signals()
         {
@@ -581,7 +588,8 @@ fn blocking_on_with_interrupted_value<
             "blocking workflow cannot re-enter its async executor",
         ));
     }
-    let mut future = Box::pin(future);
+    let telemetry = crate::telemetry::ingress(py, "python.workflow");
+    let mut future = Box::pin(tracing::Instrument::instrument(future, telemetry.clone()));
     let mut signal: Option<PyErr> = None;
     loop {
         let ready = py.detach(|| {

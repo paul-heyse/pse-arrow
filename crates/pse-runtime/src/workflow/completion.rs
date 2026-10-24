@@ -36,6 +36,7 @@ impl RunResult {
         self.completion.as_ref().map_err(AsRef::as_ref)
     }
 
+    #[tracing::instrument(name = "pse.result.completion", skip_all)]
     pub(super) fn capture_completion(&self) -> Result<Completion, WorkflowError> {
         let mut product = Completion {
             assessments: self.assessments.clone(),

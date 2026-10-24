@@ -4,6 +4,7 @@
 use super::*;
 use pse_relations::generated::authored::{documents, fit_cases, modeling_declarations, packages};
 
+#[tracing::instrument(name = "pse.math.rebind", skip_all)]
 pub(super) fn rebind(
     source: &ModelingPackage,
     runtime: &Runtime,

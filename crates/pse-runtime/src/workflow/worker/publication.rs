@@ -64,6 +64,7 @@ impl Handoff {
     /// settles publication/heartbeat and typed ACK uncertainty before completing.
     /// False requests the existing cancellation settlement route, never an
     /// extra payload publisher outside the scheduler's finite capacity.
+    #[tracing::instrument(name = "pse.publication.capacity.wait", skip_all)]
     pub(in crate::workflow) async fn ready(self) -> Result<bool, WorkflowError> {
         let Self {
             lane,

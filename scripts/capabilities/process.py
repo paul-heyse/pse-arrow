@@ -19,6 +19,7 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from scripts.capabilities.worker_progress import ProgressObserver
+from scripts.telemetry_process import helper_environment
 
 if TYPE_CHECKING:
     from scripts.capabilities.workers import WorkerCall
@@ -74,6 +75,7 @@ async def run_worker(
                     str(source),
                     str(destination),
                     cwd=root,
+                    env=helper_environment(),
                     stdout=log,
                     stderr=log,
                 )
