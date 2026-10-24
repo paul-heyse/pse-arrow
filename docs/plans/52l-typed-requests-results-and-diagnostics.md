@@ -2,7 +2,7 @@
 title: "Plan 52l: Typed requests, results and diagnostics"
 status: draft
 date: 2026-10-24
-adrs: []
+adrs: [ADR-0224]
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -10,6 +10,17 @@ doc_topics: [current-work, design, libraries, diagnostics, validation]
 ---
 
 # Plan 52l: Typed requests, results and diagnostics
+
+## Execution checkpoint — 2026-10-24
+
+The maintainer authorized CON01–CON04 and selected the compact readable physical-value view
+alongside schema discovery and exact IPC. ADR-0224 records the native inspection/diagnostic
+extension before code changes; it remains proposed. Work starts on main from `93cf65dc8` after
+recorded registry conversion. Fresh attachments must establish their actual loaded/store identity;
+old endpoint failures around reset are not evidence of current result behavior. Host owner requests,
+selected response families and native decode diagnostics proceed with separate file ownership;
+the root integrates scientific inspection, bindings, generators and actual acceptance. No new
+capability is complete at this checkpoint.
 
 ## Target and foundation assessment
 

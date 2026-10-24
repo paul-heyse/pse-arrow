@@ -521,10 +521,10 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
 | MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
 | MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
-| CON01 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Meaningful query requests, independent examples and real callers |
-| CON02 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected answer families and actual serialization schemas |
-| CON03 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe actionable owner diagnostics and preserved native admission |
-| CON04 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 result-shape inquiry, selected useful owner route and its actual consumers |
+| CON01 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Meaningful query requests, independent examples and real callers |
+| CON02 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected answer families and actual serialization schemas |
+| CON03 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe actionable owner diagnostics and preserved native admission |
+| CON04 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 result-shape inquiry, selected useful owner route and its actual consumers |
 | NAV01 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact progressive selection/guidance and declared workflow steps |
 | NAV02 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV02) | Actual module/package/operation ownership and local extension |
 | NAV03 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV03) | Operation-shaped dependency/restart fences and unaffected reads |
