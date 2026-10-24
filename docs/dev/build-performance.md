@@ -37,15 +37,29 @@ ordinary checkout. A bare `cargo` outside a recipe or an activated direnv keeps 
 its process inherited, possibly another checkout's target directory, so build through the
 recipes.
 
-Ordinary local `just` commands and direnv activate an installed `sccache`. Explicit
-`RUSTC_WRAPPER` settings take precedence, including the empty string. CI retains its
-existing cache policy. Workspace
+Ordinary local `just` commands and direnv select the versioned managed `sccache`
+declared in `.config/diagnostic-tools.toml`; an unrelated PATH binary does not replace it.
+Install it with `just diagnostic-tools sccache` or `just bootstrap-rust-tools`.
+`just doctor` verifies the managed executable's bytes and version and reports the effective
+selection without installing anything. Service admission checks the selected managed bytes
+against the declaration while computing its existing executable-generation identity.
+Explicit `RUSTC_WRAPPER` settings take precedence, including the empty string and custom
+wrappers. `PSE_SCCACHE_BINARY` selects an alternative real ELF binary on the managed
+wrapper route; doctor reports its actual version/path as an override. A missing optional
+managed install leaves automatic builds unwrapped; explicit cache-on requests refuse.
+CI retains its existing cache policy. Workspace
 crates use O2, with incremental compilation in dev/test; release retains non-incremental
 ThinLTO. Imported dependencies use O3 without incremental compilation, including vendored
 path dependencies. Keep Cargo's artifacts for direct reuse; sccache provides a fallback
 for eligible compilations. The Linux linker is mold, as declared in `.cargo/config.toml`.
 The existing profiles serve the daily workflows; no separate optimized test profile is
 needed.
+
+Agent configurations leave `CARGO_TERM_COLOR` unset by default. Cargo chooses presentation
+for the caller's terminal; explicit human settings remain supported. Refresh sessions after
+changing defaults: existing processes retain their inherited environment. sccache hashes
+almost all `CARGO_*` variables, so equivalent invocations should avoid accidental differences
+without removing values that can affect compiled output.
 
 ```bash
 just build-frontend 2 unit-package pse-compiler 'test(workspace_tests::)'

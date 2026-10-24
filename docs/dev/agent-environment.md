@@ -66,6 +66,10 @@ then `.envrc.local` (personal, gitignored) for anything unset, then repository d
 `PATH`, a local `/opt/pse-solvers` stack's tools, `PSE_SURREAL_STATE` (the supervisor's
 default state), and the compiler/cache configuration of `scripts/build_environment.py`
 (sccache wrapper, LLVM, jobs). Empty values pass through; composing twice changes nothing.
+The [build-performance guide](build-performance.md) owns managed compiler-cache installation,
+default/override selection and its verification. Agent defaults do not export
+`CARGO_TERM_COLOR`; an explicit caller value is preserved, and existing sessions must be
+refreshed to pick up configuration changes.
 
 **Refused overrides.** Some values are corrected to keep compiler supervision and checkout
 isolation: a `CARGO_TARGET_DIR` that names another checkout or this one's default `target/`

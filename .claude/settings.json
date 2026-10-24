@@ -31,9 +31,6 @@
       "Edit(/python/pse/contracts/**)"
     ]
   },
-  "env": {
-    "CARGO_TERM_COLOR": "never"
-  },
   "enabledPlugins": {
     "superpowers@synced": false,
     "notion-memory@synced": false,
