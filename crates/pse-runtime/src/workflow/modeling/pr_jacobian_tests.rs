@@ -1931,7 +1931,12 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let runtime = crate::workflow::tests::runtime_with(256 << 20, 16 << 20, 1 << 30);
+    // The two-selector isolation construction declares about 8.3 GiB. Its
+    // rounded 9 GiB bound coexists with the fixture's 1 GiB compiler reservation
+    // and four ordinary 1 GiB native-job slots (+16 MiB foreign per slot).
+    // A 16 GiB pool covers those declarations and retained source/program metadata;
+    // the actual runtime/IBEX allocation owners still admit every reservation.
+    let runtime = crate::workflow::tests::runtime_with(256 << 20, 16 << 20, 16 << 30);
     let package = runtime
         .modeling_package(authored, crate::workflow::tests::physical())
         .await?;

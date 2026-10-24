@@ -1287,30 +1287,29 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
                 assert_eq!(validity.validity.licq, Some(true));
                 assert_eq!(validity.validity.strict_complementarity, Some(true));
             }
-            // Durable lifecycle is checked separately from the analytic formula.
-            assert_eq!(
-                reopened_rows::<parameter_covariances::Row>(
-                    &runtime,
-                    &result,
-                    "runtime.parameter_covariances"
-                )
-                .await,
-                published
-            );
-            assert_eq!(
-                reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity")
-                    .await,
-                validity_rows
-            );
-            assert_eq!(
-                reopened_rows::<fit_observations::Row>(
-                    &runtime,
-                    &result,
-                    "runtime.fit_observations"
-                )
-                .await,
-                predictions
-            );
+            // Result queries may order rows differently from the in-process writer.
+            // Match each relation's declared primary key, retaining exact whole rows.
+            let mut published = published;
+            let mut reopened_covariance = reopened_rows::<parameter_covariances::Row>(
+                &runtime, &result, "runtime.parameter_covariances",
+            ).await;
+            published.sort_by_key(|row| row.run_id);
+            reopened_covariance.sort_by_key(|row| row.run_id);
+            assert_eq!(reopened_covariance, published);
+            let mut validity_rows = validity_rows;
+            let mut reopened_validity = reopened_rows::<local_validity::Row>(
+                &runtime, &result, "runtime.local_validity",
+            ).await;
+            validity_rows.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
+            reopened_validity.sort_by_key(|row| (row.run_id, row.step, row.quantity.as_str()));
+            assert_eq!(reopened_validity, validity_rows);
+            let mut predictions = predictions;
+            let mut reopened_observations = reopened_rows::<fit_observations::Row>(
+                &runtime, &result, "runtime.fit_observations",
+            ).await;
+            predictions.sort_by_key(|row| (row.run_id, row.observation_id));
+            reopened_observations.sort_by_key(|row| (row.run_id, row.observation_id));
+            assert_eq!(reopened_observations, predictions);
         }
     }
 }
