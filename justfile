@@ -125,6 +125,13 @@ surreal-module *args:
 surrealkit *args:
     "{{ py }}" -m scripts.surrealkit "$@"
 
+[group('diagnostics')]
+[doc('Explicit archive/replay, regression/comparison and optional tooling experiments')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+experiment *args:
+    exec "{{ py }}" -m scripts.experiments "$@"
+
 [group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:

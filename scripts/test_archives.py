@@ -196,7 +196,8 @@ def archive(args: argparse.Namespace) -> dict:
     environment[test_run.EXECUTION_EFFECTS] = "native-local"
     for name in (test_resources.MARKER, "PSE_NATIVE_PROVENANCE", test_run.RUST_OBSERVER):
         environment.pop(name, None)
-    build = ["cargo", "nextest", "list", "--locked", "-p", args.package, "--test", args.test]
+    build = ["cargo", "nextest", "list", "--locked", "-p", args.package]
+    build.extend(["--test", args.test] if args.test else ["--lib"])
     if args.features:
         build.extend(["--features", args.features])
     resolution = native_tests.correctness_resolution(build, environment)
@@ -225,7 +226,7 @@ def archive(args: argparse.Namespace) -> dict:
         raise ArchiveError("Historical selection is empty")
     package = next(package for package in metadata["packages"] if package["name"] == args.package)
     package_manifest = str(Path(package["manifest_path"]).relative_to(ROOT))
-    fixtures = stage_inputs(ROOT, output / "workspace", [".config/nextest.toml", package_manifest, *args.fixture])
+    fixtures = stage_inputs(ROOT, output / "workspace", ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture])
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
     invocation = test_resources.invocation("rust", selected)
@@ -305,6 +306,7 @@ def replay(directory: Path, output: Path) -> dict:
         preflight(manifest, directory, environment)
         fixture_manifest = stage_inputs(directory / "workspace", output / "workspace", list(manifest["fixtures"]))
         extraction = output / "extracted"
+        extraction.mkdir(mode=0o700)
         common = ["--archive-file", str(directory / "tests.tar.zst"), "--extract-to", str(extraction), "--workspace-remap", str(output / "workspace")]
         inventory = capture_json(["cargo", "nextest", "list", *common, "-E", manifest["filter"], "--message-format", "json", "--config-file", str(output / "workspace/.config/nextest.toml")], environment)
         selected = test_run.rust_selected(inventory)
@@ -350,7 +352,9 @@ def main(argv: list[str] | None = None) -> int:
     creation = subparsers.add_parser("archive")
     creation.add_argument("--output", type=Path, required=True)
     creation.add_argument("--package", required=True)
-    creation.add_argument("--test", required=True)
+    target = creation.add_mutually_exclusive_group()
+    target.add_argument("--test")
+    target.add_argument("--lib", action="store_true")
     creation.add_argument("--filter", required=True)
     creation.add_argument("--fixture", action="append", default=[])
     creation.add_argument("--features", default="")
