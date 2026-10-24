@@ -416,7 +416,7 @@ authoring and favorable feasibility evidence do not independently authorize eith
 
 | Decision | Disposition | Work owner | Accepted consequence and route |
 |---|---|---|---|
-| RC01 | scheduled | [FND00](#FND00), [52l](52l-typed-requests-results-and-diagnostics.md), [52m](52m-progressive-guidance-and-operation-availability.md) | Accepted for planning on 2026-10-24: evolve request/result/error/instruction contracts with actual callers and derived reference. Preserve Rust scientific authority. Internal tooling uses ordinary changes; actual protected public boundary/diagnostic changes use the existing ADR/design route before dependent implementation. Acceptance is not publication of those changes. |
+| RC01 | implemented | [FND00](#FND00), [52l](52l-typed-requests-results-and-diagnostics.md), [52m](52m-progressive-guidance-and-operation-availability.md) | Accepted for planning on 2026-10-24: evolve request/result/error/instruction contracts with actual callers and derived reference. Preserve Rust scientific authority. Internal tooling uses ordinary changes; actual protected public boundary/diagnostic changes use the existing ADR/design route before dependent implementation. 52l/52m Outcomes record delivered contracts and actual consumers; broader protected changes retain their original decision route. |
 | RC02 | deferred | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Investigation selected on 2026-10-24; model-authored execution adoption is not accepted. Present the exact execution-eligibility/effect policy if a real read-composition consumer warrants it. Until then retain fixed typed calls and their native authority. |
 | RC03 | deferred | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Investigation selected on 2026-10-24; task lifecycle adoption is not accepted. Present actual outer dispatch, native ownership, negotiated host/loss/reconnect semantics if foreground/native observation is inadequate. Existing foreground behavior remains the baseline. |
 
@@ -431,17 +431,17 @@ supported alternatives or conditional non-adoption; they cannot erase required o
 |---|---|---|---|
 | O01 | resolved | [CON01](52l-typed-requests-results-and-diagnostics.md#CON01) | Eleven owner-defined tagged alternatives/facets, independent examples and migrated callers; see the 52l Outcome. |
 | O02 | resolved | [CON02](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected host answer families, actual serialization schemas and explicit population/detail/refusal; see the 52l Outcome. |
-| O03 | scheduled | [NAV01](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact attributable selection receipts, deliberate complete guide reads and declared useful workflow steps. |
+| O03 | resolved | [NAV01](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact attributable selection receipts, deliberate complete guide reads and declared useful workflow steps. |
 | O04 | resolved | [CON03](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner-native diagnostic/location/recovery projection delivered with actual native/Python admission controls; see the 52l Outcome. |
-| O05 | scheduled | [NAV02](52m-progressive-guidance-and-operation-availability.md#NAV02) | Accurate module/package/worker owners and local extension through actual declarations; unresolved leads remain uncertain. |
+| O05 | resolved | [NAV02](52m-progressive-guidance-and-operation-availability.md#NAV02) | Accurate module/package/worker owners and local extension through actual declarations; unresolved leads remain uncertain. |
 | O06 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Coordinate demand-shaped native evidence/assessment readers with 53e E05; CON02 migrates other relevant host-reader consumers. Preserve denominator/ambiguity and protected continuation, not JSON-after-truncation queries. |
 | O07 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 selected native schema/readable inspection plus exact IPC; real nineteen-column protected-result acceptance passed; see the 52l Outcome. |
-| O08 | scheduled | [LIFE01](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected passive/live readiness and explicit preparation consumers of actual Plan53d stages, with no duplicate build authority. |
-| O09 | scheduled | [NAV03](52m-progressive-guidance-and-operation-availability.md#NAV03) | Relevant operation/worker dependency and restart boundaries, coherent source capture, unaffected operation availability. |
-| O10 | scheduled | [LIFE02](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic early owner handles/stages, bounded foreground wire progress where supported and native-reader fallback. |
-| O11 | scheduled | [LIFE03](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Explicit preview retention status/release; preserve siblings and admitted work through actual settlement/reconciliation. |
+| O08 | resolved | [LIFE01](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected passive/live readiness and explicit preparation consumers of actual Plan53d stages, with no duplicate build authority. |
+| O09 | resolved | [NAV03](52m-progressive-guidance-and-operation-availability.md#NAV03) | Relevant operation/worker dependency and restart boundaries, coherent source capture, unaffected operation availability. |
+| O10 | resolved | [LIFE02](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic early owner handles/stages, bounded foreground wire progress where supported and native-reader fallback. |
+| O11 | resolved | [LIFE03](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Explicit preview retention status/release; preserve siblings and admitted work through actual settlement/reconciliation. |
 | O12 | scheduled | [G01](52g-agent-and-operator-workflows.md#G01) | Meaningful recurring typed compositions using F01/native kernels; G02 actual workflow consumer. F03 remains separately selectable. |
-| O13 | scheduled | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Coherent supporting skill resources and U02 exact completion/provider decision for a real consumer, with visibility and lazy source contracts. |
+| O13 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Coherent supporting skill resources and U02 exact completion/provider decision for a real consumer, with visibility and lazy source contracts. |
 | O14 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Independent schema/example/error/completeness tests and representative actual-agent evaluation; H02 owns assembled host/native qualification. |
 | O15 | scheduled | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded read-only composition inquiry; RC02 still required for production adoption. Compare typed/small reads first. |
 | O16 | scheduled | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 detach/reconnect inquiry after LIFE02; RC03 still required for infrastructure adoption. No second scheduler/outcome truth. |
@@ -456,7 +456,7 @@ after its actual selection; non-adoption must identify the supported route and o
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
 | U01 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Selected bounded native schema/physical-value inspection alongside exact IPC under proposed ADR-0224, published before implementation. Real registered nineteen-column storage/read/IPC/lifetime assertions passed; schema inquiry does not itself validate stored IPC or scientific eligibility. |
-| U02 | open | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting-resource provider lifecycle and exact prompt/resource completion: inspect source coherence/lazy behavior and actual host consumer. Completion/provider non-adoption can close that candidate with supported explicit resources/schema vocabulary and a concrete trigger. |
+| U02 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Captured bounded explicit skill resources delivered and exercised by actual Codex. Retain the lazy coherent owner; no eager/live Skills provider or unused completion for argument-free prompts. Revisit native Skills for an actual negotiation consumer compatible with capture, or completion for a useful parameter and real consuming host. See the 52m Outcome. |
 | U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Compare ad hoc immutable-read composition with typed/small reads; test exact discovery versus actual execution eligibility and full lifecycle limits. No CodeMode adoption before RC02 selection and actual host/native acceptance. |
 | U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Determine an unmet detach/reconnect consumer after foreground progress/native handles; if present, settle outer wrapper dispatch, negotiation, native loss/cancellation/drain mapping before RC03 selection. No backend infrastructure is selected by this inquiry. |
 
@@ -525,13 +525,13 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | CON02 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected answer families with actual schemas and explicit detail/refusal states |
 | CON03 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner/native decode diagnostics and preserved version/header/trailing/contextual admission |
 | CON04 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 resolved; native protected schema/readable values and exact IPC, real wide-result and Python consumers; see 52l Outcome |
-| NAV01 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact progressive selection/guidance and declared workflow steps |
-| NAV02 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV02) | Actual module/package/operation ownership and local extension |
-| NAV03 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV03) | Operation-shaped dependency/restart fences and unaffected reads |
-| NAV04 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting instruction resources and U02 exact assistance disposition |
-| LIFE01 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
-| LIFE02 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
-| LIFE03 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
+| NAV01 | done | [52m](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact progressive selection/guidance and declared workflow steps |
+| NAV02 | done | [52m](52m-progressive-guidance-and-operation-availability.md#NAV02) | Actual module/package/operation ownership and local extension |
+| NAV03 | done | [52m](52m-progressive-guidance-and-operation-availability.md#NAV03) | Operation-shaped dependency/restart fences and unaffected reads |
+| NAV04 | done | [52m](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting instruction resources and U02 exact assistance disposition |
+| LIFE01 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
+| LIFE02 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
+| LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
 | OPT01 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded CodeMode comparison/disposition; production delivery only if separately selected |
 | OPT02 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 task-protocol need/disposition; infrastructure/delivery only if separately selected |
 
@@ -739,3 +739,43 @@ scientific qualification or measured productivity. F/G/H, C04's denied execution
 independent Plans28/32/40/53 remain unchanged. Enduring operation guidance lives in the
 [capability interface guide](../dev/capability-interface.md); the completed companion remains
 retained while the active coordinator and H01–H04 consume its evidence.
+
+
+### 52m/52n execution checkpoint — 2026-10-24
+
+NAV01–NAV04 and LIFE01–LIFE03 are complete on main. The
+[52m Outcome](52m-progressive-guidance-and-operation-availability.md#verification-and-outcome--2026-10-24)
+owns compact workflow-step reveal, bounded supporting resources, accurate source/worker ownership,
+restart acceptance and U02's supported non-adoption/revisit decisions. The
+[52n Outcome](52n-readiness-progress-and-edit-lifecycles.md#verification-and-outcome--2026-10-24)
+owns passive/live readiness, typed owner preparation stages, actual early-handle/wire-progress
+acceptance and synchronized preview release/reconciliation. Their seven usability opportunities
+are resolved at those package boundaries; F/G/H and optional 52o remain separately scheduled.
+
+**Tested:** final capability discovery ran 260 controls with zero failures; final extension/observation
+controls ran 36 with zero failures. The fresh actual Codex driver made 22 canonical calls, checked
+captured supporting content and independently read one exact passing Rust unit's native terminal.
+Actual STDIO preparation/import/diagnostic and early native reference checks are in the companion
+Outcomes. Native drain remained unobserved in the early probe and complete in the separate actual
+Codex invocation. The interface preserves each fact. Codex JSONL did not expose progress notifications;
+notification rendering is unestablished, independently of real STDIO wire delivery and native readers.
+No productivity measurement, scientific eligibility or full H02 qualification is inferred.
+
+**Tested:** scope-end `scripts/pse-env -- just hygiene` continued through all selected checks.
+Its original result was three failures against zero: lint-py, typecheck and generated capability
+reference drift. All were repaired; final `just lint-py`, `just typecheck` and
+`just codegen-capabilities-check` passed, with zero Ruff findings and zero Pyrefly diagnostics
+(the three existing configured suppressions are unchanged). Both Clippy default/no-default runs,
+Rust documentation and the remaining hygiene checks passed in the original run. `just governance`
+passed its tests, other code generation, Python contracts/stubs and family
+checks; its sole capability-reference drift was repaired by the same final comparison. Aggregate raw
+results remain in `build/assessment/20261024T174056.646181Z-hygiene-1582397-438970/` and
+`build/assessment/20261024T174056.654740Z-governance-1582559-755dbf/`; repaired individual checks
+retain their own command outputs. `just turn-end` passed. `just docs` published 640 chapters after
+adding an already-linked census probe to explicit site assets; no concurrent review content was
+changed. No native solver-fleet or feature-powerset campaign was selected for this host-tooling change.
+
+**Implemented:** enduring instructions are in the existing capability/environment guides and derived
+reference. Worker changes were integrated in coherent commits; unrelated concurrent audit edits
+were preserved. Completed companions remain while this coordinator and G/H consumers need them.
+I14, application/database tracing, remaining Plan53 and independent Plans28/32/40 keep their owners.

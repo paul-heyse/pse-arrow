@@ -1,6 +1,6 @@
 ---
 title: "Plan 52m: Progressive guidance and operation availability"
-status: draft
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
@@ -152,3 +152,68 @@ Codex checks, including fixed-inventory invokers and ordinary revealed tools whe
 owns scope-end static/manual checks, not a campaign per package. Publish actual supported reveal,
 restart and extension procedures in the capability/environment guides. **Interface-checked** static
 foundations and **Proposed** packages are distinct; no new host test or measured benefit is recorded.
+
+
+## Verification and Outcome — 2026-10-24
+
+### What was built
+
+**Implemented:** NAV01–NAV04 are complete. Selection now returns a typed compact resource index,
+exact effective IDs/steps and captured digests, with ResourceLinks and deliberate complete reads.
+`Workflow.steps` owns authored membership; reverse membership/tags derive from it. Inspect-plan
+selects its two useful default operations; explicit extras and optional preparation/evidence steps
+remain selectable. Atomic replacement, invalid-selection refusal and independent attachment/reset
+semantics are preserved. Replaced embedded guide delivery and duplicate skill aliases are removed.
+
+**Implemented:** actual handlers, lightweight native/qualification/test contracts and response
+boundaries have separate modules. Fixed `WorkerCall` declarations drive dispatch and restart
+fencing together; Just-backed workers also capture their actual recipe bytes. Static module/package
+resolution includes initializers and `__main__.py` without importing them. Conservative local import
+capture includes absent candidates, precedes composition and verifies afterward. Pure schema reads
+have no execution-worker association; unrelated coverage edits leave unrelated reads usable.
+New local capabilities use these bindings rather than a duplicate catalogue/custom provider.
+
+**Implemented:** owned process skills expose bounded captured manifests and exact supporting assets.
+Limits cover bytes, files, entries, directories and depth; held no-follow directory descriptors
+prevent path replacement from redirecting reads. Guide, manifest and support retain one package
+identity. U02 is resolved through these explicit resources. FastMCP4.1.3's eager/live Skills provider
+lifecycle is not adopted, nor is unused completion for argument-free workflow prompts. Revisit
+native Skills for a concrete negotiation consumer compatible with lazy coherent capture; revisit
+completion for an actual host consuming useful prompt/template parameters. Tool arguments retain
+exact schemas/examples. No experimental Skills negotiation, semantic selection or second provider.
+
+**Tested:** `scripts/pse-env -- .venv/bin/python -m unittest discover -s scripts/tests -p
+ 'test_capabilit*.py'` passed **260 tests, zero failures** against the zero baseline after integration.
+This includes ordinary/package/dynamic ownership, unaffected/relevant/shared/recipe source changes,
+pre-effect refusal, fresh recovery, selection/reset races and bounded skill traversal controls.
+
+**Tested:** `scripts/pse-env -- .venv/bin/python -m scripts.tests.capability_codex_check --output
+build/capabilities-52k/52mn-final-20261024 --timeout 600` passed **22 actual canonical calls and one
+exact passing `pse-ids` unit, zero failures**. Independent expectations checked compact selection,
+complete plan-execution/create-plan resources, the manifest and original `references/plan-structure.md`
+bytes/digests/package identity, the typed source answer, resets and original native test evidence.
+The host used canonical invokers for its fixed initial tool inventory. Raw host/native evidence is
+in that output directory; its native invocation is `fd954ed1611d4eb2a9ba681c9086c49a`.
+This is focused usability/functional acceptance, not measured productivity or G03's four-task study.
+Shared static/manual outcomes are in the [coordinator checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52m52n-execution-checkpoint--2026-10-24).
+
+### A mistake made and corrected
+
+**Tested:** the first integration missed Just recipe bytes as real execution inputs, and package
+membership bounded retained files but not traversal of empty directories. Independent review caught
+both; worker source declarations and streaming entry/directory/depth bounds now have pre-effect and
+bounded-traversal regressions. Scope-end formatting also exposed consumers still importing moved
+contracts through composition modules. Actual callers/tests now import their real contract owner;
+no compatibility re-export was added. The wider initial capability run's one failure/three errors
+were repaired, including typed reader-wrapper correlation, before the final 260-test pass.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** the existing lazy guidance owner remains canonical instead of wrapping framework
+providers with incompatible capture semantics. No completion surface was added without a consumer.
+Handler separation is physical, retaining conservative import closure rather than hand-whitelisting
+smaller source sets. No dependency addition or architectural decision change was needed.
+Operational meaning lives in the [interface guide](../dev/capability-interface.md) and
+[environment guide](../dev/agent-environment.md). This completed companion remains because the active
+coordinator, G/H consumers and source review still depend on its outcome; their broader work remains
+open. I14 endpoint shutdown, tracing and optional 52o scope are not closed by this delivery.

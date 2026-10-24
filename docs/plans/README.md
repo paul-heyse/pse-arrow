@@ -59,7 +59,10 @@ RC02/RC03's investigation-only selection, consumes Plan53's actual preparation/p
 contracts, and preserves completed CAP/ADP/MCP Outcomes. The
 [52l Outcome](52l-typed-requests-results-and-diagnostics.md#outcome--2026-10-24) records completed
 CON01–CON04, bounded native/Python/fresh-Codex acceptance and the authorized execution-efficiency
-corrections. 52m–52o and the broader F/G/H qualification retain their own remaining scope.
+corrections. The [52m/52n checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52m52n-execution-checkpoint--2026-10-24)
+records completed compact reveal/source ownership, supporting resources, selected readiness/preparation,
+foreground progress and preview release, with actual native/STDIO/Codex acceptance and explicit host
+rendering limits. 52o and broader F/G/H qualification retain their own remaining scope.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

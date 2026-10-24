@@ -600,6 +600,16 @@ Scientific reads require an explicitly prepared compatible extension/import envi
 interface guide describes; browsing performs no such preparation. Restart for relevant
 serving code/instruction changes. This exception accepts no arbitrary executable or command.
 
+Use `capability_readiness` for one binding's passive declarations/recorded preparation, and
+`capability_readiness_check` only for explicitly selected live prerequisites. Import checks
+observe the fixed checkout interpreter in the endpoint's inherited provider environment; they
+do not prepare native providers. A prepared artifact can therefore coexist with an incompatible
+import. The explicit `python_extension_dev_stage`/`python_extension_native_stage` tools consume
+the existing environment, prepare, stubs, stubs-check and admit stages separately. Native stage
+preparation happens in its child; it does not change the already-running endpoint's environment.
+Reattach from the prepared native environment before native reads that require it. Foreground
+progress is optional observation; authentic invocation readers retain result and drain authority.
+
 ### Focused command and source context
 
 Use `just context QUERY --json` for selected recipe grammar; `--owner`/`--scope` read native

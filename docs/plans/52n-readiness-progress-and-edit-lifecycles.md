@@ -1,6 +1,6 @@
 ---
 title: "Plan 52n: Readiness, progress and edit lifecycles"
-status: draft
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
@@ -147,3 +147,85 @@ G01/G02 compose prepare→execute→handle→watch/read using independent native
 assembled and scope-end checks. Publish actual readiness/progress/release semantics in existing
 capability/environment/diagnostic guides and derived reference. **Interface-checked** foundations and
 **Proposed** delivery remain distinct; no new product or actual-host test was run to author this plan.
+
+
+## Verification and Outcome — 2026-10-24
+
+### What was built
+
+**Implemented:** LIFE01–LIFE03 are complete. Structural prerequisites and passive readiness expose
+independent recorded-preparation, import, selected-service, language-provider and operation facts.
+Receipt currency and unobserved facts stay unknown. Explicit live checks use their original owner;
+import checks use the fixed read interpreter and inherited endpoint provider environment without
+preparing providers. Native stage preparation does not mutate the running endpoint's environment.
+Separate development/native stage tools consume `python_extension.run_stages` directly, with typed
+stage status/exit/artifact/receipt/publication outcomes, one admitted environment and no duplicate
+builder. Stage callbacks observe actual transitions; stubs-check does not publish a receipt.
+
+**Implemented:** request-private bounded atomic progress snapshots carry actual owner-issued stages
+and references. The observer coalesces them through `Context.report_progress` with the caller's token,
+unknown total and no invented percentage. It retains issued identities despite notification loss;
+attached spawn/wait/signal/drain ownership remains shielded. `rust_test_reference_read` reads the
+original bounded reference under held no-follow directory descriptors and authenticates its registry.
+It leads to the existing native watch/read path; absence never establishes admission or retry safety.
+No tasks scheduler, detached-action promise, second outcome database or tracing claim was added.
+
+**Implemented:** preview status and exact-digest release expose retained counts/bytes/capacity and
+per-handle admission/reconciliation state. The original 32-preview/64-MiB defaults remain. Admission
+and release share the owner lock; release refuses while admitted or unresolved. Interrupted apply
+keeps its digest reconcilable; all edited/basis paths, including missing/diverged/non-UTF-8 bytes,
+must be classified before explicit release. Unknown/foreign/repeated release stays unavailable,
+siblings survive, and release neither edits nor rolls back source. Reset changes presentation only.
+
+**Tested:** the shared final 260-capability controls in the [52m Outcome](52m-progressive-guidance-and-operation-availability.md#verification-and-outcome--2026-10-24)
+passed against zero failures, including small-capacity release/race/cancellation controls, incompatible
+imports, passive no-startup, selected unavailable providers, no-token fallback and notification loss.
+`scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_python_extension
+scripts.tests.test_capability_observation` passed **36 tests, zero failures** after final repairs.
+
+**Tested:** fresh actual STDIO sessions established explicit native prepare→admit→live import→native
+checkpoint inspection, preserving independent expected operation identity/outcome and correctness
+features. An unprepared endpoint separately reported import-incompatible and the real read refused;
+no readiness check built or repaired it. The final prepared read passed after worker contract
+migration. Retained drivers and observations are under `build/capabilities-52mn/`; positive preparation
+is `stdio-1792863539918165052`, negative import is `stdio-1792863423667882569`, and final native read is
+`stdio-1792864069378515519`. Drivers used the actual fixed STDIO transport and explicit native
+environment, with complete environment inheritance for the prepared endpoint.
+
+**Tested:** actual pure Rust invocation `b0a09071f9ca468b84a81cd55531b127` exposed its authentic reference
+both over wire progress and the original-reference reader **before action return**. The final reader
+matched original native terminal identity, one selected pass, workload exit zero and assurance pass.
+The native owner reported drain **unobserved**; the first probe's overly strong complete-drain
+assertion failed. Independent assessment of the retained raw observations confirms the selected
+handle/progress/result behavior without upgrading that drain fact. Evidence is
+`build/capabilities-52mn/early-1792863933911280110/{observations,outcome}.json`.
+
+**Tested:** the fresh actual Codex journey in the 52m Outcome independently froze one pass with
+complete owned drain for invocation `fd954ed1611d4eb2a9ba681c9086c49a`. Its JSONL exposed no progress
+records; Codex notification rendering remains **unestablished**, while its authentic final native
+reader path is qualified. Wire progress was observed by the real STDIO client, not inferred from
+Codex prose. Scope-end checks are recorded by the [coordinator](52-agent-effectiveness-and-engineering-workflows.md#52m52n-execution-checkpoint--2026-10-24).
+
+### A mistake made and corrected
+
+**Tested:** independent review found missing/foreign `VIRTUAL_ENV` aliases in the already admitted
+stage worker. The original environment owner now binds installer aliases without repeating admission,
+with absent/foreign regressions. Actual STDIO then exposed a readiness false positive: the checker
+prepared providers while the read did not. Import checking is now a separate fixed environment-neutral
+worker using the actual read interpreter; preparation and reattachment remain explicit. Another review
+found an ancestor-symlink race in reference reads and non-UTF-8 reconciliation failures; held directory
+descriptors and raw-byte hashes now have deterministic regressions. Initial test/probe failures remain
+attributed; final targeted controls pass against zero.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** no generic readiness boolean or capability-exercised ledger was introduced.
+Preparation receipts remain historical evidence, and import checks accurately represent the inherited
+read environment. Foreground snapshots are bounded observation, not a resumable protocol task. Actual
+Codex progress rendering is not claimed from an in-process or STDIO pass. Native drain uncertainty is
+preserved rather than changing the native runner merely to satisfy an acceptance expectation.
+No dependency or new scientific boundary was added. Enduring operation is documented in the existing
+[interface](../dev/capability-interface.md) and [environment](../dev/agent-environment.md) guides.
+This completed companion stays for active coordinator/G/H consumers; Plan53, I14, F02 and 52o retain
+their independent obligations. Full solver-fleet, performance and assembled Plan52 qualification
+were not run or claimed.

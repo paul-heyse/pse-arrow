@@ -74,11 +74,14 @@ and `get_prompt`: eleven bootstrap tools in total.
    and paged with `offset`, `limit`, `total` and `next_offset`.
 2. Describe an exact capability. `include_schema=true` returns the actual callable contract where
    a binding exists. A native route or deferred adapter has no fabricated tool schema.
-3. Select exact `domains`, `workflows` or `capabilities`. Selecting a family also reveals its
+3. Select exact `domains`, `workflows` or `capabilities`. A workflow selects its declared default
+   steps; use `workflow_steps={"qualify-change":["prepare"]}` to add a named optional step.
+   Browse its actual step declarations rather than assuming every family is selected.
+   Selecting a family also reveals its
    actual bound operations; describe it to see those operations and retained native routes.
    Their union replaces the prior selected
    set; repeated identical selection is idempotent. Unknown IDs change nothing. Reset restores bootstrap.
-4. Read the returned relevant instructions or their `pse://guidance/...` resources, then call the
+4. Read the compact receipt's `instruction_resources` at their `pse://guidance/...` URIs, then call the
    operation. Descriptions retain critical interpretation/effect constraints; reading guidance is
    not an acknowledgment or admission gate.
 
@@ -116,6 +119,23 @@ actual schemas. Selecting a workflow reveals its `workflow_<id>` prompt; reset h
 Prompts contain compact capability and instruction-resource references with source digests.
 Read the referenced resources for complete instructions; prompts do not duplicate or truncate guide
 bodies. Planning-skill retrieval supplies instructions and never executes that skill's action phase.
+
+Selection receipts include effective IDs, workflow steps, the loaded revision, complete instruction
+references and source/package digests. They carry no instruction bodies. Repeated selection does not
+resend bodies; deliberate resource reads return complete captured content. Owned local process skills
+also expose a `supporting_manifest` URI and exact supporting-file resources from the same package cut.
+Read the manifest before choosing a file. Files retain their original bytes and MIME type; package
+changes require a fresh endpoint. Capture is bounded to 128 KiB per file, 64 files and 1 MiB per package,
+with traversal bounded to 128 entries, 64 descendant directories and depth eight. Symlinks and excess
+packages refuse rather than silently truncate. External linked library skill packages keep their
+existing native access route. Retrieval never installs, trusts, activates or executes a skill.
+
+FastMCP's Skills providers are not composed alongside this owner: their eager scan/live-read lifecycle
+does not preserve this endpoint's lazy captured cut. Revisit if a real consumer needs native Skills
+negotiation and that lifecycle can preserve the same contract. Protocol completion is also unselected:
+current prompts have no parameters and the actual Codex path uses explicit schemas and exact resource
+IDs. Revisit for a concrete completion consumer with a useful prompt/template parameter; ordinary tool
+arguments do not acquire completion from `@mcp.completion`.
 
 Ordinary sessions retain the host's approval policy. Action invocation remains explicitly effectful.
 The bounded host acceptance driver configures a session-local approval for its one authorized
@@ -157,6 +177,18 @@ Linked shared-library skills outside the checkout retain native access rather th
 checkout-contained resource. Owned process skills are served as lazy instruction resources; retrieving
 one does not activate or execute its workflow.
 
+To add a capability, keep its actual handler in the module that owns its reason for change, then
+return its `Capability` declaration and real `Tool` from that owner's binding factory. Compose the
+factory once in `server.py`. Declare relevant guides, structural `requirements` and actual
+`worker_calls`; reuse each fixed `WorkerCall` in dispatch so execution and restart fencing agree.
+Fixed workers declare any non-Python execution inputs in `Worker.sources`. Add workflow membership
+only in the owning `Workflow.steps`, not again in each binding. Tags, reverse membership, navigation
+and the reference derive from these declarations. Run the targeted behavior/owner controls and
+regenerate the reference. Pure contract DTOs belong outside binding composition or effectful workers.
+Source-only `python -m` ownership resolves modules, package initializers and actual `__main__.py`
+without importing them; unresolved/dynamic recipe forms remain attributed leads rather than proven
+callable owners. No custom provider is needed just to register an ordinary local operation.
+
 Host context, concepts, relationships, recipe, inventory, environment, source corpus, document scope,
 run, assessment, watch, storage, library and coverage readers publish named response schemas.
 Their FastMCP structured output is `{"result": <typed answer or detail refusal>}`. Bootstrap,
@@ -186,11 +218,17 @@ declared meanings; there is no compatibility argument bag or similarity fallback
 ## Loaded contracts and lifetime
 
 The endpoint captures one catalogue/schema/handler revision from known local serving sources,
-including fixed child-worker implementations. Relevant source changes refuse dispatch before
+including explicitly declared fixed child-worker implementations and non-Python execution inputs
+such as Just recipes. Lightweight contracts and operation handlers have separate source ownership;
+pure schema inspection does not inherit an execution worker just from its name. Relevant source changes refuse dispatch before
 handler effects and report `pse.capabilities.restart_required`; bootstrap still describes the loaded
 snapshot and changed sources. Restart after changing serving code or exposure declarations.
 An unrelated model/document edit does not invalidate every operation. This bounded source cut does
 not establish arbitrary third-party dependency or deployment freshness.
+
+Capture precedes composition and is verified afterward. Local imports remain conservatively traced,
+including package initializers and absent candidate paths whose later appearance changes resolution.
+Restart obtains a coherent endpoint; it never replays a prior action or hot-reloads a running handler.
 
 Guidance bodies load only when selected, with a bounded complete UTF-8 read and an identity check
 against startup. A changed captured guide retains its complete compatible snapshot and reports
@@ -204,6 +242,28 @@ Notification failure is distinct from a committed state change. Disconnecting a 
 its owned STDIO process; presentation reset neither cancels nor replays native work.
 
 ## Native schemas, actions and protected reads
+
+`capability_readiness(capability)` is a passive selected observation of owner-declared requirements
+and existing preparation receipts. It reports independent facts for declared requirements, recorded
+preparation, compatible import, selected service, language provider and exercised operation. An old
+receipt records preparation; its currency stays unknown. Missing metadata stays unknown rather than
+becoming a universal ready/not-ready answer. Browsing and passive checks do not compile, import the
+extension, start a service or publish files.
+
+`capability_readiness_check(request)` explicitly checks selected `import-compatible`,
+`selected-service` or `language-provider` prerequisites through their original owners. Language checks
+need a language and file path. Import checks use the selected interpreter, binary origin/digest and
+required features; they do not build a missing extension. A toolkit service check does not establish
+availability of a request-specific canonical deployment. Checking prerequisites never qualifies the
+operation itself.
+
+`python_extension_dev_stage` and `python_extension_native_stage` accept a chosen `stage`, `profile`
+and `validated` selection. `environment` ensures locked dependencies, `prepare` builds/installs or
+reuses the owner's matching artifact, `stubs` publishes, `stubs-check` compares without publication,
+and `admit` checks actual imported bytes/features. These are separate explicit actions using
+`scripts/python_extension.py`; there is no second builder or implicit all-stage sync. Owner outcomes
+distinguish stage status, exit, artifact identity, receipt and publication. Native provider setup
+remains in the selected environment owner. Correctness checks retain `validated=true`.
 
 `native_contract_schema` reads the generated catalogue's exact slug and input/output direction.
 Its optional original JSON Pointer selects bounded detail; local references retain the original
@@ -255,12 +315,30 @@ does not prove rollback or terminal settlement: inspect the returned native outp
 its independent terminal report before retrying. Borrowed invocations retain their original
 outer terminal owner. No background task scheduler or implicit retry is introduced.
 
+Attached fixed workers publish bounded owner-issued stage/reference snapshots. A caller supplying a
+progress token can receive foreground `Context.report_progress` notifications with an increasing
+sequence and unknown total; this is not a completion percentage. Snapshots coalesce and notification
+loss does not change the native outcome. References appear only after their original owner issues
+them. `rust_test_reference_read(output)` reads an actual `invocation-reference.json`, validates its
+registry identity and leads to `product_run_read`/`workload_watch` before final action return. Absence
+means not observed, not unstarted, failed or safe to retry. This original-owner read is the fallback
+for hosts that do not render notifications. Attached cancellation still signals and physically drains
+owned work; progress introduces no detachable task contract or new outcome store.
+
 Language resources connect only on a selected call, retain checkout/tool/configuration identity,
 and close with the endpoint. Source cuts and UTF-16 positions remain explicit. Rename retains
 the complete preview behind an endpoint-owned `preview_sha256`; `edit_preview_read` reads exact
 before/after text chunks using Unicode codepoint offsets. Apply and reconcile take that exact
 digest, preserving complete source bytes independently of response bounds. Handles expire at
-endpoint close. Retention refuses excess at 32 previews or 64 MiB without evicting earlier handles.
+endpoint close or successful explicit release. Retention refuses excess at 32 previews or 64 MiB
+without evicting earlier handles. `edit_preview_status` reports retained counts/bytes and optionally
+one digest's availability, admitted work and reconciliation obligation. `edit_preview_release`
+reclaims only a settled exact handle. Unknown, foreign and already released well-formed digests all
+return unavailable. Release refuses during admitted work or unresolved reconciliation; an interrupted
+apply keeps its original digest usable by `edit_preview_reconcile`. Reconciliation must classify all
+edited/basis paths, including diverged or missing files, before the obligation clears. Classification
+does not mean repair, rollback or successful apply. Release never changes source files, and presentation
+reset neither releases handles nor increases capacity.
 Protected apply and reconciliation report partial edits, and generated/PyO3
 declarations are not claimed to be migrated automatically. Database selection validates the
 existing owned listener, source-built generation and credentials before opening its pinned MCP
