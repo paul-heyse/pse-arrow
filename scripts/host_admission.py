@@ -49,7 +49,6 @@ HostPolicy = TypedDict(
         "light": dict[str, int],
         "compiler-cache": dict[str, int],
         "compile": dict[str, int],
-        "build": dict[str, int],
         "functional": dict[str, int],
         "wide": dict[str, int],
         "timing": dict[str, int],
@@ -1240,14 +1239,17 @@ def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
         profile.lane != "light" and any(item["exclusive"] for item in entries)
     ):
         return "exclusive heavy-work owner"
+    # Unbounded ordinary work has no owner-count budget. Keep ownership/liveness
+    # accounting and the explicit scientific/timing exclusions above, without
+    # turning concurrent wrappers or Cargo's waiting builds into admission limits.
+    if profile.unbounded:
+        return None
     used = sum(
         integer(item["slots"]) for item in entries if item["lane"] == profile.lane
     )
     capacity = (
         settings("light")["slots"]
         if profile.lane == "light"
-        else settings("build")["slots"]
-        if profile.lane == "build"
         else settings(profile.lane.removeprefix("store-"))["store_slots"]
         if profile.lane in {"store-functional", "store-timing"}
         else settings("functional")["slots"]

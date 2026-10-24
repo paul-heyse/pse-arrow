@@ -18,9 +18,7 @@ memory_gib = 2
 [compiler-cache]
 # Allow concurrent whole-entry transfers while retaining the resident light role.
 memory_gib = 8
-# Opt-in ordinary builds/tests share every physical core. No OS memory budget.
-[build]
-slots = 4
+# Opt-in ordinary builds/tests share all CPUs without a memory or owner-count cap.
 [compile]
 memory_gib = 24
 [functional]
