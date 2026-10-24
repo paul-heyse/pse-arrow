@@ -41,6 +41,10 @@ BOOTSTRAP = {
     "capabilities_reset",
     "capabilities_invoke_read",
     "capabilities_invoke_action",
+    "list_resources",
+    "read_resource",
+    "list_prompts",
+    "get_prompt",
 }
 
 

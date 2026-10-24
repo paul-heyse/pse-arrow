@@ -99,6 +99,7 @@ quality = [
   "fastmcp==4.1.3",
   "mcp==2.3.0",
   "pydantic==2.14.1",
+  "opentelemetry-api==1.45.1",
   "jsonschema==4.26.0",
   "types-jsonschema==4.26.0.20261006",
 ]

@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Source-only content views of the loaded catalogue and owned guidance."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from functools import partial
+from typing import TYPE_CHECKING
+
+from fastmcp.exceptions import PromptError, ResourceError
+from fastmcp.prompts import Prompt
+from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
+
+from scripts.capabilities.catalogue import Catalogue
+from scripts.capabilities.guidance import Guidance
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
+MAX_PROMPT_BYTES = 256 * 1024
+CAPABILITY_TEMPLATE = "pse://capabilities/{capability}"
+
+
+@dataclass(frozen=True)
+class Presentation:
+    """Keys the composition root includes in its atomic workflow selection."""
+
+    workflow_keys: dict[str, str]
+
+
+def register(
+    server: FastMCP, catalogue: Catalogue, guidance: Guidance
+) -> Presentation:
+    """Register derived content and framework tool projections on this endpoint.
+
+    Capability metadata, like exact description, is readable before selection.
+    Workflow prompts start hidden and never select or invoke their capabilities.
+    Guide resources are registered by their existing composition owner.
+    """
+
+    @server.resource(
+        CAPABILITY_TEMPLATE,
+        name="capability_description",
+        description="Exact loaded capability metadata and its actual callable schemas; no operation executes.",
+        mime_type="application/json",
+    )
+    def capability_description(capability: str) -> dict[str, object]:
+        try:
+            return dict(catalogue.describe(capability, include_schema=True))
+        except ValueError as error:
+            raise ResourceError(
+                "pse.capabilities.unknown_capability: " + str(error)
+            ) from error
+
+    async def workflow_content(workflow: str) -> str:
+        selection = catalogue.select([], [workflow], [])
+        # Check every dependency before touching guide bodies. A prompt enabled
+        # on its own must not become a route around another component's visibility.
+        for identity in selection.capabilities:
+            if identity in catalogue.tools and await server.get_tool(identity) is None:
+                raise PromptError(
+                    "pse.capabilities.workflow_hidden: select the complete workflow"
+                )
+        for identity in selection.guides:
+            if await server.get_resource(catalogue.guides[identity].uri) is None:
+                raise PromptError(
+                    "pse.capabilities.workflow_hidden: select the complete workflow"
+                )
+        try:
+            instructions = guidance.instruction_bundle(selection.guides)
+        except ValueError as error:
+            raise PromptError(
+                "pse.capabilities.guidance_unavailable: " + str(error)
+            ) from error
+        result = {
+            "revision": catalogue.revision,
+            "workflow": catalogue.workflows[workflow].model_dump(mode="json"),
+            "capabilities": [catalogue.describe(key) for key in selection.capabilities],
+            "instructions": instructions,
+            "effects": "Instruction retrieval only; no selection or workflow execution.",
+        }
+        content = json.dumps(result, sort_keys=True, allow_nan=False)
+        if len(content.encode()) > MAX_PROMPT_BYTES:
+            raise PromptError(
+                "pse.capabilities.prompt_too_large: read the selected guide resources individually"
+            )
+        return content
+
+    workflow_keys: dict[str, str] = {}
+    for identity, workflow in catalogue.workflows.items():
+        prompt = Prompt.from_function(
+            partial(workflow_content, identity),
+            name="workflow_" + identity,
+            title=workflow.title,
+            description=workflow.description,
+            tags={"workflow:" + identity},
+        )
+        server.add_prompt(prompt)
+        server.disable(keys={prompt.key})
+        workflow_keys[identity] = prompt.key
+
+    # These route through the same server's public dispatch, retaining its
+    # visibility, authorization and middleware for both native and tool clients.
+    server.add_transform(ResourcesAsTools(server))
+    server.add_transform(PromptsAsTools(server))
+    return Presentation(workflow_keys)
