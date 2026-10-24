@@ -55,7 +55,9 @@ class BuildEnvironmentTests(unittest.TestCase):
             self.assertEqual(child.strip(), str(library))
 
     def test_wrappers_disabled_missing_and_explicit_overrides(self) -> None:
-        with patch.object(build.shutil, "which", return_value=None):
+        with patch.object(
+            build.diagnostic_trace, "binary_path", return_value=Path("/missing/managed/sccache")
+        ):
             self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
             with self.assertRaisesRegex(ValueError, "not installed"):
                 build.configure(build.ROOT, {}, cache="on")
@@ -75,24 +77,48 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["RUSTC_WORKSPACE_WRAPPER"], "")
 
     def test_cache_has_dedicated_owner_and_keeps_incremental(self) -> None:
-        with patch.object(build.shutil, "which", return_value="/bin/sccache"):
-            env = build.configure(build.ROOT, {"XDG_CACHE_HOME": "/tmp/example"})
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "sccache"
+            binary.write_bytes(b"managed executable")
+            binary.chmod(0o700)
+            with (
+                patch.object(build.diagnostic_trace, "binary_path", return_value=binary),
+                patch.object(build.shutil, "which", return_value="/wrong/sccache") as lookup,
+            ):
+                env = build.configure(build.ROOT, {"XDG_CACHE_HOME": "/tmp/example"})
+                self.assertEqual(env["PSE_SCCACHE_BINARY"], str(binary))
+                self.assertEqual(build.configure(build.ROOT, env), env)
+                lookup.assert_not_called()
         self.assertEqual(env["SCCACHE_DIR"], "/tmp/example/pse-arrow/sccache")
         self.assertEqual(env["SCCACHE_CACHE_SIZE"], "100G")
         self.assertNotIn("CARGO_INCREMENTAL", env)
         self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
         self.assertEqual(env["SCCACHE_DIRECT"], "false")
         self.assertEqual(env["SCCACHE_CONF"], str(build.ROOT / ".config/sccache.toml"))
-        self.assertEqual(env["PSE_SCCACHE_BINARY"], "/bin/sccache")
         self.assertEqual(env["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache"))
-        self.assertEqual(build.configure(build.ROOT, env), env)
-        own = {"RUSTC_WRAPPER": "sccache", "SCCACHE_DIR": "/user/cache"}
+        own = {"RUSTC_WRAPPER": "/custom/sccache", "SCCACHE_DIR": "/user/cache"}
         configured = build.configure(build.ROOT, own)
         self.assertEqual(configured["SCCACHE_DIR"], own["SCCACHE_DIR"])
-        self.assertEqual(configured["PSE_SCCACHE_BINARY"], "sccache")
+        self.assertEqual(configured["PSE_SCCACHE_BINARY"], "/custom/sccache")
         self.assertEqual(
             configured["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache")
         )
+
+    def test_real_binary_override_and_conflicting_selections(self) -> None:
+        selected = {"PSE_SCCACHE_BINARY": "/chosen/sccache"}
+        env = build.configure(build.ROOT, selected, cache="on")
+        self.assertEqual(env["PSE_SCCACHE_BINARY"], selected["PSE_SCCACHE_BINARY"])
+        self.assertEqual(env["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache"))
+        self.assertEqual(build.configure(build.ROOT, env), env)
+        with self.assertRaisesRegex(ValueError, "conflicting"):
+            build.configure(build.ROOT, {**selected, "RUSTC_WRAPPER": "/other/sccache"})
+        disabled = build.configure(build.ROOT, {**selected, "RUSTC_WRAPPER": ""})
+        self.assertEqual(disabled["RUSTC_WRAPPER"], "")
+        with (
+            patch.object(build.diagnostic_trace, "binary_path", return_value=Path("/missing/managed/sccache")),
+            patch.object(build.shutil, "which", return_value="/legacy/sccache"),
+        ):
+            self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
 
     def test_foreground_cache_survives_nested_recipe_configuration(self) -> None:
         selected = {

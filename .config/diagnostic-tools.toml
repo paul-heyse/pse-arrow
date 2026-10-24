@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 # Explicit optional tools; installation is never a passive diagnostic side effect.
+[sccache]
+version = "0.18.0"
+url = "https://github.com/mozilla/sccache/releases/download/v0.18.0/sccache-v0.18.0-x86_64-unknown-linux-musl.tar.gz"
+sha256 = "45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89"
+binary_sha256 = "973cb15f6a986d84ca334bbed3bbe2eb8f1ee8fd81bf9e115b8539a293bf8d59"
+member = "sccache"
+archive = "tar.gz"
+
 [trace-processor]
 version = "58.2"
 url = "https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip"
@@ -24,6 +32,7 @@ prefix = "rr-5.10.0-Linux-x86_64"
 
 # Protocol-sensitive Cargo diagnostics. One declaration serves bootstrap, CI and reuse.
 [cargo-tools]
+cargo-shear = "1.14.0"
 cargo-nextest = "0.9.146"
 cargo-hack = "0.6.45"
 cargo-llvm-cov = "0.9.1"

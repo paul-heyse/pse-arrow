@@ -41,6 +41,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VENV = ROOT / Path(os.environ.get("UV_PROJECT_ENVIRONMENT", ".venv"))
+# The file is also launched directly by bootstrap before an editable install exists.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def cargo_tool_names() -> list[str]:
@@ -347,6 +350,67 @@ def check_cargo_tools() -> Check:
     )
 
 
+def check_compiler_cache() -> Check:
+    """Verify the declared installation and report the shared effective selection."""
+    from scripts import build_environment, diagnostic_trace  # noqa: PLC0415
+
+    environment = dict(os.environ)
+    default = diagnostic_trace.binary_path("sccache", environment)
+    wanted = diagnostic_trace.tool_spec("sccache")["version"]
+    problems = []
+    details = []
+    extra: dict[str, object] = {"managed_path": str(default)}
+    try:
+        diagnostic_trace.verify_binary("sccache", environment)
+    except (OSError, ValueError) as error:
+        problems.append(str(error))
+    else:
+        code, output = run(str(default), "--version", env=environment)
+        if code or output != f"sccache {wanted}":
+            problems.append(f"managed sccache version differs from {wanted}: {output}")
+        else:
+            details.append(f"managed sccache {wanted}: {default}")
+            extra["managed_version"] = wanted
+    try:
+        selected = build_environment.configure(ROOT, environment)
+    except (OSError, ValueError) as error:
+        problems.append(f"selection unavailable: {error}")
+    else:
+        wrapper = selected.get("RUSTC_WRAPPER", "")
+        extra["wrapper"] = wrapper
+        if not wrapper:
+            details.append("effective wrapper disabled")
+        elif Path(wrapper) != ROOT / "scripts/sccache":
+            details.append(f"effective custom wrapper: {wrapper}")
+        else:
+            extra["selected_path"] = selected["PSE_SCCACHE_BINARY"]
+            try:
+                actual = build_environment.validate_cache_binary(
+                    ROOT, selected["PSE_SCCACHE_BINARY"]
+                )
+            except (OSError, ValueError) as error:
+                problems.append(f"selected executable unavailable: {error}")
+            else:
+                if actual == default.resolve():
+                    details.append("effective selection: managed default")
+                else:
+                    code, output = run(str(actual), "--version", env=selected)
+                    extra["selected_version"] = output
+                    if code or not re.fullmatch(r"sccache \S+", output):
+                        problems.append(f"override version unavailable: {actual}: {output}")
+                    else:
+                        details.append(f"effective override: {actual} ({output})")
+    return Check(
+        "compiler-cache",
+        not problems,
+        "; ".join([*details, *problems]),
+        "just diagnostic-tools sccache; inspect explicit wrapper/cache overrides"
+        if problems
+        else "",
+        extra=extra,
+    )
+
+
 def check_docs_tools() -> Check:
     """The publisher's declaration owns documentation versions, including CI installs."""
     pins = tomllib.loads((ROOT / "docs/site.toml").read_text())["tools"]
@@ -601,6 +665,7 @@ CHECKS = (
     check_quality_tools,
     check_rust,
     check_cargo_tools,
+    check_compiler_cache,
     check_docs_tools,
     check_repo_linters,
     check_extension,

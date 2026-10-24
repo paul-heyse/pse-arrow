@@ -72,6 +72,8 @@ stage_rust() {
   say "Installing cargo development tools"
   mapfile -t tool_specs < <(python3 -m scripts.cargo_tools "${CARGO_TOOLS[@]}")
   cargo binstall --no-confirm "${tool_specs[@]}"
+  say "Installing pinned compiler cache"
+  python3 -m scripts.diagnostic_trace install sccache
   (cd "$ROOT" && python3 -m scripts.docs install)
 }
 

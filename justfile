@@ -1490,7 +1490,7 @@ case-measure output *args:
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"
 
 [group('manual')]
-[doc('Install one explicitly pinned optional tool: trace-processor (default) or mcpls; no capture')]
+[doc('Install one pinned tool: trace-processor (default), mcpls, rr or sccache; no capture')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 diagnostic-tools tool="trace-processor":

@@ -17,11 +17,50 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import diagnostic_trace
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 FOREGROUND_CACHE = "PSE_SCCACHE_FOREGROUND"
+
+
+def selected_cache_binary(root: Path, environment: Mapping[str, str]) -> str | None:
+    """Resolve the declared default or a deliberate real-executable override."""
+    managed = (root / "scripts/sccache").resolve()
+    wrapper = environment.get("RUSTC_WRAPPER")
+    explicit = environment.get("PSE_SCCACHE_BINARY")
+    if "PSE_SCCACHE_BINARY" in environment and not explicit:
+        raise ValueError("PSE_SCCACHE_BINARY must name the real executable")
+    if wrapper and Path(wrapper).name == "sccache" and Path(wrapper).resolve() != managed:
+        chosen = shutil.which(wrapper, path=environment.get("PATH")) or wrapper
+        if explicit and Path(explicit).resolve() != Path(chosen).resolve():
+            raise ValueError("conflicting RUSTC_WRAPPER and PSE_SCCACHE_BINARY selections")
+        return chosen
+    if explicit:
+        return explicit
+    default = diagnostic_trace.binary_path("sccache", environment)
+    if not default.exists():
+        return None
+    if not default.is_file() or not os.access(default, os.X_OK):
+        raise ValueError("managed sccache is not executable; run just diagnostic-tools sccache")
+    return str(default)
+
+
+def validate_cache_binary(root: Path, selected: str) -> Path:
+    """Validate the real Linux executable shared by admission and diagnostics."""
+    binary = Path(selected).resolve(strict=True)
+    if (
+        binary == (root / "scripts/sccache").resolve()
+        or not binary.is_file()
+        or not os.access(binary, os.X_OK)
+    ):
+        raise ValueError("PSE_SCCACHE_BINARY must select the real executable")
+    with binary.open("rb") as source:
+        if source.read(4) != b"\x7fELF":
+            raise ValueError("PSE_SCCACHE_BINARY must select the installed ELF binary")
+    return binary
 
 
 def cache_mode_problem(root: Path, environment: Mapping[str, str]) -> str | None:
@@ -171,11 +210,12 @@ def configure(
         if "PSE_NATIVE_COMPILER_CACHE" in env:
             env["PSE_NATIVE_COMPILER_CACHE"] = ""
     elif "RUSTC_WRAPPER" not in env and (cache == "on" or not env.get("CI")):
-        wrapper = shutil.which("sccache", path=env.get("PATH"))
-        if not wrapper and cache == "on":
+        binary = selected_cache_binary(root, env)
+        if not binary and cache == "on":
             raise ValueError("cache requested but sccache is not installed")
-        if wrapper:
-            env["RUSTC_WRAPPER"] = wrapper
+        if binary:
+            env["RUSTC_WRAPPER"] = str(root / "scripts/sccache")
+            env["PSE_SCCACHE_BINARY"] = binary
     if cache == "on" and not env.get("RUSTC_WRAPPER"):
         raise ValueError("cache requested but RUSTC_WRAPPER explicitly disables it")
     wrapper = env.get("RUSTC_WRAPPER", "")
@@ -218,7 +258,7 @@ def configure(
         # processes remain in the caller's allocation; the wrapper verifies the
         # admitted daemon generation and contains sccache's lazy-start fallback.
         managed = root / "scripts/sccache"
-        real = env.get("PSE_SCCACHE_BINARY") if Path(wrapper) == managed else wrapper
+        real = selected_cache_binary(root, env)
         if not real:
             raise ValueError(
                 "managed compiler cache requires its exact installed binary"

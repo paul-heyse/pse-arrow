@@ -14,12 +14,14 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import tarfile
 import tempfile
 import tomllib
 import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,9 +32,13 @@ def tool_spec(name: str = "trace-processor") -> dict[str, str]:
         return tomllib.load(source)[name]
 
 
-def binary_path(name: str = "trace-processor") -> Path:
+def binary_path(
+    name: str = "trace-processor", environment: Mapping[str, str] | None = None
+) -> Path:
     spec = tool_spec(name)
-    base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    env = os.environ if environment is None else environment
+    home = Path(env.get("HOME", str(Path.home())))
+    base = Path(env.get("XDG_DATA_HOME") or home / ".local/share")
     return (
         base
         / "pse/tools"
@@ -40,6 +46,26 @@ def binary_path(name: str = "trace-processor") -> Path:
         / spec["version"]
         / spec["member"]
     )
+
+
+def verify_binary(
+    name: str = "trace-processor", environment: Mapping[str, str] | None = None
+) -> Path:
+    """Verify an installed default without installing or executing it."""
+    target = binary_path(name, environment)
+    spec = tool_spec(name)
+    if target.is_symlink() or not target.is_file():
+        raise ValueError(f"{name} managed executable missing or nonregular: {target}")
+    if not os.access(target, os.X_OK):
+        raise ValueError(f"{name} managed executable is not executable: {target}")
+    if spec.get("archive") == "portable-tar":
+        verify_bundle(target.parents[1], spec)
+    if expected := spec.get("binary_sha256"):
+        with target.open("rb") as source:
+            observed = hashlib.file_digest(source, "sha256").hexdigest()
+        if observed != expected:
+            raise ValueError(f"{name} managed executable checksum differs: {target}")
+    return target
 
 
 def verify_bundle(root: Path, spec: dict[str, str]) -> None:
@@ -137,16 +163,16 @@ def stage_bundle(archive: Path, directory: Path, spec: dict[str, str]) -> Path:
     return root
 
 
-def install(name: str = "trace-processor") -> Path:
+def install(
+    name: str = "trace-processor", environment: Mapping[str, str] | None = None
+) -> Path:
     """Install the declared binary or complete portable runtime from its pinned archive."""
-    target = binary_path(name)
+    target = binary_path(name, environment)
     spec = tool_spec(name)
     portable = spec.get("archive") == "portable-tar"
     selected_root = target.parents[1] if portable else target.parent
-    if target.is_file():
-        if portable:
-            verify_bundle(selected_root, spec)
-        return target
+    if target.exists() or target.is_symlink():
+        return verify_binary(name, environment)
     staging_parent = selected_root.parent if portable else target.parent
     staging_parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".install-", dir=staging_parent) as scratch:
@@ -154,7 +180,7 @@ def install(name: str = "trace-processor") -> Path:
         digest = hashlib.sha256()
         size = 0
         if urllib.parse.urlsplit(spec["url"]).scheme != "https":
-            raise ValueError("Trace Processor release URL must use HTTPS")
+            raise ValueError("tool release URL must use HTTPS")
         # The declaration selects HTTPS; the bounded archive digest authenticates bytes.
         request = urllib.request.Request(  # noqa: S310
             spec["url"], headers={"User-Agent": "pse-arrow-diagnostics"}
@@ -167,12 +193,12 @@ def install(name: str = "trace-processor") -> Path:
                 size += len(chunk)
                 if size > 256 << 20:
                     raise ValueError(
-                        "Trace Processor archive exceeds installation allowance"
+                        "tool archive exceeds installation allowance"
                     )
                 digest.update(chunk)
                 output.write(chunk)
         if digest.hexdigest() != spec["sha256"]:
-            raise ValueError("Trace Processor release archive checksum differs")
+            raise ValueError("tool release archive checksum differs")
         if portable:
             staged_root = stage_bundle(archive, Path(scratch), spec)
             try:
@@ -208,22 +234,34 @@ def install(name: str = "trace-processor") -> Path:
                     for info in bundle.infolist()
                     if Path(info.filename).name == spec["member"]
                 ]
-                if len(members) != 1 or members[0].file_size > 256 << 20:
+                if (
+                    len(members) != 1
+                    or members[0].file_size > 256 << 20
+                    or members[0].is_dir()
+                    or stat.S_IFMT(members[0].external_attr >> 16)
+                    not in (0, stat.S_IFREG)
+                ):
                     raise ValueError(
                         "tool binary member missing, ambiguous or oversized"
                     )
                 with bundle.open(members[0]) as source, staged.open("xb") as output:
                     shutil.copyfileobj(source, output, 1 << 20)
         staged.chmod(0o755)
+        if expected := spec.get("binary_sha256"):
+            with staged.open("rb") as source:
+                observed = hashlib.file_digest(source, "sha256").hexdigest()
+            if observed != expected:
+                raise ValueError("tool executable checksum differs")
         # A racing install may already have completed. Never replace another tool.
         try:
             os.link(staged, target)
         except FileExistsError:
+            verify_binary(name, environment)
             if staged.read_bytes() != target.read_bytes():
                 raise ValueError(
                     "An incompatible tool already occupies the selected installation path"
                 ) from None
-    return target
+    return verify_binary(name, environment)
 
 
 def query(
@@ -282,7 +320,7 @@ def main() -> int:
     commands.add_parser("install").add_argument(
         "tool",
         nargs="?",
-        choices=("trace-processor", "mcpls", "rr"),
+        choices=("trace-processor", "mcpls", "rr", "sccache"),
         default="trace-processor",
     )
     inspect = commands.add_parser("query")

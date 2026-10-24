@@ -41,6 +41,7 @@ if str(ROOT) not in sys.path:
 from scripts import host_admission as host  # noqa: E402 -- direct-script root routing
 from scripts import native_operation as operation  # noqa: E402 -- script routing
 from scripts import build_environment  # noqa: E402 -- direct-script root routing
+from scripts import diagnostic_trace  # noqa: E402 -- script routing
 
 
 class CacheSignal(BaseException):
@@ -118,22 +119,13 @@ def metadata(directory: Path, deadline: float) -> Generator[None, None, None]:
 
 
 def real_binary(env: Mapping[str, str]) -> Path:
-    selected = env.get("PSE_SCCACHE_BINARY") or shutil.which(
-        "sccache", path=env.get("PATH")
-    )
+    selected = build_environment.selected_cache_binary(ROOT, env)
     if not selected:
         raise CacheError("configure PSE_SCCACHE_BINARY with installed sccache")
-    binary = Path(selected).resolve(strict=True)
-    if (
-        binary == (ROOT / "scripts/sccache").resolve()
-        or not binary.is_file()
-        or not os.access(binary, os.X_OK)
-    ):
-        raise CacheError("PSE_SCCACHE_BINARY must select the real executable")
-    with binary.open("rb") as source:
-        if source.read(4) != b"\x7fELF":
-            raise CacheError("PSE_SCCACHE_BINARY must select the installed ELF binary")
-    return binary
+    try:
+        return build_environment.validate_cache_binary(ROOT, selected)
+    except ValueError as error:
+        raise CacheError(str(error)) from error
 
 
 def digest(path: Path) -> str:
@@ -331,6 +323,8 @@ def startup_inputs() -> dict[str, str]:
         ROOT / "scripts/host_admission.py",
         ROOT / "scripts/native_operation.py",
         ROOT / "scripts/build_environment.py",
+        ROOT / "scripts/diagnostic_trace.py",
+        ROOT / ".config/diagnostic-tools.toml",
         ROOT / ".config/agent-capacity.toml",
         Path(sys.executable).resolve(),
     ]
@@ -373,6 +367,11 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
     deadline = time.monotonic() + 30 if deadline is None else deadline
     remaining(deadline)
     binary = real_binary(env)
+    binary_digest = digest(binary)
+    if binary == diagnostic_trace.binary_path("sccache", env).resolve() and (
+        binary_digest != diagnostic_trace.tool_spec("sccache")["binary_sha256"]
+    ):
+        raise CacheError("managed sccache executable differs from its declared digest")
     cache = Path(env["SCCACHE_DIR"]).resolve()
     configuration = Path(
         env.get("SCCACHE_CONF", str(ROOT / ".config/sccache.toml"))
@@ -381,7 +380,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
         json.dumps(
             [
                 str(cache),
-                digest(binary),
+                binary_digest,
                 digest(configuration),
                 env.get("SCCACHE_CACHE_SIZE", "100G"),
             ]
