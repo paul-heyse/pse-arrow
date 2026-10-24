@@ -49,10 +49,10 @@ def main() -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     environment = dict(os.environ)
-    record = {"schema": "highs-lifecycle-diagnostic-v1", "mode": args.mode, "status": "incomplete", "scope": "one actual CallbackBinding normal/interrupted teardown", "baseline_failures": 0, "sources": {path: digest(ROOT / path) for path in ("Cargo.lock", "rust-toolchain.toml", "crates/pse-backend-native/src/highs.rs", "crates/pse-backend-native/src/highs/mip_tests.rs", "crates/pse-backend-native/src/highs_lifecycle.rs")}, "limits": ["not a solver-fleet or ThreadSanitizer qualification", "standard library and unrelated opaque native libraries are outside selected instrumentation", "deterministic schedules are separate ordinary tests, not sanitizer interleaving coverage"]}
+    record = {"schema": "highs-lifecycle-diagnostic-v1", "mode": args.mode, "status": "incomplete", "scope": "one actual CallbackBinding normal/interrupted teardown", "baseline_failures": 0, "sensitivity_control": "not_run: maintainer selected ordinary lifecycle coverage only", "sources": {path: digest(ROOT / path) for path in ("Cargo.lock", "rust-toolchain.toml", "crates/pse-backend-native/src/highs.rs", "crates/pse-backend-native/src/highs/mip_tests.rs", "crates/pse-backend-native/src/highs_lifecycle.rs")}, "limits": ["not a solver-fleet or ThreadSanitizer qualification", "standard library and unrelated opaque native libraries are outside selected instrumentation", "deterministic schedules are separate ordinary tests, not sanitizer interleaving coverage"]}
     try:
         target = subprocess.check_output(["rustc", "-vV"], text=True).split("host: ")[1].splitlines()[0]
-        arguments = ["cargo", "test", "--locked", "-p", "pse-backend-native", "--lib", "--features", "highs", "--no-run", "--message-format=json"]
+        arguments = ["cargo", "test", "--locked", "-p", "pse-backend-native", "--lib", "--features", "pse-backend-native/highs", "--no-run", "--message-format=json"]
         if args.mode == "asan":
             # The isolated target prevents mixing ordinary and instrumented artifacts.
             environment["PSE_CARGO_TARGET_DIR"] = str(ROOT / "target" / "diagnostics" / "highs-asan")
@@ -69,7 +69,7 @@ def main() -> int:
         record["build"] = run(command, environment, output, "build", args.build_timeout)
         record["instrumentation_environment"] = {key: environment.get(key) for key in ("PSE_CARGO_TARGET_DIR", "RUSTFLAGS", "CFLAGS", "CXXFLAGS", "ASAN_OPTIONS", "CARGO_BUILD_JOBS")}
         if record["build"]["exit_code"] != 0:
-            record["status"] = "unsupported-build" if not record["build"]["timed_out"] else "build-timeout"
+            record["status"] = "build-timeout" if record["build"]["timed_out"] else "admission-refused" if record["build"]["exit_code"] == 125 else "build-failed"
             return 1
         messages = [json.loads(line) for line in (output / "build.stdout.txt").read_text().splitlines() if line.startswith("{")]
         binaries = [Path(message["executable"]) for message in messages if message.get("reason") == "compiler-artifact" and message.get("executable") and message["target"]["name"] == "pse_backend_native" and message["profile"]["test"]]
@@ -97,14 +97,23 @@ def main() -> int:
         symbols = subprocess.check_output(["nm", "-u", str(archive)], text=True, stderr=subprocess.DEVNULL)
         rust_symbols = subprocess.check_output(["nm", str(binary)], text=True, stderr=subprocess.DEVNULL)
         native_instrumented = "__asan_" in symbols and any("CMAKE_CXX_FLAGS:" in line and "-fsanitize=address" in line for line in cache_text.splitlines())
-        rust_instrumented = "__asan_init" in rust_symbols
+        demangled=subprocess.check_output(["nm","-C","--defined-only",str(binary)],text=True,stderr=subprocess.DEVNULL)
+        callbacks=[line.split()[0] for line in demangled.splitlines() if line.endswith("pse_backend_native::highs::callback")]
+        if len(callbacks)!=1:
+            raise ValueError("expected one actual Rust HiGHS callback symbol")
+        callback_symbols=[line.split()[-1] for line in rust_symbols.splitlines() if line.split() and line.split()[0]==callbacks[0] and len(line.split())==3]
+        if len(callback_symbols)!=1:
+            raise ValueError("actual Rust callback symbol association is ambiguous")
+        callback_assembly=subprocess.check_output(["objdump","-d","--disassemble="+callback_symbols[0],str(binary)],text=True)
+        (output/"rust-callback.asm").write_text(callback_assembly)
+        rust_instrumented = "__asan_init" in rust_symbols and "__asan_" in callback_assembly
+        record["rust_callback_instrumentation"]={"symbol":callback_symbols[0],"address":callbacks[0],"assembly_sha256":digest(output/"rust-callback.asm"),"asan_reference_observed":"__asan_" in callback_assembly}
         record["highs_supplier"] = {"package": native[0]["package_id"], "archive": str(archive), "sha256": digest(archive), "cmake_cache": str(cache), "cmake_cache_sha256": digest(cache), "instrumented": native_instrumented}
         record["rust_instrumented"] = rust_instrumented
         if not native_instrumented or not rust_instrumented:
             raise ValueError("selected Rust/native instrumentation was not observed")
         record["normal"] = run([str(binary), "--exact", NORMAL, "--nocapture"], environment, output, "normal", 120)
         adopted = qualify_asan(record["normal"], native_instrumented, rust_instrumented)
-        record["sensitivity_control"] = "not_run: deliberately invalid memory control withdrawn after content-safeguard denial; maintainer selected ordinary lifecycle coverage"
         record["status"] = "tested-normal-lifecycle" if adopted else "not-qualified"
         return 0 if adopted else 1
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

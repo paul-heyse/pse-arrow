@@ -761,6 +761,3 @@ fn callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_r
     }
 }
 
-/// Only the sanitizer diagnostic owner runs this child. It deliberately reproduces
-/// a stale native user-data pointer, challenging the same callback buffer boundary.
-
