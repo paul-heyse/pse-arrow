@@ -52,6 +52,43 @@ def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
     )
 
 
+class AdministrativeTransportTests(unittest.TestCase):
+    def test_preserves_multiline_comment_and_literal_bytes_and_explicit_errors(self) -> None:
+        query = "// retained comment\nRETURN 'line\\n// literal';\nTHROW 'fixture refusal';"
+        outcomes = [{"status": "OK", "result": "line\\n// literal"},
+                    {"status": "ERR", "result": "fixture refusal"}]
+        with (
+            patch.object(server, "config_for", return_value={"port": 18080}),
+            patch.object(server, "read_json", return_value={"username": "fixture", "password": "private"}),
+            patch.object(server.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(outcomes).encode())) as send,
+        ):
+            self.assertEqual(server.administrative_results(Path("/fixture"), query, time.monotonic() + 5,
+                namespace="owned", database="fixture"), outcomes)
+        request = send.call_args.args[0]
+        self.assertEqual(request.data, query.encode())
+        self.assertEqual(request.get_header("Surreal-ns"), "owned")
+        self.assertEqual(request.get_header("Surreal-db"), "fixture")
+        with (
+            patch.object(server, "administrative_results", return_value=outcomes),
+            self.assertRaisesRegex(server.SupervisorError, "failed or incomplete"),
+        ):
+            server.administrative_query(Path("/fixture"), query, time.monotonic() + 5)
+
+    def test_refuses_malformed_or_oversize_statement_envelopes(self) -> None:
+        for payload in (b"not json", b"{}", b"[]", b"[null]", b'[{"status":"OK"}]',
+                        b'[{"status":[],"result":null}]', b'[{"status":"ERR","result":null}]',
+                        b'[{"status":"unknown","result":null}]', b" " * (server.MESSAGE_BYTES + 1)):
+            with (
+                self.subTest(payload_size=len(payload)),
+                patch.object(server, "config_for", return_value={"port": 18080}),
+                patch.object(server, "read_json", return_value={"username": "fixture", "password": "private"}),
+                patch.object(server.urllib.request, "urlopen", return_value=io.BytesIO(payload)),
+                self.assertRaisesRegex(server.SupervisorError, "invalid or incomplete|exceeded|valid JSON"),
+            ):
+                server.administrative_results(Path("/fixture"), "RETURN 1;", time.monotonic() + 5,
+                    namespace="owned", database="fixture")
+
+
 class LifecycleClockTests(unittest.TestCase):
     def test_lifecycle_deadline_narrows_nested_clock_and_restores_on_failure(
         self,

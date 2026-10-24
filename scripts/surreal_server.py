@@ -9528,7 +9528,7 @@ def administrative_headers(
     return headers
 
 
-def administrative_query(
+def administrative_results(
     state: Path,
     query: str,
     deadline: float,
@@ -9537,7 +9537,7 @@ def administrative_query(
     database: str | None = None,
     select_context: bool = True,
 ) -> list[dict[str, object]]:
-    """Bounded authenticated administrative control; scientific RPC remains native WS."""
+    """Preserve SQL bytes and explicit per-statement outcomes in bounded control."""
     config = config_for(state)
     credentials = read_json(state / "credentials.json")
     token = base64.b64encode(
@@ -9554,18 +9554,45 @@ def administrative_query(
         payload = response.read(MESSAGE_BYTES + 1)
     if len(payload) > MESSAGE_BYTES:
         raise SupervisorError("Administrative response exceeded its bounded extent")
-    results = json.loads(payload)
+    try:
+        results = json.loads(payload)
+    except ValueError as error:
+        raise SupervisorError("Administrative response was not valid JSON") from error
     if (
         not isinstance(results, list)
         or not results
         or any(
-            not isinstance(row, dict) or row.get("status") != "OK" for row in results
+            not isinstance(row, dict)
+            or not isinstance(row.get("status"), str)
+            or row.get("status") not in {"OK", "ERR"}
+            or "result" not in row
+            or (row["status"] == "ERR" and not isinstance(row["result"], str))
+            for row in results
         )
     ):
         raise SupervisorError(
-            "Administrative query contained a failed or incomplete statement"
+            "Administrative response contained an invalid or incomplete statement"
         )
     remaining(deadline)
+    return results
+
+
+def administrative_query(
+    state: Path,
+    query: str,
+    deadline: float,
+    *,
+    namespace: str | None = None,
+    database: str | None = None,
+    select_context: bool = True,
+) -> list[dict[str, object]]:
+    """Bounded all-OK administrative control; scientific RPC remains native WS."""
+    results = administrative_results(
+        state, query, deadline, namespace=namespace, database=database,
+        select_context=select_context,
+    )
+    if any(row["status"] != "OK" for row in results):
+        raise SupervisorError("Administrative query contained a failed or incomplete statement")
     return results
 
 
