@@ -651,52 +651,33 @@ def run_rust(
             package_scope=package_scope,
             on_invocation=on_invocation,
         )
-    if package_scope:
-        raise ValueError("package-scoped invocation requires its preparing observer")
     inherited = environment.get(resources.MARKER)
     run = list(command)
     position = run.index("run")
-    from scripts.native_tests import (  # noqa: PLC0415 -- runner import cycle.
-        managed_list_arguments,
-    )
+    from scripts import native_tests  # noqa: PLC0415 -- runner import cycle.
 
-    listing = [
-        *run[:position],
-        "list",
-        *managed_list_arguments(run[position + 1 :]),
-        "--message-format",
-        "json",
-    ]
-    fresh_inventory = inventory is None
     if inventory is None:
-        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
-            cargo_tools,
-        )
-
-        cargo_tools.selected_identity("cargo-nextest")
         if "--binaries-metadata" in command or "--cargo-metadata" in command:
             raise ValueError("Retained Rust metadata requires its prepared inventory")
-        response = subprocess.run(
-            listing,
-            cwd=ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
+        output = validation.fresh_output(
+            ROOT, ROOT / "build/native-tests" / str(time.time_ns())
         )
-        if response.returncode:
-            print(response.stdout)
-            print(response.stderr)
-            return response.returncode
-        inventory = validation_receipts.native_inventory(response.stdout)
-    else:
-        from scripts.native_tests import (  # noqa: PLC0415 -- runner import cycle.
-            prepared_rust_inventory,
+        provenance = output / "native.json"
+        selection = output / "native-selected.json"
+        execution, _worker = native_tests.ordinary_rust_capture(
+            run, provenance, selection, environment,
+            effects=effects, package_scope=package_scope, canonical=False,
         )
-
-        inventory = prepared_rust_inventory(
-            list(command[position + 1 :]), environment, inventory=inventory
+        environment.update(native_tests.rust_fixture_bindings(provenance, environment))
+        environment.update(
+            PSE_NATIVE_PROVENANCE=str(provenance),
+            PSE_NATIVE_SELECTION=str(selection),
         )
+        run = [*run[:position + 1], *execution]
+        inventory = validation_receipts.native_inventory(selection.read_text())
+    inventory = native_tests.prepared_rust_inventory(
+        run[position + 1 :], environment, inventory=inventory
+    )
     selected = rust_selected(inventory)
     from scripts import (  # noqa: PLC0415 -- lazy operation owner.
         test_requirements,
@@ -725,18 +706,12 @@ def run_rust(
         path = resources.invocation("rust", selected, requirements=requirements)
     if on_invocation is not None:
         on_invocation(path)
-    # Ordinary local unit routes enumerate here rather than through the native
-    # observer. They use the same invocation preparation after actual selection.
     from scripts import (  # noqa: PLC0415 -- lazy operation owner.
         scientific_inputs,
     )
 
-    if fresh_inventory:
-        scientific_inputs.prepare(
-            inventory, path.with_suffix(".scientific.json"), environment
-        )
     if inherited and environment.get("PSE_RUST_TERMINAL_OWNER") != "runner":
-        return subprocess.call(command, cwd=ROOT, env=environment)
+        return subprocess.call(run, cwd=ROOT, env=environment)
     environment[resources.MARKER] = str(path)
     run, report = rust_report_command(path, run, environment)
     return execute_selected(
@@ -824,6 +799,7 @@ def observer_rust(
         environment,
         effects=effects,
         package_scope=package_scope,
+        canonical=effects == "canonical",
     )
     inventory = validation_receipts.native_inventory(selection.read_text())
     fixtures = native_tests.rust_fixture_bindings(provenance, environment)

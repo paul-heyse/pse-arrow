@@ -1718,7 +1718,7 @@ pub(super) fn project(
             .chain(&operation.anchors)
             .chain(operation.restriction.iter())
         {
-            needed.extend(expanded_region_reads(region, &suppliers));
+            needed.extend(expanded_region_inputs(region, &suppliers)?);
         }
         let inputs = p
             .inputs
@@ -1854,16 +1854,37 @@ pub(super) fn project(
     p.free.retain(|id, _| !unknown_ids.contains(id));
     Ok(())
 }
+// Semantic reads may omit a formal ignored by a selected function. Composition
+// still owes the complete issued input layout, including that formal's original
+// scalar/range declaration and any selected supplier's declared input ports.
+fn expanded_region_inputs(
+    region: &SelectedRegion,
+    suppliers: &BTreeMap<SemanticId, BTreeSet<SemanticId>>,
+) -> Result<BTreeSet<SemanticId>> {
+    let mut pending = region.reads.numeric.union(&region.reads.guards).copied().collect::<Vec<_>>();
+    for slot in &region.inputs {
+        let binding = region.bindings.iter().find(|binding| binding.local == *slot)
+            .ok_or_else(|| CompileError::Missing("implicit complete input correspondence".into()))?;
+        pending.push(binding.actual);
+    }
+    Ok(expanded_supplier_reads(pending, suppliers))
+}
 fn expanded_region_reads(
     region: &SelectedRegion,
     suppliers: &BTreeMap<SemanticId, BTreeSet<SemanticId>>,
 ) -> BTreeSet<SemanticId> {
-    let mut pending = region
+    let pending = region
         .reads
         .numeric
         .union(&region.reads.guards)
         .copied()
         .collect::<Vec<_>>();
+    expanded_supplier_reads(pending, suppliers)
+}
+fn expanded_supplier_reads(
+    mut pending: Vec<SemanticId>,
+    suppliers: &BTreeMap<SemanticId, BTreeSet<SemanticId>>,
+) -> BTreeSet<SemanticId> {
     let mut reads = BTreeSet::new();
     while let Some(id) = pending.pop() {
         if !reads.insert(id) {

@@ -1915,6 +1915,18 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
     assert_eq!(admitted.implicit_order_for(None).unwrap().len(), 1);
 }
 #[test]
+fn nested_implicit_keeps_complete_layout_for_an_ignored_function_argument() {
+    let (mut workspace, _, _, root) = setup(
+        "package p {fn pick(a:Scalar,b:Scalar)->Scalar=a; def Root {var p:Scalar; var q:Scalar; implicit inner {var y:Scalar; eq e:y==pick(p,q);} realize r on inner using nested; eq e:inner.y==2;}}",
+    );
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    let model = workspace.specialize_modeling(root, InstanceId::from_id(SemanticId::NIL), Bindings::default(), Limits::default()).unwrap();
+    let q = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".q")).unwrap().id;
+    assert!(inner.descriptor.spec().inputs.iter().any(|port| port.id == q));
+    assert!(inner.residuals.iter().all(|residual| residual.body.math.input_count() == 3));
+}
+#[test]
 fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     use pse_kernels::ProviderFactory;
     use pse_math::implicit::{InnerSolver, Options, Problem, Unknown};

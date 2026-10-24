@@ -829,6 +829,7 @@ def ordinary_rust_capture(
     *,
     effects: str = "canonical",
     package_scope: bool = False,
+    canonical: bool | None = None,
 ) -> tuple[list[str], Path | None]:
     """Retain exactly the ordinary caller's build and test selection."""
     return _rust_capture(
@@ -837,7 +838,7 @@ def ordinary_rust_capture(
         selected,
         managed=False,
         environment=environment,
-        canonical=effects == "canonical",
+        canonical=effects == "canonical" if canonical is None else canonical,
         package_scope=package_scope,
     )
 
@@ -1389,6 +1390,7 @@ def main() -> int:
         Path(path),
         selected_path,
         environment,
+        canonical=True,
     )
     # Preparation, validation and enumeration share the exact resolved artifacts.
     # Execution consumes those artifacts rather than rebuilding the requested units.

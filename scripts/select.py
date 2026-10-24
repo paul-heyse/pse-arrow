@@ -139,7 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # The observer prepares the actual binaries, force-validation closure and
     # inventory together. Resolving here first would repeat that Cargo work and
     # leave two independently prepared scopes in the same invocation.
-    if "run" in command and os.environ.get("PSE_NATIVE_OPERATION"):
+    if "run" in command:
         return run_rust(command, effects=effects, package_scope=argv[:1] == ["unit"])
     resolved = resolve(command)
     command = resolved.command
@@ -148,10 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         scope = " | ".join(f"package({name})" for name in resolved.packages)
         command[position] = f"({command[position]}) & ({scope})"
     print("select: " + shlex.join(command), file=sys.stderr, flush=True)
-    if "run" not in command:
-        return subprocess.call(command)
-
-    return run_rust(command, effects=effects)
+    return subprocess.call(command)
 
 
 if __name__ == "__main__":
