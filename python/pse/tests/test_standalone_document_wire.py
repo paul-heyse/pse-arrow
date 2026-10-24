@@ -130,9 +130,22 @@ def test_standalone_native_byte_ingress_uses_the_same_envelope() -> None:
         codec.decode_json(settings.to_json(), documents.ModelingDiagnosticPolicy)
         == policy
     )
-    for payload in ("{}", '{"document_version":1,"document_version":1}'):
-        with pytest.raises(pse.InspectionError, match="version"):
+    for payload in (
+        "{}",
+        '{"document_version":1,"document_version":1}',
+        '{"document_version":2,"private":"header-control-secret"}',
+    ):
+        with pytest.raises(pse.InspectionError) as failure:
             pse.ModelingDiagnosticSettings.from_json(payload)
+        report = failure.value.report
+        assert report.reported_code == "validation.invariant"
+        location = report.decode_location
+        assert isinstance(location, documents.DecodeLocation)
+        assert location.stage == "header"
+        assert location.category == "data"
+        assert location.line == 1
+        assert location.column > 0
+        assert "header-control-secret" not in str(failure.value)
 
 
 @pytest.mark.unit
