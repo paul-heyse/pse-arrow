@@ -155,6 +155,32 @@ context does not acquire a product Arrow schema simply because JSON is returned.
 
 ## Targeted execution outcome
 
+**Implemented and Tested (2026-10-23), structured pivot:** exact native concept adapters now
+resolve stable contract sections, authored ADR identities, native plan packages, declaration keys,
+generators and specific outputs. Task source paths match exact producer fields; symbol text
+remains a separately labeled lead. Package state is parsed from bounded captured bytes, including
+canonical status-owner contributors and policy inputs. Changed inputs refuse stale rows.
+
+The selected host command
+`scripts/pse-env --resource-class light -- python -m unittest scripts.tests.test_workspace_domains scripts.tests.test_workspace_sources scripts.tests.test_workspace_tasks scripts.tests.test_workspace_context scripts.tests.test_session_retrospective scripts.tests.test_knowledge_store scripts.tests.test_semantic_navigation scripts.tests.test_semantic_edits scripts.tests.test_evidence_store scripts.tests.test_setup scripts.tests.test_docs scripts.tests.test_document_lifecycle`
+passed144 tests against the zero-failure baseline. Actual CLI consumers resolved §20.5 through its
+section owner, retained ADR-0222 as proposed/Reference, and obtained A03 state through the actual
+coordinator row. The A02 task packet retained the dirty generator edit and unresolved dynamic
+consumers without a database or session read. Historical Git subjects remain rationale.
+
+An actual two-arrangement comparison selected native source adapters with optional derived
+enrichment over requiring a running imported corpus for base task reads. The command returned
+different conservative package reach (zero Rust crates for selected host paths versus three for
+the native path), proposals/removals and explicit availability/dynamic-consumer unknowns. This is
+an engineering decision supported by source inspection, not a measured productivity advantage.
+The initial script summarizing the successful CLI result used the wrong nesting; the summary
+reader was corrected without changing the returned evidence.
+
+The independent review exposed mixed policy cuts and row/source rereads. Those were corrected
+through the existing policy/aggregate readers with captured-byte callbacks, rather than adding a
+second status parser. Persistent B04 and actual stub-production integration remain separate
+acceptance obligations; these host checks establish no assembled Plan52 or scientific qualification.
+
 **Implemented and Tested (2026-10-23):** A03/A04 use FastMCP4.1.3's Client/StdioTransport
 for connection, protocol negotiation, tool discovery and finite process lifetime, with MCP SDK2.3.0
 for explicit protocol errors. Direct SDK session/framing code was replaced. The maintainer selected
