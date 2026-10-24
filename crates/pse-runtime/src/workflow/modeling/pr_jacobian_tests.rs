@@ -2038,6 +2038,21 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
                 &cancel,
             )
             .await?;
+        // Selected rows retain source order; coordinates retain caller order.
+        // Bind both the oracle and multiplier weights through the returned IDs.
+        let actual_rows = executable.assembly.structure().rows();
+        let actual_columns = executable.assembly.columns();
+        assert_eq!(actual_rows.len(), row_ids.len());
+        assert_eq!(actual_columns.len(), coordinate_ids.len());
+        let actual_row_order = [0, 1].map(|i| {
+            row_ids.iter().position(|id| *id == actual_rows[i].id).unwrap()
+        });
+        let actual_column_order = [0, 1].map(|i| {
+            coordinate_ids.iter().position(|id| *id == actual_columns[i]).unwrap()
+        });
+        assert_ne!(actual_row_order[0], actual_row_order[1]);
+        assert_ne!(actual_column_order[0], actual_column_order[1]);
+        assert_eq!(actual_column_order, column_order);
         let providers = prepared.providers.clone();
         let base = prepared.model.values.clone();
         let controls = analysis.solver.controls.clone();
@@ -2062,7 +2077,7 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
                         jacobian[row][column] = *value;
                     }
                 }
-                let weights = row_order.map(|row| [2., -3.][row]);
+                let weights = actual_row_order.map(|row| [2., -3.][row]);
                 let actual = worker.hessian(&base, 0., &weights)?;
                 let mut hessian = [[0.; 2]; 2];
                 let mut entries = 0;
@@ -2088,22 +2103,31 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         let ((values, jacobian, hessian), _owner) = handle.finish().await?;
         // Numerical outputs alone are compared to the closed-form oracle. No
         // production primitive jet participates in the expected assembly.
-        let close = |actual: f64, expected: f64| {
+        let close = |field: &str, actual: f64, expected: f64| {
             assert!(
                 (actual - expected).abs() <= 1e-6 * (1. + expected.abs()),
-                "{actual} != {expected}"
+                "{field}: {actual} != {expected}; requested rows={row_order:?}, actual rows={actual_row_order:?}, actual columns={actual_column_order:?}"
             );
         };
         for i in 0..2 {
-            close(values[i], expected_values[row_order[i]]);
+            let row = actual_row_order[i];
+            close(
+                &format!("value {}", ["mixed", "other"][row]),
+                values[i], expected_values[row],
+            );
             for j in 0..2 {
+                let left = actual_column_order[i];
+                let right = actual_column_order[j];
                 close(
-                    jacobian[i][j],
-                    expected_jacobian[row_order[i]][column_order[j]],
+                    &format!("Jacobian {} / {}", ["mixed", "other"][row], ["u", "v"][right]),
+                    jacobian[i][j], expected_jacobian[row][right],
                 );
-                let expected = 2. * expected_hessians[0][column_order[i]][column_order[j]]
-                    - 3. * expected_hessians[1][column_order[i]][column_order[j]];
-                close(hessian[i][j], expected);
+                let expected = 2. * expected_hessians[0][left][right]
+                    - 3. * expected_hessians[1][left][right];
+                close(
+                    &format!("weighted Hessian {},{}", ["u", "v"][left], ["u", "v"][right]),
+                    hessian[i][j], expected,
+                );
             }
         }
     }
