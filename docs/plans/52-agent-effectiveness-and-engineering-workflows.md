@@ -1,6 +1,6 @@
 ---
 title: "Plan 52: Agent effectiveness and engineering workflows"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -25,8 +25,8 @@ The operator authorized this plan series and explicitly accepted RC01–RC09 on 
 with the review's conditions intact. This coordinator owns package progress, opportunity
 and inquiry dispositions, shared decisions, cross-plan boundaries and overall completion.
 Companions own detailed designs and acceptance, linking here for current state. Architecture
-and ADRs retain contract/rationale authority. Authoring these documents authorizes no production
-execution, installation, host configuration change or policy adoption beyond the recorded selections.
+and ADRs retain contract/rationale authority. The maintainer subsequently authorized detailed execution of all 52a/52b on 2026-10-23,
+including their required FND00 and small G01 prerequisite slices. Other packages remain planned.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -178,10 +178,10 @@ Tool compatibility is separate from functional delivery and measured benefit.
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| I01 | open | [A03](52a-context-navigation-and-semantic-editing.md#A03) | Rust/Pyrefly edit support; preview completeness; stronger adapter only if needed |
-| I02 | open | [A04](52a-context-navigation-and-semantic-editing.md#A04) | Python3.14 codemod support; ast-grep or targeted transform fallback |
+| I01 | resolved | [A03](52a-context-navigation-and-semantic-editing.md#A03) | FastMCP4.1.3/MCP2.3.0 through mcpls0.8.0: actual Rust cross-file rename and Pyrefly rename/extraction passed; formatting unsupported; full/partial/source-drift guards retained |
+| I02 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | ast-grep0.50.0 contextual shapes plus LibCST1.9.0 qualified imports/scopes support the selected Python3.14 migration and negative examples |
 | I03 | open | [B01/B05](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical choice first, then local semantic value/compatibility decision |
-| I04 | open | [B02](52b-local-knowledge-and-research.md#B02) | Installed App Server read-only support versus bounded streaming/index adapter |
+| I04 | selected; integration in progress | [B02](52b-local-knowledge-and-research.md#B02) | Select bounded incremental stream adapter. Codex0.163 protocol listing inspected, but no isolated/live read-only App Server runtime qualified; no app-server startup/state repair required |
 | I05 | open | [C02](52c-behavioral-and-scientific-verification.md#C02) | Separate state-machine/Hypothesis addition versus existing Proptest sequences |
 | I06 | open | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual native instrumentation and modeled-schedule feasibility, separate outcomes |
 | I07 | open | [D03](52d-execution-and-qualification-efficiency.md#D03) | Effective TOML equivalence coverage versus raw identity with explanation |
@@ -199,17 +199,17 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| FND00 | planned | [Coordinator](#FND00) | Decision/declaration slices precede dependent changes |
-| A01 | planned | [52a](52a-context-navigation-and-semantic-editing.md#A01) | Current task packet and historical rationale |
-| A02 | planned | [52a](52a-context-navigation-and-semantic-editing.md#A02) | Actual generator/consumer paths |
-| A03 | planned | [52a](52a-context-navigation-and-semantic-editing.md#A03) | Real semantic-edit consumer and I01 |
-| A04 | planned | [52a](52a-context-navigation-and-semantic-editing.md#A04) | Structural transforms and I02 |
+| FND00 | in-progress | [Coordinator](#FND00) | Decision/declaration slices precede dependent changes |
+| A01 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A01) | Current task packet and historical rationale |
+| A02 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A02) | Actual generator/consumer paths |
+| A03 | done | [52a](52a-context-navigation-and-semantic-editing.md#A03) | Real semantic-edit consumer and I01 |
+| A04 | done | [52a](52a-context-navigation-and-semantic-editing.md#A04) | Structural transforms and I02 |
 | A05 | planned | [52a](52a-context-navigation-and-semantic-editing.md#A05) | Supported alternative-impact comparison |
-| B01 | planned | [52b](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical retrieval and first I03 decision |
-| B02 | planned | [52b](52b-local-knowledge-and-research.md#B02) | Activity discovery/logical history and I04 |
-| B03 | planned | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
-| B04 | planned | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
-| B05 | planned | [52b](52b-local-knowledge-and-research.md#B05) | Bounded local semantic decision and second I03 outcome |
+| B01 | in-progress | [52b](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical retrieval and first I03 decision |
+| B02 | in-progress | [52b](52b-local-knowledge-and-research.md#B02) | Activity discovery/logical history and I04 |
+| B03 | in-progress | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
+| B04 | in-progress | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
+| B05 | in-progress | [52b](52b-local-knowledge-and-research.md#B05) | Bounded local semantic decision and second I03 outcome |
 | C01 | planned | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
 | C02 | planned | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
 | C03 | planned | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
@@ -281,8 +281,11 @@ and relevant manual checks. No numerical performance/productivity benefit is pro
 claim needs its actual baseline and conditions. Functional populations are representative, not
 production-scale parameter/lane counts. Documentation authoring needs no product compilation.
 
-Current checkpoint: the series is authored against the baseline above; all production packages
-and inquiries are planned/open. No new tooling has been implemented or runtime-qualified here.
-The next authorized implementation engagement starts from FND00's relevant slices and the
-independent early packages. Authoring/check results belong in the publication handoff, not as
-new product acceptance. Do not mark O01–O30 resolved merely because the documents exist.
+Current checkpoint: authorized 52a/52b implementation is active. ADR-0222 precedes B04's
+separate derived family. A03/A04 have targeted host and actual Rust/Python fixture acceptance
+([52a outcome](52a-context-navigation-and-semantic-editing.md#targeted-execution-outcome));
+source context, producer relationships, source/history/research integration and native knowledge
+remain in progress. B05 is qualifying the selected local-model candidate. FastMCP is the
+operator-selected framework for the MCP client; ordinary CLI/source-only operations remain usable.
+Other Plan52 scope, including assembled 52h qualification, is planned. No whole-series or
+productivity/performance claim follows from these targeted checks.

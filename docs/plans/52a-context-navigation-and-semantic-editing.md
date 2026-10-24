@@ -1,6 +1,6 @@
 ---
 title: "Plan 52a: Context, navigation and semantic editing"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -152,3 +152,28 @@ G04 consumes these paths for integration. Package state stays at the coordinator
 compile/unit checks for actual changed fixtures. Scope-end assembled qualification belongs to
 52h. New runtime document families, if needed, follow FND00 before implementation; pure host
 context does not acquire a product Arrow schema simply because JSON is returned.
+
+## Targeted execution outcome
+
+**Implemented and Tested (2026-10-23):** A03/A04 use FastMCP4.1.3's Client/StdioTransport
+for connection, protocol negotiation, tool discovery and finite process lifetime, with MCP SDK2.3.0
+for explicit protocol errors. Direct SDK session/framing code was replaced. The maintainer selected
+FastMCP as the framework on 2026-10-23. Structured errors/readiness and one-based UTF-16 mcpls
+coordinates remain explicit; framework result handling does not grant edit completeness.
+
+`scripts/pse-env -- python -m unittest scripts.tests.test_semantic_edits scripts.tests.test_semantic_navigation`
+passed 15 targeted host tests against the zero-failure baseline.
+`scripts/pse-env -- python -m scripts.semantic_edit_probe --language both --output /tmp/pse-semantic-runtime-handoff.json`
+passed actual mcpls/Pyrefly and pinned-toolchain Rust fixture journeys: cross-file Rust rename,
+Python rename/extraction, applied-edit reconciliation, executed behavior, invalid positions and
+normal/error/cancellation cleanup. Rust's fixture test passed one test. Partial/truncated previews,
+source drift, non-edited basis drift, protected outputs, overlapping edits and interrupted application
+receive targeted refusal/reconciliation controls. This is representative fixture support, not a
+repo-wide rename or whole-product qualification; PyO3 strings/wire names/generated declarations
+remain separate owner-routed changes. Python formatting is explicitly unsupported.
+
+I02 selected ast-grep0.50.0 contextual candidate/fix rules plus LibCST1.9.0 import/scope metadata.
+The selected JSON-loader migration preserves comments, import aliases and local shadows;
+Python3.14 template strings/type-parameter defaults parse and compile. Its actual owned consumer
+in `semantic_navigation.py` moved from text to bytes; incompatible `tomllib.loads` remains unchanged.
+A01/A02/A05 acceptance and the enclosing Plan52 scope remain at the coordinator.

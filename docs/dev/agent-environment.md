@@ -520,10 +520,29 @@ under its managed owner instead of falling back to a machine-global wrapper. A n
 client's shutdown must drain its actual children, independently of a successful semantic reply.
 The bridge adds implementation and call-hierarchy queries absent from rust-analyzer-mcp 0.4.0.
 Readiness and missing capabilities belong to the real request, not an executable-presence check.
-mcpls positions are **one-based**; rust-analyzer-mcp's direct tool positions are zero-based.
+mcpls input and returned edit positions are **one-based UTF-16**; rust-analyzer-mcp's direct tool positions are zero-based.
 Neither server crosses the PyO3 boundary semantically. `just context --symbol TYPE --json`
 returns bounded catalogue, generator, Rust, stub, facade and test text leads with explicit
 coverage and truncation; inspect each language's native references to refine those leads.
+
+The finite semantic-edit harness uses the pinned FastMCP framework and MCP SDK in the quality
+environment. FastMCP owns transport, initialization, discovery, typed tool results and cancellation;
+`keep_alive=False` plus explicit close releases each request's bridge and language servers.
+`python -m scripts.semantic_navigation request --language rust --calls calls.json` performs
+explicit calls. `preview --language rust --calls calls.json --owned src/a.rs src/b.rs` captures
+all selected source-cut inputs before calling the server and prints a reviewable edit preview.
+`apply --preview preview.json --receipt application.json` revalidates the full basis;
+`reconcile --preview preview.json --receipt application.json` reports exact applied/missing/diverged
+files after interruption. A partial or unsupported result is refused, and command-only code
+actions do not become source edits. Actual fixture support includes Rust cross-file rename and
+Pyrefly rename/extraction; it does not migrate wire strings or generated contracts.
+
+`python -m scripts.structural_migrations preview --paths scripts/owned.py` previews the selected
+JSON source-reader migration with ast-grep plus LibCST's import/scope metadata. Use its
+`apply`/`reconcile` commands with the same preview/receipt arguments after review. Paths must
+belong to the owned edit scope; generated/protected outputs point back to declarations.
+`python -m scripts.semantic_edit_probe --language both --output /tmp/semantic-probe.json` is an
+explicit small real-server qualification, separate from ordinary source reads and unit tests.
 
 rust-analyzer (Claude's LSP plugin,
 or the Codex MCP server when enabled) answers callers, implementations and type resolution
