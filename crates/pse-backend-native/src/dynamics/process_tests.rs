@@ -145,9 +145,19 @@ fn drain(dae: bool, p: &Profile) -> Report {
     );
     r
 }
-fn close(a: &Report, b: &Report, relative: f64) {
-    assert_eq!(a.samples.len(), b.samples.len());
-    for (x, y) in a.samples.iter().zip(&b.samples) {
+fn close(a: &[Sample], b: &[Sample], relative: f64) {
+    assert_eq!(a.len(), b.len(), "trajectory sample extent");
+    for (x, y) in a.iter().zip(b) {
+        assert!(x.time.is_finite() && y.time.is_finite(), "nonfinite sample time");
+        assert_eq!(x.time, y.time, "trajectory sample correspondence");
+        assert_eq!(x.state.len(), y.state.len(), "state extent at t={}", x.time);
+        assert_eq!(x.outputs.len(), y.outputs.len(), "output extent at t={}", x.time);
+        assert_eq!(
+            x.output_sensitivities.len(),
+            y.output_sensitivities.len(),
+            "output sensitivity extent at t={}",
+            x.time
+        );
         for (u, v) in x
             .state
             .iter()
@@ -161,10 +171,83 @@ fn close(a: &Report, b: &Report, relative: f64) {
             )
         {
             assert!(
-                (u - v).abs() <= relative * (1.0 + v.abs()),
+                u.is_finite() && v.is_finite()
+                    && (u - v).abs() <= relative * (1.0 + v.abs()),
                 "{u} vs {v} at t={}",
                 x.time
             );
+        }
+    }
+}
+
+#[test]
+fn trajectory_comparison_rejects_nonfinite_extent_time_and_wrong_level() {
+    // The vessel's V=1 and A=2 imply physical level 0.5. These samples need
+    // no native solve: they challenge the acceptance helper used by those solves.
+    let expected = vec![
+        Sample {
+            mode: 0,
+            integrals: vec![],
+            time: 0.0,
+            state: vec![1.0],
+            outputs: vec![0.5],
+            state_sensitivities: vec![],
+            output_sensitivities: vec![0.0],
+        },
+        Sample {
+            mode: 0,
+            integrals: vec![],
+            time: 2.0,
+            state: vec![2.0],
+            outputs: vec![1.0],
+            state_sensitivities: vec![],
+            output_sensitivities: vec![-0.25],
+        },
+    ];
+    let relative = 1e-5;
+    close(&expected, &expected, relative);
+    let mut rounded = expected.clone();
+    rounded[1].outputs[0] += 1e-6;
+    close(&rounded, &expected, relative);
+    let rejects = |actual: &[Sample], reference: &[Sample]| {
+        std::panic::catch_unwind(|| close(actual, reference, relative)).is_err()
+    };
+    assert!(rejects(&expected[..1], &expected), "missing sample");
+    assert!(rejects(&expected, &expected[..1]), "trailing sample");
+    let mut shifted = expected.clone();
+    shifted[1].time += 0.1;
+    assert!(rejects(&shifted, &expected), "different sample time");
+    let mut wrong = expected.clone();
+    wrong[0].outputs[0] = 1.0;
+    assert!(rejects(&wrong, &expected), "volume exported as level");
+    for field in 0..3 {
+        let mut missing = expected.clone();
+        let values = match field {
+            0 => &mut missing[0].state,
+            1 => &mut missing[0].outputs,
+            _ => &mut missing[0].output_sensitivities,
+        };
+        values.clear();
+        assert!(rejects(&missing, &expected), "missing field {field}");
+        assert!(rejects(&expected, &missing), "trailing field {field}");
+    }
+    // Equal concatenated lengths must not let one quantity borrow another's slot.
+    let mut repartitioned = expected.clone();
+    let output = repartitioned[0].outputs.remove(0);
+    repartitioned[0].state.push(output);
+    assert!(rejects(&repartitioned, &expected), "shifted quantity boundary");
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for field in 0..4 {
+            let mut nonfinite = expected.clone();
+            match field {
+                0 => nonfinite[0].time = bad,
+                1 => nonfinite[0].state[0] = bad,
+                2 => nonfinite[0].outputs[0] = bad,
+                _ => nonfinite[0].output_sensitivities[0] = bad,
+            }
+            assert!(rejects(&nonfinite, &expected), "nonfinite actual field {field}: {bad}");
+            assert!(rejects(&expected, &nonfinite), "nonfinite expected field {field}: {bad}");
+            assert!(rejects(&nonfinite, &nonfinite), "matching nonfinite field {field}: {bad}");
         }
     }
 }
@@ -187,7 +270,7 @@ fn sdirk_matches_bdf_on_vessel() {
             let mut p = vessel_profile(dae);
             p.diffsol.method = method;
             let r = drain(dae, &p);
-            close(&r, &bdf, 1e-5);
+            close(&r.samples, &bdf.samples, 1e-5);
             // Each segment records the scheme that produced it.
             assert_eq!(
                 r.statistics[0]["diffsol"]["method"],
@@ -232,7 +315,7 @@ fn diffsol_klu_matches_faer_lu() {
             let lu = drain(dae, &p);
             p.diffsol.linear = DiffsolLinear::Klu;
             let klu = drain(dae, &p);
-            close(&klu, &lu, 1e-8);
+            close(&klu.samples, &lu.samples, 1e-8);
             assert_eq!(
                 klu.statistics[0]["diffsol"]["linear"],
                 serde_json::json!("klu")

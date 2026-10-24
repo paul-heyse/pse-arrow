@@ -259,7 +259,21 @@ impl Points {
     }
 }
 fn close(a: f64, b: f64) -> bool {
-    (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0)
+    a.is_finite() && b.is_finite() && (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0)
+}
+#[test]
+fn comparison_rejects_nonfinite_and_wrong_projection_values() {
+    // The independently evaluated square at x=2 is 4; exporting its input
+    // instead would yield the finite but wrong value 2.
+    assert!(close(4.0, 4.0));
+    assert!(close(4.0 + 2e-9, 4.0));
+    assert!(close(0.0, 5e-10));
+    assert!(!close(2.0, 4.0));
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(!close(bad, 4.0), "nonfinite projected value {bad}");
+        assert!(!close(4.0, bad), "nonfinite evaluator value {bad}");
+        assert!(!close(bad, bad), "matching nonfinite values {bad}");
+    }
 }
 /// Compare every exact row with the compiled evaluator at the supplied points.
 fn assert_rows_match(
@@ -285,6 +299,7 @@ fn assert_rows_match(
             .map(|v| values.scalars[&v.id])
             .collect();
         let nodes = program.evaluate(&columns, &auxiliary(point)).unwrap();
+        assert_eq!(program.rows.len(), evaluated.len(), "row extent at {point:?}");
         for (row, expected) in program.rows.iter().zip(evaluated) {
             let projected = nodes[row.expression.unwrap()];
             assert!(
@@ -300,6 +315,37 @@ fn sample(boxes: &[(f64, f64)], n: usize, seed: u64) -> Vec<Vec<f64>> {
     (0..n)
         .map(|_| boxes.iter().map(|b| points.next(*b)).collect())
         .collect()
+}
+
+#[test]
+fn row_comparison_rejects_missing_trailing_and_wrong_projection_rows() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let square = op(&mut b, Binary::Mul, &x, &x);
+    let body = b.prepare(&[square]).unwrap();
+    let assembly = case(&registry, body, &[(1.0, 3.0)], &[]);
+    let program = project(&assembly, &FactorableRequest::default());
+    let check = |program: &FactorableProgram| {
+        assert_rows_match(
+            &assembly,
+            program,
+            &[vec![2.0]],
+            pse_kernels::ProviderBindings::new,
+            |_| vec![],
+        );
+    };
+    check(&program);
+    let mut missing = program.clone();
+    missing.rows.clear();
+    let mut trailing = program.clone();
+    trailing.rows.push(program.rows[0].clone());
+    let mut wrong = program.clone();
+    let input = wrong.nodes.iter().position(|n| matches!(n, Node::Var(0))).unwrap();
+    wrong.rows[0].expression = Some(input);
+    for rejected in [&missing, &trailing, &wrong] {
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check(rejected))).is_err());
+    }
 }
 
 #[test]

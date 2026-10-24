@@ -217,7 +217,23 @@ fn tolerances(n: usize, m: usize) -> Tolerances {
 fn close(actual: f64, expected: f64) -> bool {
     // Manufactured exact candidates and factor transport test arithmetic,
     // without requesting greater accuracy from a production solver.
-    (actual - expected).abs() <= 1e-6 * (1.0 + expected.abs())
+    actual.is_finite()
+        && expected.is_finite()
+        && (actual - expected).abs() <= 1e-6 * (1.0 + expected.abs())
+}
+#[test]
+fn comparison_rejects_nonfinite_and_wrong_sensitivities() {
+    // The analytic constrained fixture below has dx₁/dp₁ = 2/3. A sign or
+    // coordinate swap is physically different even though both entries are finite.
+    assert!(close(2.0 / 3.0, 2.0 / 3.0));
+    assert!(close(2.0 / 3.0 + 5e-7, 2.0 / 3.0));
+    assert!(!close(-2.0 / 3.0, 2.0 / 3.0));
+    assert!(!close(1.0 / 3.0, 2.0 / 3.0));
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(!close(bad, 2.0 / 3.0), "nonfinite actual {bad}");
+        assert!(!close(2.0 / 3.0, bad), "nonfinite expected {bad}");
+        assert!(!close(bad, bad), "matching nonfinite values {bad}");
+    }
 }
 /// The runner's tail at an exact candidate: original observation, KKT evidence,
 /// qualification and the requested derivation.
@@ -634,7 +650,24 @@ mod solved {
     /// Empirical response comparison for one frozen normalized parameter step. Its
     /// allowance is independent of the expected answer, not an output-error guarantee.
     fn close_scaled(actual: f64, expected: f64, scale: f64, allowance: f64) -> bool {
-        actual.is_finite() && ((actual - expected) * scale).abs() <= allowance
+        actual.is_finite()
+            && expected.is_finite()
+            && ((actual - expected) * scale).abs() <= allowance
+    }
+
+    #[test]
+    fn scaled_comparison_rejects_nonfinite_and_wrong_sensitivities() {
+        let expected = 2.0 / 3.0;
+        let scale = SCALES[0];
+        let allowance = engineering_allowance();
+        assert!(close_scaled(expected, expected, scale, allowance));
+        assert!(close_scaled(expected + allowance / (2.0 * scale), expected, scale, allowance));
+        assert!(!close_scaled(-expected, expected, scale, allowance));
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(!close_scaled(bad, expected, scale, allowance));
+            assert!(!close_scaled(expected, bad, scale, allowance));
+            assert!(!close_scaled(bad, bad, scale, allowance));
+        }
     }
 
     /// One solve of the analytic NLP through the one NLP runner with a sensitivity request.

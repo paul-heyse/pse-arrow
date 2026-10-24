@@ -1797,11 +1797,44 @@ mod tests {
     use super::*;
     #[test]
     fn full_status_mapping_preserves_limits_and_ambiguity() {
-        for c in 0..=18 {
-            assert!(!termination(c).name.starts_with("Unknown("));
+        // Independent expectations from the pinned HiGHS model-status contract,
+        // including its Rust binding's memory-limit extension. Literal codes and
+        // names keep a missing arm from agreeing with a fallback or renamed constant.
+        let expected = [
+            (0, "kHighsModelStatusNotset", Termination::Inconclusive, Assurance::None),
+            (1, "kHighsModelStatusLoadError", Termination::Invalid, Assurance::None),
+            (2, "kHighsModelStatusModelError", Termination::Invalid, Assurance::None),
+            (3, "kHighsModelStatusPresolveError", Termination::Numerical, Assurance::None),
+            (4, "kHighsModelStatusSolveError", Termination::Numerical, Assurance::None),
+            (5, "kHighsModelStatusPostsolveError", Termination::Numerical, Assurance::None),
+            (6, "kHighsModelStatusModelEmpty", Termination::Invalid, Assurance::None),
+            (7, "kHighsModelStatusOptimal", Termination::Success, Assurance::None),
+            (8, "kHighsModelStatusInfeasible", Termination::Infeasible, Assurance::None),
+            (9, "kHighsModelStatusUnboundedOrInfeasible", Termination::InfeasibleOrUnbounded, Assurance::None),
+            (10, "kHighsModelStatusUnbounded", Termination::Unbounded, Assurance::None),
+            (11, "kHighsModelStatusObjectiveBound", Termination::ObjectiveLimit, Assurance::None),
+            (12, "kHighsModelStatusObjectiveTarget", Termination::ObjectiveLimit, Assurance::None),
+            (13, "kHighsModelStatusTimeLimit", Termination::TimeLimit, Assurance::None),
+            (14, "kHighsModelStatusIterationLimit", Termination::IterationLimit, Assurance::None),
+            (15, "kHighsModelStatusUnknown", Termination::Inconclusive, Assurance::None),
+            (16, "kHighsModelStatusSolutionLimit", Termination::SolutionLimit, Assurance::None),
+            (17, "kHighsModelStatusInterrupt", Termination::Cancelled, Assurance::None),
+            (18, "kHighsModelStatusMemoryLimit", Termination::ResourceExhausted, Assurance::None),
+            (-1, "kHighsModelStatusUndeclared", Termination::Inconclusive, Assurance::None),
+            (19, "kHighsModelStatusUndeclared", Termination::Inconclusive, Assurance::None),
+            (i32::MAX, "kHighsModelStatusUndeclared", Termination::Inconclusive, Assurance::None),
+        ];
+        for (code, name, category, assurance) in expected {
+            let actual = termination(code);
+            assert_eq!(actual.code, i64::from(code));
+            assert_eq!(actual.name, name, "native code {code}");
+            assert_eq!(actual.category, category, "native code {code}: {name}");
+            assert_eq!(actual.assurance, assurance, "native code {code}: {name}");
+            assert_eq!(actual.message, None, "native code {code}: {name}");
         }
-        assert_eq!(termination(9).category, Termination::InfeasibleOrUnbounded);
-        assert_eq!(termination(14).assurance, Assurance::None);
+    }
+    #[test]
+    fn finite_bound_at_highs_infinity_threshold_is_rejected() {
         assert!(bounds(1e20).is_err());
     }
     #[test]
