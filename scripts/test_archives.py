@@ -39,13 +39,23 @@ SCHEMA = "selected-test-archive-v1"
 REPLAY_SCHEMA = "selected-test-replay-v1"
 NATIVE_UNITS = frozenset(
     {
-        "pse-backend-native", "pse-ipopt-sys", "pse-uno-sys", "pse-petsc-sys",
-        "pse-kinsol-sys", "pse-root-isolation-sys", "pse-scip-sys",
+        "pse-backend-native",
+        "pse-ipopt-sys",
+        "pse-uno-sys",
+        "pse-petsc-sys",
+        "pse-kinsol-sys",
+        "pse-root-isolation-sys",
+        "pse-scip-sys",
     }
 )
 RUNTIME_ENV = (
-    "LD_LIBRARY_PATH", "LD_PRELOAD", "RUST_MIN_STACK", "OMP_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "SYMBOLICA_LICENSE",
+    "LD_LIBRARY_PATH",
+    "LD_PRELOAD",
+    "RUST_MIN_STACK",
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "SYMBOLICA_LICENSE",
 )
 
 
@@ -62,15 +72,22 @@ def runtime_environment(environment: Mapping[str, str]) -> dict[str, str | None]
     """Retain opaque values, including absence, without publishing license bytes."""
     return {
         name: hashlib.sha256(environment[name].encode()).hexdigest()
-        if name in environment else None
+        if name in environment
+        else None
         for name in RUNTIME_ENV
     }
 
 
 def relative_input(value: str) -> Path:
     path = Path(value)
-    if path.is_absolute() or not path.parts or any(part in {".", ".."} for part in path.parts):
-        raise ArchiveError("Archive input must be a workspace-relative path without traversal")
+    if (
+        path.is_absolute()
+        or not path.parts
+        or any(part in {".", ".."} for part in path.parts)
+    ):
+        raise ArchiveError(
+            "Archive input must be a workspace-relative path without traversal"
+        )
     return path
 
 
@@ -79,14 +96,18 @@ def stage_inputs(root: Path, destination: Path, inputs: list[str]) -> dict[str, 
     manifest: dict[str, str] = {}
     for supplied in inputs:
         selected = root / relative_input(supplied)
-        if not selected.exists() or any(path.is_symlink() for path in (selected, *selected.parents)):
+        if not selected.exists() or any(
+            path.is_symlink() for path in (selected, *selected.parents)
+        ):
             raise ArchiveError(f"Missing or symlinked archive input: {supplied}")
         paths = sorted(selected.rglob("*")) if selected.is_dir() else [selected]
         if not paths:
             raise ArchiveError(f"Empty declared archive input: {supplied}")
         for path in paths:
             if path.is_symlink():
-                raise ArchiveError(f"Symlinked archive fixture: {path.relative_to(root)}")
+                raise ArchiveError(
+                    f"Symlinked archive fixture: {path.relative_to(root)}"
+                )
             if path.is_dir():
                 continue
             if not path.is_file():
@@ -104,13 +125,25 @@ def stage_inputs(root: Path, destination: Path, inputs: list[str]) -> dict[str, 
 def verify_inputs(workspace: Path, manifest: Mapping[str, str]) -> None:
     for relative, expected in manifest.items():
         path = workspace / relative_input(relative)
-        if any(part.is_symlink() for part in (path, *path.parents)) or not path.is_file() or digest(path) != expected:
-            raise ArchiveError(f"Historical fixture/config missing or changed: {relative}")
+        if (
+            any(part.is_symlink() for part in (path, *path.parents))
+            or not path.is_file()
+            or digest(path) != expected
+        ):
+            raise ArchiveError(
+                f"Historical fixture/config missing or changed: {relative}"
+            )
 
 
 def native_units(metadata: dict, graph: dict) -> list[str]:
     names = {package["id"]: package["name"] for package in metadata["packages"]}
-    return sorted({names[unit["pkg_id"]] for unit in graph["units"] if names[unit["pkg_id"]] in NATIVE_UNITS})
+    return sorted(
+        {
+            names[unit["pkg_id"]]
+            for unit in graph["units"]
+            if names[unit["pkg_id"]] in NATIVE_UNITS
+        }
+    )
 
 
 def require_pure_closure(metadata: dict, graph: dict) -> None:
@@ -126,9 +159,21 @@ def require_pure_closure(metadata: dict, graph: dict) -> None:
 def library_closure(binaries: list[str], environment: dict[str, str]) -> dict[str, str]:
     files: dict[str, str] = {}
     for binary in binaries:
-        observed = subprocess.run(["ldd", binary], env=environment, text=True, capture_output=True, check=False)
-        if observed.returncode and "not a dynamic executable" not in observed.stderr and "statically linked" not in observed.stdout:
-            raise ArchiveError(f"Cannot inspect runtime libraries for {binary}: {observed.stderr}")
+        observed = subprocess.run(
+            ["ldd", binary],
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if (
+            observed.returncode
+            and "not a dynamic executable" not in observed.stderr
+            and "statically linked" not in observed.stdout
+        ):
+            raise ArchiveError(
+                f"Cannot inspect runtime libraries for {binary}: {observed.stderr}"
+            )
         if "not found" in observed.stdout:
             raise ArchiveError("Historical executable has a missing runtime dependency")
         for line in observed.stdout.splitlines():
@@ -140,7 +185,10 @@ def library_closure(binaries: list[str], environment: dict[str, str]) -> dict[st
 
 
 def preflight(manifest: dict, directory: Path, environment: dict[str, str]) -> None:
-    if manifest.get("schema") != SCHEMA or manifest.get("native_replay") != "unsupported":
+    if (
+        manifest.get("schema") != SCHEMA
+        or manifest.get("native_replay") != "unsupported"
+    ):
         raise ArchiveError("Unsupported archive closure contract")
     if manifest.get("platform") != [platform.system(), platform.machine()]:
         raise ArchiveError("Archive runtime platform differs")
@@ -150,43 +198,79 @@ def preflight(manifest: dict, directory: Path, environment: dict[str, str]) -> N
         raise ArchiveError("Historical runtime environment differs")
     verify_inputs(directory / "workspace", manifest["fixtures"])
     archive = directory / "tests.tar.zst"
-    if not archive.is_file() or archive.is_symlink() or digest(archive) != manifest["archive_sha256"]:
+    if (
+        not archive.is_file()
+        or archive.is_symlink()
+        or digest(archive) != manifest["archive_sha256"]
+    ):
         raise ArchiveError("Retained test archive missing or changed")
     for supplied, expected in manifest["libraries"].items():
         path = Path(supplied)
         if not path.is_file() or digest(path) != expected:
-            raise ArchiveError(f"Historical runtime dependency missing or changed: {supplied}")
+            raise ArchiveError(
+                f"Historical runtime dependency missing or changed: {supplied}"
+            )
 
 
 def capture_json(command: list[str], environment: dict[str, str]) -> dict:
     observation: dict[str, object] = {}
-    with tempfile.TemporaryFile(mode="w+") as stdout, tempfile.TemporaryFile(mode="w+") as stderr:
-        code = native_operation.run_child_scope(command, environment, cwd=ROOT, observation=observation, stdout=stdout.fileno(), stderr=stderr.fileno())
+    with (
+        tempfile.TemporaryFile(mode="w+") as stdout,
+        tempfile.TemporaryFile(mode="w+") as stderr,
+    ):
+        code = native_operation.run_child_scope(
+            command,
+            environment,
+            cwd=ROOT,
+            observation=observation,
+            stdout=stdout.fileno(),
+            stderr=stderr.fileno(),
+        )
         if code or observation.get("owned_drain") != "complete":
             stderr.seek(0)
-            raise ArchiveError(f"nextest inventory failed or did not drain ({code}): {stderr.read()}")
+            raise ArchiveError(
+                f"nextest inventory failed or did not drain ({code}): {stderr.read()}"
+            )
         stdout.seek(0)
         return validation_receipts.native_inventory(stdout.read())
 
 
 def new_output(path: Path) -> str:
     path = path.absolute()
-    if not path.is_relative_to(ROOT / "build") or ".." in path.parts or any(parent.is_symlink() for parent in (path, *path.parents)):
-        raise ArchiveError("Experiment output must be a fresh owned checkout build directory")
+    if (
+        not path.is_relative_to(ROOT / "build")
+        or ".." in path.parts
+        or any(parent.is_symlink() for parent in (path, *path.parents))
+    ):
+        raise ArchiveError(
+            "Experiment output must be a fresh owned checkout build directory"
+        )
     path.mkdir(parents=True, mode=0o700, exist_ok=False)
     return test_resources.register_report(path)
 
 
-def seal(directory: Path, resource: str, receipt: dict, provenance: list[str], scratch: list[str]) -> None:
+def seal(
+    directory: Path,
+    resource: str,
+    receipt: dict,
+    provenance: list[str],
+    scratch: list[str],
+) -> None:
     validation.write_json(directory / "checks.json", receipt)
-    roles = {str(path.relative_to(directory)): "evidence" for path in directory.rglob("*") if path.is_file()}
+    roles = {
+        str(path.relative_to(directory)): "evidence"
+        for path in directory.rglob("*")
+        if path.is_file()
+    }
     roles.update(dict.fromkeys(provenance, "provenance"))
     roles.update(dict.fromkeys(scratch, "scratch"))
     roles["checks.json"] = "receipt"
     # A selected investigation remains pinned until explicitly released, including
     # after successful execution. The ordinary report owner provides disposition.
     test_resources.pin(resource, True)
-    test_resources.finish_report(resource, receipt, roles=roles, required_provenance=provenance)
+    test_resources.finish_report(
+        resource, receipt, roles=roles, required_provenance=provenance
+    )
 
 
 def archive(args: argparse.Namespace) -> dict:
@@ -194,7 +278,11 @@ def archive(args: argparse.Namespace) -> dict:
     resource = new_output(output)
     environment = arrow_validation.rust_test_environment(os.environ)
     environment[test_run.EXECUTION_EFFECTS] = "native-local"
-    for name in (test_resources.MARKER, "PSE_NATIVE_PROVENANCE", test_run.RUST_OBSERVER):
+    for name in (
+        test_resources.MARKER,
+        "PSE_NATIVE_PROVENANCE",
+        test_run.RUST_OBSERVER,
+    ):
         environment.pop(name, None)
     build = ["cargo", "nextest", "list", "--locked", "-p", args.package]
     build.extend(["--test", args.test] if args.test else ["--lib"])
@@ -205,13 +293,19 @@ def archive(args: argparse.Namespace) -> dict:
     try:
         require_pure_closure(metadata, graph)
     except ArchiveError as error:
-        validation.write_json(output / "native-nonadoption.json", {
-            "schema": "native-archive-nonadoption-v1", "reason": str(error),
-            "source_commit": validation.git(ROOT, "rev-parse", "HEAD").decode().strip(),
-            "selected_native_units": native_units(metadata, graph),
-            "resource": resource,
-            "revisit": "A concrete native investigation can stage and verify actual deployment, ABI, license/config/data and admission closure.",
-        })
+        validation.write_json(
+            output / "native-nonadoption.json",
+            {
+                "schema": "native-archive-nonadoption-v1",
+                "reason": str(error),
+                "source_commit": validation.git(ROOT, "rev-parse", "HEAD")
+                .decode()
+                .strip(),
+                "selected_native_units": native_units(metadata, graph),
+                "resource": resource,
+                "revisit": "A concrete native investigation can stage and verify actual deployment, ABI, license/config/data and admission closure.",
+            },
+        )
         raise
     provenance = output / "producer-provenance.json"
     selection = output / "producer-selection.json"
@@ -224,21 +318,54 @@ def archive(args: argparse.Namespace) -> dict:
     selected = test_run.rust_selected(inventory)
     if not selected:
         raise ArchiveError("Historical selection is empty")
-    package = next(package for package in metadata["packages"] if package["name"] == args.package)
+    package = next(
+        package for package in metadata["packages"] if package["name"] == args.package
+    )
     package_manifest = str(Path(package["manifest_path"]).relative_to(ROOT))
-    fixtures = stage_inputs(ROOT, output / "workspace", ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture])
+    fixtures = stage_inputs(
+        ROOT,
+        output / "workspace",
+        ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture],
+    )
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
     invocation = test_resources.invocation("rust", selected)
     environment[test_resources.MARKER] = str(invocation)
-    producer_command, report = test_run.rust_report_command(invocation, ["cargo", "nextest", "run", *execution])
-    test_run.execute_selected(invocation, producer_command, environment, report, selected=[{"class": item["binary_id"], "name": item["name"]} for item in selected], launch=lambda process: native_operation.run_child_scope(producer_command, environment, cwd=ROOT, observation=process))
+    producer_command, report = test_run.rust_report_command(
+        invocation, ["cargo", "nextest", "run", *execution]
+    )
+    test_run.execute_selected(
+        invocation,
+        producer_command,
+        environment,
+        report,
+        selected=[
+            {"class": item["binary_id"], "name": item["name"]} for item in selected
+        ],
+        launch=lambda process: native_operation.run_child_scope(
+            producer_command, environment, cwd=ROOT, observation=process
+        ),
+    )
     producer = json.loads(invocation.with_suffix(".terminal.json").read_text())
     validation.write_json(output / "producer-terminal.json", producer)
-    archive_command = ["cargo", "nextest", "archive", *resolution.command[3:], "--archive-file", str(output / "tests.tar.zst")]
+    archive_command = [
+        "cargo",
+        "nextest",
+        "archive",
+        *resolution.command[3:],
+        "--archive-file",
+        str(output / "tests.tar.zst"),
+    ]
     archive_observation: dict[str, object] = {}
     with (output / "archive.log").open("w") as log:
-        code = native_operation.run_child_scope(archive_command, environment, cwd=ROOT, observation=archive_observation, stdout=log.fileno(), stderr=log.fileno())
+        code = native_operation.run_child_scope(
+            archive_command,
+            environment,
+            cwd=ROOT,
+            observation=archive_observation,
+            stdout=log.fileno(),
+            stderr=log.fileno(),
+        )
     if code or archive_observation.get("owned_drain") != "complete":
         raise ArchiveError(f"Archive creation failed or did not drain: {code}")
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
@@ -247,32 +374,71 @@ def archive(args: argparse.Namespace) -> dict:
         if digest(ROOT / relative) != expected:
             raise ArchiveError("Declared fixture changed during archiving")
     manifest = {
-        "schema": SCHEMA, "nextest": cargo_tools.selected_identity("cargo-nextest"),
+        "schema": SCHEMA,
+        "nextest": cargo_tools.selected_identity("cargo-nextest"),
         "platform": [platform.system(), platform.machine()],
         "source_commit": validation.git(ROOT, "rev-parse", "HEAD").decode().strip(),
         "source_cut": native["rust_invocation"]["source"],
-        "toolchain": native["toolchain"], "validated_unit_graph": graph,
-        "build_command": resolution.command, "filter": args.filter, "selected": selected,
-        "fixtures": fixtures, "libraries": library_closure([item["executable"] for item in selected], environment),
+        "toolchain": native["toolchain"],
+        "validated_unit_graph": graph,
+        "build_command": resolution.command,
+        "filter": args.filter,
+        "selected": selected,
+        "fixtures": fixtures,
+        "libraries": library_closure(
+            [item["executable"] for item in selected], environment
+        ),
         "runtime_environment": runtime_environment(environment),
-        "archive_sha256": digest(output / "tests.tar.zst"), "native_replay": "unsupported",
-        "producer_invocation": str(invocation), "resource": resource,
+        "archive_sha256": digest(output / "tests.tar.zst"),
+        "native_replay": "unsupported",
+        "producer_invocation": str(invocation),
+        "resource": resource,
         "claims": "Historical producer inputs; replay does not qualify current source.",
     }
     validation.write_json(output / "archive.json", manifest)
     receipt = {
-        "version": 5, "complete": True, "baseline_failures": 0,
-        "required_checks_covered": True, "input_coverage": True,
-        "source_unchanged": True, "provenance_errors": [],
+        "version": 5,
+        "complete": True,
+        "baseline_failures": 0,
+        "required_checks_covered": True,
+        "input_coverage": True,
+        "source_unchanged": True,
+        "provenance_errors": [],
         "scope": [{"name": "historical-producer"}, {"name": "archive"}],
         "checks": [
-            {**producer, "gate": "historical-producer", "log": "producer-terminal.json"},
-            {"gate": "archive", "status": "passed", "exit_code": code, "log": "archive.log", "process": archive_observation},
+            {
+                **producer,
+                "gate": "historical-producer",
+                "log": "producer-terminal.json",
+            },
+            {
+                "gate": "archive",
+                "status": "passed",
+                "exit_code": code,
+                "log": "archive.log",
+                "process": archive_observation,
+            },
         ],
         "historical_archive": "archive.json",
     }
-    seal(output, resource, receipt, ["archive.json", "producer-provenance.json", *["workspace/" + name for name in fixtures]], ["tests.tar.zst"])
-    return {"status": "archived", "output": str(output), "resource": resource, "producer_invocation": str(invocation), "producer_status": producer["status"]}
+    seal(
+        output,
+        resource,
+        receipt,
+        [
+            "archive.json",
+            "producer-provenance.json",
+            *["workspace/" + name for name in fixtures],
+        ],
+        ["tests.tar.zst"],
+    )
+    return {
+        "status": "archived",
+        "output": str(output),
+        "resource": resource,
+        "producer_invocation": str(invocation),
+        "producer_status": producer["status"],
+    }
 
 
 def inspect(directory: Path) -> dict:
@@ -282,14 +448,23 @@ def inspect(directory: Path) -> dict:
         if manifest.get("schema") != SCHEMA:
             raise ArchiveError("Unsupported archive document")
         archive_path = directory / "tests.tar.zst"
-        if not archive_path.is_file() or archive_path.is_symlink() or digest(archive_path) != manifest["archive_sha256"]:
+        if (
+            not archive_path.is_file()
+            or archive_path.is_symlink()
+            or digest(archive_path) != manifest["archive_sha256"]
+        ):
             raise ArchiveError("Retained test archive missing or changed")
         verify_inputs(directory / "workspace", manifest["fixtures"])
         return {
-            "status": "inspected", "schema": SCHEMA, "source_commit": manifest["source_commit"],
-            "selected": manifest["selected"], "fixtures": manifest["fixtures"],
-            "native_replay": manifest["native_replay"], "producer_invocation": manifest["producer_invocation"],
-            "claims": manifest["claims"], "libraries": manifest["libraries"],
+            "status": "inspected",
+            "schema": SCHEMA,
+            "source_commit": manifest["source_commit"],
+            "selected": manifest["selected"],
+            "fixtures": manifest["fixtures"],
+            "native_replay": manifest["native_replay"],
+            "producer_invocation": manifest["producer_invocation"],
+            "claims": manifest["claims"],
+            "libraries": manifest["libraries"],
         }
 
 
@@ -298,51 +473,139 @@ def replay(directory: Path, output: Path) -> dict:
     output = output.absolute()
     environment = arrow_validation.rust_test_environment(os.environ)
     environment[test_run.EXECUTION_EFFECTS] = "native-local"
-    for name in (test_resources.MARKER, "PSE_NATIVE_PROVENANCE", test_run.RUST_OBSERVER):
+    for name in (
+        test_resources.MARKER,
+        "PSE_NATIVE_PROVENANCE",
+        test_run.RUST_OBSERVER,
+    ):
         environment.pop(name, None)
     resource = new_output(output)
     with test_resources.reference_report(directory, output / "checks.json"):
         manifest = json.loads((directory / "archive.json").read_text())
         preflight(manifest, directory, environment)
-        fixture_manifest = stage_inputs(directory / "workspace", output / "workspace", list(manifest["fixtures"]))
+        fixture_manifest = stage_inputs(
+            directory / "workspace", output / "workspace", list(manifest["fixtures"])
+        )
         extraction = output / "extracted"
         extraction.mkdir(mode=0o700)
-        common = ["--archive-file", str(directory / "tests.tar.zst"), "--extract-to", str(extraction), "--workspace-remap", str(output / "workspace")]
-        inventory = capture_json(["cargo", "nextest", "list", *common, "-E", manifest["filter"], "--message-format", "json", "--config-file", str(output / "workspace/.config/nextest.toml")], environment)
+        common = [
+            "--archive-file",
+            str(directory / "tests.tar.zst"),
+            "--extract-to",
+            str(extraction),
+            "--workspace-remap",
+            str(output / "workspace"),
+        ]
+        inventory = capture_json(
+            [
+                "cargo",
+                "nextest",
+                "list",
+                *common,
+                "-E",
+                manifest["filter"],
+                "--message-format",
+                "json",
+                "--config-file",
+                str(output / "workspace/.config/nextest.toml"),
+            ],
+            environment,
+        )
         selected = test_run.rust_selected(inventory)
-        if sorted((row["binary_id"], row["name"]) for row in selected) != sorted((row["binary_id"], row["name"]) for row in manifest["selected"]):
+        if sorted((row["binary_id"], row["name"]) for row in selected) != sorted(
+            (row["binary_id"], row["name"]) for row in manifest["selected"]
+        ):
             raise ArchiveError("Historical selection changed during extraction")
-        if library_closure([item["executable"] for item in selected], environment) != manifest["libraries"]:
-            raise ArchiveError("Extracted executable resolves different runtime dependencies")
+        if (
+            library_closure([item["executable"] for item in selected], environment)
+            != manifest["libraries"]
+        ):
+            raise ArchiveError(
+                "Extracted executable resolves different runtime dependencies"
+            )
         invocation = test_resources.invocation("rust", selected)
         environment[test_resources.MARKER] = str(invocation)
-        run = ["cargo", "nextest", "run", "--binaries-metadata", str(extraction / "target/nextest/binaries-metadata.json"), "--cargo-metadata", str(extraction / "target/nextest/cargo-metadata.json"), "--target-dir-remap", str(extraction / "target"), "--workspace-remap", str(output / "workspace"), "-E", manifest["filter"], "--config-file", str(output / "workspace/.config/nextest.toml")]
+        run = [
+            "cargo",
+            "nextest",
+            "run",
+            "--binaries-metadata",
+            str(extraction / "target/nextest/binaries-metadata.json"),
+            "--cargo-metadata",
+            str(extraction / "target/nextest/cargo-metadata.json"),
+            "--target-dir-remap",
+            str(extraction / "target"),
+            "--workspace-remap",
+            str(output / "workspace"),
+            "-E",
+            manifest["filter"],
+            "--config-file",
+            str(output / "workspace/.config/nextest.toml"),
+        ]
         run, report = test_run.rust_report_command(invocation, run)
-        code = test_run.execute_selected(invocation, run, environment, report, selected=[{"class": item["binary_id"], "name": item["name"]} for item in selected], details={"historical_producer": manifest["producer_invocation"], "historical_source": manifest["source_commit"], "qualification": "historical executable only"}, launch=lambda process: native_operation.run_child_scope(run, environment, cwd=ROOT, observation=process))
+        code = test_run.execute_selected(
+            invocation,
+            run,
+            environment,
+            report,
+            selected=[
+                {"class": item["binary_id"], "name": item["name"]} for item in selected
+            ],
+            details={
+                "historical_producer": manifest["producer_invocation"],
+                "historical_source": manifest["source_commit"],
+                "qualification": "historical executable only",
+            },
+            launch=lambda process: native_operation.run_child_scope(
+                run, environment, cwd=ROOT, observation=process
+            ),
+        )
         terminal = json.loads(invocation.with_suffix(".terminal.json").read_text())
         verify_inputs(output / "workspace", fixture_manifest)
         preflight(manifest, directory, environment)
         result = {
-            "schema": REPLAY_SCHEMA, "producer_invocation": manifest["producer_invocation"],
-            "invocation": str(invocation), "source_commit": manifest["source_commit"],
-            "archive": str(directory), "archive_receipt_sha256": digest(directory / "checks.json"),
-            "workspace_remap": str(output / "workspace"), "fixture_manifest": fixture_manifest,
-            "status": terminal["status"], "exit_code": code, "current_source_qualified": False,
+            "schema": REPLAY_SCHEMA,
+            "producer_invocation": manifest["producer_invocation"],
+            "invocation": str(invocation),
+            "source_commit": manifest["source_commit"],
+            "archive": str(directory),
+            "archive_receipt_sha256": digest(directory / "checks.json"),
+            "workspace_remap": str(output / "workspace"),
+            "fixture_manifest": fixture_manifest,
+            "status": terminal["status"],
+            "exit_code": code,
+            "current_source_qualified": False,
         }
         validation.write_json(output / "replay.json", result)
         validation.write_json(output / "replay-terminal.json", terminal)
         receipt = {
-            "version": 5, "complete": True, "baseline_failures": 0,
-            "required_checks_covered": True, "input_coverage": True,
-            "source_unchanged": True, "provenance_errors": [],
+            "version": 5,
+            "complete": True,
+            "baseline_failures": 0,
+            "required_checks_covered": True,
+            "input_coverage": True,
+            "source_unchanged": True,
+            "provenance_errors": [],
             "scope": [{"name": "historical-replay"}],
-            "checks": [{**terminal, "gate": "historical-replay", "log": "replay-terminal.json"}],
+            "checks": [
+                {**terminal, "gate": "historical-replay", "log": "replay-terminal.json"}
+            ],
             "input_scope": "retained historical executable and declared fixtures; not current source",
         }
-        scratch = [str(path.relative_to(output)) for path in extraction.rglob("*") if path.is_file() and not path.is_symlink()]
+        scratch = [
+            str(path.relative_to(output))
+            for path in extraction.rglob("*")
+            if path.is_file() and not path.is_symlink()
+        ]
         # nextest can include symlinks in an extraction. They are not safe report
         # artifacts; keep such an unsupported extraction pinned rather than sealing.
-        seal(output, resource, receipt, ["replay.json", *["workspace/" + name for name in fixture_manifest]], scratch)
+        seal(
+            output,
+            resource,
+            receipt,
+            ["replay.json", *["workspace/" + name for name in fixture_manifest]],
+            scratch,
+        )
     return result
 
 
@@ -365,10 +628,22 @@ def main(argv: list[str] | None = None) -> int:
             operation.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        result = archive(args) if args.operation == "archive" else inspect(args.archive) if args.operation == "inspect" else replay(args.archive, args.output)
+        result = (
+            archive(args)
+            if args.operation == "archive"
+            else inspect(args.archive)
+            if args.operation == "inspect"
+            else replay(args.archive, args.output)
+        )
         print(json.dumps(result, indent=2, sort_keys=True))
         return int(result.get("exit_code", 0))
-    except (ArchiveError, test_resources.ResourceError, OSError, ValueError, subprocess.SubprocessError) as error:
+    except (
+        ArchiveError,
+        test_resources.ResourceError,
+        OSError,
+        ValueError,
+        subprocess.SubprocessError,
+    ) as error:
         print(f"experiment: {error}", file=sys.stderr)
         return 2
 

@@ -12,11 +12,14 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "operation", choices=("archive", "inspect", "replay", "bisect", "compare", "tool-probe")
+        "operation",
+        choices=("archive", "inspect", "replay", "bisect", "compare", "tool-probe"),
     )
     selected, remaining = parser.parse_known_args(arguments)
     if selected.operation in {"archive", "inspect", "replay"}:
-        from scripts import test_archives  # noqa: PLC0415 -- optional selected capability
+        from scripts import (
+            test_archives,
+        )
 
         return test_archives.main([selected.operation, *remaining])
     if selected.operation in {"bisect", "compare"}:

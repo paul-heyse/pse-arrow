@@ -44,9 +44,17 @@ fn parser_info() -> Result<ParserInfo> {
     // reading whichever checkout happens to be present at execution time.
     let lock: crate::Lockfile = toml::from_str(include_str!("../../Cargo.lock"))
         .context("reading compiled parser dependency metadata")?;
-    let mut packages = lock.package.into_iter().filter(|package| package.name == "surrealdb-syn");
-    let package = packages.next().context("compiled lockfile lacks surrealdb-syn")?;
-    ensure!(packages.next().is_none(), "compiled lockfile has multiple surrealdb-syn versions");
+    let mut packages = lock
+        .package
+        .into_iter()
+        .filter(|package| package.name == "surrealdb-syn");
+    let package = packages
+        .next()
+        .context("compiled lockfile lacks surrealdb-syn")?;
+    ensure!(
+        packages.next().is_none(),
+        "compiled lockfile has multiple surrealdb-syn versions"
+    );
     Ok(ParserInfo {
         library: "surrealdb-syn",
         version: package.version,
@@ -56,18 +64,27 @@ fn parser_info() -> Result<ParserInfo> {
 }
 
 fn parse_error(source: &str) -> Option<ValidationError> {
-    surrealdb_syn::parse(source).err().map(|error| ValidationError {
-        kind: "syntax",
-        message: error.to_string(),
-    })
+    surrealdb_syn::parse(source)
+        .err()
+        .map(|error| ValidationError {
+            kind: "syntax",
+            message: error.to_string(),
+        })
 }
 
 fn validate_file(input: &Path) -> FileValidation {
     let error = match std::fs::read_to_string(input) {
         Ok(source) => parse_error(&source),
-        Err(error) => Some(ValidationError { kind: "input", message: error.to_string() }),
+        Err(error) => Some(ValidationError {
+            kind: "input",
+            message: error.to_string(),
+        }),
     };
-    FileValidation { input: input.to_path_buf(), valid: error.is_none(), error }
+    FileValidation {
+        input: input.to_path_buf(),
+        valid: error.is_none(),
+        error,
+    }
 }
 
 pub(crate) fn run(inputs: &[PathBuf]) -> Result<i32> {

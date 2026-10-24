@@ -1413,26 +1413,39 @@ def namespace_sql(
 
     if database is not None and namespace is None:
         raise ResourceError("Database administration requires its namespace")
-    if any(value is not None and not re.fullmatch(r"[A-Za-z0-9_]{1,128}", value)
-           for value in (namespace, database)):
-        raise ResourceError("Namespace administration requires exact bounded identifiers")
+    if any(
+        value is not None and not re.fullmatch(r"[A-Za-z0-9_]{1,128}", value)
+        for value in (namespace, database)
+    ):
+        raise ResourceError(
+            "Namespace administration requires exact bounded identifiers"
+        )
     namespace_only = namespace is not None and database is None
     query = (
         "USE NS " + surreal_server.sql_identifier(namespace) + ";\n" + sql
-        if namespace_only else sql
+        if namespace_only
+        else sql
     )
     try:
         results = surreal_server.administrative_results(
-            Path(str(config["credentials_file"])).parent, query,
+            Path(str(config["credentials_file"])).parent,
+            query,
             min(deadline, time.monotonic() + CLEANUP_TIMEOUT_SECONDS)
-            if deadline is not None else time.monotonic() + CLEANUP_TIMEOUT_SECONDS,
+            if deadline is not None
+            else time.monotonic() + CLEANUP_TIMEOUT_SECONDS,
             namespace=namespace if database is not None else None,
-            database=database, select_context=database is not None,
+            database=database,
+            select_context=database is not None,
         )
     except (surreal_server.SupervisorError, OSError, ValueError) as error:
-        raise ResourceError("Namespace operation acknowledgment unavailable; ownership remains protective") from error
+        raise ResourceError(
+            "Namespace operation acknowledgment unavailable; ownership remains protective"
+        ) from error
     if namespace_only:
-        if results[0]["status"] != "OK" or results[0]["result"] != {"namespace": namespace, "database": None}:
+        if results[0]["status"] != "OK" or results[0]["result"] != {
+            "namespace": namespace,
+            "database": None,
+        }:
             raise ResourceError("Namespace-only selection acknowledgment differs")
         results = results[1:]
     if not results:
@@ -1508,8 +1521,12 @@ def remove_database(
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     values = namespace_sql(
-        config, "REMOVE DATABASE IF EXISTS " + surreal_server.sql_identifier(record["database"]) + ";",
-        namespace=str(config["namespace"]), deadline=deadline,
+        config,
+        "REMOVE DATABASE IF EXISTS "
+        + surreal_server.sql_identifier(record["database"])
+        + ";",
+        namespace=str(config["namespace"]),
+        deadline=deadline,
     )
     if values != [None]:
         raise ResourceError("Owned database cleanup failed; resource remains pinned")

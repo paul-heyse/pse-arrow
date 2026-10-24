@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-import io
 import copy
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -15,8 +15,8 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
-from scripts import surreal_source as source
 from scripts import surreal_server as server
+from scripts import surreal_source as source
 from scripts.tests.server_receipt_fixture import fixture_context, fixture_receipt
 
 
@@ -160,11 +160,13 @@ class SourceAdmissionTests(unittest.TestCase):
             source, "build_context", side_effect=AssertionError("passive compiler scan")
         ):
             self.assertTrue(source.admitted_receipt(receipt))
-        with patch.object(
-            source, "build_context", side_effect=AssertionError("full launch scan")
+        with (
+            patch.object(
+                source, "build_context", side_effect=AssertionError("full launch scan")
+            ),
+            self.assertRaisesRegex(AssertionError, "full launch scan"),
         ):
-            with self.assertRaisesRegex(AssertionError, "full launch scan"):
-                source.admitted_receipt(receipt, revalidate=True)
+            source.admitted_receipt(receipt, revalidate=True)
 
     def test_installation_namespace_is_an_executable_input(self) -> None:
         self.assertNotEqual(
@@ -184,23 +186,39 @@ class SourceAdmissionTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module, generation
 
-    def test_verified_immutable_runtime_preserves_original_compilation_identity(self) -> None:
+    def test_verified_immutable_runtime_preserves_original_compilation_identity(
+        self,
+    ) -> None:
         receipt = fixture_receipt()
         with tempfile.TemporaryDirectory() as scratch:
             immutable, generation = self.immutable_source(Path(scratch) / "state")
-            self.assertEqual((generation / ".cargo/config.toml").read_bytes(),
-                             (source.ROOT / ".cargo/config.toml").read_bytes())
+            self.assertEqual(
+                (generation / ".cargo/config.toml").read_bytes(),
+                (source.ROOT / ".cargo/config.toml").read_bytes(),
+            )
             # Equal bytes do not make the new path a compilation root.
             self.assertFalse(immutable.admitted_receipt(receipt))
-            with patch.object(immutable, "build_context", side_effect=AssertionError("runtime compiler scan")):
+            with patch.object(
+                immutable,
+                "build_context",
+                side_effect=AssertionError("runtime compiler scan"),
+            ):
                 self.assertTrue(immutable.admitted_runtime_receipt(receipt, generation))
             self.assertFalse(source.admitted_runtime_receipt(receipt, generation))
 
-    def test_runtime_receipt_still_requires_complete_key_source_and_toolchain_proofs(self) -> None:
+    def test_runtime_receipt_still_requires_complete_key_source_and_toolchain_proofs(
+        self,
+    ) -> None:
         receipt = fixture_receipt()
         with tempfile.TemporaryDirectory() as scratch:
             immutable, generation = self.immutable_source(Path(scratch) / "state")
-            for change in ("effective_key", "configuration", "tools", "patch", "toolchain"):
+            for change in (
+                "effective_key",
+                "configuration",
+                "tools",
+                "patch",
+                "toolchain",
+            ):
                 candidate = copy.deepcopy(receipt)
                 if change == "effective_key":
                     candidate["effective_key"] = "0" * 64
@@ -209,11 +227,17 @@ class SourceAdmissionTests(unittest.TestCase):
                 elif change == "patch":
                     candidate["inputs"]["patches"][source.PATCHES[0]] = "0" * 64
                 else:
-                    candidate["inputs"]["build_context"]["toolchain_declaration"] = {"changed": True}
+                    candidate["inputs"]["build_context"]["toolchain_declaration"] = {
+                        "changed": True
+                    }
                 if change != "effective_key":
-                    candidate["effective_key"] = immutable.effective_key(candidate["inputs"])
+                    candidate["effective_key"] = immutable.effective_key(
+                        candidate["inputs"]
+                    )
                 with self.subTest(change=change):
-                    self.assertFalse(immutable.admitted_runtime_receipt(candidate, generation))
+                    self.assertFalse(
+                        immutable.admitted_runtime_receipt(candidate, generation)
+                    )
 
     def test_runtime_receipt_refuses_changed_or_fake_immutable_generation(self) -> None:
         receipt = fixture_receipt()
@@ -229,10 +253,16 @@ class SourceAdmissionTests(unittest.TestCase):
             manifest.write_text(json.dumps({**declared, "identity": "0" * 64}))
             self.assertFalse(immutable.admitted_runtime_receipt(receipt, generation))
 
-    def test_main_passive_configuration_and_full_launch_revalidation_stay_strict(self) -> None:
+    def test_main_passive_configuration_and_full_launch_revalidation_stay_strict(
+        self,
+    ) -> None:
         receipt = fixture_receipt()
         context = fixture_context()
-        with patch.object(source.installation_context, "configuration", return_value=([{"changed": True}], {}, {})):
+        with patch.object(
+            source.installation_context,
+            "configuration",
+            return_value=([{"changed": True}], {}, {}),
+        ):
             self.assertFalse(source.admitted_receipt(receipt))
         context["tools"] = {"changed_compiler": True}
         with patch.object(source, "build_context", return_value=(context, {}, {})):
