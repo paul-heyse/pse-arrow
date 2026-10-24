@@ -83,6 +83,7 @@ def source_inputs() -> dict[str, object]:
 
 
 RECEIPT_SCHEMA = "surreal-source-release-v2"
+BUILD_REQUEST_SCHEMA = "surreal-source-build-request-v1"
 
 
 def build_context() -> tuple[dict, dict, dict[str, str]]:
@@ -141,6 +142,11 @@ def installation_name(tool_root: Path | None = None) -> str:
 
 def name_for(selected: dict[str, object]) -> str:
     return f"v{VERSION}-mx{ENGINE}-effective-v1-{effective_key(selected)[:20]}"
+
+
+def build_request(selected: dict[str, object]) -> dict[str, object]:
+    return {"schema": BUILD_REQUEST_SCHEMA, "inputs": selected,
+            "effective_key": effective_key(selected)}
 
 
 def command(arguments: list[str], *, log_path: Path | None = None, environment: dict[str, str] | None = None, stream: bool = False) -> str:
@@ -319,7 +325,15 @@ def install(directory: Path) -> dict[str, object]:
     # The supervised child closes its environment *after* pse-env composition,
     # before Cargo/build scripts execute. This prevents local/caller injection.
     request = directory / "build-request.json"
-    request.write_text(json.dumps({"inputs": selected, "effective_key": effective_key(selected)}, sort_keys=True) + "\n")
+    expected = build_request(selected)
+    if (source / "target").exists():
+        try:
+            previous = json.loads(request.read_text())
+        except (OSError, ValueError) as error:
+            raise BuildError("Existing server target has no complete matching build request; target preserved") from error
+        if installation_context.identity(previous) != installation_context.identity(expected):
+            raise BuildError("Existing server target differs from its captured build request; target preserved")
+    request.write_text(json.dumps(expected, sort_keys=True) + "\n")
     command(
         [str(ROOT / "scripts/pse-env"), "--recipe-default-class", "compile", "--",
          str(ROOT / ".venv/bin/python"), "-m", "scripts.surreal_source", "--build", str(directory)],
@@ -360,7 +374,7 @@ def build_child(directory: Path) -> None:
     request = json.loads((directory / "build-request.json").read_text())
     context, _, environment = build_context()
     selected = {**source_inputs(), "build_context": context, "installation_namespace": str(directory.parent.resolve())}
-    if request != {"inputs": selected, "effective_key": effective_key(selected)}:
+    if installation_context.identity(request) != installation_context.identity(build_request(selected)):
         raise BuildError("Installer child context differs from selected build inputs")
     source = directory / "source"
     verify_source(source)
