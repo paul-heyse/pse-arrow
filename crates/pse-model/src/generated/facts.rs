@@ -431,6 +431,30 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeInitializationStages)]
     r#RuntimeInitializationStages(Vec<super::r#runtime::r#initialization_stages::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeExcerpts)]
+    r#RuntimeKnowledgeExcerpts(Vec<super::r#runtime::r#knowledge_excerpts::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeGenerations)]
+    r#RuntimeKnowledgeGenerations(Vec<super::r#runtime::r#knowledge_generations::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeProductions)]
+    r#RuntimeKnowledgeProductions(Vec<super::r#runtime::r#knowledge_productions::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeSources)]
+    r#RuntimeKnowledgeSources(Vec<super::r#runtime::r#knowledge_sources::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeState)]
+    r#RuntimeKnowledgeState(Vec<super::r#runtime::r#knowledge_state::Row>),
+    #[doc = stringify!(r#RuntimeKnowledgeSubjectEdges)]
+    r#RuntimeKnowledgeSubjectEdges(
+        Vec<super::r#runtime::r#knowledge_subject_edges::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeKnowledgeSubjectSources)]
+    r#RuntimeKnowledgeSubjectSources(
+        Vec<super::r#runtime::r#knowledge_subject_sources::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeKnowledgeSubjectTopics)]
+    r#RuntimeKnowledgeSubjectTopics(
+        Vec<super::r#runtime::r#knowledge_subject_topics::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeKnowledgeSubjects)]
+    r#RuntimeKnowledgeSubjects(Vec<super::r#runtime::r#knowledge_subjects::Row>),
     #[doc = stringify!(r#RuntimeLiveSimulationSamples)]
     r#RuntimeLiveSimulationSamples(
         Vec<super::r#runtime::r#live_simulation_samples::Row>,
@@ -1426,6 +1450,60 @@ impl FactBatch {
                     129u8, 27u8, 40u8, 145u8, 246u8, 253u8,
                 ])
             }
+            Self::r#RuntimeKnowledgeExcerpts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    156u8, 190u8, 51u8, 21u8, 149u8, 133u8, 74u8, 140u8, 4u8, 201u8,
+                    219u8, 124u8, 42u8, 163u8, 40u8, 226u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeGenerations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    192u8, 55u8, 226u8, 67u8, 45u8, 122u8, 102u8, 58u8, 89u8, 229u8,
+                    234u8, 42u8, 80u8, 134u8, 74u8, 12u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeProductions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    12u8, 25u8, 70u8, 228u8, 79u8, 5u8, 252u8, 133u8, 165u8, 23u8, 235u8,
+                    100u8, 79u8, 79u8, 112u8, 136u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeSources(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    174u8, 202u8, 107u8, 243u8, 18u8, 163u8, 95u8, 255u8, 15u8, 55u8,
+                    99u8, 53u8, 243u8, 232u8, 2u8, 5u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeState(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    33u8, 63u8, 105u8, 103u8, 130u8, 132u8, 217u8, 253u8, 124u8, 49u8,
+                    61u8, 2u8, 165u8, 52u8, 167u8, 99u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeSubjectEdges(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    134u8, 53u8, 204u8, 232u8, 32u8, 116u8, 179u8, 91u8, 247u8, 140u8,
+                    136u8, 160u8, 140u8, 87u8, 44u8, 140u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    121u8, 169u8, 161u8, 2u8, 174u8, 125u8, 81u8, 219u8, 76u8, 134u8,
+                    222u8, 1u8, 64u8, 76u8, 26u8, 58u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    234u8, 222u8, 180u8, 73u8, 167u8, 203u8, 7u8, 121u8, 207u8, 189u8,
+                    121u8, 151u8, 215u8, 60u8, 197u8, 78u8,
+                ])
+            }
+            Self::r#RuntimeKnowledgeSubjects(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    179u8, 94u8, 133u8, 0u8, 202u8, 80u8, 43u8, 227u8, 147u8, 155u8,
+                    121u8, 220u8, 175u8, 29u8, 153u8, 25u8,
+                ])
+            }
             Self::r#RuntimeLiveSimulationSamples(_) => {
                 pse_ids::SemanticId::from_bytes([
                     183u8, 100u8, 131u8, 126u8, 67u8, 171u8, 199u8, 169u8, 157u8, 248u8,
@@ -1853,6 +1931,15 @@ impl FactBatch {
             Self::r#RuntimeIncumbents(rows) => rows.len(),
             Self::r#RuntimeInfeasibilityCertificates(rows) => rows.len(),
             Self::r#RuntimeInitializationStages(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeExcerpts(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeGenerations(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeProductions(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeSources(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeState(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => rows.len(),
+            Self::r#RuntimeKnowledgeSubjects(rows) => rows.len(),
             Self::r#RuntimeLiveSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeLocalValidity(rows) => rows.len(),
             Self::r#RuntimeModelingChecks(rows) => rows.len(),
@@ -2637,6 +2724,51 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeInitializationStages(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeExcerpts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeGenerations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeProductions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeSources(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeState(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeKnowledgeSubjects(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3540,6 +3672,42 @@ impl FactBatch {
             Self::r#RuntimeInitializationStages(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeInitializationStages(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeExcerpts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeExcerpts(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeGenerations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeGenerations(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeProductions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeProductions(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeSources(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeSources(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeState(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeState(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeSubjectEdges(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeSubjectSources(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeSubjectTopics(vec![row.clone()]))
+            }
+            Self::r#RuntimeKnowledgeSubjects(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeKnowledgeSubjects(vec![row.clone()]))
             }
             Self::r#RuntimeLiveSimulationSamples(rows) => {
                 rows.get(index)
@@ -5286,6 +5454,105 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeKnowledgeExcerpts(left),
+                Self::r#RuntimeKnowledgeExcerpts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeGenerations(left),
+                Self::r#RuntimeKnowledgeGenerations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeProductions(left),
+                Self::r#RuntimeKnowledgeProductions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSources(left),
+                Self::r#RuntimeKnowledgeSources(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeState(left),
+                Self::r#RuntimeKnowledgeState(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectEdges(left),
+                Self::r#RuntimeKnowledgeSubjectEdges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectSources(left),
+                Self::r#RuntimeKnowledgeSubjectSources(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectTopics(left),
+                Self::r#RuntimeKnowledgeSubjectTopics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjects(left),
+                Self::r#RuntimeKnowledgeSubjects(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeLiveSimulationSamples(left),
                 Self::r#RuntimeLiveSimulationSamples(right),
             ) => {
@@ -6789,6 +7056,69 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeInitializationStages(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeExcerpts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeGenerations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeProductions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeSources(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeState(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeKnowledgeSubjects(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -8869,6 +9199,105 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeKnowledgeExcerpts(left),
+                Self::r#RuntimeKnowledgeExcerpts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeGenerations(left),
+                Self::r#RuntimeKnowledgeGenerations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeProductions(left),
+                Self::r#RuntimeKnowledgeProductions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSources(left),
+                Self::r#RuntimeKnowledgeSources(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeState(left),
+                Self::r#RuntimeKnowledgeState(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectEdges(left),
+                Self::r#RuntimeKnowledgeSubjectEdges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectSources(left),
+                Self::r#RuntimeKnowledgeSubjectSources(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectTopics(left),
+                Self::r#RuntimeKnowledgeSubjectTopics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjects(left),
+                Self::r#RuntimeKnowledgeSubjects(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeLiveSimulationSamples(left),
                 Self::r#RuntimeLiveSimulationSamples(right),
             ) => {
@@ -10295,6 +10724,42 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#stage, &mut hash);
             }
+            Self::r#RuntimeKnowledgeExcerpts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeGenerations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeProductions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeSources(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeState(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeKnowledgeSubjects(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeLiveSimulationSamples(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -11562,6 +12027,69 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeKnowledgeExcerpts(left),
+                Self::r#RuntimeKnowledgeExcerpts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeGenerations(left),
+                Self::r#RuntimeKnowledgeGenerations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeProductions(left),
+                Self::r#RuntimeKnowledgeProductions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeSources(left),
+                Self::r#RuntimeKnowledgeSources(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeState(left),
+                Self::r#RuntimeKnowledgeState(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectEdges(left),
+                Self::r#RuntimeKnowledgeSubjectEdges(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectSources(left),
+                Self::r#RuntimeKnowledgeSubjectSources(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjectTopics(left),
+                Self::r#RuntimeKnowledgeSubjectTopics(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeKnowledgeSubjects(left),
+                Self::r#RuntimeKnowledgeSubjects(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeLiveSimulationSamples(left),
                 Self::r#RuntimeLiveSimulationSamples(mut right),
             ) => {
@@ -12208,6 +12736,25 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeInitializationStages(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeKnowledgeExcerpts(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeKnowledgeGenerations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeKnowledgeProductions(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeKnowledgeSources(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeKnowledgeState(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeKnowledgeSubjectEdges(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeKnowledgeSubjectSources(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeKnowledgeSubjectTopics(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeKnowledgeSubjects(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeLiveSimulationSamples(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

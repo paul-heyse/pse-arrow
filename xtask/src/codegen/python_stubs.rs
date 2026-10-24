@@ -7,7 +7,12 @@ mod exceptions;
 mod validate;
 
 use anyhow::{Context, Result, bail, ensure};
+use pse_codegen::codegen::{
+    GeneratedTree,
+    provenance::{self, SourceRelationship},
+};
 use pyo3_introspection::{introspect_cdylib, module_stub_files};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::Write,
@@ -46,6 +51,7 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
         ""
     };
     let output = format(root, &format!("{HEADER}{imports}{body}"))?;
+    let provenance = provenance_tree(&output)?;
     let target = root.join(OUTPUT);
     super::reject_symlinks(root, Path::new(OUTPUT))?;
     if check {
@@ -56,11 +62,54 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
     } else if !matches!(fs::read(&target), Ok(previous) if previous == output) {
         fs::write(&target, output).with_context(|| format!("writing {}", target.display()))?;
     }
+    if check {
+        let scratch = tempfile::tempdir().context("creating stub provenance comparison")?;
+        super::write_tree(scratch.path(), &provenance)?;
+        super::compare_tree(root, scratch.path(), &provenance)?;
+        super::untracked_check(root, &provenance.roots)?;
+    } else {
+        super::write_tree(root, &provenance)?;
+    }
     println!(
         "python-stubs{}: OK (actual compiled API)",
         if check { " --check" } else { "" }
     );
     Ok(())
+}
+
+/// The API identity hashes the actual formatted introspection result, rather than
+/// an absolute binary path or build-dependent native object bytes.
+fn provenance_tree(output: &[u8]) -> Result<GeneratedTree> {
+    let identity = format!("pyo3-stub-sha256:{}", Sha256::digest(output).iter().map(|byte| format!("{byte:02x}")).collect::<String>());
+    let mut records = Vec::new();
+    for (kind, path, role) in [
+        ("pyo3_metadata", None, "compiled_pyo3_metadata"),
+        (
+            "pyo3_module",
+            Some("crates/pse-py/src/lib.rs"),
+            "module_registration",
+        ),
+        (
+            "pyo3_exception_supplement",
+            Some("crates/pse-py/src/inspection/errors.rs"),
+            "introspector_supplement",
+        ),
+    ] {
+        records.push(SourceRelationship {
+            declaration_key: "_native".into(),
+            declaration_kind: kind.into(),
+            source_path: path.map(str::to_owned),
+            source_symbol: Some("_native".into()),
+            source_role: role.into(),
+            source_identity: Some(identity.clone()),
+            generator_path: "xtask/src/codegen/python_stubs.rs".into(),
+            generator_symbol: "run".into(),
+            output_path: OUTPUT.into(),
+            direction: None,
+            basis: "declared".into(),
+        });
+    }
+    Ok(provenance::sidecar("native-stubs", &records)?)
 }
 
 /// The checkout's environment: `UV_PROJECT_ENVIRONMENT` when set, as uv and the recipes use it.
@@ -134,4 +183,31 @@ fn ruff(root: &Path, source: &[u8], args: &[&str]) -> Result<Vec<u8>> {
         );
     }
     Ok(output.stdout)
+}
+
+#[cfg(test)]
+mod provenance_tests {
+    use super::*;
+
+    #[test]
+    fn actual_stub_producer_is_distinct_from_catalogue_and_tracks_api_bytes() {
+        let tree = provenance_tree(b"class Native: ...\n").unwrap();
+        let path = Path::new(provenance::ROOT).join("native-stubs/relationships.json");
+        let value: serde_json::Value = serde_json::from_slice(&tree.files[&path]).unwrap();
+        let records = value["relationships"].as_array().unwrap();
+        assert!(records.iter().all(|record| record["generator_path"]
+            == "xtask/src/codegen/python_stubs.rs"
+            && record["output_path"] == "python/pse/_native.pyi"));
+        assert!(
+            records
+                .iter()
+                .any(|record| record["declaration_kind"] == "pyo3_metadata"
+                    && record["source_path"].is_null())
+        );
+        assert_ne!(
+            tree.files,
+            provenance_tree(b"class Changed: ...\n").unwrap().files
+        );
+        assert_eq!(tree, provenance_tree(b"class Native: ...\n").unwrap());
+    }
 }

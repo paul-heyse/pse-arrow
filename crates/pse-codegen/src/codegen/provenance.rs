@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Diagnostic source relationships declared by the producers that emit each output.
+//! These records never participate in registry or scientific fingerprints.
+
+use serde::{Deserialize, Serialize};
+
+use super::GeneratedTree;
+use crate::{Registry, SchemaError};
+
+/// The discoverable directory; each producer owns only its nested directory.
+pub const ROOT: &str = "docs/generated/source-relationships";
+
+/// An actual declaration contributor to an output, rather than inferred consumer reach.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct SourceRelationship {
+    /// Registry semantic key, Rust catalogue type, or compiled Python module identity.
+    pub declaration_key: String,
+    /// Which declaration namespace gives the key meaning.
+    pub declaration_kind: String,
+    /// Exact known source owner; absent when the registry retains no source locations.
+    pub source_path: Option<String>,
+    /// Actual type or declaration symbol when supplied by its owner.
+    pub source_symbol: Option<String>,
+    /// Whether a path names a declaration definition, registration, or supplemental input.
+    pub source_role: String,
+    /// Producer identity, not a claim about the current checkout's source bytes.
+    pub source_identity: Option<String>,
+    /// Actual emitter owner, relative to the checkout.
+    pub generator_path: String,
+    /// Actual emitter entry point.
+    pub generator_symbol: String,
+    /// Exact emitted destination, relative to the checkout.
+    pub output_path: String,
+    /// Direction only when explicitly declared by a catalogue.
+    pub direction: Option<String>,
+    /// Producer declarations are distinct from language resolution and text matches.
+    pub basis: String,
+}
+
+impl SourceRelationship {
+    /// A registry declaration whose semantic identity is known but source location is not.
+    pub fn registry(
+        registry: &Registry,
+        kind: &str,
+        key: impl Into<String>,
+        generator_path: &str,
+        generator_symbol: &str,
+        output_path: impl Into<String>,
+    ) -> Self {
+        Self {
+            declaration_key: key.into(),
+            declaration_kind: kind.into(),
+            source_path: None,
+            source_symbol: None,
+            source_role: "semantic_declaration_without_source_location".into(),
+            source_identity: Some(registry.fingerprint().to_prefixed()),
+            generator_path: generator_path.into(),
+            generator_symbol: generator_symbol.into(),
+            output_path: output_path.into(),
+            direction: None,
+            basis: "declared".into(),
+        }
+    }
+}
+
+/// The registry key includes the version; a qualified name alone can name several versions.
+pub fn relation_key(relation: &crate::model::RelationSpec) -> String {
+    format!("{}@{}", relation.qualified_name(), relation.key.version)
+}
+
+/// Register a document and each section's independently declared relation contributor.
+pub fn document(
+    tree: &mut GeneratedTree,
+    registry: &Registry,
+    document: &crate::model::DocumentSpec,
+    generator_path: &str,
+    generator_symbol: &str,
+    output_path: &str,
+) {
+    tree.relationships.push(SourceRelationship::registry(
+        registry,
+        "document",
+        document.name,
+        generator_path,
+        generator_symbol,
+        output_path,
+    ));
+    for section in &document.sections {
+        tree.relationships.push(SourceRelationship::registry(
+            registry,
+            "document_section",
+            format!("{}.{}", document.name, section.key),
+            generator_path,
+            generator_symbol,
+            output_path,
+        ));
+        if let Some(relation) = registry.relation(section.relation) {
+            tree.relationships.push(SourceRelationship::registry(
+                registry,
+                "relation",
+                relation_key(relation),
+                generator_path,
+                generator_symbol,
+                output_path,
+            ));
+        }
+    }
+}
+
+/// Render a producer's exact records through the ordinary generated-tree writer.
+/// # Errors
+/// A producer name is not a safe directory component, or JSON cannot be encoded.
+pub fn sidecar(
+    producer: &str,
+    relationships: &[SourceRelationship],
+) -> Result<GeneratedTree, SchemaError> {
+    if producer.is_empty()
+        || !producer
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return Err(SchemaError::Codegen {
+            language: "provenance",
+            reason: "invalid producer name".into(),
+        });
+    }
+    let root = std::path::PathBuf::from(ROOT).join(producer);
+    let mut tree = GeneratedTree::empty(vec![root.clone()]);
+    let mut relationships = relationships.to_vec();
+    relationships.sort();
+    relationships.dedup();
+    let value = serde_json::json!({
+        "$comment": "@generated by the named producer; do not edit",
+        "schema_version": 1,
+        "producer": producer,
+        "coverage_limits": [
+            "Only the listed producer-declared contributors are exact; this is not a complete generated-file inventory.",
+            "Dynamic dispatch, macros and string consumers remain unresolved; declarations do not establish consumer reach.",
+            "A source registration path does not identify the Rust type definition; registry declaration locations are unavailable."
+        ],
+        "relationships": relationships,
+    });
+    let mut value = value;
+    value.sort_all_objects();
+    let mut bytes = serde_json::to_vec_pretty(&value).map_err(|cause| SchemaError::Codegen {
+        language: "provenance",
+        reason: cause.to_string(),
+    })?;
+    bytes.push(b'\n');
+    tree.files.insert(root.join("relationships.json"), bytes);
+    Ok(tree)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::codegen::{Language, generate};
+
+    #[test]
+    fn registry_document_and_relation_contributors_name_actual_emitter_outputs() {
+        let registry = crate::registry().unwrap();
+        let identity = registry.fingerprint();
+        let rust = generate(registry, Language::Rust).unwrap();
+        let python = generate(registry, Language::Python).unwrap();
+        for output in [
+            "crates/pse-authoring/src/generated/documents.rs",
+            "crates/pse-admission/src/generated/document_adapters.rs",
+        ] {
+            for (kind, key) in [
+                ("document", "cases"),
+                ("document_section", "cases.fit_cases"),
+                ("relation", "authored.fit_cases@4"),
+            ] {
+                let record = rust
+                    .relationships
+                    .iter()
+                    .find(|record| {
+                        record.declaration_kind == kind
+                            && record.declaration_key == key
+                            && record.output_path == output
+                    })
+                    .unwrap();
+                assert_eq!(record.source_path, None);
+                assert_eq!(record.generator_symbol, "documents");
+                assert_eq!(
+                    record.generator_path,
+                    "crates/pse-codegen/src/codegen/rust/mod.rs"
+                );
+            }
+        }
+        // These expected destinations come from the selected explicit declaration
+        // fixture, not a traversal that turns its key into a filename.
+        assert!(
+            rust.relationships
+                .iter()
+                .any(|record| record.declaration_key == "authored.fit_cases@4"
+                    && record.output_path
+                        == "crates/pse-model/src/generated/authored/fit_cases.rs"
+                    && record.generator_symbol == "split")
+        );
+        assert!(
+            python
+                .relationships
+                .iter()
+                .any(|record| record.declaration_key == "authored.fit_cases@4"
+                    && record.output_path == "python/pse/contracts/authored.py")
+        );
+        for tree in [&rust, &python] {
+            assert!(tree.relationships.iter().all(|record| {
+                tree.files
+                    .contains_key(std::path::Path::new(&record.output_path))
+            }));
+        }
+        assert_eq!(registry.fingerprint(), identity);
+    }
+
+    #[test]
+    fn sidecar_sorts_exact_records_and_keeps_unknown_consumers_as_coverage_limits() {
+        let registry = crate::registry().unwrap();
+        let record = |key| {
+            SourceRelationship::registry(
+                registry,
+                "document",
+                key,
+                "actual/emitter.rs",
+                "emit",
+                "actual/output.py",
+            )
+        };
+        let first = sidecar("fixture", &[record("z"), record("a"), record("z")]).unwrap();
+        let second = sidecar("fixture", &[record("a"), record("z")]).unwrap();
+        assert_eq!(first, second);
+        let value: serde_json::Value =
+            serde_json::from_slice(first.files.values().next().unwrap()).unwrap();
+        assert_eq!(value["relationships"].as_array().unwrap().len(), 2);
+        assert_eq!(value["relationships"][0]["declaration_key"], "a");
+        assert!(
+            value["coverage_limits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value
+                    .as_str()
+                    .unwrap()
+                    .contains("string consumers remain unresolved"))
+        );
+        assert!(
+            !value["relationships"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value["declaration_key"] == "unknown_dynamic_consumer")
+        );
+        assert!(sidecar("../escaped", &[]).is_err());
+    }
+}

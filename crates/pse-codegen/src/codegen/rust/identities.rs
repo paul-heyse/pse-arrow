@@ -40,6 +40,17 @@ pub(super) fn emit(
     let mut names = Vec::new();
     let mut semantic_names = Vec::new();
     for identity in reg.identities() {
+        for output in [MODEL, NATIVE] {
+            tree.relationships
+                .push(crate::codegen::provenance::SourceRelationship::registry(
+                    reg,
+                    "identity",
+                    identity.name,
+                    "crates/pse-codegen/src/codegen/rust/identities.rs",
+                    "emit",
+                    output,
+                ));
+        }
         let name = format_ident!("{}", type_name(identity.name));
         let doc = format!(
             "{} (entity identity `{}`, ADR-0115).",

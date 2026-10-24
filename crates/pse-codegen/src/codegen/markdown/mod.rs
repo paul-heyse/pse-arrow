@@ -103,6 +103,18 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     let mut tree = GeneratedTree::empty(Language::Markdown.roots());
     let mut namespaces = BTreeMap::<&str, String>::new();
     for relation in reg.relations() {
+        tree.relationships
+            .push(super::provenance::SourceRelationship::registry(
+                reg,
+                "relation",
+                super::provenance::relation_key(relation),
+                "crates/pse-codegen/src/codegen/markdown/mod.rs",
+                "generate",
+                format!(
+                    "docs/generated/relations/{}.md",
+                    relation.key.namespace.as_str()
+                ),
+            ));
         let source = namespaces
             .entry(relation.key.namespace.as_str())
             .or_default();

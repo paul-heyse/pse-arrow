@@ -242,9 +242,24 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         {
             namespaces.insert(parent.to_path_buf());
         }
+        let model_path = MODEL.to_owned() + "/" + relative.to_string_lossy().as_ref();
+        // The AST split owns this actual destination. Propagate only contributors
+        // already attached to its input; no relation key is interpreted as a filename.
+        let contributors = tree
+            .relationships
+            .iter()
+            .filter(|record| std::path::Path::new(&record.output_path) == path)
+            .cloned()
+            .collect::<Vec<_>>();
+        for mut record in contributors {
+            record.generator_path = "crates/pse-codegen/src/codegen/rust/semantic.rs".into();
+            record.generator_symbol = "split".into();
+            record.output_path.clone_from(&model_path);
+            tree.relationships.push(record);
+        }
         super::emit(
             tree,
-            MODEL.to_owned() + "/" + relative.to_string_lossy().as_ref(),
+            model_path,
             quote!(#(#model)* #(#usage)* #expression_mask),
         )?;
         super::emit(

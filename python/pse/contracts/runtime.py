@@ -1868,6 +1868,159 @@ class RuntimeInitializationStagesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeKnowledgeExcerptsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    excerpt_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    subject_key: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    text: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    locator: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    basis: e.KnowledgeBasis = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeBasis))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.excerpt_id), v.scalar_key(self.source_key), v.optional_key(v.scalar_key)(self.subject_key), v.scalar_key(self.text), v.scalar_key(self.locator), v.scalar_key(self.basis),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeGenerationsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    content_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    subject_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    contributor_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    topic_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    excerpt_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    edge_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    production_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    state: e.KnowledgeGenerationState = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeGenerationState))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.content_digest), v.scalar_key(self.source_count), v.scalar_key(self.subject_count), v.scalar_key(self.contributor_count), v.scalar_key(self.topic_count), v.scalar_key(self.excerpt_count), v.scalar_key(self.edge_count), v.scalar_key(self.production_count), v.scalar_key(self.state),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeProductionsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    production_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    declaration_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generator_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    direction: e.KnowledgeDirection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.KnowledgeDirection)))
+    basis: e.KnowledgeBasis = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeBasis))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.production_id), v.scalar_key(self.declaration_key), v.scalar_key(self.generator_key), v.scalar_key(self.artifact_key), v.optional_key(v.scalar_key)(self.direction), v.scalar_key(self.basis),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeSourcesRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    locator: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    version_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    basis: e.KnowledgeBasis = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeBasis))
+    title: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    status: e.KnowledgeSourceStatus = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeSourceStatus))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.source_id), v.scalar_key(self.kind), v.scalar_key(self.locator), v.scalar_key(self.version_digest), v.scalar_key(self.basis), v.scalar_key(self.title), v.scalar_key(self.status),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeStateRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    active_generation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.active_generation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeSubjectEdgesRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    edge_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    target_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation: e.KnowledgeRelationKind = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeRelationKind))
+    basis: e.KnowledgeBasis = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeBasis))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.edge_id), v.scalar_key(self.source_key), v.scalar_key(self.target_key), v.scalar_key(self.relation), v.scalar_key(self.basis),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeSubjectSourcesRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    subject_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    role: e.KnowledgeSourceRole = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeSourceRole))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.subject_key), v.scalar_key(self.source_key), v.scalar_key(self.role),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeSubjectTopicsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    subject_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    topic: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.subject_key), v.scalar_key(self.source_key), v.scalar_key(self.topic),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKnowledgeSubjectsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    subject_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.KnowledgeSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeSubjectKind))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    native_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    label: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    basis: e.KnowledgeBasis = attrs.field(validator=attrs.validators.instance_of(e.KnowledgeBasis))
+    native_state: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    state_basis: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    publication_scope: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    document_role: e.KnowledgeDocumentRole | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.KnowledgeDocumentRole)))
+    native_version: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_authority: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_codec: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_source: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_version: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_member: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.scalar_key(self.subject_id), v.scalar_key(self.kind), v.scalar_key(self.owner), v.scalar_key(self.native_id), v.scalar_key(self.label), v.scalar_key(self.basis), v.optional_key(v.scalar_key)(self.native_state), v.optional_key(v.scalar_key)(self.state_basis), v.optional_key(v.scalar_key)(self.publication_scope), v.optional_key(v.scalar_key)(self.document_role), v.optional_key(v.scalar_key)(self.native_version), v.optional_key(v.scalar_key)(self.evidence_authority), v.optional_key(v.scalar_key)(self.evidence_codec), v.optional_key(v.scalar_key)(self.evidence_source), v.optional_key(v.scalar_key)(self.evidence_version), v.optional_key(v.scalar_key)(self.evidence_member),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeLiveSimulationSamplesRow:
     """Declared relation row or nested value."""
 

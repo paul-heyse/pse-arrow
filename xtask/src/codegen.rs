@@ -19,7 +19,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
-use pse_codegen::codegen::{GeneratedTree, Language, documents};
+use pse_codegen::codegen::{GeneratedTree, Language, documents, provenance};
 use sha2::{Digest, Sha256};
 
 use crate::Target;
@@ -72,6 +72,10 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         if language == Language::Python {
             check_python_candidate(root, &tree, None)?;
         }
+        trees.push(provenance::sidecar(
+            &format!("registry-{}", language.as_str()),
+            &tree.relationships,
+        )?);
         trees.push(tree);
     }
     if only == Some(Target::Physical) {
@@ -86,6 +90,10 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
         validate_tree(&tree)?;
         check_python_candidate(root, &tree, Some("--documents"))?;
+        trees.push(provenance::sidecar(
+            "runtime-catalogue",
+            &tree.relationships,
+        )?);
         trees.push(tree);
     }
     for tree in &trees {
@@ -162,6 +170,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
     let fixtures = schemas::boundary_fixtures()?;
     tree.roots.extend(fixtures.roots);
     tree.files.extend(fixtures.files);
+    tree.relationships.extend(fixtures.relationships);
     Ok(tree)
 }
 
@@ -288,6 +297,9 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .iter()
         .flat_map(|language| language.roots())
         .chain(documents::roots())
+        // Each diagnostic producer owns a nested directory. The enclosing docs
+        // generator must preserve every sidecar on partial regeneration.
+        .chain([PathBuf::from(provenance::ROOT)])
         .filter(|candidate| {
             !tree.roots.contains(candidate)
                 && tree
@@ -482,6 +494,7 @@ mod tests {
 
     fn tree() -> GeneratedTree {
         GeneratedTree {
+            relationships: Vec::new(),
             roots: vec![PathBuf::from("generated")],
             files: [(PathBuf::from("generated/a.txt"), b"exact bytes\n".to_vec())].into(),
         }
@@ -489,6 +502,7 @@ mod tests {
 
     fn python_tree() -> GeneratedTree {
         GeneratedTree {
+            relationships: Vec::new(),
             roots: vec![PathBuf::from(PYTHON_ROOT)],
             files: [(Path::new(PYTHON_ROOT).join("a.py"), b"value = 1\n".to_vec())].into(),
         }
@@ -721,6 +735,32 @@ mod tests {
             2,
             "the document target still sees its own files"
         );
+    }
+
+    #[test]
+    fn partial_generation_preserves_other_producer_relationships() {
+        let checkout = tempfile::tempdir().unwrap();
+        let native = provenance::sidecar("native-stubs", &[]).unwrap();
+        let catalogue = provenance::sidecar("runtime-catalogue", &[]).unwrap();
+        write_tree(checkout.path(), &native).unwrap();
+        write_tree(checkout.path(), &catalogue).unwrap();
+        let native_path = native.files.keys().next().unwrap();
+        let catalogue_path = catalogue.files.keys().next().unwrap();
+        let stale = catalogue.roots[0].join("stale.json");
+        fs::write(checkout.path().join(&stale), b"stale").unwrap();
+        write_tree(checkout.path(), &catalogue).unwrap();
+        assert!(!checkout.path().join(stale).exists());
+        assert!(checkout.path().join(native_path).is_file());
+        let mut markdown = GeneratedTree::empty(Language::Markdown.roots());
+        markdown
+            .files
+            .insert("docs/generated/README.md".into(), b"docs".to_vec());
+        write_tree(checkout.path(), &markdown).unwrap();
+        assert!(checkout.path().join(native_path).is_file());
+        assert!(checkout.path().join(catalogue_path).is_file());
+        let scratch = tempfile::tempdir().unwrap();
+        write_tree(scratch.path(), &markdown).unwrap();
+        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
     }
 
     #[test]

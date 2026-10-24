@@ -1765,6 +1765,114 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            156u8, 190u8, 51u8, 21u8, 149u8, 133u8, 74u8, 140u8, 4u8, 201u8, 219u8,
+            124u8, 42u8, 163u8, 40u8, 226u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeExcerpts(
+                super::r#runtime::r#knowledge_excerpts::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            192u8, 55u8, 226u8, 67u8, 45u8, 122u8, 102u8, 58u8, 89u8, 229u8, 234u8, 42u8,
+            80u8, 134u8, 74u8, 12u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeGenerations(
+                super::r#runtime::r#knowledge_generations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            12u8, 25u8, 70u8, 228u8, 79u8, 5u8, 252u8, 133u8, 165u8, 23u8, 235u8, 100u8,
+            79u8, 79u8, 112u8, 136u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeProductions(
+                super::r#runtime::r#knowledge_productions::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            174u8, 202u8, 107u8, 243u8, 18u8, 163u8, 95u8, 255u8, 15u8, 55u8, 99u8, 53u8,
+            243u8, 232u8, 2u8, 5u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSources(
+                super::r#runtime::r#knowledge_sources::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            33u8, 63u8, 105u8, 103u8, 130u8, 132u8, 217u8, 253u8, 124u8, 49u8, 61u8, 2u8,
+            165u8, 52u8, 167u8, 99u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeState(
+                super::r#runtime::r#knowledge_state::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            134u8, 53u8, 204u8, 232u8, 32u8, 116u8, 179u8, 91u8, 247u8, 140u8, 136u8,
+            160u8, 140u8, 87u8, 44u8, 140u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectEdges(
+                super::r#runtime::r#knowledge_subject_edges::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            121u8, 169u8, 161u8, 2u8, 174u8, 125u8, 81u8, 219u8, 76u8, 134u8, 222u8, 1u8,
+            64u8, 76u8, 26u8, 58u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectSources(
+                super::r#runtime::r#knowledge_subject_sources::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            234u8, 222u8, 180u8, 73u8, 167u8, 203u8, 7u8, 121u8, 207u8, 189u8, 121u8,
+            151u8, 215u8, 60u8, 197u8, 78u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectTopics(
+                super::r#runtime::r#knowledge_subject_topics::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            179u8, 94u8, 133u8, 0u8, 202u8, 80u8, 43u8, 227u8, 147u8, 155u8, 121u8,
+            220u8, 175u8, 29u8, 153u8, 25u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjects(
+                super::r#runtime::r#knowledge_subjects::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             183u8, 100u8, 131u8, 126u8, 67u8, 171u8, 199u8, 169u8, 157u8, 248u8, 100u8,
             56u8, 197u8, 238u8, 174u8, 109u8,
         ])
@@ -2766,6 +2874,33 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeInitializationStages(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeExcerpts(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeGenerations(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeProductions(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSources(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeState(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectEdges(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectSources(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjectTopics(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeKnowledgeSubjects(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeLiveSimulationSamples(rows) => {

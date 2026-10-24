@@ -209,6 +209,7 @@ pub(super) fn documents() -> Vec<pse_codegen::codegen::documents::CatalogueDocum
             name: entry.name.into(),
             slug: entry.slug.into(),
             rust_type: entry.rust_type.into(),
+            registration_source: "crates/pse-runtime/src/boundary_documents.rs".into(),
             output: entry.direction == pse_runtime::boundary_documents::Direction::Output,
             version: entry.version,
             wire: format!("{:?}", entry.wire),

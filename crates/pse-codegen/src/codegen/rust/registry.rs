@@ -373,6 +373,35 @@ pub(super) fn generate(
     tree: &mut super::super::GeneratedTree,
 ) -> Result<(), SchemaError> {
     let p = reg.resolved_products()?;
+    // These are the two actual products assembled below; their declarations are
+    // semantic keys because the admitted registry does not retain source paths.
+    for output in [
+        "crates/pse-schema/src/generated/standard_registry.rs",
+        "crates/pse-schema/src/generated/standard-data.jsonl",
+    ] {
+        for relation in reg.relations() {
+            tree.relationships
+                .push(crate::codegen::provenance::SourceRelationship::registry(
+                    reg,
+                    "relation",
+                    crate::codegen::provenance::relation_key(relation),
+                    "crates/pse-codegen/src/codegen/rust/registry.rs",
+                    "generate",
+                    output,
+                ));
+        }
+        // DocumentSpec values are outlined Rust constructors, not JSON-pool entries.
+        for document in reg.documents().iter().filter(|_| output.ends_with("standard_registry.rs")) {
+            crate::codegen::provenance::document(
+                tree,
+                reg,
+                document,
+                "crates/pse-codegen/src/codegen/rust/registry.rs",
+                "generate",
+                output,
+            );
+        }
+    }
     let pool = NativeJsonPool::default();
     let relations = p
         .relations

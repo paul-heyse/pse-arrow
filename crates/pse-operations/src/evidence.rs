@@ -605,10 +605,10 @@ pub struct EvidenceStore {
     db: Arc<Surreal<Client>>,
     access: ConnectionAccess,
     options: ToolingOptions,
-    issuing_store: String,
-    role: EvidenceAccess,
+    pub(crate) issuing_store: String,
+    pub(crate) role: EvidenceAccess,
     #[cfg(test)]
-    ack_fault: Arc<std::sync::atomic::AtomicU8>,
+    pub(crate) ack_fault: Arc<std::sync::atomic::AtomicU8>,
 }
 impl std::fmt::Debug for EvidenceStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -706,9 +706,16 @@ impl EvidenceStore {
             }
         }
     }
-    fn query<'a>(
+    pub(crate) fn query<'a>(
         &'a self,
         sql: impl Into<std::borrow::Cow<'a, str>>,
+    ) -> Result<surrealdb::method::Query<'a, Client>, EvidenceError> {
+        self.query_with_limits(sql, canonical::MetadataResponse::Page.limits())
+    }
+    pub(crate) fn query_with_limits<'a>(
+        &'a self,
+        sql: impl Into<std::borrow::Cow<'a, str>>,
+        limits: surrealdb::opt::ResponseLimits,
     ) -> Result<surrealdb::method::Query<'a, Client>, EvidenceError> {
         let activity = self.access.admit()?;
         let deadline = original_deadline(canonical::REQUEST_TIMEOUT);
@@ -719,11 +726,11 @@ impl EvidenceStore {
             .request_context(
                 RequestContext::new(deadline.into_std())
                     .with_lifetime_owner(Arc::new(activity))
-                    .with_response_limits(canonical::MetadataResponse::Page.limits()),
+                    .with_response_limits(limits),
             )
             .bind(("expiry", expiry)))
     }
-    async fn marker(
+    pub(crate) async fn marker(
         &self,
     ) -> Result<pse_model::generated::runtime::evidence_interpretations::Row, EvidenceError> {
         self.marker_checked(true).await
@@ -741,7 +748,7 @@ impl EvidenceStore {
             .ok_or_else(|| EvidenceError::Unavailable("initialization marker absent".into()))?;
         self.decode_marker(marker, compatible)
     }
-    fn decode_marker(
+    pub(crate) fn decode_marker(
         &self,
         object: Object,
         compatible: bool,
@@ -1147,7 +1154,7 @@ COMMIT;"#;
             let marker=pse_model::generated::runtime::evidence_interpretations::Row{key:"current".into(),interpretation:wire::INTERPRETATION.into(),schema_digest:wire::SCHEMA_DIGEST.into(),issuing_store:uuid::Uuid::new_v4().to_string(),service_instance_id:options.service_instance_id.clone(),active_generation:None};
             let input=wire::encode_evidence_interpretations(&marker)?;
             let reader=serde_json::to_string(&options.credentials.reader_password).map_err(|e|config(e.to_string()))?;let importer=serde_json::to_string(&options.credentials.importer_password).map_err(|e|config(e.to_string()))?;
-            let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
+            let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} {} CREATE knowledge_state:current SET key='current'; CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,crate::generated::knowledge::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
             canonical::bounded_query(db.query(sql).bind(("marker",input)).bind(("expiry",rpc_expiry(deadline)?)).request_context(RequestContext::control(deadline.into_std()))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"initialize",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:marker.issuing_store.clone(),source:Box::new(source)})?;Ok::<_,EvidenceError>(())
         }.await;
         let drained = db.disconnect().await;

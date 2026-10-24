@@ -62,6 +62,7 @@ surrealdb-syn = { workspace = true, optional = true }
 surrealdb-sql = { workspace = true, optional = true }
 
 [dev-dependencies]
+tempfile.workspace = true
 base64.workspace = true
 surrealdb-protocol.workspace = true
 pse-columnar.workspace = true

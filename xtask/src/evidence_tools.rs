@@ -23,6 +23,25 @@ pub(crate) struct EvidenceArgs {
 }
 #[derive(Debug, Subcommand)]
 enum EvidenceCommand {
+    /// Activate a complete explicitly selected development-knowledge corpus.
+    KnowledgeImport {
+        #[arg(long)]
+        input: PathBuf,
+    },
+    /// Query full-text excerpts or native graph edges from one exact corpus cut.
+    KnowledgeQuery {
+        #[arg(long)]
+        input: PathBuf,
+    },
+    /// Explain the same bound native full-text or graph item query.
+    KnowledgeExplain {
+        #[arg(long)]
+        input: PathBuf,
+    },
+    /// Attest the independent knowledge pointer and generated schema.
+    KnowledgeStatus,
+    /// Remove only derived knowledge rows, preserving evidence and original sources.
+    KnowledgeReset,
     /// Supplied-only query; dispatches before deployment configuration or service activity.
     Offline {
         #[arg(long, required = true)]
@@ -235,7 +254,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 Ok(serde_json::json!({"dropped":true,"rebuilt":rebuild}))
             }
             command => {
-                let role = if matches!(command, EvidenceCommand::Import { .. }) {
+                let role = if matches!(command, EvidenceCommand::Import { .. } | EvidenceCommand::KnowledgeImport { .. } | EvidenceCommand::KnowledgeReset) {
                     EvidenceAccess::Importer
                 } else {
                     EvidenceAccess::Reader
@@ -243,6 +262,26 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 let store = EvidenceStore::open(&options, role).await?;
                 let result = async {
                     match command {
+                        EvidenceCommand::KnowledgeStatus => store.knowledge_status().await,
+                        EvidenceCommand::KnowledgeReset => {
+                            store.knowledge_reset().await?;
+                            Ok(serde_json::json!({"knowledge_reset":true,"original_sources_untouched":true}))
+                        }
+                        EvidenceCommand::KnowledgeImport { input } => {
+                            let bytes = supplied_document(&input, 3 * 1024 * 1024).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            let corpus: pse_operations::knowledge::KnowledgeCorpus = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            serde_json::to_value(store.knowledge_import(&corpus).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
+                        }
+                        EvidenceCommand::KnowledgeQuery { input } => {
+                            let bytes = supplied_document(&input, 32768).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            let request: pse_operations::knowledge::KnowledgeQuery = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            serde_json::to_value(store.knowledge_select(&request).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
+                        }
+                        EvidenceCommand::KnowledgeExplain { input } => {
+                            let bytes = supplied_document(&input, 32768).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            let request: pse_operations::knowledge::KnowledgeQuery = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            store.knowledge_explain(&request).await
+                        }
                         EvidenceCommand::Status => store.status().await,
                         EvidenceCommand::Analyze {
                             generation,

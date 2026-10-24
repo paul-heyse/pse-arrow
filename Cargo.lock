@@ -6546,6 +6546,7 @@ dependencies = [
  "surrealdb-protocol",
  "surrealdb-sql",
  "surrealdb-syn",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tokio-util",

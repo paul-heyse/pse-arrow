@@ -83,15 +83,21 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             .entry(namespace)
             .or_default()
             .push(quote!(#[doc = "Generated relation contract."] pub mod #name;));
-        emit(
-            &mut tree,
-            format!("{ROOT}/{namespace}/{}.rs", spec.key.name),
-            {
-                let relation = relation::render(reg, spec)?;
-                let typed = typed_local::render(reg, spec)?;
-                quote!(#relation #typed)
-            },
-        )?;
+        let output = format!("{ROOT}/{namespace}/{}.rs", spec.key.name);
+        tree.relationships
+            .push(super::provenance::SourceRelationship::registry(
+                reg,
+                "relation",
+                super::provenance::relation_key(spec),
+                "crates/pse-codegen/src/codegen/rust/mod.rs",
+                "generate",
+                &output,
+            ));
+        emit(&mut tree, output, {
+            let relation = relation::render(reg, spec)?;
+            let typed = typed_local::render(reg, spec)?;
+            quote!(#relation #typed)
+        })?;
     }
     let mut modules = Vec::new();
     for (namespace, relations) in namespaces {
@@ -137,12 +143,34 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg)?)?;
+    for spec in reg.enums() {
+        tree.relationships
+            .push(super::provenance::SourceRelationship::registry(
+                reg,
+                "enum",
+                spec.name,
+                "crates/pse-codegen/src/codegen/rust/enums.rs",
+                "render",
+                format!("{ROOT}/enums.rs"),
+            ));
+    }
     emit(
         &mut tree,
         format!("{ROOT}/result_selection.rs"),
         result_selection::render(reg)?,
     )?;
     emit(&mut tree, format!("{ROOT}/structures.rs"), structures(reg)?)?;
+    for name in reg.structures().keys() {
+        tree.relationships
+            .push(super::provenance::SourceRelationship::registry(
+                reg,
+                "structure",
+                name,
+                "crates/pse-codegen/src/codegen/rust/mod.rs",
+                "structures",
+                format!("{ROOT}/structures.rs"),
+            ));
+    }
     emit(
         &mut tree,
         format!("{ROOT}/algorithm_arguments.rs"),
@@ -154,6 +182,21 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         extension_values()?,
     )?;
     let (document_values, document_adapters) = documents(reg)?;
+    for spec in reg.documents().iter().filter(|spec| spec.kind.is_text()) {
+        for output in [
+            "crates/pse-authoring/src/generated/documents.rs",
+            "crates/pse-admission/src/generated/document_adapters.rs",
+        ] {
+            super::provenance::document(
+                &mut tree,
+                reg,
+                spec,
+                "crates/pse-codegen/src/codegen/rust/mod.rs",
+                "documents",
+                output,
+            );
+        }
+    }
     emit(
         &mut tree,
         "crates/pse-authoring/src/generated/documents.rs",

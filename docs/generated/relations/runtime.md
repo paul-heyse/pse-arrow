@@ -1817,6 +1817,159 @@ Version: 1. Snapshot class: `derived`. Primary key: `stage`.
 | `values.item.coordinate_id` | `semantic_id` | false | `payload` | — | — |
 | `values.item.value` | `quantity_value` | false | `payload` | — | — |
 
+## `knowledge_excerpts`
+
+Selected excerpt with explicit optional subject attribution; sharing a source file never makes other sections match.
+
+Version: 2. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `excerpt_id` | `Utf8` | false | `payload` | — | — |
+| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
+| `subject_key` | `Utf8` | true | `payload` | `runtime.knowledge_subjects.key` | — |
+| `text` | `Utf8` | false | `payload` | — | — |
+| `locator` | `Utf8` | false | `payload` | — | — |
+| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
+
+## `knowledge_generations`
+
+Complete exact v2 corpus membership across every normalized family. Replay reconciles active and staged generations alike.
+
+Version: 2. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `content_digest` | `Utf8` | false | `payload` | — | — |
+| `source_count` | `UInt64` | false | `payload` | — | — |
+| `subject_count` | `UInt64` | false | `payload` | — | — |
+| `contributor_count` | `UInt64` | false | `payload` | — | — |
+| `topic_count` | `UInt64` | false | `payload` | — | — |
+| `excerpt_count` | `UInt64` | false | `payload` | — | — |
+| `edge_count` | `UInt64` | false | `payload` | — | — |
+| `production_count` | `UInt64` | false | `payload` | — | — |
+| `state` | `enum:KnowledgeGenerationState` | false | `payload` | — | — |
+
+## `knowledge_productions`
+
+Exact declaration-generator-specific-output assertion. Pairwise generator adjacency cannot invent output cross-products.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `production_id` | `Utf8` | false | `payload` | — | — |
+| `declaration_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `generator_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `artifact_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `direction` | `enum:KnowledgeDirection` | true | `payload` | — | — |
+| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
+
+## `knowledge_sources`
+
+Immutable exact-version provenance carrier, not a substitute for owner-native concepts.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `source_id` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `locator` | `Utf8` | false | `payload` | — | — |
+| `version_digest` | `Utf8` | false | `payload` | — | — |
+| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
+| `title` | `Utf8` | false | `payload` | — | — |
+| `status` | `enum:KnowledgeSourceStatus` | false | `payload` | — | — |
+
+## `knowledge_state`
+
+Independent corpus activation pointer; no evidence pointer is changed.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `active_generation` | `Utf8` | true | `payload` | — | — |
+
+## `knowledge_subject_edges`
+
+Enforced typed owner-native subject relations. Exact applicability is independent of prose or topical similarity.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `edge_id` | `Utf8` | false | `payload` | — | — |
+| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `target_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `relation` | `enum:KnowledgeRelationKind` | false | `payload` | — | — |
+| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
+
+## `knowledge_subject_sources`
+
+Role-specific source contributors, including exact metadata interpretation policies.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `subject_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
+| `role` | `enum:KnowledgeSourceRole` | false | `payload` | — | — |
+
+## `knowledge_subject_topics`
+
+Topics supplied by native metadata only, with exact original metadata source attribution.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `subject_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
+| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
+| `topic` | `Utf8` | false | `payload` | — | — |
+
+## `knowledge_subjects`
+
+Closed owner-native concepts. Native lifecycle, document role, publication scope and evidence origin retain their independent meanings.
+
+Version: 1. Snapshot class: `derived`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `subject_id` | `Utf8` | false | `payload` | — | — |
+| `kind` | `enum:KnowledgeSubjectKind` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `native_id` | `Utf8` | false | `payload` | — | — |
+| `label` | `Utf8` | false | `payload` | — | — |
+| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
+| `native_state` | `Utf8` | true | `payload` | — | — |
+| `state_basis` | `Utf8` | true | `payload` | — | — |
+| `publication_scope` | `Utf8` | true | `payload` | — | — |
+| `document_role` | `enum:KnowledgeDocumentRole` | true | `payload` | — | — |
+| `native_version` | `Utf8` | true | `payload` | — | — |
+| `evidence_authority` | `Utf8` | true | `payload` | — | — |
+| `evidence_codec` | `Utf8` | true | `payload` | — | — |
+| `evidence_source` | `Utf8` | true | `payload` | — | — |
+| `evidence_version` | `Utf8` | true | `payload` | — | — |
+| `evidence_member` | `Utf8` | true | `payload` | — | — |
+
 ## `live_simulation_samples`
 
 Provisional completed physical samples qualified by the actual accuracy attempt; recording acknowledgement and final scientific selection remain separate.

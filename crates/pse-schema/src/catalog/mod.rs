@@ -18,6 +18,7 @@ mod diagnostic_evidence;
 pub mod documents;
 pub mod enums_platform;
 pub mod evidence;
+pub mod knowledge;
 pub mod inv;
 pub mod invariants;
 mod modeling;
@@ -108,6 +109,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     project_contexts::declare(builder);
     project_imports::declare(builder);
     evidence::declare(builder);
+    knowledge::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     normalization::declare(builder);

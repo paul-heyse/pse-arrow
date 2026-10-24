@@ -4,3 +4,5 @@
 pub mod surreal;
 /// Independently installed derived evidence schema and codecs.
 pub mod evidence;
+/// Derived development-knowledge schema and codecs.
+pub mod knowledge;

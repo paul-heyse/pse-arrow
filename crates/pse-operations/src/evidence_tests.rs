@@ -161,6 +161,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
             probe.disconnect().await?;
         }
         let source=snapshot();importer.ack_fault.store(1,std::sync::atomic::Ordering::SeqCst);let first=importer.import(&source).await?;let repeated=importer.import(&source).await?;assert_eq!(first.generation,repeated.generation);
+        crate::knowledge::tests::exercise_native(&importer,&reader).await?;
         let query=EvidenceQuery{limit:Some(1),..Default::default()};let page=reader.select(&query).await?;assert_eq!(page.facts.len(),1);assert_eq!(page.coverage,"partial");let cursor=page.next.unwrap();
         let complete=reader.select(&EvidenceQuery{cursor:Some(cursor.clone()),..query.clone()}).await?;assert_eq!(complete.facts.len(),1);assert!(complete.next.is_none());
         let mut wrong=cursor.clone();wrong.issuing_store="foreign".into();assert!(matches!(reader.select(&EvidenceQuery{cursor:Some(wrong),..query.clone()}).await,Err(EvidenceError::Cursor)));

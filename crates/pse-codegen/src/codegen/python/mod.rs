@@ -39,9 +39,56 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     emit(&mut tree, "extension_types", &extensions::render(reg)?);
     emit(&mut tree, "identities", &identities(reg));
     emit(&mut tree, "structures", &structures(reg)?);
+    for (kind, keys, output, symbol) in [
+        (
+            "enum",
+            reg.enums()
+                .iter()
+                .map(|spec| spec.name.to_owned())
+                .collect::<Vec<_>>(),
+            "enums",
+            "enumerations",
+        ),
+        (
+            "identity",
+            reg.identities()
+                .iter()
+                .map(|spec| spec.name.to_owned())
+                .collect::<Vec<_>>(),
+            "identities",
+            "identities",
+        ),
+        (
+            "structure",
+            reg.structures().keys().cloned().collect::<Vec<_>>(),
+            "structures",
+            "structures",
+        ),
+    ] {
+        for key in keys {
+            tree.relationships
+                .push(super::provenance::SourceRelationship::registry(
+                    reg,
+                    kind,
+                    key,
+                    "crates/pse-codegen/src/codegen/python/mod.rs",
+                    symbol,
+                    format!("{ROOT}/{output}.py"),
+                ));
+        }
+    }
     let mut namespaces = std::collections::BTreeMap::<&str, (String, bool)>::new();
     for spec in reg.relations() {
         let namespace = spec.key.namespace.as_str();
+        tree.relationships
+            .push(super::provenance::SourceRelationship::registry(
+                reg,
+                "relation",
+                super::provenance::relation_key(spec),
+                "crates/pse-codegen/src/codegen/python/mod.rs",
+                "generate",
+                format!("{ROOT}/{namespace}.py"),
+            ));
         let stem = format!("{}{}", pascal(namespace), pascal(spec.key.name));
         let mut declarations = String::new();
         let mut typed_ids = false;
