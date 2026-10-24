@@ -9,6 +9,78 @@ The [integrated architectural account](architecture-and-assurance.md) explains i
 among assurance scope, source dependencies, physical preparation, scheduling, artifact ownership
 and recovery. The [collection README](README.md) owns the baseline, scope and dispositions.
 
+## Bounded execution follow-up — 2026-10-24
+
+The maintainer requested immediate investigation and correction of slow recent Plan52l test
+routes. This is a focused follow-up against `dee39756f` and the subsequent corrections below,
+including the root-owned preparation, fixture and generator edits; unrelated `history.txt`
+edits are excluded. It does not refresh the 2026-10-23 account's complete source baseline or
+reassess all 48 findings. Core3.4, Heuristics1.0, Test Assessment1.2 and relevant Process
+Simulator1.5 constraints remain the selected criteria. Plan52l owns implementation and
+qualification state; the following records the narrower diagnostic changes and their limits.
+
+**Interface-checked / Implemented:** selected demand was broader in preparation than in the
+actual assertion. Pure Rust selections through the default canonical-capable route prepared
+a native worker and canonical observer;
+canonical-only result inspection also prepared a native receiver and the runtime package's
+authored-science capsule. Preparation now selects workers and observers from actual effects,
+and the reviewed runtime scientific consumers have explicit owner prefixes. The real nineteen-column
+inspection fixture keeps isolated canonical storage, original Arrow metadata, exact IPC and
+protected-reader refusal/drain assertions. It no longer constructs an unused execution receiver.
+These are concrete reductions related to DTA-030/032; they do not resolve all shared scientific
+preparation or feature-closure differences. DTA-018's fresh database obligations remain valid.
+Moving the inspection body outside the production module avoids including that test-only file
+in ordinary library compilation, but does not shrink the shared unit-test binary's compilation
+closure. A static follow-up found no existing integration-target publication helper: this fixture
+uses private admitted result-ingestion cursors, acknowledgements and pool ownership. Exposing
+those solely to move the test, or constructing a second ingestion path, was not justified.
+
+**Interface-checked / Implemented:** Plan53 had already made extension preparation conditional,
+so DTA-033's older unconditional-pipeline description is not a current whole-route diagnosis.
+The remaining stale-extension path still imported and hashed an installed image before deciding
+it had to be replaced. `dee39756f` checks eligibility first and retains mandatory capture of the
+new image. Exact source, feature, artifact and loaded-image checks are retained. This does not
+establish that every repeated artifact observation in DTA-039 is redundant.
+For the direct pure/native-local route, a second full hash pass immediately preceded
+`run_rust`'s complete prepared-inventory authentication. `78b3edbc0` retains the distinct
+profile/thread-policy check and authenticates artifact bytes at the existing execution
+boundary once. Five focused controls passed, including changed bytes and invalid policy
+claims. This removes that demonstrated duplication without caching mutable artifact identity.
+
+**Interface-checked / Implemented:** aggregate generation still launched six overlapping Rust
+generator checks plus the independent installed-stub check. `701f9a17c` combines the six into
+one full generator closure and reuses its registry/Python candidate where applicable; independent
+failure diagnostics and narrow standalone recipes remain. Seventeen force-validated xtask
+codegen controls passed, including later comparison/tracking after an earlier candidate failure.
+The installed-stub invocation and physical loader's separate registry admission remain distinct
+work. This addresses the demonstrated composition cause in DTA-037, without claiming one
+registry assembly across every generator or a measured end-to-end speedup.
+
+**Interface-checked / Implemented:** every validation bundle retried unrelated historical
+resource recovery, including formatting and environment bundles. `d4371a576` removes this
+global sweep from report closeout. Current invocation teardown and report sealing remain,
+and explicit historical inspection/recovery is still available. Its focused control passed.
+This removes another amplifier associated with DTA-042/047. Explicit recovery's eligibility
+and cursor-traversal costs were not comprehensively revalidated. Existing Plan53 dispositions
+retain their stated acceptance scopes; this follow-up does not replace them or claim complete
+recovery-path qualification. No historical resource was deleted by this change.
+
+**Tested:** a real ignored-SIGTERM cancellation control now uses the existing caller deadline
+to exercise signal delivery, escalation and terminal state in a bounded two-second cleanup
+budget. Production cancellation policy is unchanged. Broader qualification and the exact
+commands/conditions are recorded in Plan52l's owning outcome. No benchmark, throughput
+comparison or complete efficiency-alignment claim follows from this bounded review.
+
+**Measured configuration / corrected invocation:** two scope-end Clippy attempts were
+interrupted by cgroup OOM kills at a 24 GiB peak, recorded by the user systemd journal on
+2026-10-24. The coordinator had explicitly selected `--resource-class compile`, overriding
+the maintainer's `PSE_BUILD_MODE=unbounded` default. This was an invocation error, not evidence
+of exhausted workstation RAM or a test timeout. The corrected compile-default probe observed
+sixteen Cargo jobs and `memory.max=max` through all seven applicable ancestor limits.
+AGENTS.md and the environment guide now explain this distinction and avoid finite outer
+wrappers around already supervised compile recipes. Explicit finite caller choices retain
+their contract; no machine policy was silently widened or replaced.
+
 ## What the follow-up changes
 
 Necessary scope comes from the consumed contract. A database's installed schema, a child process's

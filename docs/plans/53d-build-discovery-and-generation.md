@@ -122,6 +122,11 @@ source-only; execution retains workload admission. A changed extension does not 
 endpoint: consume completed 52k's supported snapshot/restart contract for relevant changes.
 Remove unconditional stage coupling and duplicated decisions after all actual callers migrate.
 
+The maintainer-authorized 2026-10-24 [Plan52l efficiency follow-up](52l-typed-requests-results-and-diagnostics.md#outcome--2026-10-24)
+also checks reuse eligibility before importing an installed extension known to need replacement.
+Fresh capture of the selected replacement and mutable-boundary refusal remain required. This
+extends the delivered conditional pipeline rather than reinstating unconditional preparation.
+
 <a id="d04"></a>
 ### D04 — Necessary generation and scope-before-read capture
 
@@ -130,6 +135,15 @@ relations route. Preserve independent recipes and real output-root coverage, Pyt
 versus published-output checks where distinct, actual API stubs, native ABI checks and
 missing/extra/untracked-output guards. Preserve ordered mutating bootstrap. Replacing every check
 with full-codegen would activate unrelated native capabilities and is not selected.
+
+The same 2026-10-24 follow-up extends the complete aggregate comparison to one full-codegen
+closure: that aggregate already requests the Python/docs/native-ABI/product-schema targets and
+their capabilities. It reuses the assembled registry and Python candidate while preserving
+independent failure diagnostics, installed-stub comparison and every narrow standalone recipe.
+It does not select full-codegen for those narrow callers or change ordered mutating bootstrap.
+The [52l Outcome](52l-typed-requests-results-and-diagnostics.md#outcome--2026-10-24) owns this
+additional implementation/verification; the original delivered D04 scope and other Plan53
+obligations retain their own owners.
 
 At the existing `validation.sources` boundary, select sufficient scope before opening or hashing
 bytes; migrate `rust_source_identity` and other narrow callers. Whole-source provenance and

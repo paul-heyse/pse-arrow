@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-21, PS-10, PS-12]
 blueprint: [§19.2, §21.1, §21.5, §23.2]
 review: "not-required: scoped native inspection/diagnostic binding within existing Rust-authoritative boundaries; Plan52l and usability RC01 selected by maintainer"
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete inspection needs another scientific query authority or decoding loses native interpretation or protection.
@@ -68,7 +68,13 @@ Use thiserror/miette and the existing report bridge; no generic retry or fabrica
 ### Confirmation
 
 Plan52l CON03/CON04 own implementation and targeted native/Python/actual-agent acceptance. This
-record is Interface-checked, remains proposed and does not close the plan or claim measured benefit.
+record remains proposed. **Tested, 2026-10-24:** the reconciled native Python boundary selection
+passed 39 tests; the real nineteen-column canonical inspection test passed with force-validation;
+the bounded main-branch fresh-Codex journey passed nineteen stages. The
+[Plan52l Outcome](../plans/52l-typed-requests-results-and-diagnostics.md#outcome--2026-10-24)
+records commands, original cuts, negative/refusal/lifetime controls and the distinct final
+preparation checks. These establish the stated selected contracts, not whole-product
+qualification or measured benefit; proposed decision status is unchanged.
 
 ## Pros and cons
 

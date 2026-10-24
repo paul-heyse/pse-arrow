@@ -56,7 +56,10 @@ focused guidance/availability, readiness/progress/edit lifetimes and conditional
 Existing 52f/52g retain comparison, recurring workflow, agent-evaluation and operator-view ownership;
 52h reconciles the expanded scope. The coordinator records RC01's accepted planning direction and
 RC02/RC03's investigation-only selection, consumes Plan53's actual preparation/protected-reader
-contracts, and preserves completed CAP/ADP/MCP Outcomes. Authoring does not establish new delivery.
+contracts, and preserves completed CAP/ADP/MCP Outcomes. The
+[52l Outcome](52l-typed-requests-results-and-diagnostics.md#outcome--2026-10-24) records completed
+CON01–CON04, bounded native/Python/fresh-Codex acceptance and the authorized execution-efficiency
+corrections. 52m–52o and the broader F/G/H qualification retain their own remaining scope.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

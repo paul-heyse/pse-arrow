@@ -388,6 +388,20 @@ gate's process group, records it `interrupted` and the rest `not_run`, and exits
 The `audit-*` gates are advisory: findings do not fail `deps-report`, but a tool failure
 does. `policy` runs the same audits as required gates.
 
+Report completion seals the current assessment's artifacts and outcome. It does not sweep
+unrelated historical scratch or fixture resources. Selected test terminal owners retain their
+own teardown, and historical resource maintenance remains explicit through the existing exact
+`scripts.test_resources` inspection and reclamation operations.
+
+Aggregate `codegen-check` uses `codegen-all-check` for the Rust-owned outputs: one compiled
+full-codegen invocation checks registry languages, physical fixtures, document schemas and
+header-derived bindings. Independent Python contract, installed compiled-stub and FastMCP
+reference checks remain separate. Independent generation, candidate validation, byte comparison
+and tracking failures are reported together; comparison drift does not suppress tracking or
+later targets. Check mode writes only scratch candidates. The focused `codegen-*-check` commands
+remain useful when a smaller owner is changing or the full generator cannot compile. A failed
+generator build establishes no drift result for the targets it could not execute.
+
 Retrieve the printed immutable path with `just result build/assessment/<run> --failures`.
 `latest-<group>` is resolved once when reading. Reused evidence retains its original
 artifact/log paths and evidence kind; reading it does not establish a newly tested run.

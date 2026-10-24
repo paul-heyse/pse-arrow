@@ -429,13 +429,13 @@ supported alternatives or conditional non-adoption; they cannot erase required o
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | scheduled | [CON01](52l-typed-requests-results-and-diagnostics.md#CON01) | Owner-defined meaningful query alternatives/facets, executable first-request examples and actual caller migration. |
-| O02 | scheduled | [CON02](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected host answers with truthful serialized schemas, source/population/completeness and explicit optional detail. |
+| O01 | resolved | [CON01](52l-typed-requests-results-and-diagnostics.md#CON01) | Eleven owner-defined tagged alternatives/facets, independent examples and migrated callers; see the 52l Outcome. |
+| O02 | resolved | [CON02](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected host answer families, actual serialization schemas and explicit population/detail/refusal; see the 52l Outcome. |
 | O03 | scheduled | [NAV01](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact attributable selection receipts, deliberate complete guide reads and declared useful workflow steps. |
-| O04 | scheduled | [CON03](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner-native diagnostic/recovery projection, structural decode paths where useful, original admission and settlement authority. |
+| O04 | resolved | [CON03](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner-native diagnostic/location/recovery projection delivered with actual native/Python admission controls; see the 52l Outcome. |
 | O05 | scheduled | [NAV02](52m-progressive-guidance-and-operation-availability.md#NAV02) | Accurate module/package/worker owners and local extension through actual declarations; unresolved leads remain uncertain. |
 | O06 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Coordinate demand-shaped native evidence/assessment readers with 53e E05; CON02 migrates other relevant host-reader consumers. Preserve denominator/ambiguity and protected continuation, not JSON-after-truncation queries. |
-| O07 | scheduled | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 shape-first result inquiry selects a useful protected schema/field/row route; exact IPC and physical meaning remain intact. |
+| O07 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 selected native schema/readable inspection plus exact IPC; real nineteen-column protected-result acceptance passed; see the 52l Outcome. |
 | O08 | scheduled | [LIFE01](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected passive/live readiness and explicit preparation consumers of actual Plan53d stages, with no duplicate build authority. |
 | O09 | scheduled | [NAV03](52m-progressive-guidance-and-operation-availability.md#NAV03) | Relevant operation/worker dependency and restart boundaries, coherent source capture, unaffected operation availability. |
 | O10 | scheduled | [LIFE02](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic early owner handles/stages, bounded foreground wire progress where supported and native-reader fallback. |
@@ -455,7 +455,7 @@ after its actual selection; non-adoption must identify the supported route and o
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| U01 | open | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Protected shape-first scientific inspection: compare schema-only/current IPC with native field projection using a real wide typed result and independently expected physical answer. Resolve the actual boundary/decision route before native API changes. |
+| U01 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Selected bounded native schema/physical-value inspection alongside exact IPC under proposed ADR-0224, published before implementation. Real registered nineteen-column storage/read/IPC/lifetime assertions passed; schema inquiry does not itself validate stored IPC or scientific eligibility. |
 | U02 | open | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting-resource provider lifecycle and exact prompt/resource completion: inspect source coherence/lazy behavior and actual host consumer. Completion/provider non-adoption can close that candidate with supported explicit resources/schema vocabulary and a concrete trigger. |
 | U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Compare ad hoc immutable-read composition with typed/small reads; test exact discovery versus actual execution eligibility and full lifecycle limits. No CodeMode adoption before RC02 selection and actual host/native acceptance. |
 | U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Determine an unmet detach/reconnect consumer after foreground progress/native handles; if present, settle outer wrapper dispatch, negotiation, native loss/cancellation/drain mapping before RC03 selection. No backend infrastructure is selected by this inquiry. |
@@ -521,10 +521,10 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
 | MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
 | MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
-| CON01 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Meaningful query requests, independent examples and real callers |
-| CON02 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected answer families and actual serialization schemas |
-| CON03 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe actionable owner diagnostics and preserved native admission |
-| CON04 | in-progress | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 result-shape inquiry, selected useful owner route and its actual consumers |
+| CON01 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Eleven tagged owner requests, independent examples and migrated callers; bounded fresh-Codex acceptance passed |
+| CON02 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected answer families with actual schemas and explicit detail/refusal states |
+| CON03 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner/native decode diagnostics and preserved version/header/trailing/contextual admission |
+| CON04 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 resolved; native protected schema/readable values and exact IPC, real wide-result and Python consumers; see 52l Outcome |
 | NAV01 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact progressive selection/guidance and declared workflow steps |
 | NAV02 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV02) | Actual module/package/operation ownership and local extension |
 | NAV03 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV03) | Operation-shaped dependency/restart fences and unaffected reads |

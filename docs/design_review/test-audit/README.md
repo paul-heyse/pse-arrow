@@ -13,6 +13,11 @@ it does not bound the assessment.
 
 ## Baseline and method
 
+The [2026-10-24 bounded execution follow-up](execution-efficiency.md#bounded-execution-follow-up--2026-10-24)
+records the maintainer-requested investigation and immediate corrections to recent Plan52l
+preparation and validation composition. It preserves the whole-account baseline below and
+does not constitute revalidation of all findings. Plan52l retains qualification ownership.
+
 - **Audited source:** `05e6a2b8a49f08de4e33e2e9ad64a753cbea2287`.
 - **Date:** 2026-10-23. Publication is a subsequent commit, recorded separately by Git.
 - **Included uncommitted changes:** none. Dirty `history.txt` and concurrent product changes,
